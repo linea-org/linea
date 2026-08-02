@@ -3,14 +3,53 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint",
+    "format": "prettier --write \"**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:up": "docker compose -f ../../docker-compose.yml up -d postgres",
+    "db:down": "docker compose -f ../../docker-compose.yml down",
+    "db:logs": "docker compose -f ../../docker-compose.yml logs -f postgres"
+  },
   "dependencies": {
-    "drizzle-orm": "^0.45.2",
-    "pg": "^8.22.0"
+    "drizzle-orm": "1.0.0-rc.4",
+    "pg": "8.22.0"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
-    "@types/pg": "^8.20.3",
-    "dotenv": "^17.4.2",
-    "drizzle-kit": "^0.31.10"
-  }
+    "@linea/config": "workspace:*",
+    "@types/node": "22",
+    "@types/pg": "8.20.3",
+    "dotenv": "17.4.2",
+    "drizzle-kit": "1.0.0-rc.4",
+    "eslint": "9",
+    "tsup": "^8.5.0",
+    "typescript": "6"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./schema": {
+      "types": "./src/schema/index.ts",
+      "import": "./src/schema/index.ts",
+      "default": "./src/schema/index.ts"
+    },
+    "./clients": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./relations": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "src", "drizzle"]
 }

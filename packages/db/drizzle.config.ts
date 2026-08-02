@@ -11,10 +11,10 @@ loadEnv({ path: resolve(rootDir, ".env") })
 loadEnv({ path: resolve(rootDir, ".env.local") })
 
 export default defineConfig({
-	schema: "./src/schema/**/*.ts",
-	out: "./drizzle",
-	dialect: "postgresql",
-	dbCredentials: {
-		url: process.env.DATABASE_URL ?? "",
-	},
+  schema: "./src/schema/index.ts",
+  out: "./drizzle",
+  dialect: "postgresql",
+  dbCredentials: {
+    url: process.env.DATABASE_URL ?? "",
+  },
 })
