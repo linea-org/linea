@@ -23,12 +23,16 @@ type SendEmailInput = {
   text?: string
 }
 
-export function sendEmail({ to, subject, html, text }: SendEmailInput) {
-  return getResend().emails.send({
+export async function sendEmail({ to, subject, html, text }: SendEmailInput) {
+  const { data, error } = await getResend().emails.send({
     from: getFromAddress(),
     to,
     subject,
     html,
     text,
   })
+  if (error) {
+    throw new Error(error.message)
+  }
+  return data
 }
