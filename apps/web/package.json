@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vite dev --port 3000",
+    "dev": "vite dev --port 3001",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint",
@@ -12,17 +12,21 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@linea/ui": "workspace:*",
+    "@paper-design/shaders-react": "^0.0.78",
     "@tailwindcss/vite": "^4",
     "@tanstack/react-devtools": "latest",
+    "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "latest",
     "@tanstack/react-router-devtools": "latest",
     "@tanstack/react-start": "latest",
     "@tanstack/router-plugin": "latest",
-    "@linea/ui": "workspace:*",
+    "better-auth": "^1.6.25",
     "lucide-react": "^1.28.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@linea/config": "workspace:*",

@@ -19,6 +19,8 @@
     "strictNullChecks": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "skipLibCheck": true,
+    "ignoreDeprecations": "5.0"
   }
 }
