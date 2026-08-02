@@ -5,7 +5,6 @@ import { createSharedEslintConfig, globals } from "@linea/config/eslint"
 export default createSharedEslintConfig({
   ignores: ["eslint.config.js", ".prettierrc"],
   globals: {
-    ...globals.browser,
     ...globals.node,
   },
   rules: {

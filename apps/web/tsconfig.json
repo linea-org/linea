@@ -1,4 +1,5 @@
 {
+  "extends": "../../packages/config/tsconfig.json",
   "include": [
     "**/*.ts",
     "**/*.tsx",
@@ -7,14 +8,16 @@
     "vite.config.ts"
   ],
   "compilerOptions": {
+    "baseUrl": ".",
     "target": "ES2022",
     "jsx": "react-jsx",
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["vite/client"],
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": ["./src/*"],
-      "@workspace/ui/*": ["../../packages/ui/src/*"]
+      "@linea/ui/*": ["../../packages/ui/src/*"]
     },
 
     /* Bundler mode */
@@ -24,8 +27,6 @@
     "noEmit": true,
 
     /* Linting */
-    "skipLibCheck": true,
-    "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,

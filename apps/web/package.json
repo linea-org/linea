@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "@linea/web",
   "version": "0.0.1",
   "type": "module",
   "private": true,
@@ -18,15 +18,15 @@
     "@tanstack/react-router-devtools": "latest",
     "@tanstack/react-start": "latest",
     "@tanstack/router-plugin": "latest",
-    "@workspace/ui": "workspace:*",
+    "@linea/ui": "workspace:*",
     "lucide-react": "^1.28.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "tailwindcss": "^4"
   },
   "devDependencies": {
+    "@linea/config": "workspace:*",
     "@tanstack/devtools-vite": "latest",
-    "@tanstack/eslint-config": "latest",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",

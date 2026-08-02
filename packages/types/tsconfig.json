@@ -1,17 +1,17 @@
 {
-  "extends": "../../packages/config/tsconfig.json",
+  "extends": "../config/tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "jsx": "react-jsx",
     "ignoreDeprecations": "6.0",
     "noEmit": true,
-    "paths": {
-      "@linea/ui/*": ["./src/*"]
-    }
+    "verbatimModuleSyntax": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
   },
   "include": ["."],
   "exclude": ["node_modules", "dist"]

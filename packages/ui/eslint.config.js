@@ -1,20 +1,19 @@
 //  @ts-check
 
-import { tanstackConfig } from "@tanstack/eslint-config"
+import { createSharedEslintConfig, globals } from "@linea/config/eslint"
 
-export default [
-  ...tanstackConfig,
-  {
-    rules: {
-      "import/no-cycle": "off",
-      "import/order": "off",
-      "sort-imports": "off",
-      "@typescript-eslint/array-type": "off",
-      "@typescript-eslint/require-await": "off",
-      "pnpm/json-enforce-catalog": "off",
-    },
+export default createSharedEslintConfig({
+  ignores: ["eslint.config.js", ".prettierrc"],
+  globals: {
+    ...globals.browser,
+    ...globals.node,
   },
-  {
-    ignores: ["eslint.config.js", ".prettierrc"],
+  rules: {
+    "import/no-cycle": "off",
+    "import/order": "off",
+    "sort-imports": "off",
+    "@typescript-eslint/array-type": "off",
+    "@typescript-eslint/require-await": "off",
+    "pnpm/json-enforce-catalog": "off",
   },
-]
+})

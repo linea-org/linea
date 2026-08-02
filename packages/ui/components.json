@@ -11,11 +11,11 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@workspace/ui/components",
-    "utils": "@workspace/ui/lib/utils",
-    "hooks": "@workspace/ui/hooks",
-    "lib": "@workspace/ui/lib",
-    "ui": "@workspace/ui/components"
+    "components": "@linea/ui/components",
+    "utils": "@linea/ui/lib/utils",
+    "hooks": "@linea/ui/hooks",
+    "lib": "@linea/ui/lib",
+    "ui": "@linea/ui/components"
   },
   "rtl": false,
   "menuColor": "default",
