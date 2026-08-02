@@ -3,7 +3,7 @@
 import { createSharedEslintConfig, globals } from "@linea/config/eslint"
 
 export default createSharedEslintConfig({
-  ignores: ["eslint.config.js", ".prettierrc", "drizzle/**"],
+  ignores: ["eslint.config.js", ".prettierrc", "drizzle/**", "dist/**"],
   globals: {
     ...globals.node,
   },
