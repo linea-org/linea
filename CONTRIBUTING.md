@@ -40,17 +40,21 @@ cp .env.example .env
 
 There's a single `.env` at the repo root shared by both apps. Fill in:
 
-| Variable                                                  | Required | Where to get it                                                                                  |
-| --------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`                                            | Yes      | Defaults to the Docker Postgres above, no change needed locally                                  |
-| `BETTER_AUTH_SECRET`                                      | Yes      | Any long random string, e.g. `openssl rand -hex 32`                                              |
-| `BETTER_AUTH_URL` / `APP_URL`                             | Yes      | Defaults to `http://localhost:3001`, no change needed locally                                    |
-| `TRUSTED_ORIGINS`                                         | Yes      | Defaults are fine locally                                                                        |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`               | No       | Google Cloud Console, only needed to test Google OAuth                                           |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`               | No       | GitHub OAuth Apps, only needed to test GitHub OAuth                                              |
-| `VITE_API_URL` / `VITE_APP_URL`                           | Yes      | Defaults are fine locally                                                                        |
-| `RESEND_API_KEY`                                          | Yes      | [Resend](https://resend.com) dashboard, needed for any auth email (verification, reset, invites) |
-| `EMAIL_FROM` / `EMAIL_BRAND_NAME` / `EMAIL_SUPPORT_EMAIL` | Yes      | Defaults are fine locally                                                                        |
+| Variable                                    | Required | Where to get it                                                                                  |
+| ------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`                              | Yes      | Defaults to the Docker Postgres above, no change needed locally                                  |
+| `BETTER_AUTH_SECRET`                        | Yes      | Any long random string, e.g. `openssl rand -hex 32`                                              |
+| `BETTER_AUTH_URL`                           | Yes      | Defaults to `http://localhost:3001`, no change needed locally                                    |
+| `APP_URL`                                   | No       | Falls back to `BETTER_AUTH_URL` if unset                                                         |
+| `TRUSTED_ORIGINS`                           | No       | Falls back to `APP_URL`/`BETTER_AUTH_URL` if unset                                               |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | No       | Google Cloud Console, only needed to test Google OAuth                                           |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | No       | GitHub OAuth Apps, only needed to test GitHub OAuth                                              |
+| `VITE_API_URL`                              | No       | Falls back to `http://localhost:3000` if unset                                                   |
+| `VITE_APP_URL`                              | No       | Falls back to `http://localhost:3001` if unset                                                   |
+| `RESEND_API_KEY`                            | Yes      | [Resend](https://resend.com) dashboard, needed for any auth email (verification, reset, invites) |
+| `EMAIL_FROM`                                | Yes      | The `From` address auth emails send from                                                         |
+| `EMAIL_BRAND_NAME`                          | No       | Falls back to `"Linea"` if unset                                                                 |
+| `EMAIL_SUPPORT_EMAIL`                       | No       | Omitted from email footers if unset                                                              |
 
 ### 4. Push the database schema
 

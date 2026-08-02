@@ -66,9 +66,8 @@ AI coding agent. Follow them strictly.
 
 ## React
 
-- Add `"use client"` only when a component needs browser APIs, a
-  browser-only library, or real interactivity — keep everything else
-  server-renderable by default.
+- This app (TanStack Start) doesn't use React Server Components — don't
+  add `"use client"` directives, they have no effect here.
 - Keep components small — if a component needs more than one screen to
   read, split it.
 - Co-locate state as close to where it is used as possible. Lift only when
