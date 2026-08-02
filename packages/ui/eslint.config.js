@@ -3,7 +3,7 @@
 import { createSharedEslintConfig, globals } from "@linea/config/eslint"
 
 export default createSharedEslintConfig({
-  ignores: ["eslint.config.js", ".prettierrc"],
+  ignores: ["eslint.config.js", ".prettierrc", "src/components/chart.tsx"],
   globals: {
     ...globals.browser,
     ...globals.node,

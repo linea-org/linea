@@ -6,10 +6,12 @@ type EmailTemplateOptions = {
   logoUrl?: string
 }
 
-export function verificationEmailHtml(input: {
-  name?: string | null
-  url: string
-} & EmailTemplateOptions) {
+export function verificationEmailHtml(
+  input: {
+    name?: string | null
+    url: string
+  } & EmailTemplateOptions
+) {
   const greeting = input.name ? `Hi ${escapeHtml(input.name)},` : "Hi,"
 
   return renderEmailLayout({
@@ -27,10 +29,12 @@ export function verificationEmailHtml(input: {
   })
 }
 
-export function resetPasswordEmailHtml(input: {
-  name?: string | null
-  url: string
-} & EmailTemplateOptions) {
+export function resetPasswordEmailHtml(
+  input: {
+    name?: string | null
+    url: string
+  } & EmailTemplateOptions
+) {
   const greeting = input.name ? `Hi ${escapeHtml(input.name)},` : "Hi,"
 
   return renderEmailLayout({
@@ -50,11 +54,13 @@ export function resetPasswordEmailHtml(input: {
   })
 }
 
-export function organizationInviteEmailHtml(input: {
-  inviterName: string
-  organizationName: string
-  inviteUrl: string
-} & EmailTemplateOptions) {
+export function organizationInviteEmailHtml(
+  input: {
+    inviterName: string
+    organizationName: string
+    inviteUrl: string
+  } & EmailTemplateOptions
+) {
   return renderEmailLayout({
     logo: input.logo ?? "linea",
     logoUrl: input.logoUrl,

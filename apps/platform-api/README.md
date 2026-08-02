@@ -19,4 +19,3 @@ Required variables:
 - `pnpm --dir apps/platform-api start:dev`
 - `pnpm --dir apps/platform-api build`
 - `pnpm --dir apps/platform-api test`
-

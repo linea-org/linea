@@ -46,7 +46,7 @@ function userInitials(name?: string | null, email?: string | null) {
   const source = name?.trim() || email?.trim() || "?"
   const parts = source.split(/\s+/).filter(Boolean)
   if (parts.length >= 2) {
-    return `${parts[0]![0]!}${parts[1]![0]!}`.toUpperCase()
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
   }
   return source.slice(0, 2).toUpperCase()
 }
@@ -202,9 +202,7 @@ function WorkspacesPage() {
                 Workspaces keep your workflows, members, and settings together.
               </DialogDescription>
             </DialogHeader>
-            {createOpen ? (
-              <CreateWorkspaceForm onSuccess={onCreated} />
-            ) : null}
+            {createOpen ? <CreateWorkspaceForm onSuccess={onCreated} /> : null}
           </DialogContent>
         </Dialog>
       </main>

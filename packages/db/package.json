@@ -51,5 +51,9 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist", "src", "drizzle"]
+  "files": [
+    "dist",
+    "src",
+    "drizzle"
+  ]
 }

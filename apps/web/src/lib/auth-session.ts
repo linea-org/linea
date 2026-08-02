@@ -4,9 +4,7 @@ import { getRequestHeaders } from "@tanstack/react-start/server"
 import type { SessionData } from "./auth-client"
 
 function internalApiUrl() {
-  return (
-    process.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:3000"
-  )
+  return process.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:3000"
 }
 
 async function apiFetch(path: string, init?: RequestInit) {
