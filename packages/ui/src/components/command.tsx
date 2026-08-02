@@ -9,10 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@linea/ui/components/dialog"
-import {
-  InputGroup,
-  InputGroupAddon,
-} from "@linea/ui/components/input-group"
+import { InputGroup, InputGroupAddon } from "@linea/ui/components/input-group"
 import { SearchIcon, CheckIcon } from "lucide-react"
 
 function Command({

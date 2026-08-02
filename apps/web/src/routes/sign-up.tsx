@@ -116,49 +116,49 @@ function SignUpPage() {
           }}
           className="space-y-5"
         >
-        <FieldGroup>
-          <Field data-invalid={!!fieldErrors.name || undefined}>
-            <FieldLabel htmlFor="name">Name</FieldLabel>
-            <Input
-              id="name"
-              name="name"
-              autoComplete="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={pending}
-            />
-            <FieldError>{fieldErrors.name}</FieldError>
-          </Field>
-          <Field data-invalid={!!fieldErrors.email || undefined}>
-            <FieldLabel htmlFor="email">Email</FieldLabel>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={pending}
-            />
-            <FieldError>{fieldErrors.email}</FieldError>
-          </Field>
-          <Field data-invalid={!!fieldErrors.password || undefined}>
-            <FieldLabel htmlFor="password">Password</FieldLabel>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={pending}
-            />
-            <FieldError>{fieldErrors.password}</FieldError>
-          </Field>
-        </FieldGroup>
-        <Button type="submit" className="w-full" disabled={pending} size="lg">
-          {pending ? "Creating account…" : "Create account"}
-        </Button>
+          <FieldGroup>
+            <Field data-invalid={!!fieldErrors.name || undefined}>
+              <FieldLabel htmlFor="name">Name</FieldLabel>
+              <Input
+                id="name"
+                name="name"
+                autoComplete="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={pending}
+              />
+              <FieldError>{fieldErrors.name}</FieldError>
+            </Field>
+            <Field data-invalid={!!fieldErrors.email || undefined}>
+              <FieldLabel htmlFor="email">Email</FieldLabel>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={pending}
+              />
+              <FieldError>{fieldErrors.email}</FieldError>
+            </Field>
+            <Field data-invalid={!!fieldErrors.password || undefined}>
+              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={pending}
+              />
+              <FieldError>{fieldErrors.password}</FieldError>
+            </Field>
+          </FieldGroup>
+          <Button type="submit" className="w-full" disabled={pending} size="lg">
+            {pending ? "Creating account…" : "Create account"}
+          </Button>
         </form>
       </div>
     </AuthShell>

@@ -45,7 +45,11 @@ async function bootstrap() {
     next()
   })
 
-  const trustedOrigins = (process.env.TRUSTED_ORIGINS ?? process.env.APP_URL ?? '')
+  const trustedOrigins = (
+    process.env.TRUSTED_ORIGINS ??
+    process.env.APP_URL ??
+    ''
+  )
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean)

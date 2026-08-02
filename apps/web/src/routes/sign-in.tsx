@@ -117,45 +117,45 @@ function SignInPage() {
           }}
           className="space-y-5"
         >
-        <FieldGroup>
-          <Field data-invalid={!!fieldErrors.email || undefined}>
-            <FieldLabel htmlFor="email">Email</FieldLabel>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={pending}
-            />
-            <FieldError>{fieldErrors.email}</FieldError>
-          </Field>
-          <Field data-invalid={!!fieldErrors.password || undefined}>
-            <div className="flex items-center justify-between gap-2">
-              <FieldLabel htmlFor="password">Password</FieldLabel>
-              <Link
-                to="/forgot-password"
-                className="text-xs font-medium text-primary underline-offset-4 hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={pending}
-            />
-            <FieldError>{fieldErrors.password}</FieldError>
-          </Field>
-        </FieldGroup>
-        <Button type="submit" className="w-full" disabled={pending} size="lg">
-          {pending ? "Signing in…" : "Sign in"}
-        </Button>
+          <FieldGroup>
+            <Field data-invalid={!!fieldErrors.email || undefined}>
+              <FieldLabel htmlFor="email">Email</FieldLabel>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={pending}
+              />
+              <FieldError>{fieldErrors.email}</FieldError>
+            </Field>
+            <Field data-invalid={!!fieldErrors.password || undefined}>
+              <div className="flex items-center justify-between gap-2">
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={pending}
+              />
+              <FieldError>{fieldErrors.password}</FieldError>
+            </Field>
+          </FieldGroup>
+          <Button type="submit" className="w-full" disabled={pending} size="lg">
+            {pending ? "Signing in…" : "Sign in"}
+          </Button>
         </form>
       </div>
     </AuthShell>

@@ -3,10 +3,7 @@ import { Outlet, createFileRoute, redirect } from "@tanstack/react-router"
 import { Button } from "@linea/ui/components/button"
 
 import { authClient } from "../../lib/auth-client"
-import {
-  listOrganizations,
-  requireWorkspace,
-} from "../../lib/auth-redirect"
+import { listOrganizations, requireWorkspace } from "../../lib/auth-redirect"
 import { setActiveOrganizationFn } from "../../lib/auth-session"
 import { getAppOrigin } from "../../lib/workspace-host"
 

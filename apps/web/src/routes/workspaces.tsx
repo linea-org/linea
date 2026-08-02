@@ -202,9 +202,7 @@ function WorkspacesPage() {
                 Workspaces keep your workflows, members, and settings together.
               </DialogDescription>
             </DialogHeader>
-            {createOpen ? (
-              <CreateWorkspaceForm onSuccess={onCreated} />
-            ) : null}
+            {createOpen ? <CreateWorkspaceForm onSuccess={onCreated} /> : null}
           </DialogContent>
         </Dialog>
       </main>
