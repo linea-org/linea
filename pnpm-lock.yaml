@@ -170,6 +170,18 @@ importers:
         specifier: ^8
         version: 8.0.16(@types/node@22.19.19)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)
 
+  packages/ai:
+    devDependencies:
+      '@linea/config':
+        specifier: workspace:*
+        version: link:../config
+      eslint:
+        specifier: ^9
+        version: 9.39.4(jiti@2.7.0)
+      typescript:
+        specifier: ^6
+        version: 6.0.3
+
   packages/auth: {}
 
   packages/config:
