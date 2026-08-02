@@ -24,7 +24,7 @@ type SendEmailInput = {
 }
 
 export function sendEmail({ to, subject, html, text }: SendEmailInput) {
-  void getResend().emails.send({
+  return getResend().emails.send({
     from: getFromAddress(),
     to,
     subject,

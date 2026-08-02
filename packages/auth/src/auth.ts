@@ -98,7 +98,7 @@ export const auth = betterAuth({
     requireEmailVerification: true,
     minPasswordLength: 8,
     sendResetPassword: async ({ user, url }) => {
-      sendEmail({
+      await sendEmail({
         to: user.email,
         subject: "Reset your Linea password",
         html: resetPasswordEmailHtml({ name: user.name, url }),
@@ -111,7 +111,7 @@ export const auth = betterAuth({
     sendOnSignIn: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
-      sendEmail({
+      await sendEmail({
         to: user.email,
         subject: "Verify your Linea email",
         html: verificationEmailHtml({ name: user.name, url }),
@@ -123,7 +123,7 @@ export const auth = betterAuth({
     organization({
       async sendInvitationEmail(data) {
         const inviteLink = `${appUrl}/accept-invitation/${data.id}`
-        sendEmail({
+        await sendEmail({
           to: data.email,
           subject: `Join ${data.organization.name} on Linea`,
           html: organizationInviteEmailHtml({
