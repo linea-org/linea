@@ -6,10 +6,7 @@ import type { Transaction } from "./types.js"
 
 const rollbackSentinel = new Error("test transaction rollback")
 
-// Runs `fn` inside a transaction that always rolls back, so repository
-// tests hit a real Postgres without leaving data behind or needing
-// per-test cleanup. Repository functions that open their own nested
-// db.transaction() calls run as savepoints within it.
+/** Rolls back regardless of outcome, so tests hit real Postgres with no manual cleanup. */
 export async function withRollback(
   fn: (tx: Transaction) => Promise<void>
 ): Promise<void> {
@@ -23,8 +20,7 @@ export async function withRollback(
     })
 }
 
-// Minimal org + workflow + published-worthy version, for tests that need a
-// valid tenant/workflow to satisfy the composite foreign keys.
+/** Minimal org + workflow + version, for tests needing valid tenant/workflow FKs. */
 export async function createTestFixtures(tx: Transaction) {
   const suffix = randomUUID()
 

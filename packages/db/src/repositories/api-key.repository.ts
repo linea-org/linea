@@ -2,8 +2,7 @@ import { eq } from "drizzle-orm"
 import { apiKeys, type ApiKey, type NewApiKey } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
-// Hashing/verifying the raw key happens at the call site — this repository
-// stores and looks up the hash only.
+// Hashing/verifying the raw key happens at the call site — this only stores/looks up the hash.
 
 export type CreateApiKeyInput = Omit<
   NewApiKey,

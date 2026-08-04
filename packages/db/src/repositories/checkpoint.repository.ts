@@ -14,9 +14,7 @@ export type WriteStepAndCheckpointInput = {
   checkpoint: Omit<NewCheckpoint, "id" | "executionId" | "createdAt">
 }
 
-// The one write path for both tables — checkpoint.executionId is derived
-// from step.executionId rather than passed separately, so the two can't
-// end up pointing at different executions.
+/** Writes both in one transaction; checkpoint.executionId is derived from step.executionId so the two can't diverge. */
 export async function writeStepAndCheckpoint(
   db: DbClient,
   input: WriteStepAndCheckpointInput

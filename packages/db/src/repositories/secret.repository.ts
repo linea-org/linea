@@ -2,8 +2,7 @@ import { and, eq } from "drizzle-orm"
 import { secrets, type Secret } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
-// Encrypting/decrypting encryptedValue happens at the call site — this
-// repository stores and retrieves opaque ciphertext only.
+// Encrypting/decrypting happens at the call site — this only stores/retrieves ciphertext.
 
 export async function upsertSecret(
   db: DbClient,

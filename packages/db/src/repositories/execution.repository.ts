@@ -24,8 +24,7 @@ export async function createExecution(
   return execution
 }
 
-// Only transitions if still queued, so two workers racing to claim the same
-// execution both get a defined outcome instead of one silently overwriting.
+/** Only transitions if still queued, so two workers racing to claim it get a defined outcome. */
 export async function startExecution(
   db: DbClient,
   executionId: string,

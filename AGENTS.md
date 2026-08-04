@@ -9,6 +9,15 @@ AI coding agent. Follow them strictly.
   subtle invariant, a specific bug workaround.
 - Never explain what the code does — well-named identifiers already do that.
 - No multi-line comment blocks. One short line max.
+- Same exception for exported functions, types, and other public
+  declarations: add a one-line `/** ... */` only when the contract isn't
+  derivable from the name, types, and signature (an invariant it enforces,
+  what happens on a race, what it deliberately does not do). A function
+  whose name and types already say everything gets no comment at all — don't
+  add one just to have documentation coverage.
+- A note that applies to every function in a file (a module-wide boundary
+  like "encryption happens at the call site") is a file-level comment at the
+  top, not repeated per function.
 
 ## Formatting
 

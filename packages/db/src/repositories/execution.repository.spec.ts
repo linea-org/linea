@@ -121,9 +121,7 @@ describe("listExecutions", () => {
   it("orders by most recent first", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
-      // Postgres freezes now() for the life of a transaction, so within this
-      // test's single transaction two defaultNow() inserts would tie. Set
-      // createdAt explicitly to test the ordering itself, not the clock.
+      // now() is frozen per-transaction in Postgres — set createdAt explicitly so the inserts don't tie.
       const [first] = await tx
         .insert(executions)
         .values({
