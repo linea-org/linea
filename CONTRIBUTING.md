@@ -90,20 +90,34 @@ linea/
 │   │   └── src/
 │   │       ├── components/ # auth + workspace UI
 │   │       └── routes/     # file-based routes
-│   ├── background-worker/  # scaffolded, not yet built
-│   ├── execution-worker/   # scaffolded, not yet built
-│   └── run-gateway/        # scaffolded, not yet built
+│   ├── background-worker/  # stub, not yet built
+│   ├── execution-worker/   # stub, not yet built
+│   └── run-gateway/        # stub, not yet built
 └── packages/
-    ├── auth/       # better-auth config, email sending
-    ├── db/         # Drizzle schema, client, migrations
-    ├── ui/         # shared React component library (shadcn)
-    ├── ai/         # AI provider integration (in progress)
-    ├── config/     # shared eslint config + tsconfig base
-    └── types/      # shared TypeScript types
+    ├── auth/             # better-auth config, email sending
+    ├── db/               # Drizzle schema, client, repositories, migrations
+    ├── ui/               # shared React component library (shadcn)
+    ├── config/           # shared eslint config + tsconfig base
+    ├── types/            # shared TypeScript types
+    ├── ai/               # scaffolded (lint/tsconfig only, no provider code yet)
+    ├── runtime/          # stub, not yet built
+    ├── queue/            # stub, not yet built
+    ├── connectors/       # stub, not yet built
+    ├── sandbox-provider/ # stub, not yet built
+    ├── sdk/              # stub, not yet built
+    └── sdk-react/        # stub, not yet built
 ```
 
-Some `apps/*` and `packages/*` are stubs (just a `package.json`, no `src/`
-yet) — check before assuming functionality exists.
+A "stub" is just a `package.json`, no `src/` yet. "Scaffolded" has lint/tsconfig
+wiring and placeholder folders but no real implementation. Check before
+assuming functionality exists — this list drifts as work lands; if you notice
+it's wrong, fix it in the same PR.
+
+See [docs/roadmap.md](docs/roadmap.md) for what's planned in each of these,
+[docs/execution-architecture.md](docs/execution-architecture.md) for
+`packages/db`'s schema in detail, and
+[docs/documentation-strategy.md](docs/documentation-strategy.md) for how
+documentation itself is organized as the product grows.
 
 ## Common commands
 
