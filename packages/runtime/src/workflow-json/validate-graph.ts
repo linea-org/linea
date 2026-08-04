@@ -1,0 +1,91 @@
+import type { WorkflowGraph } from "./schema.js"
+
+export class WorkflowGraphError extends Error {}
+
+/** Validates structural invariants the zod schema can't express: ids, edges, reachability, cycles, branch routing. */
+export function validateGraphStructure(graph: WorkflowGraph): void {
+  const nodeIds = new Set(graph.nodes.map((node) => node.id))
+  if (nodeIds.size !== graph.nodes.length) {
+    throw new WorkflowGraphError("Node ids must be unique")
+  }
+
+  if (!nodeIds.has(graph.entryNodeId)) {
+    throw new WorkflowGraphError(
+      `entryNodeId "${graph.entryNodeId}" is not a node in this graph`
+    )
+  }
+
+  for (const edge of graph.edges) {
+    if (!nodeIds.has(edge.from)) {
+      throw new WorkflowGraphError(
+        `Edge references unknown node "${edge.from}"`
+      )
+    }
+    if (!nodeIds.has(edge.to)) {
+      throw new WorkflowGraphError(`Edge references unknown node "${edge.to}"`)
+    }
+  }
+
+  const incomingCount = new Map<string, number>()
+  for (const edge of graph.edges) {
+    incomingCount.set(edge.to, (incomingCount.get(edge.to) ?? 0) + 1)
+  }
+  for (const node of graph.nodes) {
+    const count = incomingCount.get(node.id) ?? 0
+    if (node.id === graph.entryNodeId) {
+      if (count !== 0) {
+        throw new WorkflowGraphError(
+          `Entry node "${node.id}" cannot have incoming edges`
+        )
+      }
+    } else if (count !== 1) {
+      throw new WorkflowGraphError(
+        `Node "${node.id}" must have exactly one incoming edge, has ${count}`
+      )
+    }
+  }
+
+  // The walker matches on condition, so a missing or duplicate one is unreachable code.
+  for (const node of graph.nodes) {
+    if (node.type !== "branch") continue
+    const conditions = graph.edges
+      .filter((edge) => edge.from === node.id)
+      .map((edge) => edge.condition)
+
+    if (conditions.some((condition) => condition === undefined)) {
+      throw new WorkflowGraphError(
+        `Branch node "${node.id}" has an outgoing edge with no condition`
+      )
+    }
+    if (new Set(conditions).size !== conditions.length) {
+      throw new WorkflowGraphError(
+        `Branch node "${node.id}" has two outgoing edges with the same condition`
+      )
+    }
+  }
+
+  const visiting = new Set<string>()
+  const visited = new Set<string>()
+  const visit = (nodeId: string): void => {
+    if (visited.has(nodeId)) return
+    if (visiting.has(nodeId)) {
+      throw new WorkflowGraphError(`Cycle detected at node "${nodeId}"`)
+    }
+    visiting.add(nodeId)
+    for (const edge of graph.edges.filter((e) => e.from === nodeId)) {
+      visit(edge.to)
+    }
+    visiting.delete(nodeId)
+    visited.add(nodeId)
+  }
+  visit(graph.entryNodeId)
+
+  // The DFS above only walks what's reachable — a disconnected cyclic island never gets visited.
+  for (const node of graph.nodes) {
+    if (!visited.has(node.id)) {
+      throw new WorkflowGraphError(
+        `Node "${node.id}" is not reachable from the entry node`
+      )
+    }
+  }
+}
