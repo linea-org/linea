@@ -61,7 +61,7 @@ the shape, write the words fresh against whatever Phase 1 actually ships.
 ## API / developer docs: start earlier, mostly generate
 
 This is the one surface worth starting before its "obvious" gate. The SDK is
-Phase 4, but `platform-api` gets real REST endpoints in Phase 0 item 6
+Phase 5, but `platform-api` gets real REST endpoints in Phase 0 item 6
 (`workflows`, `executions`, `triggers`) — long before anything wraps them.
 
 **Generate the reference from the controllers, don't hand-write it.** Wire up
@@ -75,7 +75,7 @@ generated: guides, concepts, the "why," not the endpoint list.
 
 Sequencing: OpenAPI generation can start the moment `platform-api` has its
 first real controller (Phase 0). Publishing it anywhere public waits until
-there's a public API worth exposing (Phase 4), but there's no reason not to
+there's a public API worth exposing (Phase 5), but there's no reason not to
 have it generating into CI output long before that.
 
 ## Tooling: Fumadocs, deferred until there's content
@@ -97,6 +97,6 @@ and when it has something to say.
 
 ## Summary: what to do, and when
 
-| Now                                                                     | Phase 0 (rest of it)                                                | Phase 1                                                                   | Phase 4                                               |
+| Now                                                                     | Phase 0 (rest of it)                                                | Phase 1                                                                   | Phase 5                                               |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------- |
 | Keep `CONTRIBUTING.md`/`AGENTS.md` current, in the PR that changes them | Wire `@nestjs/swagger` onto `platform-api` controllers as they land | Scaffold `apps/docs` (Fumadocs); write user docs against the real builder | Publish the generated API reference; write SDK guides |
