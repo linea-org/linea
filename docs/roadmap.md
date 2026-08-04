@@ -360,3 +360,6 @@ Dates. Phase durations are relative and capacity-dependent, and pinning
 calendar dates to a part-time roadmap produces a document that is wrong within
 a month. Track actual progress in GitHub milestones, one per phase, and let
 this doc describe order and exit criteria only.
+
+It also doesn't cover how documentation itself gets built — see
+`documentation-strategy.md` for that, gated on these same phases.

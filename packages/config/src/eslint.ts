@@ -20,6 +20,9 @@ type SharedEslintConfigOptions = {
   parserOptions?: Record<string, unknown>
 }
 
+// tsup's transient config bundle — build and lint can run concurrently, so eslint can catch it mid-delete.
+const alwaysIgnored = ["tsup.config.bundled_*"]
+
 export function createSharedEslintConfig({
   ignores = [],
   sourceType = "module",
@@ -29,7 +32,7 @@ export function createSharedEslintConfig({
   parserOptions = {},
 }: SharedEslintConfigOptions = {}) {
   return tseslint.config(
-    { ignores },
+    { ignores: [...alwaysIgnored, ...ignores] },
     eslint.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,
     eslintPluginPrettierRecommended,
