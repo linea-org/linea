@@ -40,33 +40,57 @@ describe("workflow-execution queue", () => {
     await expect(delivered).resolves.toEqual({ executionId: "exec-1" })
   })
 
-  it("delivers each job to only one worker", async () => {
+  it("delivers each job to exactly one of two competing workers", async () => {
     queue = createWorkflowExecutionQueue(connection)
-    const received: WorkflowExecutionJob[] = []
-
-    worker = createWorkflowExecutionWorker(connection, async (job) => {
-      received.push(job.data)
-    })
-
-    const completions = new Promise<void>((resolve, reject) => {
-      let count = 0
-      worker?.on("completed", () => {
-        count += 1
-        if (count === 3) resolve()
-      })
-      worker?.on("failed", (_job, error) => reject(error))
-    })
-
-    await enqueueWorkflowExecution(queue, { executionId: "exec-a" })
-    await enqueueWorkflowExecution(queue, { executionId: "exec-b" })
-    await enqueueWorkflowExecution(queue, { executionId: "exec-c" })
-
-    await completions
-
-    expect(received.map((job) => job.executionId).sort()).toEqual([
+    const executionIds = [
       "exec-a",
       "exec-b",
       "exec-c",
-    ])
+      "exec-d",
+      "exec-e",
+      "exec-f",
+    ]
+    const receivedByA: WorkflowExecutionJob[] = []
+    const receivedByB: WorkflowExecutionJob[] = []
+
+    const workerA = createWorkflowExecutionWorker(connection, async (job) => {
+      receivedByA.push(job.data)
+    })
+    const workerB = createWorkflowExecutionWorker(connection, async (job) => {
+      receivedByB.push(job.data)
+    })
+
+    try {
+      const completions = new Promise<void>((resolve, reject) => {
+        let count = 0
+        const onCompleted = () => {
+          count += 1
+          if (count === executionIds.length) resolve()
+        }
+        workerA.on("completed", onCompleted)
+        workerB.on("completed", onCompleted)
+        workerA.on("failed", (_job, error) => reject(error))
+        workerB.on("failed", (_job, error) => reject(error))
+      })
+
+      for (const executionId of executionIds) {
+        await enqueueWorkflowExecution(queue, { executionId })
+      }
+
+      await completions
+
+      // No job landed on both workers — the actual duplicate-delivery regression.
+      const idsInA = new Set(receivedByA.map((job) => job.executionId))
+      const overlap = receivedByB.filter((job) => idsInA.has(job.executionId))
+      expect(overlap).toEqual([])
+
+      const allReceived = [...receivedByA, ...receivedByB]
+        .map((job) => job.executionId)
+        .sort()
+      expect(allReceived).toEqual([...executionIds].sort())
+    } finally {
+      await workerA.close()
+      await workerB.close()
+    }
   })
 })
