@@ -37,6 +37,52 @@ end. `AGENTS.md` covers coding rules and `execution-architecture.md` covers
 the schema in isolation; neither explains the runtime path connecting them.
 Not worth writing before there's a real path to describe.
 
+### Per-module `MODULE.md`
+
+Right now, "how does `packages/runtime`'s walker actually behave" lives in
+one PR description and scattered TSDoc — nowhere someone lands by default.
+A `MODULE.md` at `packages/<name>/MODULE.md` fixes that, but only for
+packages where it earns its keep.
+
+**Scope it.** Not every package needs one. `packages/types` or
+`packages/config` don't — their contents are self-evident from filenames.
+Write one where a reader would otherwise have to read every file to
+understand a real design decision: `packages/runtime` (why the walker
+resumes the way it does, why the registry holds no execution logic),
+`packages/db` (the tenant-scoping composite foreign keys, why
+`execution_steps` is shaped like an OTel span).
+
+**Same update discipline as the `CONTRIBUTING.md` fix above, stated
+explicitly so it doesn't need rediscovering:** a PR that changes a module's
+behavior updates its `MODULE.md` in the same PR. No index to maintain — the
+convention is the lookup (`packages/<name>/MODULE.md`, check if it exists).
+
+**Keep it structural, not prose.** One page, four sections:
+
+```markdown
+# packages/runtime
+
+What it does, one sentence.
+
+## Non-obvious invariants
+
+Bullet list — a hidden constraint, a design decision that would surprise
+a reader, something enforced in code that isn't obvious from reading any
+one file in isolation.
+
+## Public surface
+
+The exports someone outside this package actually calls.
+
+## Deliberately not here
+
+What's missing on purpose, and which phase adds it.
+```
+
+This is a mechanism inside contributor docs, not a fourth surface — still
+something a browser and `grep` serve, just organized per-package instead of
+centrally.
+
 ## User docs: gated on the builder existing
 
 Don't start before Phase 1. Writing "how to build a workflow" against a
@@ -97,6 +143,6 @@ and when it has something to say.
 
 ## Summary: what to do, and when
 
-| Now                                                                     | Phase 0 (rest of it)                                                | Phase 1                                                                   | Phase 5                                               |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Keep `CONTRIBUTING.md`/`AGENTS.md` current, in the PR that changes them | Wire `@nestjs/swagger` onto `platform-api` controllers as they land | Scaffold `apps/docs` (Fumadocs); write user docs against the real builder | Publish the generated API reference; write SDK guides |
+| Now                                                                                                                   | Phase 0 (rest of it)                                                | Phase 1                                                                   | Phase 5                                               |
+| --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Keep `CONTRIBUTING.md`/`AGENTS.md` current, in the PR that changes them; write `MODULE.md` for packages that earn one | Wire `@nestjs/swagger` onto `platform-api` controllers as they land | Scaffold `apps/docs` (Fumadocs); write user docs against the real builder | Publish the generated API reference; write SDK guides |
