@@ -1,5 +1,6 @@
 import {
   bigint,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -7,6 +8,7 @@ import {
   snakeCase,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
@@ -48,13 +50,9 @@ export const executions = snakeCase.table(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
 
-    workflowId: uuid()
-      .notNull()
-      .references(() => workflows.id, { onDelete: "cascade" }),
-
-    workflowVersionId: uuid()
-      .notNull()
-      .references(() => workflowVersions.id),
+    // Composite FKs below also enforce the workflow/version actually match.
+    workflowId: uuid().notNull(),
+    workflowVersionId: uuid().notNull(),
 
     status: executionStatus().notNull().default("queued"),
     origin: executionOrigin().notNull().default("native"),
@@ -86,6 +84,18 @@ export const executions = snakeCase.table(
     index("executions_lease_claim_idx")
       .on(table.status, table.leaseExpiresAt)
       .where(sql`${table.status} = 'running'`),
+    // Supports execution_steps' composite foreign key.
+    uniqueIndex("executions_id_workspace_uidx").on(table.id, table.workspaceId),
+    foreignKey({
+      name: "executions_workflow_workspace_fkey",
+      columns: [table.workflowId, table.workspaceId],
+      foreignColumns: [workflows.id, workflows.workspaceId],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "executions_workflow_version_fkey",
+      columns: [table.workflowId, table.workflowVersionId],
+      foreignColumns: [workflowVersions.workflowId, workflowVersions.id],
+    }),
   ]
 )
 

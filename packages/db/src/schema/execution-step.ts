@@ -1,5 +1,6 @@
 import {
   bigint,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -31,11 +32,8 @@ export const executionSteps = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
 
-    executionId: uuid()
-      .notNull()
-      .references(() => executions.id, { onDelete: "cascade" }),
-
-    // Denormalized from executions — every hot query filters by it directly.
+    // Composite FK below also enforces workspaceId matches the execution's own.
+    executionId: uuid().notNull(),
     workspaceId: uuid().notNull(),
 
     traceId: text().notNull(),
@@ -70,6 +68,11 @@ export const executionSteps = snakeCase.table(
     uniqueIndex("execution_steps_idempotency_uidx")
       .on(table.executionId, table.idempotencyKey)
       .where(sql`${table.idempotencyKey} is not null`),
+    foreignKey({
+      name: "execution_steps_execution_workspace_fkey",
+      columns: [table.executionId, table.workspaceId],
+      foreignColumns: [executions.id, executions.workspaceId],
+    }).onDelete("cascade"),
   ]
 )
 

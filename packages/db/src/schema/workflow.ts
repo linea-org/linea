@@ -1,4 +1,5 @@
 import {
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -23,9 +24,8 @@ export const workflows = snakeCase.table(
     name: text().notNull(),
     slug: text().notNull(),
 
-    publishedVersionId: uuid().references(
-      (): AnyPgColumn => workflowVersions.id
-    ),
+    // Composite FK below also enforces the version belongs to this workflow.
+    publishedVersionId: uuid(),
 
     archivedAt: timestamp({ withTimezone: true }),
 
@@ -41,6 +41,13 @@ export const workflows = snakeCase.table(
       table.slug
     ),
     index("workflows_workspace_idx").on(table.workspaceId),
+    // Supports composite FKs from executions/schedules into this table.
+    uniqueIndex("workflows_id_workspace_uidx").on(table.id, table.workspaceId),
+    foreignKey({
+      name: "workflows_published_version_fkey",
+      columns: [table.id, table.publishedVersionId],
+      foreignColumns: [workflowVersions.workflowId, workflowVersions.id],
+    }),
   ]
 )
 
@@ -51,7 +58,7 @@ export const workflowVersions = snakeCase.table(
 
     workflowId: uuid()
       .notNull()
-      .references(() => workflows.id, { onDelete: "cascade" }),
+      .references((): AnyPgColumn => workflows.id, { onDelete: "cascade" }),
 
     version: integer().notNull(),
     graph: jsonb().$type<Record<string, unknown>>().notNull(),
@@ -64,6 +71,11 @@ export const workflowVersions = snakeCase.table(
     uniqueIndex("workflow_versions_workflow_version_uidx").on(
       table.workflowId,
       table.version
+    ),
+    // Supports the composite foreign keys above/in execution.ts.
+    uniqueIndex("workflow_versions_workflow_id_id_uidx").on(
+      table.workflowId,
+      table.id
     ),
   ]
 )

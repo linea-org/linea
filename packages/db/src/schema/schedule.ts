@@ -1,5 +1,6 @@
 import {
   boolean,
+  foreignKey,
   index,
   snakeCase,
   text,
@@ -19,9 +20,8 @@ export const schedules = snakeCase.table(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
 
-    workflowId: uuid()
-      .notNull()
-      .references(() => workflows.id, { onDelete: "cascade" }),
+    // Composite FK below also enforces this workflow belongs to workspaceId.
+    workflowId: uuid().notNull(),
 
     cronExpression: text().notNull(),
     timezone: text().notNull().default("UTC"),
@@ -36,6 +36,11 @@ export const schedules = snakeCase.table(
     index("schedules_next_run_idx")
       .on(table.nextRunAt)
       .where(sql`${table.enabled} = true`),
+    foreignKey({
+      name: "schedules_workflow_workspace_fkey",
+      columns: [table.workflowId, table.workspaceId],
+      foreignColumns: [workflows.id, workflows.workspaceId],
+    }).onDelete("cascade"),
   ]
 )
 

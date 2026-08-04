@@ -9,3 +9,4 @@ coverage/
 pnpm-lock.yaml
 .pnpm-store/
 apps/web/src/routeTree.gen.ts
+packages/db/drizzle/
