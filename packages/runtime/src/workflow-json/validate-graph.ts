@@ -2,9 +2,12 @@ import type { WorkflowGraph } from "./schema.js"
 
 export class WorkflowGraphError extends Error {}
 
-/** Validates what the zod schema can't: real edges, exactly one incoming edge per non-entry node, no cycles. */
+/** Validates structural invariants the zod schema can't express: ids, edges, reachability, cycles, branch routing. */
 export function validateGraphStructure(graph: WorkflowGraph): void {
   const nodeIds = new Set(graph.nodes.map((node) => node.id))
+  if (nodeIds.size !== graph.nodes.length) {
+    throw new WorkflowGraphError("Node ids must be unique")
+  }
 
   if (!nodeIds.has(graph.entryNodeId)) {
     throw new WorkflowGraphError(
@@ -42,6 +45,25 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
     }
   }
 
+  // The walker matches on condition, so a missing or duplicate one is unreachable code.
+  for (const node of graph.nodes) {
+    if (node.type !== "branch") continue
+    const conditions = graph.edges
+      .filter((edge) => edge.from === node.id)
+      .map((edge) => edge.condition)
+
+    if (conditions.some((condition) => condition === undefined)) {
+      throw new WorkflowGraphError(
+        `Branch node "${node.id}" has an outgoing edge with no condition`
+      )
+    }
+    if (new Set(conditions).size !== conditions.length) {
+      throw new WorkflowGraphError(
+        `Branch node "${node.id}" has two outgoing edges with the same condition`
+      )
+    }
+  }
+
   const visiting = new Set<string>()
   const visited = new Set<string>()
   const visit = (nodeId: string): void => {
@@ -57,4 +79,13 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
     visited.add(nodeId)
   }
   visit(graph.entryNodeId)
+
+  // The DFS above only walks what's reachable — a disconnected cyclic island never gets visited.
+  for (const node of graph.nodes) {
+    if (!visited.has(node.id)) {
+      throw new WorkflowGraphError(
+        `Node "${node.id}" is not reachable from the entry node`
+      )
+    }
+  }
 }

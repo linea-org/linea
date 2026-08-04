@@ -116,4 +116,76 @@ describe("validateGraphStructure", () => {
       )
     ).not.toThrow()
   })
+
+  it("rejects duplicate node ids", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            { id: "a", type: "http", config: {} },
+            { id: "b", type: "transform", config: {} },
+            { id: "b", type: "transform", config: {} },
+          ],
+        })
+      )
+    ).toThrow(WorkflowGraphError)
+  })
+
+  it("rejects a branch outgoing edge with no condition", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            { id: "a", type: "branch", config: {} },
+            { id: "b", type: "transform", config: {} },
+            { id: "c", type: "transform", config: {} },
+          ],
+          edges: [
+            { from: "a", to: "b", condition: "x" },
+            { from: "a", to: "c" },
+          ],
+        })
+      )
+    ).toThrow(WorkflowGraphError)
+  })
+
+  it("rejects two branch outgoing edges sharing the same condition", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            { id: "a", type: "branch", config: {} },
+            { id: "b", type: "transform", config: {} },
+            { id: "c", type: "transform", config: {} },
+          ],
+          edges: [
+            { from: "a", to: "b", condition: "x" },
+            { from: "a", to: "c", condition: "x" },
+          ],
+        })
+      )
+    ).toThrow(WorkflowGraphError)
+  })
+
+  it("rejects a cycle in a component disconnected from the entry node", () => {
+    // Every node still has exactly one incoming edge, so the earlier degree
+    // check alone wouldn't catch this — only reachability from entry does.
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            { id: "a", type: "http", config: {} },
+            { id: "b", type: "transform", config: {} },
+            { id: "c", type: "http", config: {} },
+            { id: "d", type: "transform", config: {} },
+          ],
+          edges: [
+            { from: "a", to: "b" },
+            { from: "c", to: "d" },
+            { from: "d", to: "c" },
+          ],
+        })
+      )
+    ).toThrow(WorkflowGraphError)
+  })
 })
