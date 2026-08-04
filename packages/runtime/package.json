@@ -1,5 +1,26 @@
 {
   "name": "@linea/runtime",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint",
+    "format": "prettier --write \"**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@linea/config": "workspace:*",
+    "@types/node": "22",
+    "eslint": "^9",
+    "typescript": "^6",
+    "vitest": "^3"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  }
 }
