@@ -8,6 +8,7 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
@@ -27,7 +28,8 @@
     "drizzle-kit": "1.0.0-rc.4",
     "eslint": "9",
     "tsup": "^8.5.0",
-    "typescript": "6"
+    "typescript": "6",
+    "vitest": "^3"
   },
   "exports": {
     ".": {
