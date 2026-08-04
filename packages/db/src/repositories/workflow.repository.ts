@@ -22,11 +22,18 @@ export type CreateWorkflowVersionInput = {
   contentHash: string
 }
 
+/** Locks the workflow row first, so two concurrent calls serialize instead of both computing the same next version. */
 export async function createWorkflowVersion(
   db: DbClient,
   input: CreateWorkflowVersionInput
 ): Promise<WorkflowVersion> {
   return db.transaction(async (tx) => {
+    await tx
+      .select({ id: workflows.id })
+      .from(workflows)
+      .where(eq(workflows.id, input.workflowId))
+      .for("update")
+
     const [{ latest }] = await tx
       .select({ latest: max(workflowVersions.version) })
       .from(workflowVersions)

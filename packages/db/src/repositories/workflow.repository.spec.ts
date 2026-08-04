@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto"
+import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
+import { db, pool } from "../clients/index.js"
+import { organizations, workflows, workflowVersions } from "../schema/index.js"
 import {
   createWorkflowVersion,
   getPublishedVersion,
@@ -7,6 +10,8 @@ import {
   publishWorkflowVersion,
 } from "./workflow.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 describe("createWorkflowVersion", () => {
   it("auto-increments the version number per workflow", async () => {
@@ -28,6 +33,54 @@ describe("createWorkflowVersion", () => {
       expect(v2.version).toBe(2)
       expect(v3.version).toBe(3)
     })
+  })
+
+  it("blocks a second lock attempt on the same workflow until the first ends", async () => {
+    // Promise.all on two createWorkflowVersion calls doesn't reliably race —
+    // network/scheduling timing can make them not overlap even with the bug
+    // present. This drives two raw connections directly to prove the actual
+    // mechanism (FOR UPDATE) blocks, deterministically.
+    const { workflow } = await db.transaction((tx) => createTestFixtures(tx))
+    const clientA = await pool.connect()
+    const clientB = await pool.connect()
+
+    try {
+      await clientA.query("BEGIN")
+      await clientA.query("SELECT id FROM workflows WHERE id = $1 FOR UPDATE", [
+        workflow.id,
+      ])
+
+      await clientB.query("BEGIN")
+      let bAcquired = false
+      const bLockAttempt = clientB
+        .query("SELECT id FROM workflows WHERE id = $1 FOR UPDATE", [
+          workflow.id,
+        ])
+        .then(() => {
+          bAcquired = true
+        })
+
+      await wait(200)
+      expect(bAcquired).toBe(false)
+
+      await clientA.query("COMMIT")
+      await bLockAttempt
+      expect(bAcquired).toBe(true)
+
+      await clientB.query("COMMIT")
+    } finally {
+      await clientA.query("ROLLBACK").catch(() => {})
+      await clientB.query("ROLLBACK").catch(() => {})
+      clientA.release()
+      clientB.release()
+      await db
+        .delete(workflowVersions)
+        .where(eq(workflowVersions.workflowId, workflow.id))
+      await db.delete(workflows).where(eq(workflows.id, workflow.id))
+      await db
+        .delete(organizations)
+        .where(eq(organizations.id, workflow.workspaceId))
+    }
   })
 
   it("starts a different workflow's versions at 1", async () => {

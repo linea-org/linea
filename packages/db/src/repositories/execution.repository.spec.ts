@@ -115,6 +115,39 @@ describe("completeExecution", () => {
       expect(completed?.completedAt).toBeInstanceOf(Date)
     })
   })
+
+  it("does not let a delayed completion overwrite an already-terminal outcome", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const first = await completeExecution(tx, execution.id, {
+        status: "succeeded",
+        costMicros: 1_500n,
+        tokensInput: 100,
+        tokensOutput: 50,
+      })
+      expect(first?.status).toBe("succeeded")
+
+      const late = await completeExecution(tx, execution.id, {
+        status: "failed",
+        error: { message: "timed out" },
+        costMicros: 9_999n,
+        tokensInput: 0,
+        tokensOutput: 0,
+      })
+      expect(late).toBeUndefined()
+
+      const [row] = await listExecutions(tx, workflow.id)
+      expect(row.status).toBe("succeeded")
+      expect(row.costMicros).toBe(1_500n)
+    })
+  })
 })
 
 describe("listExecutions", () => {

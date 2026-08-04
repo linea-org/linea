@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, notInArray } from "drizzle-orm"
 import {
   executions,
   executionSteps,
@@ -65,6 +65,13 @@ export type CompleteExecutionInput = {
   tokensOutput: number
 }
 
+const terminalStatuses: Execution["status"][] = [
+  "succeeded",
+  "failed",
+  "cancelled",
+]
+
+/** Only transitions if not already terminal, so a delayed/retried completion can't overwrite a recorded outcome. */
 export async function completeExecution(
   db: DbClient,
   executionId: string,
@@ -73,7 +80,12 @@ export async function completeExecution(
   const [execution] = await db
     .update(executions)
     .set({ ...input, completedAt: new Date() })
-    .where(eq(executions.id, executionId))
+    .where(
+      and(
+        eq(executions.id, executionId),
+        notInArray(executions.status, terminalStatuses)
+      )
+    )
     .returning()
   return execution
 }
