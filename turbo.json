@@ -18,7 +18,7 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "env": ["DATABASE_URL"]
+      "env": ["DATABASE_URL", "REDIS_URL"]
     },
     "dev": {
       "cache": false,

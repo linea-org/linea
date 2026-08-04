@@ -10,7 +10,7 @@ Coding rules (comments, formatting, error handling, TypeScript, etc.) live in
 
 - **Node.js** 20+
 - **pnpm** 10 — `npm install -g pnpm@10`
-- **Docker** (for Postgres)
+- **Docker** (for Postgres and Redis)
 
 ## First-time setup
 
@@ -22,15 +22,18 @@ cd linea
 pnpm install
 ```
 
-### 2. Start Postgres
+### 2. Start Postgres and Redis
 
 ```bash
 pnpm db:up
+pnpm queue:up
 ```
 
-This starts Postgres 16 with the `pgvector` extension on port `5432` via
-Docker Compose. Data persists in a named volume across restarts. Use
-`pnpm db:down` to stop it and `pnpm db:logs` to tail its logs.
+`db:up` starts Postgres 16 with the `pgvector` extension on port `5432`;
+`queue:up` starts Redis on port `6379` — both via Docker Compose. Data
+persists in named volumes across restarts. `pnpm db:down` or
+`pnpm queue:down` stops the whole Compose stack (both services); `db:logs`
+/ `queue:logs` tail one service's logs.
 
 ### 3. Configure environment variables
 
@@ -43,6 +46,7 @@ There's a single `.env` at the repo root shared by both apps. Fill in:
 | Variable                                    | Required | Where to get it                                                                                  |
 | ------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
 | `DATABASE_URL`                              | Yes      | Defaults to the Docker Postgres above, no change needed locally                                  |
+| `REDIS_URL`                                 | Yes      | Defaults to the Docker Redis above, no change needed locally                                     |
 | `BETTER_AUTH_SECRET`                        | Yes      | Any long random string, e.g. `openssl rand -hex 32`                                              |
 | `BETTER_AUTH_URL`                           | Yes      | Defaults to `http://localhost:3001`, no change needed locally                                    |
 | `APP_URL`                                   | No       | Falls back to `BETTER_AUTH_URL` if unset                                                         |
@@ -100,8 +104,8 @@ linea/
     ├── config/           # shared eslint config + tsconfig base
     ├── types/            # shared TypeScript types
     ├── ai/               # scaffolded (lint/tsconfig only, no provider code yet)
-    ├── runtime/          # stub, not yet built
-    ├── queue/            # stub, not yet built
+    ├── runtime/          # workflow JSON schema, node registry, graph walker
+    ├── queue/            # BullMQ wrapper — workflow-execution queue
     ├── connectors/       # stub, not yet built
     ├── sandbox-provider/ # stub, not yet built
     ├── sdk/              # stub, not yet built
@@ -140,6 +144,11 @@ pnpm db:logs              # tail Postgres logs
 pnpm db:generate          # generate a migration file from a schema diff
 pnpm db:migrate           # apply migrations to your local DB
 pnpm db:studio            # open Drizzle Studio
+
+# Queue
+pnpm queue:up             # start Redis via Docker
+pnpm queue:down           # stop the Docker Compose stack (Postgres + Redis)
+pnpm queue:logs           # tail Redis logs
 ```
 
 ## Making schema changes

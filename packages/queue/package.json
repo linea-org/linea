@@ -1,5 +1,31 @@
 {
   "name": "@linea/queue",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint",
+    "format": "prettier --write \"**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "queue:up": "docker compose -f ../../docker-compose.yml up -d redis",
+    "queue:down": "docker compose -f ../../docker-compose.yml down",
+    "queue:logs": "docker compose -f ../../docker-compose.yml logs -f redis"
+  },
+  "dependencies": {
+    "bullmq": "^5",
+    "ioredis": "^5"
+  },
+  "devDependencies": {
+    "@linea/config": "workspace:*",
+    "@types/node": "22",
+    "dotenv": "17.4.2",
+    "eslint": "^9",
+    "typescript": "^6",
+    "vitest": "^3"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  }
 }
