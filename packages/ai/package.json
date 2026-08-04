@@ -6,12 +6,21 @@
   "scripts": {
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "@linea/db": "workspace:*",
+    "openai": "^5"
   },
   "devDependencies": {
     "@linea/config": "workspace:*",
+    "@types/node": "22",
+    "dotenv": "17.4.2",
     "eslint": "^9",
-    "typescript": "^6"
+    "typescript": "^6",
+    "vitest": "^3"
   },
   "exports": {
     ".": "./src/index.ts",
