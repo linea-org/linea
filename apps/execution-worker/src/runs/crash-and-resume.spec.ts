@@ -88,6 +88,7 @@ describe("crash-and-resume", () => {
         await checkpoints.recordStep({
           executionId: execution.id,
           workspaceId: organization.id,
+          leasedBy: "worker-1-doomed",
           nodeId: node.id,
           nodeType: node.type,
           input: currentInput,

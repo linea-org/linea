@@ -11,6 +11,7 @@ import { TransformNode } from "./nodes/transform.node"
 export type RunInput = {
   executionId: string
   workspaceId: string
+  leasedBy: string
   graph: WorkflowGraph
   triggerPayload: unknown
   resumeFrom: Map<string, unknown>
@@ -103,6 +104,7 @@ export class InterpreterService {
         await this.checkpoints.recordStep({
           executionId: input.executionId,
           workspaceId: input.workspaceId,
+          leasedBy: input.leasedBy,
           nodeId: step.nodeId,
           nodeType: step.nodeType,
           input: step.input,
@@ -122,6 +124,7 @@ export class InterpreterService {
         await this.checkpoints.recordStep({
           executionId: input.executionId,
           workspaceId: input.workspaceId,
+          leasedBy: input.leasedBy,
           nodeId: step.nodeId,
           nodeType: step.nodeType,
           input: step.input,

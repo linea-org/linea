@@ -5,6 +5,7 @@ import { db, repositories } from "@linea/db"
 export type RecordStepInput = {
   executionId: string
   workspaceId: string
+  leasedBy: string
   nodeId: string
   nodeType: string
   input: unknown
@@ -20,9 +21,22 @@ export type RecordStepInput = {
   completed: Map<string, unknown>
 }
 
+/** Thrown when a checkpoint write is rejected because another worker reclaimed the lease. */
+export class LeaseLostError extends Error {
+  constructor(executionId: string) {
+    super(`Lost the lease for execution ${executionId} to another worker`)
+    this.name = "LeaseLostError"
+  }
+}
+
 @Injectable()
 export class CheckpointsService {
-  /** Writes the step and its checkpoint in one transaction — never split, or a crash between the two reintroduces the exact gap Phase 0 exists to close. */
+  /**
+   * Writes the step and its checkpoint in one transaction — never split, or a crash
+   * between the two reintroduces the exact gap Phase 0 exists to close. Rejected
+   * (throws `LeaseLostError`) if `leasedBy` no longer owns the execution, so a worker
+   * that lost its lease mid-step can't persist state that conflicts with the new owner.
+   */
   async recordStep(input: RecordStepInput): Promise<void> {
     const status = input.error ? "failed" : "succeeded"
     // On success `completed` already counts this step; on failure it doesn't,
@@ -30,7 +44,8 @@ export class CheckpointsService {
     const sequence =
       status === "succeeded" ? input.completed.size : input.completed.size + 1
 
-    await repositories.checkpoint.writeStepAndCheckpoint(db, {
+    const result = await repositories.checkpoint.writeStepAndCheckpoint(db, {
+      leasedBy: input.leasedBy,
       step: {
         executionId: input.executionId,
         workspaceId: input.workspaceId,
@@ -57,6 +72,10 @@ export class CheckpointsService {
         context: Object.fromEntries(input.completed),
       },
     })
+
+    if (!result) {
+      throw new LeaseLostError(input.executionId)
+    }
   }
 
   /** Reconstructs the walker's `completed` map from the latest checkpoint — empty for a fresh execution. */

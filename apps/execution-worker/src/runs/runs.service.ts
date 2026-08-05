@@ -34,6 +34,12 @@ export class RunsService {
 
     this.lease.startHeartbeat(executionId, this.workerId)
 
+    // Tracks the best token totals known so far, so a failure partway through
+    // (validation, walking, or a lease lost mid-step) still reports usage
+    // already durably checkpointed, instead of always finalizing at zero.
+    let knownTokensInput = 0
+    let knownTokensOutput = 0
+
     try {
       const version = await repositories.workflow.getWorkflowVersionById(
         db,
@@ -51,16 +57,21 @@ export class RunsService {
       const resumeFrom = await this.checkpoints.getResumeState(executionId)
       const resumeTokens =
         await this.checkpoints.getResumeTokenTotals(executionId)
+      knownTokensInput = resumeTokens.tokensInput
+      knownTokensOutput = resumeTokens.tokensOutput
 
       const outcome = await this.interpreter.run({
         executionId,
         workspaceId: execution.workspaceId,
+        leasedBy: this.workerId,
         graph,
         triggerPayload: execution.triggerPayload,
         resumeFrom,
         initialTokensInput: resumeTokens.tokensInput,
         initialTokensOutput: resumeTokens.tokensOutput,
       })
+      knownTokensInput = outcome.totalTokensInput
+      knownTokensOutput = outcome.totalTokensOutput
 
       // No per-token pricing table exists anywhere yet — tracked as a known
       // gap (see MODULE.md), not silently invented. Tokens are still real.
@@ -103,8 +114,8 @@ export class RunsService {
           status: "failed",
           error: { message },
           costMicros: 0n,
-          tokensInput: 0,
-          tokensOutput: 0,
+          tokensInput: knownTokensInput,
+          tokensOutput: knownTokensOutput,
         }
       )
       throw error

@@ -1,6 +1,7 @@
 import { asc, desc, eq } from "drizzle-orm"
 import {
   checkpoints,
+  executions,
   executionSteps,
   type Checkpoint,
   type ExecutionStep,
@@ -10,16 +11,33 @@ import {
 import type { DbClient } from "./types.js"
 
 export type WriteStepAndCheckpointInput = {
+  leasedBy: string
   step: Omit<NewExecutionStep, "id">
   checkpoint: Omit<NewCheckpoint, "id" | "executionId" | "createdAt">
 }
 
-/** Writes both in one transaction; checkpoint.executionId is derived from step.executionId so the two can't diverge. */
+/**
+ * Locks the execution row for the write's duration and checks `leasedBy` against it
+ * before inserting, so a worker that lost its lease to a reclaim (see `startExecution`)
+ * can't persist a step/checkpoint after losing ownership — the check and the write have
+ * to be atomic, not check-then-write, or a reclaim could land in the gap between them.
+ * checkpoint.executionId is derived from step.executionId so the two can't diverge.
+ */
 export async function writeStepAndCheckpoint(
   db: DbClient,
   input: WriteStepAndCheckpointInput
-): Promise<{ step: ExecutionStep; checkpoint: Checkpoint }> {
+): Promise<{ step: ExecutionStep; checkpoint: Checkpoint } | undefined> {
   return db.transaction(async (tx) => {
+    const [execution] = await tx
+      .select({ leasedBy: executions.leasedBy })
+      .from(executions)
+      .where(eq(executions.id, input.step.executionId))
+      .for("update")
+
+    if (!execution || execution.leasedBy !== input.leasedBy) {
+      return undefined
+    }
+
     const [step] = await tx
       .insert(executionSteps)
       .values(input.step)

@@ -2,7 +2,10 @@ import "../env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
 import type { WorkflowGraph } from "@linea/runtime"
-import { CheckpointsService } from "../checkpoints/checkpoints.service"
+import {
+  CheckpointsService,
+  LeaseLostError,
+} from "../checkpoints/checkpoints.service"
 import { AiNode } from "./nodes/ai.node"
 import { BranchNode } from "./nodes/branch.node"
 import type { HttpNode } from "./nodes/http.node"
@@ -56,6 +59,12 @@ describe("InterpreterService resume", () => {
         trigger: "manual",
         triggerPayload: {},
       })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
 
       const checkpoints = new CheckpointsService()
       const interpreter = new InterpreterService(
@@ -71,6 +80,7 @@ describe("InterpreterService resume", () => {
       const firstRun = await interpreter.run({
         executionId: execution.id,
         workspaceId: organization.id,
+        leasedBy: "worker-1",
         graph,
         triggerPayload: {},
         resumeFrom: await checkpoints.getResumeState(execution.id),
@@ -86,6 +96,7 @@ describe("InterpreterService resume", () => {
       const secondRun = await interpreter.run({
         executionId: execution.id,
         workspaceId: organization.id,
+        leasedBy: "worker-1",
         graph,
         triggerPayload: {},
         resumeFrom,
@@ -96,6 +107,90 @@ describe("InterpreterService resume", () => {
       expect(secondRun.result.status).toBe("completed")
       expect(secondRun.totalTokensInput).toBe(100)
       expect(secondRun.totalTokensOutput).toBe(50)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("refuses to checkpoint a step for a worker that lost the lease mid-run", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Interpreter Fencing Test Org",
+        slug: `interpreter-fencing-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "http", config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Interpreter Fencing Test Workflow",
+        slug: `interpreter-fencing-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "interpreter-fencing-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+
+      // worker-1 claims it, but its lease is already stale by the time it
+      // tries to checkpoint — worker-2 reclaimed the execution in the gap.
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-2",
+        new Date(Date.now() + 60_000)
+      )
+
+      const checkpoints = new CheckpointsService()
+      const interpreter = new InterpreterService(
+        checkpoints,
+        tokenNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode()
+      )
+
+      await expect(
+        interpreter.run({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          leasedBy: "worker-1",
+          graph,
+          triggerPayload: {},
+          resumeFrom: new Map(),
+        })
+      ).rejects.toThrow(LeaseLostError)
+
+      const steps = await repositories.checkpoint.getStepsForExecution(
+        db,
+        execution.id
+      )
+      expect(steps).toHaveLength(0)
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
