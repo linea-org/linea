@@ -55,7 +55,7 @@ describe("RunsService failure accounting", () => {
         db,
         execution.id,
         "worker-0-abandoned",
-        new Date(Date.now() - 1_000)
+        new Date(Date.now() + 60_000)
       )
       await checkpoints.recordStep({
         executionId: execution.id,
@@ -71,6 +71,11 @@ describe("RunsService failure accounting", () => {
         tokensOutput: 50,
         completed: new Map([["n1", {}]]),
       })
+      // Now it's abandoned — heartbeat stops, lease ages out.
+      await pool.query(
+        "UPDATE executions SET lease_expires_at = $1 WHERE id = $2",
+        [new Date(Date.now() - 1_000), execution.id]
+      )
 
       // The resuming interpreter fails outright before returning any outcome.
       const poisonInterpreter = {
@@ -139,7 +144,7 @@ describe("RunsService failure accounting", () => {
         db,
         execution.id,
         "worker-0-abandoned",
-        new Date(Date.now() - 1_000)
+        new Date(Date.now() + 60_000)
       )
       await checkpoints.recordStep({
         executionId: execution.id,
@@ -155,6 +160,11 @@ describe("RunsService failure accounting", () => {
         tokensOutput: 50,
         completed: new Map([["n1", {}]]),
       })
+      // Now it's abandoned — heartbeat stops, lease ages out.
+      await pool.query(
+        "UPDATE executions SET lease_expires_at = $1 WHERE id = $2",
+        [new Date(Date.now() - 1_000), execution.id]
+      )
 
       const unreachableInterpreter = {
         run: () => {

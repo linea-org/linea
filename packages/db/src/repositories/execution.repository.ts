@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, notInArray, or } from "drizzle-orm"
+import { and, desc, eq, gt, lt, notInArray, or } from "drizzle-orm"
 import {
   executions,
   executionSteps,
@@ -55,7 +55,7 @@ export async function startExecution(
   return execution
 }
 
-/** Only renews if `leasedBy` still matches, so a worker that lost the lease to a reclaim can't extend it by heartbeating with a stale identity. */
+/** Only renews if `leasedBy` still matches and the current lease hasn't already expired — a stalled heartbeat can't resurrect a lease nobody reclaimed yet but that's already timed out. */
 export async function renewLease(
   db: DbClient,
   executionId: string,
@@ -69,7 +69,8 @@ export async function renewLease(
       and(
         eq(executions.id, executionId),
         eq(executions.status, "running"),
-        eq(executions.leasedBy, leasedBy)
+        eq(executions.leasedBy, leasedBy),
+        gt(executions.leaseExpiresAt, new Date())
       )
     )
     .returning()
@@ -90,7 +91,7 @@ const terminalStatuses: Execution["status"][] = [
   "cancelled",
 ]
 
-/** Only transitions if not already terminal and `leasedBy` still matches, so neither a delayed retry nor a worker that lost the lease can overwrite the outcome. */
+/** Only transitions if not already terminal, `leasedBy` still matches, and the lease hasn't expired — a stalled worker can't finalize stale work just because nobody's reclaimed it yet. */
 export async function completeExecution(
   db: DbClient,
   executionId: string,
@@ -104,6 +105,7 @@ export async function completeExecution(
       and(
         eq(executions.id, executionId),
         eq(executions.leasedBy, leasedBy),
+        gt(executions.leaseExpiresAt, new Date()),
         notInArray(executions.status, terminalStatuses)
       )
     )
@@ -121,6 +123,26 @@ export async function getLeaseOwner(
     .from(executions)
     .where(eq(executions.id, executionId))
   return execution?.leasedBy
+}
+
+/** Whether `leasedBy` both matches and its lease hasn't expired — identity alone isn't enough, since a stalled heartbeat can leave a stale identity in place until someone reclaims it. */
+export async function isLeaseValid(
+  db: DbClient,
+  executionId: string,
+  leasedBy: string
+): Promise<boolean> {
+  const [execution] = await db
+    .select({
+      leasedBy: executions.leasedBy,
+      leaseExpiresAt: executions.leaseExpiresAt,
+    })
+    .from(executions)
+    .where(eq(executions.id, executionId))
+  return (
+    execution?.leasedBy === leasedBy &&
+    execution.leaseExpiresAt !== null &&
+    execution.leaseExpiresAt > new Date()
+  )
 }
 
 export async function getExecutionWithSteps(

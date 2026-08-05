@@ -277,4 +277,83 @@ describe("InterpreterService resume", () => {
       ])
     }
   })
+
+  it("never invokes a node's side effect once its own lease has expired, even with no reclaim yet", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Interpreter Expired Lease Test Org",
+        slug: `interpreter-expired-lease-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "http", config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Interpreter Expired Lease Test Workflow",
+        slug: `interpreter-expired-lease-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "interpreter-expired-lease-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+
+      // Nobody has reclaimed this — worker-1 is still the leasedBy of
+      // record, but its own heartbeat stalled and the lease already lapsed.
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+
+      const executeSpy = jest.fn(() =>
+        Promise.resolve({ tokensInput: 100, tokensOutput: 50 })
+      )
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+
+      const checkpoints = new CheckpointsService()
+      const interpreter = new InterpreterService(
+        checkpoints,
+        spyNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode()
+      )
+
+      await expect(
+        interpreter.run({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          leasedBy: "worker-1",
+          graph,
+          triggerPayload: {},
+          resumeFrom: new Map(),
+        })
+      ).rejects.toThrow(LeaseLostError)
+
+      expect(executeSpy).not.toHaveBeenCalled()
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
 })

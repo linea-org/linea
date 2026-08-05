@@ -4,6 +4,7 @@ import {
   completeExecution,
   createExecution,
   getLeaseOwner,
+  isLeaseValid,
   listExecutions,
   renewLease,
   startExecution,
@@ -220,6 +221,34 @@ describe("renewLease", () => {
       expect(result.leasedBy).toBe("worker-2")
     })
   })
+
+  it("does not renew a lease that has already expired, even if nobody has reclaimed it yet", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+
+      // Same worker, same identity — but its own lease already lapsed.
+      const renewed = await renewLease(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+      expect(renewed).toBeUndefined()
+    })
+  })
 })
 
 describe("completeExecution", () => {
@@ -334,6 +363,67 @@ describe("completeExecution", () => {
       })
       expect(real?.status).toBe("succeeded")
       expect(real?.costMicros).toBe(2_000n)
+    })
+  })
+
+  it("does not complete an execution whose lease already expired, even if nobody has reclaimed it yet", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+
+      const stale = await completeExecution(tx, execution.id, "worker-1", {
+        status: "succeeded",
+        costMicros: 1n,
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+      expect(stale).toBeUndefined()
+
+      const [row] = await listExecutions(tx, workflow.id)
+      expect(row.status).toBe("running")
+    })
+  })
+})
+
+describe("isLeaseValid", () => {
+  it("is true for the current owner while the lease is live, false once it expires", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+      expect(await isLeaseValid(tx, execution.id, "worker-1")).toBe(true)
+      expect(await isLeaseValid(tx, execution.id, "worker-2")).toBe(false)
+
+      await renewLease(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+      expect(await isLeaseValid(tx, execution.id, "worker-1")).toBe(false)
     })
   })
 })

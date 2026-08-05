@@ -68,12 +68,12 @@ describe("crash-and-resume", () => {
 
       const checkpoints = new CheckpointsService()
 
-      // Worker 1 gets through 3 of 6 nodes, then dies — lease left in the past.
+      // Worker 1 claims with a live lease, gets through 3 of 6 nodes, then dies.
       await repositories.execution.startExecution(
         db,
         execution.id,
         "worker-1-doomed",
-        new Date(Date.now() - 1_000)
+        new Date(Date.now() + 60_000)
       )
 
       const transformNode = new TransformNode()
@@ -97,6 +97,12 @@ describe("crash-and-resume", () => {
         })
         currentInput = output
       }
+
+      // Now it dies — heartbeat stops, lease ages out.
+      await pool.query(
+        "UPDATE executions SET lease_expires_at = $1 WHERE id = $2",
+        [new Date(Date.now() - 1_000), execution.id]
+      )
 
       // Worker 2 ("the restart") resumes it through the real, complete path.
       const interpreter = new InterpreterService(

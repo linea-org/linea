@@ -71,13 +71,19 @@ export class CheckpointsService {
     }
   }
 
-  /** Checked right before a node's side effect, not just before persisting its result — narrows but doesn't close the window a lease lost mid-call still leaves. */
+  /**
+   * Checked right before a node's side effect, not just before persisting its result —
+   * narrows but doesn't close the window a lease lost mid-call still leaves. Checks
+   * expiry, not just identity: a stalled heartbeat leaves the identity unchanged until
+   * someone reclaims it, so identity alone isn't enough to prove the lease is still valid.
+   */
   async assertOwnsLease(executionId: string, leasedBy: string): Promise<void> {
-    const currentOwner = await repositories.execution.getLeaseOwner(
+    const valid = await repositories.execution.isLeaseValid(
       db,
-      executionId
+      executionId,
+      leasedBy
     )
-    if (currentOwner !== leasedBy) {
+    if (!valid) {
       throw new LeaseLostError(executionId)
     }
   }

@@ -183,4 +183,41 @@ describe("writeStepAndCheckpoint", () => {
       expect(latest).toBeUndefined()
     })
   })
+
+  it("does not write a step once the lease has expired, even if nobody has reclaimed it yet", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+
+      // Same worker, same identity — but its own lease already lapsed.
+      const result = await writeStepAndCheckpoint(tx, {
+        leasedBy: "worker-1",
+        step: {
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: execution.id,
+          spanId: "span-1",
+          name: "http",
+          startedAt: new Date(),
+          status: "succeeded",
+          nodeId: "node-1",
+          sequence: 1,
+        },
+        checkpoint: { sequence: 1, completedStepIds: ["node-1"], context: {} },
+      })
+
+      expect(result).toBeUndefined()
+    })
+  })
 })
