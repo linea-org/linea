@@ -110,6 +110,15 @@ importers:
       '@linea/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@linea/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@linea/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
+      '@linea/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -125,18 +134,27 @@ importers:
       better-auth:
         specifier: 1.6.25
         version: 1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0))(webpack@5.106.2(esbuild@0.27.7)(lightningcss@1.32.0)))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@3.2.7(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.0)(tsx@4.21.0))
+      bullmq:
+        specifier: ^5
+        version: 5.81.3
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
       helmet:
         specifier: 8.3.0
         version: 8.3.0
+      ioredis:
+        specifier: ^5
+        version: 5.11.1
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@linea/config':
         specifier: workspace:*

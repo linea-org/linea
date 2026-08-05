@@ -2,6 +2,7 @@ import { and, desc, eq, gt, lt, notInArray, or } from "drizzle-orm"
 import {
   executions,
   executionSteps,
+  workflows,
   type Execution,
   type ExecutionStep,
 } from "../schema/index.js"
@@ -22,6 +23,65 @@ export async function createExecution(
 ): Promise<Execution> {
   const [execution] = await db.insert(executions).values(input).returning()
   return execution
+}
+
+export type TriggerWorkflowLookup =
+  | { by: "id"; value: string }
+  | { by: "slug"; value: string }
+
+export type TriggerWorkflowResult =
+  | { outcome: "created"; execution: Execution }
+  | { outcome: "not_found" }
+  | { outcome: "archived" }
+  | { outcome: "unpublished" }
+
+/**
+ * Locks the workflow row for the check's duration, so an archive committed concurrently
+ * can't slip an execution past the check-then-insert gap: either this transaction sees
+ * the archive and rejects, or it holds the lock first and the archive waits until this
+ * commits — at which point the execution it created is already real, which is correct,
+ * since that trigger legitimately raced ahead of the archive.
+ */
+export async function triggerWorkflowExecution(
+  db: DbClient,
+  workspaceId: string,
+  lookup: TriggerWorkflowLookup,
+  input: {
+    trigger: Execution["trigger"]
+    triggerPayload?: Record<string, unknown>
+  }
+): Promise<TriggerWorkflowResult> {
+  return db.transaction(async (tx) => {
+    const [workflow] = await tx
+      .select()
+      .from(workflows)
+      .where(
+        and(
+          eq(workflows.workspaceId, workspaceId),
+          lookup.by === "id"
+            ? eq(workflows.id, lookup.value)
+            : eq(workflows.slug, lookup.value)
+        )
+      )
+      .for("update")
+
+    if (!workflow) return { outcome: "not_found" }
+    if (workflow.archivedAt) return { outcome: "archived" }
+    if (!workflow.publishedVersionId) return { outcome: "unpublished" }
+
+    const [execution] = await tx
+      .insert(executions)
+      .values({
+        workspaceId,
+        workflowId: workflow.id,
+        workflowVersionId: workflow.publishedVersionId,
+        trigger: input.trigger,
+        triggerPayload: input.triggerPayload,
+      })
+      .returning()
+
+    return { outcome: "created", execution }
+  })
 }
 
 /** Claims a queued execution, or a running one whose lease expired — the only reclaim path, atomic so racing claims get a defined outcome. */
@@ -109,6 +169,25 @@ export async function completeExecution(
         notInArray(executions.status, terminalStatuses)
       )
     )
+    .returning()
+  return execution
+}
+
+/**
+ * Marks a still-queued execution as failed before any worker ever claimed it — for when
+ * enqueueing to the job queue itself fails, so the row doesn't strand at "queued" forever
+ * with no job behind it. `completeExecution` can't be used here: it requires a `leasedBy`
+ * match, and a never-claimed execution's `leasedBy` is null, which no value equals.
+ */
+export async function failQueuedExecution(
+  db: DbClient,
+  executionId: string,
+  error: { message: string }
+): Promise<Execution | undefined> {
+  const [execution] = await db
+    .update(executions)
+    .set({ status: "failed", error, completedAt: new Date() })
+    .where(and(eq(executions.id, executionId), eq(executions.status, "queued")))
     .returning()
   return execution
 }

@@ -4,11 +4,15 @@ import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
 import { organizations, workflows, workflowVersions } from "../schema/index.js"
 import {
+  createWorkflow,
   createWorkflowVersion,
   getPublishedVersion,
+  getWorkflowById,
   getWorkflowBySlug,
   getWorkflowVersionById,
+  listWorkflows,
   publishWorkflowVersion,
+  updateWorkflow,
 } from "./workflow.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 
@@ -180,6 +184,111 @@ describe("getWorkflowVersionById", () => {
     await withRollback(async (tx) => {
       const found = await getWorkflowVersionById(tx, randomUUID())
       expect(found).toBeUndefined()
+    })
+  })
+})
+
+describe("getWorkflowById", () => {
+  it("scopes by workspace, not just id", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      const { organization: otherOrg } = await createTestFixtures(tx)
+
+      const found = await getWorkflowById(tx, organization.id, workflow.id)
+      expect(found?.id).toBe(workflow.id)
+
+      const notFound = await getWorkflowById(tx, otherOrg.id, workflow.id)
+      expect(notFound).toBeUndefined()
+    })
+  })
+})
+
+describe("listWorkflows", () => {
+  it("excludes archived workflows by default, includes them when asked", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const suffix = randomUUID()
+      const active = await createWorkflow(tx, {
+        workspaceId: organization.id,
+        name: "Active",
+        slug: `active-${suffix}`,
+      })
+      const archived = await createWorkflow(tx, {
+        workspaceId: organization.id,
+        name: "Archived",
+        slug: `archived-${suffix}`,
+        archivedAt: new Date(),
+      })
+
+      const defaultList = await listWorkflows(tx, organization.id)
+      const defaultIds = defaultList.map((w) => w.id)
+      expect(defaultIds).toContain(active.id)
+      expect(defaultIds).not.toContain(archived.id)
+
+      const fullList = await listWorkflows(tx, organization.id, {
+        includeArchived: true,
+      })
+      const fullIds = fullList.map((w) => w.id)
+      expect(fullIds).toContain(active.id)
+      expect(fullIds).toContain(archived.id)
+    })
+  })
+
+  it("does not return another workspace's workflows", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const { organization: otherOrg, workflow: otherWorkflow } =
+        await createTestFixtures(tx)
+
+      const list = await listWorkflows(tx, organization.id)
+      expect(list.map((w) => w.id)).not.toContain(otherWorkflow.id)
+      expect(otherOrg.id).not.toBe(organization.id)
+    })
+  })
+})
+
+describe("updateWorkflow", () => {
+  it("updates fields scoped to the owning workspace", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+
+      const updated = await updateWorkflow(tx, organization.id, workflow.id, {
+        name: "Renamed",
+      })
+      expect(updated?.name).toBe("Renamed")
+    })
+  })
+
+  it("does not update a workflow belonging to a different workspace", async () => {
+    await withRollback(async (tx) => {
+      const { workflow } = await createTestFixtures(tx)
+      const { organization: otherOrg } = await createTestFixtures(tx)
+
+      const updated = await updateWorkflow(tx, otherOrg.id, workflow.id, {
+        name: "Hijacked",
+      })
+      expect(updated).toBeUndefined()
+
+      const stillOriginal = await getWorkflowById(
+        tx,
+        workflow.workspaceId,
+        workflow.id
+      )
+      expect(stillOriginal?.name).toBe(workflow.name)
+    })
+  })
+
+  it("archives a workflow by setting archivedAt", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+
+      const archived = await updateWorkflow(tx, organization.id, workflow.id, {
+        archivedAt: new Date(),
+      })
+      expect(archived?.archivedAt).toBeInstanceOf(Date)
+
+      const list = await listWorkflows(tx, organization.id)
+      expect(list.map((w) => w.id)).not.toContain(workflow.id)
     })
   })
 })

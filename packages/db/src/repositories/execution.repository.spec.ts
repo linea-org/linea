@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest"
+import { db, pool } from "../clients/index.js"
 import { executions } from "../schema/index.js"
 import {
   completeExecution,
   createExecution,
+  failQueuedExecution,
   getLeaseOwner,
   isLeaseValid,
   listExecutions,
   renewLease,
   startExecution,
+  triggerWorkflowExecution,
 } from "./execution.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
+import {
+  publishWorkflowVersion,
+  updateWorkflow,
+} from "./workflow.repository.js"
 
 describe("getLeaseOwner", () => {
   it("reflects the current owner after a reclaim", async () => {
@@ -397,6 +404,52 @@ describe("completeExecution", () => {
   })
 })
 
+describe("failQueuedExecution", () => {
+  it("marks a never-claimed execution as failed", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const failed = await failQueuedExecution(tx, execution.id, {
+        message: "failed to enqueue",
+      })
+      expect(failed?.status).toBe("failed")
+      expect(failed?.error).toEqual({ message: "failed to enqueue" })
+    })
+  })
+
+  it("does not touch an execution that's already been claimed", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const result = await failQueuedExecution(tx, execution.id, {
+        message: "should not apply",
+      })
+      expect(result).toBeUndefined()
+
+      const [row] = await listExecutions(tx, workflow.id)
+      expect(row.status).toBe("running")
+    })
+  })
+})
+
 describe("isLeaseValid", () => {
   it("is true for the current owner while the lease is live, false once it expires", async () => {
     await withRollback(async (tx) => {
@@ -457,5 +510,127 @@ describe("listExecutions", () => {
       const results = await listExecutions(tx, workflow.id)
       expect(results.map((e) => e.id)).toEqual([second.id, first.id])
     })
+  })
+})
+
+describe("triggerWorkflowExecution", () => {
+  it("creates an execution for a published, non-archived workflow, by id or by slug", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      await publishWorkflowVersion(tx, workflow.id, version.id)
+
+      const byId = await triggerWorkflowExecution(
+        tx,
+        organization.id,
+        { by: "id", value: workflow.id },
+        { trigger: "manual" }
+      )
+      expect(byId.outcome).toBe("created")
+
+      const bySlug = await triggerWorkflowExecution(
+        tx,
+        organization.id,
+        { by: "slug", value: workflow.slug },
+        { trigger: "webhook", triggerPayload: { source: "test" } }
+      )
+      expect(bySlug.outcome).toBe("created")
+      if (bySlug.outcome === "created") {
+        expect(bySlug.execution.trigger).toBe("webhook")
+        expect(bySlug.execution.triggerPayload).toEqual({ source: "test" })
+      }
+    })
+  })
+
+  it("returns not_found for a workflow that doesn't exist or belongs to another workspace", async () => {
+    await withRollback(async (tx) => {
+      const { workflow: otherWorkflow } = await createTestFixtures(tx)
+      const { organization } = await createTestFixtures(tx)
+
+      const result = await triggerWorkflowExecution(
+        tx,
+        organization.id,
+        { by: "id", value: otherWorkflow.id },
+        { trigger: "manual" }
+      )
+      expect(result.outcome).toBe("not_found")
+    })
+  })
+
+  it("returns unpublished for a workflow with no published version", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+
+      const result = await triggerWorkflowExecution(
+        tx,
+        organization.id,
+        { by: "id", value: workflow.id },
+        { trigger: "manual" }
+      )
+      expect(result.outcome).toBe("unpublished")
+    })
+  })
+
+  it("returns archived for an archived workflow, even with a published version", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      await publishWorkflowVersion(tx, workflow.id, version.id)
+      await updateWorkflow(tx, organization.id, workflow.id, {
+        archivedAt: new Date(),
+      })
+
+      const result = await triggerWorkflowExecution(
+        tx,
+        organization.id,
+        { by: "id", value: workflow.id },
+        { trigger: "manual" }
+      )
+      expect(result.outcome).toBe("archived")
+    })
+  })
+
+  it("blocks a concurrent archive from committing until the trigger's row lock is released", async () => {
+    // Same technique as createWorkflowVersion's lock test: two real
+    // connections, since Promise.all doesn't reliably force real overlap.
+    const { organization, workflow, version } = await db.transaction((tx) =>
+      createTestFixtures(tx)
+    )
+    await publishWorkflowVersion(db, workflow.id, version.id)
+
+    const clientA = await pool.connect()
+    const clientB = await pool.connect()
+
+    try {
+      await clientA.query("BEGIN")
+      await clientA.query("SELECT id FROM workflows WHERE id = $1 FOR UPDATE", [
+        workflow.id,
+      ])
+
+      await clientB.query("BEGIN")
+      let archiveCommitted = false
+      const archiveAttempt = clientB
+        .query("UPDATE workflows SET archived_at = now() WHERE id = $1", [
+          workflow.id,
+        ])
+        .then(() => {
+          archiveCommitted = true
+        })
+
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      expect(archiveCommitted).toBe(false)
+
+      await clientA.query("COMMIT")
+      await archiveAttempt
+      expect(archiveCommitted).toBe(true)
+
+      await clientB.query("COMMIT")
+    } finally {
+      await clientA.query("ROLLBACK").catch(() => {})
+      await clientB.query("ROLLBACK").catch(() => {})
+      clientA.release()
+      clientB.release()
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
   })
 })
