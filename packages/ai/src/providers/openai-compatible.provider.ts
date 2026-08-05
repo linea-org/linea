@@ -1,8 +1,9 @@
 import OpenAI from "openai"
-import type {
-  AiProvider,
-  CompletionRequest,
-  CompletionResult,
+import {
+  DEFAULT_MAX_TOKENS,
+  type AiProvider,
+  type CompletionRequest,
+  type CompletionResult,
 } from "./provider.interface.js"
 
 /** Groq and xAI both publish an OpenAI-compatible chat completions endpoint — one impl, one baseURL each. */
@@ -16,6 +17,8 @@ export function createOpenAiCompatibleProvider(baseURL?: string): AiProvider {
 
       const response = await client.chat.completions.create({
         model: request.model,
+        // Not max_completion_tokens — that's OpenAI's own o-series-specific rename; Groq/xAI likely don't honor it.
+        max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
         messages: [
           ...(request.systemPrompt
             ? [{ role: "system" as const, content: request.systemPrompt }]

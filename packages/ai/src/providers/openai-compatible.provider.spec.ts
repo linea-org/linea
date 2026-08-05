@@ -91,4 +91,36 @@ describe("createOpenAiCompatibleProvider", () => {
 
     expect(result).toEqual({ text: "", tokensInput: 0, tokensOutput: 0 })
   })
+
+  it("bounds output tokens with a default when the caller doesn't specify one", async () => {
+    create.mockResolvedValue({
+      choices: [{ message: { content: "hi" } }],
+      usage: { prompt_tokens: 1, completion_tokens: 1 },
+    })
+
+    const provider = createOpenAiCompatibleProvider()
+    await provider.complete("key", { model: "gpt-5", prompt: "hello" })
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ max_tokens: 4096 })
+    )
+  })
+
+  it("lets the caller override the output token limit", async () => {
+    create.mockResolvedValue({
+      choices: [{ message: { content: "hi" } }],
+      usage: { prompt_tokens: 1, completion_tokens: 1 },
+    })
+
+    const provider = createOpenAiCompatibleProvider()
+    await provider.complete("key", {
+      model: "gpt-5",
+      prompt: "hello",
+      maxTokens: 128,
+    })
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ max_tokens: 128 })
+    )
+  })
 })

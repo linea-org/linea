@@ -1,8 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk"
-import type {
-  AiProvider,
-  CompletionRequest,
-  CompletionResult,
+import {
+  DEFAULT_MAX_TOKENS,
+  type AiProvider,
+  type CompletionRequest,
+  type CompletionResult,
 } from "./provider.interface.js"
 
 export const anthropicProvider: AiProvider = {
@@ -15,7 +16,7 @@ export const anthropicProvider: AiProvider = {
     const response = await client.messages.create({
       model: request.model,
       system: request.systemPrompt,
-      max_tokens: 4096,
+      max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
       messages: [{ role: "user", content: request.prompt }],
     })
 

@@ -37,6 +37,15 @@ inferred from a model name string.
   `console.groq.com/docs/models`; xAI's `grok-4.5` id and base URL are not
   independently verified against xAI's own docs. Check both before
   depending on either in production.
+- **Every completion request is bounded by `maxTokens`, default 4096.**
+  Every provider used to have its own default (Anthropic's was hardcoded,
+  the OpenAI-compatible one had none at all, so Groq/xAI's own defaults
+  applied unpredictably) — now all four go through the same
+  `DEFAULT_MAX_TOKENS`, overridable per request. The OpenAI-compatible
+  adapter deliberately sends `max_tokens`, not OpenAI's newer
+  `max_completion_tokens` — that rename is specific to OpenAI's own
+  o-series reasoning models, and Groq/xAI's compatibility layers are far
+  more likely to honor the original field.
 
 ## Public surface
 
