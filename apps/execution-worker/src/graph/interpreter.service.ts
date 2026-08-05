@@ -1,7 +1,10 @@
 import { Injectable } from "@nestjs/common"
 import { walk } from "@linea/runtime"
 import type { StepResult, WalkResult, WorkflowGraph } from "@linea/runtime"
-import { CheckpointsService } from "../checkpoints/checkpoints.service"
+import {
+  CheckpointsService,
+  LeaseLostError,
+} from "../checkpoints/checkpoints.service"
 import { AiNode } from "./nodes/ai.node"
 import { BranchNode } from "./nodes/branch.node"
 import { HttpNode } from "./nodes/http.node"
@@ -127,6 +130,12 @@ export class InterpreterService {
 
         stepResult = { nodeId: step.nodeId, output }
       } catch (error) {
+        // Already know this write would be rejected too — don't bother
+        // attempting it, just propagate.
+        if (error instanceof LeaseLostError) {
+          throw error
+        }
+
         const message = error instanceof Error ? error.message : String(error)
         const stack = error instanceof Error ? error.stack : undefined
 
