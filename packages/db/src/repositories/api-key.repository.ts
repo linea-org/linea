@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { and, desc, eq, isNull } from "drizzle-orm"
 import { apiKeys, type ApiKey, type NewApiKey } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
@@ -43,4 +43,21 @@ export async function revokeApiKey(db: DbClient, id: string): Promise<void> {
     .update(apiKeys)
     .set({ revokedAt: new Date() })
     .where(eq(apiKeys.id, id))
+}
+
+export async function listApiKeys(
+  db: DbClient,
+  workspaceId: string,
+  options: { includeRevoked?: boolean } = {}
+): Promise<ApiKey[]> {
+  return db
+    .select()
+    .from(apiKeys)
+    .where(
+      and(
+        eq(apiKeys.workspaceId, workspaceId),
+        options.includeRevoked ? undefined : isNull(apiKeys.revokedAt)
+      )
+    )
+    .orderBy(desc(apiKeys.createdAt))
 }

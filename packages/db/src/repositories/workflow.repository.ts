@@ -1,4 +1,4 @@
-import { and, eq, max } from "drizzle-orm"
+import { and, desc, eq, isNull, max } from "drizzle-orm"
 import {
   workflows,
   workflowVersions,
@@ -80,6 +80,56 @@ export async function getWorkflowBySlug(
     .where(
       and(eq(workflows.workspaceId, workspaceId), eq(workflows.slug, slug))
     )
+  return workflow
+}
+
+export async function getWorkflowById(
+  db: DbClient,
+  workspaceId: string,
+  id: string
+): Promise<Workflow | undefined> {
+  const [workflow] = await db
+    .select()
+    .from(workflows)
+    .where(and(eq(workflows.workspaceId, workspaceId), eq(workflows.id, id)))
+  return workflow
+}
+
+export async function listWorkflows(
+  db: DbClient,
+  workspaceId: string,
+  options: { includeArchived?: boolean } = {}
+): Promise<Workflow[]> {
+  return db
+    .select()
+    .from(workflows)
+    .where(
+      and(
+        eq(workflows.workspaceId, workspaceId),
+        options.includeArchived ? undefined : isNull(workflows.archivedAt)
+      )
+    )
+    .orderBy(desc(workflows.createdAt))
+}
+
+export type UpdateWorkflowInput = {
+  name?: string
+  slug?: string
+  archivedAt?: Date | null
+}
+
+/** Scoped by workspaceId in the same query, not a separate ownership check, so there's no gap between checking and writing. */
+export async function updateWorkflow(
+  db: DbClient,
+  workspaceId: string,
+  id: string,
+  input: UpdateWorkflowInput
+): Promise<Workflow | undefined> {
+  const [workflow] = await db
+    .update(workflows)
+    .set(input)
+    .where(and(eq(workflows.workspaceId, workspaceId), eq(workflows.id, id)))
+    .returning()
   return workflow
 }
 
