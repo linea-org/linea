@@ -7,6 +7,7 @@ import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { HealthController } from './health/health.controller'
 import { MeController } from './me/me.controller'
+import { WorkflowsModule } from './workflows/workflows.module'
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { MeController } from './me/me.controller'
       isGlobal: true,
     }),
     ApiKeysModule,
+    WorkflowsModule,
   ],
   controllers: [AppController, HealthController, MeController],
   providers: [AppService],
