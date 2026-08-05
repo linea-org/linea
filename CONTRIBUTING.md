@@ -43,22 +43,23 @@ cp .env.example .env
 
 There's a single `.env` at the repo root shared by both apps. Fill in:
 
-| Variable                                    | Required | Where to get it                                                                                  |
-| ------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`                              | Yes      | Defaults to the Docker Postgres above, no change needed locally                                  |
-| `REDIS_URL`                                 | Yes      | Defaults to the Docker Redis above, no change needed locally                                     |
-| `BETTER_AUTH_SECRET`                        | Yes      | Any long random string, e.g. `openssl rand -hex 32`                                              |
-| `BETTER_AUTH_URL`                           | Yes      | Defaults to `http://localhost:3001`, no change needed locally                                    |
-| `APP_URL`                                   | No       | Falls back to `BETTER_AUTH_URL` if unset                                                         |
-| `TRUSTED_ORIGINS`                           | No       | Falls back to `APP_URL`/`BETTER_AUTH_URL` if unset                                               |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | No       | Google Cloud Console, only needed to test Google OAuth                                           |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | No       | GitHub OAuth Apps, only needed to test GitHub OAuth                                              |
-| `VITE_API_URL`                              | No       | Falls back to `http://localhost:3000` if unset                                                   |
-| `VITE_APP_URL`                              | No       | Falls back to `http://localhost:3001` if unset                                                   |
-| `RESEND_API_KEY`                            | Yes      | [Resend](https://resend.com) dashboard, needed for any auth email (verification, reset, invites) |
-| `EMAIL_FROM`                                | Yes      | The `From` address auth emails send from                                                         |
-| `EMAIL_BRAND_NAME`                          | No       | Falls back to `"Linea"` if unset                                                                 |
-| `EMAIL_SUPPORT_EMAIL`                       | No       | Omitted from email footers if unset                                                              |
+| Variable                                                                | Required | Where to get it                                                                                  |
+| ----------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`                                                          | Yes      | Defaults to the Docker Postgres above, no change needed locally                                  |
+| `REDIS_URL`                                                             | Yes      | Defaults to the Docker Redis above, no change needed locally                                     |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GROQ_API_KEY` / `XAI_API_KEY` | No       | Only needed to actually call that provider's models via an AI node — see `packages/ai/MODULE.md` |
+| `BETTER_AUTH_SECRET`                                                    | Yes      | Any long random string, e.g. `openssl rand -hex 32`                                              |
+| `BETTER_AUTH_URL`                                                       | Yes      | Defaults to `http://localhost:3001`, no change needed locally                                    |
+| `APP_URL`                                                               | No       | Falls back to `BETTER_AUTH_URL` if unset                                                         |
+| `TRUSTED_ORIGINS`                                                       | No       | Falls back to `APP_URL`/`BETTER_AUTH_URL` if unset                                               |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`                             | No       | Google Cloud Console, only needed to test Google OAuth                                           |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`                             | No       | GitHub OAuth Apps, only needed to test GitHub OAuth                                              |
+| `VITE_API_URL`                                                          | No       | Falls back to `http://localhost:3000` if unset                                                   |
+| `VITE_APP_URL`                                                          | No       | Falls back to `http://localhost:3001` if unset                                                   |
+| `RESEND_API_KEY`                                                        | Yes      | [Resend](https://resend.com) dashboard, needed for any auth email (verification, reset, invites) |
+| `EMAIL_FROM`                                                            | Yes      | The `From` address auth emails send from                                                         |
+| `EMAIL_BRAND_NAME`                                                      | No       | Falls back to `"Linea"` if unset                                                                 |
+| `EMAIL_SUPPORT_EMAIL`                                                   | No       | Omitted from email footers if unset                                                              |
 
 ### 4. Push the database schema
 
@@ -103,7 +104,7 @@ linea/
     ├── ui/               # shared React component library (shadcn)
     ├── config/           # shared eslint config + tsconfig base
     ├── types/            # shared TypeScript types
-    ├── ai/               # scaffolded (lint/tsconfig only, no provider code yet)
+    ├── ai/               # provider registry + key resolver (Anthropic, OpenAI, Groq, xAI)
     ├── runtime/          # workflow JSON schema, node registry, graph walker
     ├── queue/            # BullMQ wrapper — workflow-execution queue
     ├── connectors/       # stub, not yet built
