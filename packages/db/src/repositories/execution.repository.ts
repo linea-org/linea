@@ -1,4 +1,4 @@
-import { and, desc, eq, notInArray } from "drizzle-orm"
+import { and, desc, eq, lt, notInArray, or } from "drizzle-orm"
 import {
   executions,
   executionSteps,
@@ -24,7 +24,12 @@ export async function createExecution(
   return execution
 }
 
-/** Only transitions if still queued, so two workers racing to claim it get a defined outcome. */
+/**
+ * Claims a queued execution, or one left "running" by a worker that died before its
+ * lease expired — this is the only reclaim path, so a crashed worker's execution isn't
+ * stuck forever. Still a single atomic UPDATE, so two workers racing to claim it (fresh
+ * or reclaimed) get a defined outcome.
+ */
 export async function startExecution(
   db: DbClient,
   executionId: string,
@@ -39,7 +44,18 @@ export async function startExecution(
       leaseExpiresAt,
       startedAt: new Date(),
     })
-    .where(and(eq(executions.id, executionId), eq(executions.status, "queued")))
+    .where(
+      and(
+        eq(executions.id, executionId),
+        or(
+          eq(executions.status, "queued"),
+          and(
+            eq(executions.status, "running"),
+            lt(executions.leaseExpiresAt, new Date())
+          )
+        )
+      )
+    )
     .returning()
   return execution
 }

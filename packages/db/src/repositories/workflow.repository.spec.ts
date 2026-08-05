@@ -7,6 +7,7 @@ import {
   createWorkflowVersion,
   getPublishedVersion,
   getWorkflowBySlug,
+  getWorkflowVersionById,
   publishWorkflowVersion,
 } from "./workflow.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
@@ -153,6 +154,31 @@ describe("getWorkflowBySlug", () => {
     await withRollback(async (tx) => {
       const { organization } = await createTestFixtures(tx)
       const found = await getWorkflowBySlug(tx, organization.id, randomUUID())
+      expect(found).toBeUndefined()
+    })
+  })
+})
+
+describe("getWorkflowVersionById", () => {
+  it("returns the exact version bound at the given id, not the currently published one", async () => {
+    await withRollback(async (tx) => {
+      const { workflow, version } = await createTestFixtures(tx)
+      const newer = await createWorkflowVersion(tx, {
+        workflowId: workflow.id,
+        graph: {},
+        contentHash: "newer-hash",
+      })
+      await publishWorkflowVersion(tx, workflow.id, newer.id)
+
+      const found = await getWorkflowVersionById(tx, version.id)
+      expect(found?.id).toBe(version.id)
+      expect(found?.id).not.toBe(newer.id)
+    })
+  })
+
+  it("returns undefined for an id that doesn't exist", async () => {
+    await withRollback(async (tx) => {
+      const found = await getWorkflowVersionById(tx, randomUUID())
       expect(found).toBeUndefined()
     })
   })

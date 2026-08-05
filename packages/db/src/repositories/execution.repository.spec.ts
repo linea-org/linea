@@ -61,6 +61,61 @@ describe("startExecution", () => {
       expect(second).toBeUndefined()
     })
   })
+
+  it("does not let a second worker claim a running execution with a live lease", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+      const second = await startExecution(
+        tx,
+        execution.id,
+        "worker-2",
+        new Date(Date.now() + 60_000)
+      )
+
+      expect(second).toBeUndefined()
+    })
+  })
+
+  it("reclaims a running execution once its lease has expired", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+
+      const reclaimed = await startExecution(
+        tx,
+        execution.id,
+        "worker-2",
+        new Date(Date.now() + 60_000)
+      )
+
+      expect(reclaimed?.leasedBy).toBe("worker-2")
+    })
+  })
 })
 
 describe("renewLease", () => {
