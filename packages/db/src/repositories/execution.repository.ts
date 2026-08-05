@@ -1,4 +1,4 @@
-import { and, desc, eq, notInArray } from "drizzle-orm"
+import { and, desc, eq, gt, lt, notInArray, or } from "drizzle-orm"
 import {
   executions,
   executionSteps,
@@ -24,7 +24,7 @@ export async function createExecution(
   return execution
 }
 
-/** Only transitions if still queued, so two workers racing to claim it get a defined outcome. */
+/** Claims a queued execution, or a running one whose lease expired — the only reclaim path, atomic so racing claims get a defined outcome. */
 export async function startExecution(
   db: DbClient,
   executionId: string,
@@ -39,22 +39,42 @@ export async function startExecution(
       leaseExpiresAt,
       startedAt: new Date(),
     })
-    .where(and(eq(executions.id, executionId), eq(executions.status, "queued")))
+    .where(
+      and(
+        eq(executions.id, executionId),
+        or(
+          eq(executions.status, "queued"),
+          and(
+            eq(executions.status, "running"),
+            lt(executions.leaseExpiresAt, new Date())
+          )
+        )
+      )
+    )
     .returning()
   return execution
 }
 
+/** Only renews if `leasedBy` still matches and the current lease hasn't already expired — a stalled heartbeat can't resurrect a lease nobody reclaimed yet but that's already timed out. */
 export async function renewLease(
   db: DbClient,
   executionId: string,
+  leasedBy: string,
   leaseExpiresAt: Date
-): Promise<void> {
-  await db
+): Promise<Execution | undefined> {
+  const [execution] = await db
     .update(executions)
     .set({ leaseExpiresAt })
     .where(
-      and(eq(executions.id, executionId), eq(executions.status, "running"))
+      and(
+        eq(executions.id, executionId),
+        eq(executions.status, "running"),
+        eq(executions.leasedBy, leasedBy),
+        gt(executions.leaseExpiresAt, new Date())
+      )
     )
+    .returning()
+  return execution
 }
 
 export type CompleteExecutionInput = {
@@ -71,10 +91,11 @@ const terminalStatuses: Execution["status"][] = [
   "cancelled",
 ]
 
-/** Only transitions if not already terminal, so a delayed/retried completion can't overwrite a recorded outcome. */
+/** Only transitions if not already terminal, `leasedBy` still matches, and the lease hasn't expired — a stalled worker can't finalize stale work just because nobody's reclaimed it yet. */
 export async function completeExecution(
   db: DbClient,
   executionId: string,
+  leasedBy: string,
   input: CompleteExecutionInput
 ): Promise<Execution | undefined> {
   const [execution] = await db
@@ -83,11 +104,45 @@ export async function completeExecution(
     .where(
       and(
         eq(executions.id, executionId),
+        eq(executions.leasedBy, leasedBy),
+        gt(executions.leaseExpiresAt, new Date()),
         notInArray(executions.status, terminalStatuses)
       )
     )
     .returning()
   return execution
+}
+
+/** Current `leasedBy`, or undefined if the execution doesn't exist — used to check ownership before a risky operation, not just before persisting its result. */
+export async function getLeaseOwner(
+  db: DbClient,
+  executionId: string
+): Promise<string | null | undefined> {
+  const [execution] = await db
+    .select({ leasedBy: executions.leasedBy })
+    .from(executions)
+    .where(eq(executions.id, executionId))
+  return execution?.leasedBy
+}
+
+/** Whether `leasedBy` both matches and its lease hasn't expired — identity alone isn't enough, since a stalled heartbeat can leave a stale identity in place until someone reclaims it. */
+export async function isLeaseValid(
+  db: DbClient,
+  executionId: string,
+  leasedBy: string
+): Promise<boolean> {
+  const [execution] = await db
+    .select({
+      leasedBy: executions.leasedBy,
+      leaseExpiresAt: executions.leaseExpiresAt,
+    })
+    .from(executions)
+    .where(eq(executions.id, executionId))
+  return (
+    execution?.leasedBy === leasedBy &&
+    execution.leaseExpiresAt !== null &&
+    execution.leaseExpiresAt > new Date()
+  )
 }
 
 export async function getExecutionWithSteps(

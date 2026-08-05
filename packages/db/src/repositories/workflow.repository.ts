@@ -97,3 +97,15 @@ export async function getPublishedVersion(
     .where(eq(workflows.id, workflowId))
   return row?.version
 }
+
+/** By id, not "currently published" — an execution is bound to whatever version it started with, even if the workflow has since published a newer one. */
+export async function getWorkflowVersionById(
+  db: DbClient,
+  versionId: string
+): Promise<WorkflowVersion | undefined> {
+  const [version] = await db
+    .select()
+    .from(workflowVersions)
+    .where(eq(workflowVersions.id, versionId))
+  return version
+}

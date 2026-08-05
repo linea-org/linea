@@ -18,10 +18,11 @@ inferred from a model name string.
   model, rather than inferring the provider from the string (e.g. "starts
   with `gpt`"). A typo'd or unregistered model throws immediately instead of
   silently resolving to the wrong provider or no provider.
-- **A workspace's own key always wins over the platform key.** `keyName`
-  doubles as both the `secrets` table lookup key and the platform fallback's
-  env var name (e.g. `ANTHROPIC_API_KEY`) — one name per provider serves
-  both purposes, no separate provider → env-var mapping needed.
+- **A workspace's own key always wins over the platform key.** `resolveApiKey`'s
+  `keyName` doubles as both the `secrets` table lookup key and the platform
+  fallback's env var name (e.g. `ANTHROPIC_API_KEY`) — one name per provider
+  serves both purposes. A caller gets it from `resolveKeyName(model)` rather
+  than hardcoding which provider a model belongs to.
 - **OpenAI, Groq, and xAI share one implementation**
   (`openai-compatible.provider.ts`), parameterized only by `baseURL` —
   all three publish an OpenAI-compatible chat completions endpoint, so
@@ -49,9 +50,9 @@ inferred from a model name string.
 
 ## Public surface
 
-`registry`, `resolveProvider(model)`, `resolveApiKey(db, workspaceId, keyName)`,
-`createOpenAiCompatibleProvider(baseURL?)`, and the `AiProvider` /
-`CompletionRequest` / `CompletionResult` types.
+`registry`, `resolveProvider(model)`, `resolveKeyName(model)`,
+`resolveApiKey(db, workspaceId, keyName)`, `createOpenAiCompatibleProvider(baseURL?)`,
+and the `AiProvider` / `CompletionRequest` / `CompletionResult` types.
 
 ## Deliberately not here
 

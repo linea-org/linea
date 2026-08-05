@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { createExecution } from "./execution.repository.js"
+import { createExecution, startExecution } from "./execution.repository.js"
 import {
   getLatestCheckpoint,
   getStepsForExecution,
@@ -17,8 +17,15 @@ describe("writeStepAndCheckpoint", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
 
-      const { step, checkpoint } = await writeStepAndCheckpoint(tx, {
+      const result = await writeStepAndCheckpoint(tx, {
+        leasedBy: "worker-1",
         step: {
           executionId: execution.id,
           workspaceId: organization.id,
@@ -37,8 +44,8 @@ describe("writeStepAndCheckpoint", () => {
         },
       })
 
-      expect(step.executionId).toBe(execution.id)
-      expect(checkpoint.executionId).toBe(execution.id)
+      expect(result?.step.executionId).toBe(execution.id)
+      expect(result?.checkpoint.executionId).toBe(execution.id)
 
       const latest = await getLatestCheckpoint(tx, execution.id)
       expect(latest?.sequence).toBe(1)
@@ -58,9 +65,16 @@ describe("writeStepAndCheckpoint", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
 
       for (const sequence of [1, 2, 3]) {
         await writeStepAndCheckpoint(tx, {
+          leasedBy: "worker-1",
           step: {
             executionId: execution.id,
             workspaceId: organization.id,
@@ -94,10 +108,17 @@ describe("writeStepAndCheckpoint", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
       const { organization: otherOrg } = await createTestFixtures(tx)
 
       await expect(
         writeStepAndCheckpoint(tx, {
+          leasedBy: "worker-1",
           step: {
             executionId: execution.id,
             workspaceId: otherOrg.id,
@@ -112,6 +133,91 @@ describe("writeStepAndCheckpoint", () => {
           checkpoint: { sequence: 1, completedStepIds: [], context: {} },
         })
       ).rejects.toThrow()
+    })
+  })
+
+  it("does not write a step for a worker that lost the lease to a reclaim", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-2",
+        new Date(Date.now() + 60_000)
+      )
+
+      // worker-1 was still mid-step when worker-2 reclaimed the execution.
+      const result = await writeStepAndCheckpoint(tx, {
+        leasedBy: "worker-1",
+        step: {
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: execution.id,
+          spanId: "span-1",
+          name: "http",
+          startedAt: new Date(),
+          status: "succeeded",
+          nodeId: "node-1",
+          sequence: 1,
+        },
+        checkpoint: { sequence: 1, completedStepIds: ["node-1"], context: {} },
+      })
+
+      expect(result).toBeUndefined()
+
+      const steps = await getStepsForExecution(tx, execution.id)
+      expect(steps).toHaveLength(0)
+      const latest = await getLatestCheckpoint(tx, execution.id)
+      expect(latest).toBeUndefined()
+    })
+  })
+
+  it("does not write a step once the lease has expired, even if nobody has reclaimed it yet", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+
+      // Same worker, same identity — but its own lease already lapsed.
+      const result = await writeStepAndCheckpoint(tx, {
+        leasedBy: "worker-1",
+        step: {
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: execution.id,
+          spanId: "span-1",
+          name: "http",
+          startedAt: new Date(),
+          status: "succeeded",
+          nodeId: "node-1",
+          sequence: 1,
+        },
+        checkpoint: { sequence: 1, completedStepIds: ["node-1"], context: {} },
+      })
+
+      expect(result).toBeUndefined()
     })
   })
 })

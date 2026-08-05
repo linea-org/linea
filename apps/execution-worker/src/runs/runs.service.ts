@@ -1,0 +1,132 @@
+import { randomUUID } from "node:crypto"
+import { Injectable, Logger } from "@nestjs/common"
+import { db, repositories } from "@linea/db"
+import { validateGraphStructure, workflowGraphSchema } from "@linea/runtime"
+import { CheckpointsService } from "../checkpoints/checkpoints.service"
+import { InterpreterService } from "../graph/interpreter.service"
+import { RunLeaseService } from "./run-lease.service"
+
+@Injectable()
+export class RunsService {
+  private readonly logger = new Logger(RunsService.name)
+  // Just a log prefix — RunsService is a singleton, so the actual fencing
+  // token is generated fresh per call below, not stored on the instance.
+  private readonly processId = `execution-worker:${process.pid}`
+
+  constructor(
+    private readonly checkpoints: CheckpointsService,
+    private readonly interpreter: InterpreterService,
+    private readonly lease: RunLeaseService
+  ) {}
+
+  async execute(executionId: string): Promise<void> {
+    const attemptId = `${this.processId}:${randomUUID()}`
+
+    const execution = await repositories.execution.startExecution(
+      db,
+      executionId,
+      attemptId,
+      this.lease.computeLeaseExpiry()
+    )
+
+    if (!execution) {
+      this.logger.warn(
+        `Execution ${executionId} was not claimable (already running or terminal) — skipping`
+      )
+      return
+    }
+
+    this.lease.startHeartbeat(executionId, attemptId)
+
+    // Best totals known so far, so a failure partway through still reports checkpointed usage instead of zero.
+    let knownTokensInput = 0
+    let knownTokensOutput = 0
+
+    try {
+      // Loaded first, before anything that can throw for unrelated reasons
+      // (a bad version id, a corrupt graph) — otherwise a reclaimed execution
+      // with real prior usage would finalize at zero on those failures too.
+      const resumeTokens =
+        await this.checkpoints.getResumeTokenTotals(executionId)
+      knownTokensInput = resumeTokens.tokensInput
+      knownTokensOutput = resumeTokens.tokensOutput
+
+      const version = await repositories.workflow.getWorkflowVersionById(
+        db,
+        execution.workflowVersionId
+      )
+      if (!version) {
+        throw new Error(
+          `Workflow version ${execution.workflowVersionId} not found`
+        )
+      }
+
+      const graph = workflowGraphSchema.parse(version.graph)
+      validateGraphStructure(graph)
+
+      const resumeFrom = await this.checkpoints.getResumeState(executionId)
+
+      const outcome = await this.interpreter.run({
+        executionId,
+        workspaceId: execution.workspaceId,
+        leasedBy: attemptId,
+        graph,
+        triggerPayload: execution.triggerPayload,
+        resumeFrom,
+        initialTokensInput: resumeTokens.tokensInput,
+        initialTokensOutput: resumeTokens.tokensOutput,
+      })
+      knownTokensInput = outcome.totalTokensInput
+      knownTokensOutput = outcome.totalTokensOutput
+
+      // No per-token pricing table exists anywhere yet — tracked as a known
+      // gap (see MODULE.md), not silently invented. Tokens are still real.
+      if (outcome.result.status === "completed") {
+        await repositories.execution.completeExecution(
+          db,
+          executionId,
+          attemptId,
+          {
+            status: "succeeded",
+            costMicros: 0n,
+            tokensInput: outcome.totalTokensInput,
+            tokensOutput: outcome.totalTokensOutput,
+          }
+        )
+      } else {
+        await repositories.execution.completeExecution(
+          db,
+          executionId,
+          attemptId,
+          {
+            status: "failed",
+            error: {
+              message: outcome.result.error,
+              stepId: outcome.result.nodeId,
+            },
+            costMicros: 0n,
+            tokensInput: outcome.totalTokensInput,
+            tokensOutput: outcome.totalTokensOutput,
+          }
+        )
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      await repositories.execution.completeExecution(
+        db,
+        executionId,
+        attemptId,
+        {
+          status: "failed",
+          error: { message },
+          costMicros: 0n,
+          tokensInput: knownTokensInput,
+          tokensOutput: knownTokensOutput,
+        }
+      )
+      throw error
+    } finally {
+      this.lease.stopHeartbeat(attemptId)
+    }
+  }
+}

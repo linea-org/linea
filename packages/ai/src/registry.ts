@@ -35,3 +35,33 @@ export function resolveProvider(model: string): AiProvider {
   }
   return provider
 }
+
+/** Which secrets-table/env-var key name a model's provider needs — same keying as `registry`. */
+const keyNameByModel: Record<string, string> = {
+  "claude-opus-5": "ANTHROPIC_API_KEY",
+  "claude-sonnet-5": "ANTHROPIC_API_KEY",
+  "claude-fable-5": "ANTHROPIC_API_KEY",
+  "claude-haiku-4-5-20251001": "ANTHROPIC_API_KEY",
+
+  "gpt-5": "OPENAI_API_KEY",
+  "gpt-5-mini": "OPENAI_API_KEY",
+  "gpt-4.1": "OPENAI_API_KEY",
+  "gpt-4o": "OPENAI_API_KEY",
+
+  "llama-3.1-8b-instant": "GROQ_API_KEY",
+  "llama-3.3-70b-versatile": "GROQ_API_KEY",
+  "openai/gpt-oss-120b": "GROQ_API_KEY",
+  "openai/gpt-oss-20b": "GROQ_API_KEY",
+  "groq/compound": "GROQ_API_KEY",
+  "groq/compound-mini": "GROQ_API_KEY",
+
+  "grok-4.5": "XAI_API_KEY",
+}
+
+export function resolveKeyName(model: string): string {
+  const keyName = keyNameByModel[model]
+  if (!keyName) {
+    throw new Error(`No key name registered for model: "${model}"`)
+  }
+  return keyName
+}

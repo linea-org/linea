@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { registry, resolveProvider } from "./registry.js"
+import { registry, resolveKeyName, resolveProvider } from "./registry.js"
 
 describe("resolveProvider", () => {
   it("resolves every registered model to a provider", () => {
@@ -11,6 +11,20 @@ describe("resolveProvider", () => {
   it("throws on an unregistered model", () => {
     expect(() => resolveProvider("definitely-not-a-real-model")).toThrow(
       /Unknown model/
+    )
+  })
+})
+
+describe("resolveKeyName", () => {
+  it("has a key name for every registered model", () => {
+    for (const model of Object.keys(registry)) {
+      expect(() => resolveKeyName(model)).not.toThrow()
+    }
+  })
+
+  it("throws on an unregistered model", () => {
+    expect(() => resolveKeyName("definitely-not-a-real-model")).toThrow(
+      /No key name registered/
     )
   })
 })
