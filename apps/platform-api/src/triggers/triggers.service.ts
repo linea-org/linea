@@ -16,28 +16,22 @@ export class TriggersService {
     slug: string,
     payload: Record<string, unknown> | undefined,
   ): Promise<Execution> {
-    const workflow = await repositories.workflow.getWorkflowBySlug(
+    const result = await repositories.execution.triggerWorkflowExecution(
       db,
       workspaceId,
-      slug,
+      { by: 'slug', value: slug },
+      { trigger: 'webhook', triggerPayload: payload },
     )
-    if (!workflow) {
-      throw new NotFoundException('Workflow not found')
-    }
-    if (workflow.archivedAt) {
-      throw new BadRequestException('Workflow is archived')
-    }
-    if (!workflow.publishedVersionId) {
-      throw new BadRequestException('Workflow has no published version')
+    switch (result.outcome) {
+      case 'not_found':
+        throw new NotFoundException('Workflow not found')
+      case 'archived':
+        throw new BadRequestException('Workflow is archived')
+      case 'unpublished':
+        throw new BadRequestException('Workflow has no published version')
     }
 
-    const execution = await repositories.execution.createExecution(db, {
-      workspaceId,
-      workflowId: workflow.id,
-      workflowVersionId: workflow.publishedVersionId,
-      trigger: 'webhook',
-      triggerPayload: payload,
-    })
+    const execution = result.execution
 
     try {
       await this.queue.enqueue(execution.id)

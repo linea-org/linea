@@ -17,28 +17,22 @@ export class ExecutionsService {
     workflowId: string,
     input: TriggerExecutionDto,
   ): Promise<Execution> {
-    const workflow = await repositories.workflow.getWorkflowById(
+    const result = await repositories.execution.triggerWorkflowExecution(
       db,
       workspaceId,
-      workflowId,
+      { by: 'id', value: workflowId },
+      { trigger: 'manual', triggerPayload: input.triggerPayload },
     )
-    if (!workflow) {
-      throw new NotFoundException('Workflow not found')
-    }
-    if (workflow.archivedAt) {
-      throw new BadRequestException('Workflow is archived')
-    }
-    if (!workflow.publishedVersionId) {
-      throw new BadRequestException('Workflow has no published version')
+    switch (result.outcome) {
+      case 'not_found':
+        throw new NotFoundException('Workflow not found')
+      case 'archived':
+        throw new BadRequestException('Workflow is archived')
+      case 'unpublished':
+        throw new BadRequestException('Workflow has no published version')
     }
 
-    const execution = await repositories.execution.createExecution(db, {
-      workspaceId,
-      workflowId,
-      workflowVersionId: workflow.publishedVersionId,
-      trigger: 'manual',
-      triggerPayload: input.triggerPayload,
-    })
+    const execution = result.execution
 
     try {
       await this.queue.enqueue(execution.id)
