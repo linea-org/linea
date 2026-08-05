@@ -68,4 +68,25 @@ export class CheckpointsService {
     if (!checkpoint) return new Map()
     return new Map(Object.entries(checkpoint.context))
   }
+
+  /**
+   * Sums token usage already recorded for this execution — steps skipped on
+   * resume never re-run, so their usage has to be seeded in rather than
+   * re-derived from re-execution. Failed steps contribute 0, same as a fresh run.
+   */
+  async getResumeTokenTotals(
+    executionId: string
+  ): Promise<{ tokensInput: number; tokensOutput: number }> {
+    const steps = await repositories.checkpoint.getStepsForExecution(
+      db,
+      executionId
+    )
+    return steps.reduce(
+      (totals, step) => ({
+        tokensInput: totals.tokensInput + step.tokensInput,
+        tokensOutput: totals.tokensOutput + step.tokensOutput,
+      }),
+      { tokensInput: 0, tokensOutput: 0 }
+    )
+  }
 }

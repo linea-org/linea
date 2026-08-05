@@ -32,7 +32,7 @@ export class RunsService {
       return
     }
 
-    this.lease.startHeartbeat(executionId)
+    this.lease.startHeartbeat(executionId, this.workerId)
 
     try {
       const version = await repositories.workflow.getWorkflowVersionById(
@@ -49,6 +49,8 @@ export class RunsService {
       validateGraphStructure(graph)
 
       const resumeFrom = await this.checkpoints.getResumeState(executionId)
+      const resumeTokens =
+        await this.checkpoints.getResumeTokenTotals(executionId)
 
       const outcome = await this.interpreter.run({
         executionId,
@@ -56,38 +58,55 @@ export class RunsService {
         graph,
         triggerPayload: execution.triggerPayload,
         resumeFrom,
+        initialTokensInput: resumeTokens.tokensInput,
+        initialTokensOutput: resumeTokens.tokensOutput,
       })
 
       // No per-token pricing table exists anywhere yet — tracked as a known
       // gap (see MODULE.md), not silently invented. Tokens are still real.
       if (outcome.result.status === "completed") {
-        await repositories.execution.completeExecution(db, executionId, {
-          status: "succeeded",
-          costMicros: 0n,
-          tokensInput: outcome.totalTokensInput,
-          tokensOutput: outcome.totalTokensOutput,
-        })
+        await repositories.execution.completeExecution(
+          db,
+          executionId,
+          this.workerId,
+          {
+            status: "succeeded",
+            costMicros: 0n,
+            tokensInput: outcome.totalTokensInput,
+            tokensOutput: outcome.totalTokensOutput,
+          }
+        )
       } else {
-        await repositories.execution.completeExecution(db, executionId, {
-          status: "failed",
-          error: {
-            message: outcome.result.error,
-            stepId: outcome.result.nodeId,
-          },
-          costMicros: 0n,
-          tokensInput: outcome.totalTokensInput,
-          tokensOutput: outcome.totalTokensOutput,
-        })
+        await repositories.execution.completeExecution(
+          db,
+          executionId,
+          this.workerId,
+          {
+            status: "failed",
+            error: {
+              message: outcome.result.error,
+              stepId: outcome.result.nodeId,
+            },
+            costMicros: 0n,
+            tokensInput: outcome.totalTokensInput,
+            tokensOutput: outcome.totalTokensOutput,
+          }
+        )
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      await repositories.execution.completeExecution(db, executionId, {
-        status: "failed",
-        error: { message },
-        costMicros: 0n,
-        tokensInput: 0,
-        tokensOutput: 0,
-      })
+      await repositories.execution.completeExecution(
+        db,
+        executionId,
+        this.workerId,
+        {
+          status: "failed",
+          error: { message },
+          costMicros: 0n,
+          tokensInput: 0,
+          tokensOutput: 0,
+        }
+      )
       throw error
     } finally {
       this.lease.stopHeartbeat(executionId)

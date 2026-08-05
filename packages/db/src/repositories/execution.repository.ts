@@ -60,17 +60,29 @@ export async function startExecution(
   return execution
 }
 
+/**
+ * Only renews if `leasedBy` still matches — a worker whose lease was reclaimed by
+ * another worker (see `startExecution`) can't extend the reclaiming worker's lease
+ * by continuing to heartbeat with its own stale identity.
+ */
 export async function renewLease(
   db: DbClient,
   executionId: string,
+  leasedBy: string,
   leaseExpiresAt: Date
-): Promise<void> {
-  await db
+): Promise<Execution | undefined> {
+  const [execution] = await db
     .update(executions)
     .set({ leaseExpiresAt })
     .where(
-      and(eq(executions.id, executionId), eq(executions.status, "running"))
+      and(
+        eq(executions.id, executionId),
+        eq(executions.status, "running"),
+        eq(executions.leasedBy, leasedBy)
+      )
     )
+    .returning()
+  return execution
 }
 
 export type CompleteExecutionInput = {
@@ -87,10 +99,15 @@ const terminalStatuses: Execution["status"][] = [
   "cancelled",
 ]
 
-/** Only transitions if not already terminal, so a delayed/retried completion can't overwrite a recorded outcome. */
+/**
+ * Only transitions if not already terminal AND `leasedBy` still matches, so neither a
+ * delayed/retried completion nor a worker that lost the lease to a reclaim (see
+ * `startExecution`) can overwrite the outcome the current owner records.
+ */
 export async function completeExecution(
   db: DbClient,
   executionId: string,
+  leasedBy: string,
   input: CompleteExecutionInput
 ): Promise<Execution | undefined> {
   const [execution] = await db
@@ -99,6 +116,7 @@ export async function completeExecution(
     .where(
       and(
         eq(executions.id, executionId),
+        eq(executions.leasedBy, leasedBy),
         notInArray(executions.status, terminalStatuses)
       )
     )

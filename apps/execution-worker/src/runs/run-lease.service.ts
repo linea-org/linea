@@ -14,10 +14,20 @@ export class RunLeaseService {
   }
 
   /** Renews well inside the lease window (10s heartbeat, 30s lease), so a slow tick or two doesn't expire it. */
-  startHeartbeat(executionId: string): void {
+  startHeartbeat(executionId: string, leasedBy: string): void {
     const timer = setInterval(() => {
       repositories.execution
-        .renewLease(db, executionId, this.computeLeaseExpiry())
+        .renewLease(db, executionId, leasedBy, this.computeLeaseExpiry())
+        .then((renewed) => {
+          // Undefined means someone else reclaimed the lease — stop polling
+          // with a stale identity instead of heartbeating forever for nothing.
+          if (!renewed) {
+            this.logger.warn(
+              `Lost lease for execution ${executionId} to another worker — stopping heartbeat`
+            )
+            this.stopHeartbeat(executionId)
+          }
+        })
         .catch((error: unknown) => {
           this.logger.error(
             `Failed to renew lease for execution ${executionId}`,

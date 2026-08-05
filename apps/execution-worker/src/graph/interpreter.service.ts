@@ -14,6 +14,10 @@ export type RunInput = {
   graph: WorkflowGraph
   triggerPayload: unknown
   resumeFrom: Map<string, unknown>
+  // Token usage already recorded for steps in `resumeFrom` — they're skipped,
+  // not re-executed, so their usage has to be seeded rather than re-accumulated.
+  initialTokensInput?: number
+  initialTokensOutput?: number
 }
 
 export type RunOutcome = {
@@ -62,8 +66,8 @@ export class InterpreterService {
       triggerPayload: input.triggerPayload,
     })
     const completed = new Map(input.resumeFrom)
-    let totalTokensInput = 0
-    let totalTokensOutput = 0
+    let totalTokensInput = input.initialTokensInput ?? 0
+    let totalTokensOutput = input.initialTokensOutput ?? 0
 
     let next = generator.next()
     while (!next.done) {

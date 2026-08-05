@@ -119,7 +119,7 @@ describe("startExecution", () => {
 })
 
 describe("renewLease", () => {
-  it("only extends the lease of a running execution", async () => {
+  it("only extends the lease of a running execution owned by the renewing worker", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       const execution = await createExecution(tx, {
@@ -130,7 +130,12 @@ describe("renewLease", () => {
       })
 
       // Still queued — renew should be a no-op, not an error.
-      await renewLease(tx, execution.id, new Date(Date.now() + 60_000))
+      await renewLease(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
 
       await startExecution(
         tx,
@@ -139,10 +144,47 @@ describe("renewLease", () => {
         new Date(Date.now() + 1_000)
       )
       const newExpiry = new Date(Date.now() + 120_000)
-      await renewLease(tx, execution.id, newExpiry)
+      await renewLease(tx, execution.id, "worker-1", newExpiry)
 
       const [result] = await listExecutions(tx, workflow.id)
       expect(result.leaseExpiresAt?.getTime()).toBe(newExpiry.getTime())
+    })
+  })
+
+  it("does not renew the lease for a worker that lost it to a reclaim", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-2",
+        new Date(Date.now() + 60_000)
+      )
+
+      // worker-1 doesn't know it lost the lease and keeps heartbeating.
+      const renewed = await renewLease(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 999_000)
+      )
+      expect(renewed).toBeUndefined()
+
+      const [result] = await listExecutions(tx, workflow.id)
+      expect(result.leasedBy).toBe("worker-2")
     })
   })
 })
@@ -157,8 +199,14 @@ describe("completeExecution", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
 
-      const completed = await completeExecution(tx, execution.id, {
+      const completed = await completeExecution(tx, execution.id, "worker-1", {
         status: "succeeded",
         costMicros: 1_500n,
         tokensInput: 100,
@@ -180,8 +228,14 @@ describe("completeExecution", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
 
-      const first = await completeExecution(tx, execution.id, {
+      const first = await completeExecution(tx, execution.id, "worker-1", {
         status: "succeeded",
         costMicros: 1_500n,
         tokensInput: 100,
@@ -189,7 +243,7 @@ describe("completeExecution", () => {
       })
       expect(first?.status).toBe("succeeded")
 
-      const late = await completeExecution(tx, execution.id, {
+      const late = await completeExecution(tx, execution.id, "worker-1", {
         status: "failed",
         error: { message: "timed out" },
         costMicros: 9_999n,
@@ -201,6 +255,52 @@ describe("completeExecution", () => {
       const [row] = await listExecutions(tx, workflow.id)
       expect(row.status).toBe("succeeded")
       expect(row.costMicros).toBe(1_500n)
+    })
+  })
+
+  it("does not let a worker that lost the lease to a reclaim complete the execution", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-2",
+        new Date(Date.now() + 60_000)
+      )
+
+      // worker-1's in-flight run finishes after losing the lease to worker-2.
+      const stale = await completeExecution(tx, execution.id, "worker-1", {
+        status: "succeeded",
+        costMicros: 1n,
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+      expect(stale).toBeUndefined()
+
+      const [row] = await listExecutions(tx, workflow.id)
+      expect(row.status).toBe("running")
+      expect(row.leasedBy).toBe("worker-2")
+
+      const real = await completeExecution(tx, execution.id, "worker-2", {
+        status: "succeeded",
+        costMicros: 2_000n,
+        tokensInput: 200,
+        tokensOutput: 100,
+      })
+      expect(real?.status).toBe("succeeded")
+      expect(real?.costMicros).toBe(2_000n)
     })
   })
 })
