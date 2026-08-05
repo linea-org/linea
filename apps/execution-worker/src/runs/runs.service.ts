@@ -9,7 +9,9 @@ import { RunLeaseService } from "./run-lease.service"
 @Injectable()
 export class RunsService {
   private readonly logger = new Logger(RunsService.name)
-  private readonly workerId = `execution-worker:${process.pid}:${randomUUID()}`
+  // Just a log prefix — RunsService is a singleton, so the actual fencing
+  // token is generated fresh per call below, not stored on the instance.
+  private readonly processId = `execution-worker:${process.pid}`
 
   constructor(
     private readonly checkpoints: CheckpointsService,
@@ -18,10 +20,12 @@ export class RunsService {
   ) {}
 
   async execute(executionId: string): Promise<void> {
+    const attemptId = `${this.processId}:${randomUUID()}`
+
     const execution = await repositories.execution.startExecution(
       db,
       executionId,
-      this.workerId,
+      attemptId,
       this.lease.computeLeaseExpiry()
     )
 
@@ -32,11 +36,9 @@ export class RunsService {
       return
     }
 
-    this.lease.startHeartbeat(executionId, this.workerId)
+    this.lease.startHeartbeat(executionId, attemptId)
 
-    // Tracks the best token totals known so far, so a failure partway through
-    // (validation, walking, or a lease lost mid-step) still reports usage
-    // already durably checkpointed, instead of always finalizing at zero.
+    // Best totals known so far, so a failure partway through still reports checkpointed usage instead of zero.
     let knownTokensInput = 0
     let knownTokensOutput = 0
 
@@ -63,7 +65,7 @@ export class RunsService {
       const outcome = await this.interpreter.run({
         executionId,
         workspaceId: execution.workspaceId,
-        leasedBy: this.workerId,
+        leasedBy: attemptId,
         graph,
         triggerPayload: execution.triggerPayload,
         resumeFrom,
@@ -79,7 +81,7 @@ export class RunsService {
         await repositories.execution.completeExecution(
           db,
           executionId,
-          this.workerId,
+          attemptId,
           {
             status: "succeeded",
             costMicros: 0n,
@@ -91,7 +93,7 @@ export class RunsService {
         await repositories.execution.completeExecution(
           db,
           executionId,
-          this.workerId,
+          attemptId,
           {
             status: "failed",
             error: {
@@ -109,7 +111,7 @@ export class RunsService {
       await repositories.execution.completeExecution(
         db,
         executionId,
-        this.workerId,
+        attemptId,
         {
           status: "failed",
           error: { message },
@@ -120,7 +122,7 @@ export class RunsService {
       )
       throw error
     } finally {
-      this.lease.stopHeartbeat(executionId)
+      this.lease.stopHeartbeat(attemptId)
     }
   }
 }

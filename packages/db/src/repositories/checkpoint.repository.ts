@@ -16,13 +16,7 @@ export type WriteStepAndCheckpointInput = {
   checkpoint: Omit<NewCheckpoint, "id" | "executionId" | "createdAt">
 }
 
-/**
- * Locks the execution row for the write's duration and checks `leasedBy` against it
- * before inserting, so a worker that lost its lease to a reclaim (see `startExecution`)
- * can't persist a step/checkpoint after losing ownership — the check and the write have
- * to be atomic, not check-then-write, or a reclaim could land in the gap between them.
- * checkpoint.executionId is derived from step.executionId so the two can't diverge.
- */
+/** Locks the execution row and checks `leasedBy` atomically before inserting, so a worker that lost the lease can't write after losing ownership; checkpoint.executionId is derived from step.executionId so the two can't diverge. */
 export async function writeStepAndCheckpoint(
   db: DbClient,
   input: WriteStepAndCheckpointInput

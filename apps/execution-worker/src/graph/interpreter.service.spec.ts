@@ -75,8 +75,7 @@ describe("InterpreterService resume", () => {
         new AiNode()
       )
 
-      // First run: executes n1, checkpoints its token usage, then "crashes"
-      // (nothing else happens — no completion is ever recorded).
+      // First run: executes n1, checkpoints its usage, then "crashes" (never completes).
       const firstRun = await interpreter.run({
         executionId: execution.id,
         workspaceId: organization.id,
@@ -88,9 +87,7 @@ describe("InterpreterService resume", () => {
       expect(firstRun.totalTokensInput).toBe(100)
       expect(firstRun.totalTokensOutput).toBe(50)
 
-      // Second run ("the restart"): n1 is already checkpointed, so the walker
-      // skips it entirely — zero handler calls happen in this run. Without
-      // seeding from the prior checkpoint, totals would come back as 0.
+      // Second run: n1 is already checkpointed, so the walker skips it — zero handler calls here.
       const resumeFrom = await checkpoints.getResumeState(execution.id)
       const resumeTokens = await checkpoints.getResumeTokenTotals(execution.id)
       const secondRun = await interpreter.run({
@@ -151,8 +148,7 @@ describe("InterpreterService resume", () => {
         triggerPayload: {},
       })
 
-      // worker-1 claims it, but its lease is already stale by the time it
-      // tries to checkpoint — worker-2 reclaimed the execution in the gap.
+      // worker-2 reclaims before worker-1 gets to checkpoint.
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -235,8 +231,7 @@ describe("InterpreterService resume", () => {
         triggerPayload: {},
       })
 
-      // worker-2 has already reclaimed by the time worker-1 gets around to
-      // running n1 — its own lease was never renewed in time.
+      // worker-2 reclaims before worker-1 gets around to running n1.
       await repositories.execution.startExecution(
         db,
         execution.id,

@@ -24,12 +24,7 @@ export async function createExecution(
   return execution
 }
 
-/**
- * Claims a queued execution, or one left "running" by a worker that died before its
- * lease expired — this is the only reclaim path, so a crashed worker's execution isn't
- * stuck forever. Still a single atomic UPDATE, so two workers racing to claim it (fresh
- * or reclaimed) get a defined outcome.
- */
+/** Claims a queued execution, or a running one whose lease expired — the only reclaim path, atomic so racing claims get a defined outcome. */
 export async function startExecution(
   db: DbClient,
   executionId: string,
@@ -60,11 +55,7 @@ export async function startExecution(
   return execution
 }
 
-/**
- * Only renews if `leasedBy` still matches — a worker whose lease was reclaimed by
- * another worker (see `startExecution`) can't extend the reclaiming worker's lease
- * by continuing to heartbeat with its own stale identity.
- */
+/** Only renews if `leasedBy` still matches, so a worker that lost the lease to a reclaim can't extend it by heartbeating with a stale identity. */
 export async function renewLease(
   db: DbClient,
   executionId: string,
@@ -99,11 +90,7 @@ const terminalStatuses: Execution["status"][] = [
   "cancelled",
 ]
 
-/**
- * Only transitions if not already terminal AND `leasedBy` still matches, so neither a
- * delayed/retried completion nor a worker that lost the lease to a reclaim (see
- * `startExecution`) can overwrite the outcome the current owner records.
- */
+/** Only transitions if not already terminal and `leasedBy` still matches, so neither a delayed retry nor a worker that lost the lease can overwrite the outcome. */
 export async function completeExecution(
   db: DbClient,
   executionId: string,

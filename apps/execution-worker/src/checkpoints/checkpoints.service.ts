@@ -16,8 +16,7 @@ export type RecordStepInput = {
   costMicros?: bigint
   tokensInput?: number
   tokensOutput?: number
-  // Successfully completed steps, including this one if it just succeeded —
-  // a failed step is never added, matching the walker's own completed map.
+  // Includes this step if it just succeeded — a failed step is never added, matching the walker's own map.
   completed: Map<string, unknown>
 }
 
@@ -31,16 +30,10 @@ export class LeaseLostError extends Error {
 
 @Injectable()
 export class CheckpointsService {
-  /**
-   * Writes the step and its checkpoint in one transaction — never split, or a crash
-   * between the two reintroduces the exact gap Phase 0 exists to close. Rejected
-   * (throws `LeaseLostError`) if `leasedBy` no longer owns the execution, so a worker
-   * that lost its lease mid-step can't persist state that conflicts with the new owner.
-   */
+  /** Writes the step and checkpoint in one transaction; throws `LeaseLostError` if `leasedBy` no longer owns the execution. */
   async recordStep(input: RecordStepInput): Promise<void> {
     const status = input.error ? "failed" : "succeeded"
-    // On success `completed` already counts this step; on failure it doesn't,
-    // so this attempt is one past the map's size either way.
+    // completed already counts this step on success; on failure it doesn't, so this is one past its size either way.
     const sequence =
       status === "succeeded" ? input.completed.size : input.completed.size + 1
 
@@ -78,13 +71,7 @@ export class CheckpointsService {
     }
   }
 
-  /**
-   * Checked right before a node's side effect runs (an HTTP call, an AI request), not
-   * just before persisting its result — narrows, but doesn't close, the window where a
-   * worker whose lease was reclaimed mid-step can still duplicate that side effect: the
-   * check and the side effect aren't atomic, so a lease lost *during* the call is still
-   * possible. Closing that fully needs per-call idempotency/cancellation, out of scope here.
-   */
+  /** Checked right before a node's side effect, not just before persisting its result — narrows but doesn't close the window a lease lost mid-call still leaves. */
   async assertOwnsLease(executionId: string, leasedBy: string): Promise<void> {
     const currentOwner = await repositories.execution.getLeaseOwner(
       db,
@@ -105,11 +92,7 @@ export class CheckpointsService {
     return new Map(Object.entries(checkpoint.context))
   }
 
-  /**
-   * Sums token usage already recorded for this execution — steps skipped on
-   * resume never re-run, so their usage has to be seeded in rather than
-   * re-derived from re-execution. Failed steps contribute 0, same as a fresh run.
-   */
+  /** Sums token usage already recorded — resumed steps are skipped, not re-run, so their usage must be seeded rather than re-derived. */
   async getResumeTokenTotals(
     executionId: string
   ): Promise<{ tokensInput: number; tokensOutput: number }> {

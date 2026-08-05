@@ -49,8 +49,7 @@ describe("RunsService failure accounting", () => {
         triggerPayload: {},
       })
 
-      // A prior (abandoned) attempt already checkpointed real token usage,
-      // then its lease expired without completing.
+      // A prior abandoned attempt already checkpointed real token usage.
       const checkpoints = new CheckpointsService()
       await repositories.execution.startExecution(
         db,
@@ -73,8 +72,7 @@ describe("RunsService failure accounting", () => {
         completed: new Map([["n1", {}]]),
       })
 
-      // The resuming worker's interpreter fails outright (e.g. a persistence
-      // or lease-loss error) before returning any outcome of its own.
+      // The resuming interpreter fails outright before returning any outcome.
       const poisonInterpreter = {
         run: () => Promise.reject(new Error("simulated failure after resume")),
       } as unknown as InterpreterService
@@ -97,6 +95,85 @@ describe("RunsService failure accounting", () => {
       expect(finalExecution.status).toBe("failed")
       expect(finalExecution.tokensInput).toBe(100)
       expect(finalExecution.tokensOutput).toBe(50)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+})
+
+describe("RunsService fencing identity", () => {
+  it("gives each execute() call its own leasedBy, even from the same instance", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Identity Test Org",
+        slug: `runs-identity-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "transform", config: { expression: "" } }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Identity Test Workflow",
+        slug: `runs-identity-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-identity-hash",
+      })
+      const executionA = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      const executionB = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+
+      const fastInterpreter = {
+        run: () =>
+          Promise.resolve({
+            result: { status: "completed" as const },
+            totalTokensInput: 0,
+            totalTokensOutput: 0,
+          }),
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        fastInterpreter,
+        new RunLeaseService()
+      )
+      await runs.execute(executionA.id)
+      await runs.execute(executionB.id)
+
+      const ownerA = await repositories.execution.getLeaseOwner(
+        db,
+        executionA.id
+      )
+      const ownerB = await repositories.execution.getLeaseOwner(
+        db,
+        executionB.id
+      )
+      expect(ownerA).not.toBe(ownerB)
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

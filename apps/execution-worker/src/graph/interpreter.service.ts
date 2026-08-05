@@ -18,8 +18,7 @@ export type RunInput = {
   graph: WorkflowGraph
   triggerPayload: unknown
   resumeFrom: Map<string, unknown>
-  // Token usage already recorded for steps in `resumeFrom` — they're skipped,
-  // not re-executed, so their usage has to be seeded rather than re-accumulated.
+  // Usage already recorded for steps in `resumeFrom`, since they're skipped rather than re-executed.
   initialTokensInput?: number
   initialTokensOutput?: number
 }
@@ -89,10 +88,7 @@ export class InterpreterService {
       let stepResult: StepResult
 
       try {
-        // Checked right before the node's side effect, not just before
-        // checkpointing its result — a worker that already lost the lease
-        // shouldn't start a new HTTP/AI call at all, even though this can't
-        // catch a lease lost *during* the call itself (see assertOwnsLease).
+        // A worker that already lost the lease shouldn't start a new HTTP/AI call at all.
         await this.checkpoints.assertOwnsLease(
           input.executionId,
           input.leasedBy
@@ -107,10 +103,7 @@ export class InterpreterService {
           totalTokensOutput += usage.tokensOutput
         }
 
-        // Update `completed` before checkpointing, so the checkpoint reflects
-        // this step as done — otherwise a crash right after the write leaves
-        // a resume replaying a step whose execution_step row already exists,
-        // tripping the idempotency constraint.
+        // Update before checkpointing, so a crash right after the write doesn't leave a resume replaying this step.
         completed.set(step.nodeId, output)
 
         await this.checkpoints.recordStep({
@@ -130,8 +123,7 @@ export class InterpreterService {
 
         stepResult = { nodeId: step.nodeId, output }
       } catch (error) {
-        // Already know this write would be rejected too — don't bother
-        // attempting it, just propagate.
+        // A failure-checkpoint write would be rejected too — propagate instead of attempting it.
         if (error instanceof LeaseLostError) {
           throw error
         }

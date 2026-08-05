@@ -68,9 +68,7 @@ describe("crash-and-resume", () => {
 
       const checkpoints = new CheckpointsService()
 
-      // Worker instance 1 claims the execution, gets through the first 3 of 6
-      // nodes, then dies — its lease is left in the past, exactly as if the
-      // process had been killed before it could renew or complete.
+      // Worker 1 gets through 3 of 6 nodes, then dies — lease left in the past.
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -100,8 +98,7 @@ describe("crash-and-resume", () => {
         currentInput = output
       }
 
-      // Worker instance 2 ("the restart") picks the same execution back up
-      // through the real, complete path — no test-only hooks.
+      // Worker 2 ("the restart") resumes it through the real, complete path.
       const interpreter = new InterpreterService(
         checkpoints,
         new HttpNode(),

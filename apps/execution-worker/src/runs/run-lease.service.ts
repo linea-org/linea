@@ -7,6 +7,7 @@ const HEARTBEAT_INTERVAL_MS = 10_000
 @Injectable()
 export class RunLeaseService {
   private readonly logger = new Logger(RunLeaseService.name)
+  // Keyed by leasedBy, not executionId — two attempts for the same execution stay independent.
   private readonly timers = new Map<string, NodeJS.Timeout>()
 
   computeLeaseExpiry(): Date {
@@ -19,13 +20,12 @@ export class RunLeaseService {
       repositories.execution
         .renewLease(db, executionId, leasedBy, this.computeLeaseExpiry())
         .then((renewed) => {
-          // Undefined means someone else reclaimed the lease — stop polling
-          // with a stale identity instead of heartbeating forever for nothing.
+          // Undefined means someone else reclaimed the lease — stop polling with a stale identity.
           if (!renewed) {
             this.logger.warn(
               `Lost lease for execution ${executionId} to another worker — stopping heartbeat`
             )
-            this.stopHeartbeat(executionId)
+            this.stopHeartbeat(leasedBy)
           }
         })
         .catch((error: unknown) => {
@@ -35,14 +35,14 @@ export class RunLeaseService {
           )
         })
     }, HEARTBEAT_INTERVAL_MS)
-    this.timers.set(executionId, timer)
+    this.timers.set(leasedBy, timer)
   }
 
-  stopHeartbeat(executionId: string): void {
-    const timer = this.timers.get(executionId)
+  stopHeartbeat(leasedBy: string): void {
+    const timer = this.timers.get(leasedBy)
     if (timer) {
       clearInterval(timer)
-      this.timers.delete(executionId)
+      this.timers.delete(leasedBy)
     }
   }
 }
