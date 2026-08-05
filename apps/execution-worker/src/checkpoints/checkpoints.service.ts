@@ -78,6 +78,23 @@ export class CheckpointsService {
     }
   }
 
+  /**
+   * Checked right before a node's side effect runs (an HTTP call, an AI request), not
+   * just before persisting its result — narrows, but doesn't close, the window where a
+   * worker whose lease was reclaimed mid-step can still duplicate that side effect: the
+   * check and the side effect aren't atomic, so a lease lost *during* the call is still
+   * possible. Closing that fully needs per-call idempotency/cancellation, out of scope here.
+   */
+  async assertOwnsLease(executionId: string, leasedBy: string): Promise<void> {
+    const currentOwner = await repositories.execution.getLeaseOwner(
+      db,
+      executionId
+    )
+    if (currentOwner !== leasedBy) {
+      throw new LeaseLostError(executionId)
+    }
+  }
+
   /** Reconstructs the walker's `completed` map from the latest checkpoint — empty for a fresh execution. */
   async getResumeState(executionId: string): Promise<Map<string, unknown>> {
     const checkpoint = await repositories.checkpoint.getLatestCheckpoint(

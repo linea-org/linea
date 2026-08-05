@@ -197,4 +197,89 @@ describe("InterpreterService resume", () => {
       ])
     }
   })
+
+  it("never invokes a node's side effect for a worker that already lost the lease", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Interpreter No-Sideeffect Test Org",
+        slug: `interpreter-no-sideeffect-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "http", config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Interpreter No-Sideeffect Test Workflow",
+        slug: `interpreter-no-sideeffect-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "interpreter-no-sideeffect-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+
+      // worker-2 has already reclaimed by the time worker-1 gets around to
+      // running n1 — its own lease was never renewed in time.
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-2",
+        new Date(Date.now() + 60_000)
+      )
+
+      const executeSpy = jest.fn(() =>
+        Promise.resolve({ tokensInput: 100, tokensOutput: 50 })
+      )
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+
+      const checkpoints = new CheckpointsService()
+      const interpreter = new InterpreterService(
+        checkpoints,
+        spyNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode()
+      )
+
+      await expect(
+        interpreter.run({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          leasedBy: "worker-1",
+          graph,
+          triggerPayload: {},
+          resumeFrom: new Map(),
+        })
+      ).rejects.toThrow(LeaseLostError)
+
+      expect(executeSpy).not.toHaveBeenCalled()
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
 })

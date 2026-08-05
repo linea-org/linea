@@ -86,6 +86,15 @@ export class InterpreterService {
       let stepResult: StepResult
 
       try {
+        // Checked right before the node's side effect, not just before
+        // checkpointing its result — a worker that already lost the lease
+        // shouldn't start a new HTTP/AI call at all, even though this can't
+        // catch a lease lost *during* the call itself (see assertOwnsLease).
+        await this.checkpoints.assertOwnsLease(
+          input.executionId,
+          input.leasedBy
+        )
+
         const output = await handler.execute(node.config, step.input, {
           workspaceId: input.workspaceId,
         })

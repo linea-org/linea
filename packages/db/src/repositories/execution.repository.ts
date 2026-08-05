@@ -124,6 +124,18 @@ export async function completeExecution(
   return execution
 }
 
+/** Current `leasedBy`, or undefined if the execution doesn't exist — used to check ownership before a risky operation, not just before persisting its result. */
+export async function getLeaseOwner(
+  db: DbClient,
+  executionId: string
+): Promise<string | null | undefined> {
+  const [execution] = await db
+    .select({ leasedBy: executions.leasedBy })
+    .from(executions)
+    .where(eq(executions.id, executionId))
+  return execution?.leasedBy
+}
+
 export async function getExecutionWithSteps(
   db: DbClient,
   executionId: string

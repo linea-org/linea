@@ -3,11 +3,44 @@ import { executions } from "../schema/index.js"
 import {
   completeExecution,
   createExecution,
+  getLeaseOwner,
   listExecutions,
   renewLease,
   startExecution,
 } from "./execution.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
+
+describe("getLeaseOwner", () => {
+  it("reflects the current owner after a reclaim", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      expect(await getLeaseOwner(tx, execution.id)).toBeNull()
+
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1_000)
+      )
+      expect(await getLeaseOwner(tx, execution.id)).toBe("worker-1")
+
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-2",
+        new Date(Date.now() + 60_000)
+      )
+      expect(await getLeaseOwner(tx, execution.id)).toBe("worker-2")
+    })
+  })
+})
 
 describe("startExecution", () => {
   it("claims a queued execution", async () => {
