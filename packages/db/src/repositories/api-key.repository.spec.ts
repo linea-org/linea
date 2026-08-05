@@ -53,9 +53,28 @@ describe("api-key repository", () => {
         keyPrefix: "lin_ghi",
       })
 
-      await revokeApiKey(tx, created.id)
+      await revokeApiKey(tx, organization.id, created.id)
       const found = await getApiKeyByHash(tx, "hash-ghi")
       expect(found?.revokedAt).toBeInstanceOf(Date)
+    })
+  })
+
+  it("does not revoke a key belonging to a different workspace", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const { organization: otherOrg } = await createTestFixtures(tx)
+      const created = await createApiKey(tx, {
+        workspaceId: organization.id,
+        name: "CI key",
+        hashedKey: "hash-cross-workspace",
+        keyPrefix: "lin_cw",
+      })
+
+      const result = await revokeApiKey(tx, otherOrg.id, created.id)
+      expect(result).toBeUndefined()
+
+      const found = await getApiKeyByHash(tx, "hash-cross-workspace")
+      expect(found?.revokedAt).toBeNull()
     })
   })
 
@@ -76,7 +95,7 @@ describe("api-key repository", () => {
         hashedKey: "hash-list-revoked",
         keyPrefix: "lin_r",
       })
-      await revokeApiKey(tx, revoked.id)
+      await revokeApiKey(tx, organization.id, revoked.id)
       await createApiKey(tx, {
         workspaceId: otherOrg.id,
         name: "Other workspace key",

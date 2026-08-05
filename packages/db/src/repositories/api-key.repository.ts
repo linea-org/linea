@@ -38,11 +38,18 @@ export async function touchApiKeyLastUsed(
     .where(eq(apiKeys.id, id))
 }
 
-export async function revokeApiKey(db: DbClient, id: string): Promise<void> {
-  await db
+/** Scoped by workspaceId in the same query, not a separate ownership check, so a caller can't revoke a key it doesn't own by guessing its id. */
+export async function revokeApiKey(
+  db: DbClient,
+  workspaceId: string,
+  id: string
+): Promise<ApiKey | undefined> {
+  const [apiKey] = await db
     .update(apiKeys)
     .set({ revokedAt: new Date() })
-    .where(eq(apiKeys.id, id))
+    .where(and(eq(apiKeys.workspaceId, workspaceId), eq(apiKeys.id, id)))
+    .returning()
+  return apiKey
 }
 
 export async function listApiKeys(
