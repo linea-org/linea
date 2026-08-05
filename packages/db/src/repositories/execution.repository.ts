@@ -113,6 +113,25 @@ export async function completeExecution(
   return execution
 }
 
+/**
+ * Marks a still-queued execution as failed before any worker ever claimed it — for when
+ * enqueueing to the job queue itself fails, so the row doesn't strand at "queued" forever
+ * with no job behind it. `completeExecution` can't be used here: it requires a `leasedBy`
+ * match, and a never-claimed execution's `leasedBy` is null, which no value equals.
+ */
+export async function failQueuedExecution(
+  db: DbClient,
+  executionId: string,
+  error: { message: string }
+): Promise<Execution | undefined> {
+  const [execution] = await db
+    .update(executions)
+    .set({ status: "failed", error, completedAt: new Date() })
+    .where(and(eq(executions.id, executionId), eq(executions.status, "queued")))
+    .returning()
+  return execution
+}
+
 /** Current `leasedBy`, or undefined if the execution doesn't exist — used to check ownership before a risky operation, not just before persisting its result. */
 export async function getLeaseOwner(
   db: DbClient,

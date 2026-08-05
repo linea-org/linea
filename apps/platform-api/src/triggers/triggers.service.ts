@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common'
 import { db, repositories, type Execution } from '@linea/db'
 import { WorkflowQueueService } from '../queue/workflow-queue.service'
@@ -23,6 +24,9 @@ export class TriggersService {
     if (!workflow) {
       throw new NotFoundException('Workflow not found')
     }
+    if (workflow.archivedAt) {
+      throw new BadRequestException('Workflow is archived')
+    }
     if (!workflow.publishedVersionId) {
       throw new BadRequestException('Workflow has no published version')
     }
@@ -34,7 +38,19 @@ export class TriggersService {
       trigger: 'webhook',
       triggerPayload: payload,
     })
-    await this.queue.enqueue(execution.id)
+
+    try {
+      await this.queue.enqueue(execution.id)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      await repositories.execution.failQueuedExecution(db, execution.id, {
+        message,
+      })
+      throw new ServiceUnavailableException(
+        'Failed to enqueue execution — it will not run',
+      )
+    }
+
     return execution
   }
 }

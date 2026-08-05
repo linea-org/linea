@@ -3,6 +3,7 @@ import { executions } from "../schema/index.js"
 import {
   completeExecution,
   createExecution,
+  failQueuedExecution,
   getLeaseOwner,
   isLeaseValid,
   listExecutions,
@@ -390,6 +391,52 @@ describe("completeExecution", () => {
         tokensOutput: 1,
       })
       expect(stale).toBeUndefined()
+
+      const [row] = await listExecutions(tx, workflow.id)
+      expect(row.status).toBe("running")
+    })
+  })
+})
+
+describe("failQueuedExecution", () => {
+  it("marks a never-claimed execution as failed", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const failed = await failQueuedExecution(tx, execution.id, {
+        message: "failed to enqueue",
+      })
+      expect(failed?.status).toBe("failed")
+      expect(failed?.error).toEqual({ message: "failed to enqueue" })
+    })
+  })
+
+  it("does not touch an execution that's already been claimed", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const result = await failQueuedExecution(tx, execution.id, {
+        message: "should not apply",
+      })
+      expect(result).toBeUndefined()
 
       const [row] = await listExecutions(tx, workflow.id)
       expect(row.status).toBe("running")
