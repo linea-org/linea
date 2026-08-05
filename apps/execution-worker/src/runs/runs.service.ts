@@ -43,6 +43,14 @@ export class RunsService {
     let knownTokensOutput = 0
 
     try {
+      // Loaded first, before anything that can throw for unrelated reasons
+      // (a bad version id, a corrupt graph) — otherwise a reclaimed execution
+      // with real prior usage would finalize at zero on those failures too.
+      const resumeTokens =
+        await this.checkpoints.getResumeTokenTotals(executionId)
+      knownTokensInput = resumeTokens.tokensInput
+      knownTokensOutput = resumeTokens.tokensOutput
+
       const version = await repositories.workflow.getWorkflowVersionById(
         db,
         execution.workflowVersionId
@@ -57,10 +65,6 @@ export class RunsService {
       validateGraphStructure(graph)
 
       const resumeFrom = await this.checkpoints.getResumeState(executionId)
-      const resumeTokens =
-        await this.checkpoints.getResumeTokenTotals(executionId)
-      knownTokensInput = resumeTokens.tokensInput
-      knownTokensOutput = resumeTokens.tokensOutput
 
       const outcome = await this.interpreter.run({
         executionId,
