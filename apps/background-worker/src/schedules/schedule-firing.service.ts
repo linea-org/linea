@@ -25,10 +25,7 @@ export class ScheduleFiringService implements OnModuleInit, OnModuleDestroy {
     clearInterval(this.interval)
   }
 
-  // Guards against overlapping ticks: a poll that outlives POLL_INTERVAL_MS (many due
-  // schedules, or a slow enqueue) shouldn't stack a second concurrent poll on top of it —
-  // claimDueSchedules is already safe under real concurrency, but there's no reason to pay
-  // for it every tick.
+  // Skips a tick already in flight, so a slow poll doesn't stack a second on top of it.
   async poll(): Promise<void> {
     if (this.polling) return
     this.polling = true

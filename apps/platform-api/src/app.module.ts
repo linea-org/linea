@@ -1,4 +1,4 @@
-import './env'
+import '@linea/config/env'
 import { Module } from '@nestjs/common'
 import { AuthModule } from '@thallesp/nestjs-better-auth'
 import { auth } from '@linea/auth'

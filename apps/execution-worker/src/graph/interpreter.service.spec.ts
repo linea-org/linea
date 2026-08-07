@@ -1,4 +1,4 @@
-import "../env"
+import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
 import type { WorkflowGraph } from "@linea/runtime"

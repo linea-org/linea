@@ -1,4 +1,4 @@
-import '../env'
+import '@linea/config/env'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import { db, pool, repositories, schema } from '@linea/db'

@@ -37,15 +37,7 @@ function computeNextRunAt(
     .toDate()
 }
 
-/**
- * Claims due schedules and advances each one's nextRunAt in the same transaction, so two
- * worker instances polling concurrently never both fire the same schedule for one tick —
- * correctness holds even under plain `FOR UPDATE` since a blocked second transaction just
- * sees an already-advanced row. `SKIP LOCKED` is there so a busy poll cycle with many due
- * rows doesn't have one instance blocking behind another's held locks (and risking deadlock
- * from two transactions locking the same rows in different orders) instead of just moving
- * on to whatever's still free.
- */
+/** Claims and advances due schedules in one transaction, so concurrent pollers never double-fire one. */
 export async function claimDueSchedules(
   db: DbClient,
   now: Date = new Date()

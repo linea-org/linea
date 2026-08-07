@@ -8,9 +8,8 @@ import {
 import type { Queue } from "bullmq"
 import type { Redis } from "ioredis"
 
-// createConnection() sets maxRetriesPerRequest: null, which BullMQ requires for Worker
-// connections but which lets an enqueue() call here retry indefinitely on a Redis outage,
-// stalling the poll loop instead of rejecting — bound it explicitly instead.
+// createConnection()'s maxRetriesPerRequest: null (required for BullMQ Worker use) would
+// otherwise let enqueue() retry a Redis outage forever instead of rejecting.
 const ENQUEUE_TIMEOUT_MS = 10_000
 
 @Injectable()
@@ -23,9 +22,8 @@ export class WorkflowQueueService implements OnModuleDestroy {
     this.queue = createWorkflowExecutionQueue(this.connection)
   }
 
-  // Note: on timeout the underlying ioredis command may still be retrying in the
-  // background and could eventually succeed after the caller has already marked the
-  // execution failed — accepted Phase 0 risk, not solvable without closing the connection.
+  // On timeout, the underlying command may still succeed after the caller already
+  // marked the execution failed — accepted Phase 0 risk.
   async enqueue(executionId: string): Promise<void> {
     let timeout: NodeJS.Timeout
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -50,8 +48,7 @@ export class WorkflowQueueService implements OnModuleDestroy {
     }
   }
 
-  // queue.close() only stops the queue's own usage — it doesn't own a
-  // connection passed in from outside, so the connection needs its own quit.
+  // queue.close() doesn't own a connection passed in from outside, so quit it separately.
   async onModuleDestroy(): Promise<void> {
     await this.queue.close()
     await this.connection.quit()

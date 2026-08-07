@@ -21,19 +21,18 @@
     "test:cov": "jest --coverage"
   },
   "dependencies": {
+    "@linea/config": "workspace:*",
     "@linea/db": "workspace:*",
     "@linea/queue": "workspace:*",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "bullmq": "^5",
     "cron-parser": "^5.7.0",
-    "dotenv": "^17.4.2",
     "ioredis": "^5.11.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@linea/config": "workspace:*",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",

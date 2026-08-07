@@ -1,4 +1,4 @@
-import "./env"
+import "@linea/config/env"
 import { NestFactory } from "@nestjs/core"
 import { AppModule } from "./app.module"
 

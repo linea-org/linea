@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsup src/index.ts src/eslint.ts --format esm --dts --clean --sourcemap --target es2022",
+    "build": "tsup src/index.ts src/eslint.ts src/env.ts --format esm --dts --clean --sourcemap --target es2022",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
@@ -16,6 +16,10 @@
     "./eslint": {
       "types": "./dist/eslint.d.ts",
       "default": "./dist/eslint.js"
+    },
+    "./env": {
+      "types": "./dist/env.d.ts",
+      "default": "./dist/env.js"
     }
   },
   "files": [
@@ -23,6 +27,7 @@
   ],
   "dependencies": {
     "@eslint/js": "^9.18.0",
+    "dotenv": "^17.4.2",
     "eslint": "^9.18.0",
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^16.0.0",
