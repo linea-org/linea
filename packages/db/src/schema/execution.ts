@@ -62,6 +62,7 @@ export const executions = snakeCase.table(
     leasedBy: text(),
     leaseExpiresAt: timestamp({ withTimezone: true }),
 
+    enqueueAttempts: integer().notNull().default(0),
     error: jsonb().$type<ExecutionError>(),
 
     costMicros: bigint({ mode: "bigint" }).notNull().default(0n),

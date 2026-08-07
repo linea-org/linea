@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, lt, notInArray, or } from "drizzle-orm"
+import { and, desc, eq, gt, lt, notInArray, or, sql } from "drizzle-orm"
 import {
   executions,
   executionSteps,
@@ -190,6 +190,32 @@ export async function failQueuedExecution(
     .where(and(eq(executions.id, executionId), eq(executions.status, "queued")))
     .returning()
   return execution
+}
+
+/** Counts an enqueue failure but never fails the execution: a schedule has no caller to retry it, and once next_run_at has advanced, a terminal status would drop the occurrence for good — retrying forever costs nothing at this scale. */
+export async function recordEnqueueFailure(
+  db: DbClient,
+  executionId: string
+): Promise<Execution | undefined> {
+  const [execution] = await db
+    .update(executions)
+    .set({ enqueueAttempts: sql`${executions.enqueueAttempts} + 1` })
+    .where(and(eq(executions.id, executionId), eq(executions.status, "queued")))
+    .returning()
+  return execution
+}
+
+/** Executions still "queued" past the cutoff — a crash between creating the row and enqueueing its job leaves no other trace, so age is the only signal. */
+export async function findStaleQueuedExecutions(
+  db: DbClient,
+  olderThan: Date
+): Promise<Execution[]> {
+  return db
+    .select()
+    .from(executions)
+    .where(
+      and(eq(executions.status, "queued"), lt(executions.createdAt, olderThan))
+    )
 }
 
 /** Current `leasedBy`, or undefined if the execution doesn't exist — used to check ownership before a risky operation, not just before persisting its result. */

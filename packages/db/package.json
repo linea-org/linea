@@ -17,6 +17,7 @@
     "db:logs": "docker compose -f ../../docker-compose.yml logs -f postgres"
   },
   "dependencies": {
+    "cron-parser": "^5.7.0",
     "drizzle-orm": "1.0.0-rc.4",
     "pg": "8.22.0"
   },

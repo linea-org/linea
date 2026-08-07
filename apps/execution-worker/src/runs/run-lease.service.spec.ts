@@ -1,4 +1,4 @@
-import "../env"
+import "@linea/config/env"
 import { RunLeaseService } from "./run-lease.service"
 
 describe("RunLeaseService heartbeat isolation", () => {

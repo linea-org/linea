@@ -1,4 +1,4 @@
-import './env'
+import '@linea/config/env'
 import type { NextFunction, Request, Response } from 'express'
 import helmet from 'helmet'
 import { NestFactory } from '@nestjs/core'
