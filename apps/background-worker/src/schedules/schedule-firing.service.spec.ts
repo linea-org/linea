@@ -110,7 +110,7 @@ describe("ScheduleFiringService", () => {
     }
   })
 
-  it("marks the execution failed instead of stranding it queued when enqueueing fails", async () => {
+  it("leaves the execution queued instead of failing it when enqueueing fails, so the sweep can retry it", async () => {
     const { organization, workflow } = await createDueSchedule(
       "Schedule Firing Enqueue Fail Test Org"
     )
@@ -127,8 +127,8 @@ describe("ScheduleFiringService", () => {
         workflow.id
       )
       expect(executions).toHaveLength(1)
-      expect(executions[0].status).toBe("failed")
-      expect(executions[0].error).toEqual({ message: "redis unreachable" })
+      expect(executions[0].status).toBe("queued")
+      expect(executions[0].error).toBeNull()
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

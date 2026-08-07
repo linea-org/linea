@@ -192,6 +192,54 @@ export async function failQueuedExecution(
   return execution
 }
 
+export const MAX_ENQUEUE_ATTEMPTS = 5
+
+export type RecordEnqueueFailureResult =
+  | { outcome: "retrying"; execution: Execution }
+  | { outcome: "gave_up"; execution: Execution }
+  | { outcome: "not_found" }
+
+/** Bounds retry for executions with no synchronous caller (schedules): counts the attempt, and fails terminally past MAX_ENQUEUE_ATTEMPTS instead of retrying forever. */
+export async function recordEnqueueFailure(
+  db: DbClient,
+  executionId: string,
+  error: { message: string }
+): Promise<RecordEnqueueFailureResult> {
+  return db.transaction(async (tx) => {
+    const [execution] = await tx
+      .select()
+      .from(executions)
+      .where(
+        and(eq(executions.id, executionId), eq(executions.status, "queued"))
+      )
+      .for("update")
+
+    if (!execution) return { outcome: "not_found" }
+
+    const attempts = execution.enqueueAttempts + 1
+    if (attempts >= MAX_ENQUEUE_ATTEMPTS) {
+      const [updated] = await tx
+        .update(executions)
+        .set({
+          status: "failed",
+          error,
+          enqueueAttempts: attempts,
+          completedAt: new Date(),
+        })
+        .where(eq(executions.id, executionId))
+        .returning()
+      return { outcome: "gave_up", execution: updated }
+    }
+
+    const [updated] = await tx
+      .update(executions)
+      .set({ enqueueAttempts: attempts })
+      .where(eq(executions.id, executionId))
+      .returning()
+    return { outcome: "retrying", execution: updated }
+  })
+}
+
 /** Executions still "queued" past the cutoff — a crash between creating the row and enqueueing its job leaves no other trace, so age is the only signal. */
 export async function findStaleQueuedExecutions(
   db: DbClient,

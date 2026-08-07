@@ -41,8 +41,13 @@ export class OrphanedExecutionSweepService
           this.logger.warn(`Re-enqueued orphaned execution ${execution.id}`)
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
+          const result = await repositories.execution.recordEnqueueFailure(
+            db,
+            execution.id,
+            { message }
+          )
           this.logger.error(
-            `Failed to re-enqueue orphaned execution ${execution.id}: ${message}`
+            `Failed to re-enqueue orphaned execution ${execution.id}${result.outcome === "gave_up" ? ", giving up" : ", will retry"}: ${message}`
           )
         }
       }

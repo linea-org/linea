@@ -50,7 +50,7 @@ export class ScheduleFiringService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // A crash here leaves the execution "queued" with no BullMQ job — OrphanedExecutionSweepService recovers it later.
+  // No caller waiting to retry a schedule, so a failure counts toward MAX_ENQUEUE_ATTEMPTS instead of failing immediately — OrphanedExecutionSweepService retries it until then.
   private async enqueue(
     executionId: string,
     scheduleId: string
@@ -59,11 +59,13 @@ export class ScheduleFiringService implements OnModuleInit, OnModuleDestroy {
       await this.queue.enqueue(executionId)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      await repositories.execution.failQueuedExecution(db, executionId, {
-        message,
-      })
+      const result = await repositories.execution.recordEnqueueFailure(
+        db,
+        executionId,
+        { message }
+      )
       this.logger.error(
-        `Failed to enqueue execution ${executionId} for schedule ${scheduleId}: ${message}`
+        `Failed to enqueue execution ${executionId} for schedule ${scheduleId}${result.outcome === "gave_up" ? ", giving up" : ", will retry via sweep"}: ${message}`
       )
     }
   }

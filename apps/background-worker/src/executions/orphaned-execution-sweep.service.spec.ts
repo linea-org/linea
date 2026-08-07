@@ -90,8 +90,8 @@ describe("OrphanedExecutionSweepService", () => {
     }
   })
 
-  it("logs but does not throw when re-enqueueing a stale execution fails", async () => {
-    const { organization } = await createQueuedExecution(
+  it("records the failed attempt and leaves the execution queued for the next sweep, without throwing", async () => {
+    const { organization, execution } = await createQueuedExecution(
       "Orphan Sweep Enqueue Fail Org",
       new Date(Date.now() - 120_000)
     )
@@ -102,6 +102,13 @@ describe("OrphanedExecutionSweepService", () => {
       } as unknown as WorkflowQueueService
       const service = new OrphanedExecutionSweepService(failingQueue)
       await expect(service.sweep()).resolves.toBeUndefined()
+
+      const result = await repositories.execution.getExecutionWithSteps(
+        db,
+        execution.id
+      )
+      expect(result?.execution.status).toBe("queued")
+      expect(result?.execution.enqueueAttempts).toBe(1)
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

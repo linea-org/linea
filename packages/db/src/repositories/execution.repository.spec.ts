@@ -9,6 +9,8 @@ import {
   getLeaseOwner,
   isLeaseValid,
   listExecutions,
+  MAX_ENQUEUE_ATTEMPTS,
+  recordEnqueueFailure,
   renewLease,
   startExecution,
   triggerWorkflowExecution,
@@ -678,6 +680,78 @@ describe("findStaleQueuedExecutions", () => {
 
       const results = await findStaleQueuedExecutions(tx, cutoff)
       expect(results.map((e) => e.id)).toEqual([stale.id])
+    })
+  })
+})
+
+describe("recordEnqueueFailure", () => {
+  it("increments enqueueAttempts and stays queued while under the max", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "schedule",
+      })
+
+      const result = await recordEnqueueFailure(tx, execution.id, {
+        message: "redis unreachable",
+      })
+      expect(result.outcome).toBe("retrying")
+      if (result.outcome !== "retrying") return
+      expect(result.execution.status).toBe("queued")
+      expect(result.execution.enqueueAttempts).toBe(1)
+    })
+  })
+
+  it("fails terminally once MAX_ENQUEUE_ATTEMPTS is reached", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "schedule",
+      })
+
+      let last
+      for (let attempt = 1; attempt <= MAX_ENQUEUE_ATTEMPTS; attempt++) {
+        last = await recordEnqueueFailure(tx, execution.id, {
+          message: `attempt ${attempt}`,
+        })
+      }
+
+      expect(last?.outcome).toBe("gave_up")
+      if (last?.outcome !== "gave_up") return
+      expect(last.execution.status).toBe("failed")
+      expect(last.execution.enqueueAttempts).toBe(MAX_ENQUEUE_ATTEMPTS)
+      expect(last.execution.error).toEqual({
+        message: `attempt ${MAX_ENQUEUE_ATTEMPTS}`,
+      })
+    })
+  })
+
+  it("returns not_found for an execution that's no longer queued", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "schedule",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const result = await recordEnqueueFailure(tx, execution.id, {
+        message: "redis unreachable",
+      })
+      expect(result.outcome).toBe("not_found")
     })
   })
 })
