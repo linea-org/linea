@@ -4,7 +4,7 @@ import {
   type OnModuleDestroy,
   type OnModuleInit,
 } from "@nestjs/common"
-import { db, repositories, type Schedule } from "@linea/db"
+import { db, repositories } from "@linea/db"
 import { WorkflowQueueService } from "../queue/workflow-queue.service"
 
 const POLL_INTERVAL_MS = 5_000
@@ -25,14 +25,23 @@ export class ScheduleFiringService implements OnModuleInit, OnModuleDestroy {
     clearInterval(this.interval)
   }
 
-  // Skips a tick already in flight, so a slow poll doesn't stack a second on top of it.
+  // Skips a tick already in flight, so a slow poll doesn't stack a second on top of it. Each
+  // claimAndFireDueSchedule call is its own atomic unit, so a mid-loop error only leaves the
+  // not-yet-processed schedules due again next tick — nothing already fired is lost.
   async poll(): Promise<void> {
     if (this.polling) return
     this.polling = true
     try {
-      const claimed = await repositories.schedule.claimDueSchedules(db)
-      for (const schedule of claimed) {
-        await this.fire(schedule)
+      let result = await repositories.schedule.claimAndFireDueSchedule(db)
+      while (result.outcome !== "empty") {
+        if (result.outcome === "fired") {
+          await this.enqueue(result.execution.id, result.schedule.id)
+        } else {
+          this.logger.warn(
+            `Schedule ${result.schedule.id} skipped: ${result.reason}`
+          )
+        }
+        result = await repositories.schedule.claimAndFireDueSchedule(db)
       }
     } catch (error) {
       this.logger.error(
@@ -43,29 +52,19 @@ export class ScheduleFiringService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async fire(schedule: Schedule): Promise<void> {
-    const result = await repositories.execution.triggerWorkflowExecution(
-      db,
-      schedule.workspaceId,
-      { by: "id", value: schedule.workflowId },
-      { trigger: "schedule" }
-    )
-    if (result.outcome !== "created") {
-      this.logger.warn(`Schedule ${schedule.id} skipped: ${result.outcome}`)
-      return
-    }
-
+  private async enqueue(
+    executionId: string,
+    scheduleId: string
+  ): Promise<void> {
     try {
-      await this.queue.enqueue(result.execution.id)
+      await this.queue.enqueue(executionId)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      await repositories.execution.failQueuedExecution(
-        db,
-        result.execution.id,
-        { message }
-      )
+      await repositories.execution.failQueuedExecution(db, executionId, {
+        message,
+      })
       this.logger.error(
-        `Failed to enqueue execution ${result.execution.id} for schedule ${schedule.id}: ${message}`
+        `Failed to enqueue execution ${executionId} for schedule ${scheduleId}: ${message}`
       )
     }
   }
