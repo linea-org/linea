@@ -25,9 +25,7 @@ export class ScheduleFiringService implements OnModuleInit, OnModuleDestroy {
     clearInterval(this.interval)
   }
 
-  // Skips a tick already in flight, so a slow poll doesn't stack a second on top of it. Each
-  // claimAndFireDueSchedule call is its own atomic unit, so a mid-loop error only leaves the
-  // not-yet-processed schedules due again next tick — nothing already fired is lost.
+  // Skips overlapping ticks — each claimAndFireDueSchedule call is atomic, so a mid-loop error just leaves the rest due again next tick.
   async poll(): Promise<void> {
     if (this.polling) return
     this.polling = true
@@ -52,6 +50,7 @@ export class ScheduleFiringService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  // A crash here leaves the execution "queued" with no BullMQ job — OrphanedExecutionSweepService recovers it later.
   private async enqueue(
     executionId: string,
     scheduleId: string

@@ -192,6 +192,19 @@ export async function failQueuedExecution(
   return execution
 }
 
+/** Executions still "queued" past the cutoff — a crash between creating the row and enqueueing its job leaves no other trace, so age is the only signal. */
+export async function findStaleQueuedExecutions(
+  db: DbClient,
+  olderThan: Date
+): Promise<Execution[]> {
+  return db
+    .select()
+    .from(executions)
+    .where(
+      and(eq(executions.status, "queued"), lt(executions.createdAt, olderThan))
+    )
+}
+
 /** Current `leasedBy`, or undefined if the execution doesn't exist — used to check ownership before a risky operation, not just before persisting its result. */
 export async function getLeaseOwner(
   db: DbClient,

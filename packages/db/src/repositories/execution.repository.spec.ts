@@ -5,6 +5,7 @@ import {
   completeExecution,
   createExecution,
   failQueuedExecution,
+  findStaleQueuedExecutions,
   getLeaseOwner,
   isLeaseValid,
   listExecutions,
@@ -632,5 +633,51 @@ describe("triggerWorkflowExecution", () => {
         organization.id,
       ])
     }
+  })
+})
+
+describe("findStaleQueuedExecutions", () => {
+  it("returns only queued executions older than the cutoff", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const cutoff = new Date()
+
+      const [stale] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          createdAt: new Date(cutoff.getTime() - 1_000),
+        })
+        .returning()
+      await tx.insert(executions).values({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        createdAt: new Date(cutoff.getTime() + 1_000),
+      })
+      const [running] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          createdAt: new Date(cutoff.getTime() - 1_000),
+        })
+        .returning()
+      await startExecution(
+        tx,
+        running.id,
+        "worker-a",
+        new Date(Date.now() + 60_000)
+      )
+
+      const results = await findStaleQueuedExecutions(tx, cutoff)
+      expect(results.map((e) => e.id)).toEqual([stale.id])
+    })
   })
 })
