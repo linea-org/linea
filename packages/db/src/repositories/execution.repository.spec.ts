@@ -9,7 +9,6 @@ import {
   getLeaseOwner,
   isLeaseValid,
   listExecutions,
-  MAX_ENQUEUE_ATTEMPTS,
   recordEnqueueFailure,
   renewLease,
   startExecution,
@@ -685,7 +684,7 @@ describe("findStaleQueuedExecutions", () => {
 })
 
 describe("recordEnqueueFailure", () => {
-  it("increments enqueueAttempts and stays queued while under the max", async () => {
+  it("increments enqueueAttempts and leaves the execution queued", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       const execution = await createExecution(tx, {
@@ -695,17 +694,13 @@ describe("recordEnqueueFailure", () => {
         trigger: "schedule",
       })
 
-      const result = await recordEnqueueFailure(tx, execution.id, {
-        message: "redis unreachable",
-      })
-      expect(result.outcome).toBe("retrying")
-      if (result.outcome !== "retrying") return
-      expect(result.execution.status).toBe("queued")
-      expect(result.execution.enqueueAttempts).toBe(1)
+      const result = await recordEnqueueFailure(tx, execution.id)
+      expect(result?.status).toBe("queued")
+      expect(result?.enqueueAttempts).toBe(1)
     })
   })
 
-  it("fails terminally once MAX_ENQUEUE_ATTEMPTS is reached", async () => {
+  it("never fails the execution, no matter how many attempts accumulate", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       const execution = await createExecution(tx, {
@@ -716,23 +711,16 @@ describe("recordEnqueueFailure", () => {
       })
 
       let last
-      for (let attempt = 1; attempt <= MAX_ENQUEUE_ATTEMPTS; attempt++) {
-        last = await recordEnqueueFailure(tx, execution.id, {
-          message: `attempt ${attempt}`,
-        })
+      for (let attempt = 1; attempt <= 20; attempt++) {
+        last = await recordEnqueueFailure(tx, execution.id)
       }
 
-      expect(last?.outcome).toBe("gave_up")
-      if (last?.outcome !== "gave_up") return
-      expect(last.execution.status).toBe("failed")
-      expect(last.execution.enqueueAttempts).toBe(MAX_ENQUEUE_ATTEMPTS)
-      expect(last.execution.error).toEqual({
-        message: `attempt ${MAX_ENQUEUE_ATTEMPTS}`,
-      })
+      expect(last?.status).toBe("queued")
+      expect(last?.enqueueAttempts).toBe(20)
     })
   })
 
-  it("returns not_found for an execution that's no longer queued", async () => {
+  it("returns undefined for an execution that's no longer queued", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       const execution = await createExecution(tx, {
@@ -748,10 +736,8 @@ describe("recordEnqueueFailure", () => {
         new Date(Date.now() + 60_000)
       )
 
-      const result = await recordEnqueueFailure(tx, execution.id, {
-        message: "redis unreachable",
-      })
-      expect(result.outcome).toBe("not_found")
+      const result = await recordEnqueueFailure(tx, execution.id)
+      expect(result).toBeUndefined()
     })
   })
 })

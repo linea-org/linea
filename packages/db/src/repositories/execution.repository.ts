@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, lt, notInArray, or } from "drizzle-orm"
+import { and, desc, eq, gt, lt, notInArray, or, sql } from "drizzle-orm"
 import {
   executions,
   executionSteps,
@@ -192,52 +192,17 @@ export async function failQueuedExecution(
   return execution
 }
 
-export const MAX_ENQUEUE_ATTEMPTS = 5
-
-export type RecordEnqueueFailureResult =
-  | { outcome: "retrying"; execution: Execution }
-  | { outcome: "gave_up"; execution: Execution }
-  | { outcome: "not_found" }
-
-/** Bounds retry for executions with no synchronous caller (schedules): counts the attempt, and fails terminally past MAX_ENQUEUE_ATTEMPTS instead of retrying forever. */
+/** Counts an enqueue failure but never fails the execution: a schedule has no caller to retry it, and once next_run_at has advanced, a terminal status would drop the occurrence for good — retrying forever costs nothing at this scale. */
 export async function recordEnqueueFailure(
   db: DbClient,
-  executionId: string,
-  error: { message: string }
-): Promise<RecordEnqueueFailureResult> {
-  return db.transaction(async (tx) => {
-    const [execution] = await tx
-      .select()
-      .from(executions)
-      .where(
-        and(eq(executions.id, executionId), eq(executions.status, "queued"))
-      )
-      .for("update")
-
-    if (!execution) return { outcome: "not_found" }
-
-    const attempts = execution.enqueueAttempts + 1
-    if (attempts >= MAX_ENQUEUE_ATTEMPTS) {
-      const [updated] = await tx
-        .update(executions)
-        .set({
-          status: "failed",
-          error,
-          enqueueAttempts: attempts,
-          completedAt: new Date(),
-        })
-        .where(eq(executions.id, executionId))
-        .returning()
-      return { outcome: "gave_up", execution: updated }
-    }
-
-    const [updated] = await tx
-      .update(executions)
-      .set({ enqueueAttempts: attempts })
-      .where(eq(executions.id, executionId))
-      .returning()
-    return { outcome: "retrying", execution: updated }
-  })
+  executionId: string
+): Promise<Execution | undefined> {
+  const [execution] = await db
+    .update(executions)
+    .set({ enqueueAttempts: sql`${executions.enqueueAttempts} + 1` })
+    .where(and(eq(executions.id, executionId), eq(executions.status, "queued")))
+    .returning()
+  return execution
 }
 
 /** Executions still "queued" past the cutoff — a crash between creating the row and enqueueing its job leaves no other trace, so age is the only signal. */

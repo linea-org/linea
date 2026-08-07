@@ -50,7 +50,7 @@ export class ScheduleFiringService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // No caller waiting to retry a schedule, so a failure counts toward MAX_ENQUEUE_ATTEMPTS instead of failing immediately — OrphanedExecutionSweepService retries it until then.
+  // No caller waiting to retry a schedule, so this never fails the execution — OrphanedExecutionSweepService keeps retrying it.
   private async enqueue(
     executionId: string,
     scheduleId: string
@@ -59,13 +59,9 @@ export class ScheduleFiringService implements OnModuleInit, OnModuleDestroy {
       await this.queue.enqueue(executionId)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      const result = await repositories.execution.recordEnqueueFailure(
-        db,
-        executionId,
-        { message }
-      )
+      await repositories.execution.recordEnqueueFailure(db, executionId)
       this.logger.error(
-        `Failed to enqueue execution ${executionId} for schedule ${scheduleId}${result.outcome === "gave_up" ? ", giving up" : ", will retry via sweep"}: ${message}`
+        `Failed to enqueue execution ${executionId} for schedule ${scheduleId}, will retry via sweep: ${message}`
       )
     }
   }
