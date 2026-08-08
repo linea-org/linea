@@ -2,7 +2,7 @@ import { Badge } from "@linea/ui/components/badge"
 
 import type { ExecutionStatus } from "../../lib/executions-api"
 
-const labelByStatus: Record<ExecutionStatus, string> = {
+export const executionStatusLabel: Record<ExecutionStatus, string> = {
   queued: "Queued",
   running: "Running",
   paused: "Paused",
@@ -25,6 +25,8 @@ const variantByStatus: Record<
 
 export function ExecutionStatusBadge({ status }: { status: ExecutionStatus }) {
   return (
-    <Badge variant={variantByStatus[status]}>{labelByStatus[status]}</Badge>
+    <Badge variant={variantByStatus[status]}>
+      {executionStatusLabel[status]}
+    </Badge>
   )
 }

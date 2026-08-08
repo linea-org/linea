@@ -6,6 +6,7 @@ export const listWorkspaceExecutionsSchema = z.object({
     .optional(),
   trigger: z.enum(['manual', 'schedule', 'webhook', 'api']).optional(),
   page: z.coerce.number().int().min(1).optional(),
+  asOf: z.coerce.date().optional(),
 })
 
 export type ListWorkspaceExecutionsDto = z.infer<

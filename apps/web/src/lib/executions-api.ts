@@ -97,6 +97,9 @@ export type WorkspaceExecutionFilters = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
   page?: number
+  /** ISO timestamp: caps results to rows created at or before this instant, so paging through
+   * several pages stays stable even if new executions land in between requests. */
+  asOf?: string
 }
 
 export type WorkspaceExecutionPage = {
@@ -113,6 +116,7 @@ export const listWorkspaceExecutionsFn = createServerFn({ method: "GET" })
     if (data.status) params.set("status", data.status)
     if (data.trigger) params.set("trigger", data.trigger)
     if (data.page) params.set("page", String(data.page))
+    if (data.asOf) params.set("asOf", data.asOf)
     const query = params.toString()
     const res = await apiFetch(`/executions${query ? `?${query}` : ""}`)
     if (!res.ok) {

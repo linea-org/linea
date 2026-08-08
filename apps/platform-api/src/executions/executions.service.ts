@@ -67,6 +67,7 @@ export class ExecutionsService {
       status: filters.status,
       trigger: filters.trigger,
       page: filters.page,
+      asOf: filters.asOf,
     })
   }
 

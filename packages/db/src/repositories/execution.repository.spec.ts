@@ -693,6 +693,78 @@ describe("listWorkspaceExecutions", () => {
       expect(combined).toHaveLength(6)
     })
   })
+
+  it("holds page boundaries fixed against a concurrent insert when callers pass a shared asOf", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const rows = Array.from({ length: 5 }, (_, i) => ({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual" as const,
+        createdAt: new Date(Date.now() - i * 1_000),
+      }))
+      await tx.insert(executions).values(rows)
+
+      const asOf = new Date()
+      const firstPage = await listWorkspaceExecutions(tx, organization.id, {
+        pageSize: 2,
+        page: 1,
+        asOf,
+      })
+
+      // A new execution lands between the two page fetches — without asOf this
+      // shifts every offset and either skips or repeats a row on page 2.
+      await tx.insert(executions).values({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        createdAt: new Date(),
+      })
+
+      const secondPage = await listWorkspaceExecutions(tx, organization.id, {
+        pageSize: 2,
+        page: 2,
+        asOf,
+      })
+
+      expect(secondPage.total).toBe(5)
+      expect(
+        secondPage.executions.every(
+          (e) => !firstPage.executions.some((f) => f.id === e.id)
+        )
+      ).toBe(true)
+    })
+  })
+
+  it("excludes rows created after asOf", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const [before] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          createdAt: new Date(Date.now() - 1_000),
+        })
+        .returning()
+      const asOf = new Date()
+      await tx.insert(executions).values({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        createdAt: new Date(asOf.getTime() + 1_000),
+      })
+
+      const page = await listWorkspaceExecutions(tx, organization.id, { asOf })
+      expect(page.executions.map((e) => e.id)).toEqual([before.id])
+      expect(page.total).toBe(1)
+    })
+  })
 })
 
 describe("triggerWorkflowExecution", () => {

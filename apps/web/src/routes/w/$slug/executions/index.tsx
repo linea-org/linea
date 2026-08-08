@@ -37,6 +37,7 @@ import {
 
 import {
   ExecutionStatusBadge,
+  executionStatusLabel,
   formatCost,
 } from "../../../../components/executions"
 import {
@@ -74,10 +75,18 @@ function parsePage(value: unknown): number {
   return Number.isInteger(page) && page >= 1 ? page : 1
 }
 
+/** Only a valid ISO timestamp counts — anything else falls back to no snapshot (live "now"). */
+function parseAsOf(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined
+  const time = Date.parse(value)
+  return Number.isNaN(time) ? undefined : new Date(time).toISOString()
+}
+
 type ExecutionsSearch = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
   page?: number
+  asOf?: string
 }
 
 export const Route = createFileRoute("/w/$slug/executions/")({
@@ -85,6 +94,7 @@ export const Route = createFileRoute("/w/$slug/executions/")({
     status: isExecutionStatus(search.status) ? search.status : undefined,
     trigger: isExecutionTrigger(search.trigger) ? search.trigger : undefined,
     page: parsePage(search.page),
+    asOf: parseAsOf(search.asOf),
   }),
   loaderDeps: ({ search }) => search,
   loader: ({ deps }) => listWorkspaceExecutionsFn({ data: deps }),
@@ -136,18 +146,29 @@ function ExecutionsPage() {
   const { executions, total, pageSize } = data
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const currentPage = search.page ?? 1
+  // Frozen the moment pagination is first used, then reused for every later page in this
+  // browsing session — see listWorkspaceExecutions' asOf param for why: without a shared
+  // snapshot, a row inserted between page fetches shifts every later page's offset.
+  const snapshotAsOf = search.asOf ?? new Date().toISOString()
 
   function hrefForPage(page: number): string {
     const params = new URLSearchParams()
     if (search.status) params.set("status", search.status)
     if (search.trigger) params.set("trigger", search.trigger)
     if (page > 1) params.set("page", String(page))
+    if (page > 1) params.set("asOf", snapshotAsOf)
     const query = params.toString()
     return `/w/${slug}/executions${query ? `?${query}` : ""}`
   }
 
   function goToPage(page: number) {
-    void navigate({ search: (prev) => ({ ...prev, page }) })
+    void navigate({
+      search: (prev) => ({
+        ...prev,
+        page,
+        asOf: page > 1 ? snapshotAsOf : prev.asOf,
+      }),
+    })
   }
 
   return (
@@ -162,18 +183,25 @@ function ExecutionsPage() {
                 status:
                   value === "all" ? undefined : (value as ExecutionStatus),
                 page: 1,
+                asOf: undefined,
               }),
             })
           }}
         >
           <SelectTrigger size="sm">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="Status">
+              {(value: string) =>
+                value === "all"
+                  ? "All statuses"
+                  : executionStatusLabel[value as ExecutionStatus]
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             {EXECUTION_STATUSES.map((status) => (
               <SelectItem key={status} value={status}>
-                {status}
+                {executionStatusLabel[status]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -188,12 +216,19 @@ function ExecutionsPage() {
                 trigger:
                   value === "all" ? undefined : (value as ExecutionTrigger),
                 page: 1,
+                asOf: undefined,
               }),
             })
           }}
         >
           <SelectTrigger size="sm">
-            <SelectValue placeholder="Trigger" />
+            <SelectValue placeholder="Trigger">
+              {(value: string) =>
+                value === "all"
+                  ? "All triggers"
+                  : triggerLabel[value as ExecutionTrigger]
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All triggers</SelectItem>

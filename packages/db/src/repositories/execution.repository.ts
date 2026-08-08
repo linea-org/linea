@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, lt, notInArray, or, sql } from "drizzle-orm"
+import { and, desc, eq, gt, lt, lte, notInArray, or, sql } from "drizzle-orm"
 import {
   executions,
   executionSteps,
@@ -297,7 +297,18 @@ export type WorkspaceExecutionPage = {
 
 const DEFAULT_WORKSPACE_EXECUTIONS_PAGE_SIZE = 50
 
-/** Unlike listExecutions, spans every workflow in the workspace — for the cross-workflow trace view, not a single workflow's page. Paginated: a workspace can accumulate far more than one page's worth of executions. */
+/**
+ * Unlike listExecutions, spans every workflow in the workspace — for the cross-workflow trace view,
+ * not a single workflow's page. Paginated: a workspace can accumulate far more than one page's worth
+ * of executions.
+ *
+ * `asOf` bounds the result set to rows created at or before that instant. Without it, OFFSET/LIMIT
+ * pagination drifts under concurrent writes: a row inserted after page 1 was fetched shifts every
+ * later page's offset by one, skipping or repeating rows at the boundary — the id tie-breaker below
+ * only stabilizes ties within a single query, not the set itself changing between queries. Callers
+ * paginating through several pages should capture `asOf` once (e.g. the moment they leave page 1) and
+ * pass the same value for every subsequent page in that browsing session.
+ */
 export async function listWorkspaceExecutions(
   db: DbClient,
   workspaceId: string,
@@ -306,6 +317,7 @@ export async function listWorkspaceExecutions(
     trigger?: Execution["trigger"]
     page?: number
     pageSize?: number
+    asOf?: Date
   } = {}
 ): Promise<WorkspaceExecutionPage> {
   const page = options.page ?? 1
@@ -313,7 +325,8 @@ export async function listWorkspaceExecutions(
   const where = and(
     eq(executions.workspaceId, workspaceId),
     options.status ? eq(executions.status, options.status) : undefined,
-    options.trigger ? eq(executions.trigger, options.trigger) : undefined
+    options.trigger ? eq(executions.trigger, options.trigger) : undefined,
+    options.asOf ? lte(executions.createdAt, options.asOf) : undefined
   )
 
   const [rows, [{ count }]] = await Promise.all([
