@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { createFileRoute, redirect } from "@tanstack/react-router"
+import { ArrowRightIcon, LoaderCircleIcon, PlusIcon } from "lucide-react"
 
 import { Alert, AlertDescription } from "@linea/ui/components/alert"
 import { Button } from "@linea/ui/components/button"
@@ -10,19 +11,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@linea/ui/components/dialog"
+import { cn } from "@linea/ui/lib/utils"
 
+import { UserMenu } from "../components/account"
+import { PlayfulAvatar } from "../components/avatar"
 import {
   CreateWorkspaceForm,
   type CreatedWorkspace,
 } from "../components/workspace"
-import { authClient } from "../lib/auth-client"
 import { setActiveOrganization } from "../lib/auth-queries"
 import {
   authErrorMessage,
   listOrganizations,
   requireVerifiedUser,
 } from "../lib/auth-redirect"
-import { getAppOrigin } from "../lib/workspace-host"
 
 type WorkspaceListItem = {
   id: string
@@ -42,20 +44,9 @@ export const Route = createFileRoute("/workspaces")({
   component: WorkspacesPage,
 })
 
-function userInitials(name?: string | null, email?: string | null) {
-  const source = name?.trim() || email?.trim() || "?"
-  const parts = source.split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
-  }
-  return source.slice(0, 2).toUpperCase()
-}
-
 function WorkspacesPage() {
   const navigate = Route.useNavigate()
   const { orgs: initialOrgs } = Route.useRouteContext()
-  const { data: session } = authClient.useSession()
-  const user = session?.user
   const [orgs, setOrgs] = useState<WorkspaceListItem[]>(() =>
     initialOrgs.map((org) => ({
       id: org.id,
@@ -87,125 +78,114 @@ function WorkspacesPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh flex-col bg-background text-foreground">
+    <div className="relative flex min-h-svh flex-col overflow-hidden bg-background text-foreground">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,oklch(0.85_0.06_277/_0.35),transparent_55%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,color-mix(in_oklch,var(--primary)_18%,transparent),transparent_70%),radial-gradient(ellipse_50%_40%_at_100%_100%,color-mix(in_oklch,var(--accent)_55%,transparent),transparent_65%)]"
       />
 
-      <header className="relative z-10 flex items-center justify-between border-b border-border/70 bg-card/70 px-6 py-4 backdrop-blur">
-        <div className="flex items-center gap-2.5">
-          <img
-            src="/assets/linea.svg"
-            alt=""
-            width={28}
-            height={28}
-            className="size-7 rounded-md shadow-sm ring-1 ring-black/5"
-          />
-          <span className="font-heading text-sm font-semibold tracking-tight">
-            Linea
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2.5">
-            {user?.image ? (
-              <img
-                src={user.image}
-                alt=""
-                className="size-8 rounded-full object-cover ring-1 ring-border"
-              />
-            ) : (
-              <div className="flex size-8 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary ring-1 ring-border">
-                {userInitials(user?.name, user?.email)}
-              </div>
-            )}
-            <div className="hidden leading-tight sm:block">
-              <div className="text-sm font-medium">
-                {user?.name || "Account"}
-              </div>
-              <div className="text-xs text-muted-foreground">{user?.email}</div>
-            </div>
+      <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-14 sm:py-20">
+        <div className="animate-in fade-in-0 slide-in-from-bottom-2 fill-mode-both duration-500">
+          <div className="mb-10 flex flex-col items-center text-center">
+            <img
+              src="/assets/linea.svg"
+              alt=""
+              width={40}
+              height={40}
+              className="mb-5 size-10 rounded-lg shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+            />
+            <h1 className="font-heading text-3xl font-semibold tracking-tight">
+              Workspaces
+            </h1>
+            <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+              Pick a workspace to continue.
+            </p>
           </div>
+
+          {error ? (
+            <Alert variant="destructive" className="mb-5">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          <ul className="space-y-2">
+            {orgs.map((org, index) => {
+              const opening = pendingId === org.id
+              return (
+                <li
+                  key={org.id}
+                  className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-500"
+                  style={{ animationDelay: `${80 + index * 45}ms` }}
+                >
+                  <button
+                    type="button"
+                    className={cn(
+                      "group flex w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors",
+                      "hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                      "disabled:cursor-not-allowed disabled:opacity-50"
+                    )}
+                    disabled={pendingId !== null}
+                    onClick={() => {
+                      void openWorkspace(org)
+                    }}
+                  >
+                    <PlayfulAvatar
+                      name={org.name}
+                      shape="rounded"
+                      className="size-11 transition-transform duration-200 group-hover:scale-[1.03]"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-foreground">
+                        {org.name}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {org.slug}
+                      </span>
+                    </span>
+                    <span
+                      className="shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+                      aria-label={opening ? "Opening workspace" : "Open workspace"}
+                    >
+                      {opening ? (
+                        <LoaderCircleIcon className="size-4 animate-spin" />
+                      ) : (
+                        <ArrowRightIcon className="size-4" />
+                      )}
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+
           <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              void (async () => {
-                await authClient.signOut()
-                window.location.href = `${getAppOrigin()}/sign-in`
-              })()
-            }}
+            variant="ghost"
+            size="lg"
+            className="mt-3 w-full rounded-2xl text-muted-foreground transition-colors hover:bg-secondary hover:text-secondary-foreground"
+            onClick={() => setCreateOpen(true)}
           >
-            Sign out
+            <PlusIcon />
+            Create workspace
           </Button>
         </div>
-      </header>
 
-      <main className="relative z-10 mx-auto flex w-full max-w-xl flex-1 flex-col px-6 py-12">
-        <div className="mb-8">
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Workspaces
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Choose a workspace to open, or create a new one.
-          </p>
+        <div className="mt-5 animate-in fade-in-0 fill-mode-both duration-500 delay-200">
+          <div className="mb-3 h-px bg-border/80" />
+          <UserMenu showDetails align="start" className="w-full" />
         </div>
-
-        {error ? (
-          <Alert variant="destructive" className="mb-5">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-          {orgs.map((org) => (
-            <li key={org.id}>
-              <button
-                type="button"
-                className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
-                disabled={pendingId !== null}
-                onClick={() => {
-                  void openWorkspace(org)
-                }}
-              >
-                <span>
-                  <span className="block font-medium text-foreground">
-                    {org.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {org.slug}
-                  </span>
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {pendingId === org.id ? "Opening…" : "Open"}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        <Button
-          variant="outline"
-          size="lg"
-          className="mt-5 w-full"
-          onClick={() => setCreateOpen(true)}
-        >
-          Create workspace
-        </Button>
-
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create a workspace</DialogTitle>
-              <DialogDescription>
-                Workspaces keep your workflows, members, and settings together.
-              </DialogDescription>
-            </DialogHeader>
-            {createOpen ? <CreateWorkspaceForm onSuccess={onCreated} /> : null}
-          </DialogContent>
-        </Dialog>
       </main>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create a workspace</DialogTitle>
+            <DialogDescription>
+              Workspaces keep your workflows, members, and settings together.
+            </DialogDescription>
+          </DialogHeader>
+          {createOpen ? <CreateWorkspaceForm onSuccess={onCreated} /> : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

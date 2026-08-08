@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query"
 
 import appCss from "@linea/ui/globals.css?url"
 
+import { ThemeProvider } from "../components/theme"
 import { createQueryClient } from "../lib/query-client"
 
 export const Route = createRootRoute({
@@ -47,14 +48,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => createQueryClient())
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body className="min-h-svh font-sans antialiased">
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
+        <ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        </ThemeProvider>
         <Scripts />
       </body>
     </html>

@@ -1,24 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
-import { getRequestHeaders } from "@tanstack/react-start/server"
 
 import type { SessionData } from "./auth-client"
-
-function internalApiUrl() {
-  return process.env.VITE_API_URL?.replace(/\/$/, "") || "http://localhost:3000"
-}
-
-async function apiFetch(path: string, init?: RequestInit) {
-  const headers = getRequestHeaders()
-  const cookie = headers.get("cookie") ?? ""
-  const res = await fetch(`${internalApiUrl()}${path}`, {
-    ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-      cookie,
-    },
-  })
-  return res
-}
+import { apiFetch } from "./api-fetch"
 
 export const fetchSessionFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<SessionData | null> => {

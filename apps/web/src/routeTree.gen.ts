@@ -8,182 +8,220 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root"
-import { Route as WorkspacesRouteImport } from "./routes/workspaces"
-import { Route as VerifyEmailRouteImport } from "./routes/verify-email"
-import { Route as SignUpRouteImport } from "./routes/sign-up"
-import { Route as SignInRouteImport } from "./routes/sign-in"
-import { Route as ResetPasswordRouteImport } from "./routes/reset-password"
-import { Route as ForgotPasswordRouteImport } from "./routes/forgot-password"
-import { Route as AppRouteImport } from "./routes/app"
-import { Route as IndexRouteImport } from "./routes/index"
-import { Route as WSlugRouteImport } from "./routes/w/$slug"
-import { Route as OnboardingWorkspaceRouteImport } from "./routes/onboarding/workspace"
-import { Route as OnboardingInviteRouteImport } from "./routes/onboarding/invite"
-import { Route as AcceptInvitationInvitationIdRouteImport } from "./routes/accept-invitation.$invitationId"
-import { Route as WSlugIndexRouteImport } from "./routes/w/$slug/index"
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkspacesRouteImport } from './routes/workspaces'
+import { Route as VerifyEmailRouteImport } from './routes/verify-email'
+import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as AccountRouteImport } from './routes/account'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as WSlugRouteImport } from './routes/w/$slug'
+import { Route as OnboardingWorkspaceRouteImport } from './routes/onboarding/workspace'
+import { Route as OnboardingInviteRouteImport } from './routes/onboarding/invite'
+import { Route as AcceptInvitationInvitationIdRouteImport } from './routes/accept-invitation.$invitationId'
+import { Route as WSlugIndexRouteImport } from './routes/w/$slug/index'
+import { Route as WSlugWorkflowsIndexRouteImport } from './routes/w/$slug/workflows/index'
+import { Route as WSlugWorkflowsWorkflowIdRouteImport } from './routes/w/$slug/workflows/$workflowId'
 
 const WorkspacesRoute = WorkspacesRouteImport.update({
-  id: "/workspaces",
-  path: "/workspaces",
+  id: '/workspaces',
+  path: '/workspaces',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
-  id: "/verify-email",
-  path: "/verify-email",
+  id: '/verify-email',
+  path: '/verify-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignUpRoute = SignUpRouteImport.update({
-  id: "/sign-up",
-  path: "/sign-up",
+  id: '/sign-up',
+  path: '/sign-up',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
-  id: "/sign-in",
-  path: "/sign-in",
+  id: '/sign-in',
+  path: '/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: "/reset-password",
-  path: "/reset-password",
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: "/forgot-password",
-  path: "/forgot-password",
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
-  id: "/app",
-  path: "/app",
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WSlugRoute = WSlugRouteImport.update({
-  id: "/w/$slug",
-  path: "/w/$slug",
+  id: '/w/$slug',
+  path: '/w/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingWorkspaceRoute = OnboardingWorkspaceRouteImport.update({
-  id: "/onboarding/workspace",
-  path: "/onboarding/workspace",
+  id: '/onboarding/workspace',
+  path: '/onboarding/workspace',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingInviteRoute = OnboardingInviteRouteImport.update({
-  id: "/onboarding/invite",
-  path: "/onboarding/invite",
+  id: '/onboarding/invite',
+  path: '/onboarding/invite',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AcceptInvitationInvitationIdRoute =
   AcceptInvitationInvitationIdRouteImport.update({
-    id: "/accept-invitation/$invitationId",
-    path: "/accept-invitation/$invitationId",
+    id: '/accept-invitation/$invitationId',
+    path: '/accept-invitation/$invitationId',
     getParentRoute: () => rootRouteImport,
   } as any)
 const WSlugIndexRoute = WSlugIndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => WSlugRoute,
 } as any)
+const WSlugWorkflowsIndexRoute = WSlugWorkflowsIndexRouteImport.update({
+  id: '/workflows/',
+  path: '/workflows/',
+  getParentRoute: () => WSlugRoute,
+} as any)
+const WSlugWorkflowsWorkflowIdRoute =
+  WSlugWorkflowsWorkflowIdRouteImport.update({
+    id: '/workflows/$workflowId',
+    path: '/workflows/$workflowId',
+    getParentRoute: () => WSlugRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute
-  "/app": typeof AppRoute
-  "/forgot-password": typeof ForgotPasswordRoute
-  "/reset-password": typeof ResetPasswordRoute
-  "/sign-in": typeof SignInRoute
-  "/sign-up": typeof SignUpRoute
-  "/verify-email": typeof VerifyEmailRoute
-  "/workspaces": typeof WorkspacesRoute
-  "/accept-invitation/$invitationId": typeof AcceptInvitationInvitationIdRoute
-  "/onboarding/invite": typeof OnboardingInviteRoute
-  "/onboarding/workspace": typeof OnboardingWorkspaceRoute
-  "/w/$slug": typeof WSlugRouteWithChildren
-  "/w/$slug/": typeof WSlugIndexRoute
+  '/': typeof IndexRoute
+  '/account': typeof AccountRoute
+  '/app': typeof AppRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
+  '/verify-email': typeof VerifyEmailRoute
+  '/workspaces': typeof WorkspacesRoute
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
+  '/onboarding/invite': typeof OnboardingInviteRoute
+  '/onboarding/workspace': typeof OnboardingWorkspaceRoute
+  '/w/$slug': typeof WSlugRouteWithChildren
+  '/w/$slug/': typeof WSlugIndexRoute
+  '/w/$slug/workflows/$workflowId': typeof WSlugWorkflowsWorkflowIdRoute
+  '/w/$slug/workflows/': typeof WSlugWorkflowsIndexRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute
-  "/app": typeof AppRoute
-  "/forgot-password": typeof ForgotPasswordRoute
-  "/reset-password": typeof ResetPasswordRoute
-  "/sign-in": typeof SignInRoute
-  "/sign-up": typeof SignUpRoute
-  "/verify-email": typeof VerifyEmailRoute
-  "/workspaces": typeof WorkspacesRoute
-  "/accept-invitation/$invitationId": typeof AcceptInvitationInvitationIdRoute
-  "/onboarding/invite": typeof OnboardingInviteRoute
-  "/onboarding/workspace": typeof OnboardingWorkspaceRoute
-  "/w/$slug": typeof WSlugIndexRoute
+  '/': typeof IndexRoute
+  '/account': typeof AccountRoute
+  '/app': typeof AppRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
+  '/verify-email': typeof VerifyEmailRoute
+  '/workspaces': typeof WorkspacesRoute
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
+  '/onboarding/invite': typeof OnboardingInviteRoute
+  '/onboarding/workspace': typeof OnboardingWorkspaceRoute
+  '/w/$slug': typeof WSlugIndexRoute
+  '/w/$slug/workflows/$workflowId': typeof WSlugWorkflowsWorkflowIdRoute
+  '/w/$slug/workflows': typeof WSlugWorkflowsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  "/": typeof IndexRoute
-  "/app": typeof AppRoute
-  "/forgot-password": typeof ForgotPasswordRoute
-  "/reset-password": typeof ResetPasswordRoute
-  "/sign-in": typeof SignInRoute
-  "/sign-up": typeof SignUpRoute
-  "/verify-email": typeof VerifyEmailRoute
-  "/workspaces": typeof WorkspacesRoute
-  "/accept-invitation/$invitationId": typeof AcceptInvitationInvitationIdRoute
-  "/onboarding/invite": typeof OnboardingInviteRoute
-  "/onboarding/workspace": typeof OnboardingWorkspaceRoute
-  "/w/$slug": typeof WSlugRouteWithChildren
-  "/w/$slug/": typeof WSlugIndexRoute
+  '/': typeof IndexRoute
+  '/account': typeof AccountRoute
+  '/app': typeof AppRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
+  '/verify-email': typeof VerifyEmailRoute
+  '/workspaces': typeof WorkspacesRoute
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
+  '/onboarding/invite': typeof OnboardingInviteRoute
+  '/onboarding/workspace': typeof OnboardingWorkspaceRoute
+  '/w/$slug': typeof WSlugRouteWithChildren
+  '/w/$slug/': typeof WSlugIndexRoute
+  '/w/$slug/workflows/$workflowId': typeof WSlugWorkflowsWorkflowIdRoute
+  '/w/$slug/workflows/': typeof WSlugWorkflowsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/app"
-    | "/forgot-password"
-    | "/reset-password"
-    | "/sign-in"
-    | "/sign-up"
-    | "/verify-email"
-    | "/workspaces"
-    | "/accept-invitation/$invitationId"
-    | "/onboarding/invite"
-    | "/onboarding/workspace"
-    | "/w/$slug"
-    | "/w/$slug/"
+    | '/'
+    | '/account'
+    | '/app'
+    | '/forgot-password'
+    | '/reset-password'
+    | '/sign-in'
+    | '/sign-up'
+    | '/verify-email'
+    | '/workspaces'
+    | '/accept-invitation/$invitationId'
+    | '/onboarding/invite'
+    | '/onboarding/workspace'
+    | '/w/$slug'
+    | '/w/$slug/'
+    | '/w/$slug/workflows/$workflowId'
+    | '/w/$slug/workflows/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | "/"
-    | "/app"
-    | "/forgot-password"
-    | "/reset-password"
-    | "/sign-in"
-    | "/sign-up"
-    | "/verify-email"
-    | "/workspaces"
-    | "/accept-invitation/$invitationId"
-    | "/onboarding/invite"
-    | "/onboarding/workspace"
-    | "/w/$slug"
+    | '/'
+    | '/account'
+    | '/app'
+    | '/forgot-password'
+    | '/reset-password'
+    | '/sign-in'
+    | '/sign-up'
+    | '/verify-email'
+    | '/workspaces'
+    | '/accept-invitation/$invitationId'
+    | '/onboarding/invite'
+    | '/onboarding/workspace'
+    | '/w/$slug'
+    | '/w/$slug/workflows/$workflowId'
+    | '/w/$slug/workflows'
   id:
-    | "__root__"
-    | "/"
-    | "/app"
-    | "/forgot-password"
-    | "/reset-password"
-    | "/sign-in"
-    | "/sign-up"
-    | "/verify-email"
-    | "/workspaces"
-    | "/accept-invitation/$invitationId"
-    | "/onboarding/invite"
-    | "/onboarding/workspace"
-    | "/w/$slug"
-    | "/w/$slug/"
+    | '__root__'
+    | '/'
+    | '/account'
+    | '/app'
+    | '/forgot-password'
+    | '/reset-password'
+    | '/sign-in'
+    | '/sign-up'
+    | '/verify-email'
+    | '/workspaces'
+    | '/accept-invitation/$invitationId'
+    | '/onboarding/invite'
+    | '/onboarding/workspace'
+    | '/w/$slug'
+    | '/w/$slug/'
+    | '/w/$slug/workflows/$workflowId'
+    | '/w/$slug/workflows/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRoute: typeof AccountRoute
   AppRoute: typeof AppRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -197,97 +235,118 @@ export interface RootRouteChildren {
   WSlugRoute: typeof WSlugRouteWithChildren
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/workspaces": {
-      id: "/workspaces"
-      path: "/workspaces"
-      fullPath: "/workspaces"
+    '/workspaces': {
+      id: '/workspaces'
+      path: '/workspaces'
+      fullPath: '/workspaces'
       preLoaderRoute: typeof WorkspacesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/verify-email": {
-      id: "/verify-email"
-      path: "/verify-email"
-      fullPath: "/verify-email"
+    '/verify-email': {
+      id: '/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
       preLoaderRoute: typeof VerifyEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/sign-up": {
-      id: "/sign-up"
-      path: "/sign-up"
-      fullPath: "/sign-up"
+    '/sign-up': {
+      id: '/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/sign-in": {
-      id: "/sign-in"
-      path: "/sign-in"
-      fullPath: "/sign-in"
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/reset-password": {
-      id: "/reset-password"
-      path: "/reset-password"
-      fullPath: "/reset-password"
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/forgot-password": {
-      id: "/forgot-password"
-      path: "/forgot-password"
-      fullPath: "/forgot-password"
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/app": {
-      id: "/app"
-      path: "/app"
-      fullPath: "/app"
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/": {
-      id: "/"
-      path: "/"
-      fullPath: "/"
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/w/$slug": {
-      id: "/w/$slug"
-      path: "/w/$slug"
-      fullPath: "/w/$slug"
+    '/w/$slug': {
+      id: '/w/$slug'
+      path: '/w/$slug'
+      fullPath: '/w/$slug'
       preLoaderRoute: typeof WSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/onboarding/workspace": {
-      id: "/onboarding/workspace"
-      path: "/onboarding/workspace"
-      fullPath: "/onboarding/workspace"
+    '/onboarding/workspace': {
+      id: '/onboarding/workspace'
+      path: '/onboarding/workspace'
+      fullPath: '/onboarding/workspace'
       preLoaderRoute: typeof OnboardingWorkspaceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/onboarding/invite": {
-      id: "/onboarding/invite"
-      path: "/onboarding/invite"
-      fullPath: "/onboarding/invite"
+    '/onboarding/invite': {
+      id: '/onboarding/invite'
+      path: '/onboarding/invite'
+      fullPath: '/onboarding/invite'
       preLoaderRoute: typeof OnboardingInviteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/accept-invitation/$invitationId": {
-      id: "/accept-invitation/$invitationId"
-      path: "/accept-invitation/$invitationId"
-      fullPath: "/accept-invitation/$invitationId"
+    '/accept-invitation/$invitationId': {
+      id: '/accept-invitation/$invitationId'
+      path: '/accept-invitation/$invitationId'
+      fullPath: '/accept-invitation/$invitationId'
       preLoaderRoute: typeof AcceptInvitationInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/w/$slug/": {
-      id: "/w/$slug/"
-      path: "/"
-      fullPath: "/w/$slug/"
+    '/w/$slug/': {
+      id: '/w/$slug/'
+      path: '/'
+      fullPath: '/w/$slug/'
       preLoaderRoute: typeof WSlugIndexRouteImport
+      parentRoute: typeof WSlugRoute
+    }
+    '/w/$slug/workflows/': {
+      id: '/w/$slug/workflows/'
+      path: '/workflows'
+      fullPath: '/w/$slug/workflows/'
+      preLoaderRoute: typeof WSlugWorkflowsIndexRouteImport
+      parentRoute: typeof WSlugRoute
+    }
+    '/w/$slug/workflows/$workflowId': {
+      id: '/w/$slug/workflows/$workflowId'
+      path: '/workflows/$workflowId'
+      fullPath: '/w/$slug/workflows/$workflowId'
+      preLoaderRoute: typeof WSlugWorkflowsWorkflowIdRouteImport
       parentRoute: typeof WSlugRoute
     }
   }
@@ -295,16 +354,21 @@ declare module "@tanstack/react-router" {
 
 interface WSlugRouteChildren {
   WSlugIndexRoute: typeof WSlugIndexRoute
+  WSlugWorkflowsWorkflowIdRoute: typeof WSlugWorkflowsWorkflowIdRoute
+  WSlugWorkflowsIndexRoute: typeof WSlugWorkflowsIndexRoute
 }
 
 const WSlugRouteChildren: WSlugRouteChildren = {
   WSlugIndexRoute: WSlugIndexRoute,
+  WSlugWorkflowsWorkflowIdRoute: WSlugWorkflowsWorkflowIdRoute,
+  WSlugWorkflowsIndexRoute: WSlugWorkflowsIndexRoute,
 }
 
 const WSlugRouteWithChildren = WSlugRoute._addFileChildren(WSlugRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRoute: AccountRoute,
   AppRoute: AppRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   ResetPasswordRoute: ResetPasswordRoute,
@@ -321,9 +385,9 @@ export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.tsx"
-import type { createStart } from "@tanstack/react-start"
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
