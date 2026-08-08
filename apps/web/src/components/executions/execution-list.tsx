@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router"
 import { HistoryIcon } from "lucide-react"
 
 import {
@@ -34,7 +35,7 @@ function formatDuration(startedAt: string | null, completedAt: string | null) {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 
-function formatCost(costMicros: string) {
+export function formatCost(costMicros: string) {
   return (Number(costMicros) / 1_000_000).toLocaleString(undefined, {
     style: "currency",
     currency: "USD",
@@ -43,8 +44,12 @@ function formatCost(costMicros: string) {
 
 export function ExecutionList({
   executions,
+  slug,
+  workflowId,
 }: {
   executions: ExecutionSummary[]
+  slug: string
+  workflowId: string
 }) {
   if (executions.length === 0) {
     return (
@@ -78,7 +83,12 @@ export function ExecutionList({
         {executions.map((execution) => (
           <TableRow key={execution.id}>
             <TableCell>
-              <ExecutionStatusBadge status={execution.status} />
+              <Link
+                to="/w/$slug/workflows/$workflowId/executions/$executionId"
+                params={{ slug, workflowId, executionId: execution.id }}
+              >
+                <ExecutionStatusBadge status={execution.status} />
+              </Link>
             </TableCell>
             <TableCell className="text-muted-foreground">
               {triggerLabel[execution.trigger]}
