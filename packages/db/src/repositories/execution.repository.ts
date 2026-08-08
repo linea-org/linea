@@ -282,3 +282,43 @@ export async function listExecutions(
     .orderBy(desc(executions.createdAt))
     .limit(options.limit ?? 50)
 }
+
+export type ExecutionWithWorkflow = Execution & {
+  workflowName: string
+  workflowSlug: string
+}
+
+/** Unlike listExecutions, spans every workflow in the workspace — for the cross-workflow trace view, not a single workflow's page. */
+export async function listWorkspaceExecutions(
+  db: DbClient,
+  workspaceId: string,
+  options: {
+    status?: Execution["status"]
+    trigger?: Execution["trigger"]
+    limit?: number
+  } = {}
+): Promise<ExecutionWithWorkflow[]> {
+  const rows = await db
+    .select({
+      execution: executions,
+      workflowName: workflows.name,
+      workflowSlug: workflows.slug,
+    })
+    .from(executions)
+    .innerJoin(workflows, eq(executions.workflowId, workflows.id))
+    .where(
+      and(
+        eq(executions.workspaceId, workspaceId),
+        options.status ? eq(executions.status, options.status) : undefined,
+        options.trigger ? eq(executions.trigger, options.trigger) : undefined
+      )
+    )
+    .orderBy(desc(executions.createdAt))
+    .limit(options.limit ?? 50)
+
+  return rows.map(({ execution, workflowName, workflowSlug }) => ({
+    ...execution,
+    workflowName,
+    workflowSlug,
+  }))
+}

@@ -1,8 +1,20 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
+import {
+  listWorkspaceExecutionsSchema,
+  type ListWorkspaceExecutionsDto,
+} from './dto/list-workspace-executions.dto'
 import {
   triggerExecutionSchema,
   type TriggerExecutionDto,
@@ -31,6 +43,15 @@ export class ExecutionsController {
     @Param('workflowId') workflowId: string,
   ) {
     return this.executions.list(workspaceId, workflowId)
+  }
+
+  @Get('executions')
+  listWorkspace(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Query(new ZodValidationPipe(listWorkspaceExecutionsSchema))
+    query: ListWorkspaceExecutionsDto,
+  ) {
+    return this.executions.listWorkspace(workspaceId, query)
   }
 
   @Get('executions/:id')

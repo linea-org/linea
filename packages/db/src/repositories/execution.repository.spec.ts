@@ -9,6 +9,7 @@ import {
   getLeaseOwner,
   isLeaseValid,
   listExecutions,
+  listWorkspaceExecutions,
   recordEnqueueFailure,
   renewLease,
   startExecution,
@@ -16,6 +17,8 @@ import {
 } from "./execution.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import {
+  createWorkflow,
+  createWorkflowVersion,
   publishWorkflowVersion,
   updateWorkflow,
 } from "./workflow.repository.js"
@@ -511,6 +514,103 @@ describe("listExecutions", () => {
 
       const results = await listExecutions(tx, workflow.id)
       expect(results.map((e) => e.id)).toEqual([second.id, first.id])
+    })
+  })
+})
+
+describe("listWorkspaceExecutions", () => {
+  it("spans every workflow in the workspace, most recent first, with the owning workflow's name/slug attached", async () => {
+    await withRollback(async (tx) => {
+      const {
+        organization,
+        workflow: workflowA,
+        version,
+      } = await createTestFixtures(tx)
+      const workflowB = await createWorkflow(tx, {
+        workspaceId: organization.id,
+        name: "Second Workflow",
+        slug: "second-workflow",
+      })
+      const versionB = await createWorkflowVersion(tx, {
+        workflowId: workflowB.id,
+        graph: { nodes: [], edges: [] },
+        contentHash: "test-hash-b",
+      })
+
+      const [fromA] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflowA.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          createdAt: new Date(Date.now() - 1_000),
+        })
+        .returning()
+      const [fromB] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflowB.id,
+          workflowVersionId: versionB.id,
+          trigger: "manual",
+          createdAt: new Date(),
+        })
+        .returning()
+
+      const results = await listWorkspaceExecutions(tx, organization.id)
+      expect(results.map((e) => e.id)).toEqual([fromB.id, fromA.id])
+      expect(results[0].workflowName).toBe("Second Workflow")
+      expect(results[1].workflowName).toBe(workflowA.name)
+    })
+  })
+
+  it("filters by status and by trigger", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const [queued] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          status: "queued",
+        })
+        .returning()
+      await tx.insert(executions).values({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "webhook",
+        status: "succeeded",
+      })
+
+      const queuedOnly = await listWorkspaceExecutions(tx, organization.id, {
+        status: "queued",
+      })
+      expect(queuedOnly.map((e) => e.id)).toEqual([queued.id])
+
+      const manualOnly = await listWorkspaceExecutions(tx, organization.id, {
+        trigger: "manual",
+      })
+      expect(manualOnly.map((e) => e.id)).toEqual([queued.id])
+    })
+  })
+
+  it("does not include executions from another workspace", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const { organization: otherOrg } = await createTestFixtures(tx)
+      await tx.insert(executions).values({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const results = await listWorkspaceExecutions(tx, otherOrg.id)
+      expect(results).toEqual([])
     })
   })
 })

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common'
 import { db, repositories, type Execution, type ExecutionStep } from '@linea/db'
 import { WorkflowQueueService } from '../queue/workflow-queue.service'
+import type { ListWorkspaceExecutionsDto } from './dto/list-workspace-executions.dto'
 import type { TriggerExecutionDto } from './dto/trigger-execution.dto'
 
 @Injectable()
@@ -59,6 +60,13 @@ export class ExecutionsService {
       throw new NotFoundException('Workflow not found')
     }
     return repositories.execution.listExecutions(db, workflowId)
+  }
+
+  listWorkspace(workspaceId: string, filters: ListWorkspaceExecutionsDto) {
+    return repositories.execution.listWorkspaceExecutions(db, workspaceId, {
+      status: filters.status,
+      trigger: filters.trigger,
+    })
   }
 
   async get(

@@ -30,6 +30,11 @@ export type ExecutionDetail = ExecutionSummary & {
   error: { message: string; stepId?: string } | null
 }
 
+export type WorkspaceExecutionSummary = ExecutionSummary & {
+  workflowName: string
+  workflowSlug: string
+}
+
 export type ExecutionStepStatus = "running" | "succeeded" | "failed" | "skipped"
 
 export type JsonValue =
@@ -87,6 +92,35 @@ export const getExecutionFn = createServerFn({ method: "GET" })
       }
     }
   )
+
+export type WorkspaceExecutionFilters = {
+  status?: ExecutionStatus
+  trigger?: ExecutionTrigger
+}
+
+export const listWorkspaceExecutionsFn = createServerFn({ method: "GET" })
+  .inputValidator((data: WorkspaceExecutionFilters) => data)
+  .handler(async ({ data }): Promise<WorkspaceExecutionSummary[]> => {
+    const params = new URLSearchParams()
+    if (data.status) params.set("status", data.status)
+    if (data.trigger) params.set("trigger", data.trigger)
+    const query = params.toString()
+    const res = await apiFetch(`/executions${query ? `?${query}` : ""}`)
+    if (!res.ok) {
+      throw new Error("Could not load executions")
+    }
+    return (await res.json()) as WorkspaceExecutionSummary[]
+  })
+
+export function workspaceExecutionsQueryOptions(
+  workspaceSlug: string,
+  filters: WorkspaceExecutionFilters
+) {
+  return queryOptions({
+    queryKey: ["workspace-executions", workspaceSlug, filters],
+    queryFn: () => listWorkspaceExecutionsFn({ data: filters }),
+  })
+}
 
 export function executionsQueryOptions(
   workspaceSlug: string,

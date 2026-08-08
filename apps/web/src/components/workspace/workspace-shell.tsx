@@ -1,5 +1,5 @@
 import { Link, useMatchRoute } from "@tanstack/react-router"
-import { PanelsTopLeftIcon, WorkflowIcon } from "lucide-react"
+import { HistoryIcon, PanelsTopLeftIcon, WorkflowIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 import {
@@ -84,6 +84,22 @@ export function WorkspaceShell({
                   >
                     <WorkflowIcon />
                     <span>Workflows</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={
+                      !!matchRoute({
+                        to: "/w/$slug/executions",
+                        params: { slug },
+                        fuzzy: true,
+                      })
+                    }
+                    tooltip="Executions"
+                    render={<Link to="/w/$slug/executions" params={{ slug }} />}
+                  >
+                    <HistoryIcon />
+                    <span>Executions</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

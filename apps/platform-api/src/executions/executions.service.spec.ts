@@ -103,6 +103,19 @@ describe('ExecutionsService', () => {
       const list = await service.list(organization.id, workflow.id)
       expect(list.map((e) => e.id)).toContain(execution.id)
 
+      const workspaceList = await service.listWorkspace(organization.id, {})
+      expect(workspaceList.map((e) => e.id)).toContain(execution.id)
+      expect(workspaceList[0].workflowName).toBe(workflow.name)
+
+      const filteredOut = await service.listWorkspace(organization.id, {
+        status: 'succeeded',
+      })
+      expect(filteredOut.map((e) => e.id)).not.toContain(execution.id)
+
+      expect(
+        (await service.listWorkspace(otherOrg.id, {})).map((e) => e.id),
+      ).not.toContain(execution.id)
+
       const found = await service.get(organization.id, execution.id)
       expect(found.execution.id).toBe(execution.id)
       expect(found.steps).toEqual([])
