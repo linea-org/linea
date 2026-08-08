@@ -25,6 +25,38 @@ export type ExecutionSummary = {
   createdAt: string
 }
 
+export type ExecutionDetail = ExecutionSummary & {
+  error: { message: string; stepId?: string } | null
+}
+
+export type ExecutionStepStatus = "running" | "succeeded" | "failed" | "skipped"
+
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+export type ExecutionStepSummary = {
+  id: string
+  name: string
+  nodeId: string
+  status: ExecutionStepStatus
+  startedAt: string
+  endedAt: string | null
+  sequence: number
+  attempt: number
+  input: Record<string, JsonValue> | null
+  output: Record<string, JsonValue> | null
+  error: { message: string; stack?: string } | null
+  costMicros: string
+  tokensInput: number
+  tokensOutput: number
+  isSystemEvent: boolean
+}
+
 export const listExecutionsFn = createServerFn({ method: "GET" })
   .inputValidator((data: { workflowId: string }) => data)
   .handler(async ({ data }): Promise<ExecutionSummary[]> => {
@@ -35,6 +67,26 @@ export const listExecutionsFn = createServerFn({ method: "GET" })
     return (await res.json()) as ExecutionSummary[]
   })
 
+export const getExecutionFn = createServerFn({ method: "GET" })
+  .inputValidator((data: { id: string }) => data)
+  .handler(
+    async ({
+      data,
+    }): Promise<{
+      execution: ExecutionDetail
+      steps: ExecutionStepSummary[]
+    }> => {
+      const res = await apiFetch(`/executions/${data.id}`)
+      if (!res.ok) {
+        throw new Error("Execution not found")
+      }
+      return (await res.json()) as {
+        execution: ExecutionDetail
+        steps: ExecutionStepSummary[]
+      }
+    }
+  )
+
 export function executionsQueryOptions(
   workspaceSlug: string,
   workflowId: string
@@ -42,5 +94,15 @@ export function executionsQueryOptions(
   return queryOptions({
     queryKey: ["executions", workspaceSlug, workflowId],
     queryFn: () => listExecutionsFn({ data: { workflowId } }),
+  })
+}
+
+export function executionQueryOptions(
+  workspaceSlug: string,
+  executionId: string
+) {
+  return queryOptions({
+    queryKey: ["execution", workspaceSlug, executionId],
+    queryFn: () => getExecutionFn({ data: { id: executionId } }),
   })
 }
