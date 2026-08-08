@@ -62,66 +62,49 @@ function loadGraph(): WorkflowGraph {
   return graph
 }
 
+// Written to organizations.metadata on the demo org — nothing else in this
+// codebase reads or writes that column, so unlike a name (which anyone could
+// type into a real signup form) it can't coincidentally appear on an
+// unrelated organization. Provenance, not just a label.
+const DEMO_ORG_MARKER = 'created-by-linea-demo-script'
+
 /**
- * Atomic find-or-create (safe if two `pnpm demo` invocations race), but slug
- * collision alone isn't enough to treat a found row as "ours" — an unrelated
- * organization could legitimately have picked this slug first. Only reuse it
- * if the name matches what this script would have created; otherwise fail
- * loudly rather than silently publishing demo data into someone else's org.
+ * Atomic find-or-create (safe if two `pnpm demo` invocations race). Slug
+ * collision alone isn't proof a found row is ours — an unrelated organization
+ * could legitimately occupy this slug — so only reuse it if it carries the
+ * marker this script itself stamps on creation; otherwise fail loudly rather
+ * than silently publishing demo data into someone else's org.
  */
 async function findOrCreateDemoOrg() {
   const org = await repositories.organization.findOrCreateOrganizationBySlug(
     db,
-    { name: DEMO_ORG_NAME, slug: DEMO_ORG_SLUG, createdAt: new Date() },
+    {
+      name: DEMO_ORG_NAME,
+      slug: DEMO_ORG_SLUG,
+      createdAt: new Date(),
+      metadata: DEMO_ORG_MARKER,
+    },
   )
-  if (org.name !== DEMO_ORG_NAME) {
+  if (org.metadata !== DEMO_ORG_MARKER) {
     throw new Error(
-      `An organization already exists at slug "${DEMO_ORG_SLUG}" named ` +
-        `"${org.name}", not "${DEMO_ORG_NAME}" — it wasn't created by this ` +
-        'script. Change DEMO_ORG_SLUG in demo.ts to avoid colliding with it.',
+      `An organization already exists at slug "${DEMO_ORG_SLUG}" that ` +
+        "wasn't created by this script. Change DEMO_ORG_SLUG in demo.ts to " +
+        'avoid colliding with it.',
     )
   }
   return org
 }
 
+// No separate provenance check needed here: this workflow is scoped to
+// findOrCreateDemoOrg's already-verified org, which nothing outside this
+// script ever creates, joins, or writes to — there's no "unrelated workflow"
+// for a name/marker check to defend against once the org itself is provenance-checked.
 async function findOrCreateDemoWorkflow(workspaceId: string) {
-  const workflow = await repositories.workflow.findOrCreateWorkflowBySlug(db, {
+  return repositories.workflow.findOrCreateWorkflowBySlug(db, {
     workspaceId,
     name: DEMO_WORKFLOW_NAME,
     slug: DEMO_WORKFLOW_SLUG,
   })
-  if (workflow.name !== DEMO_WORKFLOW_NAME) {
-    throw new Error(
-      `A workflow already exists at slug "${DEMO_WORKFLOW_SLUG}" named ` +
-        `"${workflow.name}", not "${DEMO_WORKFLOW_NAME}" — it wasn't created ` +
-        'by this script. Change DEMO_WORKFLOW_SLUG in demo.ts to avoid ' +
-        'colliding with it.',
-    )
-  }
-  return workflow
-}
-
-/** Reuses the currently published version if the committed graph hasn't changed, so re-running the script doesn't pile up versions. */
-async function ensurePublishedVersion(
-  workflowId: string,
-  graph: WorkflowGraph,
-) {
-  const contentHash = hashWorkflowGraph(graph)
-  const published = await repositories.workflow.getPublishedVersion(
-    db,
-    workflowId,
-  )
-  if (published && published.contentHash === contentHash) {
-    return published
-  }
-
-  const version = await repositories.workflow.createWorkflowVersion(db, {
-    workflowId,
-    graph,
-    contentHash,
-  })
-  await repositories.workflow.publishWorkflowVersion(db, workflowId, version.id)
-  return version
 }
 
 function sleep(ms: number): Promise<void> {
@@ -188,7 +171,10 @@ async function main() {
   const graph = loadGraph()
   const org = await findOrCreateDemoOrg()
   const workflow = await findOrCreateDemoWorkflow(org.id)
-  await ensurePublishedVersion(workflow.id, graph)
+  await repositories.workflow.ensurePublishedVersion(db, workflow.id, {
+    graph,
+    contentHash: hashWorkflowGraph(graph),
+  })
 
   const trigger = await repositories.execution.triggerWorkflowExecution(
     db,

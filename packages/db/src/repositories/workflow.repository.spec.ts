@@ -6,6 +6,7 @@ import { organizations, workflows, workflowVersions } from "../schema/index.js"
 import {
   createWorkflow,
   createWorkflowVersion,
+  ensurePublishedVersion,
   findOrCreateWorkflowBySlug,
   getPublishedVersion,
   getWorkflowById,
@@ -197,6 +198,103 @@ describe("findOrCreateWorkflowBySlug", () => {
       await db
         .delete(workflows)
         .where(eq(workflows.workspaceId, organization.id))
+      await db
+        .delete(organizations)
+        .where(eq(organizations.id, organization.id))
+    }
+  })
+})
+
+describe("ensurePublishedVersion", () => {
+  it("creates and publishes a version when the workflow has none yet", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const workflow = await createWorkflow(tx, {
+        workspaceId: organization.id,
+        name: "Fresh Workflow",
+        slug: `fresh-${randomUUID()}`,
+      })
+
+      const version = await ensurePublishedVersion(tx, workflow.id, {
+        graph: { nodes: [] },
+        contentHash: "hash-1",
+      })
+
+      const published = await getPublishedVersion(tx, workflow.id)
+      expect(published?.id).toBe(version.id)
+      expect(published?.contentHash).toBe("hash-1")
+    })
+  })
+
+  it("reuses the currently published version when the hash hasn't changed, without creating a new one", async () => {
+    await withRollback(async (tx) => {
+      const { workflow, version } = await createTestFixtures(tx)
+      await publishWorkflowVersion(tx, workflow.id, version.id)
+
+      const result = await ensurePublishedVersion(tx, workflow.id, {
+        graph: {},
+        contentHash: version.contentHash,
+      })
+
+      expect(result.id).toBe(version.id)
+    })
+  })
+
+  it("publishes a new version when the hash changed", async () => {
+    await withRollback(async (tx) => {
+      const { workflow, version } = await createTestFixtures(tx)
+      await publishWorkflowVersion(tx, workflow.id, version.id)
+
+      const updated = await ensurePublishedVersion(tx, workflow.id, {
+        graph: { changed: true },
+        contentHash: "a-new-hash",
+      })
+
+      expect(updated.id).not.toBe(version.id)
+      const published = await getPublishedVersion(tx, workflow.id)
+      expect(published?.id).toBe(updated.id)
+    })
+  })
+
+  it("resolves both concurrent callers to the same published version instead of each publishing a redundant one", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(organizations)
+      .values({
+        name: "Ensure Published Version Race Org",
+        slug: `ensure-published-race-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    const workflow = await createWorkflow(db, {
+      workspaceId: organization.id,
+      name: "Race Workflow",
+      slug: `race-${suffix}`,
+    })
+
+    try {
+      const [a, b] = await Promise.all([
+        ensurePublishedVersion(db, workflow.id, {
+          graph: {},
+          contentHash: "race-hash",
+        }),
+        ensurePublishedVersion(db, workflow.id, {
+          graph: {},
+          contentHash: "race-hash",
+        }),
+      ])
+      expect(a.id).toBe(b.id)
+
+      const allVersions = await db
+        .select()
+        .from(workflowVersions)
+        .where(eq(workflowVersions.workflowId, workflow.id))
+      expect(allVersions).toHaveLength(1)
+    } finally {
+      // workflows.published_version_id points at workflow_versions, so it
+      // must go first — deleting it cascades away its own versions (their
+      // workflow_id FK is ON DELETE CASCADE), unlike the reverse order.
+      await db.delete(workflows).where(eq(workflows.id, workflow.id))
       await db
         .delete(organizations)
         .where(eq(organizations.id, organization.id))
