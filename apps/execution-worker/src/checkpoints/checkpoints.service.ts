@@ -98,6 +98,18 @@ export class CheckpointsService {
     return new Map(Object.entries(checkpoint.context))
   }
 
+  /** Marks a genuine resume on the timeline — call only when getResumeState returned non-empty state. */
+  async recordResumeEvent(
+    executionId: string,
+    workspaceId: string
+  ): Promise<void> {
+    await repositories.checkpoint.recordResumeEvent(
+      db,
+      executionId,
+      workspaceId
+    )
+  }
+
   /** Sums token usage already recorded — resumed steps are skipped, not re-run, so their usage must be seeded rather than re-derived. */
   async getResumeTokenTotals(
     executionId: string

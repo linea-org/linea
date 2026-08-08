@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import { NestFactory } from '@nestjs/core'
 import { enabledSocialProviders } from '@linea/auth'
 import { AppModule } from './app.module'
+import { bigIntJsonReplacer } from './common/bigint-json-replacer'
 
 function normalizeClientIp(raw: string | undefined) {
   if (!raw) return '127.0.0.1'
@@ -33,6 +34,7 @@ async function bootstrap() {
     set: (key: string, value: unknown) => void
   }
   expressApp.set('trust proxy', 1)
+  expressApp.set('json replacer', bigIntJsonReplacer)
 
   app.use((req: Request, _res: Response, next: NextFunction) => {
     const ip = normalizeClientIp(req.socket.remoteAddress)

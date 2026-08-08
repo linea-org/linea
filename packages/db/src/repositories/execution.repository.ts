@@ -260,11 +260,12 @@ export async function getExecutionWithSteps(
     .where(eq(executions.id, executionId))
   if (!execution) return undefined
 
+  // startedAt, not sequence — resume-event markers use negative sequence numbers to avoid colliding with real step numbering, so only startedAt sorts everything chronologically.
   const steps = await db
     .select()
     .from(executionSteps)
     .where(eq(executionSteps.executionId, executionId))
-    .orderBy(executionSteps.sequence)
+    .orderBy(executionSteps.startedAt)
 
   return { execution, steps }
 }

@@ -124,14 +124,24 @@ describe("crash-and-resume", () => {
         workflow.id,
         { limit: 1 }
       )
-      const steps = await repositories.checkpoint.getStepsForExecution(
+      // getExecutionWithSteps, not getStepsForExecution — it's the one that orders
+      // chronologically by startedAt, which is what the resume marker's position proves.
+      const { steps } = (await repositories.execution.getExecutionWithSteps(
         db,
         execution.id
-      )
+      ))!
 
       const executedNodeIds = steps.map((step) => step.nodeId)
-      expect(executedNodeIds).toEqual(["n1", "n2", "n3", "n4", "n5", "n6"])
-      expect(new Set(executedNodeIds).size).toBe(6)
+      expect(executedNodeIds).toEqual([
+        "n1",
+        "n2",
+        "n3",
+        repositories.checkpoint.RESUME_EVENT_NODE_ID,
+        "n4",
+        "n5",
+        "n6",
+      ])
+      expect(new Set(executedNodeIds).size).toBe(7)
       expect(steps.every((step) => step.status === "succeeded")).toBe(true)
 
       const lastStep = steps[steps.length - 1]

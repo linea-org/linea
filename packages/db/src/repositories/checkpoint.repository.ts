@@ -1,4 +1,5 @@
-import { asc, desc, eq } from "drizzle-orm"
+import { randomUUID } from "node:crypto"
+import { and, asc, desc, eq } from "drizzle-orm"
 import {
   checkpoints,
   executions,
@@ -76,4 +77,43 @@ export async function getStepsForExecution(
     .from(executionSteps)
     .where(eq(executionSteps.executionId, executionId))
     .orderBy(asc(executionSteps.sequence))
+}
+
+/** Sentinel `nodeId`, safe from collision since real node ids come from user-authored workflow JSON, never this literal. */
+export const RESUME_EVENT_NODE_ID = "__resumed__"
+
+/** Marks a genuine resume (a worker picking up checkpointed state after a crash) as a timeline event, not a real node step — negative `sequence` keeps it out of the real step-count sequence a colliding insert could otherwise hit. */
+export async function recordResumeEvent(
+  db: DbClient,
+  executionId: string,
+  workspaceId: string
+): Promise<ExecutionStep> {
+  const priorResumes = await db
+    .select({ id: executionSteps.id })
+    .from(executionSteps)
+    .where(
+      and(
+        eq(executionSteps.executionId, executionId),
+        eq(executionSteps.nodeId, RESUME_EVENT_NODE_ID)
+      )
+    )
+
+  const now = new Date()
+  const [step] = await db
+    .insert(executionSteps)
+    .values({
+      executionId,
+      workspaceId,
+      traceId: executionId,
+      spanId: randomUUID(),
+      name: "resumed",
+      startedAt: now,
+      endedAt: now,
+      status: "succeeded",
+      nodeId: RESUME_EVENT_NODE_ID,
+      sequence: -(priorResumes.length + 1),
+      attempt: priorResumes.length + 2,
+    })
+    .returning()
+  return step
 }
