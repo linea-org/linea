@@ -188,4 +188,18 @@ describe("validateGraphStructure", () => {
       )
     ).toThrow(WorkflowGraphError)
   })
+
+  it("rejects a node id reserved for system timeline events", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          entryNodeId: "__resumed__",
+          nodes: [
+            { id: "__resumed__", type: "http", config: {} },
+            { id: "b", type: "transform", config: {} },
+          ],
+        })
+      )
+    ).toThrow(WorkflowGraphError)
+  })
 })

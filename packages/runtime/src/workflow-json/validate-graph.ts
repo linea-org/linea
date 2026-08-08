@@ -2,11 +2,21 @@ import type { WorkflowGraph } from "./schema.js"
 
 export class WorkflowGraphError extends Error {}
 
+// Mirrors execution.repository.ts's RESUME_EVENT_NODE_ID — duplicated rather than imported so
+// this package doesn't pick up @linea/db as a dependency just for one string constant.
+const RESERVED_NODE_IDS = new Set(["__resumed__"])
+
 /** Validates structural invariants the zod schema can't express: ids, edges, reachability, cycles, branch routing. */
 export function validateGraphStructure(graph: WorkflowGraph): void {
   const nodeIds = new Set(graph.nodes.map((node) => node.id))
   if (nodeIds.size !== graph.nodes.length) {
     throw new WorkflowGraphError("Node ids must be unique")
+  }
+
+  for (const node of graph.nodes) {
+    if (RESERVED_NODE_IDS.has(node.id)) {
+      throw new WorkflowGraphError(`Node id "${node.id}" is reserved`)
+    }
   }
 
   if (!nodeIds.has(graph.entryNodeId)) {

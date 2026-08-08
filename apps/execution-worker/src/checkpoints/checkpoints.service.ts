@@ -98,16 +98,21 @@ export class CheckpointsService {
     return new Map(Object.entries(checkpoint.context))
   }
 
-  /** Marks a genuine resume on the timeline — call only when getResumeState returned non-empty state. */
+  /** Marks a genuine resume on the timeline — call only when getResumeState returned non-empty state. Throws `LeaseLostError` if `leasedBy` no longer owns the execution, matching recordStep. */
   async recordResumeEvent(
     executionId: string,
-    workspaceId: string
+    workspaceId: string,
+    leasedBy: string
   ): Promise<void> {
-    await repositories.checkpoint.recordResumeEvent(
+    const result = await repositories.checkpoint.recordResumeEvent(
       db,
       executionId,
-      workspaceId
+      workspaceId,
+      leasedBy
     )
+    if (!result) {
+      throw new LeaseLostError(executionId)
+    }
   }
 
   /** Sums token usage already recorded — resumed steps are skipped, not re-run, so their usage must be seeded rather than re-derived. */

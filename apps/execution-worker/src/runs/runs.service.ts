@@ -68,7 +68,8 @@ export class RunsService {
       if (resumeFrom.size > 0) {
         await this.checkpoints.recordResumeEvent(
           executionId,
-          execution.workspaceId
+          execution.workspaceId,
+          attemptId
         )
       }
 
