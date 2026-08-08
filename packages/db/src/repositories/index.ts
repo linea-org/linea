@@ -1,3 +1,4 @@
+export * as organization from "./organization.repository.js"
 export * as workflow from "./workflow.repository.js"
 export * as execution from "./execution.repository.js"
 export * as checkpoint from "./checkpoint.repository.js"

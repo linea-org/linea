@@ -95,8 +95,8 @@ linea/
 │   │   └── src/
 │   │       ├── components/ # auth + workspace UI
 │   │       └── routes/     # file-based routes
-│   ├── background-worker/  # stub, not yet built
-│   ├── execution-worker/   # stub, not yet built
+│   ├── execution-worker/   # workflow execution runtime — nodes, interpreter, checkpoints
+│   ├── background-worker/  # schedule firing
 │   └── run-gateway/        # stub, not yet built
 └── packages/
     ├── auth/             # better-auth config, email sending
@@ -130,6 +130,7 @@ documentation itself is organized as the product grows.
 # Development
 pnpm dev                  # start all apps in dev mode
 pnpm build                # production build of all apps/packages
+pnpm demo                 # run the example workflow end to end (needs pnpm dev running)
 
 # Code quality (same checks CI runs)
 pnpm lint                 # eslint across all packages
@@ -151,6 +152,11 @@ pnpm queue:up             # start Redis via Docker
 pnpm queue:down           # stop the Docker Compose stack (Postgres + Redis)
 pnpm queue:logs           # tail Redis logs
 ```
+
+`pnpm test` already runs a real crash-and-resume integration test
+(`apps/execution-worker/src/runs/crash-and-resume.spec.ts`) against a live Postgres
+— that's why `db:up` matters even if you're "just running tests," and why CI's
+`test` job spins up real Postgres and Redis services rather than mocking them.
 
 ## Making schema changes
 
