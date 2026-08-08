@@ -23,6 +23,9 @@ export const Route = createFileRoute(
     if (detail.status === "rejected") {
       throw detail.reason
     }
+    if (detail.value.execution.workflowId !== params.workflowId) {
+      throw new Error("Execution not found")
+    }
     return {
       detail: detail.value,
       workflow: workflow.status === "fulfilled" ? workflow.value : undefined,

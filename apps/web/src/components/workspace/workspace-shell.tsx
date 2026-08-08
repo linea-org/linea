@@ -1,8 +1,7 @@
 import { Link, useMatchRoute } from "@tanstack/react-router"
-import { BellIcon, PanelsTopLeftIcon, WorkflowIcon } from "lucide-react"
+import { PanelsTopLeftIcon, WorkflowIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { Button } from "@linea/ui/components/button"
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +21,7 @@ import { Separator } from "@linea/ui/components/separator"
 
 import { UserMenu } from "../account"
 import { TopBarBreadcrumb } from "./top-bar-breadcrumb"
+import { TopBarNotifications } from "./top-bar-notifications"
 import { TopBarSearch } from "./top-bar-search"
 import { WorkspaceSwitcher, type WorkspaceOption } from "./workspace-switcher"
 
@@ -98,7 +98,7 @@ export function WorkspaceShell({
       </Sidebar>
 
       <SidebarInset className="relative z-10 overflow-hidden bg-card md:peer-data-[variant=inset]:rounded-lg">
-        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border/70 px-3">
+        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border/70 px-5">
           <div className="flex flex-1 items-center gap-2">
             <SidebarTrigger className="md:hidden" />
             <Separator orientation="vertical" className="h-4 md:hidden" />
@@ -108,9 +108,7 @@ export function WorkspaceShell({
             <TopBarSearch />
           </div>
           <div className="flex flex-1 items-center justify-end">
-            <Button variant="ghost" size="icon" aria-label="Notifications">
-              <BellIcon />
-            </Button>
+            <TopBarNotifications />
           </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-auto">

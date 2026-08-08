@@ -15,6 +15,7 @@ export type ExecutionTrigger = "manual" | "schedule" | "webhook" | "api"
 
 export type ExecutionSummary = {
   id: string
+  workflowId: string
   status: ExecutionStatus
   trigger: ExecutionTrigger
   costMicros: string
