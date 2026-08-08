@@ -104,6 +104,27 @@ describe('WorkflowsService', () => {
     })
   })
 
+  it('rejects a graph that uses the reserved resume-event node id', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [WorkflowsService],
+    }).compile()
+    const service = moduleRef.get(WorkflowsService)
+
+    await withOrg(async (workspaceId) => {
+      const suffix = randomUUID()
+      const workflow = await service.create(workspaceId, {
+        name: 'Reserved Node Id Workflow',
+        slug: `reserved-node-${suffix}`,
+      })
+
+      await expect(
+        service.createVersion(workspaceId, workflow.id, {
+          graph: validGraph('__resumed__'),
+        }),
+      ).rejects.toThrow()
+    })
+  })
+
   it('creates and publishes a version, scoped to the owning workflow', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [WorkflowsService],

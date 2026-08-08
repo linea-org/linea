@@ -6,17 +6,26 @@ export class WorkflowGraphError extends Error {}
 // this package doesn't pick up @linea/db as a dependency just for one string constant.
 const RESERVED_NODE_IDS = new Set(["__resumed__"])
 
+/**
+ * Rejects node ids reserved for system timeline events. Deliberately NOT part of
+ * validateGraphStructure: that function also runs on every execution of an already-published
+ * graph, and a graph published before this reservation existed must keep executing, not start
+ * failing retroactively. Call this only where a graph is newly authored (workflow-version
+ * creation), so the reservation only ever blocks new workflows, never breaks old ones.
+ */
+export function assertNoReservedNodeIds(graph: WorkflowGraph): void {
+  for (const node of graph.nodes) {
+    if (RESERVED_NODE_IDS.has(node.id)) {
+      throw new WorkflowGraphError(`Node id "${node.id}" is reserved`)
+    }
+  }
+}
+
 /** Validates structural invariants the zod schema can't express: ids, edges, reachability, cycles, branch routing. */
 export function validateGraphStructure(graph: WorkflowGraph): void {
   const nodeIds = new Set(graph.nodes.map((node) => node.id))
   if (nodeIds.size !== graph.nodes.length) {
     throw new WorkflowGraphError("Node ids must be unique")
-  }
-
-  for (const node of graph.nodes) {
-    if (RESERVED_NODE_IDS.has(node.id)) {
-      throw new WorkflowGraphError(`Node id "${node.id}" is reserved`)
-    }
   }
 
   if (!nodeIds.has(graph.entryNodeId)) {
