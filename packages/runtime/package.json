@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "tsup",
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
     "typecheck": "tsc --noEmit",
@@ -16,11 +17,19 @@
     "@linea/config": "workspace:*",
     "@types/node": "22",
     "eslint": "^9",
+    "tsup": "^8.5.0",
     "typescript": "^6",
     "vitest": "^3"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./*": "./src/*.ts"
-  }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
 }
