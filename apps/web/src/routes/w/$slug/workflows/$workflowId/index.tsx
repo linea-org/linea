@@ -1,14 +1,5 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
-import { Link, createFileRoute } from "@tanstack/react-router"
-
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@linea/ui/components/breadcrumb"
+import { createFileRoute } from "@tanstack/react-router"
 
 import { ExecutionList } from "../../../../../components/executions"
 import { WorkflowStatusBadge } from "../../../../../components/workflows"
@@ -57,31 +48,12 @@ function WorkflowDetailPage() {
 
   return (
     <main className="flex flex-1 flex-col px-6 py-8 sm:px-8 sm:py-10">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink
-              render={<Link to="/w/$slug/workflows" params={{ slug }} />}
-            >
-              Workflows
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{workflow.name}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      <div className="mt-3 flex items-center gap-3">
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          {workflow.name}
-        </h1>
+      <div className="flex items-center gap-3">
         <WorkflowStatusBadge workflow={workflow} />
+        <span className="text-sm text-muted-foreground">{workflow.slug}</span>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">{workflow.slug}</p>
 
-      <dl className="mt-8 grid max-w-md grid-cols-2 gap-y-3 text-sm">
+      <dl className="mt-6 grid max-w-md grid-cols-2 gap-y-3 text-sm">
         <dt className="text-muted-foreground">Created</dt>
         <dd className="text-foreground">
           {new Date(workflow.createdAt).toLocaleString()}

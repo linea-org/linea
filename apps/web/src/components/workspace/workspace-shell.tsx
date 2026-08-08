@@ -1,7 +1,8 @@
 import { Link, useMatchRoute } from "@tanstack/react-router"
-import { PanelsTopLeftIcon, WorkflowIcon } from "lucide-react"
+import { BellIcon, PanelsTopLeftIcon, WorkflowIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
+import { Button } from "@linea/ui/components/button"
 import {
   Sidebar,
   SidebarContent,
@@ -20,6 +21,8 @@ import {
 import { Separator } from "@linea/ui/components/separator"
 
 import { UserMenu } from "../account"
+import { TopBarBreadcrumb } from "./top-bar-breadcrumb"
+import { TopBarSearch } from "./top-bar-search"
 import { WorkspaceSwitcher, type WorkspaceOption } from "./workspace-switcher"
 
 type WorkspaceShellProps = {
@@ -95,10 +98,20 @@ export function WorkspaceShell({
       </Sidebar>
 
       <SidebarInset className="relative z-10 overflow-hidden bg-card md:peer-data-[variant=inset]:rounded-lg">
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border/70 px-3 md:hidden">
-          <SidebarTrigger />
-          <Separator orientation="vertical" className="h-4" />
-          <span className="truncate text-sm font-medium">Linea</span>
+        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border/70 px-3">
+          <div className="flex flex-1 items-center gap-2">
+            <SidebarTrigger className="md:hidden" />
+            <Separator orientation="vertical" className="h-4 md:hidden" />
+            <TopBarBreadcrumb slug={slug} />
+          </div>
+          <div className="hidden flex-1 justify-center sm:flex">
+            <TopBarSearch />
+          </div>
+          <div className="flex flex-1 items-center justify-end">
+            <Button variant="ghost" size="icon" aria-label="Notifications">
+              <BellIcon />
+            </Button>
+          </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-auto">
           {children}

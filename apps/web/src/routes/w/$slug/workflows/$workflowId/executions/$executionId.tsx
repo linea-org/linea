@@ -1,14 +1,5 @@
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
-import { Link, createFileRoute } from "@tanstack/react-router"
-
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@linea/ui/components/breadcrumb"
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute } from "@tanstack/react-router"
 
 import {
   ExecutionStatusBadge,
@@ -19,10 +10,7 @@ import {
   executionQueryOptions,
   getExecutionFn,
 } from "../../../../../../lib/executions-api"
-import {
-  getWorkflowFn,
-  workflowQueryOptions,
-} from "../../../../../../lib/workflows-api"
+import { getWorkflowFn } from "../../../../../../lib/workflows-api"
 
 export const Route = createFileRoute(
   "/w/$slug/workflows/$workflowId/executions/$executionId"
@@ -51,7 +39,7 @@ function formatDuration(startedAt: string | null, completedAt: string | null) {
 }
 
 function ExecutionDetailPage() {
-  const { slug, workflowId, executionId } = Route.useParams()
+  const { slug, executionId } = Route.useParams()
   const initialData = Route.useLoaderData()
   const {
     data: { execution, steps },
@@ -59,53 +47,17 @@ function ExecutionDetailPage() {
     ...executionQueryOptions(slug, executionId),
     initialData: initialData.detail,
   })
-  const { data: workflow } = useQuery({
-    ...workflowQueryOptions(slug, workflowId),
-    initialData: initialData.workflow,
-  })
 
   return (
     <main className="flex flex-1 flex-col px-6 py-8 sm:px-8 sm:py-10">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink
-              render={<Link to="/w/$slug/workflows" params={{ slug }} />}
-            >
-              Workflows
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbLink
-              render={
-                <Link
-                  to="/w/$slug/workflows/$workflowId"
-                  params={{ slug, workflowId }}
-                />
-              }
-            >
-              {workflow?.name ?? "Workflow"}
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>Execution</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      <div className="mt-3 flex items-center gap-3">
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          Execution
-        </h1>
+      <div className="flex items-center gap-3">
         <ExecutionStatusBadge status={execution.status} />
+        <span className="font-mono text-sm text-muted-foreground">
+          {execution.id}
+        </span>
       </div>
-      <p className="mt-1 font-mono text-sm text-muted-foreground">
-        {execution.id}
-      </p>
 
-      <dl className="mt-8 grid max-w-md grid-cols-2 gap-y-3 text-sm">
+      <dl className="mt-6 grid max-w-md grid-cols-2 gap-y-3 text-sm">
         <dt className="text-muted-foreground">Duration</dt>
         <dd className="text-foreground">
           {formatDuration(execution.startedAt, execution.completedAt)}

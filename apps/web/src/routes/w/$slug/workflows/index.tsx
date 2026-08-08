@@ -40,12 +40,8 @@ function WorkflowsListPage() {
 
   return (
     <main className="flex flex-1 flex-col px-6 py-8 sm:px-8 sm:py-10">
-      <h1 className="font-heading text-3xl font-semibold tracking-tight">
-        Workflows
-      </h1>
-
       {workflows.length === 0 ? (
-        <Empty className="mt-8">
+        <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <WorkflowIcon />
@@ -58,7 +54,7 @@ function WorkflowsListPage() {
           <EmptyContent />
         </Empty>
       ) : (
-        <Table className="mt-6">
+        <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
