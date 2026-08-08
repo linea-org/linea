@@ -6,6 +6,7 @@ import { organizations, workflows, workflowVersions } from "../schema/index.js"
 import {
   createWorkflow,
   createWorkflowVersion,
+  findOrCreateWorkflowBySlug,
   getPublishedVersion,
   getWorkflowById,
   getWorkflowBySlug,
@@ -137,6 +138,69 @@ describe("publishWorkflowVersion", () => {
         publishWorkflowVersion(tx, workflowA.id, versionB.id)
       ).rejects.toThrow()
     })
+  })
+})
+
+describe("findOrCreateWorkflowBySlug", () => {
+  it("creates a new workflow when none exists at that slug, and reuses it on a second call without overwriting it", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const slug = `workflow-${randomUUID()}`
+
+      const created = await findOrCreateWorkflowBySlug(tx, {
+        workspaceId: organization.id,
+        name: "Original Name",
+        slug,
+      })
+      expect(created.slug).toBe(slug)
+
+      const reused = await findOrCreateWorkflowBySlug(tx, {
+        workspaceId: organization.id,
+        name: "A Different Name",
+        slug,
+      })
+      expect(reused.id).toBe(created.id)
+      expect(reused.name).toBe("Original Name")
+    })
+  })
+
+  it("resolves both concurrent callers to the same row instead of one crashing on the unique constraint", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(organizations)
+      .values({
+        name: "Concurrent Workflow Test Org",
+        slug: `concurrent-workflow-org-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    const slug = `workflow-race-${suffix}`
+
+    try {
+      const [a, b] = await Promise.all([
+        findOrCreateWorkflowBySlug(db, {
+          workspaceId: organization.id,
+          name: "Racer A",
+          slug,
+        }),
+        findOrCreateWorkflowBySlug(db, {
+          workspaceId: organization.id,
+          name: "Racer B",
+          slug,
+        }),
+      ])
+      expect(a.id).toBe(b.id)
+
+      const existing = await getWorkflowBySlug(db, organization.id, slug)
+      expect(existing?.id).toBe(a.id)
+    } finally {
+      await db
+        .delete(workflows)
+        .where(eq(workflows.workspaceId, organization.id))
+      await db
+        .delete(organizations)
+        .where(eq(organizations.id, organization.id))
+    }
   })
 })
 

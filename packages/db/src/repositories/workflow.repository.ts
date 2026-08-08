@@ -16,6 +16,25 @@ export async function createWorkflow(
   return workflow
 }
 
+/** Atomic: concurrent callers racing to create the same (workspaceId, slug) never crash on the unique constraint — the loser's insert no-ops and it re-reads whatever the winner inserted. */
+export async function findOrCreateWorkflowBySlug(
+  db: DbClient,
+  input: NewWorkflow
+): Promise<Workflow> {
+  const [inserted] = await db
+    .insert(workflows)
+    .values(input)
+    .onConflictDoNothing({ target: [workflows.workspaceId, workflows.slug] })
+    .returning()
+  if (inserted) return inserted
+
+  const existing = await getWorkflowBySlug(db, input.workspaceId, input.slug)
+  if (!existing) {
+    throw new Error(`Failed to find or create workflow "${input.slug}"`)
+  }
+  return existing
+}
+
 export type CreateWorkflowVersionInput = {
   workflowId: string
   graph: Record<string, unknown>

@@ -17,13 +17,21 @@ export async function getOrganizationBySlug(
   return organization
 }
 
-export async function createOrganization(
+/** Atomic: concurrent callers racing to create the same slug never crash on the unique constraint — the loser's insert no-ops and it re-reads whatever the winner inserted. */
+export async function findOrCreateOrganizationBySlug(
   db: DbClient,
   input: NewOrganization
 ): Promise<Organization> {
-  const [organization] = await db
+  const [inserted] = await db
     .insert(organizations)
     .values(input)
+    .onConflictDoNothing({ target: organizations.slug })
     .returning()
-  return organization
+  if (inserted) return inserted
+
+  const existing = await getOrganizationBySlug(db, input.slug)
+  if (!existing) {
+    throw new Error(`Failed to find or create organization "${input.slug}"`)
+  }
+  return existing
 }

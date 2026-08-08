@@ -62,33 +62,43 @@ function loadGraph(): WorkflowGraph {
   return graph
 }
 
+/**
+ * Atomic find-or-create (safe if two `pnpm demo` invocations race), but slug
+ * collision alone isn't enough to treat a found row as "ours" — an unrelated
+ * organization could legitimately have picked this slug first. Only reuse it
+ * if the name matches what this script would have created; otherwise fail
+ * loudly rather than silently publishing demo data into someone else's org.
+ */
 async function findOrCreateDemoOrg() {
-  const existing = await repositories.organization.getOrganizationBySlug(
+  const org = await repositories.organization.findOrCreateOrganizationBySlug(
     db,
-    DEMO_ORG_SLUG,
+    { name: DEMO_ORG_NAME, slug: DEMO_ORG_SLUG, createdAt: new Date() },
   )
-  if (existing) return existing
-
-  return repositories.organization.createOrganization(db, {
-    name: DEMO_ORG_NAME,
-    slug: DEMO_ORG_SLUG,
-    createdAt: new Date(),
-  })
+  if (org.name !== DEMO_ORG_NAME) {
+    throw new Error(
+      `An organization already exists at slug "${DEMO_ORG_SLUG}" named ` +
+        `"${org.name}", not "${DEMO_ORG_NAME}" — it wasn't created by this ` +
+        'script. Change DEMO_ORG_SLUG in demo.ts to avoid colliding with it.',
+    )
+  }
+  return org
 }
 
 async function findOrCreateDemoWorkflow(workspaceId: string) {
-  const existing = await repositories.workflow.getWorkflowBySlug(
-    db,
-    workspaceId,
-    DEMO_WORKFLOW_SLUG,
-  )
-  if (existing) return existing
-
-  return repositories.workflow.createWorkflow(db, {
+  const workflow = await repositories.workflow.findOrCreateWorkflowBySlug(db, {
     workspaceId,
     name: DEMO_WORKFLOW_NAME,
     slug: DEMO_WORKFLOW_SLUG,
   })
+  if (workflow.name !== DEMO_WORKFLOW_NAME) {
+    throw new Error(
+      `A workflow already exists at slug "${DEMO_WORKFLOW_SLUG}" named ` +
+        `"${workflow.name}", not "${DEMO_WORKFLOW_NAME}" — it wasn't created ` +
+        'by this script. Change DEMO_WORKFLOW_SLUG in demo.ts to avoid ' +
+        'colliding with it.',
+    )
+  }
+  return workflow
 }
 
 /** Reuses the currently published version if the committed graph hasn't changed, so re-running the script doesn't pile up versions. */
@@ -200,6 +210,9 @@ async function main() {
 
     const { execution, steps } = await pollUntilTerminal(trigger.execution.id)
     printSummary(execution, steps)
+    if (execution.status !== 'succeeded') {
+      throw new Error(`Execution ended with status "${execution.status}"`)
+    }
   } finally {
     await queue.close()
     await connection.quit()
