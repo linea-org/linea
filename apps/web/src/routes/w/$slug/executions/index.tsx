@@ -13,9 +13,7 @@ import {
 import {
   Pagination,
   PaginationContent,
-  PaginationEllipsis,
   PaginationItem,
-  PaginationLink,
   PaginationNext,
   PaginationPrevious,
 } from "@linea/ui/components/pagination"
@@ -41,6 +39,7 @@ import {
   formatCost,
 } from "../../../../components/executions"
 import {
+  encodeExecutionCursor,
   listWorkspaceExecutionsFn,
   workspaceExecutionsQueryOptions,
   type ExecutionStatus,
@@ -70,31 +69,28 @@ function isExecutionTrigger(value: unknown): value is ExecutionTrigger {
   return EXECUTION_TRIGGERS.includes(value as ExecutionTrigger)
 }
 
-function parsePage(value: unknown): number {
-  const page = Number(value)
-  return Number.isInteger(page) && page >= 1 ? page : 1
-}
-
-/** Only a valid ISO timestamp counts — anything else falls back to no snapshot (live "now"). */
-function parseAsOf(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined
-  const time = Date.parse(value)
-  return Number.isNaN(time) ? undefined : new Date(time).toISOString()
+function parseOpaqueParam(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined
 }
 
 type ExecutionsSearch = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
-  page?: number
-  asOf?: string
+  /** Opaque keyset cursor for the current page — the last row of the previous page. Absent
+   * on page 1. See listWorkspaceExecutions in @linea/db for why this isn't a page number. */
+  cursor?: string
+  /** Semicolon-joined breadcrumb of ancestor cursors used to reach the current page, so
+   * Previous can step back without recomputing history. An empty-string entry means "page 1,
+   * no cursor". */
+  trail?: string
 }
 
 export const Route = createFileRoute("/w/$slug/executions/")({
   validateSearch: (search: Record<string, unknown>): ExecutionsSearch => ({
     status: isExecutionStatus(search.status) ? search.status : undefined,
     trigger: isExecutionTrigger(search.trigger) ? search.trigger : undefined,
-    page: parsePage(search.page),
-    asOf: parseAsOf(search.asOf),
+    cursor: parseOpaqueParam(search.cursor),
+    trail: parseOpaqueParam(search.trail),
   }),
   loaderDeps: ({ search }) => search,
   loader: ({ deps }) => listWorkspaceExecutionsFn({ data: deps }),
@@ -115,25 +111,6 @@ function formatDuration(startedAt: string | null, completedAt: string | null) {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 
-/** Windows page numbers around the current one, e.g. [1, "ellipsis", 4, 5, 6, "ellipsis", 20], so a large history doesn't render one link per page. */
-function pageNumbers(current: number, total: number): (number | "ellipsis")[] {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1)
-  }
-  const keep = new Set(
-    [1, total, current - 1, current, current + 1].filter(
-      (page) => page >= 1 && page <= total
-    )
-  )
-  const sorted = [...keep].sort((a, b) => a - b)
-  const result: (number | "ellipsis")[] = []
-  sorted.forEach((page, i) => {
-    if (i > 0 && page - sorted[i - 1] > 1) result.push("ellipsis")
-    result.push(page)
-  })
-  return result
-}
-
 function ExecutionsPage() {
   const { slug } = Route.useParams()
   const search = Route.useSearch()
@@ -143,31 +120,45 @@ function ExecutionsPage() {
     ...workspaceExecutionsQueryOptions(slug, search),
     initialData,
   })
-  const { executions, total, pageSize } = data
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
-  const currentPage = search.page ?? 1
-  // The server echoes back the instant it actually bounded this page's query to (see
-  // listWorkspaceExecutions in @linea/db). Reusing that value — rather than stamping a
-  // client-side timestamp once the user reaches page 2 — leaves no gap for a row inserted
-  // between page 1's query and this render to slip into a later page's snapshot.
-  const currentAsOf = data.asOf
+  const { executions, hasMore, total } = data
 
-  function hrefForPage(page: number): string {
+  const trail = search.trail ? search.trail.split(";") : []
+  const isFirstPage = trail.length === 0 && !search.cursor
+  const currentPageNumber = trail.length + 1
+  const lastRow = executions[executions.length - 1]
+  const nextCursor = lastRow ? encodeExecutionCursor(lastRow) : undefined
+  const previousCursor = trail.length > 0 ? trail[trail.length - 1] : undefined
+  const previousTrail = trail.length > 0 ? trail.slice(0, -1) : []
+
+  function hrefFor(overrides: Partial<ExecutionsSearch>): string {
+    const merged = { ...search, ...overrides }
     const params = new URLSearchParams()
-    if (search.status) params.set("status", search.status)
-    if (search.trigger) params.set("trigger", search.trigger)
-    if (page > 1) params.set("page", String(page))
-    if (page > 1) params.set("asOf", currentAsOf)
+    if (merged.status) params.set("status", merged.status)
+    if (merged.trigger) params.set("trigger", merged.trigger)
+    if (merged.cursor) params.set("cursor", merged.cursor)
+    if (merged.trail) params.set("trail", merged.trail)
     const query = params.toString()
     return `/w/${slug}/executions${query ? `?${query}` : ""}`
   }
 
-  function goToPage(page: number) {
+  function goNext() {
+    if (!nextCursor) return
     void navigate({
       search: (prev) => ({
         ...prev,
-        page,
-        asOf: page > 1 ? currentAsOf : prev.asOf,
+        cursor: nextCursor,
+        trail: [...trail, prev.cursor ?? ""].join(";"),
+      }),
+    })
+  }
+
+  function goPrevious() {
+    if (isFirstPage) return
+    void navigate({
+      search: (prev) => ({
+        ...prev,
+        cursor: previousCursor || undefined,
+        trail: previousTrail.length > 0 ? previousTrail.join(";") : undefined,
       }),
     })
   }
@@ -183,8 +174,8 @@ function ExecutionsPage() {
                 ...prev,
                 status:
                   value === "all" ? undefined : (value as ExecutionStatus),
-                page: 1,
-                asOf: undefined,
+                cursor: undefined,
+                trail: undefined,
               }),
             })
           }}
@@ -216,8 +207,8 @@ function ExecutionsPage() {
                 ...prev,
                 trigger:
                   value === "all" ? undefined : (value as ExecutionTrigger),
-                page: 1,
-                asOf: undefined,
+                cursor: undefined,
+                trail: undefined,
               }),
             })
           }}
@@ -309,60 +300,52 @@ function ExecutionsPage() {
             </TableBody>
           </Table>
 
-          {totalPages > 1 ? (
-            <Pagination className="mt-6">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href={hrefForPage(Math.max(1, currentPage - 1))}
-                    aria-disabled={currentPage <= 1}
-                    className={
-                      currentPage <= 1 ? "pointer-events-none opacity-50" : ""
-                    }
-                    onClick={(event) => {
-                      event.preventDefault()
-                      if (currentPage > 1) goToPage(currentPage - 1)
-                    }}
-                  />
-                </PaginationItem>
-                {pageNumbers(currentPage, totalPages).map((page, i) =>
-                  page === "ellipsis" ? (
-                    <PaginationItem key={`ellipsis-${i}`}>
-                      <PaginationEllipsis />
-                    </PaginationItem>
-                  ) : (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        href={hrefForPage(page)}
-                        isActive={page === currentPage}
-                        onClick={(event) => {
-                          event.preventDefault()
-                          goToPage(page)
-                        }}
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  )
-                )}
-                <PaginationItem>
-                  <PaginationNext
-                    href={hrefForPage(Math.min(totalPages, currentPage + 1))}
-                    aria-disabled={currentPage >= totalPages}
-                    className={
-                      currentPage >= totalPages
-                        ? "pointer-events-none opacity-50"
-                        : ""
-                    }
-                    onClick={(event) => {
-                      event.preventDefault()
-                      if (currentPage < totalPages) goToPage(currentPage + 1)
-                    }}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          ) : null}
+          {isFirstPage && !hasMore ? null : (
+            <div className="mt-6 flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Page {currentPageNumber} · {total} total
+              </p>
+              <Pagination className="mx-0 w-auto">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href={hrefFor({
+                        cursor: previousCursor || undefined,
+                        trail:
+                          previousTrail.length > 0
+                            ? previousTrail.join(";")
+                            : undefined,
+                      })}
+                      aria-disabled={isFirstPage}
+                      className={
+                        isFirstPage ? "pointer-events-none opacity-50" : ""
+                      }
+                      onClick={(event) => {
+                        event.preventDefault()
+                        goPrevious()
+                      }}
+                    />
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationNext
+                      href={hrefFor({
+                        cursor: nextCursor,
+                        trail: [...trail, search.cursor ?? ""].join(";"),
+                      })}
+                      aria-disabled={!hasMore}
+                      className={
+                        !hasMore ? "pointer-events-none opacity-50" : ""
+                      }
+                      onClick={(event) => {
+                        event.preventDefault()
+                        goNext()
+                      }}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </>
       )}
     </main>

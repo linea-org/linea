@@ -96,21 +96,24 @@ export const getExecutionFn = createServerFn({ method: "GET" })
 export type WorkspaceExecutionFilters = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
-  page?: number
-  /** ISO timestamp: caps results to rows created at or before this instant, so paging through
-   * several pages stays stable even if new executions land in between requests. */
-  asOf?: string
+  /** Opaque `(createdAt, id)` keyset cursor — the last execution of the previous page,
+   * encoded via encodeExecutionCursor. Omit for the first page. Not an offset: see
+   * listWorkspaceExecutions in @linea/db for why OFFSET pagination isn't used here. */
+  cursor?: string
 }
 
 export type WorkspaceExecutionPage = {
   executions: WorkspaceExecutionSummary[]
+  /** Whether a further page exists after this one. */
+  hasMore: boolean
+  /** Informational only — not something pagination correctness depends on. */
   total: number
-  page: number
-  pageSize: number
-  /** The instant this page's results were bounded to, echoed back by the server. Reuse this
-   * verbatim for later pages instead of stamping a new timestamp client-side — see
-   * listWorkspaceExecutions in @linea/db for why that gap matters. */
-  asOf: string
+}
+
+/** `${createdAt}_${id}` — matches the platform-api DTO's cursor encoding. Neither an ISO
+ * timestamp nor a uuid contains an underscore, so this round-trips unambiguously. */
+export function encodeExecutionCursor(row: { createdAt: string; id: string }) {
+  return `${row.createdAt}_${row.id}`
 }
 
 export const listWorkspaceExecutionsFn = createServerFn({ method: "GET" })
@@ -119,8 +122,7 @@ export const listWorkspaceExecutionsFn = createServerFn({ method: "GET" })
     const params = new URLSearchParams()
     if (data.status) params.set("status", data.status)
     if (data.trigger) params.set("trigger", data.trigger)
-    if (data.page) params.set("page", String(data.page))
-    if (data.asOf) params.set("asOf", data.asOf)
+    if (data.cursor) params.set("cursor", data.cursor)
     const query = params.toString()
     const res = await apiFetch(`/executions${query ? `?${query}` : ""}`)
     if (!res.ok) {

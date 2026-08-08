@@ -66,8 +66,7 @@ export class ExecutionsService {
     return repositories.execution.listWorkspaceExecutions(db, workspaceId, {
       status: filters.status,
       trigger: filters.trigger,
-      page: filters.page,
-      asOf: filters.asOf,
+      cursor: filters.cursor,
     })
   }
 

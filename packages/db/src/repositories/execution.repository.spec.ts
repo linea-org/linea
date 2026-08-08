@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
 import { executions } from "../schema/index.js"
@@ -563,7 +564,7 @@ describe("listWorkspaceExecutions", () => {
       expect(page.executions[0].workflowName).toBe("Second Workflow")
       expect(page.executions[1].workflowName).toBe(workflowA.name)
       expect(page.total).toBe(2)
-      expect(page.page).toBe(1)
+      expect(page.hasMore).toBe(false)
     })
   })
 
@@ -619,7 +620,7 @@ describe("listWorkspaceExecutions", () => {
     })
   })
 
-  it("paginates: total reflects every matching row, but executions only holds the requested page", async () => {
+  it("paginates via cursor: total reflects every matching row, hasMore tracks whether another page follows", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       const rows = Array.from({ length: 5 }, (_, i) => ({
@@ -632,31 +633,34 @@ describe("listWorkspaceExecutions", () => {
       await tx.insert(executions).values(rows)
 
       const firstPage = await listWorkspaceExecutions(tx, organization.id, {
-        pageSize: 2,
+        limit: 2,
       })
       expect(firstPage.executions).toHaveLength(2)
       expect(firstPage.total).toBe(5)
-      expect(firstPage.page).toBe(1)
-      expect(firstPage.pageSize).toBe(2)
+      expect(firstPage.hasMore).toBe(true)
 
+      const last = firstPage.executions[firstPage.executions.length - 1]
       const secondPage = await listWorkspaceExecutions(tx, organization.id, {
-        pageSize: 2,
-        page: 2,
+        limit: 2,
+        cursor: { createdAt: last.createdAt, id: last.id },
       })
       expect(secondPage.executions).toHaveLength(2)
       expect(secondPage.total).toBe(5)
+      expect(secondPage.hasMore).toBe(true)
       expect(
         secondPage.executions.every(
           (e) => !firstPage.executions.some((f) => f.id === e.id)
         )
       ).toBe(true)
 
+      const secondLast = secondPage.executions[secondPage.executions.length - 1]
       const thirdPage = await listWorkspaceExecutions(tx, organization.id, {
-        pageSize: 2,
-        page: 3,
+        limit: 2,
+        cursor: { createdAt: secondLast.createdAt, id: secondLast.id },
       })
       expect(thirdPage.executions).toHaveLength(1)
       expect(thirdPage.total).toBe(5)
+      expect(thirdPage.hasMore).toBe(false)
     })
   })
 
@@ -677,12 +681,12 @@ describe("listWorkspaceExecutions", () => {
       await tx.insert(executions).values(rows)
 
       const firstPage = await listWorkspaceExecutions(tx, organization.id, {
-        pageSize: 4,
-        page: 1,
+        limit: 4,
       })
+      const last = firstPage.executions[firstPage.executions.length - 1]
       const secondPage = await listWorkspaceExecutions(tx, organization.id, {
-        pageSize: 4,
-        page: 2,
+        limit: 4,
+        cursor: { createdAt: last.createdAt, id: last.id },
       })
 
       const firstIds = firstPage.executions.map((e) => e.id)
@@ -694,7 +698,7 @@ describe("listWorkspaceExecutions", () => {
     })
   })
 
-  it("holds page boundaries fixed against a concurrent insert even when the caller never passes asOf", async () => {
+  it("holds page boundaries fixed against a concurrent insert, unlike OFFSET pagination", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       const rows = Array.from({ length: 5 }, (_, i) => ({
@@ -706,18 +710,15 @@ describe("listWorkspaceExecutions", () => {
       }))
       await tx.insert(executions).values(rows)
 
-      // No asOf passed — mirrors the real first request for page 1. The
-      // function must resolve and echo its own bound rather than leaving the
-      // query unbounded, or there's no value left to anchor page 2 to.
       const firstPage = await listWorkspaceExecutions(tx, organization.id, {
-        pageSize: 2,
-        page: 1,
+        limit: 2,
       })
-      expect(firstPage.asOf).toEqual(expect.any(String))
+      const last = firstPage.executions[firstPage.executions.length - 1]
 
-      // A new execution lands after page 1's query ran but before the client
-      // has done anything with the response — the exact gap a client-generated
-      // timestamp (captured only once the user reaches page 2) can't close.
+      // A new execution lands after page 1's query ran but before page 2 is
+      // fetched — under OFFSET pagination this shifts every later offset by
+      // one. A cursor anchored to a specific row is immune: the new row
+      // sorts after the cursor's `createdAt`, so it can't appear before it.
       await tx.insert(executions).values({
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -726,14 +727,12 @@ describe("listWorkspaceExecutions", () => {
         createdAt: new Date(),
       })
 
-      // Real callers reuse the previous page's echoed asOf, never a fresh one.
       const secondPage = await listWorkspaceExecutions(tx, organization.id, {
-        pageSize: 2,
-        page: 2,
-        asOf: new Date(firstPage.asOf),
+        limit: 2,
+        cursor: { createdAt: last.createdAt, id: last.id },
       })
 
-      expect(secondPage.total).toBe(5)
+      expect(secondPage.total).toBe(6)
       expect(
         secondPage.executions.every(
           (e) => !firstPage.executions.some((f) => f.id === e.id)
@@ -742,31 +741,56 @@ describe("listWorkspaceExecutions", () => {
     })
   })
 
-  it("excludes rows created after asOf", async () => {
+  it("holds page boundaries fixed against a status change, which a createdAt-only bound can't", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
-      const [before] = await tx
+      const rows = await tx
         .insert(executions)
-        .values({
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          workflowVersionId: version.id,
-          trigger: "manual",
-          createdAt: new Date(Date.now() - 1_000),
-        })
+        .values(
+          Array.from({ length: 5 }, (_, i) => ({
+            workspaceId: organization.id,
+            workflowId: workflow.id,
+            workflowVersionId: version.id,
+            trigger: "manual" as const,
+            status: "queued" as const,
+            createdAt: new Date(Date.now() - i * 1_000),
+          }))
+        )
         .returning()
-      const asOf = new Date()
-      await tx.insert(executions).values({
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        createdAt: new Date(asOf.getTime() + 1_000),
+
+      const firstPage = await listWorkspaceExecutions(tx, organization.id, {
+        status: "queued",
+        limit: 2,
+      })
+      expect(firstPage.executions).toHaveLength(2)
+      const last = firstPage.executions[firstPage.executions.length - 1]
+
+      // A row already returned on page 1 (rows[1], between page 1's two
+      // rows and the cursor) drops out of the "queued" filter entirely —
+      // exactly the case a plain createdAt asOf bound can't stabilize,
+      // since the filter itself, not just the timestamp, is re-evaluated.
+      await tx
+        .update(executions)
+        .set({ status: "running" })
+        .where(eq(executions.id, rows[1].id))
+
+      const secondPage = await listWorkspaceExecutions(tx, organization.id, {
+        status: "queued",
+        limit: 2,
+        cursor: { createdAt: last.createdAt, id: last.id },
       })
 
-      const page = await listWorkspaceExecutions(tx, organization.id, { asOf })
-      expect(page.executions.map((e) => e.id)).toEqual([before.id])
-      expect(page.total).toBe(1)
+      expect(
+        secondPage.executions.every(
+          (e) => !firstPage.executions.some((f) => f.id === e.id)
+        )
+      ).toBe(true)
+      // rows[2] and rows[3] are exactly what should follow the cursor —
+      // nothing skipped despite rows[1] (before the cursor) changing status.
+      expect(secondPage.executions.map((e) => e.id)).toEqual([
+        rows[2].id,
+        rows[3].id,
+      ])
     })
   })
 })
