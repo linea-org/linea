@@ -288,37 +288,61 @@ export type ExecutionWithWorkflow = Execution & {
   workflowSlug: string
 }
 
-/** Unlike listExecutions, spans every workflow in the workspace — for the cross-workflow trace view, not a single workflow's page. */
+export type WorkspaceExecutionPage = {
+  executions: ExecutionWithWorkflow[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+const DEFAULT_WORKSPACE_EXECUTIONS_PAGE_SIZE = 50
+
+/** Unlike listExecutions, spans every workflow in the workspace — for the cross-workflow trace view, not a single workflow's page. Paginated: a workspace can accumulate far more than one page's worth of executions. */
 export async function listWorkspaceExecutions(
   db: DbClient,
   workspaceId: string,
   options: {
     status?: Execution["status"]
     trigger?: Execution["trigger"]
-    limit?: number
+    page?: number
+    pageSize?: number
   } = {}
-): Promise<ExecutionWithWorkflow[]> {
-  const rows = await db
-    .select({
-      execution: executions,
-      workflowName: workflows.name,
-      workflowSlug: workflows.slug,
-    })
-    .from(executions)
-    .innerJoin(workflows, eq(executions.workflowId, workflows.id))
-    .where(
-      and(
-        eq(executions.workspaceId, workspaceId),
-        options.status ? eq(executions.status, options.status) : undefined,
-        options.trigger ? eq(executions.trigger, options.trigger) : undefined
-      )
-    )
-    .orderBy(desc(executions.createdAt))
-    .limit(options.limit ?? 50)
+): Promise<WorkspaceExecutionPage> {
+  const page = options.page ?? 1
+  const pageSize = options.pageSize ?? DEFAULT_WORKSPACE_EXECUTIONS_PAGE_SIZE
+  const where = and(
+    eq(executions.workspaceId, workspaceId),
+    options.status ? eq(executions.status, options.status) : undefined,
+    options.trigger ? eq(executions.trigger, options.trigger) : undefined
+  )
 
-  return rows.map(({ execution, workflowName, workflowSlug }) => ({
-    ...execution,
-    workflowName,
-    workflowSlug,
-  }))
+  const [rows, [{ count }]] = await Promise.all([
+    db
+      .select({
+        execution: executions,
+        workflowName: workflows.name,
+        workflowSlug: workflows.slug,
+      })
+      .from(executions)
+      .innerJoin(workflows, eq(executions.workflowId, workflows.id))
+      .where(where)
+      .orderBy(desc(executions.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(executions)
+      .where(where),
+  ])
+
+  return {
+    executions: rows.map(({ execution, workflowName, workflowSlug }) => ({
+      ...execution,
+      workflowName,
+      workflowSlug,
+    })),
+    total: count,
+    page,
+    pageSize,
+  }
 }

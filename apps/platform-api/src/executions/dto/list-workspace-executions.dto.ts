@@ -5,6 +5,7 @@ export const listWorkspaceExecutionsSchema = z.object({
     .enum(['queued', 'running', 'paused', 'succeeded', 'failed', 'cancelled'])
     .optional(),
   trigger: z.enum(['manual', 'schedule', 'webhook', 'api']).optional(),
+  page: z.coerce.number().int().min(1).optional(),
 })
 
 export type ListWorkspaceExecutionsDto = z.infer<

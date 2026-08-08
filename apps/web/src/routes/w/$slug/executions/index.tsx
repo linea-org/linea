@@ -11,6 +11,15 @@ import {
   EmptyTitle,
 } from "@linea/ui/components/empty"
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@linea/ui/components/pagination"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -60,15 +69,22 @@ function isExecutionTrigger(value: unknown): value is ExecutionTrigger {
   return EXECUTION_TRIGGERS.includes(value as ExecutionTrigger)
 }
 
+function parsePage(value: unknown): number {
+  const page = Number(value)
+  return Number.isInteger(page) && page >= 1 ? page : 1
+}
+
 type ExecutionsSearch = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
+  page?: number
 }
 
 export const Route = createFileRoute("/w/$slug/executions/")({
   validateSearch: (search: Record<string, unknown>): ExecutionsSearch => ({
     status: isExecutionStatus(search.status) ? search.status : undefined,
     trigger: isExecutionTrigger(search.trigger) ? search.trigger : undefined,
+    page: parsePage(search.page),
   }),
   loaderDeps: ({ search }) => search,
   loader: ({ deps }) => listWorkspaceExecutionsFn({ data: deps }),
@@ -89,15 +105,50 @@ function formatDuration(startedAt: string | null, completedAt: string | null) {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 
+/** Windows page numbers around the current one, e.g. [1, "ellipsis", 4, 5, 6, "ellipsis", 20], so a large history doesn't render one link per page. */
+function pageNumbers(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+  const keep = new Set(
+    [1, total, current - 1, current, current + 1].filter(
+      (page) => page >= 1 && page <= total
+    )
+  )
+  const sorted = [...keep].sort((a, b) => a - b)
+  const result: (number | "ellipsis")[] = []
+  sorted.forEach((page, i) => {
+    if (i > 0 && page - sorted[i - 1] > 1) result.push("ellipsis")
+    result.push(page)
+  })
+  return result
+}
+
 function ExecutionsPage() {
   const { slug } = Route.useParams()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const initialData = Route.useLoaderData()
-  const { data: executions } = useSuspenseQuery({
+  const { data } = useSuspenseQuery({
     ...workspaceExecutionsQueryOptions(slug, search),
     initialData,
   })
+  const { executions, total, pageSize } = data
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const currentPage = search.page ?? 1
+
+  function hrefForPage(page: number): string {
+    const params = new URLSearchParams()
+    if (search.status) params.set("status", search.status)
+    if (search.trigger) params.set("trigger", search.trigger)
+    if (page > 1) params.set("page", String(page))
+    const query = params.toString()
+    return `/w/${slug}/executions${query ? `?${query}` : ""}`
+  }
+
+  function goToPage(page: number) {
+    void navigate({ search: (prev) => ({ ...prev, page }) })
+  }
 
   return (
     <main className="flex flex-1 flex-col px-6 py-8 sm:px-8 sm:py-10">
@@ -110,6 +161,7 @@ function ExecutionsPage() {
                 ...prev,
                 status:
                   value === "all" ? undefined : (value as ExecutionStatus),
+                page: 1,
               }),
             })
           }}
@@ -135,6 +187,7 @@ function ExecutionsPage() {
                 ...prev,
                 trigger:
                   value === "all" ? undefined : (value as ExecutionTrigger),
+                page: 1,
               }),
             })
           }}
@@ -167,57 +220,114 @@ function ExecutionsPage() {
           <EmptyContent />
         </Empty>
       ) : (
-        <Table className="mt-6">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Workflow</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Trigger</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Cost</TableHead>
-              <TableHead>When</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {executions.map((execution) => (
-              <TableRow key={execution.id}>
-                <TableCell>
-                  <Link
-                    to="/w/$slug/workflows/$workflowId"
-                    params={{ slug, workflowId: execution.workflowId }}
-                    className="font-medium text-foreground hover:underline"
-                  >
-                    {execution.workflowName}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <Link
-                    to="/w/$slug/workflows/$workflowId/executions/$executionId"
-                    params={{
-                      slug,
-                      workflowId: execution.workflowId,
-                      executionId: execution.id,
-                    }}
-                  >
-                    <ExecutionStatusBadge status={execution.status} />
-                  </Link>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {triggerLabel[execution.trigger]}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatDuration(execution.startedAt, execution.completedAt)}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatCost(execution.costMicros)}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {new Date(execution.createdAt).toLocaleString()}
-                </TableCell>
+        <>
+          <Table className="mt-6">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Workflow</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Trigger</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Cost</TableHead>
+                <TableHead>When</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {executions.map((execution) => (
+                <TableRow key={execution.id}>
+                  <TableCell>
+                    <Link
+                      to="/w/$slug/workflows/$workflowId"
+                      params={{ slug, workflowId: execution.workflowId }}
+                      className="font-medium text-foreground hover:underline"
+                    >
+                      {execution.workflowName}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      to="/w/$slug/workflows/$workflowId/executions/$executionId"
+                      params={{
+                        slug,
+                        workflowId: execution.workflowId,
+                        executionId: execution.id,
+                      }}
+                    >
+                      <ExecutionStatusBadge status={execution.status} />
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {triggerLabel[execution.trigger]}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDuration(execution.startedAt, execution.completedAt)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatCost(execution.costMicros)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {new Date(execution.createdAt).toLocaleString()}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {totalPages > 1 ? (
+            <Pagination className="mt-6">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href={hrefForPage(Math.max(1, currentPage - 1))}
+                    aria-disabled={currentPage <= 1}
+                    className={
+                      currentPage <= 1 ? "pointer-events-none opacity-50" : ""
+                    }
+                    onClick={(event) => {
+                      event.preventDefault()
+                      if (currentPage > 1) goToPage(currentPage - 1)
+                    }}
+                  />
+                </PaginationItem>
+                {pageNumbers(currentPage, totalPages).map((page, i) =>
+                  page === "ellipsis" ? (
+                    <PaginationItem key={`ellipsis-${i}`}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        href={hrefForPage(page)}
+                        isActive={page === currentPage}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          goToPage(page)
+                        }}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
+                )}
+                <PaginationItem>
+                  <PaginationNext
+                    href={hrefForPage(Math.min(totalPages, currentPage + 1))}
+                    aria-disabled={currentPage >= totalPages}
+                    className={
+                      currentPage >= totalPages
+                        ? "pointer-events-none opacity-50"
+                        : ""
+                    }
+                    onClick={(event) => {
+                      event.preventDefault()
+                      if (currentPage < totalPages) goToPage(currentPage + 1)
+                    }}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          ) : null}
+        </>
       )}
     </main>
   )

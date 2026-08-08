@@ -558,10 +558,12 @@ describe("listWorkspaceExecutions", () => {
         })
         .returning()
 
-      const results = await listWorkspaceExecutions(tx, organization.id)
-      expect(results.map((e) => e.id)).toEqual([fromB.id, fromA.id])
-      expect(results[0].workflowName).toBe("Second Workflow")
-      expect(results[1].workflowName).toBe(workflowA.name)
+      const page = await listWorkspaceExecutions(tx, organization.id)
+      expect(page.executions.map((e) => e.id)).toEqual([fromB.id, fromA.id])
+      expect(page.executions[0].workflowName).toBe("Second Workflow")
+      expect(page.executions[1].workflowName).toBe(workflowA.name)
+      expect(page.total).toBe(2)
+      expect(page.page).toBe(1)
     })
   })
 
@@ -589,12 +591,14 @@ describe("listWorkspaceExecutions", () => {
       const queuedOnly = await listWorkspaceExecutions(tx, organization.id, {
         status: "queued",
       })
-      expect(queuedOnly.map((e) => e.id)).toEqual([queued.id])
+      expect(queuedOnly.executions.map((e) => e.id)).toEqual([queued.id])
+      expect(queuedOnly.total).toBe(1)
 
       const manualOnly = await listWorkspaceExecutions(tx, organization.id, {
         trigger: "manual",
       })
-      expect(manualOnly.map((e) => e.id)).toEqual([queued.id])
+      expect(manualOnly.executions.map((e) => e.id)).toEqual([queued.id])
+      expect(manualOnly.total).toBe(1)
     })
   })
 
@@ -609,8 +613,50 @@ describe("listWorkspaceExecutions", () => {
         trigger: "manual",
       })
 
-      const results = await listWorkspaceExecutions(tx, otherOrg.id)
-      expect(results).toEqual([])
+      const page = await listWorkspaceExecutions(tx, otherOrg.id)
+      expect(page.executions).toEqual([])
+      expect(page.total).toBe(0)
+    })
+  })
+
+  it("paginates: total reflects every matching row, but executions only holds the requested page", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const rows = Array.from({ length: 5 }, (_, i) => ({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual" as const,
+        createdAt: new Date(Date.now() - i * 1_000),
+      }))
+      await tx.insert(executions).values(rows)
+
+      const firstPage = await listWorkspaceExecutions(tx, organization.id, {
+        pageSize: 2,
+      })
+      expect(firstPage.executions).toHaveLength(2)
+      expect(firstPage.total).toBe(5)
+      expect(firstPage.page).toBe(1)
+      expect(firstPage.pageSize).toBe(2)
+
+      const secondPage = await listWorkspaceExecutions(tx, organization.id, {
+        pageSize: 2,
+        page: 2,
+      })
+      expect(secondPage.executions).toHaveLength(2)
+      expect(secondPage.total).toBe(5)
+      expect(
+        secondPage.executions.every(
+          (e) => !firstPage.executions.some((f) => f.id === e.id)
+        )
+      ).toBe(true)
+
+      const thirdPage = await listWorkspaceExecutions(tx, organization.id, {
+        pageSize: 2,
+        page: 3,
+      })
+      expect(thirdPage.executions).toHaveLength(1)
+      expect(thirdPage.total).toBe(5)
     })
   })
 })

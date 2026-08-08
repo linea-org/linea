@@ -96,20 +96,29 @@ export const getExecutionFn = createServerFn({ method: "GET" })
 export type WorkspaceExecutionFilters = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
+  page?: number
+}
+
+export type WorkspaceExecutionPage = {
+  executions: WorkspaceExecutionSummary[]
+  total: number
+  page: number
+  pageSize: number
 }
 
 export const listWorkspaceExecutionsFn = createServerFn({ method: "GET" })
   .inputValidator((data: WorkspaceExecutionFilters) => data)
-  .handler(async ({ data }): Promise<WorkspaceExecutionSummary[]> => {
+  .handler(async ({ data }): Promise<WorkspaceExecutionPage> => {
     const params = new URLSearchParams()
     if (data.status) params.set("status", data.status)
     if (data.trigger) params.set("trigger", data.trigger)
+    if (data.page) params.set("page", String(data.page))
     const query = params.toString()
     const res = await apiFetch(`/executions${query ? `?${query}` : ""}`)
     if (!res.ok) {
       throw new Error("Could not load executions")
     }
-    return (await res.json()) as WorkspaceExecutionSummary[]
+    return (await res.json()) as WorkspaceExecutionPage
   })
 
 export function workspaceExecutionsQueryOptions(
