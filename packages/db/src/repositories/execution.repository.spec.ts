@@ -694,7 +694,7 @@ describe("listWorkspaceExecutions", () => {
     })
   })
 
-  it("holds page boundaries fixed against a concurrent insert when callers pass a shared asOf", async () => {
+  it("holds page boundaries fixed against a concurrent insert even when the caller never passes asOf", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       const rows = Array.from({ length: 5 }, (_, i) => ({
@@ -706,15 +706,18 @@ describe("listWorkspaceExecutions", () => {
       }))
       await tx.insert(executions).values(rows)
 
-      const asOf = new Date()
+      // No asOf passed — mirrors the real first request for page 1. The
+      // function must resolve and echo its own bound rather than leaving the
+      // query unbounded, or there's no value left to anchor page 2 to.
       const firstPage = await listWorkspaceExecutions(tx, organization.id, {
         pageSize: 2,
         page: 1,
-        asOf,
       })
+      expect(firstPage.asOf).toEqual(expect.any(String))
 
-      // A new execution lands between the two page fetches — without asOf this
-      // shifts every offset and either skips or repeats a row on page 2.
+      // A new execution lands after page 1's query ran but before the client
+      // has done anything with the response — the exact gap a client-generated
+      // timestamp (captured only once the user reaches page 2) can't close.
       await tx.insert(executions).values({
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -723,10 +726,11 @@ describe("listWorkspaceExecutions", () => {
         createdAt: new Date(),
       })
 
+      // Real callers reuse the previous page's echoed asOf, never a fresh one.
       const secondPage = await listWorkspaceExecutions(tx, organization.id, {
         pageSize: 2,
         page: 2,
-        asOf,
+        asOf: new Date(firstPage.asOf),
       })
 
       expect(secondPage.total).toBe(5)

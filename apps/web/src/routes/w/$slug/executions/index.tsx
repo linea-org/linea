@@ -146,17 +146,18 @@ function ExecutionsPage() {
   const { executions, total, pageSize } = data
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const currentPage = search.page ?? 1
-  // Frozen the moment pagination is first used, then reused for every later page in this
-  // browsing session — see listWorkspaceExecutions' asOf param for why: without a shared
-  // snapshot, a row inserted between page fetches shifts every later page's offset.
-  const snapshotAsOf = search.asOf ?? new Date().toISOString()
+  // The server echoes back the instant it actually bounded this page's query to (see
+  // listWorkspaceExecutions in @linea/db). Reusing that value — rather than stamping a
+  // client-side timestamp once the user reaches page 2 — leaves no gap for a row inserted
+  // between page 1's query and this render to slip into a later page's snapshot.
+  const currentAsOf = data.asOf
 
   function hrefForPage(page: number): string {
     const params = new URLSearchParams()
     if (search.status) params.set("status", search.status)
     if (search.trigger) params.set("trigger", search.trigger)
     if (page > 1) params.set("page", String(page))
-    if (page > 1) params.set("asOf", snapshotAsOf)
+    if (page > 1) params.set("asOf", currentAsOf)
     const query = params.toString()
     return `/w/${slug}/executions${query ? `?${query}` : ""}`
   }
@@ -166,7 +167,7 @@ function ExecutionsPage() {
       search: (prev) => ({
         ...prev,
         page,
-        asOf: page > 1 ? snapshotAsOf : prev.asOf,
+        asOf: page > 1 ? currentAsOf : prev.asOf,
       }),
     })
   }

@@ -107,6 +107,10 @@ export type WorkspaceExecutionPage = {
   total: number
   page: number
   pageSize: number
+  /** The instant this page's results were bounded to, echoed back by the server. Reuse this
+   * verbatim for later pages instead of stamping a new timestamp client-side — see
+   * listWorkspaceExecutions in @linea/db for why that gap matters. */
+  asOf: string
 }
 
 export const listWorkspaceExecutionsFn = createServerFn({ method: "GET" })

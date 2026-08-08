@@ -293,6 +293,9 @@ export type WorkspaceExecutionPage = {
   total: number
   page: number
   pageSize: number
+  /** The instant this page's result set was bounded to — see the asOf option below. Always
+   * present, even when the caller didn't pass one, so it can be echoed back on later pages. */
+  asOf: string
 }
 
 const DEFAULT_WORKSPACE_EXECUTIONS_PAGE_SIZE = 50
@@ -302,12 +305,16 @@ const DEFAULT_WORKSPACE_EXECUTIONS_PAGE_SIZE = 50
  * not a single workflow's page. Paginated: a workspace can accumulate far more than one page's worth
  * of executions.
  *
- * `asOf` bounds the result set to rows created at or before that instant. Without it, OFFSET/LIMIT
- * pagination drifts under concurrent writes: a row inserted after page 1 was fetched shifts every
- * later page's offset by one, skipping or repeating rows at the boundary — the id tie-breaker below
- * only stabilizes ties within a single query, not the set itself changing between queries. Callers
- * paginating through several pages should capture `asOf` once (e.g. the moment they leave page 1) and
- * pass the same value for every subsequent page in that browsing session.
+ * Every call is bounded to rows created at or before an `asOf` instant — defaulting to the moment
+ * this function runs, and always echoed back on the result, when the caller doesn't pass one. This
+ * exists because OFFSET/LIMIT pagination drifts under concurrent writes: a row inserted after page 1
+ * was fetched shifts every later page's offset by one, skipping or repeating rows at the boundary —
+ * the id tie-breaker below only stabilizes ties within a single query, not the set itself changing
+ * between queries. Resolving the default here (rather than leaving it unbounded and letting the
+ * caller stamp a timestamp after the response comes back) closes that gap at the source: the bound a
+ * page actually used is known exactly, with no window between "the query ran" and "the boundary was
+ * recorded" for a concurrent insert to land in. Callers paginating through several pages should pass
+ * the previous page's echoed `asOf` for every subsequent page in that browsing session.
  */
 export async function listWorkspaceExecutions(
   db: DbClient,
@@ -322,11 +329,12 @@ export async function listWorkspaceExecutions(
 ): Promise<WorkspaceExecutionPage> {
   const page = options.page ?? 1
   const pageSize = options.pageSize ?? DEFAULT_WORKSPACE_EXECUTIONS_PAGE_SIZE
+  const asOf = options.asOf ?? new Date()
   const where = and(
     eq(executions.workspaceId, workspaceId),
     options.status ? eq(executions.status, options.status) : undefined,
     options.trigger ? eq(executions.trigger, options.trigger) : undefined,
-    options.asOf ? lte(executions.createdAt, options.asOf) : undefined
+    lte(executions.createdAt, asOf)
   )
 
   const [rows, [{ count }]] = await Promise.all([
@@ -361,5 +369,6 @@ export async function listWorkspaceExecutions(
     total: count,
     page,
     pageSize,
+    asOf: asOf.toISOString(),
   }
 }
