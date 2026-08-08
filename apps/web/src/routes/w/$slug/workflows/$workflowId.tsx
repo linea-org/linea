@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
 
 import {
@@ -10,14 +10,32 @@ import {
   BreadcrumbSeparator,
 } from "@linea/ui/components/breadcrumb"
 
+import { ExecutionList } from "../../../../components/executions"
 import { WorkflowStatusBadge } from "../../../../components/workflows"
+import {
+  executionsQueryOptions,
+  listExecutionsFn,
+} from "../../../../lib/executions-api"
 import {
   getWorkflowFn,
   workflowQueryOptions,
 } from "../../../../lib/workflows-api"
 
 export const Route = createFileRoute("/w/$slug/workflows/$workflowId")({
-  loader: ({ params }) => getWorkflowFn({ data: { id: params.workflowId } }),
+  loader: async ({ params }) => {
+    const [workflow, executions] = await Promise.allSettled([
+      getWorkflowFn({ data: { id: params.workflowId } }),
+      listExecutionsFn({ data: { workflowId: params.workflowId } }),
+    ])
+    if (workflow.status === "rejected") {
+      throw workflow.reason
+    }
+    return {
+      workflow: workflow.value,
+      executions:
+        executions.status === "fulfilled" ? executions.value : undefined,
+    }
+  },
   component: WorkflowDetailPage,
 })
 
@@ -26,7 +44,15 @@ function WorkflowDetailPage() {
   const initialData = Route.useLoaderData()
   const { data: workflow } = useSuspenseQuery({
     ...workflowQueryOptions(slug, workflowId),
-    initialData,
+    initialData: initialData.workflow,
+  })
+  const {
+    data: executions,
+    isPending: executionsPending,
+    isError: executionsErrored,
+  } = useQuery({
+    ...executionsQueryOptions(slug, workflowId),
+    initialData: initialData.executions,
   })
 
   return (
@@ -65,6 +91,21 @@ function WorkflowDetailPage() {
           {new Date(workflow.updatedAt).toLocaleString()}
         </dd>
       </dl>
+
+      <h2 className="mt-10 font-heading text-xl font-semibold tracking-tight">
+        Executions
+      </h2>
+      {executionsErrored ? (
+        <p className="mt-4 text-sm text-destructive">
+          Could not load executions.
+        </p>
+      ) : executionsPending ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Loading executions…
+        </p>
+      ) : (
+        <ExecutionList executions={executions} />
+      )}
     </main>
   )
 }
