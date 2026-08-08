@@ -10,6 +10,7 @@ import {
   type WorkflowVersion,
 } from '@linea/db'
 import {
+  assertNoReservedNodeIds,
   hashWorkflowGraph,
   validateGraphStructure,
   WorkflowGraphError,
@@ -83,6 +84,7 @@ export class WorkflowsService {
 
     try {
       validateGraphStructure(input.graph)
+      assertNoReservedNodeIds(input.graph)
     } catch (error) {
       if (error instanceof WorkflowGraphError) {
         throw new BadRequestException(error.message)

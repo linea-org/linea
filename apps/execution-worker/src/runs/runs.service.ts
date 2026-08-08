@@ -65,6 +65,13 @@ export class RunsService {
       validateGraphStructure(graph)
 
       const resumeFrom = await this.checkpoints.getResumeState(executionId)
+      if (resumeFrom.size > 0) {
+        await this.checkpoints.recordResumeEvent(
+          executionId,
+          execution.workspaceId,
+          attemptId
+        )
+      }
 
       const outcome = await this.interpreter.run({
         executionId,

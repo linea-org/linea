@@ -1,8 +1,16 @@
+import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
-import { createExecution, startExecution } from "./execution.repository.js"
+import { executionSteps } from "../schema/index.js"
+import {
+  createExecution,
+  getExecutionWithSteps,
+  startExecution,
+} from "./execution.repository.js"
 import {
   getLatestCheckpoint,
   getStepsForExecution,
+  RESUME_EVENT_NODE_ID,
+  recordResumeEvent,
   writeStepAndCheckpoint,
 } from "./checkpoint.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
@@ -218,6 +226,303 @@ describe("writeStepAndCheckpoint", () => {
       })
 
       expect(result).toBeUndefined()
+    })
+  })
+})
+
+describe("recordResumeEvent", () => {
+  it("records a resume event with the sentinel nodeId and a negative sequence", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const event = await recordResumeEvent(
+        tx,
+        execution.id,
+        organization.id,
+        "worker-1"
+      )
+
+      expect(event?.nodeId).toBe(RESUME_EVENT_NODE_ID)
+      expect(event?.sequence).toBeLessThan(0)
+      expect(event?.status).toBe("succeeded")
+    })
+  })
+
+  it("does not miscount a real step that happens to share the sentinel nodeId as a prior resume", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      // Simulates a legacy workflow published before __resumed__ was reserved: a real
+      // step using that nodeId, but never marked isSystemEvent (only recordResumeEvent does).
+      await tx.insert(executionSteps).values({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        traceId: execution.id,
+        spanId: "span-legacy",
+        name: "http",
+        startedAt: new Date(),
+        endedAt: new Date(),
+        status: "succeeded",
+        nodeId: RESUME_EVENT_NODE_ID,
+        sequence: 0,
+      })
+
+      const event = await recordResumeEvent(
+        tx,
+        execution.id,
+        organization.id,
+        "worker-1"
+      )
+
+      expect(event?.sequence).toBe(-1)
+      expect(event?.attempt).toBe(2)
+    })
+  })
+
+  it("assigns a distinct sequence to each successive resume for the same execution", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const first = await recordResumeEvent(
+        tx,
+        execution.id,
+        organization.id,
+        "worker-1"
+      )
+      const second = await recordResumeEvent(
+        tx,
+        execution.id,
+        organization.id,
+        "worker-1"
+      )
+
+      expect(first?.sequence).not.toBe(second?.sequence)
+      const events = await getStepsForExecution(tx, execution.id)
+      expect(events.filter((e) => e.isSystemEvent)).toHaveLength(2)
+    })
+  })
+
+  it("returns undefined for a worker whose lease has already been reclaimed", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1-doomed",
+        new Date(Date.now() - 1_000)
+      )
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-2",
+        new Date(Date.now() + 60_000)
+      )
+
+      const event = await recordResumeEvent(
+        tx,
+        execution.id,
+        organization.id,
+        "worker-1-doomed"
+      )
+
+      expect(event).toBeUndefined()
+      const steps = await getStepsForExecution(tx, execution.id)
+      expect(steps).toHaveLength(0)
+    })
+  })
+
+  it("returns undefined for an execution that was never claimed", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const event = await recordResumeEvent(
+        tx,
+        execution.id,
+        organization.id,
+        "worker-1"
+      )
+
+      expect(event).toBeUndefined()
+    })
+  })
+
+  it("sorts chronologically among real steps when fetched via getExecutionWithSteps, not by sequence", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const t0 = new Date("2026-01-01T00:00:00.000Z")
+      const t1 = new Date("2026-01-01T00:01:00.000Z")
+      const t2 = new Date("2026-01-01T00:02:00.000Z")
+
+      await writeStepAndCheckpoint(tx, {
+        leasedBy: "worker-1",
+        step: {
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: execution.id,
+          spanId: "span-1",
+          name: "http",
+          startedAt: t0,
+          endedAt: t0,
+          status: "succeeded",
+          nodeId: "node-1",
+          sequence: 0,
+        },
+        checkpoint: { sequence: 0, completedStepIds: ["node-1"], context: {} },
+      })
+
+      // Positive sequence (0) would sort a naive sequence-ordered query before
+      // this negative-sequence resume event, even though it happened after —
+      // proving the ordering fix, not just the insert, is what's under test.
+      const resumeEvent = await recordResumeEvent(
+        tx,
+        execution.id,
+        organization.id,
+        "worker-1"
+      )
+      if (!resumeEvent) throw new Error("expected a resume event")
+      await tx
+        .update(executionSteps)
+        .set({ startedAt: t1, endedAt: t1 })
+        .where(eq(executionSteps.id, resumeEvent.id))
+
+      await writeStepAndCheckpoint(tx, {
+        leasedBy: "worker-1",
+        step: {
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: execution.id,
+          spanId: "span-2",
+          name: "transform",
+          startedAt: t2,
+          endedAt: t2,
+          status: "succeeded",
+          nodeId: "node-2",
+          sequence: 1,
+        },
+        checkpoint: {
+          sequence: 1,
+          completedStepIds: ["node-1", "node-2"],
+          context: {},
+        },
+      })
+
+      const result = await getExecutionWithSteps(tx, execution.id)
+      expect(result?.steps.map((s) => s.nodeId)).toEqual([
+        "node-1",
+        RESUME_EVENT_NODE_ID,
+        "node-2",
+      ])
+    })
+  })
+
+  it("breaks a startedAt tie by insertion order via createdAt", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const sameInstant = new Date("2026-01-01T00:00:00.000Z")
+      const [first] = await tx
+        .insert(executionSteps)
+        .values({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: execution.id,
+          spanId: "span-1",
+          name: "transform",
+          startedAt: sameInstant,
+          endedAt: sameInstant,
+          status: "succeeded",
+          nodeId: "node-1",
+          sequence: 0,
+        })
+        .returning()
+      const [second] = await tx
+        .insert(executionSteps)
+        .values({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: execution.id,
+          spanId: "span-2",
+          name: "transform",
+          startedAt: sameInstant,
+          endedAt: sameInstant,
+          status: "succeeded",
+          nodeId: "node-2",
+          sequence: 1,
+        })
+        .returning()
+
+      // Same startedAt on both — only distinct createdAt (insertion order) can break the tie.
+      expect(first.startedAt.getTime()).toBe(second.startedAt.getTime())
+
+      const result = await getExecutionWithSteps(tx, execution.id)
+      expect(result?.steps.map((s) => s.nodeId)).toEqual(["node-1", "node-2"])
     })
   })
 })

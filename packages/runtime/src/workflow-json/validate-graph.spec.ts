@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { validateGraphStructure, WorkflowGraphError } from "./validate-graph.js"
+import {
+  assertNoReservedNodeIds,
+  validateGraphStructure,
+  WorkflowGraphError,
+} from "./validate-graph.js"
 import type { WorkflowGraph } from "./schema.js"
 
 function graph(overrides: Partial<WorkflowGraph>): WorkflowGraph {
@@ -187,5 +191,25 @@ describe("validateGraphStructure", () => {
         })
       )
     ).toThrow(WorkflowGraphError)
+  })
+})
+
+describe("assertNoReservedNodeIds", () => {
+  it("rejects a node id reserved for system timeline events", () => {
+    expect(() =>
+      assertNoReservedNodeIds(
+        graph({
+          entryNodeId: "__resumed__",
+          nodes: [
+            { id: "__resumed__", type: "http", config: {} },
+            { id: "b", type: "transform", config: {} },
+          ],
+        })
+      )
+    ).toThrow(WorkflowGraphError)
+  })
+
+  it("accepts a graph with no reserved node ids", () => {
+    expect(() => assertNoReservedNodeIds(graph({}))).not.toThrow()
   })
 })

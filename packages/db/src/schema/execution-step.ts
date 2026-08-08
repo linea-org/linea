@@ -1,5 +1,6 @@
 import {
   bigint,
+  boolean,
   foreignKey,
   index,
   integer,
@@ -58,6 +59,14 @@ export const executionSteps = snakeCase.table(
 
     // Unused until Phase 1 replay — history can't be backfilled onto a new column.
     replayedFromStepId: uuid().references((): AnyPgColumn => executionSteps.id),
+
+    // Insertion-order tie-breaker for startedAt, which can collide at millisecond resolution.
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+
+    // True only for synthetic timeline markers (e.g. a resume event) inserted by this package
+    // itself, never set from a workflow-supplied nodeId — so a real node a workflow author
+    // happens to name the same as a sentinel nodeId can never be mistaken for one.
+    isSystemEvent: boolean().notNull().default(false),
   },
   (table) => [
     index("execution_steps_execution_seq_idx").on(

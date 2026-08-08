@@ -260,11 +260,12 @@ export async function getExecutionWithSteps(
     .where(eq(executions.id, executionId))
   if (!execution) return undefined
 
+  // startedAt (not sequence, which resume markers deliberately skew negative), then createdAt to break millisecond ties in real insertion order.
   const steps = await db
     .select()
     .from(executionSteps)
     .where(eq(executionSteps.executionId, executionId))
-    .orderBy(executionSteps.sequence)
+    .orderBy(executionSteps.startedAt, executionSteps.createdAt)
 
   return { execution, steps }
 }
