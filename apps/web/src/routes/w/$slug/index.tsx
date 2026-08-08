@@ -12,16 +12,16 @@ function WorkspaceHomePage() {
   const { data: activeOrg } = authClient.useActiveOrganization()
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-6 py-16">
+    <main className="flex flex-1 flex-col px-6 py-8 sm:px-8 sm:py-10">
       <h1 className="font-heading text-3xl font-semibold tracking-tight">
-        You’re in
+        Home
       </h1>
       <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
-        Welcome{session?.user.name ? `, ${session.user.name}` : ""}. Workspace{" "}
+        Welcome{session?.user.name ? `, ${session.user.name}` : ""}. You’re in{" "}
         <span className="font-medium text-foreground">
-          {activeOrg?.slug ?? slug}
-        </span>{" "}
-        is ready. Product surfaces land here next.
+          {activeOrg?.name ?? activeOrg?.slug ?? slug}
+        </span>
+        . Product surfaces land here next.
       </p>
     </main>
   )
