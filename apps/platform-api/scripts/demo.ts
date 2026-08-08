@@ -1,0 +1,213 @@
+import '@linea/config/env'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { db, pool, repositories } from '@linea/db'
+import {
+  assertNoReservedNodeIds,
+  hashWorkflowGraph,
+  validateGraphStructure,
+  workflowGraphSchema,
+  type WorkflowGraph,
+} from '@linea/runtime'
+import {
+  createConnection,
+  createWorkflowExecutionQueue,
+  enqueueWorkflowExecution,
+} from '@linea/queue'
+
+const DEMO_ORG_SLUG = 'linea-demo'
+const DEMO_ORG_NAME = 'Linea Demo'
+const DEMO_WORKFLOW_SLUG = 'pending-todo-demo'
+const DEMO_WORKFLOW_NAME = 'Pending To-Do Demo'
+const GRAPH_PATH = join(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  'examples',
+  'pending-todo.workflow.json',
+)
+const POLL_INTERVAL_MS = 500
+const POLL_TIMEOUT_MS = 60_000
+
+// Cheapest model per provider, checked in the same order CONTRIBUTING.md lists the keys.
+const MODEL_BY_ENV_KEY: [envKey: string, model: string][] = [
+  ['ANTHROPIC_API_KEY', 'claude-haiku-4-5-20251001'],
+  ['OPENAI_API_KEY', 'gpt-5-mini'],
+  ['GROQ_API_KEY', 'llama-3.1-8b-instant'],
+  ['XAI_API_KEY', 'grok-4.5'],
+]
+
+function resolveDemoModel(): string {
+  for (const [envKey, model] of MODEL_BY_ENV_KEY) {
+    if (process.env[envKey]) return model
+  }
+  throw new Error(
+    'No AI provider key set. Set one of ANTHROPIC_API_KEY, OPENAI_API_KEY, ' +
+      "GROQ_API_KEY, or XAI_API_KEY in .env — see CONTRIBUTING.md's environment " +
+      'variable table.',
+  )
+}
+
+function loadGraph(): WorkflowGraph {
+  const raw: unknown = JSON.parse(readFileSync(GRAPH_PATH, 'utf-8'))
+  const graph = workflowGraphSchema.parse(raw)
+  validateGraphStructure(graph)
+  assertNoReservedNodeIds(graph)
+
+  const aiNode = graph.nodes.find((node) => node.type === 'ai')
+  if (aiNode) {
+    aiNode.config = { ...aiNode.config, model: resolveDemoModel() }
+  }
+  return graph
+}
+
+async function findOrCreateDemoOrg() {
+  const existing = await repositories.organization.getOrganizationBySlug(
+    db,
+    DEMO_ORG_SLUG,
+  )
+  if (existing) return existing
+
+  return repositories.organization.createOrganization(db, {
+    name: DEMO_ORG_NAME,
+    slug: DEMO_ORG_SLUG,
+    createdAt: new Date(),
+  })
+}
+
+async function findOrCreateDemoWorkflow(workspaceId: string) {
+  const existing = await repositories.workflow.getWorkflowBySlug(
+    db,
+    workspaceId,
+    DEMO_WORKFLOW_SLUG,
+  )
+  if (existing) return existing
+
+  return repositories.workflow.createWorkflow(db, {
+    workspaceId,
+    name: DEMO_WORKFLOW_NAME,
+    slug: DEMO_WORKFLOW_SLUG,
+  })
+}
+
+/** Reuses the currently published version if the committed graph hasn't changed, so re-running the script doesn't pile up versions. */
+async function ensurePublishedVersion(
+  workflowId: string,
+  graph: WorkflowGraph,
+) {
+  const contentHash = hashWorkflowGraph(graph)
+  const published = await repositories.workflow.getPublishedVersion(
+    db,
+    workflowId,
+  )
+  if (published && published.contentHash === contentHash) {
+    return published
+  }
+
+  const version = await repositories.workflow.createWorkflowVersion(db, {
+    workflowId,
+    graph,
+    contentHash,
+  })
+  await repositories.workflow.publishWorkflowVersion(db, workflowId, version.id)
+  return version
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function pollUntilTerminal(executionId: string) {
+  const deadline = Date.now() + POLL_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    const result = await repositories.execution.getExecutionWithSteps(
+      db,
+      executionId,
+    )
+    if (!result) throw new Error(`Execution ${executionId} disappeared`)
+    if (
+      result.execution.status === 'succeeded' ||
+      result.execution.status === 'failed' ||
+      result.execution.status === 'cancelled'
+    ) {
+      return result
+    }
+    await sleep(POLL_INTERVAL_MS)
+  }
+  throw new Error(
+    `Execution ${executionId} did not reach a terminal status within ` +
+      `${POLL_TIMEOUT_MS}ms. Is "pnpm dev" running (execution-worker needs to be ` +
+      'up to pick this off the queue)?',
+  )
+}
+
+function formatCost(costMicros: bigint): string {
+  return (Number(costMicros) / 1_000_000).toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD',
+  })
+}
+
+function printSummary(
+  execution: { status: string; costMicros: bigint },
+  steps: {
+    name: string
+    status: string
+    startedAt: Date
+    endedAt: Date | null
+  }[],
+) {
+  console.log(`\nExecution ${execution.status}\n`)
+  for (const step of steps) {
+    const ms = step.endedAt
+      ? step.endedAt.getTime() - step.startedAt.getTime()
+      : null
+    console.log(
+      `  ${step.name.padEnd(24)} ${step.status.padEnd(10)} ${ms !== null ? `${ms}ms` : '—'}`,
+    )
+  }
+  console.log(
+    `\nTotal cost: ${formatCost(execution.costMicros)} ` +
+      '(reads as $0.00 — no per-token pricing table exists yet, see packages/ai/MODULE.md ' +
+      '— even though a real, billed API call was made)',
+  )
+}
+
+async function main() {
+  const graph = loadGraph()
+  const org = await findOrCreateDemoOrg()
+  const workflow = await findOrCreateDemoWorkflow(org.id)
+  await ensurePublishedVersion(workflow.id, graph)
+
+  const trigger = await repositories.execution.triggerWorkflowExecution(
+    db,
+    org.id,
+    { by: 'id', value: workflow.id },
+    { trigger: 'manual' },
+  )
+  if (trigger.outcome !== 'created') {
+    throw new Error(`Could not trigger execution: ${trigger.outcome}`)
+  }
+
+  const connection = createConnection()
+  const queue = createWorkflowExecutionQueue(connection)
+  try {
+    await enqueueWorkflowExecution(queue, {
+      executionId: trigger.execution.id,
+    })
+    console.log(`Triggered execution ${trigger.execution.id}, waiting...`)
+
+    const { execution, steps } = await pollUntilTerminal(trigger.execution.id)
+    printSummary(execution, steps)
+  } finally {
+    await queue.close()
+    await connection.quit()
+    await pool.end()
+  }
+}
+
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : error)
+  process.exitCode = 1
+})

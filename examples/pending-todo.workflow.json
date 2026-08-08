@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "trigger": { "type": "manual" },
+  "entryNodeId": "fetch-todo",
+  "nodes": [
+    {
+      "id": "fetch-todo",
+      "type": "http",
+      "config": {
+        "url": "https://jsonplaceholder.typicode.com/todos/1",
+        "method": "GET"
+      }
+    },
+    {
+      "id": "extract-completed",
+      "type": "transform",
+      "config": { "expression": "body.completed" }
+    },
+    {
+      "id": "route",
+      "type": "branch",
+      "config": {
+        "cases": {
+          "pending": { "output": false },
+          "done": { "output": true }
+        },
+        "defaultBranch": "pending"
+      }
+    },
+    {
+      "id": "pending-passthrough",
+      "type": "transform",
+      "config": { "expression": "" }
+    },
+    {
+      "id": "suggest-action",
+      "type": "ai",
+      "config": {
+        "model": "claude-haiku-4-5-20251001",
+        "systemPrompt": "You are a concise productivity assistant.",
+        "prompt": "Suggest one next action for a pending to-do item, in a single sentence."
+      }
+    },
+    {
+      "id": "done-passthrough",
+      "type": "transform",
+      "config": { "expression": "" }
+    }
+  ],
+  "edges": [
+    { "from": "fetch-todo", "to": "extract-completed" },
+    { "from": "extract-completed", "to": "route" },
+    { "from": "route", "to": "pending-passthrough", "condition": "pending" },
+    { "from": "route", "to": "done-passthrough", "condition": "done" },
+    { "from": "pending-passthrough", "to": "suggest-action" }
+  ]
+}

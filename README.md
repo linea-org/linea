@@ -51,6 +51,23 @@ pnpm dev
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full setup guide, project
 layout, and environment variable reference.
 
+## Run the demo
+
+Once `pnpm dev` is up, see the whole system work end to end — a workflow that
+calls a public API, branches, and calls a real AI model, run through the actual
+execution engine and queue:
+
+```bash
+# Needs at least one of these set in .env — the demo picks whichever is available
+# ANTHROPIC_API_KEY / OPENAI_API_KEY / GROQ_API_KEY / XAI_API_KEY
+pnpm demo
+```
+
+It finds-or-creates a demo workspace and workflow (safe to run repeatedly — it
+reuses them rather than duplicating), triggers a real execution, and prints the
+step-by-step trace as it completes. See [`examples/pending-todo.workflow.json`](examples/pending-todo.workflow.json)
+for the workflow itself.
+
 ## Monorepo layout
 
 ```
@@ -58,14 +75,16 @@ linea/
 ├── apps/
 │   ├── platform-api/       # NestJS backend
 │   ├── web/                # TanStack Start frontend
-│   ├── background-worker/  # not yet built
-│   ├── execution-worker/   # not yet built
+│   ├── execution-worker/   # workflow execution runtime
+│   ├── background-worker/  # schedule firing
 │   └── run-gateway/        # not yet built
 └── packages/
     ├── auth/       # better-auth config + email
     ├── db/         # Drizzle schema, client, migrations
     ├── ui/         # shared React component library (shadcn)
-    ├── ai/         # AI provider integration (in progress)
+    ├── ai/         # AI provider integration (Anthropic, OpenAI, Groq, xAI)
+    ├── runtime/    # workflow JSON schema, node registry, graph walker
+    ├── queue/      # BullMQ wrapper — workflow-execution queue
     ├── config/     # shared eslint/tsconfig
     └── types/      # shared TypeScript types
 ```

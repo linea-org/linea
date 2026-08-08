@@ -19,7 +19,8 @@
     "db:studio": "pnpm --filter @linea/db db:studio",
     "queue:up": "pnpm --filter @linea/queue queue:up",
     "queue:down": "pnpm --filter @linea/queue queue:down",
-    "queue:logs": "pnpm --filter @linea/queue queue:logs"
+    "queue:logs": "pnpm --filter @linea/queue queue:logs",
+    "demo": "pnpm --filter @linea/platform-api demo"
   },
   "devDependencies": {
     "prettier": "^3.8.3",
