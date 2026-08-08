@@ -659,6 +659,40 @@ describe("listWorkspaceExecutions", () => {
       expect(thirdPage.total).toBe(5)
     })
   })
+
+  it("orders ties on createdAt deterministically, so paging never skips or repeats a row", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      // Every row shares one createdAt — createdAt alone can't order them,
+      // so this only stays stable across the two queries below if there's
+      // a unique tie-breaker.
+      const sameInstant = new Date()
+      const rows = Array.from({ length: 6 }, () => ({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual" as const,
+        createdAt: sameInstant,
+      }))
+      await tx.insert(executions).values(rows)
+
+      const firstPage = await listWorkspaceExecutions(tx, organization.id, {
+        pageSize: 4,
+        page: 1,
+      })
+      const secondPage = await listWorkspaceExecutions(tx, organization.id, {
+        pageSize: 4,
+        page: 2,
+      })
+
+      const firstIds = firstPage.executions.map((e) => e.id)
+      const secondIds = secondPage.executions.map((e) => e.id)
+      const combined = [...firstIds, ...secondIds]
+
+      expect(new Set(combined).size).toBe(combined.length)
+      expect(combined).toHaveLength(6)
+    })
+  })
 })
 
 describe("triggerWorkflowExecution", () => {

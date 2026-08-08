@@ -326,7 +326,11 @@ export async function listWorkspaceExecutions(
       .from(executions)
       .innerJoin(workflows, eq(executions.workflowId, workflows.id))
       .where(where)
-      .orderBy(desc(executions.createdAt))
+      // id as a tie-breaker: createdAt alone isn't unique (rows can share a
+      // millisecond), so ties would sort unpredictably differently between
+      // the two page queries and let a row get skipped or repeated across
+      // the page boundary.
+      .orderBy(desc(executions.createdAt), desc(executions.id))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
     db
