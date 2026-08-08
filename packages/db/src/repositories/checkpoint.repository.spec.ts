@@ -260,6 +260,49 @@ describe("recordResumeEvent", () => {
     })
   })
 
+  it("does not miscount a real step that happens to share the sentinel nodeId as a prior resume", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      // Simulates a legacy workflow published before __resumed__ was reserved: a real
+      // step using that nodeId, but never marked isSystemEvent (only recordResumeEvent does).
+      await tx.insert(executionSteps).values({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        traceId: execution.id,
+        spanId: "span-legacy",
+        name: "http",
+        startedAt: new Date(),
+        endedAt: new Date(),
+        status: "succeeded",
+        nodeId: RESUME_EVENT_NODE_ID,
+        sequence: 0,
+      })
+
+      const event = await recordResumeEvent(
+        tx,
+        execution.id,
+        organization.id,
+        "worker-1"
+      )
+
+      expect(event?.sequence).toBe(-1)
+      expect(event?.attempt).toBe(2)
+    })
+  })
+
   it("assigns a distinct sequence to each successive resume for the same execution", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -291,9 +334,7 @@ describe("recordResumeEvent", () => {
 
       expect(first?.sequence).not.toBe(second?.sequence)
       const events = await getStepsForExecution(tx, execution.id)
-      expect(
-        events.filter((e) => e.nodeId === RESUME_EVENT_NODE_ID)
-      ).toHaveLength(2)
+      expect(events.filter((e) => e.isSystemEvent)).toHaveLength(2)
     })
   })
 

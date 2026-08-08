@@ -79,10 +79,10 @@ export async function getStepsForExecution(
     .orderBy(asc(executionSteps.sequence))
 }
 
-/** Sentinel `nodeId`, reserved from real node ids by validateGraphStructure in @linea/runtime — kept as a duplicated literal, not a cross-package import, so this package stays a lightweight dependency for workflow-JSON validation. */
+/** Label for the synthetic resume-marker row, reserved from real node ids by validateGraphStructure in @linea/runtime — kept as a duplicated literal, not a cross-package import, so this package stays a lightweight dependency for workflow-JSON validation. Purely cosmetic: recordResumeEvent no longer uses this to identify prior resumes (see isSystemEvent), so a workflow-supplied node happening to share this id can't be misclassified. */
 export const RESUME_EVENT_NODE_ID = "__resumed__"
 
-/** Marks a genuine resume as a timeline event, not a real node step — negative `sequence` avoids colliding with real step numbers. Lease-fenced like writeStepAndCheckpoint (locks the execution row): returns undefined if `leasedBy` no longer owns it, and the lock serializes the count-then-insert against concurrent callers so two resumes can't land on the same sequence/attempt. */
+/** Marks a genuine resume as a timeline event, not a real node step — negative `sequence` avoids colliding with real step numbers. isSystemEvent (never derived from nodeId) is what distinguishes this row from a real step, so a workflow node happening to be named RESUME_EVENT_NODE_ID can't be counted as a prior resume. Lease-fenced like writeStepAndCheckpoint (locks the execution row): returns undefined if `leasedBy` no longer owns it, and the lock serializes the count-then-insert against concurrent callers so two resumes can't land on the same sequence/attempt. */
 export async function recordResumeEvent(
   db: DbClient,
   executionId: string,
@@ -114,7 +114,7 @@ export async function recordResumeEvent(
       .where(
         and(
           eq(executionSteps.executionId, executionId),
-          eq(executionSteps.nodeId, RESUME_EVENT_NODE_ID)
+          eq(executionSteps.isSystemEvent, true)
         )
       )
 
@@ -133,6 +133,7 @@ export async function recordResumeEvent(
         nodeId: RESUME_EVENT_NODE_ID,
         sequence: -(priorResumes.length + 1),
         attempt: priorResumes.length + 2,
+        isSystemEvent: true,
       })
       .returning()
     return step
