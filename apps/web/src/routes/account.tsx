@@ -54,8 +54,8 @@ function AccountPage() {
         </Button>
       </header>
 
-      <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-6 pb-10 pt-6 sm:pb-14 sm:pt-8">
-        <div className="animate-in fade-in-0 slide-in-from-bottom-2 fill-mode-both duration-500">
+      <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-6 pt-6 pb-10 sm:pt-8 sm:pb-14">
+        <div className="animate-in duration-500 fade-in-0 fill-mode-both slide-in-from-bottom-2">
           <div className="flex flex-col items-center text-center">
             <UserAvatar
               name={user?.name}

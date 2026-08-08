@@ -33,16 +33,16 @@ export const getWorkflowFn = createServerFn({ method: "GET" })
     return (await res.json()) as WorkflowSummary
   })
 
-export function workflowsQueryOptions() {
+export function workflowsQueryOptions(workspaceSlug: string) {
   return queryOptions({
-    queryKey: ["workflows"],
+    queryKey: ["workflows", workspaceSlug],
     queryFn: () => listWorkflowsFn(),
   })
 }
 
-export function workflowQueryOptions(id: string) {
+export function workflowQueryOptions(workspaceSlug: string, id: string) {
   return queryOptions({
-    queryKey: ["workflows", id],
+    queryKey: ["workflows", workspaceSlug, id],
     queryFn: () => getWorkflowFn({ data: { id } }),
   })
 }

@@ -34,7 +34,7 @@ function WorkflowsListPage() {
   const { slug } = Route.useParams()
   const initialData = Route.useLoaderData()
   const { data: workflows } = useSuspenseQuery({
-    ...workflowsQueryOptions(),
+    ...workflowsQueryOptions(slug),
     initialData,
   })
 

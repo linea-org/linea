@@ -85,7 +85,7 @@ function WorkspacesPage() {
       />
 
       <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-14 sm:py-20">
-        <div className="animate-in fade-in-0 slide-in-from-bottom-2 fill-mode-both duration-500">
+        <div className="animate-in duration-500 fade-in-0 fill-mode-both slide-in-from-bottom-2">
           <div className="mb-10 flex flex-col items-center text-center">
             <img
               src="/assets/linea.svg"
@@ -114,14 +114,14 @@ function WorkspacesPage() {
               return (
                 <li
                   key={org.id}
-                  className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-500"
+                  className="animate-in duration-500 fade-in-0 fill-mode-both slide-in-from-bottom-1"
                   style={{ animationDelay: `${80 + index * 45}ms` }}
                 >
                   <button
                     type="button"
                     className={cn(
                       "group flex w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors",
-                      "hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                      "hover:bg-secondary focus-visible:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
                       "disabled:cursor-not-allowed disabled:opacity-50"
                     )}
                     disabled={pendingId !== null}
@@ -144,7 +144,9 @@ function WorkspacesPage() {
                     </span>
                     <span
                       className="shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
-                      aria-label={opening ? "Opening workspace" : "Open workspace"}
+                      aria-label={
+                        opening ? "Opening workspace" : "Open workspace"
+                      }
                     >
                       {opening ? (
                         <LoaderCircleIcon className="size-4 animate-spin" />
@@ -169,7 +171,7 @@ function WorkspacesPage() {
           </Button>
         </div>
 
-        <div className="mt-5 animate-in fade-in-0 fill-mode-both duration-500 delay-200">
+        <div className="mt-5 animate-in delay-200 duration-500 fade-in-0 fill-mode-both">
           <div className="mb-3 h-px bg-border/80" />
           <UserMenu showDetails align="start" className="w-full" />
         </div>

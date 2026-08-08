@@ -25,7 +25,7 @@ function WorkflowDetailPage() {
   const { slug, workflowId } = Route.useParams()
   const initialData = Route.useLoaderData()
   const { data: workflow } = useSuspenseQuery({
-    ...workflowQueryOptions(workflowId),
+    ...workflowQueryOptions(slug, workflowId),
     initialData,
   })
 

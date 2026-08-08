@@ -2,8 +2,7 @@ import { createElement, useEffect, useState } from "react"
 
 import { cn } from "@linea/ui/lib/utils"
 
-export const PLAYFUL_AVATAR_COLORS =
-  "#0a0310,#49007e,#ff005b,#ff7d10,#ffb238"
+export const PLAYFUL_AVATAR_COLORS = "#0a0310,#49007e,#ff005b,#ff7d10,#ffb238"
 
 export type PlayfulAvatarVariant =
   | "beam"
@@ -57,6 +56,10 @@ export function PlayfulAvatar({
     name,
     variant,
     colors: PLAYFUL_AVATAR_COLORS,
-    className: cn("inline-block shrink-0 overflow-hidden", shapeClass, className),
+    className: cn(
+      "inline-block shrink-0 overflow-hidden",
+      shapeClass,
+      className
+    ),
   })
 }
