@@ -2,9 +2,7 @@ import { Injectable } from "@nestjs/common"
 import { nodeRegistry } from "@linea/runtime"
 import type { NodeHandler } from "./node-handler.interface"
 
-// Order-independent for object keys (JSON.stringify isn't — {a,b} and {b,a}
-// serialize differently despite being the same value), order-dependent for
-// arrays, since array order is semantically meaningful.
+// Order-independent for object keys (unlike JSON.stringify), order-dependent for arrays, since array order is semantically meaningful.
 function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true
   if (
@@ -36,9 +34,7 @@ export class BranchNode implements NodeHandler {
   execute(config: Record<string, unknown>, input: unknown): Promise<unknown> {
     const parsed = nodeRegistry.branch.inputSchema.parse({ value: input })
 
-    // Structural, not ===: every node's output is a freshly-built object
-    // literal (e.g. transform's { output }), so reference equality would
-    // never match a case even when the shape is identical.
+    // Structural, not === — every node's output is a freshly-built object literal, so reference equality would never match a case even with an identical shape.
     const cases = (config.cases ?? {}) as Record<string, unknown>
     const matched = Object.entries(cases).find(([, expected]) =>
       deepEqual(expected, parsed.value)

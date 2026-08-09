@@ -19,9 +19,7 @@ export class HttpNode implements NodeHandler {
       body: input,
     })
 
-    // A manually-triggered execution with no payload round-trips through the DB
-    // as null, not undefined — treat both as "no body", or a GET entry node
-    // sends body: "null" and fetch rejects GET/HEAD with a body.
+    // A no-payload trigger round-trips through the DB as null, not undefined — treat both as "no body", or a GET entry node sends body: "null" and fetch rejects GET/HEAD with a body.
     const hasBody = parsed.body !== undefined && parsed.body !== null
     const response = await fetch(parsed.url, {
       method: parsed.method,

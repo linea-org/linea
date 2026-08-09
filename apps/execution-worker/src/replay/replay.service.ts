@@ -4,17 +4,10 @@ import { workflowGraphSchema } from "@linea/runtime"
 import type { WorkflowStepReplayJob } from "@linea/queue"
 import { InterpreterService } from "../graph/interpreter.service"
 
-// Deliberately much smaller than REPLAY_CLAIM_STALE_MS (10 min) — this isn't sized to stay
-// safely inside the staleness window (a single renewal every few minutes would do that), it's
-// sized to bound how long a worker can keep running after another worker has already reclaimed
-// its stale claim and started a second invocation. Cancellation (see abortController below) is
-// best-effort — the reclaimer can start before this worker's next tick discovers it lost
-// ownership — so a tight interval is what keeps that overlap window small.
+// Sized to bound how long this worker can keep running after another worker reclaims its stale claim, not to safely undercut REPLAY_CLAIM_STALE_MS — cancellation below is best-effort, so a tight interval limits the overlap.
 const REPLAY_HEARTBEAT_INTERVAL_MS = 30_000
 
-/** Thrown when a claim exists but isn't stale yet — signals BullMQ to retry later (see the
- * attempts/backoff on enqueueWorkflowStepReplay) instead of marking this delivery complete,
- * which would stop it from ever being rechecked even if the original owner had died. */
+/** Thrown instead of resolving, so BullMQ retries past REPLAY_CLAIM_STALE_MS rather than marking this delivery permanently done. */
 class ReplayClaimPendingError extends Error {
   constructor(replayStepId: string) {
     super(
@@ -41,7 +34,6 @@ export class ReplayService {
       )
       return
     }
-
     const execution = await repositories.execution.getExecutionById(
       db,
       originalStep.executionId
@@ -52,7 +44,6 @@ export class ReplayService {
       )
       return
     }
-
     const version = await repositories.workflow.getWorkflowVersionById(
       db,
       execution.workflowVersionId
@@ -63,7 +54,6 @@ export class ReplayService {
       )
       return
     }
-
     const graph = workflowGraphSchema.parse(version.graph)
     const node = graph.nodes.find((n) => n.id === originalStep.nodeId)
     if (!node) {
@@ -72,18 +62,15 @@ export class ReplayService {
       )
       return
     }
-
     const mergedNode = {
       ...node,
       config: { ...node.config, ...job.overrideConfig },
     }
-
     const sequence = await repositories.executionStep.getNextStepSequence(
       db,
       execution.id
     )
     const startedAt = new Date()
-
     const claimResult = await repositories.executionStep.claimReplayStep(db, {
       id: job.replayStepId,
       executionId: execution.id,
@@ -104,59 +91,39 @@ export class ReplayService {
       return
     }
     if (claimResult.outcome === "live") {
-      // Must not resolve normally here: BullMQ would mark this delivery complete and never
-      // redeliver the job again, even if the claim's original owner actually died and this
-      // claim is genuinely stranded. Throwing lets attempts/backoff retry past
-      // REPLAY_CLAIM_STALE_MS, at which point it's either finalized for real or reclaimable.
+      // Must throw, not resolve — resolving marks this BullMQ delivery permanently done, even if the claim is genuinely stranded and needs a later retry.
       throw new ReplayClaimPendingError(job.replayStepId)
     }
     const claimed = claimResult.claim
-
-    // Kept renewed for as long as executeNode is in flight, so a legitimately slow node (a
-    // long AI completion, a slow HTTP call) never looks abandoned and gets reclaimed out from
-    // under it. If renewal ever fails (claim lost to a reclaim), completeReplayStep's own
-    // fencing check below is what actually stops a late/duplicate result from persisting —
-    // this loop is just what keeps that from happening in the common case.
+    // Renewed for as long as executeNode runs, so a slow AI/HTTP call isn't mistaken for abandoned; completeReplayStep's own fencing is the real backstop if renewal ever loses the claim.
     let claimToken = claimed.claimToken
-    // Tracks whatever renewal tick is currently in flight, so completion can wait for it to
-    // settle before reading `claimToken` — otherwise a renewal that lands after executeNode
-    // resolves but before its own `.then()` runs would leave `claimToken` stale, and
-    // completeReplayStep's fencing would then reject the write against the DB's newer
-    // startedAt, silently discarding a real result (later misread by the sweep as abandoned).
-    // A tick that finds one already in flight (a slow/stalled DB round-trip outlasting the
-    // interval) skips itself instead of starting a second, overlapping renewal — otherwise
-    // this single slot would only track the newest one, and an earlier renewal that actually
-    // wins its compare-and-swap could resolve (and update claimToken) after that point,
-    // unobserved by the wait below.
+    // Skips a tick if a renewal is already in flight, and completion always awaits it before reading claimToken — otherwise a late-resolving renewal could leave claimToken stale and completeReplayStep would wrongly fence out a real result.
     let pendingRenewal: Promise<void> | undefined
-    // Aborts the in-flight node handler call the moment ownership is lost, instead of letting
-    // a duplicate HTTP mutation or billed AI completion run to completion in parallel with
-    // whoever reclaimed the claim.
+    // Aborts the in-flight node handler the instant ownership is lost, so a duplicate HTTP mutation or billed AI call doesn't keep running alongside whoever reclaimed the work.
     const abortController = new AbortController()
     const heartbeat = setInterval(() => {
       if (pendingRenewal) return
       pendingRenewal = repositories.executionStep
         .renewReplayClaim(db, job.replayStepId, claimToken)
-        .then((renewed) => {
-          if (!renewed) {
+        .then((result) => {
+          if (result.outcome === "renewed") {
+            claimToken = result.claimToken
+            return
+          }
+          if (result.outcome === "reclaimed") {
             this.logger.warn(
               `Replay ${job.replayStepId}: lost claim ownership mid-execution`
             )
             abortController.abort()
             return
           }
-          claimToken = renewed
+          // "finalized": the sweep marked this stale with no other owner — claimToken is still valid, so keep running and let the real result overwrite it on completion.
+          this.logger.warn(
+            `Replay ${job.replayStepId}: sweep finalized this claim while still running, continuing`
+          )
         })
         .catch((error: unknown) => {
-          // Deliberately does NOT abort: a renewal that throws (a DB blip, a connection
-          // error) is proof of nothing either way, and completeReplayStep's fencing only
-          // checks `startedAt`, not status or recency — so as long as no one else has
-          // actually won a reclaim (the one case that does abort, above), this worker's own
-          // eventual completion still matches and persists correctly even if every renewal
-          // in between failed to reach the database. Aborting here would only convert a
-          // transient, self-recovering blip into a needless false failure, on work that's
-          // both still genuinely owned and (per the AbortSignal wiring) can't actually be
-          // un-dispatched anyway.
+          // Deliberately doesn't abort — a renewal error proves nothing, and completeReplayStep's startedAt fencing still protects against an actual lost claim, so aborting here would only turn a transient blip into a needless false failure.
           this.logger.error(
             `Replay ${job.replayStepId}: failed to renew claim, will retry next tick`,
             error
@@ -166,7 +133,6 @@ export class ReplayService {
           pendingRenewal = undefined
         })
     }, REPLAY_HEARTBEAT_INTERVAL_MS)
-
     let outcome: {
       status: "succeeded" | "failed"
       output?: Record<string, unknown>
@@ -174,7 +140,6 @@ export class ReplayService {
       tokensInput: number
       tokensOutput: number
     }
-
     try {
       const result = await this.interpreter.executeNode(
         mergedNode,
@@ -198,13 +163,10 @@ export class ReplayService {
         tokensOutput: 0,
       }
     } finally {
-      // No new tick can start after this (clearInterval is synchronous), but one that was
-      // already in flight when executeNode resolved might not have updated `claimToken` yet —
-      // wait for it so completion always reads the token that matches the DB.
+      // clearInterval stops new ticks, but one already in flight may not have updated claimToken yet — wait for it so completion reads the token that matches the DB.
       clearInterval(heartbeat)
       await pendingRenewal
     }
-
     await repositories.executionStep.completeReplayStep(
       db,
       job.replayStepId,

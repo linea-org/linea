@@ -26,8 +26,7 @@ export type RunInput = {
   // Usage already recorded for steps in `resumeFrom`, since they're skipped rather than re-executed.
   initialTokensInput?: number
   initialTokensOutput?: number
-  // Aborted by the caller (RunsService) when the execution lease is lost mid-step, so the
-  // in-flight node handler's own request is cancelled instead of just racing the checkpoint.
+  // Aborted by the caller (RunsService) when the execution lease is lost mid-step, so the in-flight node handler's own request is cancelled instead of just racing the checkpoint.
   signal?: AbortSignal
 }
 
@@ -71,13 +70,7 @@ export class InterpreterService {
     }
   }
 
-  /**
-   * Looks up the handler for `node.type`, calls it, and extracts token usage from the
-   * output — the reusable unit of "run one node" independent of the walker, checkpoints, or
-   * leases. `run()`'s loop uses this for real graph steps; step-level replay (apps/execution-worker/src/replay)
-   * calls it directly for a single node with a substituted config, bypassing the walker
-   * entirely since a replay target's input is already known from its original step row.
-   */
+  /** The reusable "run one node" unit, independent of the walker/checkpoints/leases — `run()` uses it per graph step, and step-level replay (apps/execution-worker/src/replay) calls it directly for one node with a substituted config, bypassing the walker since a replay target's input is already known. */
   async executeNode(
     node: WorkflowNode,
     input: unknown,
@@ -166,10 +159,7 @@ export class InterpreterService {
         if (error instanceof LeaseLostError) {
           throw error
         }
-        // The node handler was cancelled via `input.signal`, which RunsService only aborts on
-        // lease loss — so this is a lease loss discovered mid-call, not a genuine node
-        // failure. Same handling as the up-front assertOwnsLease check: propagate without
-        // attempting a checkpoint write that the lease fencing would reject anyway.
+        // input.signal is only aborted by RunsService on lease loss, so an abort here is a lease loss discovered mid-call, not a genuine node failure — same handling as the up-front assertOwnsLease check.
         if (input.signal?.aborted) {
           throw new LeaseLostError(input.executionId)
         }

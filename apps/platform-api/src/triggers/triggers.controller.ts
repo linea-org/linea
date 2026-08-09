@@ -9,9 +9,7 @@ import {
 } from './dto/trigger-webhook.dto'
 import { TriggersService } from './triggers.service'
 
-// Auth is the same WorkspaceAuthGuard as everywhere else (session or API
-// key) — a real webhook caller will always use an API key, but there's no
-// reason to forbid a session for manual testing.
+// Auth is the same WorkspaceAuthGuard as everywhere else (session or API key) — a real webhook caller will always use an API key, but there's no reason to forbid a session for manual testing.
 @Controller('triggers')
 @OptionalAuth()
 @UseGuards(WorkspaceAuthGuard)

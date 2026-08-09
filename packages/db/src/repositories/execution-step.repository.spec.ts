@@ -429,17 +429,15 @@ describe("renewReplayClaim", () => {
         })
       )
 
-      const renewedToken = await renewReplayClaim(
-        tx,
-        replayId,
-        claimed.claimToken
-      )
-      expect(renewedToken).toBeDefined()
+      const renewal = await renewReplayClaim(tx, replayId, claimed.claimToken)
+      if (renewal.outcome !== "renewed") {
+        throw new Error(`expected outcome "renewed", got "${renewal.outcome}"`)
+      }
+      const renewedToken = renewal.claimToken
       expect(renewedToken).not.toEqual(claimed.claimToken)
 
       // Completing with the stale, pre-renewal token must not match — proving the renewed
       // token, not the original one, is now what fences the eventual completion.
-      if (!renewedToken) throw new Error("expected a renewal")
       await completeReplayStep(tx, replayId, claimed.claimToken, {
         status: "succeeded",
         output: { text: "wrong token" },
@@ -471,7 +469,7 @@ describe("renewReplayClaim", () => {
     })
   })
 
-  it("returns undefined once the claim is no longer live", async () => {
+  it("returns 'finalized' once the claim completed, since startedAt never moved and no other owner exists", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       const [execution] = await tx
@@ -515,9 +513,57 @@ describe("renewReplayClaim", () => {
         endedAt: new Date(),
       })
 
+      expect(await renewReplayClaim(tx, replayId, claimed.claimToken)).toEqual({
+        outcome: "finalized",
+      })
+    })
+  })
+
+  it("returns 'reclaimed' once startedAt has moved to a different owner's token", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const [execution] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          status: "succeeded",
+        })
+        .returning()
+      const original = await createOriginalStep(
+        tx,
+        execution.id,
+        organization.id
+      )
+
+      const replayId = "88888888-8888-8888-8888-888888888888"
+      const claimInput = {
+        id: replayId,
+        executionId: execution.id,
+        workspaceId: organization.id,
+        traceId: original.traceId,
+        parentSpanId: original.spanId,
+        nodeId: original.nodeId,
+        name: original.name,
+        sequence: 2,
+        input: original.input,
+        replayedFromStepId: original.id,
+        startedAt: new Date(),
+      }
+      const abandoned = expectClaimed(await claimReplayStep(tx, claimInput))
+
+      // Same "worker died" simulation as the claimReplayStep reclaim test above.
+      await tx
+        .update(executionSteps)
+        .set({ startedAt: new Date(Date.now() - 11 * 60 * 1000) })
+        .where(eq(executionSteps.id, replayId))
+      expectClaimed(await claimReplayStep(tx, claimInput))
+
       expect(
-        await renewReplayClaim(tx, replayId, claimed.claimToken)
-      ).toBeUndefined()
+        await renewReplayClaim(tx, replayId, abandoned.claimToken)
+      ).toEqual({ outcome: "reclaimed" })
     })
   })
 })

@@ -1,7 +1,6 @@
 import { z } from 'zod'
 
-// `${createdAt.toISOString()}_${id}` — neither an ISO timestamp nor a uuid contains an
-// underscore, so splitting on the first one unambiguously recovers both parts.
+// `${createdAt.toISOString()}_${id}` — neither an ISO timestamp nor a uuid contains an underscore, so splitting on the first one unambiguously recovers both parts.
 export const executionCursorSchema = z.string().transform((value, ctx) => {
   const separatorIndex = value.indexOf('_')
   const createdAt =

@@ -28,8 +28,7 @@ export type ExecutionSummary = {
 
 export type ExecutionDetail = ExecutionSummary & {
   error: { message: string; stepId?: string } | null
-  /** Whether any of this execution's steps can be replayed — computed server-side from
-   * origin ("native", not ingested from an external trace) and terminal status. */
+  /** Whether any of this execution's steps can be replayed — computed server-side from origin ("native", not ingested) and terminal status. */
   replayable: boolean
 }
 
@@ -81,8 +80,7 @@ export const listExecutionsFn = createServerFn({ method: "GET" })
 export type ExecutionDetailResponse = {
   execution: ExecutionDetail
   steps: ExecutionStepSummary[]
-  /** nodeId -> the node's config in the workflow version this execution ran, for
-   * pre-filling the replay override form. */
+  /** nodeId -> the node's config in the workflow version this execution ran, for pre-filling the replay override form. */
   nodeConfigs: Record<string, Record<string, JsonValue>>
 }
 
@@ -125,9 +123,7 @@ export const replayStepFn = createServerFn({ method: "POST" })
 export type WorkspaceExecutionFilters = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
-  /** Opaque `(createdAt, id)` keyset cursor — the last execution of the previous page,
-   * encoded via encodeExecutionCursor. Omit for the first page. Not an offset: see
-   * listWorkspaceExecutions in @linea/db for why OFFSET pagination isn't used here. */
+  /** Opaque `(createdAt, id)` keyset cursor — the last execution of the previous page, encoded via encodeExecutionCursor. Omit for the first page; not an offset, see listWorkspaceExecutions in @linea/db for why. */
   cursor?: string
 }
 
@@ -139,8 +135,7 @@ export type WorkspaceExecutionPage = {
   total: number
 }
 
-/** `${createdAt}_${id}` — matches the platform-api DTO's cursor encoding. Neither an ISO
- * timestamp nor a uuid contains an underscore, so this round-trips unambiguously. */
+/** `${createdAt}_${id}` — matches the platform-api DTO's cursor encoding; neither an ISO timestamp nor a uuid contains an underscore, so this round-trips unambiguously. */
 export function encodeExecutionCursor(row: { createdAt: string; id: string }) {
   return `${row.createdAt}_${row.id}`
 }
@@ -191,9 +186,7 @@ export const countNewWorkspaceExecutionsFn = createServerFn({ method: "GET" })
     return (await res.json()) as { count: number }
   })
 
-/** Polls in the background so the executions page can offer a "N new" banner instead of
- * silently splicing new rows into a page the user has already paged past — see
- * countNewWorkspaceExecutions in @linea/db for why that splice isn't possible to do safely. */
+/** Polls so the executions page can offer a "N new" banner instead of silently splicing new rows into a page the user already paged past — see countNewWorkspaceExecutions in @linea/db for why that splice isn't safe. */
 export function newWorkspaceExecutionsQueryOptions(
   workspaceSlug: string,
   filters: NewWorkspaceExecutionsFilters

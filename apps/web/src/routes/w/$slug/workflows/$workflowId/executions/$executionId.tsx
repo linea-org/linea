@@ -53,8 +53,7 @@ function ExecutionDetailPage() {
   } = useSuspenseQuery({
     ...executionQueryOptions(slug, executionId),
     initialData: initialData.detail,
-    // Only while a just-triggered replay's step row hasn't shown up in the latest fetch yet
-    // — stops on its own once it appears, since this then evaluates to false.
+    // Only while a just-triggered replay's step row hasn't shown up yet — stops on its own once it appears, since this then evaluates to false.
     refetchInterval: (query) => {
       if (!pendingReplayStepId) return false
       const data = query.state.data

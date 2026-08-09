@@ -46,10 +46,7 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
   )
 }
 
-/** Splices each replay immediately after the step it replayed. Steps arrive ordered by
- * (startedAt, createdAt) — a replay naturally sorts to wherever it actually ran, usually
- * last, not next to its original — so display order needs this regrouping. A replay of a
- * replay is rejected server-side, so this is a single-level group-by, not a tree walk. */
+/** Splices each replay immediately after the step it replayed — steps arrive ordered by (startedAt, createdAt), so a replay naturally sorts to wherever it actually ran (usually last), not next to its original. A replay-of-a-replay is rejected server-side, so this is a single-level group-by, not a tree walk. */
 function groupWithReplays(
   steps: ExecutionStepSummary[]
 ): ExecutionStepSummary[] {

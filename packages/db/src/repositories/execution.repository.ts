@@ -35,13 +35,7 @@ export type TriggerWorkflowResult =
   | { outcome: "archived" }
   | { outcome: "unpublished" }
 
-/**
- * Locks the workflow row for the check's duration, so an archive committed concurrently
- * can't slip an execution past the check-then-insert gap: either this transaction sees
- * the archive and rejects, or it holds the lock first and the archive waits until this
- * commits — at which point the execution it created is already real, which is correct,
- * since that trigger legitimately raced ahead of the archive.
- */
+/** Locks the workflow row for the check's duration, so an archive committed concurrently can't slip an execution past the check-then-insert gap — either this transaction sees the archive and rejects, or it holds the lock first and the archive waits until this legitimately-racing execution commits. */
 export async function triggerWorkflowExecution(
   db: DbClient,
   workspaceId: string,
@@ -173,12 +167,7 @@ export async function completeExecution(
   return execution
 }
 
-/**
- * Marks a still-queued execution as failed before any worker ever claimed it — for when
- * enqueueing to the job queue itself fails, so the row doesn't strand at "queued" forever
- * with no job behind it. `completeExecution` can't be used here: it requires a `leasedBy`
- * match, and a never-claimed execution's `leasedBy` is null, which no value equals.
- */
+/** Marks a still-queued execution as failed before any worker claimed it — for when enqueueing itself fails, so the row doesn't strand at "queued" with no job behind it. `completeExecution` can't be used here since it requires a `leasedBy` match, and a never-claimed execution's is null. */
 export async function failQueuedExecution(
   db: DbClient,
   executionId: string,
@@ -308,30 +297,13 @@ export type WorkspaceExecutionPage = {
   executions: ExecutionWithWorkflow[]
   /** Whether a further page exists after this one. */
   hasMore: boolean
-  /** Total rows matching the filters, ignoring the cursor — informational only (e.g. "128
-   * total"), not something pagination correctness depends on. */
+  /** Total rows matching the filters, ignoring the cursor — informational only (e.g. "128 total"), not something pagination correctness depends on. */
   total: number
 }
 
 const DEFAULT_WORKSPACE_EXECUTIONS_LIMIT = 50
 
-/**
- * Unlike listExecutions, spans every workflow in the workspace — for the cross-workflow trace view,
- * not a single workflow's page. Paginated via a `(createdAt, id)` keyset cursor, not OFFSET/LIMIT.
- *
- * OFFSET pagination assumes the filtered, sorted result set holds still between page requests, and
- * it doesn't: a row inserted after page 1 was fetched shifts every later page's offset by one, and —
- * the case a plain `createdAt` snapshot bound still can't fix — a row whose `status` changes between
- * requests (queued → running, say) can drop out of a `status`-filtered query entirely, shrinking the
- * matched set and shifting everything after it. Either way, rows get skipped or repeated at the page
- * boundary. Keyset pagination sidesteps both: each page is fetched as "the next N rows, in sort
- * order, strictly after the last row I saw" rather than "skip N rows that currently match," so it
- * never needs to count how many rows matched *so far* — a count that concurrent inserts and status
- * mutations can't be relied on to hold still. `id` breaks ties within a shared `createdAt` millisecond,
- * since `createdAt` alone isn't unique.
- *
- * Callers paginating forward pass the last row of the previous page as `cursor`.
- */
+/** Unlike listExecutions, spans every workflow in the workspace (the cross-workflow trace view), paginated via a `(createdAt, id)` keyset cursor rather than OFFSET/LIMIT — OFFSET assumes the filtered, sorted result set holds still between requests, which a concurrent insert or a status change crossing the filter both violate, skipping or repeating rows at the page boundary; `id` breaks ties within a shared `createdAt` millisecond. Callers paginating forward pass the last row of the previous page as `cursor`. */
 export async function listWorkspaceExecutions(
   db: DbClient,
   workspaceId: string,
@@ -394,14 +366,7 @@ export async function listWorkspaceExecutions(
   }
 }
 
-/**
- * Counts rows matching the filters that sort newer than `since` — the inverse direction of
- * `listWorkspaceExecutions`' cursor. Backs a "N new executions" banner: a row can start
- * matching a status/trigger filter, or simply arrive, above a cursor the user has already
- * paged past, and forward-only Next clicks structurally can't surface it (see
- * listWorkspaceExecutions' doc comment) — the banner is how the user finds out it exists
- * without silently splicing it into an already-fetched page.
- */
+/** Counts rows matching the filters that sort newer than `since` — the inverse of `listWorkspaceExecutions`' cursor. Backs a "N new executions" banner, since a row can start matching or simply arrive above a cursor the user already paged past, and forward-only Next clicks structurally can't surface it. */
 export async function countNewWorkspaceExecutions(
   db: DbClient,
   workspaceId: string,

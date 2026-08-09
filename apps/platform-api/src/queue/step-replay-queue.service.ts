@@ -8,9 +8,7 @@ import {
 import type { Queue } from 'bullmq'
 import type { Redis } from 'ioredis'
 
-// Same rationale as WorkflowQueueService: createConnection() sets maxRetriesPerRequest: null,
-// which would otherwise let an enqueue() call here retry indefinitely on a Redis outage,
-// hanging the HTTP request forever instead of rejecting.
+// Same rationale as WorkflowQueueService: createConnection() sets maxRetriesPerRequest: null, which would otherwise let an enqueue() call here retry indefinitely on a Redis outage, hanging the HTTP request forever instead of rejecting.
 const ENQUEUE_TIMEOUT_MS = 10_000
 
 @Injectable()

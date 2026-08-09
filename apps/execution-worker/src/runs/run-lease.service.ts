@@ -14,12 +14,7 @@ export class RunLeaseService {
     return new Date(Date.now() + LEASE_DURATION_MS)
   }
 
-  /**
-   * Renews well inside the lease window (10s heartbeat, 30s lease), so a slow tick or two
-   * doesn't expire it. `onLeaseLost`, if given, fires the moment a renewal finds the lease
-   * already reclaimed — the caller uses this to abort whatever node handler call is currently
-   * in flight, rather than letting it run to completion only to lose the checkpoint race.
-   */
+  /** Renews well inside the lease window (10s heartbeat, 30s lease) so a slow tick or two doesn't expire it; `onLeaseLost`, if given, fires the moment a renewal finds the lease already reclaimed, so the caller can abort the in-flight node handler instead of losing the checkpoint race. */
   startHeartbeat(
     executionId: string,
     leasedBy: string,

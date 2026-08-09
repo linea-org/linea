@@ -85,18 +85,9 @@ export const notifications = snakeCase.table(
     title: text().notNull(),
     body: text().notNull(),
 
-    /**
-     * Frontend action.
-     * Example:
-     * /workspace/123/settings
-     * /workflow/abc
-     * /executions/xyz
-     */
+    // Frontend action path, e.g. /workflow/abc — a relative path, not a full URL.
     href: text(),
 
-    /**
-     * Optional metadata.
-     */
     metadata: jsonb().$type<NotificationMeta>(),
 
     read: boolean().notNull().default(false),

@@ -1,8 +1,6 @@
 export type NodeExecutionContext = {
   workspaceId: string
-  /** Aborted when the caller loses ownership of the work mid-call (a lost execution lease, a
-   * lost replay claim) — handlers that make outbound requests should pass it through so that
-   * loss stops the actual request, not just the bookkeeping around it. */
+  /** Aborted when the caller loses ownership mid-call (a lost lease, a lost replay claim) — handlers making outbound requests should pass it through so loss stops the actual request, not just the bookkeeping. */
   signal?: AbortSignal
 }
 

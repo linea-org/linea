@@ -88,15 +88,7 @@ export async function publishWorkflowVersion(
   })
 }
 
-/**
- * Atomic check-then-publish: locks the workflow row for the whole sequence,
- * so two concurrent callers can't both see the graph as unpublished (or
- * changed) and each create+publish their own redundant version — whichever
- * commits second sees the first's now-current published version and reuses
- * it instead. Same lock-first pattern as createWorkflowVersion, inlined
- * rather than composed with it, since nesting a second db.transaction call
- * inside this one isn't safe to assume works across drivers.
- */
+/** Atomic check-then-publish: locks the workflow row for the whole sequence, so two concurrent callers can't both see the graph as unpublished and each create+publish a redundant version — whichever commits second reuses the first's now-current published version instead. Same lock-first pattern as createWorkflowVersion, inlined rather than composed since nesting a second db.transaction isn't safe to assume works across drivers. */
 export async function ensurePublishedVersion(
   db: DbClient,
   workflowId: string,
