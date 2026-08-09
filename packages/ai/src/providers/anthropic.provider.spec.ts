@@ -60,7 +60,8 @@ describe("anthropicProvider", () => {
     })
 
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ max_tokens: 4096 })
+      expect.objectContaining({ max_tokens: 4096 }),
+      { signal: undefined }
     )
   })
 
@@ -77,7 +78,8 @@ describe("anthropicProvider", () => {
     })
 
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ max_tokens: 128 })
+      expect.objectContaining({ max_tokens: 128 }),
+      { signal: undefined }
     )
   })
 })

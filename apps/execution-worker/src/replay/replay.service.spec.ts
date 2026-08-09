@@ -115,11 +115,16 @@ describe("ReplayService.replay", () => {
         overrideConfig: { url: "https://overridden.example.com" },
       })
 
-      expect(executeSpy).toHaveBeenCalledWith(
-        { url: "https://overridden.example.com" },
-        originalStep.input,
-        { workspaceId: organization.id }
-      )
+      expect(executeSpy).toHaveBeenCalledTimes(1)
+      const [config, input, context] = executeSpy.mock.calls[0] as unknown as [
+        unknown,
+        unknown,
+        { workspaceId: string; signal?: AbortSignal },
+      ]
+      expect(config).toEqual({ url: "https://overridden.example.com" })
+      expect(input).toEqual(originalStep.input)
+      expect(context.workspaceId).toBe(organization.id)
+      expect(context.signal).toBeInstanceOf(AbortSignal)
 
       const result = await repositories.execution.getExecutionWithSteps(
         db,

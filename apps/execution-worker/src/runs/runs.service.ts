@@ -36,7 +36,13 @@ export class RunsService {
       return
     }
 
-    this.lease.startHeartbeat(executionId, attemptId)
+    // Aborts whatever node handler call is in flight the moment the lease is lost, instead of
+    // letting a duplicate HTTP mutation or billed AI completion run to completion in parallel
+    // with whoever reclaimed the lease.
+    const abortController = new AbortController()
+    this.lease.startHeartbeat(executionId, attemptId, () =>
+      abortController.abort()
+    )
 
     // Best totals known so far, so a failure partway through still reports checkpointed usage instead of zero.
     let knownTokensInput = 0
@@ -82,6 +88,7 @@ export class RunsService {
         resumeFrom,
         initialTokensInput: resumeTokens.tokensInput,
         initialTokensOutput: resumeTokens.tokensOutput,
+        signal: abortController.signal,
       })
       knownTokensInput = outcome.totalTokensInput
       knownTokensOutput = outcome.totalTokensOutput

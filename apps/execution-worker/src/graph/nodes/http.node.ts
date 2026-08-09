@@ -1,12 +1,16 @@
 import { Injectable } from "@nestjs/common"
 import { nodeRegistry } from "@linea/runtime"
-import type { NodeHandler } from "./node-handler.interface"
+import type {
+  NodeExecutionContext,
+  NodeHandler,
+} from "./node-handler.interface"
 
 @Injectable()
 export class HttpNode implements NodeHandler {
   async execute(
     config: Record<string, unknown>,
-    input: unknown
+    input: unknown,
+    context: NodeExecutionContext
   ): Promise<unknown> {
     const parsed = nodeRegistry.http.inputSchema.parse({
       url: config.url,
@@ -23,6 +27,7 @@ export class HttpNode implements NodeHandler {
       method: parsed.method,
       headers: parsed.headers,
       body: hasBody ? JSON.stringify(parsed.body) : undefined,
+      signal: context.signal,
     })
 
     const contentType = response.headers.get("content-type") ?? ""

@@ -26,6 +26,9 @@ export type RunInput = {
   // Usage already recorded for steps in `resumeFrom`, since they're skipped rather than re-executed.
   initialTokensInput?: number
   initialTokensOutput?: number
+  // Aborted by the caller (RunsService) when the execution lease is lost mid-step, so the
+  // in-flight node handler's own request is cancelled instead of just racing the checkpoint.
+  signal?: AbortSignal
 }
 
 export type RunOutcome = {
@@ -78,7 +81,8 @@ export class InterpreterService {
   async executeNode(
     node: WorkflowNode,
     input: unknown,
-    workspaceId: string
+    workspaceId: string,
+    signal?: AbortSignal
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -88,7 +92,10 @@ export class InterpreterService {
     if (!handler) {
       throw new Error(`No handler for node type "${node.type}"`)
     }
-    const output = await handler.execute(node.config, input, { workspaceId })
+    const output = await handler.execute(node.config, input, {
+      workspaceId,
+      signal,
+    })
     const usage = extractTokenUsage(output)
     return {
       output,
@@ -127,7 +134,8 @@ export class InterpreterService {
         const { output, tokensInput, tokensOutput } = await this.executeNode(
           node,
           step.input,
-          input.workspaceId
+          input.workspaceId,
+          input.signal
         )
         if (tokensInput !== undefined && tokensOutput !== undefined) {
           totalTokensInput += tokensInput
@@ -157,6 +165,13 @@ export class InterpreterService {
         // A failure-checkpoint write would be rejected too — propagate instead of attempting it.
         if (error instanceof LeaseLostError) {
           throw error
+        }
+        // The node handler was cancelled via `input.signal`, which RunsService only aborts on
+        // lease loss — so this is a lease loss discovered mid-call, not a genuine node
+        // failure. Same handling as the up-front assertOwnsLease check: propagate without
+        // attempting a checkpoint write that the lease fencing would reject anyway.
+        if (input.signal?.aborted) {
+          throw new LeaseLostError(input.executionId)
         }
 
         const message = error instanceof Error ? error.message : String(error)

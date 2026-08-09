@@ -127,6 +127,10 @@ export class ReplayService {
     // wins its compare-and-swap could resolve (and update claimToken) after that point,
     // unobserved by the wait below.
     let pendingRenewal: Promise<void> | undefined
+    // Aborts the in-flight node handler call the moment ownership is lost, instead of letting
+    // a duplicate HTTP mutation or billed AI completion run to completion in parallel with
+    // whoever reclaimed the claim.
+    const abortController = new AbortController()
     const heartbeat = setInterval(() => {
       if (pendingRenewal) return
       pendingRenewal = repositories.executionStep
@@ -136,6 +140,7 @@ export class ReplayService {
             this.logger.warn(
               `Replay ${job.replayStepId}: lost claim ownership mid-execution`
             )
+            abortController.abort()
             return
           }
           claimToken = renewed
@@ -163,7 +168,8 @@ export class ReplayService {
       const result = await this.interpreter.executeNode(
         mergedNode,
         originalStep.input,
-        execution.workspaceId
+        execution.workspaceId,
+        abortController.signal
       )
       outcome = {
         status: "succeeded",

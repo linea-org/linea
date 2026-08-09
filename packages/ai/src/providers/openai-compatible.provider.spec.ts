@@ -42,7 +42,8 @@ describe("createOpenAiCompatibleProvider", () => {
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         messages: [{ role: "user", content: "hello" }],
-      })
+      }),
+      { signal: undefined }
     )
 
     await provider.complete("key", {
@@ -57,7 +58,8 @@ describe("createOpenAiCompatibleProvider", () => {
           { role: "system", content: "be terse" },
           { role: "user", content: "hello" },
         ],
-      })
+      }),
+      { signal: undefined }
     )
   })
 
@@ -102,7 +104,8 @@ describe("createOpenAiCompatibleProvider", () => {
     await provider.complete("key", { model: "gpt-5", prompt: "hello" })
 
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ max_tokens: 4096 })
+      expect.objectContaining({ max_tokens: 4096 }),
+      { signal: undefined }
     )
   })
 
@@ -120,7 +123,8 @@ describe("createOpenAiCompatibleProvider", () => {
     })
 
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ max_tokens: 128 })
+      expect.objectContaining({ max_tokens: 128 }),
+      { signal: undefined }
     )
   })
 })

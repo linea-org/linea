@@ -14,8 +14,17 @@ export class RunLeaseService {
     return new Date(Date.now() + LEASE_DURATION_MS)
   }
 
-  /** Renews well inside the lease window (10s heartbeat, 30s lease), so a slow tick or two doesn't expire it. */
-  startHeartbeat(executionId: string, leasedBy: string): void {
+  /**
+   * Renews well inside the lease window (10s heartbeat, 30s lease), so a slow tick or two
+   * doesn't expire it. `onLeaseLost`, if given, fires the moment a renewal finds the lease
+   * already reclaimed — the caller uses this to abort whatever node handler call is currently
+   * in flight, rather than letting it run to completion only to lose the checkpoint race.
+   */
+  startHeartbeat(
+    executionId: string,
+    leasedBy: string,
+    onLeaseLost?: () => void
+  ): void {
     const timer = setInterval(() => {
       repositories.execution
         .renewLease(db, executionId, leasedBy, this.computeLeaseExpiry())
@@ -26,6 +35,7 @@ export class RunLeaseService {
               `Lost lease for execution ${executionId} to another worker — stopping heartbeat`
             )
             this.stopHeartbeat(leasedBy)
+            onLeaseLost?.()
           }
         })
         .catch((error: unknown) => {
