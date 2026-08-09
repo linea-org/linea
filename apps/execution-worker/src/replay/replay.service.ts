@@ -121,8 +121,14 @@ export class ReplayService {
     // resolves but before its own `.then()` runs would leave `claimToken` stale, and
     // completeReplayStep's fencing would then reject the write against the DB's newer
     // startedAt, silently discarding a real result (later misread by the sweep as abandoned).
+    // A tick that finds one already in flight (a slow/stalled DB round-trip outlasting the
+    // interval) skips itself instead of starting a second, overlapping renewal — otherwise
+    // this single slot would only track the newest one, and an earlier renewal that actually
+    // wins its compare-and-swap could resolve (and update claimToken) after that point,
+    // unobserved by the wait below.
     let pendingRenewal: Promise<void> | undefined
     const heartbeat = setInterval(() => {
+      if (pendingRenewal) return
       pendingRenewal = repositories.executionStep
         .renewReplayClaim(db, job.replayStepId, claimToken)
         .then((renewed) => {
@@ -139,6 +145,9 @@ export class ReplayService {
             `Replay ${job.replayStepId}: failed to renew claim`,
             error
           )
+        })
+        .finally(() => {
+          pendingRenewal = undefined
         })
     }, REPLAY_HEARTBEAT_INTERVAL_MS)
 
