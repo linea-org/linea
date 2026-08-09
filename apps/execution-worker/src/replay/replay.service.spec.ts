@@ -119,11 +119,16 @@ describe("ReplayService.replay", () => {
       const [config, input, context] = executeSpy.mock.calls[0] as unknown as [
         unknown,
         unknown,
-        { workspaceId: string; signal?: AbortSignal },
+        {
+          workspaceId: string
+          idempotencyKey?: string
+          signal?: AbortSignal
+        },
       ]
       expect(config).toEqual({ url: "https://overridden.example.com" })
       expect(input).toEqual(originalStep.input)
       expect(context.workspaceId).toBe(organization.id)
+      expect(context.idempotencyKey).toBe(replayStepId)
       expect(context.signal).toBeInstanceOf(AbortSignal)
 
       const result = await repositories.execution.getExecutionWithSteps(

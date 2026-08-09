@@ -75,6 +75,7 @@ export class InterpreterService {
     node: WorkflowNode,
     input: unknown,
     workspaceId: string,
+    idempotencyKey?: string,
     signal?: AbortSignal
   ): Promise<{
     output: unknown
@@ -87,6 +88,7 @@ export class InterpreterService {
     }
     const output = await handler.execute(node.config, input, {
       workspaceId,
+      idempotencyKey,
       signal,
     })
     const usage = extractTokenUsage(output)
@@ -128,6 +130,7 @@ export class InterpreterService {
           node,
           step.input,
           input.workspaceId,
+          `${input.executionId}:${step.nodeId}`,
           input.signal
         )
         if (tokensInput !== undefined && tokensOutput !== undefined) {

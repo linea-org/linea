@@ -21,9 +21,17 @@ export class HttpNode implements NodeHandler {
 
     // A no-payload trigger round-trips through the DB as null, not undefined — treat both as "no body", or a GET entry node sends body: "null" and fetch rejects GET/HEAD with a body.
     const hasBody = parsed.body !== undefined && parsed.body !== null
+    const headers = { ...parsed.headers }
+    // Never override a user-configured key — this is a best-effort dedupe hint for destinations that choose to honor it, not something the workflow author's own header should be second-guessed against.
+    const hasIdempotencyHeader = Object.keys(headers).some(
+      (key) => key.toLowerCase() === "idempotency-key"
+    )
+    if (context.idempotencyKey && !hasIdempotencyHeader) {
+      headers["Idempotency-Key"] = context.idempotencyKey
+    }
     const response = await fetch(parsed.url, {
       method: parsed.method,
-      headers: parsed.headers,
+      headers,
       body: hasBody ? JSON.stringify(parsed.body) : undefined,
       signal: context.signal,
     })

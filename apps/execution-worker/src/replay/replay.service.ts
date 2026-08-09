@@ -145,6 +145,7 @@ export class ReplayService {
         mergedNode,
         originalStep.input,
         execution.workspaceId,
+        job.replayStepId,
         abortController.signal
       )
       outcome = {
