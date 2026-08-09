@@ -121,19 +121,19 @@ describe("claimReplayStep + completeReplayStep", () => {
         startedAt: new Date(),
       })
 
-      expect(claimed?.id).toBe(replayId)
-      expect(claimed?.status).toBe("running")
-      expect(claimed?.replayedFromStepId).toBe(original.id)
-      expect(claimed?.input).toEqual(original.input)
-      expect(claimed?.idempotencyKey).toBeNull()
+      expect(claimed?.step.id).toBe(replayId)
+      expect(claimed?.step.status).toBe("running")
+      expect(claimed?.step.replayedFromStepId).toBe(original.id)
+      expect(claimed?.step.input).toEqual(original.input)
+      expect(claimed?.step.idempotencyKey).toBeNull()
+      expect(claimed?.claimToken).toEqual(claimed?.step.startedAt)
 
       const checkpointRows = await tx
         .select()
         .from(checkpoints)
         .where(eq(checkpoints.executionId, execution.id))
       expect(checkpointRows).toEqual([])
-
-      await completeReplayStep(tx, replayId, {
+      await completeReplayStep(tx, replayId, claimed!.claimToken, {
         status: "succeeded",
         output: { text: "replayed" },
         costMicros: 100n,
@@ -172,7 +172,7 @@ describe("claimReplayStep + completeReplayStep", () => {
       )
 
       const replayId = "22222222-2222-2222-2222-222222222222"
-      await claimReplayStep(tx, {
+      const claimed = await claimReplayStep(tx, {
         id: replayId,
         executionId: execution.id,
         workspaceId: organization.id,
@@ -185,7 +185,7 @@ describe("claimReplayStep + completeReplayStep", () => {
         replayedFromStepId: original.id,
         startedAt: new Date(),
       })
-      await completeReplayStep(tx, replayId, {
+      await completeReplayStep(tx, replayId, claimed!.claimToken, {
         status: "failed",
         error: { message: "boom" },
         costMicros: 0n,
@@ -203,7 +203,7 @@ describe("claimReplayStep + completeReplayStep", () => {
     })
   })
 
-  it("returns undefined when the id is already claimed, so a redelivered job doesn't re-run the node", async () => {
+  it("returns undefined for a live (non-stale) claim, so a redelivered job doesn't re-run the node", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       const [execution] = await tx
@@ -240,8 +240,138 @@ describe("claimReplayStep + completeReplayStep", () => {
       const first = await claimReplayStep(tx, claimInput)
       const second = await claimReplayStep(tx, claimInput)
 
-      expect(first?.id).toBe(replayId)
+      expect(first?.step.id).toBe(replayId)
       expect(second).toBeUndefined()
+    })
+  })
+
+  it("returns undefined once the claim is finalized, even long after completion", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const [execution] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          status: "succeeded",
+        })
+        .returning()
+      const original = await createOriginalStep(
+        tx,
+        execution.id,
+        organization.id
+      )
+
+      const replayId = "44444444-4444-4444-4444-444444444444"
+      const claimInput = {
+        id: replayId,
+        executionId: execution.id,
+        workspaceId: organization.id,
+        traceId: original.traceId,
+        parentSpanId: original.spanId,
+        nodeId: original.nodeId,
+        name: original.name,
+        sequence: 2,
+        input: original.input,
+        replayedFromStepId: original.id,
+        startedAt: new Date(),
+      }
+      const claimed = await claimReplayStep(tx, claimInput)
+      await completeReplayStep(tx, replayId, claimed!.claimToken, {
+        status: "succeeded",
+        output: { text: "done" },
+        costMicros: 0n,
+        tokensInput: 0,
+        tokensOutput: 0,
+        endedAt: new Date(),
+      })
+
+      // Backdate startedAt well past the staleness window — a finalized claim must never be
+      // reclaimed, no matter how old, since re-running it would repeat a real side effect.
+      await tx
+        .update(executionSteps)
+        .set({ startedAt: new Date(Date.now() - 60 * 60 * 1000) })
+        .where(eq(executionSteps.id, replayId))
+
+      expect(await claimReplayStep(tx, claimInput)).toBeUndefined()
+    })
+  })
+
+  it("reclaims a stale claim via a fresh startedAt, and fences out a late completion from the abandoned attempt", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const [execution] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          status: "succeeded",
+        })
+        .returning()
+      const original = await createOriginalStep(
+        tx,
+        execution.id,
+        organization.id
+      )
+
+      const replayId = "55555555-5555-5555-5555-555555555555"
+      const claimInput = {
+        id: replayId,
+        executionId: execution.id,
+        workspaceId: organization.id,
+        traceId: original.traceId,
+        parentSpanId: original.spanId,
+        nodeId: original.nodeId,
+        name: original.name,
+        sequence: 2,
+        input: original.input,
+        replayedFromStepId: original.id,
+        startedAt: new Date(),
+      }
+      const abandoned = await claimReplayStep(tx, claimInput)
+
+      // Simulate the claiming worker dying: back the claim's startedAt off past the
+      // staleness window without ever completing it.
+      await tx
+        .update(executionSteps)
+        .set({ startedAt: new Date(Date.now() - 11 * 60 * 1000) })
+        .where(eq(executionSteps.id, replayId))
+
+      const reclaimed = await claimReplayStep(tx, claimInput)
+      expect(reclaimed?.step.id).toBe(replayId)
+      expect(reclaimed?.step.status).toBe("running")
+      expect(reclaimed!.claimToken).not.toEqual(abandoned!.claimToken)
+
+      // The reclaimer finishes and records its result.
+      await completeReplayStep(tx, replayId, reclaimed!.claimToken, {
+        status: "succeeded",
+        output: { text: "from reclaimer" },
+        costMicros: 0n,
+        tokensInput: 0,
+        tokensOutput: 0,
+        endedAt: new Date(),
+      })
+
+      // The original (abandoned) attempt finally finishes and tries to record its own,
+      // stale result — it must be silently dropped, not overwrite the reclaimer's.
+      await completeReplayStep(tx, replayId, abandoned!.claimToken, {
+        status: "succeeded",
+        output: { text: "from zombie" },
+        costMicros: 0n,
+        tokensInput: 0,
+        tokensOutput: 0,
+        endedAt: new Date(),
+      })
+
+      const [final] = await tx
+        .select()
+        .from(executionSteps)
+        .where(eq(executionSteps.id, replayId))
+      expect(final.output).toEqual({ text: "from reclaimer" })
     })
   })
 })

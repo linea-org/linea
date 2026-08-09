@@ -79,7 +79,7 @@ export class ReplayService {
     })
     if (!claimed) {
       this.logger.warn(
-        `Replay ${job.replayStepId}: already claimed, skipping redelivered job`
+        `Replay ${job.replayStepId}: owned by a live or already-finished attempt, skipping redelivered job`
       )
       return
     }
@@ -115,14 +115,19 @@ export class ReplayService {
       }
     }
 
-    await repositories.executionStep.completeReplayStep(db, job.replayStepId, {
-      endedAt: new Date(),
-      status: outcome.status,
-      output: outcome.output,
-      error: outcome.error,
-      costMicros: 0n,
-      tokensInput: outcome.tokensInput,
-      tokensOutput: outcome.tokensOutput,
-    })
+    await repositories.executionStep.completeReplayStep(
+      db,
+      job.replayStepId,
+      claimed.claimToken,
+      {
+        endedAt: new Date(),
+        status: outcome.status,
+        output: outcome.output,
+        error: outcome.error,
+        costMicros: 0n,
+        tokensInput: outcome.tokensInput,
+        tokensOutput: outcome.tokensOutput,
+      }
+    )
   }
 }
