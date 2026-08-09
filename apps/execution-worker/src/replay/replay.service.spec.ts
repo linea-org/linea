@@ -193,4 +193,53 @@ describe("ReplayService.replay", () => {
       ])
     }
   })
+
+  it("does not re-execute the node when the same replayStepId is redelivered", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Redelivery Test Org",
+        slug: `replay-redelivery-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const executeSpy = jest.fn(() =>
+        Promise.resolve({ status: 200, body: { replayed: true } })
+      )
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const { execution, originalStep, replay } = await setUpExecutionWithStep(
+        organization.id,
+        { httpNode: spyNode }
+      )
+
+      const replayStepId = randomUUID()
+      const job = {
+        replayStepId,
+        originalStepId: originalStep.id,
+        overrideConfig: {},
+      }
+
+      // Simulates BullMQ redelivering the same job after a stalled lock — the
+      // second call must not fire the node's side effect a second time.
+      await replay.replay(job)
+      await replay.replay(job)
+
+      expect(executeSpy).toHaveBeenCalledTimes(1)
+
+      const result = await repositories.execution.getExecutionWithSteps(
+        db,
+        execution.id
+      )
+      const replayRows = result?.steps.filter((s) => s.id === replayStepId)
+      expect(replayRows).toHaveLength(1)
+      expect(replayRows?.[0]?.status).toBe("succeeded")
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
 })

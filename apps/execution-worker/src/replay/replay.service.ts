@@ -58,7 +58,32 @@ export class ReplayService {
       config: { ...node.config, ...job.overrideConfig },
     }
 
+    const sequence = await repositories.executionStep.getNextStepSequence(
+      db,
+      execution.id
+    )
     const startedAt = new Date()
+
+    const claimed = await repositories.executionStep.claimReplayStep(db, {
+      id: job.replayStepId,
+      executionId: execution.id,
+      workspaceId: execution.workspaceId,
+      traceId: originalStep.traceId,
+      parentSpanId: originalStep.spanId,
+      nodeId: originalStep.nodeId,
+      name: originalStep.name,
+      sequence,
+      input: originalStep.input,
+      replayedFromStepId: originalStep.id,
+      startedAt,
+    })
+    if (!claimed) {
+      this.logger.warn(
+        `Replay ${job.replayStepId}: already claimed, skipping redelivered job`
+      )
+      return
+    }
+
     let outcome: {
       status: "succeeded" | "failed"
       output?: Record<string, unknown>
@@ -90,23 +115,7 @@ export class ReplayService {
       }
     }
 
-    const sequence = await repositories.executionStep.getNextStepSequence(
-      db,
-      execution.id
-    )
-
-    await repositories.executionStep.insertReplayStep(db, {
-      id: job.replayStepId,
-      executionId: execution.id,
-      workspaceId: execution.workspaceId,
-      traceId: originalStep.traceId,
-      parentSpanId: originalStep.spanId,
-      nodeId: originalStep.nodeId,
-      name: originalStep.name,
-      sequence,
-      input: originalStep.input,
-      replayedFromStepId: originalStep.id,
-      startedAt,
+    await repositories.executionStep.completeReplayStep(db, job.replayStepId, {
       endedAt: new Date(),
       status: outcome.status,
       output: outcome.output,
