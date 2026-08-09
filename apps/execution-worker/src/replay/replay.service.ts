@@ -148,16 +148,19 @@ export class ReplayService {
           claimToken = renewed
         })
         .catch((error: unknown) => {
-          // A renewal that throws (a DB blip, a connection error) proves nothing about
-          // whether we still own the claim — treated the same as an explicit loss: we can't
-          // confirm ownership, so we stop, rather than letting the handler run to completion
-          // on a claim that might already be reclaimed (or age into the sweep's stale check
-          // while this attempt is still actually in flight).
+          // Deliberately does NOT abort: a renewal that throws (a DB blip, a connection
+          // error) is proof of nothing either way, and completeReplayStep's fencing only
+          // checks `startedAt`, not status or recency — so as long as no one else has
+          // actually won a reclaim (the one case that does abort, above), this worker's own
+          // eventual completion still matches and persists correctly even if every renewal
+          // in between failed to reach the database. Aborting here would only convert a
+          // transient, self-recovering blip into a needless false failure, on work that's
+          // both still genuinely owned and (per the AbortSignal wiring) can't actually be
+          // un-dispatched anyway.
           this.logger.error(
-            `Replay ${job.replayStepId}: failed to renew claim, aborting`,
+            `Replay ${job.replayStepId}: failed to renew claim, will retry next tick`,
             error
           )
-          abortController.abort()
         })
         .finally(() => {
           pendingRenewal = undefined

@@ -15,9 +15,16 @@ const SWEEP_INTERVAL_MS = 30_000
  * the same claimToken fencing claimReplayStep/completeReplayStep already use, so a claim
  * that's actually still live, or that gets renewed or reclaimed between this sweep's read and
  * write, is left untouched. This never re-executes the node — only finalizes an abandoned
- * claim — so unlike a retry it adds no risk of duplicating a real side effect; the tradeoff is
- * the user sees the replay as failed and has to trigger a fresh one, not that anything runs
- * twice.
+ * claim — so unlike a retry it adds no risk of duplicating a real side effect.
+ *
+ * Not necessarily final, either way: completeReplayStep fences purely on `startedAt`, not on
+ * status, so if the "abandoned" worker's renewals were merely failing (not actually reclaimed —
+ * claimToken never changed) and it later does complete, its own completeReplayStep call still
+ * matches and overwrites this row with the real outcome. This sweep's write is a best-effort
+ * placeholder for the common case (a genuinely dead worker), not a guarantee against a rare
+ * false positive silently correcting itself once the truth arrives — the tradeoff for a still-
+ * running replay that happens to trip this sweep is a stale "failed" read in the meantime, not
+ * a permanently wrong or duplicated result.
  */
 @Injectable()
 export class ReplayClaimSweepService implements OnModuleInit, OnModuleDestroy {
