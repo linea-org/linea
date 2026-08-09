@@ -9,8 +9,7 @@ import { RunLeaseService } from "./run-lease.service"
 @Injectable()
 export class RunsService {
   private readonly logger = new Logger(RunsService.name)
-  // Just a log prefix — RunsService is a singleton, so the actual fencing
-  // token is generated fresh per call below, not stored on the instance.
+  // Just a log prefix — RunsService is a singleton, so the actual fencing token is generated fresh per call below, not stored on the instance.
   private readonly processId = `execution-worker:${process.pid}`
 
   constructor(
@@ -36,16 +35,18 @@ export class RunsService {
       return
     }
 
-    this.lease.startHeartbeat(executionId, attemptId)
+    // Aborts whatever node handler call is in flight the moment the lease is lost, instead of letting a duplicate HTTP mutation or billed AI completion run in parallel with whoever reclaimed the lease.
+    const abortController = new AbortController()
+    this.lease.startHeartbeat(executionId, attemptId, () =>
+      abortController.abort()
+    )
 
     // Best totals known so far, so a failure partway through still reports checkpointed usage instead of zero.
     let knownTokensInput = 0
     let knownTokensOutput = 0
 
     try {
-      // Loaded first, before anything that can throw for unrelated reasons
-      // (a bad version id, a corrupt graph) — otherwise a reclaimed execution
-      // with real prior usage would finalize at zero on those failures too.
+      // Loaded first, before anything that can throw for unrelated reasons (a bad version id, a corrupt graph) — otherwise a reclaimed execution with real prior usage would finalize at zero on those failures too.
       const resumeTokens =
         await this.checkpoints.getResumeTokenTotals(executionId)
       knownTokensInput = resumeTokens.tokensInput
@@ -82,12 +83,12 @@ export class RunsService {
         resumeFrom,
         initialTokensInput: resumeTokens.tokensInput,
         initialTokensOutput: resumeTokens.tokensOutput,
+        signal: abortController.signal,
       })
       knownTokensInput = outcome.totalTokensInput
       knownTokensOutput = outcome.totalTokensOutput
 
-      // No per-token pricing table exists anywhere yet — tracked as a known
-      // gap (see MODULE.md), not silently invented. Tokens are still real.
+      // No per-token pricing table exists anywhere yet — tracked as a known gap (see MODULE.md), not silently invented. Tokens are still real.
       if (outcome.result.status === "completed") {
         await repositories.execution.completeExecution(
           db,

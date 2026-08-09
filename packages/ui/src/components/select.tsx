@@ -56,9 +56,7 @@ function SelectTrigger({
   )
 }
 
-// alignItemWithTrigger defaults to false: base-ui's native-<select>-like item alignment anchors
-// the popup to the selected item instead of the trigger, which clips a tall list's top off-screen
-// and pins it during scroll. A normal trigger-anchored dropdown avoids both.
+// alignItemWithTrigger defaults to false: base-ui's native-<select>-like item alignment anchors the popup to the selected item instead of the trigger, which clips a tall list's top off-screen and pins it during scroll.
 function SelectContent({
   className,
   children,

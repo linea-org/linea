@@ -12,9 +12,7 @@ import {
   type CreateApiKeyDto,
 } from './dto/create-api-key.dto'
 
-// Managing keys requires a real session, not another API key — otherwise a
-// leaked key could mint further keys for itself. @RequireActiveOrg()
-// guarantees session.session.activeOrganizationId is set below.
+// Managing keys requires a real session, not another API key — otherwise a leaked key could mint further keys for itself. @RequireActiveOrg() guarantees session.session.activeOrganizationId is set below.
 @Controller('api-keys')
 @RequireActiveOrg()
 export class ApiKeysController {

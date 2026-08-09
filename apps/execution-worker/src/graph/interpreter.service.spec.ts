@@ -12,14 +12,154 @@ import type { HttpNode } from "./nodes/http.node"
 import { TransformNode } from "./nodes/transform.node"
 import { InterpreterService } from "./interpreter.service"
 
-// A stand-in for a token-producing node handler (e.g. AI), swapped in for
-// HttpNode so the test doesn't need real fetch/provider calls.
+// A stand-in for a token-producing node handler (e.g. AI), swapped in for HttpNode so the test doesn't need real fetch/provider calls.
 const tokenNode = {
   execute: () => Promise.resolve({ tokensInput: 100, tokensOutput: 50 }),
 } as unknown as HttpNode
 
 afterAll(async () => {
   await pool.end()
+})
+
+describe("InterpreterService.executeNode", () => {
+  it("looks up the handler by node type, executes it, and extracts token usage", async () => {
+    const interpreter = new InterpreterService(
+      new CheckpointsService(),
+      tokenNode,
+      new TransformNode(),
+      new BranchNode(),
+      new AiNode()
+    )
+
+    const result = await interpreter.executeNode(
+      { id: "n1", type: "http", config: { foo: "bar" } },
+      { hello: "world" },
+      "workspace-1"
+    )
+
+    expect(result.output).toEqual({ tokensInput: 100, tokensOutput: 50 })
+    expect(result.tokensInput).toBe(100)
+    expect(result.tokensOutput).toBe(50)
+  })
+
+  it("propagates a handler's rejection without swallowing it", async () => {
+    const failingNode = {
+      execute: () => Promise.reject(new Error("handler exploded")),
+    } as unknown as HttpNode
+    const interpreter = new InterpreterService(
+      new CheckpointsService(),
+      failingNode,
+      new TransformNode(),
+      new BranchNode(),
+      new AiNode()
+    )
+
+    await expect(
+      interpreter.executeNode(
+        { id: "n1", type: "http", config: {} },
+        {},
+        "workspace-1"
+      )
+    ).rejects.toThrow("handler exploded")
+  })
+
+  it("throws for a node type with no registered handler", async () => {
+    const interpreter = new InterpreterService(
+      new CheckpointsService(),
+      tokenNode,
+      new TransformNode(),
+      new BranchNode(),
+      new AiNode()
+    )
+
+    await expect(
+      interpreter.executeNode(
+        // @ts-expect-error deliberately not a real node type
+        { id: "n1", type: "not-a-real-type", config: {} },
+        {},
+        "workspace-1"
+      )
+    ).rejects.toThrow('No handler for node type "not-a-real-type"')
+  })
+})
+
+describe("InterpreterService.run idempotency key", () => {
+  it("passes `${executionId}:${nodeId}` as the idempotency key, stable if the same node were reclaimed and re-run", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Interpreter Idempotency Test Org",
+        slug: `interpreter-idempotency-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "http", config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Interpreter Idempotency Test Workflow",
+        slug: `interpreter-idempotency-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "interpreter-idempotency-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const executeSpy = jest.fn(() =>
+        Promise.resolve({ tokensInput: 0, tokensOutput: 0 })
+      )
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const interpreter = new InterpreterService(
+        new CheckpointsService(),
+        spyNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode()
+      )
+
+      await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: new Map(),
+      })
+
+      const [, , context] = executeSpy.mock.calls[0] as unknown as [
+        unknown,
+        unknown,
+        { idempotencyKey?: string },
+      ]
+      expect(context.idempotencyKey).toBe(`${execution.id}:n1`)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
 })
 
 describe("InterpreterService resume", () => {

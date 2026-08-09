@@ -1,3 +1,6 @@
+import { useState } from "react"
+import { useMutation } from "@tanstack/react-query"
+
 import {
   Accordion,
   AccordionContent,
@@ -5,8 +8,14 @@ import {
   AccordionTrigger,
 } from "@linea/ui/components/accordion"
 import { Badge } from "@linea/ui/components/badge"
+import { Button } from "@linea/ui/components/button"
+import { Textarea } from "@linea/ui/components/textarea"
 
-import type { ExecutionStepSummary } from "../../lib/executions-api"
+import {
+  replayStepFn,
+  type ExecutionStepSummary,
+  type JsonValue,
+} from "../../lib/executions-api"
 import { formatCost } from "./execution-list"
 
 const stepStatusVariant: Record<
@@ -37,10 +46,133 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
   )
 }
 
-export function ExecutionStepTimeline({
-  steps,
-}: {
+/** Splices each replay immediately after the step it replayed — steps arrive ordered by (startedAt, createdAt), so a replay naturally sorts to wherever it actually ran (usually last), not next to its original. A replay-of-a-replay is rejected server-side, so this is a single-level group-by, not a tree walk. */
+function groupWithReplays(
   steps: ExecutionStepSummary[]
+): ExecutionStepSummary[] {
+  const replaysByOriginal = new Map<string, ExecutionStepSummary[]>()
+  const roots: ExecutionStepSummary[] = []
+  for (const step of steps) {
+    if (step.replayedFromStepId) {
+      const siblings = replaysByOriginal.get(step.replayedFromStepId) ?? []
+      siblings.push(step)
+      replaysByOriginal.set(step.replayedFromStepId, siblings)
+    } else {
+      roots.push(step)
+    }
+  }
+  return roots.flatMap((root) => [
+    root,
+    ...(replaysByOriginal.get(root.id) ?? []),
+  ])
+}
+
+function ReplayAction({
+  executionId,
+  step,
+  nodeConfig,
+  onReplayTriggered,
+}: {
+  executionId: string
+  step: ExecutionStepSummary
+  nodeConfig: Record<string, JsonValue> | undefined
+  onReplayTriggered: (replayStepId: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [configText, setConfigText] = useState(() =>
+    JSON.stringify(nodeConfig ?? {}, null, 2)
+  )
+  const [parseError, setParseError] = useState<string | null>(null)
+
+  const mutation = useMutation({
+    mutationFn: (overrideConfig: Record<string, unknown>) =>
+      replayStepFn({
+        data: { executionId, stepId: step.id, overrideConfig },
+      }),
+    onSuccess: (result) => {
+      setOpen(false)
+      onReplayTriggered(result.replayStepId)
+    },
+  })
+
+  if (!open) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-3"
+        onClick={() => setOpen(true)}
+      >
+        Replay
+      </Button>
+    )
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-xs font-medium text-muted-foreground">
+        Config override — edit and re-run this step against the same input
+      </p>
+      <Textarea
+        value={configText}
+        onChange={(event) => {
+          setConfigText(event.target.value)
+          setParseError(null)
+        }}
+        rows={6}
+        className="font-mono text-xs"
+      />
+      {parseError ? (
+        <p className="text-xs text-destructive">{parseError}</p>
+      ) : null}
+      {mutation.isError ? (
+        <p className="text-xs text-destructive">{mutation.error.message}</p>
+      ) : null}
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          size="sm"
+          disabled={mutation.isPending}
+          onClick={() => {
+            let parsed: Record<string, unknown>
+            try {
+              parsed = JSON.parse(configText) as Record<string, unknown>
+            } catch {
+              setParseError("Not valid JSON")
+              return
+            }
+            mutation.mutate(parsed)
+          }}
+        >
+          {mutation.isPending ? "Replaying…" : "Run replay"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={mutation.isPending}
+          onClick={() => setOpen(false)}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+export function ExecutionStepTimeline({
+  executionId,
+  steps,
+  nodeConfigs,
+  replayable,
+  onReplayTriggered,
+}: {
+  executionId: string
+  steps: ExecutionStepSummary[]
+  nodeConfigs: Record<string, Record<string, JsonValue>>
+  replayable: boolean
+  onReplayTriggered: (replayStepId: string) => void
 }) {
   if (steps.length === 0) {
     return (
@@ -48,9 +180,11 @@ export function ExecutionStepTimeline({
     )
   }
 
+  const ordered = groupWithReplays(steps)
+
   return (
     <Accordion multiple className="mt-4">
-      {steps.map((step) =>
+      {ordered.map((step) =>
         step.isSystemEvent ? (
           <div
             key={step.id}
@@ -60,13 +194,26 @@ export function ExecutionStepTimeline({
             <span>{new Date(step.startedAt).toLocaleString()}</span>
           </div>
         ) : (
-          <AccordionItem key={step.id} value={step.id}>
+          <AccordionItem
+            key={step.id}
+            value={step.id}
+            className={
+              step.replayedFromStepId ? "ml-4 border-l-2 pl-4" : undefined
+            }
+          >
             <AccordionTrigger>
               <div className="flex flex-1 items-center gap-3 pr-4">
+                {step.replayedFromStepId ? (
+                  <Badge variant="outline">Replay</Badge>
+                ) : null}
                 <Badge variant={stepStatusVariant[step.status]}>
                   {step.status}
                 </Badge>
-                <span className="font-medium text-foreground">{step.name}</span>
+                <span className="font-medium text-foreground">
+                  {step.replayedFromStepId
+                    ? `Replay of ${step.name}`
+                    : step.name}
+                </span>
                 <span className="ml-auto text-xs text-muted-foreground">
                   {formatStepDuration(step.startedAt, step.endedAt)}
                 </span>
@@ -94,6 +241,14 @@ export function ExecutionStepTimeline({
               ) : null}
               <JsonBlock label="Input" value={step.input} />
               <JsonBlock label="Output" value={step.output} />
+              {replayable && !step.replayedFromStepId ? (
+                <ReplayAction
+                  executionId={executionId}
+                  step={step}
+                  nodeConfig={nodeConfigs[step.nodeId]}
+                  onReplayTriggered={onReplayTriggered}
+                />
+              ) : null}
             </AccordionContent>
           </AccordionItem>
         )

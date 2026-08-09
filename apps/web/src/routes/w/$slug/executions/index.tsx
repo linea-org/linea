@@ -81,17 +81,11 @@ function parseOpaqueParam(value: unknown): string | undefined {
 type ExecutionsSearch = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
-  /** Opaque keyset cursor for the current page — the last row of the previous page. Absent
-   * on page 1. See listWorkspaceExecutions in @linea/db for why this isn't a page number. */
+  /** Opaque keyset cursor for the current page — the last row of the previous page, absent on page 1. See listWorkspaceExecutions in @linea/db for why this isn't a page number. */
   cursor?: string
-  /** Semicolon-joined breadcrumb of ancestor cursors used to reach the current page, so
-   * Previous can step back without recomputing history. An empty-string entry means "page 1,
-   * no cursor". */
+  /** Semicolon-joined breadcrumb of ancestor cursors used to reach the current page, so Previous can step back without recomputing history. An empty-string entry means "page 1, no cursor". */
   trail?: string
-  /** Cursor of the newest row visible when this browsing session started (fixed the moment
-   * pagination is first used) — the reference point for "N new executions" polling. Without
-   * this, "new" would be relative to whatever page is currently on screen instead of where the
-   * user started, and would misfire while paging further into old history. */
+  /** Cursor of the newest row visible when this browsing session started, fixed the moment pagination is first used — the reference point for "N new executions" polling, so it stays relative to where the user started rather than the current page. */
   anchor?: string
 }
 
@@ -142,8 +136,7 @@ function ExecutionsPage() {
   const previousCursor = trail.length > 0 ? trail[trail.length - 1] : undefined
   const previousTrail = trail.length > 0 ? trail.slice(0, -1) : []
 
-  // Until pagination is used, page 1's own top row is the reference point — see the
-  // `anchor` field's doc comment on ExecutionsSearch.
+  // Until pagination is used, page 1's own top row is the reference point — see the `anchor` field's doc comment on ExecutionsSearch.
   const firstRow = executions[0]
   const effectiveAnchor =
     search.anchor ??
@@ -195,9 +188,7 @@ function ExecutionsPage() {
   }
 
   function showNewExecutions() {
-    // Navigating alone is a no-op if we're already on page 1 with an implicit anchor — the
-    // search object wouldn't actually change. Invalidate explicitly so the currently-observed
-    // query refetches either way.
+    // Navigating alone is a no-op if we're already on page 1 with an implicit anchor (the search object wouldn't change), so invalidate explicitly to force the refetch either way.
     void queryClient.invalidateQueries({
       queryKey: ["workspace-executions", slug],
     })

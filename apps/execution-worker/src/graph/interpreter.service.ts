@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common"
 import { walk } from "@linea/runtime"
-import type { StepResult, WalkResult, WorkflowGraph } from "@linea/runtime"
+import type {
+  StepResult,
+  WalkResult,
+  WorkflowGraph,
+  WorkflowNode,
+} from "@linea/runtime"
 import {
   CheckpointsService,
   LeaseLostError,
@@ -21,6 +26,8 @@ export type RunInput = {
   // Usage already recorded for steps in `resumeFrom`, since they're skipped rather than re-executed.
   initialTokensInput?: number
   initialTokensOutput?: number
+  // Aborted by the caller (RunsService) when the execution lease is lost mid-step, so the in-flight node handler's own request is cancelled instead of just racing the checkpoint.
+  signal?: AbortSignal
 }
 
 export type RunOutcome = {
@@ -63,6 +70,35 @@ export class InterpreterService {
     }
   }
 
+  /** The reusable "run one node" unit, independent of the walker/checkpoints/leases — `run()` uses it per graph step, and step-level replay (apps/execution-worker/src/replay) calls it directly for one node with a substituted config, bypassing the walker since a replay target's input is already known. */
+  async executeNode(
+    node: WorkflowNode,
+    input: unknown,
+    workspaceId: string,
+    idempotencyKey?: string,
+    signal?: AbortSignal
+  ): Promise<{
+    output: unknown
+    tokensInput?: number
+    tokensOutput?: number
+  }> {
+    const handler = this.handlers[node.type]
+    if (!handler) {
+      throw new Error(`No handler for node type "${node.type}"`)
+    }
+    const output = await handler.execute(node.config, input, {
+      workspaceId,
+      idempotencyKey,
+      signal,
+    })
+    const usage = extractTokenUsage(output)
+    return {
+      output,
+      tokensInput: usage?.tokensInput,
+      tokensOutput: usage?.tokensOutput,
+    }
+  }
+
   async run(input: RunInput): Promise<RunOutcome> {
     const generator = walk(input.graph, {
       completed: input.resumeFrom,
@@ -79,10 +115,6 @@ export class InterpreterService {
       if (!node) {
         throw new Error(`Node "${step.nodeId}" not found in graph`)
       }
-      const handler = this.handlers[step.nodeType]
-      if (!handler) {
-        throw new Error(`No handler for node type "${step.nodeType}"`)
-      }
 
       const startedAt = new Date()
       let stepResult: StepResult
@@ -94,13 +126,16 @@ export class InterpreterService {
           input.leasedBy
         )
 
-        const output = await handler.execute(node.config, step.input, {
-          workspaceId: input.workspaceId,
-        })
-        const usage = extractTokenUsage(output)
-        if (usage) {
-          totalTokensInput += usage.tokensInput
-          totalTokensOutput += usage.tokensOutput
+        const { output, tokensInput, tokensOutput } = await this.executeNode(
+          node,
+          step.input,
+          input.workspaceId,
+          `${input.executionId}:${step.nodeId}`,
+          input.signal
+        )
+        if (tokensInput !== undefined && tokensOutput !== undefined) {
+          totalTokensInput += tokensInput
+          totalTokensOutput += tokensOutput
         }
 
         // Update before checkpointing, so a crash right after the write doesn't leave a resume replaying this step.
@@ -116,8 +151,8 @@ export class InterpreterService {
           output,
           startedAt,
           endedAt: new Date(),
-          tokensInput: usage?.tokensInput,
-          tokensOutput: usage?.tokensOutput,
+          tokensInput,
+          tokensOutput,
           completed,
         })
 
@@ -126,6 +161,10 @@ export class InterpreterService {
         // A failure-checkpoint write would be rejected too — propagate instead of attempting it.
         if (error instanceof LeaseLostError) {
           throw error
+        }
+        // input.signal is only aborted by RunsService on lease loss, so an abort here is a lease loss discovered mid-call, not a genuine node failure — same handling as the up-front assertOwnsLease check.
+        if (input.signal?.aborted) {
+          throw new LeaseLostError(input.executionId)
         }
 
         const message = error instanceof Error ? error.message : String(error)

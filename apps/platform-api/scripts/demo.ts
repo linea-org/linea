@@ -62,19 +62,10 @@ function loadGraph(): WorkflowGraph {
   return graph
 }
 
-// Written to organizations.metadata on the demo org — nothing else in this
-// codebase reads or writes that column, so unlike a name (which anyone could
-// type into a real signup form) it can't coincidentally appear on an
-// unrelated organization. Provenance, not just a label.
+// Written to organizations.metadata on the demo org — nothing else in this codebase reads or writes that column, so unlike a name it can't coincidentally appear on an unrelated organization. Provenance, not just a label.
 const DEMO_ORG_MARKER = 'created-by-linea-demo-script'
 
-/**
- * Atomic find-or-create (safe if two `pnpm demo` invocations race). Slug
- * collision alone isn't proof a found row is ours — an unrelated organization
- * could legitimately occupy this slug — so only reuse it if it carries the
- * marker this script itself stamps on creation; otherwise fail loudly rather
- * than silently publishing demo data into someone else's org.
- */
+/** Atomic find-or-create (safe if two `pnpm demo` invocations race); a slug match alone isn't proof the row is ours, so only reuse it if it carries the marker this script stamps on creation, otherwise fail loudly rather than silently publishing into someone else's org. */
 async function findOrCreateDemoOrg() {
   const org = await repositories.organization.findOrCreateOrganizationBySlug(
     db,
@@ -95,10 +86,7 @@ async function findOrCreateDemoOrg() {
   return org
 }
 
-// No separate provenance check needed here: this workflow is scoped to
-// findOrCreateDemoOrg's already-verified org, which nothing outside this
-// script ever creates, joins, or writes to — there's no "unrelated workflow"
-// for a name/marker check to defend against once the org itself is provenance-checked.
+// No separate provenance check needed — scoped to findOrCreateDemoOrg's already-verified org, which nothing outside this script touches, so there's no "unrelated workflow" to defend against.
 async function findOrCreateDemoWorkflow(workspaceId: string) {
   return repositories.workflow.findOrCreateWorkflowBySlug(db, {
     workspaceId,

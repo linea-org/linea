@@ -15,17 +15,20 @@ export function createOpenAiCompatibleProvider(baseURL?: string): AiProvider {
     ): Promise<CompletionResult> {
       const client = new OpenAI({ apiKey, baseURL })
 
-      const response = await client.chat.completions.create({
-        model: request.model,
-        // Not max_completion_tokens — that's OpenAI's own o-series-specific rename; Groq/xAI likely don't honor it.
-        max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
-        messages: [
-          ...(request.systemPrompt
-            ? [{ role: "system" as const, content: request.systemPrompt }]
-            : []),
-          { role: "user" as const, content: request.prompt },
-        ],
-      })
+      const response = await client.chat.completions.create(
+        {
+          model: request.model,
+          // Not max_completion_tokens — that's OpenAI's own o-series-specific rename; Groq/xAI likely don't honor it.
+          max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+          messages: [
+            ...(request.systemPrompt
+              ? [{ role: "system" as const, content: request.systemPrompt }]
+              : []),
+            { role: "user" as const, content: request.prompt },
+          ],
+        },
+        { signal: request.signal }
+      )
 
       return {
         text: response.choices[0]?.message.content ?? "",

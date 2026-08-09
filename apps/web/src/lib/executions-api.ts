@@ -28,6 +28,8 @@ export type ExecutionSummary = {
 
 export type ExecutionDetail = ExecutionSummary & {
   error: { message: string; stepId?: string } | null
+  /** Whether any of this execution's steps can be replayed — computed server-side from origin ("native", not ingested) and terminal status. */
+  replayable: boolean
 }
 
 export type WorkspaceExecutionSummary = ExecutionSummary & {
@@ -61,6 +63,8 @@ export type ExecutionStepSummary = {
   tokensInput: number
   tokensOutput: number
   isSystemEvent: boolean
+  /** The step this one re-ran, if it's a replay — never set on a real graph-execution step. */
+  replayedFromStepId: string | null
 }
 
 export const listExecutionsFn = createServerFn({ method: "GET" })
@@ -73,32 +77,53 @@ export const listExecutionsFn = createServerFn({ method: "GET" })
     return (await res.json()) as ExecutionSummary[]
   })
 
+export type ExecutionDetailResponse = {
+  execution: ExecutionDetail
+  steps: ExecutionStepSummary[]
+  /** nodeId -> the node's config in the workflow version this execution ran, for pre-filling the replay override form. */
+  nodeConfigs: Record<string, Record<string, JsonValue>>
+}
+
 export const getExecutionFn = createServerFn({ method: "GET" })
   .inputValidator((data: { id: string }) => data)
-  .handler(
-    async ({
-      data,
-    }): Promise<{
-      execution: ExecutionDetail
-      steps: ExecutionStepSummary[]
-    }> => {
-      const res = await apiFetch(`/executions/${data.id}`)
-      if (!res.ok) {
-        throw new Error("Execution not found")
-      }
-      return (await res.json()) as {
-        execution: ExecutionDetail
-        steps: ExecutionStepSummary[]
-      }
+  .handler(async ({ data }): Promise<ExecutionDetailResponse> => {
+    const res = await apiFetch(`/executions/${data.id}`)
+    if (!res.ok) {
+      throw new Error("Execution not found")
     }
+    return (await res.json()) as ExecutionDetailResponse
+  })
+
+export const replayStepFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      executionId: string
+      stepId: string
+      overrideConfig?: Record<string, unknown>
+    }) => data
   )
+  .handler(async ({ data }): Promise<{ replayStepId: string }> => {
+    const res = await apiFetch(
+      `/executions/${data.executionId}/steps/${data.stepId}/replay`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ overrideConfig: data.overrideConfig }),
+      }
+    )
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        message?: string
+      } | null
+      throw new Error(body?.message ?? "Could not replay step")
+    }
+    return (await res.json()) as { replayStepId: string }
+  })
 
 export type WorkspaceExecutionFilters = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
-  /** Opaque `(createdAt, id)` keyset cursor — the last execution of the previous page,
-   * encoded via encodeExecutionCursor. Omit for the first page. Not an offset: see
-   * listWorkspaceExecutions in @linea/db for why OFFSET pagination isn't used here. */
+  /** Opaque `(createdAt, id)` keyset cursor — the last execution of the previous page, encoded via encodeExecutionCursor. Omit for the first page; not an offset, see listWorkspaceExecutions in @linea/db for why. */
   cursor?: string
 }
 
@@ -110,8 +135,7 @@ export type WorkspaceExecutionPage = {
   total: number
 }
 
-/** `${createdAt}_${id}` — matches the platform-api DTO's cursor encoding. Neither an ISO
- * timestamp nor a uuid contains an underscore, so this round-trips unambiguously. */
+/** `${createdAt}_${id}` — matches the platform-api DTO's cursor encoding; neither an ISO timestamp nor a uuid contains an underscore, so this round-trips unambiguously. */
 export function encodeExecutionCursor(row: { createdAt: string; id: string }) {
   return `${row.createdAt}_${row.id}`
 }
@@ -162,9 +186,7 @@ export const countNewWorkspaceExecutionsFn = createServerFn({ method: "GET" })
     return (await res.json()) as { count: number }
   })
 
-/** Polls in the background so the executions page can offer a "N new" banner instead of
- * silently splicing new rows into a page the user has already paged past — see
- * countNewWorkspaceExecutions in @linea/db for why that splice isn't possible to do safely. */
+/** Polls so the executions page can offer a "N new" banner instead of silently splicing new rows into a page the user already paged past — see countNewWorkspaceExecutions in @linea/db for why that splice isn't safe. */
 export function newWorkspaceExecutionsQueryOptions(
   workspaceSlug: string,
   filters: NewWorkspaceExecutionsFilters

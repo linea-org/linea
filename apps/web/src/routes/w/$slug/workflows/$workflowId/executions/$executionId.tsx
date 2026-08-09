@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 
@@ -44,11 +45,21 @@ function formatDuration(startedAt: string | null, completedAt: string | null) {
 function ExecutionDetailPage() {
   const { slug, executionId } = Route.useParams()
   const initialData = Route.useLoaderData()
+  const [pendingReplayStepId, setPendingReplayStepId] = useState<string | null>(
+    null
+  )
   const {
-    data: { execution, steps },
+    data: { execution, steps, nodeConfigs },
   } = useSuspenseQuery({
     ...executionQueryOptions(slug, executionId),
     initialData: initialData.detail,
+    // Only while a just-triggered replay's step row hasn't shown up yet — stops on its own once it appears, since this then evaluates to false.
+    refetchInterval: (query) => {
+      if (!pendingReplayStepId) return false
+      const data = query.state.data
+      if (!data) return 2000
+      return data.steps.some((s) => s.id === pendingReplayStepId) ? false : 2000
+    },
   })
 
   return (
@@ -88,7 +99,13 @@ function ExecutionDetailPage() {
       <h2 className="mt-10 font-heading text-xl font-semibold tracking-tight">
         Steps
       </h2>
-      <ExecutionStepTimeline steps={steps} />
+      <ExecutionStepTimeline
+        executionId={executionId}
+        steps={steps}
+        nodeConfigs={nodeConfigs}
+        replayable={execution.replayable}
+        onReplayTriggered={setPendingReplayStepId}
+      />
     </main>
   )
 }

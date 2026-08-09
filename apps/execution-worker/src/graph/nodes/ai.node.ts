@@ -28,6 +28,7 @@ export class AiNode implements NodeHandler {
       model: parsed.model,
       prompt: parsed.prompt,
       systemPrompt: parsed.systemPrompt,
+      signal: context.signal,
     })
 
     return nodeRegistry.ai.outputSchema.parse(result)

@@ -13,13 +13,7 @@ export type AuthenticatedRequest = Request & {
   session?: { session?: { activeOrganizationId?: string } } | null
 }
 
-/**
- * Resolves the current workspace from either a Better Auth session (browser)
- * or an `Authorization: Bearer <api-key>` header (external callers), so
- * these routes work entirely over HTTP with an API key, not just via a
- * browser session. Apply alongside @OptionalAuth() so the global session
- * guard doesn't reject a request before this one gets to run.
- */
+/** Resolves the current workspace from either a Better Auth session (browser) or an `Authorization: Bearer <api-key>` header (external callers). Apply alongside @OptionalAuth() so the global session guard doesn't reject a request before this one runs. */
 @Injectable()
 export class WorkspaceAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {

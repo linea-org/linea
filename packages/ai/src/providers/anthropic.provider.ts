@@ -13,12 +13,15 @@ export const anthropicProvider: AiProvider = {
   ): Promise<CompletionResult> {
     const client = new Anthropic({ apiKey })
 
-    const response = await client.messages.create({
-      model: request.model,
-      system: request.systemPrompt,
-      max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
-      messages: [{ role: "user", content: request.prompt }],
-    })
+    const response = await client.messages.create(
+      {
+        model: request.model,
+        system: request.systemPrompt,
+        max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+        messages: [{ role: "user", content: request.prompt }],
+      },
+      { signal: request.signal }
+    )
 
     const text = response.content
       .filter((block) => block.type === "text")

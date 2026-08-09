@@ -5,6 +5,7 @@ export type CompletionRequest = {
   systemPrompt?: string
   prompt: string
   maxTokens?: number
+  signal?: AbortSignal
 }
 
 export type CompletionResult = {
