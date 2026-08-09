@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { and, eq, max } from "drizzle-orm"
+import { and, eq, isNotNull, lt, max } from "drizzle-orm"
 import { executionSteps, type ExecutionStep } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
@@ -204,5 +204,29 @@ export async function completeReplayStep(
     })
     .where(
       and(eq(executionSteps.id, id), eq(executionSteps.startedAt, claimToken))
+    )
+}
+
+/**
+ * Replay claims still "running" past `olderThan` with no worker left to finish them —
+ * e.g. a worker that died on workflow-step-replay's last configured retry attempt, exhausting
+ * its attempts/backoff budget before ever reclaiming again. Meant to feed a periodic sweep
+ * (see apps/background-worker's ReplayClaimSweepService) that finalizes them as failed via
+ * completeReplayStep's own claimToken fencing, so recovery isn't bounded by any single BullMQ
+ * job's finite retry count.
+ */
+export async function findStaleReplayClaims(
+  db: DbClient,
+  olderThan: Date
+): Promise<ExecutionStep[]> {
+  return db
+    .select()
+    .from(executionSteps)
+    .where(
+      and(
+        eq(executionSteps.status, "running"),
+        isNotNull(executionSteps.replayedFromStepId),
+        lt(executionSteps.startedAt, olderThan)
+      )
     )
 }
