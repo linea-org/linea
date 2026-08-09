@@ -194,7 +194,7 @@ describe("ReplayService.replay", () => {
     }
   })
 
-  it("does not re-execute the node when the same replayStepId is redelivered", async () => {
+  it("does not re-execute the node once redelivered after completion", async () => {
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -222,8 +222,8 @@ describe("ReplayService.replay", () => {
         overrideConfig: {},
       }
 
-      // Simulates BullMQ redelivering the same job after a stalled lock — the
-      // second call must not fire the node's side effect a second time.
+      // Simulates BullMQ redelivering the same job after the first delivery already
+      // finished — the second call must not fire the node's side effect a second time.
       await replay.replay(job)
       await replay.replay(job)
 
@@ -236,6 +236,60 @@ describe("ReplayService.replay", () => {
       const replayRows = result?.steps.filter((s) => s.id === replayStepId)
       expect(replayRows).toHaveLength(1)
       expect(replayRows?.[0]?.status).toBe("succeeded")
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("throws (rather than silently skipping) when redelivered while the claim is still live, so BullMQ retries later instead of marking it permanently done", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Live Claim Test Org",
+        slug: `replay-live-claim-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      // Slow but not hung — long enough to still be "live" when the second delivery
+      // arrives, but resolves before the test ends so nothing (a pending promise, a
+      // heartbeat interval) leaks past this test.
+      const executeSpy = jest.fn(
+        () =>
+          new Promise((resolve) =>
+            setTimeout(
+              () => resolve({ status: 200, body: { replayed: true } }),
+              300
+            )
+          )
+      )
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const { originalStep, replay } = await setUpExecutionWithStep(
+        organization.id,
+        { httpNode: spyNode }
+      )
+
+      const replayStepId = randomUUID()
+      const job = {
+        replayStepId,
+        originalStepId: originalStep.id,
+        overrideConfig: {},
+      }
+
+      const firstDelivery = replay.replay(job)
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      // A second, redelivered attempt for the same replayStepId must not resolve
+      // normally (which would mark the BullMQ job permanently complete and strand any
+      // future recheck) — it must throw so attempts/backoff retry later.
+      await expect(replay.replay(job)).rejects.toThrow(/not-yet-stale attempt/)
+      expect(executeSpy).toHaveBeenCalledTimes(1)
+
+      await firstDelivery
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

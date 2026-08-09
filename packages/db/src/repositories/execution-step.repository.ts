@@ -76,6 +76,16 @@ export type ReplayClaim = {
   claimToken: Date
 }
 
+export type ClaimReplayStepResult =
+  | { outcome: "claimed"; claim: ReplayClaim }
+  /** Already finalized (succeeded/failed) by some attempt — a true, permanent no-op. */
+  | { outcome: "finalized" }
+  /** Claimed by an attempt that isn't stale yet — could be genuinely still running, or could
+   * be a dead worker that just hasn't aged out. The caller must NOT treat this as done: it
+   * needs to be retried later (past REPLAY_CLAIM_STALE_MS) so a truly-abandoned claim still
+   * gets reclaimed instead of stranded forever. */
+  | { outcome: "live" }
+
 /**
  * Claims the right to execute a replay, before the caller does anything side-effecting (an
  * HTTP call, a billed AI completion): inserts a "running" placeholder row keyed on the
@@ -87,15 +97,11 @@ export type ReplayClaim = {
  * inserts a matching `checkpoints` row (a replay step is never part of the walker's resume
  * chain — writing one would corrupt future resume-from-crash behavior on an execution that
  * should never resume again).
- *
- * Returns undefined when the id is claimed by a still-live attempt (not yet stale), or already
- * finalized — the caller must treat that as "someone else is handling (or handled) this" and
- * skip re-running the node.
  */
 export async function claimReplayStep(
   db: DbClient,
   input: ClaimReplayStepInput
-): Promise<ReplayClaim | undefined> {
+): Promise<ClaimReplayStepResult> {
   const [inserted] = await db
     .insert(executionSteps)
     .values({
@@ -117,7 +123,10 @@ export async function claimReplayStep(
     .onConflictDoNothing({ target: executionSteps.id })
     .returning()
   if (inserted) {
-    return { step: inserted, claimToken: inserted.startedAt }
+    return {
+      outcome: "claimed",
+      claim: { step: inserted, claimToken: inserted.startedAt },
+    }
   }
 
   const [existing] = await db
@@ -125,17 +134,24 @@ export async function claimReplayStep(
     .from(executionSteps)
     .where(eq(executionSteps.id, input.id))
   if (!existing || existing.status !== "running") {
-    return undefined
+    return { outcome: "finalized" }
   }
   if (Date.now() - existing.startedAt.getTime() <= REPLAY_CLAIM_STALE_MS) {
-    return undefined
+    return { outcome: "live" }
   }
 
   const reclaimed = await casClaimStartedAt(db, input.id, existing.startedAt)
   if (!reclaimed) {
-    return undefined
+    // Lost the race to a concurrent reclaimer (or it finished in the tiny window since we
+    // read `existing`) — treated as "live", not "finalized": we don't know it's actually
+    // done, just that we don't own it. A future retry will see the real state, whatever it
+    // turns out to be, rather than us guessing "done" and stopping for good.
+    return { outcome: "live" }
   }
-  return { step: reclaimed, claimToken: reclaimed.startedAt }
+  return {
+    outcome: "claimed",
+    claim: { step: reclaimed, claimToken: reclaimed.startedAt },
+  }
 }
 
 /**

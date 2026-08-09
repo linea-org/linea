@@ -10,6 +10,18 @@ const REPLAY_HEARTBEAT_INTERVAL_MS = Math.floor(
   repositories.executionStep.REPLAY_CLAIM_STALE_MS / 3
 )
 
+/** Thrown when a claim exists but isn't stale yet — signals BullMQ to retry later (see the
+ * attempts/backoff on enqueueWorkflowStepReplay) instead of marking this delivery complete,
+ * which would stop it from ever being rechecked even if the original owner had died. */
+class ReplayClaimPendingError extends Error {
+  constructor(replayStepId: string) {
+    super(
+      `Replay ${replayStepId}: claimed by a not-yet-stale attempt, retrying later`
+    )
+    this.name = "ReplayClaimPendingError"
+  }
+}
+
 @Injectable()
 export class ReplayService {
   private readonly logger = new Logger(ReplayService.name)
@@ -70,7 +82,7 @@ export class ReplayService {
     )
     const startedAt = new Date()
 
-    const claimed = await repositories.executionStep.claimReplayStep(db, {
+    const claimResult = await repositories.executionStep.claimReplayStep(db, {
       id: job.replayStepId,
       executionId: execution.id,
       workspaceId: execution.workspaceId,
@@ -83,12 +95,20 @@ export class ReplayService {
       replayedFromStepId: originalStep.id,
       startedAt,
     })
-    if (!claimed) {
-      this.logger.warn(
-        `Replay ${job.replayStepId}: owned by a live or already-finished attempt, skipping redelivered job`
+    if (claimResult.outcome === "finalized") {
+      this.logger.log(
+        `Replay ${job.replayStepId}: already finalized, nothing to do`
       )
       return
     }
+    if (claimResult.outcome === "live") {
+      // Must not resolve normally here: BullMQ would mark this delivery complete and never
+      // redeliver the job again, even if the claim's original owner actually died and this
+      // claim is genuinely stranded. Throwing lets attempts/backoff retry past
+      // REPLAY_CLAIM_STALE_MS, at which point it's either finalized for real or reclaimable.
+      throw new ReplayClaimPendingError(job.replayStepId)
+    }
+    const claimed = claimResult.claim
 
     // Kept renewed for as long as executeNode is in flight, so a legitimately slow node (a
     // long AI completion, a slow HTTP call) never looks abandoned and gets reclaimed out from
