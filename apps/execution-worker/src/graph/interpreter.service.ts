@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common"
 import { walk } from "@linea/runtime"
-import type { StepResult, WalkResult, WorkflowGraph } from "@linea/runtime"
+import type {
+  StepResult,
+  WalkResult,
+  WorkflowGraph,
+  WorkflowNode,
+} from "@linea/runtime"
 import {
   CheckpointsService,
   LeaseLostError,
@@ -63,6 +68,35 @@ export class InterpreterService {
     }
   }
 
+  /**
+   * Looks up the handler for `node.type`, calls it, and extracts token usage from the
+   * output — the reusable unit of "run one node" independent of the walker, checkpoints, or
+   * leases. `run()`'s loop uses this for real graph steps; step-level replay (apps/execution-worker/src/replay)
+   * calls it directly for a single node with a substituted config, bypassing the walker
+   * entirely since a replay target's input is already known from its original step row.
+   */
+  async executeNode(
+    node: WorkflowNode,
+    input: unknown,
+    workspaceId: string
+  ): Promise<{
+    output: unknown
+    tokensInput?: number
+    tokensOutput?: number
+  }> {
+    const handler = this.handlers[node.type]
+    if (!handler) {
+      throw new Error(`No handler for node type "${node.type}"`)
+    }
+    const output = await handler.execute(node.config, input, { workspaceId })
+    const usage = extractTokenUsage(output)
+    return {
+      output,
+      tokensInput: usage?.tokensInput,
+      tokensOutput: usage?.tokensOutput,
+    }
+  }
+
   async run(input: RunInput): Promise<RunOutcome> {
     const generator = walk(input.graph, {
       completed: input.resumeFrom,
@@ -79,10 +113,6 @@ export class InterpreterService {
       if (!node) {
         throw new Error(`Node "${step.nodeId}" not found in graph`)
       }
-      const handler = this.handlers[step.nodeType]
-      if (!handler) {
-        throw new Error(`No handler for node type "${step.nodeType}"`)
-      }
 
       const startedAt = new Date()
       let stepResult: StepResult
@@ -94,13 +124,14 @@ export class InterpreterService {
           input.leasedBy
         )
 
-        const output = await handler.execute(node.config, step.input, {
-          workspaceId: input.workspaceId,
-        })
-        const usage = extractTokenUsage(output)
-        if (usage) {
-          totalTokensInput += usage.tokensInput
-          totalTokensOutput += usage.tokensOutput
+        const { output, tokensInput, tokensOutput } = await this.executeNode(
+          node,
+          step.input,
+          input.workspaceId
+        )
+        if (tokensInput !== undefined && tokensOutput !== undefined) {
+          totalTokensInput += tokensInput
+          totalTokensOutput += tokensOutput
         }
 
         // Update before checkpointing, so a crash right after the write doesn't leave a resume replaying this step.
@@ -116,8 +147,8 @@ export class InterpreterService {
           output,
           startedAt,
           endedAt: new Date(),
-          tokensInput: usage?.tokensInput,
-          tokensOutput: usage?.tokensOutput,
+          tokensInput,
+          tokensOutput,
           completed,
         })
 

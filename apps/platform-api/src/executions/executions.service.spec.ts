@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing'
 import { db, pool, repositories, schema } from '@linea/db'
 import type { WorkflowGraph } from '@linea/runtime'
 import { ExecutionsService } from './executions.service'
+import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 import { WorkflowQueueService } from '../queue/workflow-queue.service'
 
 afterAll(async () => {
@@ -21,7 +22,11 @@ const graph: WorkflowGraph = {
 describe('ExecutionsService', () => {
   it('rejects triggering a workflow with no published version', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [ExecutionsService, WorkflowQueueService],
+      providers: [
+        ExecutionsService,
+        WorkflowQueueService,
+        StepReplayQueueService,
+      ],
     }).compile()
     const service = moduleRef.get(ExecutionsService)
 
@@ -55,7 +60,11 @@ describe('ExecutionsService', () => {
 
   it('triggers a published workflow, enqueues it, and lists/gets it back scoped to the workspace', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [ExecutionsService, WorkflowQueueService],
+      providers: [
+        ExecutionsService,
+        WorkflowQueueService,
+        StepReplayQueueService,
+      ],
     }).compile()
     const service = moduleRef.get(ExecutionsService)
 
@@ -137,7 +146,11 @@ describe('ExecutionsService', () => {
 
   it('rejects triggering an archived workflow, even with a published version', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [ExecutionsService, WorkflowQueueService],
+      providers: [
+        ExecutionsService,
+        WorkflowQueueService,
+        StepReplayQueueService,
+      ],
     }).compile()
     const service = moduleRef.get(ExecutionsService)
 
@@ -218,7 +231,8 @@ describe('ExecutionsService', () => {
       const failingQueue = {
         enqueue: () => Promise.reject(new Error('redis unreachable')),
       } as unknown as WorkflowQueueService
-      const service = new ExecutionsService(failingQueue)
+      const unusedStepReplayQueue = {} as StepReplayQueueService
+      const service = new ExecutionsService(failingQueue, unusedStepReplayQueue)
 
       await expect(
         service.trigger(organization.id, workflow.id, {}),
@@ -233,5 +247,281 @@ describe('ExecutionsService', () => {
         organization.id,
       ])
     }
+  })
+
+  describe('get()', () => {
+    it('computes nodeConfigs from the bound workflow version and replayable from origin/status', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Executions Get Test Org',
+          slug: `executions-get-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const configuredGraph: WorkflowGraph = {
+          version: 1,
+          trigger: { type: 'manual' },
+          entryNodeId: 'n1',
+          nodes: [
+            { id: 'n1', type: 'ai', config: { model: 'gpt-5', prompt: 'hi' } },
+          ],
+          edges: [],
+        }
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Get Test Workflow',
+          slug: `get-test-${suffix}`,
+        })
+        const version = await repositories.workflow.createWorkflowVersion(db, {
+          workflowId: workflow.id,
+          graph: configuredGraph,
+          contentHash: 'get-test-hash',
+        })
+        const execution = await repositories.execution.createExecution(db, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: 'manual',
+        })
+
+        // Not yet terminal — not replayable.
+        const beforeTerminal = await service.get(organization.id, execution.id)
+        expect(beforeTerminal.nodeConfigs).toEqual({
+          n1: { model: 'gpt-5', prompt: 'hi' },
+        })
+        expect(beforeTerminal.replayable).toBe(false)
+
+        await repositories.execution.startExecution(
+          db,
+          execution.id,
+          'test-worker',
+          new Date(Date.now() + 60_000),
+        )
+        await repositories.execution.completeExecution(
+          db,
+          execution.id,
+          'test-worker',
+          {
+            status: 'succeeded',
+            costMicros: 0n,
+            tokensInput: 0,
+            tokensOutput: 0,
+          },
+        )
+
+        const afterTerminal = await service.get(organization.id, execution.id)
+        expect(afterTerminal.replayable).toBe(true)
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+  })
+
+  describe('replayStep()', () => {
+    async function setUpTerminalExecutionWithStep(organizationId: string) {
+      const suffix = randomUUID()
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organizationId,
+        name: 'Replay Endpoint Test Workflow',
+        slug: `replay-endpoint-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: `replay-endpoint-hash-${suffix}`,
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organizationId,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: 'manual',
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        'test-worker',
+        new Date(Date.now() + 60_000),
+      )
+      await repositories.execution.completeExecution(
+        db,
+        execution.id,
+        'test-worker',
+        {
+          status: 'succeeded',
+          costMicros: 0n,
+          tokensInput: 0,
+          tokensOutput: 0,
+        },
+      )
+
+      const [step] = await db
+        .insert(schema.executionSteps)
+        .values({
+          executionId: execution.id,
+          workspaceId: organizationId,
+          traceId: execution.id,
+          spanId: 'span-1',
+          name: 'transform',
+          startedAt: new Date(),
+          endedAt: new Date(),
+          status: 'succeeded',
+          nodeId: 'n1',
+          sequence: 1,
+          input: {},
+          output: {},
+        })
+        .returning()
+
+      return { execution, step }
+    }
+
+    it('enqueues a replay and returns a replayStepId for a valid target', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Replay Endpoint Test Org',
+          slug: `replay-endpoint-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const { execution, step } = await setUpTerminalExecutionWithStep(
+          organization.id,
+        )
+
+        const result = await service.replayStep(
+          organization.id,
+          execution.id,
+          step.id,
+          { overrideConfig: { foo: 'bar' } },
+        )
+        expect(result.replayStepId).toEqual(expect.any(String))
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it('rejects a non-terminal execution, a missing step, and a replay-of-a-replay', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Replay Rejection Test Org',
+          slug: `replay-rejection-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const { execution, step } = await setUpTerminalExecutionWithStep(
+          organization.id,
+        )
+
+        await expect(
+          service.replayStep(organization.id, execution.id, randomUUID(), {}),
+        ).rejects.toThrow('Step not found')
+
+        const [alreadyAReplay] = await db
+          .insert(schema.executionSteps)
+          .values({
+            executionId: execution.id,
+            workspaceId: organization.id,
+            traceId: execution.id,
+            spanId: 'span-2',
+            name: 'transform',
+            startedAt: new Date(),
+            endedAt: new Date(),
+            status: 'succeeded',
+            nodeId: 'n1',
+            sequence: 2,
+            input: {},
+            output: {},
+            replayedFromStepId: step.id,
+          })
+          .returning()
+        await expect(
+          service.replayStep(
+            organization.id,
+            execution.id,
+            alreadyAReplay.id,
+            {},
+          ),
+        ).rejects.toThrow('Cannot replay a replay')
+
+        const nonTerminalWorkflow = await repositories.workflow.createWorkflow(
+          db,
+          {
+            workspaceId: organization.id,
+            name: 'Non Terminal Workflow',
+            slug: `non-terminal-${suffix}`,
+          },
+        )
+        const nonTerminalVersion =
+          await repositories.workflow.createWorkflowVersion(db, {
+            workflowId: nonTerminalWorkflow.id,
+            graph,
+            contentHash: `non-terminal-hash-${suffix}`,
+          })
+        const nonTerminalExecution =
+          await repositories.execution.createExecution(db, {
+            workspaceId: organization.id,
+            workflowId: nonTerminalWorkflow.id,
+            workflowVersionId: nonTerminalVersion.id,
+            trigger: 'manual',
+          })
+        await expect(
+          service.replayStep(
+            organization.id,
+            nonTerminalExecution.id,
+            step.id,
+            {},
+          ),
+        ).rejects.toThrow('Execution is not replayable')
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
   })
 })

@@ -22,6 +22,68 @@ afterAll(async () => {
   await pool.end()
 })
 
+describe("InterpreterService.executeNode", () => {
+  it("looks up the handler by node type, executes it, and extracts token usage", async () => {
+    const interpreter = new InterpreterService(
+      new CheckpointsService(),
+      tokenNode,
+      new TransformNode(),
+      new BranchNode(),
+      new AiNode()
+    )
+
+    const result = await interpreter.executeNode(
+      { id: "n1", type: "http", config: { foo: "bar" } },
+      { hello: "world" },
+      "workspace-1"
+    )
+
+    expect(result.output).toEqual({ tokensInput: 100, tokensOutput: 50 })
+    expect(result.tokensInput).toBe(100)
+    expect(result.tokensOutput).toBe(50)
+  })
+
+  it("propagates a handler's rejection without swallowing it", async () => {
+    const failingNode = {
+      execute: () => Promise.reject(new Error("handler exploded")),
+    } as unknown as HttpNode
+    const interpreter = new InterpreterService(
+      new CheckpointsService(),
+      failingNode,
+      new TransformNode(),
+      new BranchNode(),
+      new AiNode()
+    )
+
+    await expect(
+      interpreter.executeNode(
+        { id: "n1", type: "http", config: {} },
+        {},
+        "workspace-1"
+      )
+    ).rejects.toThrow("handler exploded")
+  })
+
+  it("throws for a node type with no registered handler", async () => {
+    const interpreter = new InterpreterService(
+      new CheckpointsService(),
+      tokenNode,
+      new TransformNode(),
+      new BranchNode(),
+      new AiNode()
+    )
+
+    await expect(
+      interpreter.executeNode(
+        // @ts-expect-error deliberately not a real node type
+        { id: "n1", type: "not-a-real-type", config: {} },
+        {},
+        "workspace-1"
+      )
+    ).rejects.toThrow('No handler for node type "not-a-real-type"')
+  })
+})
+
 describe("InterpreterService resume", () => {
   it("carries prior checkpointed token usage into a resumed run that re-executes nothing", async () => {
     const suffix = randomUUID()

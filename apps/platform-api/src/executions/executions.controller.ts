@@ -19,6 +19,7 @@ import {
   listWorkspaceExecutionsSchema,
   type ListWorkspaceExecutionsDto,
 } from './dto/list-workspace-executions.dto'
+import { replayStepSchema, type ReplayStepDto } from './dto/replay-step.dto'
 import {
   triggerExecutionSchema,
   type TriggerExecutionDto,
@@ -71,5 +72,15 @@ export class ExecutionsController {
   @Get('executions/:id')
   get(@CurrentWorkspaceId() workspaceId: string, @Param('id') id: string) {
     return this.executions.get(workspaceId, id)
+  }
+
+  @Post('executions/:id/steps/:stepId/replay')
+  replayStep(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('id') id: string,
+    @Param('stepId') stepId: string,
+    @Body(new ZodValidationPipe(replayStepSchema)) body: ReplayStepDto,
+  ) {
+    return this.executions.replayStep(workspaceId, id, stepId, body)
   }
 }

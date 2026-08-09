@@ -145,7 +145,7 @@ export type CompleteExecutionInput = {
   tokensOutput: number
 }
 
-const terminalStatuses: Execution["status"][] = [
+export const terminalStatuses: Execution["status"][] = [
   "succeeded",
   "failed",
   "cancelled",
@@ -248,6 +248,17 @@ export async function isLeaseValid(
     execution.leaseExpiresAt !== null &&
     execution.leaseExpiresAt > new Date()
   )
+}
+
+export async function getExecutionById(
+  db: DbClient,
+  executionId: string
+): Promise<Execution | undefined> {
+  const [execution] = await db
+    .select()
+    .from(executions)
+    .where(eq(executions.id, executionId))
+  return execution
 }
 
 export async function getExecutionWithSteps(
