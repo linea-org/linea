@@ -4,6 +4,7 @@ import { db, pool } from "../clients/index.js"
 import { executions } from "../schema/index.js"
 import {
   completeExecution,
+  countNewWorkspaceExecutions,
   createExecution,
   failQueuedExecution,
   findStaleQueuedExecutions,
@@ -791,6 +792,93 @@ describe("listWorkspaceExecutions", () => {
         rows[2].id,
         rows[3].id,
       ])
+    })
+  })
+})
+
+describe("countNewWorkspaceExecutions", () => {
+  it("counts matching rows newer than the given cursor, ignoring older ones", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const rows = await tx
+        .insert(executions)
+        .values(
+          Array.from({ length: 4 }, (_, i) => ({
+            workspaceId: organization.id,
+            workflowId: workflow.id,
+            workflowVersionId: version.id,
+            trigger: "manual" as const,
+            createdAt: new Date(Date.now() - i * 1_000),
+          }))
+        )
+        .returning()
+      // rows[0] is newest, rows[3] oldest (desc insertion order above).
+      const since = { createdAt: rows[1].createdAt, id: rows[1].id }
+
+      const count = await countNewWorkspaceExecutions(tx, organization.id, {
+        since,
+      })
+      expect(count).toBe(1) // only rows[0]
+    })
+  })
+
+  it("counts a row that starts matching a status filter above the cursor — the case forward pagination alone can't surface", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const rows = await tx
+        .insert(executions)
+        .values(
+          Array.from({ length: 3 }, (_, i) => ({
+            workspaceId: organization.id,
+            workflowId: workflow.id,
+            workflowVersionId: version.id,
+            trigger: "manual" as const,
+            status: "running" as const,
+            createdAt: new Date(Date.now() - i * 1_000),
+          }))
+        )
+        .returning()
+      const since = { createdAt: rows[1].createdAt, id: rows[1].id }
+
+      const before = await countNewWorkspaceExecutions(tx, organization.id, {
+        status: "queued",
+        since,
+      })
+      expect(before).toBe(0)
+
+      // rows[0] is newer than the cursor and now starts matching "queued".
+      await tx
+        .update(executions)
+        .set({ status: "queued" })
+        .where(eq(executions.id, rows[0].id))
+
+      const after = await countNewWorkspaceExecutions(tx, organization.id, {
+        status: "queued",
+        since,
+      })
+      expect(after).toBe(1)
+    })
+  })
+
+  it("does not count executions from another workspace", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const { organization: otherOrg } = await createTestFixtures(tx)
+      const [row] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          createdAt: new Date(Date.now() - 60_000),
+        })
+        .returning()
+
+      const count = await countNewWorkspaceExecutions(tx, otherOrg.id, {
+        since: { createdAt: row.createdAt, id: row.id },
+      })
+      expect(count).toBe(0)
     })
   })
 })

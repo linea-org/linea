@@ -141,6 +141,41 @@ export function workspaceExecutionsQueryOptions(
   })
 }
 
+export type NewWorkspaceExecutionsFilters = {
+  status?: ExecutionStatus
+  trigger?: ExecutionTrigger
+  /** The reference cursor — count executions newer than this. */
+  since: string
+}
+
+export const countNewWorkspaceExecutionsFn = createServerFn({ method: "GET" })
+  .inputValidator((data: NewWorkspaceExecutionsFilters) => data)
+  .handler(async ({ data }): Promise<{ count: number }> => {
+    const params = new URLSearchParams()
+    if (data.status) params.set("status", data.status)
+    if (data.trigger) params.set("trigger", data.trigger)
+    params.set("since", data.since)
+    const res = await apiFetch(`/executions/new-count?${params.toString()}`)
+    if (!res.ok) {
+      throw new Error("Could not check for new executions")
+    }
+    return (await res.json()) as { count: number }
+  })
+
+/** Polls in the background so the executions page can offer a "N new" banner instead of
+ * silently splicing new rows into a page the user has already paged past — see
+ * countNewWorkspaceExecutions in @linea/db for why that splice isn't possible to do safely. */
+export function newWorkspaceExecutionsQueryOptions(
+  workspaceSlug: string,
+  filters: NewWorkspaceExecutionsFilters
+) {
+  return queryOptions({
+    queryKey: ["workspace-executions-new-count", workspaceSlug, filters],
+    queryFn: () => countNewWorkspaceExecutionsFn({ data: filters }),
+    refetchInterval: 20_000,
+  })
+}
+
 export function executionsQueryOptions(
   workspaceSlug: string,
   workflowId: string

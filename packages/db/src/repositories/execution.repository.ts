@@ -382,3 +382,41 @@ export async function listWorkspaceExecutions(
     total: count,
   }
 }
+
+/**
+ * Counts rows matching the filters that sort newer than `since` — the inverse direction of
+ * `listWorkspaceExecutions`' cursor. Backs a "N new executions" banner: a row can start
+ * matching a status/trigger filter, or simply arrive, above a cursor the user has already
+ * paged past, and forward-only Next clicks structurally can't surface it (see
+ * listWorkspaceExecutions' doc comment) — the banner is how the user finds out it exists
+ * without silently splicing it into an already-fetched page.
+ */
+export async function countNewWorkspaceExecutions(
+  db: DbClient,
+  workspaceId: string,
+  options: {
+    status?: Execution["status"]
+    trigger?: Execution["trigger"]
+    since: WorkspaceExecutionCursor
+  }
+): Promise<number> {
+  const where = and(
+    eq(executions.workspaceId, workspaceId),
+    options.status ? eq(executions.status, options.status) : undefined,
+    options.trigger ? eq(executions.trigger, options.trigger) : undefined,
+    or(
+      gt(executions.createdAt, options.since.createdAt),
+      and(
+        eq(executions.createdAt, options.since.createdAt),
+        gt(executions.id, options.since.id)
+      )
+    )
+  )
+
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(executions)
+    .where(where)
+
+  return count
+}

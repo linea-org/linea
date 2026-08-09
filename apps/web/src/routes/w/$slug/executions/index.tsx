@@ -1,6 +1,10 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
+import {
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
-import { HistoryIcon } from "lucide-react"
+import { HistoryIcon, SparklesIcon } from "lucide-react"
 
 import {
   Empty,
@@ -41,6 +45,7 @@ import {
 import {
   encodeExecutionCursor,
   listWorkspaceExecutionsFn,
+  newWorkspaceExecutionsQueryOptions,
   workspaceExecutionsQueryOptions,
   type ExecutionStatus,
   type ExecutionTrigger,
@@ -83,6 +88,11 @@ type ExecutionsSearch = {
    * Previous can step back without recomputing history. An empty-string entry means "page 1,
    * no cursor". */
   trail?: string
+  /** Cursor of the newest row visible when this browsing session started (fixed the moment
+   * pagination is first used) — the reference point for "N new executions" polling. Without
+   * this, "new" would be relative to whatever page is currently on screen instead of where the
+   * user started, and would misfire while paging further into old history. */
+  anchor?: string
 }
 
 export const Route = createFileRoute("/w/$slug/executions/")({
@@ -91,6 +101,7 @@ export const Route = createFileRoute("/w/$slug/executions/")({
     trigger: isExecutionTrigger(search.trigger) ? search.trigger : undefined,
     cursor: parseOpaqueParam(search.cursor),
     trail: parseOpaqueParam(search.trail),
+    anchor: parseOpaqueParam(search.anchor),
   }),
   loaderDeps: ({ search }) => search,
   loader: ({ deps }) => listWorkspaceExecutionsFn({ data: deps }),
@@ -115,6 +126,7 @@ function ExecutionsPage() {
   const { slug } = Route.useParams()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const queryClient = useQueryClient()
   const initialData = Route.useLoaderData()
   const { data } = useSuspenseQuery({
     ...workspaceExecutionsQueryOptions(slug, search),
@@ -130,6 +142,23 @@ function ExecutionsPage() {
   const previousCursor = trail.length > 0 ? trail[trail.length - 1] : undefined
   const previousTrail = trail.length > 0 ? trail.slice(0, -1) : []
 
+  // Until pagination is used, page 1's own top row is the reference point — see the
+  // `anchor` field's doc comment on ExecutionsSearch.
+  const firstRow = executions[0]
+  const effectiveAnchor =
+    search.anchor ??
+    (isFirstPage && firstRow ? encodeExecutionCursor(firstRow) : undefined)
+
+  const { data: newData } = useQuery({
+    ...newWorkspaceExecutionsQueryOptions(slug, {
+      status: search.status,
+      trigger: search.trigger,
+      since: effectiveAnchor ?? "",
+    }),
+    enabled: Boolean(effectiveAnchor),
+  })
+  const newCount = newData?.count ?? 0
+
   function hrefFor(overrides: Partial<ExecutionsSearch>): string {
     const merged = { ...search, ...overrides }
     const params = new URLSearchParams()
@@ -137,6 +166,7 @@ function ExecutionsPage() {
     if (merged.trigger) params.set("trigger", merged.trigger)
     if (merged.cursor) params.set("cursor", merged.cursor)
     if (merged.trail) params.set("trail", merged.trail)
+    if (merged.anchor) params.set("anchor", merged.anchor)
     const query = params.toString()
     return `/w/${slug}/executions${query ? `?${query}` : ""}`
   }
@@ -148,6 +178,7 @@ function ExecutionsPage() {
         ...prev,
         cursor: nextCursor,
         trail: [...trail, prev.cursor ?? ""].join(";"),
+        anchor: prev.anchor ?? effectiveAnchor,
       }),
     })
   }
@@ -159,6 +190,23 @@ function ExecutionsPage() {
         ...prev,
         cursor: previousCursor || undefined,
         trail: previousTrail.length > 0 ? previousTrail.join(";") : undefined,
+      }),
+    })
+  }
+
+  function showNewExecutions() {
+    // Navigating alone is a no-op if we're already on page 1 with an implicit anchor — the
+    // search object wouldn't actually change. Invalidate explicitly so the currently-observed
+    // query refetches either way.
+    void queryClient.invalidateQueries({
+      queryKey: ["workspace-executions", slug],
+    })
+    void navigate({
+      search: (prev) => ({
+        ...prev,
+        cursor: undefined,
+        trail: undefined,
+        anchor: undefined,
       }),
     })
   }
@@ -176,6 +224,7 @@ function ExecutionsPage() {
                   value === "all" ? undefined : (value as ExecutionStatus),
                 cursor: undefined,
                 trail: undefined,
+                anchor: undefined,
               }),
             })
           }}
@@ -209,6 +258,7 @@ function ExecutionsPage() {
                   value === "all" ? undefined : (value as ExecutionTrigger),
                 cursor: undefined,
                 trail: undefined,
+                anchor: undefined,
               }),
             })
           }}
@@ -232,6 +282,19 @@ function ExecutionsPage() {
           </SelectContent>
         </Select>
       </div>
+
+      {newCount > 0 ? (
+        <button
+          type="button"
+          onClick={showNewExecutions}
+          className="mt-4 flex w-fit items-center gap-2 rounded-md border border-input bg-accent px-3 py-1.5 text-sm text-accent-foreground transition-colors hover:bg-accent/80"
+        >
+          <SparklesIcon className="size-4" />
+          {newCount === 1
+            ? "1 new execution — refresh"
+            : `${newCount} new executions — refresh`}
+        </button>
+      ) : null}
 
       {executions.length === 0 ? (
         <Empty className="mt-8">

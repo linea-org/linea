@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common'
 import { db, repositories, type Execution, type ExecutionStep } from '@linea/db'
 import { WorkflowQueueService } from '../queue/workflow-queue.service'
+import type { CountNewWorkspaceExecutionsDto } from './dto/count-new-workspace-executions.dto'
 import type { ListWorkspaceExecutionsDto } from './dto/list-workspace-executions.dto'
 import type { TriggerExecutionDto } from './dto/trigger-execution.dto'
 
@@ -67,6 +68,14 @@ export class ExecutionsService {
       status: filters.status,
       trigger: filters.trigger,
       cursor: filters.cursor,
+    })
+  }
+
+  countNew(workspaceId: string, filters: CountNewWorkspaceExecutionsDto) {
+    return repositories.execution.countNewWorkspaceExecutions(db, workspaceId, {
+      status: filters.status,
+      trigger: filters.trigger,
+      since: filters.since,
     })
   }
 
