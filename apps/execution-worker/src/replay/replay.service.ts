@@ -116,8 +116,14 @@ export class ReplayService {
     // fencing check below is what actually stops a late/duplicate result from persisting —
     // this loop is just what keeps that from happening in the common case.
     let claimToken = claimed.claimToken
+    // Tracks whatever renewal tick is currently in flight, so completion can wait for it to
+    // settle before reading `claimToken` — otherwise a renewal that lands after executeNode
+    // resolves but before its own `.then()` runs would leave `claimToken` stale, and
+    // completeReplayStep's fencing would then reject the write against the DB's newer
+    // startedAt, silently discarding a real result (later misread by the sweep as abandoned).
+    let pendingRenewal: Promise<void> | undefined
     const heartbeat = setInterval(() => {
-      repositories.executionStep
+      pendingRenewal = repositories.executionStep
         .renewReplayClaim(db, job.replayStepId, claimToken)
         .then((renewed) => {
           if (!renewed) {
@@ -166,7 +172,11 @@ export class ReplayService {
         tokensOutput: 0,
       }
     } finally {
+      // No new tick can start after this (clearInterval is synchronous), but one that was
+      // already in flight when executeNode resolved might not have updated `claimToken` yet —
+      // wait for it so completion always reads the token that matches the DB.
       clearInterval(heartbeat)
+      await pendingRenewal
     }
 
     await repositories.executionStep.completeReplayStep(
