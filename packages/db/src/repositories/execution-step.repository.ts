@@ -3,9 +3,32 @@ import { and, eq, max } from "drizzle-orm"
 import { executionSteps, type ExecutionStep } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
-// A single replay node execution (HTTP/AI/transform/branch) should finish in well under this —
-// a claim older than it is presumed abandoned by a worker that died or was redeployed mid-job.
-const REPLAY_CLAIM_STALE_MS = 10 * 60 * 1000
+// A live replay is expected to renew its claim (see renewReplayClaim) well inside this window —
+// a claim older than it is presumed abandoned by a worker that died or was redeployed mid-job,
+// not just a slow HTTP/AI call still legitimately in flight.
+export const REPLAY_CLAIM_STALE_MS = 10 * 60 * 1000
+
+/** CAS on the previously-observed startedAt: only one concurrent caller's UPDATE can match,
+ * since the winner immediately moves startedAt away from that value. Used both to reclaim a
+ * stale claim and to renew a live one before it goes stale. */
+async function casClaimStartedAt(
+  db: DbClient,
+  id: string,
+  previousStartedAt: Date
+): Promise<ExecutionStep | undefined> {
+  const [updated] = await db
+    .update(executionSteps)
+    .set({ startedAt: new Date() })
+    .where(
+      and(
+        eq(executionSteps.id, id),
+        eq(executionSteps.status, "running"),
+        eq(executionSteps.startedAt, previousStartedAt)
+      )
+    )
+    .returning()
+  return updated
+}
 
 export async function getExecutionStepById(
   db: DbClient,
@@ -108,23 +131,27 @@ export async function claimReplayStep(
     return undefined
   }
 
-  // CAS on the previously-observed startedAt: only one concurrent reclaimer's UPDATE can
-  // match, since the winner immediately moves startedAt away from that value.
-  const [reclaimed] = await db
-    .update(executionSteps)
-    .set({ startedAt: new Date() })
-    .where(
-      and(
-        eq(executionSteps.id, input.id),
-        eq(executionSteps.status, "running"),
-        eq(executionSteps.startedAt, existing.startedAt)
-      )
-    )
-    .returning()
+  const reclaimed = await casClaimStartedAt(db, input.id, existing.startedAt)
   if (!reclaimed) {
     return undefined
   }
   return { step: reclaimed, claimToken: reclaimed.startedAt }
+}
+
+/**
+ * Renews a live claim's fencing token so a replay that's still legitimately running (a slow
+ * HTTP call, a slow AI completion) never goes stale and gets reclaimed out from under it.
+ * Returns the new token, or undefined if this caller no longer owns the claim (already
+ * reclaimed as stale, or already completed) — the caller has lost ownership and any result it
+ * goes on to produce must not be persisted under the old token.
+ */
+export async function renewReplayClaim(
+  db: DbClient,
+  id: string,
+  claimToken: Date
+): Promise<Date | undefined> {
+  const renewed = await casClaimStartedAt(db, id, claimToken)
+  return renewed?.startedAt
 }
 
 export type CompleteReplayStepInput = {

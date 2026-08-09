@@ -4,6 +4,12 @@ import { workflowGraphSchema } from "@linea/runtime"
 import type { WorkflowStepReplayJob } from "@linea/queue"
 import { InterpreterService } from "../graph/interpreter.service"
 
+// Comfortably inside REPLAY_CLAIM_STALE_MS, so a slow-but-alive HTTP/AI call renews well
+// before its claim would otherwise be judged abandoned and reclaimed.
+const REPLAY_HEARTBEAT_INTERVAL_MS = Math.floor(
+  repositories.executionStep.REPLAY_CLAIM_STALE_MS / 3
+)
+
 @Injectable()
 export class ReplayService {
   private readonly logger = new Logger(ReplayService.name)
@@ -84,6 +90,32 @@ export class ReplayService {
       return
     }
 
+    // Kept renewed for as long as executeNode is in flight, so a legitimately slow node (a
+    // long AI completion, a slow HTTP call) never looks abandoned and gets reclaimed out from
+    // under it. If renewal ever fails (claim lost to a reclaim), completeReplayStep's own
+    // fencing check below is what actually stops a late/duplicate result from persisting —
+    // this loop is just what keeps that from happening in the common case.
+    let claimToken = claimed.claimToken
+    const heartbeat = setInterval(() => {
+      repositories.executionStep
+        .renewReplayClaim(db, job.replayStepId, claimToken)
+        .then((renewed) => {
+          if (!renewed) {
+            this.logger.warn(
+              `Replay ${job.replayStepId}: lost claim ownership mid-execution`
+            )
+            return
+          }
+          claimToken = renewed
+        })
+        .catch((error: unknown) => {
+          this.logger.error(
+            `Replay ${job.replayStepId}: failed to renew claim`,
+            error
+          )
+        })
+    }, REPLAY_HEARTBEAT_INTERVAL_MS)
+
     let outcome: {
       status: "succeeded" | "failed"
       output?: Record<string, unknown>
@@ -113,12 +145,14 @@ export class ReplayService {
         tokensInput: 0,
         tokensOutput: 0,
       }
+    } finally {
+      clearInterval(heartbeat)
     }
 
     await repositories.executionStep.completeReplayStep(
       db,
       job.replayStepId,
-      claimed.claimToken,
+      claimToken,
       {
         endedAt: new Date(),
         status: outcome.status,

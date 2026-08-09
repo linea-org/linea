@@ -6,6 +6,7 @@ import {
   completeReplayStep,
   getExecutionStepById,
   getNextStepSequence,
+  renewReplayClaim,
 } from "./execution-step.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import type { Transaction } from "./types.js"
@@ -372,6 +373,134 @@ describe("claimReplayStep + completeReplayStep", () => {
         .from(executionSteps)
         .where(eq(executionSteps.id, replayId))
       expect(final.output).toEqual({ text: "from reclaimer" })
+    })
+  })
+})
+
+describe("renewReplayClaim", () => {
+  it("renews a live claim, and the new token is what completeReplayStep must use", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const [execution] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          status: "succeeded",
+        })
+        .returning()
+      const original = await createOriginalStep(
+        tx,
+        execution.id,
+        organization.id
+      )
+
+      const replayId = "66666666-6666-6666-6666-666666666666"
+      const claimed = await claimReplayStep(tx, {
+        id: replayId,
+        executionId: execution.id,
+        workspaceId: organization.id,
+        traceId: original.traceId,
+        parentSpanId: original.spanId,
+        nodeId: original.nodeId,
+        name: original.name,
+        sequence: 2,
+        input: original.input,
+        replayedFromStepId: original.id,
+        startedAt: new Date(),
+      })
+      if (!claimed) throw new Error("expected a fresh claim")
+
+      const renewedToken = await renewReplayClaim(
+        tx,
+        replayId,
+        claimed.claimToken
+      )
+      expect(renewedToken).toBeDefined()
+      expect(renewedToken).not.toEqual(claimed.claimToken)
+
+      // Completing with the stale, pre-renewal token must not match — proving the renewed
+      // token, not the original one, is now what fences the eventual completion.
+      if (!renewedToken) throw new Error("expected a renewal")
+      await completeReplayStep(tx, replayId, claimed.claimToken, {
+        status: "succeeded",
+        output: { text: "wrong token" },
+        costMicros: 0n,
+        tokensInput: 0,
+        tokensOutput: 0,
+        endedAt: new Date(),
+      })
+      const [afterWrongToken] = await tx
+        .select()
+        .from(executionSteps)
+        .where(eq(executionSteps.id, replayId))
+      expect(afterWrongToken.status).toBe("running")
+
+      await completeReplayStep(tx, replayId, renewedToken, {
+        status: "succeeded",
+        output: { text: "right token" },
+        costMicros: 0n,
+        tokensInput: 0,
+        tokensOutput: 0,
+        endedAt: new Date(),
+      })
+      const [afterRightToken] = await tx
+        .select()
+        .from(executionSteps)
+        .where(eq(executionSteps.id, replayId))
+      expect(afterRightToken.status).toBe("succeeded")
+      expect(afterRightToken.output).toEqual({ text: "right token" })
+    })
+  })
+
+  it("returns undefined once the claim is no longer live", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const [execution] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          status: "succeeded",
+        })
+        .returning()
+      const original = await createOriginalStep(
+        tx,
+        execution.id,
+        organization.id
+      )
+
+      const replayId = "77777777-7777-7777-7777-777777777777"
+      const claimed = await claimReplayStep(tx, {
+        id: replayId,
+        executionId: execution.id,
+        workspaceId: organization.id,
+        traceId: original.traceId,
+        parentSpanId: original.spanId,
+        nodeId: original.nodeId,
+        name: original.name,
+        sequence: 2,
+        input: original.input,
+        replayedFromStepId: original.id,
+        startedAt: new Date(),
+      })
+      if (!claimed) throw new Error("expected a fresh claim")
+      await completeReplayStep(tx, replayId, claimed.claimToken, {
+        status: "succeeded",
+        output: { text: "done" },
+        costMicros: 0n,
+        tokensInput: 0,
+        tokensOutput: 0,
+        endedAt: new Date(),
+      })
+
+      expect(
+        await renewReplayClaim(tx, replayId, claimed.claimToken)
+      ).toBeUndefined()
     })
   })
 })
