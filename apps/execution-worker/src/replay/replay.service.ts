@@ -4,11 +4,13 @@ import { workflowGraphSchema } from "@linea/runtime"
 import type { WorkflowStepReplayJob } from "@linea/queue"
 import { InterpreterService } from "../graph/interpreter.service"
 
-// Comfortably inside REPLAY_CLAIM_STALE_MS, so a slow-but-alive HTTP/AI call renews well
-// before its claim would otherwise be judged abandoned and reclaimed.
-const REPLAY_HEARTBEAT_INTERVAL_MS = Math.floor(
-  repositories.executionStep.REPLAY_CLAIM_STALE_MS / 3
-)
+// Deliberately much smaller than REPLAY_CLAIM_STALE_MS (10 min) — this isn't sized to stay
+// safely inside the staleness window (a single renewal every few minutes would do that), it's
+// sized to bound how long a worker can keep running after another worker has already reclaimed
+// its stale claim and started a second invocation. Cancellation (see abortController below) is
+// best-effort — the reclaimer can start before this worker's next tick discovers it lost
+// ownership — so a tight interval is what keeps that overlap window small.
+const REPLAY_HEARTBEAT_INTERVAL_MS = 30_000
 
 /** Thrown when a claim exists but isn't stale yet — signals BullMQ to retry later (see the
  * attempts/backoff on enqueueWorkflowStepReplay) instead of marking this delivery complete,
@@ -146,10 +148,16 @@ export class ReplayService {
           claimToken = renewed
         })
         .catch((error: unknown) => {
+          // A renewal that throws (a DB blip, a connection error) proves nothing about
+          // whether we still own the claim — treated the same as an explicit loss: we can't
+          // confirm ownership, so we stop, rather than letting the handler run to completion
+          // on a claim that might already be reclaimed (or age into the sweep's stale check
+          // while this attempt is still actually in flight).
           this.logger.error(
-            `Replay ${job.replayStepId}: failed to renew claim`,
+            `Replay ${job.replayStepId}: failed to renew claim, aborting`,
             error
           )
+          abortController.abort()
         })
         .finally(() => {
           pendingRenewal = undefined
