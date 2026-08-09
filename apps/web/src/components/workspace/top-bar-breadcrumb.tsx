@@ -31,6 +31,14 @@ function useBreadcrumbs(slug: string): Crumb[] {
       })
     }
 
+    if (match.routeId === "/w/$slug/executions/") {
+      crumbs.push({
+        label: "Executions",
+        to: "/w/$slug/executions",
+        params: { slug },
+      })
+    }
+
     if (match.routeId === "/w/$slug/workflows/$workflowId/") {
       const workflowId = match.params.workflowId
       crumbs.push({

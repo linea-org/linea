@@ -282,3 +282,141 @@ export async function listExecutions(
     .orderBy(desc(executions.createdAt))
     .limit(options.limit ?? 50)
 }
+
+export type ExecutionWithWorkflow = Execution & {
+  workflowName: string
+  workflowSlug: string
+}
+
+export type WorkspaceExecutionCursor = {
+  createdAt: Date
+  id: string
+}
+
+export type WorkspaceExecutionPage = {
+  executions: ExecutionWithWorkflow[]
+  /** Whether a further page exists after this one. */
+  hasMore: boolean
+  /** Total rows matching the filters, ignoring the cursor — informational only (e.g. "128
+   * total"), not something pagination correctness depends on. */
+  total: number
+}
+
+const DEFAULT_WORKSPACE_EXECUTIONS_LIMIT = 50
+
+/**
+ * Unlike listExecutions, spans every workflow in the workspace — for the cross-workflow trace view,
+ * not a single workflow's page. Paginated via a `(createdAt, id)` keyset cursor, not OFFSET/LIMIT.
+ *
+ * OFFSET pagination assumes the filtered, sorted result set holds still between page requests, and
+ * it doesn't: a row inserted after page 1 was fetched shifts every later page's offset by one, and —
+ * the case a plain `createdAt` snapshot bound still can't fix — a row whose `status` changes between
+ * requests (queued → running, say) can drop out of a `status`-filtered query entirely, shrinking the
+ * matched set and shifting everything after it. Either way, rows get skipped or repeated at the page
+ * boundary. Keyset pagination sidesteps both: each page is fetched as "the next N rows, in sort
+ * order, strictly after the last row I saw" rather than "skip N rows that currently match," so it
+ * never needs to count how many rows matched *so far* — a count that concurrent inserts and status
+ * mutations can't be relied on to hold still. `id` breaks ties within a shared `createdAt` millisecond,
+ * since `createdAt` alone isn't unique.
+ *
+ * Callers paginating forward pass the last row of the previous page as `cursor`.
+ */
+export async function listWorkspaceExecutions(
+  db: DbClient,
+  workspaceId: string,
+  options: {
+    status?: Execution["status"]
+    trigger?: Execution["trigger"]
+    cursor?: WorkspaceExecutionCursor
+    limit?: number
+  } = {}
+): Promise<WorkspaceExecutionPage> {
+  const limit = options.limit ?? DEFAULT_WORKSPACE_EXECUTIONS_LIMIT
+  const baseWhere = and(
+    eq(executions.workspaceId, workspaceId),
+    options.status ? eq(executions.status, options.status) : undefined,
+    options.trigger ? eq(executions.trigger, options.trigger) : undefined
+  )
+  const where = and(
+    baseWhere,
+    options.cursor
+      ? or(
+          lt(executions.createdAt, options.cursor.createdAt),
+          and(
+            eq(executions.createdAt, options.cursor.createdAt),
+            lt(executions.id, options.cursor.id)
+          )
+        )
+      : undefined
+  )
+
+  const [rows, [{ count }]] = await Promise.all([
+    db
+      .select({
+        execution: executions,
+        workflowName: workflows.name,
+        workflowSlug: workflows.slug,
+      })
+      .from(executions)
+      .innerJoin(workflows, eq(executions.workflowId, workflows.id))
+      .where(where)
+      .orderBy(desc(executions.createdAt), desc(executions.id))
+      // One extra row, so hasMore is known without a second query.
+      .limit(limit + 1),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(executions)
+      .where(baseWhere),
+  ])
+
+  const hasMore = rows.length > limit
+  const page = hasMore ? rows.slice(0, limit) : rows
+
+  return {
+    executions: page.map(({ execution, workflowName, workflowSlug }) => ({
+      ...execution,
+      workflowName,
+      workflowSlug,
+    })),
+    hasMore,
+    total: count,
+  }
+}
+
+/**
+ * Counts rows matching the filters that sort newer than `since` — the inverse direction of
+ * `listWorkspaceExecutions`' cursor. Backs a "N new executions" banner: a row can start
+ * matching a status/trigger filter, or simply arrive, above a cursor the user has already
+ * paged past, and forward-only Next clicks structurally can't surface it (see
+ * listWorkspaceExecutions' doc comment) — the banner is how the user finds out it exists
+ * without silently splicing it into an already-fetched page.
+ */
+export async function countNewWorkspaceExecutions(
+  db: DbClient,
+  workspaceId: string,
+  options: {
+    status?: Execution["status"]
+    trigger?: Execution["trigger"]
+    since: WorkspaceExecutionCursor
+  }
+): Promise<number> {
+  const where = and(
+    eq(executions.workspaceId, workspaceId),
+    options.status ? eq(executions.status, options.status) : undefined,
+    options.trigger ? eq(executions.trigger, options.trigger) : undefined,
+    or(
+      gt(executions.createdAt, options.since.createdAt),
+      and(
+        eq(executions.createdAt, options.since.createdAt),
+        gt(executions.id, options.since.id)
+      )
+    )
+  )
+
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(executions)
+    .where(where)
+
+  return count
+}

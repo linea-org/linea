@@ -30,6 +30,11 @@ export type ExecutionDetail = ExecutionSummary & {
   error: { message: string; stepId?: string } | null
 }
 
+export type WorkspaceExecutionSummary = ExecutionSummary & {
+  workflowName: string
+  workflowSlug: string
+}
+
 export type ExecutionStepStatus = "running" | "succeeded" | "failed" | "skipped"
 
 export type JsonValue =
@@ -87,6 +92,89 @@ export const getExecutionFn = createServerFn({ method: "GET" })
       }
     }
   )
+
+export type WorkspaceExecutionFilters = {
+  status?: ExecutionStatus
+  trigger?: ExecutionTrigger
+  /** Opaque `(createdAt, id)` keyset cursor — the last execution of the previous page,
+   * encoded via encodeExecutionCursor. Omit for the first page. Not an offset: see
+   * listWorkspaceExecutions in @linea/db for why OFFSET pagination isn't used here. */
+  cursor?: string
+}
+
+export type WorkspaceExecutionPage = {
+  executions: WorkspaceExecutionSummary[]
+  /** Whether a further page exists after this one. */
+  hasMore: boolean
+  /** Informational only — not something pagination correctness depends on. */
+  total: number
+}
+
+/** `${createdAt}_${id}` — matches the platform-api DTO's cursor encoding. Neither an ISO
+ * timestamp nor a uuid contains an underscore, so this round-trips unambiguously. */
+export function encodeExecutionCursor(row: { createdAt: string; id: string }) {
+  return `${row.createdAt}_${row.id}`
+}
+
+export const listWorkspaceExecutionsFn = createServerFn({ method: "GET" })
+  .inputValidator((data: WorkspaceExecutionFilters) => data)
+  .handler(async ({ data }): Promise<WorkspaceExecutionPage> => {
+    const params = new URLSearchParams()
+    if (data.status) params.set("status", data.status)
+    if (data.trigger) params.set("trigger", data.trigger)
+    if (data.cursor) params.set("cursor", data.cursor)
+    const query = params.toString()
+    const res = await apiFetch(`/executions${query ? `?${query}` : ""}`)
+    if (!res.ok) {
+      throw new Error("Could not load executions")
+    }
+    return (await res.json()) as WorkspaceExecutionPage
+  })
+
+export function workspaceExecutionsQueryOptions(
+  workspaceSlug: string,
+  filters: WorkspaceExecutionFilters
+) {
+  return queryOptions({
+    queryKey: ["workspace-executions", workspaceSlug, filters],
+    queryFn: () => listWorkspaceExecutionsFn({ data: filters }),
+  })
+}
+
+export type NewWorkspaceExecutionsFilters = {
+  status?: ExecutionStatus
+  trigger?: ExecutionTrigger
+  /** The reference cursor — count executions newer than this. */
+  since: string
+}
+
+export const countNewWorkspaceExecutionsFn = createServerFn({ method: "GET" })
+  .inputValidator((data: NewWorkspaceExecutionsFilters) => data)
+  .handler(async ({ data }): Promise<{ count: number }> => {
+    const params = new URLSearchParams()
+    if (data.status) params.set("status", data.status)
+    if (data.trigger) params.set("trigger", data.trigger)
+    params.set("since", data.since)
+    const res = await apiFetch(`/executions/new-count?${params.toString()}`)
+    if (!res.ok) {
+      throw new Error("Could not check for new executions")
+    }
+    return (await res.json()) as { count: number }
+  })
+
+/** Polls in the background so the executions page can offer a "N new" banner instead of
+ * silently splicing new rows into a page the user has already paged past — see
+ * countNewWorkspaceExecutions in @linea/db for why that splice isn't possible to do safely. */
+export function newWorkspaceExecutionsQueryOptions(
+  workspaceSlug: string,
+  filters: NewWorkspaceExecutionsFilters
+) {
+  return queryOptions({
+    queryKey: ["workspace-executions-new-count", workspaceSlug, filters],
+    queryFn: () => countNewWorkspaceExecutionsFn({ data: filters }),
+    refetchInterval: 20_000,
+  })
+}
 
 export function executionsQueryOptions(
   workspaceSlug: string,

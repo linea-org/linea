@@ -1,14 +1,17 @@
+import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
 import { executions } from "../schema/index.js"
 import {
   completeExecution,
+  countNewWorkspaceExecutions,
   createExecution,
   failQueuedExecution,
   findStaleQueuedExecutions,
   getLeaseOwner,
   isLeaseValid,
   listExecutions,
+  listWorkspaceExecutions,
   recordEnqueueFailure,
   renewLease,
   startExecution,
@@ -16,6 +19,8 @@ import {
 } from "./execution.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import {
+  createWorkflow,
+  createWorkflowVersion,
   publishWorkflowVersion,
   updateWorkflow,
 } from "./workflow.repository.js"
@@ -511,6 +516,369 @@ describe("listExecutions", () => {
 
       const results = await listExecutions(tx, workflow.id)
       expect(results.map((e) => e.id)).toEqual([second.id, first.id])
+    })
+  })
+})
+
+describe("listWorkspaceExecutions", () => {
+  it("spans every workflow in the workspace, most recent first, with the owning workflow's name/slug attached", async () => {
+    await withRollback(async (tx) => {
+      const {
+        organization,
+        workflow: workflowA,
+        version,
+      } = await createTestFixtures(tx)
+      const workflowB = await createWorkflow(tx, {
+        workspaceId: organization.id,
+        name: "Second Workflow",
+        slug: "second-workflow",
+      })
+      const versionB = await createWorkflowVersion(tx, {
+        workflowId: workflowB.id,
+        graph: { nodes: [], edges: [] },
+        contentHash: "test-hash-b",
+      })
+
+      const [fromA] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflowA.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          createdAt: new Date(Date.now() - 1_000),
+        })
+        .returning()
+      const [fromB] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflowB.id,
+          workflowVersionId: versionB.id,
+          trigger: "manual",
+          createdAt: new Date(),
+        })
+        .returning()
+
+      const page = await listWorkspaceExecutions(tx, organization.id)
+      expect(page.executions.map((e) => e.id)).toEqual([fromB.id, fromA.id])
+      expect(page.executions[0].workflowName).toBe("Second Workflow")
+      expect(page.executions[1].workflowName).toBe(workflowA.name)
+      expect(page.total).toBe(2)
+      expect(page.hasMore).toBe(false)
+    })
+  })
+
+  it("filters by status and by trigger", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const [queued] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          status: "queued",
+        })
+        .returning()
+      await tx.insert(executions).values({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "webhook",
+        status: "succeeded",
+      })
+
+      const queuedOnly = await listWorkspaceExecutions(tx, organization.id, {
+        status: "queued",
+      })
+      expect(queuedOnly.executions.map((e) => e.id)).toEqual([queued.id])
+      expect(queuedOnly.total).toBe(1)
+
+      const manualOnly = await listWorkspaceExecutions(tx, organization.id, {
+        trigger: "manual",
+      })
+      expect(manualOnly.executions.map((e) => e.id)).toEqual([queued.id])
+      expect(manualOnly.total).toBe(1)
+    })
+  })
+
+  it("does not include executions from another workspace", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const { organization: otherOrg } = await createTestFixtures(tx)
+      await tx.insert(executions).values({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const page = await listWorkspaceExecutions(tx, otherOrg.id)
+      expect(page.executions).toEqual([])
+      expect(page.total).toBe(0)
+    })
+  })
+
+  it("paginates via cursor: total reflects every matching row, hasMore tracks whether another page follows", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const rows = Array.from({ length: 5 }, (_, i) => ({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual" as const,
+        createdAt: new Date(Date.now() - i * 1_000),
+      }))
+      await tx.insert(executions).values(rows)
+
+      const firstPage = await listWorkspaceExecutions(tx, organization.id, {
+        limit: 2,
+      })
+      expect(firstPage.executions).toHaveLength(2)
+      expect(firstPage.total).toBe(5)
+      expect(firstPage.hasMore).toBe(true)
+
+      const last = firstPage.executions[firstPage.executions.length - 1]
+      const secondPage = await listWorkspaceExecutions(tx, organization.id, {
+        limit: 2,
+        cursor: { createdAt: last.createdAt, id: last.id },
+      })
+      expect(secondPage.executions).toHaveLength(2)
+      expect(secondPage.total).toBe(5)
+      expect(secondPage.hasMore).toBe(true)
+      expect(
+        secondPage.executions.every(
+          (e) => !firstPage.executions.some((f) => f.id === e.id)
+        )
+      ).toBe(true)
+
+      const secondLast = secondPage.executions[secondPage.executions.length - 1]
+      const thirdPage = await listWorkspaceExecutions(tx, organization.id, {
+        limit: 2,
+        cursor: { createdAt: secondLast.createdAt, id: secondLast.id },
+      })
+      expect(thirdPage.executions).toHaveLength(1)
+      expect(thirdPage.total).toBe(5)
+      expect(thirdPage.hasMore).toBe(false)
+    })
+  })
+
+  it("orders ties on createdAt deterministically, so paging never skips or repeats a row", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      // Every row shares one createdAt — createdAt alone can't order them,
+      // so this only stays stable across the two queries below if there's
+      // a unique tie-breaker.
+      const sameInstant = new Date()
+      const rows = Array.from({ length: 6 }, () => ({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual" as const,
+        createdAt: sameInstant,
+      }))
+      await tx.insert(executions).values(rows)
+
+      const firstPage = await listWorkspaceExecutions(tx, organization.id, {
+        limit: 4,
+      })
+      const last = firstPage.executions[firstPage.executions.length - 1]
+      const secondPage = await listWorkspaceExecutions(tx, organization.id, {
+        limit: 4,
+        cursor: { createdAt: last.createdAt, id: last.id },
+      })
+
+      const firstIds = firstPage.executions.map((e) => e.id)
+      const secondIds = secondPage.executions.map((e) => e.id)
+      const combined = [...firstIds, ...secondIds]
+
+      expect(new Set(combined).size).toBe(combined.length)
+      expect(combined).toHaveLength(6)
+    })
+  })
+
+  it("holds page boundaries fixed against a concurrent insert, unlike OFFSET pagination", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const rows = Array.from({ length: 5 }, (_, i) => ({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual" as const,
+        createdAt: new Date(Date.now() - i * 1_000),
+      }))
+      await tx.insert(executions).values(rows)
+
+      const firstPage = await listWorkspaceExecutions(tx, organization.id, {
+        limit: 2,
+      })
+      const last = firstPage.executions[firstPage.executions.length - 1]
+
+      // A new execution lands after page 1's query ran but before page 2 is
+      // fetched — under OFFSET pagination this shifts every later offset by
+      // one. A cursor anchored to a specific row is immune: the new row
+      // sorts after the cursor's `createdAt`, so it can't appear before it.
+      await tx.insert(executions).values({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        createdAt: new Date(),
+      })
+
+      const secondPage = await listWorkspaceExecutions(tx, organization.id, {
+        limit: 2,
+        cursor: { createdAt: last.createdAt, id: last.id },
+      })
+
+      expect(secondPage.total).toBe(6)
+      expect(
+        secondPage.executions.every(
+          (e) => !firstPage.executions.some((f) => f.id === e.id)
+        )
+      ).toBe(true)
+    })
+  })
+
+  it("holds page boundaries fixed against a status change, which a createdAt-only bound can't", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const rows = await tx
+        .insert(executions)
+        .values(
+          Array.from({ length: 5 }, (_, i) => ({
+            workspaceId: organization.id,
+            workflowId: workflow.id,
+            workflowVersionId: version.id,
+            trigger: "manual" as const,
+            status: "queued" as const,
+            createdAt: new Date(Date.now() - i * 1_000),
+          }))
+        )
+        .returning()
+
+      const firstPage = await listWorkspaceExecutions(tx, organization.id, {
+        status: "queued",
+        limit: 2,
+      })
+      expect(firstPage.executions).toHaveLength(2)
+      const last = firstPage.executions[firstPage.executions.length - 1]
+
+      // A row already returned on page 1 (rows[1], between page 1's two
+      // rows and the cursor) drops out of the "queued" filter entirely —
+      // exactly the case a plain createdAt asOf bound can't stabilize,
+      // since the filter itself, not just the timestamp, is re-evaluated.
+      await tx
+        .update(executions)
+        .set({ status: "running" })
+        .where(eq(executions.id, rows[1].id))
+
+      const secondPage = await listWorkspaceExecutions(tx, organization.id, {
+        status: "queued",
+        limit: 2,
+        cursor: { createdAt: last.createdAt, id: last.id },
+      })
+
+      expect(
+        secondPage.executions.every(
+          (e) => !firstPage.executions.some((f) => f.id === e.id)
+        )
+      ).toBe(true)
+      // rows[2] and rows[3] are exactly what should follow the cursor —
+      // nothing skipped despite rows[1] (before the cursor) changing status.
+      expect(secondPage.executions.map((e) => e.id)).toEqual([
+        rows[2].id,
+        rows[3].id,
+      ])
+    })
+  })
+})
+
+describe("countNewWorkspaceExecutions", () => {
+  it("counts matching rows newer than the given cursor, ignoring older ones", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const rows = await tx
+        .insert(executions)
+        .values(
+          Array.from({ length: 4 }, (_, i) => ({
+            workspaceId: organization.id,
+            workflowId: workflow.id,
+            workflowVersionId: version.id,
+            trigger: "manual" as const,
+            createdAt: new Date(Date.now() - i * 1_000),
+          }))
+        )
+        .returning()
+      // rows[0] is newest, rows[3] oldest (desc insertion order above).
+      const since = { createdAt: rows[1].createdAt, id: rows[1].id }
+
+      const count = await countNewWorkspaceExecutions(tx, organization.id, {
+        since,
+      })
+      expect(count).toBe(1) // only rows[0]
+    })
+  })
+
+  it("counts a row that starts matching a status filter above the cursor — the case forward pagination alone can't surface", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const rows = await tx
+        .insert(executions)
+        .values(
+          Array.from({ length: 3 }, (_, i) => ({
+            workspaceId: organization.id,
+            workflowId: workflow.id,
+            workflowVersionId: version.id,
+            trigger: "manual" as const,
+            status: "running" as const,
+            createdAt: new Date(Date.now() - i * 1_000),
+          }))
+        )
+        .returning()
+      const since = { createdAt: rows[1].createdAt, id: rows[1].id }
+
+      const before = await countNewWorkspaceExecutions(tx, organization.id, {
+        status: "queued",
+        since,
+      })
+      expect(before).toBe(0)
+
+      // rows[0] is newer than the cursor and now starts matching "queued".
+      await tx
+        .update(executions)
+        .set({ status: "queued" })
+        .where(eq(executions.id, rows[0].id))
+
+      const after = await countNewWorkspaceExecutions(tx, organization.id, {
+        status: "queued",
+        since,
+      })
+      expect(after).toBe(1)
+    })
+  })
+
+  it("does not count executions from another workspace", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const { organization: otherOrg } = await createTestFixtures(tx)
+      const [row] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          createdAt: new Date(Date.now() - 60_000),
+        })
+        .returning()
+
+      const count = await countNewWorkspaceExecutions(tx, otherOrg.id, {
+        since: { createdAt: row.createdAt, id: row.id },
+      })
+      expect(count).toBe(0)
     })
   })
 })
