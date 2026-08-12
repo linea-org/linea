@@ -87,8 +87,7 @@ export type CostJumpResult = {
   historicalAvgMicros: string
 }
 
-// Baseline is prior occurrences only (ordered by startedAt), not a symmetric window over the whole
-// partition — a later, cheaper run must not retroactively make an earlier normal-cost run look like a spike.
+// Baseline is prior occurrences only, ordered by (startedAt, createdAt) since startedAt can tie at millisecond resolution — not a symmetric window over the whole partition.
 export async function detectCostJump(
   db: DbClient,
   multiplier = 10,
@@ -103,12 +102,12 @@ export async function detectCostJump(
         ${executionSteps.costMicros} AS cost_micros,
         sum(${executionSteps.costMicros}) OVER (
           PARTITION BY ${executions.workflowId}, ${executionSteps.nodeId}
-          ORDER BY ${executionSteps.startedAt}
+          ORDER BY ${executionSteps.startedAt}, ${executionSteps.createdAt}
           ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
         ) AS prior_sum,
         count(*) OVER (
           PARTITION BY ${executions.workflowId}, ${executionSteps.nodeId}
-          ORDER BY ${executionSteps.startedAt}
+          ORDER BY ${executionSteps.startedAt}, ${executionSteps.createdAt}
           ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
         ) AS prior_count
       FROM ${executionSteps}

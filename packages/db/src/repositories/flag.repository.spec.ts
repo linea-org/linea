@@ -266,6 +266,50 @@ describe("detectCostJump", () => {
       )
     })
   })
+
+  it("breaks a startedAt tie by insertion order instead of ordering ties arbitrarily", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const tiedTimestamp = new Date()
+
+      // Inserted first, so it must be treated as "earlier" despite sharing startedAt with what follows.
+      const earlyExecution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await insertStep(tx, {
+        executionId: earlyExecution.id,
+        workspaceId: organization.id,
+        nodeId: "n1",
+        costMicros: 5000n,
+        startedAt: tiedTimestamp,
+      })
+
+      // Three more, same startedAt, inserted after — must not count as "prior" to the row above.
+      for (let i = 0; i < 3; i++) {
+        const execution = await createExecution(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+        })
+        await insertStep(tx, {
+          executionId: execution.id,
+          workspaceId: organization.id,
+          nodeId: "n1",
+          costMicros: 100n,
+          startedAt: tiedTimestamp,
+        })
+      }
+
+      const results = await detectCostJump(tx, 10, 3)
+      expect(results.some((r) => r.executionId === earlyExecution.id)).toBe(
+        false
+      )
+    })
+  })
 })
 
 describe("getWorkflowIdsWithBranchSteps and getObservedBranchValues", () => {
