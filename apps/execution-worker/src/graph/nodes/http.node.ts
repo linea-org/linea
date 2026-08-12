@@ -29,6 +29,12 @@ export class HttpNode implements NodeHandler {
     if (context.idempotencyKey && !hasIdempotencyHeader) {
       headers["Idempotency-Key"] = context.idempotencyKey
     }
+    // linea-org/linea#23: this only helps if the destination actually implements and honors
+    // Idempotency-Key. For one that doesn't, a reclaim while the original call is still
+    // genuinely in flight can still produce a real duplicate mutation with no way for Linea to
+    // detect or prevent it — AbortController cancellation in replay.service.ts is best-effort
+    // and only helps if it fires before the request is irrevocably dispatched. No code-only fix
+    // closes this to zero; see the issue for why and what was considered.
     const response = await fetch(parsed.url, {
       method: parsed.method,
       headers,
