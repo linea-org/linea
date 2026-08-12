@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, sql } from "drizzle-orm"
+import { and, eq, gte, isNotNull, ne, sql } from "drizzle-orm"
 import {
   executions,
   executionSteps,
@@ -162,4 +162,125 @@ export async function getObservedBranchValues(
       )
     )
   return new Set(rows.map((r) => r.branch))
+}
+
+export type TranscriptFlagResult = {
+  stepId: string
+  executionId: string
+  workspaceId: string
+  nodeId: string
+}
+
+/** A non-"ai" step that failed — the closest real equivalent to "a tool call failed" until a dedicated tool/MCP node exists. */
+export async function detectToolErrors(
+  db: DbClient
+): Promise<TranscriptFlagResult[]> {
+  return db
+    .select({
+      stepId: executionSteps.id,
+      executionId: executionSteps.executionId,
+      workspaceId: executionSteps.workspaceId,
+      nodeId: executionSteps.nodeId,
+    })
+    .from(executionSteps)
+    .where(
+      and(
+        eq(executionSteps.status, "failed"),
+        eq(executionSteps.isSystemEvent, false),
+        ne(executionSteps.name, "ai")
+      )
+    )
+}
+
+/** An "ai" step that succeeded but returned no real text. */
+export async function detectEmptyResponses(
+  db: DbClient
+): Promise<TranscriptFlagResult[]> {
+  return db
+    .select({
+      stepId: executionSteps.id,
+      executionId: executionSteps.executionId,
+      workspaceId: executionSteps.workspaceId,
+      nodeId: executionSteps.nodeId,
+    })
+    .from(executionSteps)
+    .where(
+      and(
+        eq(executionSteps.name, "ai"),
+        eq(executionSteps.status, "succeeded"),
+        sql`trim(coalesce(${executionSteps.output}->>'text', '')) = ''`
+      )
+    )
+}
+
+// Deterministic lead-in phrases, no model call — a first pass, not a classifier, and will over- and under-match.
+export const REFUSAL_PATTERNS = [
+  "i cannot",
+  "i can't",
+  "i won't",
+  "i will not",
+  "i'm unable to",
+  "i am unable to",
+  "i'm not able to",
+  "as an ai",
+  "i must decline",
+]
+
+/** An "ai" step whose output text matches a refusal lead-in phrase. */
+export async function detectRefusals(
+  db: DbClient
+): Promise<TranscriptFlagResult[]> {
+  const pattern = REFUSAL_PATTERNS.join("|")
+  return db
+    .select({
+      stepId: executionSteps.id,
+      executionId: executionSteps.executionId,
+      workspaceId: executionSteps.workspaceId,
+      nodeId: executionSteps.nodeId,
+    })
+    .from(executionSteps)
+    .where(
+      and(
+        eq(executionSteps.name, "ai"),
+        eq(executionSteps.status, "succeeded"),
+        sql`lower(coalesce(${executionSteps.output}->>'text', '')) ~ ${pattern}`
+      )
+    )
+}
+
+export type RepeatedReplayResult = {
+  executionId: string
+  workspaceId: string
+  originalStepId: string
+  replayCount: number
+}
+
+/** The same original step replayed several times in a short window — a proxy for a user actively iterating, absent any real chat/conversation concept to detect frustration in directly. */
+export async function detectRepeatedReplay(
+  db: DbClient,
+  minReplays = 3,
+  windowMs = 60 * 60 * 1000
+): Promise<RepeatedReplayResult[]> {
+  const since = new Date(Date.now() - windowMs)
+  const rows = await db
+    .select({
+      executionId: executionSteps.executionId,
+      workspaceId: executionSteps.workspaceId,
+      originalStepId: executionSteps.replayedFromStepId,
+      replayCount: sql<number>`count(*)::int`,
+    })
+    .from(executionSteps)
+    .where(
+      and(
+        isNotNull(executionSteps.replayedFromStepId),
+        gte(executionSteps.createdAt, since)
+      )
+    )
+    .groupBy(
+      executionSteps.executionId,
+      executionSteps.workspaceId,
+      executionSteps.replayedFromStepId
+    )
+    .having(sql`count(*) >= ${minReplays}`)
+  return rows.map((r) => ({ ...r, originalStepId: r.originalStepId as string }))
 }
