@@ -14,6 +14,8 @@ export type RecordStepInput = {
   startedAt: Date
   endedAt: Date
   costMicros?: bigint
+  // True when the node's model has no verified per-token rate — kept separate from costMicros itself so a 0n write is never mistaken for a genuinely free call.
+  costUnpriced?: boolean
   tokensInput?: number
   tokensOutput?: number
   // Includes this step if it just succeeded — a failed step is never added, matching the walker's own map.
@@ -56,6 +58,7 @@ export class CheckpointsService {
         error: input.error,
         idempotencyKey: `${input.executionId}:${input.nodeId}`,
         costMicros: input.costMicros ?? 0n,
+        attributes: input.costUnpriced ? { costUnpriced: true } : undefined,
         tokensInput: input.tokensInput ?? 0,
         tokensOutput: input.tokensOutput ?? 0,
       },
@@ -115,18 +118,27 @@ export class CheckpointsService {
     tokensInput: number
     tokensOutput: number
     costMicros: bigint
+    hasUnpricedCost: boolean
   }> {
     const steps = await repositories.checkpoint.getStepsForExecution(
       db,
       executionId
     )
+    const initialTotals = {
+      tokensInput: 0,
+      tokensOutput: 0,
+      costMicros: 0n,
+      hasUnpricedCost: false,
+    }
     return steps.reduce(
       (totals, step) => ({
         tokensInput: totals.tokensInput + step.tokensInput,
         tokensOutput: totals.tokensOutput + step.tokensOutput,
         costMicros: totals.costMicros + step.costMicros,
+        hasUnpricedCost:
+          totals.hasUnpricedCost || step.attributes?.costUnpriced === true,
       }),
-      { tokensInput: 0, tokensOutput: 0, costMicros: 0n }
+      initialTotals
     )
   }
 }

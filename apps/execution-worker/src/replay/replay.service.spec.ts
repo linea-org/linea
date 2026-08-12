@@ -162,6 +162,111 @@ describe("ReplayService.replay", () => {
     }
   })
 
+  it("marks a replayed unpriced AI step as unpriced rather than silently free", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Unpriced Cost Test Org",
+        slug: `replay-unpriced-cost-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Replay Unpriced Cost Test Workflow",
+        slug: `replay-unpriced-cost-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: `replay-unpriced-cost-hash-${suffix}`,
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "setup-worker",
+        new Date(Date.now() + 60_000)
+      )
+      await repositories.execution.completeExecution(
+        db,
+        execution.id,
+        "setup-worker",
+        { status: "succeeded", costMicros: 0n, tokensInput: 0, tokensOutput: 0 }
+      )
+      const [originalStep] = await db
+        .insert(schema.executionSteps)
+        .values({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: execution.id,
+          spanId: "original-span",
+          name: "ai",
+          startedAt: new Date(),
+          endedAt: new Date(),
+          status: "succeeded",
+          nodeId: "n1",
+          sequence: 1,
+          input: { prompt: "hi" },
+          output: { text: "hello", tokensInput: 100, tokensOutput: 50 },
+        })
+        .returning()
+
+      const spyAiNode = {
+        execute: () =>
+          Promise.resolve({
+            text: "hello",
+            tokensInput: 100,
+            tokensOutput: 50,
+          }),
+      } as unknown as AiNode
+      const interpreter = new InterpreterService(
+        new CheckpointsService(),
+        {} as HttpNode,
+        new TransformNode(),
+        new BranchNode(),
+        spyAiNode
+      )
+      const replay = new ReplayService(interpreter)
+
+      const replayStepId = randomUUID()
+      await replay.replay({
+        replayStepId,
+        originalStepId: originalStep.id,
+        overrideConfig: {},
+      })
+
+      const result = await repositories.execution.getExecutionWithSteps(
+        db,
+        execution.id
+      )
+      const replayRow = result?.steps.find((s) => s.id === replayStepId)
+      expect(replayRow?.status).toBe("succeeded")
+      expect(replayRow?.costMicros).toBe(0n)
+      expect(replayRow?.attributes).toEqual({ costUnpriced: true })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
   it("records a failed replay's error instead of throwing", async () => {
     const suffix = randomUUID()
     const [organization] = await db

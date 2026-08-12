@@ -86,11 +86,18 @@ export class RunsService {
         initialTokensInput: resumeTokens.tokensInput,
         initialTokensOutput: resumeTokens.tokensOutput,
         initialCostMicros: resumeTokens.costMicros,
+        initialHasUnpricedCost: resumeTokens.hasUnpricedCost,
         signal: abortController.signal,
       })
       knownTokensInput = outcome.totalTokensInput
       knownTokensOutput = outcome.totalTokensOutput
       knownCostMicros = outcome.totalCostMicros
+
+      if (outcome.hasUnpricedCost) {
+        this.logger.warn(
+          `Execution ${executionId}: costMicros ${outcome.totalCostMicros} is a partial total — at least one step used a model with no verified price`
+        )
+      }
 
       if (outcome.result.status === "completed") {
         await repositories.execution.completeExecution(

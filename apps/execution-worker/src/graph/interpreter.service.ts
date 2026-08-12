@@ -28,6 +28,7 @@ export type RunInput = {
   initialTokensInput?: number
   initialTokensOutput?: number
   initialCostMicros?: bigint
+  initialHasUnpricedCost?: boolean
   // Aborted by the caller (RunsService) when the execution lease is lost mid-step, so the in-flight node handler's own request is cancelled instead of just racing the checkpoint.
   signal?: AbortSignal
 }
@@ -37,6 +38,8 @@ export type RunOutcome = {
   totalTokensInput: number
   totalTokensOutput: number
   totalCostMicros: bigint
+  // True if any AI step's model had no verified rate — totalCostMicros is then a known-partial lower bound, not the real total.
+  hasUnpricedCost: boolean
 }
 
 function extractTokenUsage(
@@ -111,6 +114,7 @@ export class InterpreterService {
     let totalTokensInput = input.initialTokensInput ?? 0
     let totalTokensOutput = input.initialTokensOutput ?? 0
     let totalCostMicros = input.initialCostMicros ?? 0n
+    let hasUnpricedCost = input.initialHasUnpricedCost ?? false
 
     let next = generator.next()
     while (!next.done) {
@@ -138,6 +142,7 @@ export class InterpreterService {
           input.signal
         )
         let costMicros: bigint | undefined
+        let costUnpriced = false
         if (tokensInput !== undefined && tokensOutput !== undefined) {
           totalTokensInput += tokensInput
           totalTokensOutput += tokensOutput
@@ -147,7 +152,12 @@ export class InterpreterService {
               tokensInput,
               tokensOutput
             )
-            if (costMicros !== undefined) totalCostMicros += costMicros
+            if (costMicros !== undefined) {
+              totalCostMicros += costMicros
+            } else {
+              costUnpriced = true
+              hasUnpricedCost = true
+            }
           }
         }
 
@@ -167,6 +177,7 @@ export class InterpreterService {
           tokensInput,
           tokensOutput,
           costMicros,
+          costUnpriced,
           completed,
         })
 
@@ -208,6 +219,7 @@ export class InterpreterService {
       totalTokensInput,
       totalTokensOutput,
       totalCostMicros,
+      hasUnpricedCost,
     }
   }
 }
