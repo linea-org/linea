@@ -67,8 +67,8 @@ export const executions = snakeCase.table(
     error: jsonb().$type<ExecutionError>(),
 
     costMicros: bigint({ mode: "bigint" }).notNull().default(0n),
-    // True if any step's model had no verified rate, so costMicros is a known-partial lower bound, not a real total.
-    costUnpriced: boolean().notNull().default(false),
+    // Null means this execution predates cost-unpriced tracking, not that it's known-priced — never treat null the same as false. True means costMicros is a known-partial lower bound, not a real total.
+    costUnpriced: boolean(),
     tokensInput: integer().notNull().default(0),
     tokensOutput: integer().notNull().default(0),
 

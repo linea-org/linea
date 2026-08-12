@@ -325,6 +325,21 @@ describe("completeExecution", () => {
     })
   })
 
+  it("leaves costUnpriced null before completion, distinct from a known false", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      // Also what a pre-existing row from before this column existed looks like — never treat this the same as a completed, fully-priced execution.
+      expect(execution.costUnpriced).toBeNull()
+    })
+  })
+
   it("does not let a delayed completion overwrite an already-terminal outcome", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)

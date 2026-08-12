@@ -19,8 +19,8 @@ export type ExecutionSummary = {
   status: ExecutionStatus
   trigger: ExecutionTrigger
   costMicros: string
-  // True if any step's model had no verified rate — costMicros is then a partial lower bound, not the real total.
-  costUnpriced: boolean
+  // True: costMicros is a known-partial lower bound. False: fully priced. Null: this execution predates cost-unpriced tracking, not the same as false.
+  costUnpriced: boolean | null
   tokensInput: number
   tokensOutput: number
   startedAt: string | null

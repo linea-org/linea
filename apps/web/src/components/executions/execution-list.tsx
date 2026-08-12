@@ -35,7 +35,8 @@ function formatDuration(startedAt: string | null, completedAt: string | null) {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 
-export function formatCost(costMicros: string, unpriced?: boolean) {
+export function formatCost(costMicros: string, unpriced?: boolean | null) {
+  if (unpriced === null) return "—"
   const formatted = (Number(costMicros) / 1_000_000).toLocaleString(undefined, {
     style: "currency",
     currency: "USD",
