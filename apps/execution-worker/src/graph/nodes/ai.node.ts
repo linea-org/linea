@@ -24,6 +24,8 @@ export class AiNode implements NodeHandler {
     const keyName = resolveKeyName(parsed.model)
     const { apiKey } = await resolveApiKey(db, context.workspaceId, keyName)
 
+    // Unlike HttpNode, context.idempotencyKey isn't forwarded here — none of the 4 supported
+    // providers accept one (see the provider files under packages/ai/src/providers).
     const result = await provider.complete(apiKey, {
       model: parsed.model,
       prompt: parsed.prompt,

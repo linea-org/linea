@@ -7,6 +7,11 @@ import {
 } from "./provider.interface.js"
 
 /** Groq and xAI both publish an OpenAI-compatible chat completions endpoint — one impl, one baseURL each. */
+// Investigated for linea-org/linea#22, covers all three providers built from this factory
+// (OpenAI, Groq, xAI): none support request-level idempotency on chat completions. OpenAI's
+// Idempotency-Key header is real but scoped to the unrelated Agentic Commerce checkout API, not
+// this endpoint. Groq and xAI's docs don't mention idempotency at all. A retried request can be
+// billed twice on any of the three; nothing to thread through.
 export function createOpenAiCompatibleProvider(baseURL?: string): AiProvider {
   return {
     async complete(
