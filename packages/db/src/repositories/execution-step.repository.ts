@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { and, eq, isNotNull, lt, max } from "drizzle-orm"
+import { and, eq, isNotNull, lt, max, sql } from "drizzle-orm"
 import { executionSteps, type ExecutionStep } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
@@ -7,15 +7,20 @@ import type { DbClient } from "./types.js"
 // Tightening this only narrows, never closes, a reclaim's overlap with a still-live call, and risks reclaiming merely-slow workers if pushed too far.
 export const REPLAY_CLAIM_STALE_MS = 10 * 60 * 1000
 
-/** CAS on the previously-observed startedAt: only one concurrent caller's UPDATE can match, since the winner immediately moves startedAt away from that value. Used both to reclaim a stale claim and to renew a live one. */
+/** CAS on the previously-observed startedAt: only one concurrent caller's UPDATE can match, since the winner immediately moves startedAt away from that value. bumpAttempt is true only for a real reclaim (a new owner taking over), never a same-owner renewal, so the step's visible attempt count reflects actual takeovers. */
 async function casClaimStartedAt(
   db: DbClient,
   id: string,
-  previousStartedAt: Date
+  previousStartedAt: Date,
+  bumpAttempt: boolean
 ): Promise<ExecutionStep | undefined> {
   const [updated] = await db
     .update(executionSteps)
-    .set({ startedAt: new Date() })
+    .set(
+      bumpAttempt
+        ? { startedAt: new Date(), attempt: sql`${executionSteps.attempt} + 1` }
+        : { startedAt: new Date() }
+    )
     .where(
       and(
         eq(executionSteps.id, id),
@@ -120,7 +125,12 @@ export async function claimReplayStep(
     return { outcome: "live" }
   }
 
-  const reclaimed = await casClaimStartedAt(db, input.id, existing.startedAt)
+  const reclaimed = await casClaimStartedAt(
+    db,
+    input.id,
+    existing.startedAt,
+    true
+  )
   if (!reclaimed) {
     // Lost the race to a concurrent reclaimer (or it finished in the tiny window since we read `existing`) — "live", not "finalized": we don't know it's done, just that we don't own it, so a future retry sees the real state.
     return { outcome: "live" }
@@ -143,7 +153,7 @@ export async function renewReplayClaim(
   id: string,
   claimToken: Date
 ): Promise<RenewReplayClaimResult> {
-  const renewed = await casClaimStartedAt(db, id, claimToken)
+  const renewed = await casClaimStartedAt(db, id, claimToken, false)
   if (renewed) return { outcome: "renewed", claimToken: renewed.startedAt }
 
   const [current] = await db

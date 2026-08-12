@@ -361,6 +361,8 @@ describe("claimReplayStep + completeReplayStep", () => {
       expect(reclaimed.step.id).toBe(replayId)
       expect(reclaimed.step.status).toBe("running")
       expect(reclaimed.claimToken).not.toEqual(abandoned.claimToken)
+      // A real takeover, not a renewal, must visibly bump attempt so the trace shows this wasn't a first try.
+      expect(reclaimed.step.attempt).toBe(2)
 
       // The reclaimer finishes and records its result.
       await completeReplayStep(tx, replayId, reclaimed.claimToken, {
@@ -435,6 +437,13 @@ describe("renewReplayClaim", () => {
       }
       const renewedToken = renewal.claimToken
       expect(renewedToken).not.toEqual(claimed.claimToken)
+
+      // A renewal is the same owner checking in, not a takeover — attempt must stay 1.
+      const [afterRenewal] = await tx
+        .select()
+        .from(executionSteps)
+        .where(eq(executionSteps.id, replayId))
+      expect(afterRenewal.attempt).toBe(1)
 
       // Completing with the stale, pre-renewal token must not match — proving the renewed
       // token, not the original one, is now what fences the eventual completion.

@@ -95,6 +95,12 @@ export class ReplayService {
       throw new ReplayClaimPendingError(job.replayStepId)
     }
     const claimed = claimResult.claim
+    if (claimed.step.attempt > 1) {
+      // attempt only grows on a real reclaim (see casClaimStartedAt), never a same-owner renewal, so this is a genuine takeover from a claim that looked abandoned.
+      this.logger.warn(
+        `Replay ${job.replayStepId}: reclaimed a stale claim, this is attempt ${claimed.step.attempt}`
+      )
+    }
     // Renewed for as long as executeNode runs, so a slow AI/HTTP call isn't mistaken for abandoned; completeReplayStep's own fencing is the real backstop if renewal ever loses the claim.
     let claimToken = claimed.claimToken
     // Skips a tick if a renewal is already in flight, and completion always awaits it before reading claimToken — otherwise a late-resolving renewal could leave claimToken stale and completeReplayStep would wrongly fence out a real result.
