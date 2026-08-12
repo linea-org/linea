@@ -18,7 +18,10 @@ import {
   TableRow,
 } from "@linea/ui/components/table"
 
-import type { ExecutionSummary } from "../../lib/executions-api"
+import type {
+  ExecutionStepSummary,
+  ExecutionSummary,
+} from "../../lib/executions-api"
 import { ExecutionStatusBadge } from "./execution-status-badge"
 
 const triggerLabel: Record<ExecutionSummary["trigger"], string> = {
@@ -33,6 +36,17 @@ function formatDuration(startedAt: string | null, completedAt: string | null) {
   if (!completedAt) return "Running…"
   const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
+}
+
+/** No attribute on a succeeded "ai" step means it predates cost tracking, same tri-state as checkpoints.service.ts's stepCostUnpricedState. */
+export function stepCostUnpricedState(
+  step: Pick<ExecutionStepSummary, "name" | "status" | "attributes">
+): boolean | null {
+  if (step.name !== "ai" || step.status !== "succeeded") return false
+  const value = step.attributes?.costUnpriced
+  if (value === true) return true
+  if (value === false) return false
+  return null
 }
 
 export function formatCost(costMicros: string, unpriced?: boolean | null) {
