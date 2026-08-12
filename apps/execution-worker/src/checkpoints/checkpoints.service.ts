@@ -1,6 +1,24 @@
 import { randomUUID } from "node:crypto"
 import { Injectable } from "@nestjs/common"
-import { db, repositories } from "@linea/db"
+import { db, repositories, type ExecutionStep } from "@linea/db"
+
+/** true beats null beats false — one unpriced or unknown step outranks the rest of the execution's steps being confirmed priced. */
+function mergeCostUnpriced(
+  a: boolean | null,
+  b: boolean | null
+): boolean | null {
+  if (a === true || b === true) return true
+  if (a === null || b === null) return null
+  return false
+}
+
+/** A succeeded "ai" step with no costUnpriced attribute predates this feature — genuinely unknown, not confirmed priced. A failed one never got token usage to price at all, so it's excluded rather than treated as unknown. */
+function stepCostUnpricedState(step: ExecutionStep): boolean | null {
+  if (step.name !== "ai" || step.status !== "succeeded") return false
+  if (step.attributes?.costUnpriced === true) return true
+  if (step.attributes?.costUnpriced === false) return false
+  return null
+}
 
 export type RecordStepInput = {
   executionId: string
@@ -14,7 +32,7 @@ export type RecordStepInput = {
   startedAt: Date
   endedAt: Date
   costMicros?: bigint
-  // True when the node's model has no verified per-token rate — kept separate from costMicros itself so a 0n write is never mistaken for a genuinely free call.
+  // undefined: not an AI step. Otherwise always a definite true/false, and always written to attributes — a missing marker on an "ai" step is what signals a legacy gap on resume.
   costUnpriced?: boolean
   tokensInput?: number
   tokensOutput?: number
@@ -58,7 +76,10 @@ export class CheckpointsService {
         error: input.error,
         idempotencyKey: `${input.executionId}:${input.nodeId}`,
         costMicros: input.costMicros ?? 0n,
-        attributes: input.costUnpriced ? { costUnpriced: true } : undefined,
+        attributes:
+          input.costUnpriced !== undefined
+            ? { costUnpriced: input.costUnpriced }
+            : undefined,
         tokensInput: input.tokensInput ?? 0,
         tokensOutput: input.tokensOutput ?? 0,
       },
@@ -113,30 +134,37 @@ export class CheckpointsService {
     }
   }
 
-  /** Sums usage already recorded — resumed steps are skipped, not re-run, so their usage must be seeded rather than re-derived. */
+  /** Sums usage already recorded — resumed steps are skipped, not re-run, so their usage must be seeded rather than re-derived. costUnpriced is null if any AI step predates this feature, so a legacy gap is never mistaken for "confirmed fully priced." */
   async getResumeTokenTotals(executionId: string): Promise<{
     tokensInput: number
     tokensOutput: number
     costMicros: bigint
-    hasUnpricedCost: boolean
+    costUnpriced: boolean | null
   }> {
     const steps = await repositories.checkpoint.getStepsForExecution(
       db,
       executionId
     )
-    const initialTotals = {
+    const initialTotals: {
+      tokensInput: number
+      tokensOutput: number
+      costMicros: bigint
+      costUnpriced: boolean | null
+    } = {
       tokensInput: 0,
       tokensOutput: 0,
       costMicros: 0n,
-      hasUnpricedCost: false,
+      costUnpriced: false,
     }
     return steps.reduce(
       (totals, step) => ({
         tokensInput: totals.tokensInput + step.tokensInput,
         tokensOutput: totals.tokensOutput + step.tokensOutput,
         costMicros: totals.costMicros + step.costMicros,
-        hasUnpricedCost:
-          totals.hasUnpricedCost || step.attributes?.costUnpriced === true,
+        costUnpriced: mergeCostUnpriced(
+          totals.costUnpriced,
+          stepCostUnpricedState(step)
+        ),
       }),
       initialTotals
     )

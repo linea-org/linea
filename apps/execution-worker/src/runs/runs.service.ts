@@ -45,7 +45,7 @@ export class RunsService {
     let knownTokensInput = 0
     let knownTokensOutput = 0
     let knownCostMicros = 0n
-    let knownHasUnpricedCost = false
+    let knownCostUnpriced: boolean | null = false
 
     try {
       // Loaded first, before anything that can throw for unrelated reasons (a bad version id, a corrupt graph) — otherwise a reclaimed execution with real prior usage would finalize at zero on those failures too.
@@ -54,7 +54,7 @@ export class RunsService {
       knownTokensInput = resumeTokens.tokensInput
       knownTokensOutput = resumeTokens.tokensOutput
       knownCostMicros = resumeTokens.costMicros
-      knownHasUnpricedCost = resumeTokens.hasUnpricedCost
+      knownCostUnpriced = resumeTokens.costUnpriced
 
       const version = await repositories.workflow.getWorkflowVersionById(
         db,
@@ -88,17 +88,21 @@ export class RunsService {
         initialTokensInput: resumeTokens.tokensInput,
         initialTokensOutput: resumeTokens.tokensOutput,
         initialCostMicros: resumeTokens.costMicros,
-        initialHasUnpricedCost: resumeTokens.hasUnpricedCost,
+        initialCostUnpriced: resumeTokens.costUnpriced,
         signal: abortController.signal,
       })
       knownTokensInput = outcome.totalTokensInput
       knownTokensOutput = outcome.totalTokensOutput
       knownCostMicros = outcome.totalCostMicros
-      knownHasUnpricedCost = outcome.hasUnpricedCost
+      knownCostUnpriced = outcome.costUnpriced
 
-      if (outcome.hasUnpricedCost) {
+      if (outcome.costUnpriced === true) {
         this.logger.warn(
           `Execution ${executionId}: costMicros ${outcome.totalCostMicros} is a partial total — at least one step used a model with no verified price`
+        )
+      } else if (outcome.costUnpriced === null) {
+        this.logger.warn(
+          `Execution ${executionId}: costMicros ${outcome.totalCostMicros} has unknown completeness — a resumed step predates cost tracking`
         )
       }
 
@@ -110,7 +114,7 @@ export class RunsService {
           {
             status: "succeeded",
             costMicros: outcome.totalCostMicros,
-            costUnpriced: outcome.hasUnpricedCost,
+            costUnpriced: outcome.costUnpriced,
             tokensInput: outcome.totalTokensInput,
             tokensOutput: outcome.totalTokensOutput,
           }
@@ -127,7 +131,7 @@ export class RunsService {
               stepId: outcome.result.nodeId,
             },
             costMicros: outcome.totalCostMicros,
-            costUnpriced: outcome.hasUnpricedCost,
+            costUnpriced: outcome.costUnpriced,
             tokensInput: outcome.totalTokensInput,
             tokensOutput: outcome.totalTokensOutput,
           }
@@ -143,7 +147,7 @@ export class RunsService {
           status: "failed",
           error: { message },
           costMicros: knownCostMicros,
-          costUnpriced: knownHasUnpricedCost,
+          costUnpriced: knownCostUnpriced,
           tokensInput: knownTokensInput,
           tokensOutput: knownTokensOutput,
         }

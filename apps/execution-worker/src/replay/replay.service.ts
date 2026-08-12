@@ -147,7 +147,8 @@ export class ReplayService {
       tokensInput: number
       tokensOutput: number
       costMicros: bigint
-      costUnpriced: boolean
+      // undefined: not an AI call, nothing to record. Always written to attributes when set, so a priced replay doesn't look like a legacy gap on a later resume.
+      costUnpriced?: boolean
     }
     try {
       const result = await this.interpreter.executeNode(
@@ -179,7 +180,7 @@ export class ReplayService {
         tokensInput: result.tokensInput ?? 0,
         tokensOutput: result.tokensOutput ?? 0,
         costMicros: costMicros ?? 0n,
-        costUnpriced: isAiCall && costMicros === undefined,
+        costUnpriced: isAiCall ? costMicros === undefined : undefined,
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -190,7 +191,7 @@ export class ReplayService {
         tokensInput: 0,
         tokensOutput: 0,
         costMicros: 0n,
-        costUnpriced: false,
+        costUnpriced: undefined,
       }
     } finally {
       // clearInterval stops new ticks, but one already in flight may not have updated claimToken yet — wait for it so completion reads the token that matches the DB.
@@ -209,7 +210,10 @@ export class ReplayService {
         costMicros: outcome.costMicros,
         tokensInput: outcome.tokensInput,
         tokensOutput: outcome.tokensOutput,
-        attributes: outcome.costUnpriced ? { costUnpriced: true } : undefined,
+        attributes:
+          outcome.costUnpriced !== undefined
+            ? { costUnpriced: outcome.costUnpriced }
+            : undefined,
       }
     )
   }

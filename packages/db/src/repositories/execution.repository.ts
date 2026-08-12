@@ -135,7 +135,8 @@ export type CompleteExecutionInput = {
   status: "succeeded" | "failed" | "cancelled"
   error?: { message: string; stepId?: string }
   costMicros: bigint
-  costUnpriced: boolean
+  // null: at least one AI step's pricing status is unknown (predates this feature) — never coerce to false.
+  costUnpriced: boolean | null
   tokensInput: number
   tokensOutput: number
 }

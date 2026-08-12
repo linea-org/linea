@@ -28,7 +28,8 @@ export type RunInput = {
   initialTokensInput?: number
   initialTokensOutput?: number
   initialCostMicros?: bigint
-  initialHasUnpricedCost?: boolean
+  // null: at least one prior AI step's pricing status is unknown (predates this feature) — must not collapse to false.
+  initialCostUnpriced?: boolean | null
   // Aborted by the caller (RunsService) when the execution lease is lost mid-step, so the in-flight node handler's own request is cancelled instead of just racing the checkpoint.
   signal?: AbortSignal
 }
@@ -38,8 +39,18 @@ export type RunOutcome = {
   totalTokensInput: number
   totalTokensOutput: number
   totalCostMicros: bigint
-  // True if any AI step's model had no verified rate — totalCostMicros is then a known-partial lower bound, not the real total.
-  hasUnpricedCost: boolean
+  // true: known-partial (some step unpriced). null: unknown (some step predates tracking). false: every AI step was confidently priced.
+  costUnpriced: boolean | null
+}
+
+/** true beats null beats false — once any step is confirmed unpriced or unknown, that outranks a step this run happens to confirm priced. */
+function mergeCostUnpriced(
+  a: boolean | null,
+  b: boolean | null
+): boolean | null {
+  if (a === true || b === true) return true
+  if (a === null || b === null) return null
+  return false
 }
 
 function extractTokenUsage(
@@ -114,7 +125,11 @@ export class InterpreterService {
     let totalTokensInput = input.initialTokensInput ?? 0
     let totalTokensOutput = input.initialTokensOutput ?? 0
     let totalCostMicros = input.initialCostMicros ?? 0n
-    let hasUnpricedCost = input.initialHasUnpricedCost ?? false
+    // ?? would collapse an explicit null (unknown) into false — only a truly absent field defaults.
+    let costUnpriced: boolean | null =
+      input.initialCostUnpriced === undefined
+        ? false
+        : input.initialCostUnpriced
 
     let next = generator.next()
     while (!next.done) {
@@ -142,7 +157,8 @@ export class InterpreterService {
           input.signal
         )
         let costMicros: bigint | undefined
-        let costUnpriced = false
+        // undefined: not an AI step, nothing to record. Once set, it's always a definite true/false — this run computes it live, never a legacy gap.
+        let stepCostUnpriced: boolean | undefined
         if (tokensInput !== undefined && tokensOutput !== undefined) {
           totalTokensInput += tokensInput
           totalTokensOutput += tokensOutput
@@ -152,12 +168,11 @@ export class InterpreterService {
               tokensInput,
               tokensOutput
             )
+            stepCostUnpriced = costMicros === undefined
             if (costMicros !== undefined) {
               totalCostMicros += costMicros
-            } else {
-              costUnpriced = true
-              hasUnpricedCost = true
             }
+            costUnpriced = mergeCostUnpriced(costUnpriced, stepCostUnpriced)
           }
         }
 
@@ -177,7 +192,7 @@ export class InterpreterService {
           tokensInput,
           tokensOutput,
           costMicros,
-          costUnpriced,
+          costUnpriced: stepCostUnpriced,
           completed,
         })
 
@@ -219,7 +234,7 @@ export class InterpreterService {
       totalTokensInput,
       totalTokensOutput,
       totalCostMicros,
-      hasUnpricedCost,
+      costUnpriced,
     }
   }
 }
