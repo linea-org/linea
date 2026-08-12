@@ -3,10 +3,7 @@ export type ModelPrice = {
   outputMicrosPerToken: number
 }
 
-// A dollar price per million tokens and a "micros per token" rate are numerically identical
-// (a micro is a millionth of a dollar; per-million-tokens is a millionth-of-a-token scale), so
-// each provider's published $/M figure is used directly as the rate below. Verified against
-// each provider's official pricing page as of 2026-08-13 — see packages/ai/MODULE.md.
+// $ per million tokens and micros per token are the same number — used directly, no conversion.
 const modelPricing: Record<string, ModelPrice> = {
   "claude-opus-5": { inputMicrosPerToken: 5.0, outputMicrosPerToken: 25.0 },
   "claude-sonnet-5": { inputMicrosPerToken: 2.0, outputMicrosPerToken: 10.0 },
@@ -38,12 +35,9 @@ const modelPricing: Record<string, ModelPrice> = {
     outputMicrosPerToken: 0.3,
   },
 
-  // groq/compound and groq/compound-mini deliberately excluded: they're agentic systems whose
-  // cost depends on which underlying model and tools a given query invokes, plus separate
-  // per-request tool fees — Groq's own docs give no single per-token rate, so none is guessed here.
+  // groq/compound, groq/compound-mini omitted: no fixed per-token rate exists to give them.
 }
 
-// grok-4.5 prices by context length, not a flat rate.
 const GROK_4_5_TIER_THRESHOLD_TOKENS = 200_000
 const grok45Pricing = {
   under: { inputMicrosPerToken: 2.0, outputMicrosPerToken: 6.0 },
@@ -62,7 +56,7 @@ function getModelPrice(
   return modelPricing[model]
 }
 
-// Returns undefined (not 0n) for a model with no verified rate, so a caller can tell "unpriced" apart from "actually free" rather than silently reporting a real call as costing nothing.
+// undefined, not 0n, so an unpriced model isn't mistaken for a free one.
 export function calculateCostMicros(
   model: string,
   tokensInput: number,
