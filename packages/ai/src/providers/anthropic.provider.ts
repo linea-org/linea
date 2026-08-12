@@ -6,9 +6,7 @@ import {
   type CompletionResult,
 } from "./provider.interface.js"
 
-// Investigated for linea-org/linea#22: the Messages API has no request-level idempotency
-// mechanism — no Idempotency-Key header or equivalent, only client-side retry (max_retries)
-// on connection errors/429/5xx. A retried request can be billed twice; nothing to thread through.
+// The Messages API has no idempotency mechanism, so a retry here can bill twice.
 export const anthropicProvider: AiProvider = {
   async complete(
     apiKey: string,
