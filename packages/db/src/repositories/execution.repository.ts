@@ -135,6 +135,7 @@ export type CompleteExecutionInput = {
   status: "succeeded" | "failed" | "cancelled"
   error?: { message: string; stepId?: string }
   costMicros: bigint
+  costUnpriced: boolean
   tokensInput: number
   tokensOutput: number
 }

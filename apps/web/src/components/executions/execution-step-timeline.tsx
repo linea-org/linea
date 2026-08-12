@@ -227,7 +227,10 @@ export function ExecutionStepTimeline({
                 <dd className="text-foreground">{step.attempt}</dd>
                 <dt>Cost</dt>
                 <dd className="text-foreground">
-                  {formatCost(step.costMicros)}
+                  {formatCost(
+                    step.costMicros,
+                    step.attributes?.costUnpriced === true
+                  )}
                 </dd>
                 <dt>Tokens</dt>
                 <dd className="text-foreground">

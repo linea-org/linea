@@ -35,11 +35,12 @@ function formatDuration(startedAt: string | null, completedAt: string | null) {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 
-export function formatCost(costMicros: string) {
-  return (Number(costMicros) / 1_000_000).toLocaleString(undefined, {
+export function formatCost(costMicros: string, unpriced?: boolean) {
+  const formatted = (Number(costMicros) / 1_000_000).toLocaleString(undefined, {
     style: "currency",
     currency: "USD",
   })
+  return unpriced ? `${formatted} (partial)` : formatted
 }
 
 export function ExecutionList({
@@ -97,7 +98,7 @@ export function ExecutionList({
               {formatDuration(execution.startedAt, execution.completedAt)}
             </TableCell>
             <TableCell className="text-muted-foreground">
-              {formatCost(execution.costMicros)}
+              {formatCost(execution.costMicros, execution.costUnpriced)}
             </TableCell>
             <TableCell className="text-muted-foreground">
               {new Date(execution.createdAt).toLocaleString()}

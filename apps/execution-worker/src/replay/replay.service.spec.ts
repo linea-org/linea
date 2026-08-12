@@ -53,7 +53,13 @@ async function setUpExecutionWithStep(
     db,
     execution.id,
     "setup-worker",
-    { status: "succeeded", costMicros: 0n, tokensInput: 0, tokensOutput: 0 }
+    {
+      status: "succeeded",
+      costMicros: 0n,
+      costUnpriced: false,
+      tokensInput: 0,
+      tokensOutput: 0,
+    }
   )
 
   const [originalStep] = await db
@@ -208,7 +214,13 @@ describe("ReplayService.replay", () => {
         db,
         execution.id,
         "setup-worker",
-        { status: "succeeded", costMicros: 0n, tokensInput: 0, tokensOutput: 0 }
+        {
+          status: "succeeded",
+          costMicros: 0n,
+          costUnpriced: false,
+          tokensInput: 0,
+          tokensOutput: 0,
+        }
       )
       const [originalStep] = await db
         .insert(schema.executionSteps)

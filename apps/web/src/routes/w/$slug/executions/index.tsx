@@ -344,7 +344,7 @@ function ExecutionsPage() {
                     {formatDuration(execution.startedAt, execution.completedAt)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {formatCost(execution.costMicros)}
+                    {formatCost(execution.costMicros, execution.costUnpriced)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {new Date(execution.createdAt).toLocaleString()}

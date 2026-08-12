@@ -19,6 +19,8 @@ export type ExecutionSummary = {
   status: ExecutionStatus
   trigger: ExecutionTrigger
   costMicros: string
+  // True if any step's model had no verified rate — costMicros is then a partial lower bound, not the real total.
+  costUnpriced: boolean
   tokensInput: number
   tokensOutput: number
   startedAt: string | null
@@ -60,6 +62,7 @@ export type ExecutionStepSummary = {
   output: Record<string, JsonValue> | null
   error: { message: string; stack?: string } | null
   costMicros: string
+  attributes: Record<string, JsonValue> | null
   tokensInput: number
   tokensOutput: number
   isSystemEvent: boolean

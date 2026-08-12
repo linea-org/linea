@@ -45,6 +45,7 @@ export class RunsService {
     let knownTokensInput = 0
     let knownTokensOutput = 0
     let knownCostMicros = 0n
+    let knownHasUnpricedCost = false
 
     try {
       // Loaded first, before anything that can throw for unrelated reasons (a bad version id, a corrupt graph) — otherwise a reclaimed execution with real prior usage would finalize at zero on those failures too.
@@ -53,6 +54,7 @@ export class RunsService {
       knownTokensInput = resumeTokens.tokensInput
       knownTokensOutput = resumeTokens.tokensOutput
       knownCostMicros = resumeTokens.costMicros
+      knownHasUnpricedCost = resumeTokens.hasUnpricedCost
 
       const version = await repositories.workflow.getWorkflowVersionById(
         db,
@@ -92,6 +94,7 @@ export class RunsService {
       knownTokensInput = outcome.totalTokensInput
       knownTokensOutput = outcome.totalTokensOutput
       knownCostMicros = outcome.totalCostMicros
+      knownHasUnpricedCost = outcome.hasUnpricedCost
 
       if (outcome.hasUnpricedCost) {
         this.logger.warn(
@@ -107,6 +110,7 @@ export class RunsService {
           {
             status: "succeeded",
             costMicros: outcome.totalCostMicros,
+            costUnpriced: outcome.hasUnpricedCost,
             tokensInput: outcome.totalTokensInput,
             tokensOutput: outcome.totalTokensOutput,
           }
@@ -123,6 +127,7 @@ export class RunsService {
               stepId: outcome.result.nodeId,
             },
             costMicros: outcome.totalCostMicros,
+            costUnpriced: outcome.hasUnpricedCost,
             tokensInput: outcome.totalTokensInput,
             tokensOutput: outcome.totalTokensOutput,
           }
@@ -138,6 +143,7 @@ export class RunsService {
           status: "failed",
           error: { message },
           costMicros: knownCostMicros,
+          costUnpriced: knownHasUnpricedCost,
           tokensInput: knownTokensInput,
           tokensOutput: knownTokensOutput,
         }
