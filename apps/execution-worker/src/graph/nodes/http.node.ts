@@ -29,6 +29,7 @@ export class HttpNode implements NodeHandler {
     if (context.idempotencyKey && !hasIdempotencyHeader) {
       headers["Idempotency-Key"] = context.idempotencyKey
     }
+    // Only helps if the destination honors this header — a reclaim can still double-mutate one that doesn't, and no code-only fix closes that gap.
     const response = await fetch(parsed.url, {
       method: parsed.method,
       headers,

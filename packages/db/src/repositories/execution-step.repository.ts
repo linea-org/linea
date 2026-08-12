@@ -4,6 +4,7 @@ import { executionSteps, type ExecutionStep } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
 // A live replay renews its claim (see renewReplayClaim) well inside this window — older is presumed abandoned by a dead/redeployed worker, not just a slow HTTP/AI call still legitimately in flight.
+// Tightening this only narrows, never closes, a reclaim's overlap with a still-live call, and risks reclaiming merely-slow workers if pushed too far.
 export const REPLAY_CLAIM_STALE_MS = 10 * 60 * 1000
 
 /** CAS on the previously-observed startedAt: only one concurrent caller's UPDATE can match, since the winner immediately moves startedAt away from that value. Used both to reclaim a stale claim and to renew a live one. */
