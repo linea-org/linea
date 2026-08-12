@@ -6,6 +6,7 @@ import {
   type CompletionResult,
 } from "./provider.interface.js"
 
+// The Messages API has no idempotency mechanism, so a retry here can bill twice.
 export const anthropicProvider: AiProvider = {
   async complete(
     apiKey: string,

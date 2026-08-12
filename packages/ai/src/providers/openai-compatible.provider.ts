@@ -7,6 +7,7 @@ import {
 } from "./provider.interface.js"
 
 /** Groq and xAI both publish an OpenAI-compatible chat completions endpoint — one impl, one baseURL each. */
+// None of OpenAI/Groq/xAI support idempotency on chat completions (OpenAI's Idempotency-Key header is checkout-only), so a retry here can bill twice.
 export function createOpenAiCompatibleProvider(baseURL?: string): AiProvider {
   return {
     async complete(

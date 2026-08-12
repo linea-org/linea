@@ -24,6 +24,7 @@ export class AiNode implements NodeHandler {
     const keyName = resolveKeyName(parsed.model)
     const { apiKey } = await resolveApiKey(db, context.workspaceId, keyName)
 
+    // Unlike HttpNode, idempotencyKey isn't forwarded — no supported provider accepts one.
     const result = await provider.complete(apiKey, {
       model: parsed.model,
       prompt: parsed.prompt,
