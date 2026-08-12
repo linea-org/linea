@@ -13,6 +13,10 @@ export const flagType = pgEnum("flag_type", [
   "branch_never_taken",
   "cost_jump",
   "excess_resumes",
+  "tool_error",
+  "empty_response",
+  "refusal",
+  "repeated_replay",
 ])
 
 export const flags = snakeCase.table(

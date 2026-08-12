@@ -6,8 +6,12 @@ import { createWorkflowVersion } from "./workflow.repository.js"
 import {
   createFlagIfNew,
   detectCostJump,
+  detectEmptyResponses,
   detectExcessResumes,
+  detectRefusals,
+  detectRepeatedReplay,
   detectRetryStorm,
+  detectToolErrors,
   getObservedBranchValues,
   getWorkflowIdsWithBranchSteps,
 } from "./flag.repository.js"
@@ -366,6 +370,174 @@ describe("getWorkflowIdsWithBranchSteps and getObservedBranchValues", () => {
 
       const observed = await getObservedBranchValues(tx, version.id, "b1")
       expect(observed).toEqual(new Set())
+    })
+  })
+})
+
+describe("detectToolErrors", () => {
+  it("flags a failed non-ai step, ignores a failed ai step and a succeeded one", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const failedHttp = await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "http-step",
+        name: "http",
+        status: "failed",
+      })
+      await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "ai-step",
+        name: "ai",
+        status: "failed",
+      })
+      await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "ok-step",
+        name: "http",
+        status: "succeeded",
+      })
+
+      const results = await detectToolErrors(tx)
+      expect(results).toEqual([
+        expect.objectContaining({ stepId: failedHttp.id, nodeId: "http-step" }),
+      ])
+    })
+  })
+})
+
+describe("detectEmptyResponses", () => {
+  it("flags a succeeded ai step with blank text, ignores one with real text", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const blank = await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "blank-step",
+        output: { text: "   " },
+      })
+      await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "real-step",
+        output: { text: "hello" },
+      })
+
+      const results = await detectEmptyResponses(tx)
+      expect(results).toEqual([
+        expect.objectContaining({ stepId: blank.id, nodeId: "blank-step" }),
+      ])
+    })
+  })
+})
+
+describe("detectRefusals", () => {
+  it("flags a refusal phrase case-insensitively, ignores ordinary text", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const refused = await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "refused-step",
+        output: { text: "I'm sorry, but I CANNOT help with that request." },
+      })
+      await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "ok-step",
+        output: { text: "Sure, here's the summary you asked for." },
+      })
+
+      const results = await detectRefusals(tx)
+      expect(results).toEqual([
+        expect.objectContaining({ stepId: refused.id, nodeId: "refused-step" }),
+      ])
+    })
+  })
+})
+
+describe("detectRepeatedReplay", () => {
+  it("flags an original step replayed at least the minimum number of times", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      const original = await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "n1",
+      })
+
+      for (let i = 0; i < 3; i++) {
+        await insertStep(tx, {
+          executionId: execution.id,
+          workspaceId: organization.id,
+          nodeId: "n1",
+          replayedFromStepId: original.id,
+        })
+      }
+
+      const results = await detectRepeatedReplay(tx, 3)
+      expect(results).toEqual([
+        expect.objectContaining({
+          executionId: execution.id,
+          originalStepId: original.id,
+          replayCount: 3,
+        }),
+      ])
+    })
+  })
+
+  it("does not flag a step replayed fewer times than the minimum", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      const original = await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "n1",
+      })
+      await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "n1",
+        replayedFromStepId: original.id,
+      })
+
+      const results = await detectRepeatedReplay(tx, 3)
+      expect(results).toEqual([])
     })
   })
 })
