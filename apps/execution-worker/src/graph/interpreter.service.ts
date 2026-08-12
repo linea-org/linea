@@ -28,7 +28,6 @@ export type RunInput = {
   initialTokensInput?: number
   initialTokensOutput?: number
   initialCostMicros?: bigint
-  // null: at least one prior AI step's pricing status is unknown (predates this feature) — must not collapse to false.
   initialCostUnpriced?: boolean | null
   // Aborted by the caller (RunsService) when the execution lease is lost mid-step, so the in-flight node handler's own request is cancelled instead of just racing the checkpoint.
   signal?: AbortSignal
@@ -39,11 +38,11 @@ export type RunOutcome = {
   totalTokensInput: number
   totalTokensOutput: number
   totalCostMicros: bigint
-  // true: known-partial (some step unpriced). null: unknown (some step predates tracking). false: every AI step was confidently priced.
+  // true: some step unpriced. null: some step predates tracking. false: all priced.
   costUnpriced: boolean | null
 }
 
-/** true beats null beats false — once any step is confirmed unpriced or unknown, that outranks a step this run happens to confirm priced. */
+/** true beats null beats false. */
 function mergeCostUnpriced(
   a: boolean | null,
   b: boolean | null
@@ -157,7 +156,6 @@ export class InterpreterService {
           input.signal
         )
         let costMicros: bigint | undefined
-        // undefined: not an AI step, nothing to record. Once set, it's always a definite true/false — this run computes it live, never a legacy gap.
         let stepCostUnpriced: boolean | undefined
         if (tokensInput !== undefined && tokensOutput !== undefined) {
           totalTokensInput += tokensInput

@@ -147,7 +147,6 @@ export class ReplayService {
       tokensInput: number
       tokensOutput: number
       costMicros: bigint
-      // undefined: not an AI call, nothing to record. Always written to attributes when set, so a priced replay doesn't look like a legacy gap on a later resume.
       costUnpriced?: boolean
     }
     try {

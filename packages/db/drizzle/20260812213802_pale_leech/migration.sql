@@ -1,1 +1,0 @@
-ALTER TABLE "executions" ADD COLUMN "cost_unpriced" boolean DEFAULT false NOT NULL;

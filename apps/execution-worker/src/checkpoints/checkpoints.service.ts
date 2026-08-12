@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import { Injectable } from "@nestjs/common"
 import { db, repositories, type ExecutionStep } from "@linea/db"
 
-/** true beats null beats false — one unpriced or unknown step outranks the rest of the execution's steps being confirmed priced. */
+/** true beats null beats false. */
 function mergeCostUnpriced(
   a: boolean | null,
   b: boolean | null
@@ -12,7 +12,7 @@ function mergeCostUnpriced(
   return false
 }
 
-/** A succeeded "ai" step with no costUnpriced attribute predates this feature — genuinely unknown, not confirmed priced. A failed one never got token usage to price at all, so it's excluded rather than treated as unknown. */
+/** No attribute on a succeeded "ai" step means it predates this feature. */
 function stepCostUnpricedState(step: ExecutionStep): boolean | null {
   if (step.name !== "ai" || step.status !== "succeeded") return false
   if (step.attributes?.costUnpriced === true) return true
@@ -32,7 +32,6 @@ export type RecordStepInput = {
   startedAt: Date
   endedAt: Date
   costMicros?: bigint
-  // undefined: not an AI step. Otherwise always a definite true/false, and always written to attributes — a missing marker on an "ai" step is what signals a legacy gap on resume.
   costUnpriced?: boolean
   tokensInput?: number
   tokensOutput?: number
@@ -134,7 +133,7 @@ export class CheckpointsService {
     }
   }
 
-  /** Sums usage already recorded — resumed steps are skipped, not re-run, so their usage must be seeded rather than re-derived. costUnpriced is null if any AI step predates this feature, so a legacy gap is never mistaken for "confirmed fully priced." */
+  /** Sums usage already recorded — resumed steps are skipped, not re-run, so their usage must be seeded rather than re-derived. */
   async getResumeTokenTotals(executionId: string): Promise<{
     tokensInput: number
     tokensOutput: number

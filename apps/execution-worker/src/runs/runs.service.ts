@@ -139,6 +139,15 @@ export class RunsService {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      // known* can be stale here — interpreter.run() only returns totals at the end, so re-read.
+      const latestKnown = await this.checkpoints
+        .getResumeTokenTotals(executionId)
+        .catch(() => ({
+          tokensInput: knownTokensInput,
+          tokensOutput: knownTokensOutput,
+          costMicros: knownCostMicros,
+          costUnpriced: knownCostUnpriced,
+        }))
       await repositories.execution.completeExecution(
         db,
         executionId,
@@ -146,10 +155,10 @@ export class RunsService {
         {
           status: "failed",
           error: { message },
-          costMicros: knownCostMicros,
-          costUnpriced: knownCostUnpriced,
-          tokensInput: knownTokensInput,
-          tokensOutput: knownTokensOutput,
+          costMicros: latestKnown.costMicros,
+          costUnpriced: latestKnown.costUnpriced,
+          tokensInput: latestKnown.tokensInput,
+          tokensOutput: latestKnown.tokensOutput,
         }
       )
       throw error
