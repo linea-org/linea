@@ -101,7 +101,7 @@ export class GraphFlaggersService implements OnModuleInit, OnModuleDestroy {
           .map((e) => e.condition as string)
         const observed = await repositories.flag.getObservedBranchValues(
           db,
-          workflowId,
+          version.id,
           node.id
         )
         for (const condition of possibleConditions) {
@@ -112,7 +112,7 @@ export class GraphFlaggersService implements OnModuleInit, OnModuleDestroy {
             nodeId: node.id,
             flagType: "branch_never_taken",
             detail: { condition },
-            dedupeKey: `branch_never_taken:${workflowId}:${node.id}:${condition}`,
+            dedupeKey: `branch_never_taken:${version.id}:${node.id}:${condition}`,
           })
         }
       }

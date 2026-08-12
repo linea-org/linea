@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import { executionSteps } from "../schema/index.js"
 import { createExecution } from "./execution.repository.js"
+import { createWorkflowVersion } from "./workflow.repository.js"
 import {
   createFlagIfNew,
   detectCostJump,
@@ -68,6 +69,32 @@ describe("detectRetryStorm", () => {
       ])
     })
   })
+
+  it("ignores synthetic resume markers, whose attempt counts resumes, not node retries", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      // Two resumes already puts a __resumed__ row's attempt at 3 — see recordResumeEvent.
+      await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "__resumed__",
+        name: "resumed",
+        isSystemEvent: true,
+        sequence: -1,
+        attempt: 3,
+      })
+
+      const results = await detectRetryStorm(tx, 3)
+      expect(results).toEqual([])
+    })
+  })
 })
 
 describe("detectExcessResumes", () => {
@@ -131,6 +158,7 @@ describe("detectCostJump", () => {
   it("flags a step costing an order of magnitude above its node's own history, once enough samples exist", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
+      const now = Date.now()
 
       // Three prior executions of the same workflow, all costing about the same for "n1".
       for (let i = 0; i < 3; i++) {
@@ -145,10 +173,11 @@ describe("detectCostJump", () => {
           workspaceId: organization.id,
           nodeId: "n1",
           costMicros: 100n,
+          startedAt: new Date(now + i * 1000),
         })
       }
 
-      // A fourth execution whose "n1" step costs far more than its own history.
+      // A fourth, later execution whose "n1" step costs far more than its own prior history.
       const spikedExecution = await createExecution(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -160,6 +189,7 @@ describe("detectCostJump", () => {
         workspaceId: organization.id,
         nodeId: "n1",
         costMicros: 5000n,
+        startedAt: new Date(now + 4000),
       })
 
       const results = await detectCostJump(tx, 10, 3)
@@ -192,6 +222,50 @@ describe("detectCostJump", () => {
       expect(results).toEqual([])
     })
   })
+
+  it("does not let later, cheaper runs retroactively flag an earlier normal-cost run", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const now = Date.now()
+
+      // An older, unremarkable run — first in time, so it has no prior samples of its own.
+      const earlyExecution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await insertStep(tx, {
+        executionId: earlyExecution.id,
+        workspaceId: organization.id,
+        nodeId: "n1",
+        costMicros: 5000n,
+        startedAt: new Date(now),
+      })
+
+      // Three later, much cheaper runs — must not pull the earlier run's baseline down after the fact.
+      for (let i = 1; i <= 3; i++) {
+        const execution = await createExecution(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+        })
+        await insertStep(tx, {
+          executionId: execution.id,
+          workspaceId: organization.id,
+          nodeId: "n1",
+          costMicros: 100n,
+          startedAt: new Date(now + i * 1000),
+        })
+      }
+
+      const results = await detectCostJump(tx, 10, 3)
+      expect(results.some((r) => r.executionId === earlyExecution.id)).toBe(
+        false
+      )
+    })
+  })
 })
 
 describe("getWorkflowIdsWithBranchSteps and getObservedBranchValues", () => {
@@ -218,8 +292,36 @@ describe("getWorkflowIdsWithBranchSteps and getObservedBranchValues", () => {
         workspaceId: organization.id,
       })
 
-      const observed = await getObservedBranchValues(tx, workflow.id, "b1")
+      const observed = await getObservedBranchValues(tx, version.id, "b1")
       expect(observed).toEqual(new Set(["yes"]))
+    })
+  })
+
+  it("does not credit a condition observed under a different workflow version", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const otherVersion = await createWorkflowVersion(tx, {
+        workflowId: workflow.id,
+        graph: { nodes: [], edges: [] },
+        contentHash: "other-version-hash",
+      })
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        // Ran under a different version than the one we're checking.
+        workflowVersionId: otherVersion.id,
+        trigger: "manual",
+      })
+      await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "b1",
+        name: "branch",
+        output: { branch: "yes" },
+      })
+
+      const observed = await getObservedBranchValues(tx, version.id, "b1")
+      expect(observed).toEqual(new Set())
     })
   })
 })

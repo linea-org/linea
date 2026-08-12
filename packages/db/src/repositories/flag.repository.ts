@@ -39,6 +39,8 @@ export async function detectRetryStorm(
       maxAttempt: sql<number>`max(${executionSteps.attempt})`,
     })
     .from(executionSteps)
+    // A resumed execution's synthetic marker also lives on "attempt", counting resumes, not node retries.
+    .where(eq(executionSteps.isSystemEvent, false))
     .groupBy(
       executionSteps.executionId,
       executionSteps.workspaceId,
@@ -85,7 +87,8 @@ export type CostJumpResult = {
   historicalAvgMicros: string
 }
 
-// Excludes the current row from its own baseline, so a big enough spike can't hide by dragging up the average it's compared against.
+// Baseline is prior occurrences only (ordered by startedAt), not a symmetric window over the whole
+// partition — a later, cheaper run must not retroactively make an earlier normal-cost run look like a spike.
 export async function detectCostJump(
   db: DbClient,
   multiplier = 10,
@@ -100,10 +103,14 @@ export async function detectCostJump(
         ${executionSteps.costMicros} AS cost_micros,
         sum(${executionSteps.costMicros}) OVER (
           PARTITION BY ${executions.workflowId}, ${executionSteps.nodeId}
-        ) - ${executionSteps.costMicros} AS others_sum,
+          ORDER BY ${executionSteps.startedAt}
+          ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+        ) AS prior_sum,
         count(*) OVER (
           PARTITION BY ${executions.workflowId}, ${executionSteps.nodeId}
-        ) - 1 AS others_count
+          ORDER BY ${executionSteps.startedAt}
+          ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+        ) AS prior_count
       FROM ${executionSteps}
       JOIN ${executions} ON ${executions.id} = ${executionSteps.executionId}
       WHERE ${executionSteps.costMicros} > 0
@@ -113,10 +120,10 @@ export async function detectCostJump(
       workspace_id AS "workspaceId",
       node_id AS "nodeId",
       cost_micros AS "costMicros",
-      (others_sum::numeric / others_count) AS "historicalAvgMicros"
+      (prior_sum::numeric / prior_count) AS "historicalAvgMicros"
     FROM per_step
-    WHERE others_count >= ${minSamples}
-      AND cost_micros >= (others_sum::numeric / others_count) * ${multiplier}
+    WHERE prior_count >= ${minSamples}
+      AND cost_micros >= (prior_sum::numeric / prior_count) * ${multiplier}
   `)
   return result.rows
 }
@@ -136,10 +143,10 @@ export async function getWorkflowIdsWithBranchSteps(
   return rows
 }
 
-/** The set of `branch` output values ever observed for one node, across every execution of a workflow. */
+/** The set of `branch` output values observed for one node, scoped to a single workflow version — a node id can be reused across versions with a different set of edges/conditions, so mixing versions could credit a condition as taken by coincidence. */
 export async function getObservedBranchValues(
   db: DbClient,
-  workflowId: string,
+  workflowVersionId: string,
   nodeId: string
 ): Promise<Set<string>> {
   const rows = await db
@@ -150,7 +157,7 @@ export async function getObservedBranchValues(
     .innerJoin(executions, eq(executions.id, executionSteps.executionId))
     .where(
       and(
-        eq(executions.workflowId, workflowId),
+        eq(executions.workflowVersionId, workflowVersionId),
         eq(executionSteps.nodeId, nodeId),
         isNotNull(sql`${executionSteps.output}->>'branch'`)
       )
