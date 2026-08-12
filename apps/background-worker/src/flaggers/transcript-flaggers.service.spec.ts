@@ -92,4 +92,91 @@ describe("TranscriptFlaggersService.sweep", () => {
       ])
     }
   })
+
+  it("persists one repeated_replay flag per original step, even as the replay count keeps growing", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Transcript Flaggers Escalation Test Org",
+        slug: `transcript-flaggers-escalation-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Transcript Flaggers Escalation Test Workflow",
+        slug: `transcript-flaggers-escalation-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph: { nodes: [], edges: [] },
+        contentHash: `transcript-flaggers-escalation-hash-${suffix}`,
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      const [original] = await db
+        .insert(schema.executionSteps)
+        .values({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: execution.id,
+          spanId: "original-span",
+          name: "ai",
+          nodeId: "n1",
+          sequence: 1,
+          startedAt: new Date(),
+          status: "succeeded",
+          output: { text: "hello" },
+        })
+        .returning()
+
+      async function insertReplay() {
+        await db.insert(schema.executionSteps).values({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: execution.id,
+          spanId: randomUUID(),
+          name: "ai",
+          nodeId: "n1",
+          sequence: 1,
+          startedAt: new Date(),
+          status: "succeeded",
+          output: { text: "hello" },
+          replayedFromStepId: original.id,
+        })
+      }
+
+      const service = new TranscriptFlaggersService()
+
+      // First sweep: 3 replays, crosses the threshold.
+      await insertReplay()
+      await insertReplay()
+      await insertReplay()
+      await service.sweep()
+
+      // Second sweep: the count has grown — must not create a second flag for the same step.
+      await insertReplay()
+      await service.sweep()
+
+      const allFlags = await db.select().from(schema.flags)
+      const repeatedReplayFlags = allFlags.filter(
+        (f) =>
+          f.executionId === execution.id && f.flagType === "repeated_replay"
+      )
+
+      expect(repeatedReplayFlags).toHaveLength(1)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
 })

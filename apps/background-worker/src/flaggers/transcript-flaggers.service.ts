@@ -94,7 +94,7 @@ export class TranscriptFlaggersService
           originalStepId: r.originalStepId,
           replayCount: r.replayCount,
         },
-        dedupeKey: `repeated_replay:${r.originalStepId}:${r.replayCount}`,
+        dedupeKey: `repeated_replay:${r.originalStepId}`,
       })
     }
   }
