@@ -19,6 +19,8 @@ export type ExecutionSummary = {
   status: ExecutionStatus
   trigger: ExecutionTrigger
   costMicros: string
+  // True: costMicros is a known-partial lower bound. False: fully priced. Null: this execution predates cost-unpriced tracking, not the same as false.
+  costUnpriced: boolean | null
   tokensInput: number
   tokensOutput: number
   startedAt: string | null
@@ -60,6 +62,7 @@ export type ExecutionStepSummary = {
   output: Record<string, JsonValue> | null
   error: { message: string; stack?: string } | null
   costMicros: string
+  attributes: Record<string, JsonValue> | null
   tokensInput: number
   tokensOutput: number
   isSystemEvent: boolean

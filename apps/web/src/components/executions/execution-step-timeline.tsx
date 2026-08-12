@@ -16,7 +16,7 @@ import {
   type ExecutionStepSummary,
   type JsonValue,
 } from "../../lib/executions-api"
-import { formatCost } from "./execution-list"
+import { formatCost, stepCostUnpricedState } from "./execution-list"
 
 const stepStatusVariant: Record<
   ExecutionStepSummary["status"],
@@ -227,7 +227,7 @@ export function ExecutionStepTimeline({
                 <dd className="text-foreground">{step.attempt}</dd>
                 <dt>Cost</dt>
                 <dd className="text-foreground">
-                  {formatCost(step.costMicros)}
+                  {formatCost(step.costMicros, stepCostUnpricedState(step))}
                 </dd>
                 <dt>Tokens</dt>
                 <dd className="text-foreground">

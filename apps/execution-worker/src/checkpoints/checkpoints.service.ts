@@ -1,6 +1,24 @@
 import { randomUUID } from "node:crypto"
 import { Injectable } from "@nestjs/common"
-import { db, repositories } from "@linea/db"
+import { db, repositories, type ExecutionStep } from "@linea/db"
+
+/** true beats null beats false. */
+function mergeCostUnpriced(
+  a: boolean | null,
+  b: boolean | null
+): boolean | null {
+  if (a === true || b === true) return true
+  if (a === null || b === null) return null
+  return false
+}
+
+/** No attribute on a succeeded "ai" step means it predates this feature. */
+function stepCostUnpricedState(step: ExecutionStep): boolean | null {
+  if (step.name !== "ai" || step.status !== "succeeded") return false
+  if (step.attributes?.costUnpriced === true) return true
+  if (step.attributes?.costUnpriced === false) return false
+  return null
+}
 
 export type RecordStepInput = {
   executionId: string
@@ -14,6 +32,7 @@ export type RecordStepInput = {
   startedAt: Date
   endedAt: Date
   costMicros?: bigint
+  costUnpriced?: boolean
   tokensInput?: number
   tokensOutput?: number
   // Includes this step if it just succeeded — a failed step is never added, matching the walker's own map.
@@ -56,6 +75,10 @@ export class CheckpointsService {
         error: input.error,
         idempotencyKey: `${input.executionId}:${input.nodeId}`,
         costMicros: input.costMicros ?? 0n,
+        attributes:
+          input.costUnpriced !== undefined
+            ? { costUnpriced: input.costUnpriced }
+            : undefined,
         tokensInput: input.tokensInput ?? 0,
         tokensOutput: input.tokensOutput ?? 0,
       },
@@ -110,20 +133,39 @@ export class CheckpointsService {
     }
   }
 
-  /** Sums token usage already recorded — resumed steps are skipped, not re-run, so their usage must be seeded rather than re-derived. */
-  async getResumeTokenTotals(
-    executionId: string
-  ): Promise<{ tokensInput: number; tokensOutput: number }> {
+  /** Sums usage already recorded — resumed steps are skipped, not re-run, so their usage must be seeded rather than re-derived. */
+  async getResumeTokenTotals(executionId: string): Promise<{
+    tokensInput: number
+    tokensOutput: number
+    costMicros: bigint
+    costUnpriced: boolean | null
+  }> {
     const steps = await repositories.checkpoint.getStepsForExecution(
       db,
       executionId
     )
+    const initialTotals: {
+      tokensInput: number
+      tokensOutput: number
+      costMicros: bigint
+      costUnpriced: boolean | null
+    } = {
+      tokensInput: 0,
+      tokensOutput: 0,
+      costMicros: 0n,
+      costUnpriced: false,
+    }
     return steps.reduce(
       (totals, step) => ({
         tokensInput: totals.tokensInput + step.tokensInput,
         tokensOutput: totals.tokensOutput + step.tokensOutput,
+        costMicros: totals.costMicros + step.costMicros,
+        costUnpriced: mergeCostUnpriced(
+          totals.costUnpriced,
+          stepCostUnpricedState(step)
+        ),
       }),
-      { tokensInput: 0, tokensOutput: 0 }
+      initialTotals
     )
   }
 }

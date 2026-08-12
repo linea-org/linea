@@ -8,7 +8,7 @@ import {
 } from "../checkpoints/checkpoints.service"
 import { AiNode } from "./nodes/ai.node"
 import { BranchNode } from "./nodes/branch.node"
-import type { HttpNode } from "./nodes/http.node"
+import { HttpNode } from "./nodes/http.node"
 import { TransformNode } from "./nodes/transform.node"
 import { InterpreterService } from "./interpreter.service"
 
@@ -244,6 +244,368 @@ describe("InterpreterService resume", () => {
       expect(secondRun.result.status).toBe("completed")
       expect(secondRun.totalTokensInput).toBe(100)
       expect(secondRun.totalTokensOutput).toBe(50)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("carries an unpriced step's flag into a resumed run that skips it", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Interpreter Resume Unpriced Test Org",
+        slug: `interpreter-resume-unpriced-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Interpreter Resume Unpriced Test Workflow",
+        slug: `interpreter-resume-unpriced-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "interpreter-resume-unpriced-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const checkpoints = new CheckpointsService()
+      const interpreter = new InterpreterService(
+        checkpoints,
+        new HttpNode(),
+        new TransformNode(),
+        new BranchNode(),
+        tokenNode
+      )
+
+      // First run: executes n1 (unpriced), checkpoints it, then "crashes".
+      await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: await checkpoints.getResumeState(execution.id),
+      })
+
+      const resumeTokens = await checkpoints.getResumeTokenTotals(execution.id)
+      expect(resumeTokens.costUnpriced).toBe(true)
+
+      // Second run: n1 is already checkpointed and skipped — the flag must still carry forward.
+      const secondRun = await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: await checkpoints.getResumeState(execution.id),
+        initialTokensInput: resumeTokens.tokensInput,
+        initialTokensOutput: resumeTokens.tokensOutput,
+        initialCostMicros: resumeTokens.costMicros,
+        initialCostUnpriced: resumeTokens.costUnpriced,
+      })
+
+      expect(secondRun.result.status).toBe("completed")
+      expect(secondRun.costUnpriced).toBe(true)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("reports unknown, not false, when a resumed execution has a legacy AI step from before cost tracking existed", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Interpreter Legacy Gap Test Org",
+        slug: `interpreter-legacy-gap-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [
+          // n1 simulates a step written before cost tracking existed: succeeded, real tokens, no attributes.
+          {
+            id: "n1",
+            type: "ai",
+            config: { model: "claude-haiku-4-5-20251001" },
+          },
+          {
+            id: "n2",
+            type: "ai",
+            config: { model: "claude-haiku-4-5-20251001" },
+          },
+        ],
+        edges: [{ from: "n1", to: "n2" }],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Interpreter Legacy Gap Test Workflow",
+        slug: `interpreter-legacy-gap-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "interpreter-legacy-gap-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      // Manually insert n1's step and checkpoint exactly as they'd look pre-feature: no attributes column value at all.
+      await db.insert(schema.executionSteps).values({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        traceId: execution.id,
+        spanId: "legacy-span",
+        name: "ai",
+        startedAt: new Date(),
+        endedAt: new Date(),
+        status: "succeeded",
+        nodeId: "n1",
+        sequence: 1,
+        output: { text: "legacy", tokensInput: 40, tokensOutput: 10 },
+        tokensInput: 40,
+        tokensOutput: 10,
+        costMicros: 0n,
+      })
+      await db.insert(schema.checkpoints).values({
+        executionId: execution.id,
+        sequence: 1,
+        completedStepIds: ["n1"],
+        context: { n1: { text: "legacy", tokensInput: 40, tokensOutput: 10 } },
+      })
+
+      const checkpoints = new CheckpointsService()
+      const resumeTokens = await checkpoints.getResumeTokenTotals(execution.id)
+      expect(resumeTokens.costUnpriced).toBeNull()
+
+      const interpreter = new InterpreterService(
+        checkpoints,
+        new HttpNode(),
+        new TransformNode(),
+        new BranchNode(),
+        tokenNode
+      )
+
+      // n2 runs fresh and is fully priced, but the legacy gap on n1 must still win.
+      const outcome = await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: await checkpoints.getResumeState(execution.id),
+        initialTokensInput: resumeTokens.tokensInput,
+        initialTokensOutput: resumeTokens.tokensOutput,
+        initialCostMicros: resumeTokens.costMicros,
+        initialCostUnpriced: resumeTokens.costUnpriced,
+      })
+
+      expect(outcome.result.status).toBe("completed")
+      expect(outcome.costUnpriced).toBeNull()
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("computes and checkpoints AI step cost from the pricing table", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Interpreter Cost Test Org",
+        slug: `interpreter-cost-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [
+          {
+            id: "n1",
+            type: "ai",
+            config: { model: "claude-haiku-4-5-20251001" },
+          },
+        ],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Interpreter Cost Test Workflow",
+        slug: `interpreter-cost-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "interpreter-cost-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const checkpoints = new CheckpointsService()
+      const interpreter = new InterpreterService(
+        checkpoints,
+        new HttpNode(),
+        new TransformNode(),
+        new BranchNode(),
+        tokenNode
+      )
+
+      const outcome = await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: await checkpoints.getResumeState(execution.id),
+      })
+
+      // claude-haiku-4-5-20251001: 1.0 micros/input token, 5.0 micros/output token — 100*1 + 50*5 = 350.
+      expect(outcome.totalCostMicros).toBe(350n)
+
+      const steps = await repositories.checkpoint.getStepsForExecution(
+        db,
+        execution.id
+      )
+      expect(steps[0]?.costMicros).toBe(350n)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("marks an unpriced model's step as unpriced rather than silently reporting it as free", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Interpreter Unpriced Cost Test Org",
+        slug: `interpreter-unpriced-cost-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Interpreter Unpriced Cost Test Workflow",
+        slug: `interpreter-unpriced-cost-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "interpreter-unpriced-cost-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const checkpoints = new CheckpointsService()
+      const interpreter = new InterpreterService(
+        checkpoints,
+        new HttpNode(),
+        new TransformNode(),
+        new BranchNode(),
+        tokenNode
+      )
+
+      const outcome = await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: await checkpoints.getResumeState(execution.id),
+      })
+
+      // groq/compound has no verified rate — totalCostMicros must stay a known-partial 0, not a silent real 0.
+      expect(outcome.totalCostMicros).toBe(0n)
+      expect(outcome.costUnpriced).toBe(true)
+
+      const steps = await repositories.checkpoint.getStepsForExecution(
+        db,
+        execution.id
+      )
+      expect(steps[0]?.costMicros).toBe(0n)
+      expect(steps[0]?.attributes).toEqual({ costUnpriced: true })
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

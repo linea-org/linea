@@ -18,7 +18,10 @@ import {
   TableRow,
 } from "@linea/ui/components/table"
 
-import type { ExecutionSummary } from "../../lib/executions-api"
+import type {
+  ExecutionStepSummary,
+  ExecutionSummary,
+} from "../../lib/executions-api"
 import { ExecutionStatusBadge } from "./execution-status-badge"
 
 const triggerLabel: Record<ExecutionSummary["trigger"], string> = {
@@ -35,11 +38,24 @@ function formatDuration(startedAt: string | null, completedAt: string | null) {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 
-export function formatCost(costMicros: string) {
-  return (Number(costMicros) / 1_000_000).toLocaleString(undefined, {
+/** No attribute on a succeeded "ai" step means it predates cost tracking, same tri-state as checkpoints.service.ts's stepCostUnpricedState. */
+export function stepCostUnpricedState(
+  step: Pick<ExecutionStepSummary, "name" | "status" | "attributes">
+): boolean | null {
+  if (step.name !== "ai" || step.status !== "succeeded") return false
+  const value = step.attributes?.costUnpriced
+  if (value === true) return true
+  if (value === false) return false
+  return null
+}
+
+export function formatCost(costMicros: string, unpriced?: boolean | null) {
+  if (unpriced === null) return "—"
+  const formatted = (Number(costMicros) / 1_000_000).toLocaleString(undefined, {
     style: "currency",
     currency: "USD",
   })
+  return unpriced ? `${formatted} (partial)` : formatted
 }
 
 export function ExecutionList({
@@ -97,7 +113,7 @@ export function ExecutionList({
               {formatDuration(execution.startedAt, execution.completedAt)}
             </TableCell>
             <TableCell className="text-muted-foreground">
-              {formatCost(execution.costMicros)}
+              {formatCost(execution.costMicros, execution.costUnpriced)}
             </TableCell>
             <TableCell className="text-muted-foreground">
               {new Date(execution.createdAt).toLocaleString()}

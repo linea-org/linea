@@ -8,3 +8,5 @@ export type {
   CompletionRequest,
   CompletionResult,
 } from "./providers/provider.interface.js"
+export { calculateCostMicros } from "./pricing/pricing-table.js"
+export type { ModelPrice } from "./pricing/pricing-table.js"

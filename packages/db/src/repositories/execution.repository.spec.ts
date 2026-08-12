@@ -285,6 +285,7 @@ describe("completeExecution", () => {
       const completed = await completeExecution(tx, execution.id, "worker-1", {
         status: "succeeded",
         costMicros: 1_500n,
+        costUnpriced: false,
         tokensInput: 100,
         tokensOutput: 50,
       })
@@ -292,6 +293,50 @@ describe("completeExecution", () => {
       expect(completed?.status).toBe("succeeded")
       expect(completed?.costMicros).toBe(1_500n)
       expect(completed?.completedAt).toBeInstanceOf(Date)
+    })
+  })
+
+  it("persists costUnpriced so a partial total is never mistaken for a complete or free one", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const completed = await completeExecution(tx, execution.id, "worker-1", {
+        status: "succeeded",
+        costMicros: 0n,
+        costUnpriced: true,
+        tokensInput: 100,
+        tokensOutput: 50,
+      })
+
+      expect(completed?.costMicros).toBe(0n)
+      expect(completed?.costUnpriced).toBe(true)
+    })
+  })
+
+  it("leaves costUnpriced null before completion, distinct from a known false", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      // Also what a pre-existing row from before this column existed looks like — never treat this the same as a completed, fully-priced execution.
+      expect(execution.costUnpriced).toBeNull()
     })
   })
 
@@ -314,6 +359,7 @@ describe("completeExecution", () => {
       const first = await completeExecution(tx, execution.id, "worker-1", {
         status: "succeeded",
         costMicros: 1_500n,
+        costUnpriced: false,
         tokensInput: 100,
         tokensOutput: 50,
       })
@@ -323,6 +369,7 @@ describe("completeExecution", () => {
         status: "failed",
         error: { message: "timed out" },
         costMicros: 9_999n,
+        costUnpriced: false,
         tokensInput: 0,
         tokensOutput: 0,
       })
@@ -360,6 +407,7 @@ describe("completeExecution", () => {
       const stale = await completeExecution(tx, execution.id, "worker-1", {
         status: "succeeded",
         costMicros: 1n,
+        costUnpriced: false,
         tokensInput: 1,
         tokensOutput: 1,
       })
@@ -372,6 +420,7 @@ describe("completeExecution", () => {
       const real = await completeExecution(tx, execution.id, "worker-2", {
         status: "succeeded",
         costMicros: 2_000n,
+        costUnpriced: false,
         tokensInput: 200,
         tokensOutput: 100,
       })
@@ -400,6 +449,7 @@ describe("completeExecution", () => {
       const stale = await completeExecution(tx, execution.id, "worker-1", {
         status: "succeeded",
         costMicros: 1n,
+        costUnpriced: false,
         tokensInput: 1,
         tokensOutput: 1,
       })

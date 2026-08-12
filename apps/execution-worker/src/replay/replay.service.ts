@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common"
+import { calculateCostMicros } from "@linea/ai"
 import { db, repositories } from "@linea/db"
 import { workflowGraphSchema } from "@linea/runtime"
 import type { WorkflowStepReplayJob } from "@linea/queue"
@@ -145,6 +146,8 @@ export class ReplayService {
       error?: { message: string; stack?: string }
       tokensInput: number
       tokensOutput: number
+      costMicros: bigint
+      costUnpriced?: boolean
     }
     try {
       const result = await this.interpreter.executeNode(
@@ -154,11 +157,29 @@ export class ReplayService {
         job.replayStepId,
         abortController.signal
       )
+      const isAiCall =
+        mergedNode.type === "ai" &&
+        result.tokensInput !== undefined &&
+        result.tokensOutput !== undefined
+      const costMicros = isAiCall
+        ? calculateCostMicros(
+            mergedNode.config.model as string,
+            result.tokensInput as number,
+            result.tokensOutput as number
+          )
+        : undefined
+      if (isAiCall && costMicros === undefined) {
+        this.logger.warn(
+          `Replay ${job.replayStepId}: costMicros 0 is unpriced, not free — model has no verified rate`
+        )
+      }
       outcome = {
         status: "succeeded",
         output: result.output as Record<string, unknown>,
         tokensInput: result.tokensInput ?? 0,
         tokensOutput: result.tokensOutput ?? 0,
+        costMicros: costMicros ?? 0n,
+        costUnpriced: isAiCall ? costMicros === undefined : undefined,
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -168,6 +189,8 @@ export class ReplayService {
         error: { message, stack },
         tokensInput: 0,
         tokensOutput: 0,
+        costMicros: 0n,
+        costUnpriced: undefined,
       }
     } finally {
       // clearInterval stops new ticks, but one already in flight may not have updated claimToken yet — wait for it so completion reads the token that matches the DB.
@@ -183,9 +206,13 @@ export class ReplayService {
         status: outcome.status,
         output: outcome.output,
         error: outcome.error,
-        costMicros: 0n,
+        costMicros: outcome.costMicros,
         tokensInput: outcome.tokensInput,
         tokensOutput: outcome.tokensOutput,
+        attributes:
+          outcome.costUnpriced !== undefined
+            ? { costUnpriced: outcome.costUnpriced }
+            : undefined,
       }
     )
   }

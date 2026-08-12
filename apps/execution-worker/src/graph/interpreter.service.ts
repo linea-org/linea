@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common"
+import { calculateCostMicros } from "@linea/ai"
 import { walk } from "@linea/runtime"
 import type {
   StepResult,
@@ -26,6 +27,8 @@ export type RunInput = {
   // Usage already recorded for steps in `resumeFrom`, since they're skipped rather than re-executed.
   initialTokensInput?: number
   initialTokensOutput?: number
+  initialCostMicros?: bigint
+  initialCostUnpriced?: boolean | null
   // Aborted by the caller (RunsService) when the execution lease is lost mid-step, so the in-flight node handler's own request is cancelled instead of just racing the checkpoint.
   signal?: AbortSignal
 }
@@ -34,6 +37,19 @@ export type RunOutcome = {
   result: WalkResult
   totalTokensInput: number
   totalTokensOutput: number
+  totalCostMicros: bigint
+  // true: some step unpriced. null: some step predates tracking. false: all priced.
+  costUnpriced: boolean | null
+}
+
+/** true beats null beats false. */
+function mergeCostUnpriced(
+  a: boolean | null,
+  b: boolean | null
+): boolean | null {
+  if (a === true || b === true) return true
+  if (a === null || b === null) return null
+  return false
 }
 
 function extractTokenUsage(
@@ -107,6 +123,12 @@ export class InterpreterService {
     const completed = new Map(input.resumeFrom)
     let totalTokensInput = input.initialTokensInput ?? 0
     let totalTokensOutput = input.initialTokensOutput ?? 0
+    let totalCostMicros = input.initialCostMicros ?? 0n
+    // ?? would collapse an explicit null (unknown) into false — only a truly absent field defaults.
+    let costUnpriced: boolean | null =
+      input.initialCostUnpriced === undefined
+        ? false
+        : input.initialCostUnpriced
 
     let next = generator.next()
     while (!next.done) {
@@ -133,9 +155,23 @@ export class InterpreterService {
           `${input.executionId}:${step.nodeId}`,
           input.signal
         )
+        let costMicros: bigint | undefined
+        let stepCostUnpriced: boolean | undefined
         if (tokensInput !== undefined && tokensOutput !== undefined) {
           totalTokensInput += tokensInput
           totalTokensOutput += tokensOutput
+          if (node.type === "ai") {
+            costMicros = calculateCostMicros(
+              node.config.model as string,
+              tokensInput,
+              tokensOutput
+            )
+            stepCostUnpriced = costMicros === undefined
+            if (costMicros !== undefined) {
+              totalCostMicros += costMicros
+            }
+            costUnpriced = mergeCostUnpriced(costUnpriced, stepCostUnpriced)
+          }
         }
 
         // Update before checkpointing, so a crash right after the write doesn't leave a resume replaying this step.
@@ -153,6 +189,8 @@ export class InterpreterService {
           endedAt: new Date(),
           tokensInput,
           tokensOutput,
+          costMicros,
+          costUnpriced: stepCostUnpriced,
           completed,
         })
 
@@ -193,6 +231,8 @@ export class InterpreterService {
       result: next.value,
       totalTokensInput,
       totalTokensOutput,
+      totalCostMicros,
+      costUnpriced,
     }
   }
 }

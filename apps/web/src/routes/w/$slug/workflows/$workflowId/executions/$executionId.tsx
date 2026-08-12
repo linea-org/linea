@@ -77,7 +77,9 @@ function ExecutionDetailPage() {
           {formatDuration(execution.startedAt, execution.completedAt)}
         </dd>
         <dt className="text-muted-foreground">Cost</dt>
-        <dd className="text-foreground">{formatCost(execution.costMicros)}</dd>
+        <dd className="text-foreground">
+          {formatCost(execution.costMicros, execution.costUnpriced)}
+        </dd>
         <dt className="text-muted-foreground">Tokens</dt>
         <dd className="text-foreground">
           {execution.tokensInput} in / {execution.tokensOutput} out

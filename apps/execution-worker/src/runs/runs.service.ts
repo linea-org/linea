@@ -44,6 +44,8 @@ export class RunsService {
     // Best totals known so far, so a failure partway through still reports checkpointed usage instead of zero.
     let knownTokensInput = 0
     let knownTokensOutput = 0
+    let knownCostMicros = 0n
+    let knownCostUnpriced: boolean | null = false
 
     try {
       // Loaded first, before anything that can throw for unrelated reasons (a bad version id, a corrupt graph) — otherwise a reclaimed execution with real prior usage would finalize at zero on those failures too.
@@ -51,6 +53,8 @@ export class RunsService {
         await this.checkpoints.getResumeTokenTotals(executionId)
       knownTokensInput = resumeTokens.tokensInput
       knownTokensOutput = resumeTokens.tokensOutput
+      knownCostMicros = resumeTokens.costMicros
+      knownCostUnpriced = resumeTokens.costUnpriced
 
       const version = await repositories.workflow.getWorkflowVersionById(
         db,
@@ -83,12 +87,25 @@ export class RunsService {
         resumeFrom,
         initialTokensInput: resumeTokens.tokensInput,
         initialTokensOutput: resumeTokens.tokensOutput,
+        initialCostMicros: resumeTokens.costMicros,
+        initialCostUnpriced: resumeTokens.costUnpriced,
         signal: abortController.signal,
       })
       knownTokensInput = outcome.totalTokensInput
       knownTokensOutput = outcome.totalTokensOutput
+      knownCostMicros = outcome.totalCostMicros
+      knownCostUnpriced = outcome.costUnpriced
 
-      // No per-token pricing table exists anywhere yet — tracked as a known gap (see MODULE.md), not silently invented. Tokens are still real.
+      if (outcome.costUnpriced === true) {
+        this.logger.warn(
+          `Execution ${executionId}: costMicros ${outcome.totalCostMicros} is a partial total — at least one step used a model with no verified price`
+        )
+      } else if (outcome.costUnpriced === null) {
+        this.logger.warn(
+          `Execution ${executionId}: costMicros ${outcome.totalCostMicros} has unknown completeness — a resumed step predates cost tracking`
+        )
+      }
+
       if (outcome.result.status === "completed") {
         await repositories.execution.completeExecution(
           db,
@@ -96,7 +113,8 @@ export class RunsService {
           attemptId,
           {
             status: "succeeded",
-            costMicros: 0n,
+            costMicros: outcome.totalCostMicros,
+            costUnpriced: outcome.costUnpriced,
             tokensInput: outcome.totalTokensInput,
             tokensOutput: outcome.totalTokensOutput,
           }
@@ -112,7 +130,8 @@ export class RunsService {
               message: outcome.result.error,
               stepId: outcome.result.nodeId,
             },
-            costMicros: 0n,
+            costMicros: outcome.totalCostMicros,
+            costUnpriced: outcome.costUnpriced,
             tokensInput: outcome.totalTokensInput,
             tokensOutput: outcome.totalTokensOutput,
           }
@@ -120,6 +139,15 @@ export class RunsService {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      // known* can be stale here — interpreter.run() only returns totals at the end, so re-read.
+      const latestKnown = await this.checkpoints
+        .getResumeTokenTotals(executionId)
+        .catch(() => ({
+          tokensInput: knownTokensInput,
+          tokensOutput: knownTokensOutput,
+          costMicros: knownCostMicros,
+          costUnpriced: knownCostUnpriced,
+        }))
       await repositories.execution.completeExecution(
         db,
         executionId,
@@ -127,9 +155,10 @@ export class RunsService {
         {
           status: "failed",
           error: { message },
-          costMicros: 0n,
-          tokensInput: knownTokensInput,
-          tokensOutput: knownTokensOutput,
+          costMicros: latestKnown.costMicros,
+          costUnpriced: latestKnown.costUnpriced,
+          tokensInput: latestKnown.tokensInput,
+          tokensOutput: latestKnown.tokensOutput,
         }
       )
       throw error

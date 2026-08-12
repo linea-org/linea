@@ -174,6 +174,7 @@ export type CompleteReplayStepInput = {
   tokensInput: number
   tokensOutput: number
   endedAt: Date
+  attributes?: Record<string, unknown>
 }
 
 /** Fills in the outcome of a node execution already claimed via claimReplayStep. Fenced on `claimToken` (the claim's `startedAt`) so a zombie worker whose claim was reclaimed by someone else can't clobber a fresher attempt's result if it (very late) finishes. */
@@ -193,6 +194,7 @@ export async function completeReplayStep(
       tokensInput: input.tokensInput,
       tokensOutput: input.tokensOutput,
       endedAt: input.endedAt,
+      attributes: input.attributes,
     })
     .where(
       and(eq(executionSteps.id, id), eq(executionSteps.startedAt, claimToken))

@@ -317,6 +317,7 @@ describe('ExecutionsService', () => {
           {
             status: 'succeeded',
             costMicros: 0n,
+            costUnpriced: false,
             tokensInput: 0,
             tokensOutput: 0,
           },
@@ -365,6 +366,7 @@ describe('ExecutionsService', () => {
         {
           status: 'succeeded',
           costMicros: 0n,
+          costUnpriced: false,
           tokensInput: 0,
           tokensOutput: 0,
         },
