@@ -48,11 +48,18 @@ inferred from a model name string.
   o-series reasoning models, and Groq/xAI's compatibility layers are far
   more likely to honor the original field.
 
+- **`calculateCostMicros` returns `undefined`, not `0n`, for a model with no verified
+  per-token rate** (`groq/compound` and `groq/compound-mini` — agentic systems with no fixed
+  rate, cost depends on which underlying model and tools a query invokes). Callers must not
+  collapse that into a real zero cost. Rates were verified against each provider's official
+  pricing page as of 2026-08-13; re-check before trusting them much later, prices change.
+
 ## Public surface
 
 `registry`, `resolveProvider(model)`, `resolveKeyName(model)`,
 `resolveApiKey(db, workspaceId, keyName)`, `createOpenAiCompatibleProvider(baseURL?)`,
-and the `AiProvider` / `CompletionRequest` / `CompletionResult` types.
+`calculateCostMicros(model, tokensInput, tokensOutput)`,
+and the `AiProvider` / `CompletionRequest` / `CompletionResult` / `ModelPrice` types.
 
 ## Deliberately not here
 

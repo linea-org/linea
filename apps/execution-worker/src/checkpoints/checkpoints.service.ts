@@ -110,10 +110,12 @@ export class CheckpointsService {
     }
   }
 
-  /** Sums token usage already recorded — resumed steps are skipped, not re-run, so their usage must be seeded rather than re-derived. */
-  async getResumeTokenTotals(
-    executionId: string
-  ): Promise<{ tokensInput: number; tokensOutput: number }> {
+  /** Sums usage already recorded — resumed steps are skipped, not re-run, so their usage must be seeded rather than re-derived. */
+  async getResumeTokenTotals(executionId: string): Promise<{
+    tokensInput: number
+    tokensOutput: number
+    costMicros: bigint
+  }> {
     const steps = await repositories.checkpoint.getStepsForExecution(
       db,
       executionId
@@ -122,8 +124,9 @@ export class CheckpointsService {
       (totals, step) => ({
         tokensInput: totals.tokensInput + step.tokensInput,
         tokensOutput: totals.tokensOutput + step.tokensOutput,
+        costMicros: totals.costMicros + step.costMicros,
       }),
-      { tokensInput: 0, tokensOutput: 0 }
+      { tokensInput: 0, tokensOutput: 0, costMicros: 0n }
     )
   }
 }

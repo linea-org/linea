@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common"
+import { calculateCostMicros } from "@linea/ai"
 import { walk } from "@linea/runtime"
 import type {
   StepResult,
@@ -26,6 +27,7 @@ export type RunInput = {
   // Usage already recorded for steps in `resumeFrom`, since they're skipped rather than re-executed.
   initialTokensInput?: number
   initialTokensOutput?: number
+  initialCostMicros?: bigint
   // Aborted by the caller (RunsService) when the execution lease is lost mid-step, so the in-flight node handler's own request is cancelled instead of just racing the checkpoint.
   signal?: AbortSignal
 }
@@ -34,6 +36,7 @@ export type RunOutcome = {
   result: WalkResult
   totalTokensInput: number
   totalTokensOutput: number
+  totalCostMicros: bigint
 }
 
 function extractTokenUsage(
@@ -107,6 +110,7 @@ export class InterpreterService {
     const completed = new Map(input.resumeFrom)
     let totalTokensInput = input.initialTokensInput ?? 0
     let totalTokensOutput = input.initialTokensOutput ?? 0
+    let totalCostMicros = input.initialCostMicros ?? 0n
 
     let next = generator.next()
     while (!next.done) {
@@ -133,9 +137,18 @@ export class InterpreterService {
           `${input.executionId}:${step.nodeId}`,
           input.signal
         )
+        let costMicros: bigint | undefined
         if (tokensInput !== undefined && tokensOutput !== undefined) {
           totalTokensInput += tokensInput
           totalTokensOutput += tokensOutput
+          if (node.type === "ai") {
+            costMicros = calculateCostMicros(
+              node.config.model as string,
+              tokensInput,
+              tokensOutput
+            )
+            if (costMicros !== undefined) totalCostMicros += costMicros
+          }
         }
 
         // Update before checkpointing, so a crash right after the write doesn't leave a resume replaying this step.
@@ -153,6 +166,7 @@ export class InterpreterService {
           endedAt: new Date(),
           tokensInput,
           tokensOutput,
+          costMicros,
           completed,
         })
 
@@ -193,6 +207,7 @@ export class InterpreterService {
       result: next.value,
       totalTokensInput,
       totalTokensOutput,
+      totalCostMicros,
     }
   }
 }

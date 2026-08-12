@@ -8,7 +8,7 @@ import {
 } from "../checkpoints/checkpoints.service"
 import { AiNode } from "./nodes/ai.node"
 import { BranchNode } from "./nodes/branch.node"
-import type { HttpNode } from "./nodes/http.node"
+import { HttpNode } from "./nodes/http.node"
 import { TransformNode } from "./nodes/transform.node"
 import { InterpreterService } from "./interpreter.service"
 
@@ -244,6 +244,88 @@ describe("InterpreterService resume", () => {
       expect(secondRun.result.status).toBe("completed")
       expect(secondRun.totalTokensInput).toBe(100)
       expect(secondRun.totalTokensOutput).toBe(50)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("computes and checkpoints AI step cost from the pricing table", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Interpreter Cost Test Org",
+        slug: `interpreter-cost-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [
+          {
+            id: "n1",
+            type: "ai",
+            config: { model: "claude-haiku-4-5-20251001" },
+          },
+        ],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Interpreter Cost Test Workflow",
+        slug: `interpreter-cost-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "interpreter-cost-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const checkpoints = new CheckpointsService()
+      const interpreter = new InterpreterService(
+        checkpoints,
+        new HttpNode(),
+        new TransformNode(),
+        new BranchNode(),
+        tokenNode
+      )
+
+      const outcome = await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: await checkpoints.getResumeState(execution.id),
+      })
+
+      // claude-haiku-4-5-20251001: 1.0 micros/input token, 5.0 micros/output token — 100*1 + 50*5 = 350.
+      expect(outcome.totalCostMicros).toBe(350n)
+
+      const steps = await repositories.checkpoint.getStepsForExecution(
+        db,
+        execution.id
+      )
+      expect(steps[0]?.costMicros).toBe(350n)
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

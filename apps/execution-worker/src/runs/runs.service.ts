@@ -44,6 +44,7 @@ export class RunsService {
     // Best totals known so far, so a failure partway through still reports checkpointed usage instead of zero.
     let knownTokensInput = 0
     let knownTokensOutput = 0
+    let knownCostMicros = 0n
 
     try {
       // Loaded first, before anything that can throw for unrelated reasons (a bad version id, a corrupt graph) — otherwise a reclaimed execution with real prior usage would finalize at zero on those failures too.
@@ -51,6 +52,7 @@ export class RunsService {
         await this.checkpoints.getResumeTokenTotals(executionId)
       knownTokensInput = resumeTokens.tokensInput
       knownTokensOutput = resumeTokens.tokensOutput
+      knownCostMicros = resumeTokens.costMicros
 
       const version = await repositories.workflow.getWorkflowVersionById(
         db,
@@ -83,12 +85,13 @@ export class RunsService {
         resumeFrom,
         initialTokensInput: resumeTokens.tokensInput,
         initialTokensOutput: resumeTokens.tokensOutput,
+        initialCostMicros: resumeTokens.costMicros,
         signal: abortController.signal,
       })
       knownTokensInput = outcome.totalTokensInput
       knownTokensOutput = outcome.totalTokensOutput
+      knownCostMicros = outcome.totalCostMicros
 
-      // No per-token pricing table exists anywhere yet — tracked as a known gap (see MODULE.md), not silently invented. Tokens are still real.
       if (outcome.result.status === "completed") {
         await repositories.execution.completeExecution(
           db,
@@ -96,7 +99,7 @@ export class RunsService {
           attemptId,
           {
             status: "succeeded",
-            costMicros: 0n,
+            costMicros: outcome.totalCostMicros,
             tokensInput: outcome.totalTokensInput,
             tokensOutput: outcome.totalTokensOutput,
           }
@@ -112,7 +115,7 @@ export class RunsService {
               message: outcome.result.error,
               stepId: outcome.result.nodeId,
             },
-            costMicros: 0n,
+            costMicros: outcome.totalCostMicros,
             tokensInput: outcome.totalTokensInput,
             tokensOutput: outcome.totalTokensOutput,
           }
@@ -127,7 +130,7 @@ export class RunsService {
         {
           status: "failed",
           error: { message },
-          costMicros: 0n,
+          costMicros: knownCostMicros,
           tokensInput: knownTokensInput,
           tokensOutput: knownTokensOutput,
         }
