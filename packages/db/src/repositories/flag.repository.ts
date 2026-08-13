@@ -9,19 +9,22 @@ import {
 import { recordSignalOccurrence } from "./signal.repository.js"
 import type { DbClient } from "./types.js"
 
+// Insert and signal linkage share a transaction — a flag that exists must always have already reached its signal, since a crash in between would otherwise leave a permanently unlinked row: dedupeKey suppresses reinsertion on the next sweep, so there is no retry path outside this atomicity.
 export async function createFlagIfNew(
   db: DbClient,
   input: NewFlag
 ): Promise<Flag | undefined> {
-  const [flag] = await db
-    .insert(flags)
-    .values(input)
-    .onConflictDoNothing({ target: flags.dedupeKey })
-    .returning()
-  if (flag) {
-    await recordSignalOccurrence(db, flag)
-  }
-  return flag
+  return db.transaction(async (tx) => {
+    const [flag] = await tx
+      .insert(flags)
+      .values(input)
+      .onConflictDoNothing({ target: flags.dedupeKey })
+      .returning()
+    if (flag) {
+      await recordSignalOccurrence(tx, flag)
+    }
+    return flag
+  })
 }
 
 export type RetryStormResult = {
