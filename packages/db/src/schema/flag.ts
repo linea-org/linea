@@ -35,6 +35,9 @@ export const flags = snakeCase.table(
     // e.g. `retry_storm:${executionId}:${nodeId}` — avoids a composite unique index, since relevant columns vary by flagType and NULLs aren't equal in one.
     dedupeKey: text().notNull(),
 
+    // Set after insert once the flag's signal has been resolved/upserted — not a DB-level FK, matching this table's existing convention.
+    signalId: uuid(),
+
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [uniqueIndex("flags_dedupe_key_uidx").on(table.dedupeKey)]
