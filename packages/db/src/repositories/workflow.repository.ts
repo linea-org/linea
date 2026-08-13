@@ -39,6 +39,7 @@ export type CreateWorkflowVersionInput = {
   workflowId: string
   graph: Record<string, unknown>
   contentHash: string
+  message?: string
 }
 
 /** Locks the workflow row first, so two concurrent calls serialize instead of both computing the same next version. */
@@ -61,6 +62,50 @@ export async function createWorkflowVersion(
     const [version] = await tx
       .insert(workflowVersions)
       .values({ ...input, version: (latest ?? 0) + 1 })
+      .returning()
+
+    return version
+  })
+}
+
+/** Reuses an existing version with the same contentHash instead of always inserting — a builder "test run" calls this on every click, and shouldn't spam the version table with one row per unchanged click the way createWorkflowVersion's explicit "Commit" action is allowed to. */
+export async function ensureVersionForGraph(
+  db: DbClient,
+  workflowId: string,
+  input: { graph: Record<string, unknown>; contentHash: string }
+): Promise<WorkflowVersion> {
+  return db.transaction(async (tx) => {
+    await tx
+      .select({ id: workflows.id })
+      .from(workflows)
+      .where(eq(workflows.id, workflowId))
+      .for("update")
+
+    const [existing] = await tx
+      .select()
+      .from(workflowVersions)
+      .where(
+        and(
+          eq(workflowVersions.workflowId, workflowId),
+          eq(workflowVersions.contentHash, input.contentHash)
+        )
+      )
+      .limit(1)
+    if (existing) return existing
+
+    const [{ latest }] = await tx
+      .select({ latest: max(workflowVersions.version) })
+      .from(workflowVersions)
+      .where(eq(workflowVersions.workflowId, workflowId))
+
+    const [version] = await tx
+      .insert(workflowVersions)
+      .values({
+        workflowId,
+        graph: input.graph,
+        contentHash: input.contentHash,
+        version: (latest ?? 0) + 1,
+      })
       .returning()
 
     return version
@@ -188,6 +233,7 @@ export async function listWorkflows(
 export type UpdateWorkflowInput = {
   name?: string
   slug?: string
+  description?: string
   archivedAt?: Date | null
 }
 
@@ -201,6 +247,21 @@ export async function updateWorkflow(
   const [workflow] = await db
     .update(workflows)
     .set(input)
+    .where(and(eq(workflows.workspaceId, workspaceId), eq(workflows.id, id)))
+    .returning()
+  return workflow
+}
+
+/** No structural validation — a draft is allowed to be transiently invalid (an unwired node, a dangling edge mid-drag). That validation stays at the createWorkflowVersion/checkpoint boundary, not here. */
+export async function saveWorkflowDraft(
+  db: DbClient,
+  workspaceId: string,
+  id: string,
+  graph: Record<string, unknown>
+): Promise<Workflow | undefined> {
+  const [workflow] = await db
+    .update(workflows)
+    .set({ draftGraph: graph, draftUpdatedAt: new Date() })
     .where(and(eq(workflows.workspaceId, workspaceId), eq(workflows.id, id)))
     .returning()
   return workflow

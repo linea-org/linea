@@ -23,9 +23,14 @@ export const workflows = snakeCase.table(
 
     name: text().notNull(),
     slug: text().notNull(),
+    description: text(),
 
     // Composite FK below also enforces the version belongs to this workflow.
     publishedVersionId: uuid(),
+
+    // Unvalidated working copy, distinct from workflow_versions — null means "no draft, use the published graph."
+    draftGraph: jsonb().$type<Record<string, unknown>>(),
+    draftUpdatedAt: timestamp({ withTimezone: true }),
 
     archivedAt: timestamp({ withTimezone: true }),
 
@@ -63,6 +68,8 @@ export const workflowVersions = snakeCase.table(
     version: integer().notNull(),
     graph: jsonb().$type<Record<string, unknown>>().notNull(),
     contentHash: text().notNull(),
+    // Optional commit message describing what changed in this checkpoint.
+    message: text(),
 
     publishedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

@@ -4,3 +4,5 @@ export {
   executionStatusLabel,
 } from "./execution-status-badge"
 export { ExecutionStepTimeline } from "./execution-step-timeline"
+export { ErrorCallout } from "./error-callout"
+export { ExecutionDetailView, loadExecutionDetail } from "./execution-detail"

@@ -20,6 +20,7 @@ import {
   type ListWorkspaceExecutionsDto,
 } from './dto/list-workspace-executions.dto'
 import { replayStepSchema, type ReplayStepDto } from './dto/replay-step.dto'
+import { testRunSchema, type TestRunDto } from './dto/test-run.dto'
 import {
   triggerExecutionSchema,
   type TriggerExecutionDto,
@@ -40,6 +41,15 @@ export class ExecutionsController {
     body: TriggerExecutionDto,
   ) {
     return this.executions.trigger(workspaceId, workflowId, body)
+  }
+
+  @Post('workflows/:workflowId/test-run')
+  testRun(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('workflowId') workflowId: string,
+    @Body(new ZodValidationPipe(testRunSchema)) body: TestRunDto,
+  ) {
+    return this.executions.testRun(workspaceId, workflowId, body)
   }
 
   @Get('workflows/:workflowId/executions')

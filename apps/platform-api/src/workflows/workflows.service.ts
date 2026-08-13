@@ -17,6 +17,7 @@ import {
 } from '@linea/runtime'
 import type { CreateWorkflowDto } from './dto/create-workflow.dto'
 import type { CreateWorkflowVersionDto } from './dto/create-workflow-version.dto'
+import type { SaveWorkflowDraftDto } from './dto/save-workflow-draft.dto'
 import type { UpdateWorkflowDto } from './dto/update-workflow.dto'
 
 @Injectable()
@@ -29,6 +30,7 @@ export class WorkflowsService {
       workspaceId,
       name: input.name,
       slug: input.slug,
+      description: input.description,
     })
   }
 
@@ -60,6 +62,7 @@ export class WorkflowsService {
       {
         name: input.name,
         slug: input.slug,
+        description: input.description,
         archivedAt:
           input.archived === undefined
             ? undefined
@@ -67,6 +70,23 @@ export class WorkflowsService {
               ? new Date()
               : null,
       },
+    )
+    if (!workflow) {
+      throw new NotFoundException('Workflow not found')
+    }
+    return workflow
+  }
+
+  async saveDraft(
+    workspaceId: string,
+    id: string,
+    input: SaveWorkflowDraftDto,
+  ): Promise<Workflow> {
+    const workflow = await repositories.workflow.saveWorkflowDraft(
+      db,
+      workspaceId,
+      id,
+      input.graph,
     )
     if (!workflow) {
       throw new NotFoundException('Workflow not found')
@@ -96,7 +116,25 @@ export class WorkflowsService {
       workflowId,
       graph: input.graph,
       contentHash: hashWorkflowGraph(input.graph),
+      message: input.message,
     })
+  }
+
+  async getVersion(
+    workspaceId: string,
+    workflowId: string,
+    versionId: string,
+  ): Promise<WorkflowVersion> {
+    await this.get(workspaceId, workflowId)
+
+    const version = await repositories.workflow.getWorkflowVersionById(
+      db,
+      versionId,
+    )
+    if (!version || version.workflowId !== workflowId) {
+      throw new NotFoundException('Workflow version not found')
+    }
+    return version
   }
 
   async publishVersion(

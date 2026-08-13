@@ -35,6 +35,11 @@ export type TriggerWorkflowResult =
   | { outcome: "archived" }
   | { outcome: "unpublished" }
 
+export type TriggerWorkflowForVersionResult =
+  | { outcome: "created"; execution: Execution }
+  | { outcome: "not_found" }
+  | { outcome: "archived" }
+
 /** Locks the workflow row for the check's duration, so an archive committed concurrently can't slip an execution past the check-then-insert gap — either this transaction sees the archive and rejects, or it holds the lock first and the archive waits until this legitimately-racing execution commits. */
 export async function triggerWorkflowExecution(
   db: DbClient,
@@ -69,6 +74,47 @@ export async function triggerWorkflowExecution(
         workspaceId,
         workflowId: workflow.id,
         workflowVersionId: workflow.publishedVersionId,
+        trigger: input.trigger,
+        triggerPayload: input.triggerPayload,
+      })
+      .returning()
+
+    return { outcome: "created", execution }
+  })
+}
+
+/** Same locking rationale as triggerWorkflowExecution, but runs a specific version rather than resolving publishedVersionId — the seam a builder "test run" needs, since it must run an unpublished draft's checkpoint. */
+export async function triggerWorkflowExecutionForVersion(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string,
+  versionId: string,
+  input: {
+    trigger: Execution["trigger"]
+    triggerPayload?: Record<string, unknown>
+  }
+): Promise<TriggerWorkflowForVersionResult> {
+  return db.transaction(async (tx) => {
+    const [workflow] = await tx
+      .select()
+      .from(workflows)
+      .where(
+        and(
+          eq(workflows.workspaceId, workspaceId),
+          eq(workflows.id, workflowId)
+        )
+      )
+      .for("update")
+
+    if (!workflow) return { outcome: "not_found" }
+    if (workflow.archivedAt) return { outcome: "archived" }
+
+    const [execution] = await tx
+      .insert(executions)
+      .values({
+        workspaceId,
+        workflowId: workflow.id,
+        workflowVersionId: versionId,
         trigger: input.trigger,
         triggerPayload: input.triggerPayload,
       })

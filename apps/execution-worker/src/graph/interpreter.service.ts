@@ -13,8 +13,10 @@ import {
 } from "../checkpoints/checkpoints.service"
 import { AiNode } from "./nodes/ai.node"
 import { BranchNode } from "./nodes/branch.node"
+import { EndNode } from "./nodes/end.node"
 import { HttpNode } from "./nodes/http.node"
 import type { NodeHandler } from "./nodes/node-handler.interface"
+import { StartNode } from "./nodes/start.node"
 import { TransformNode } from "./nodes/transform.node"
 
 export type RunInput = {
@@ -83,6 +85,8 @@ export class InterpreterService {
       transform: transformNode,
       branch: branchNode,
       ai: aiNode,
+      start: new StartNode(),
+      end: new EndNode(),
     }
   }
 

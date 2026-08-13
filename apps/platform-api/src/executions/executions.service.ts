@@ -6,12 +6,19 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common'
 import { db, repositories, type Execution, type ExecutionStep } from '@linea/db'
-import { workflowGraphSchema } from '@linea/runtime'
+import {
+  assertNoReservedNodeIds,
+  hashWorkflowGraph,
+  validateGraphStructure,
+  workflowGraphSchema,
+  WorkflowGraphError,
+} from '@linea/runtime'
 import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 import { WorkflowQueueService } from '../queue/workflow-queue.service'
 import type { CountNewWorkspaceExecutionsDto } from './dto/count-new-workspace-executions.dto'
 import type { ListWorkspaceExecutionsDto } from './dto/list-workspace-executions.dto'
 import type { ReplayStepDto } from './dto/replay-step.dto'
+import type { TestRunDto } from './dto/test-run.dto'
 import type { TriggerExecutionDto } from './dto/trigger-execution.dto'
 
 @Injectable()
@@ -39,6 +46,60 @@ export class ExecutionsService {
         throw new BadRequestException('Workflow is archived')
       case 'unpublished':
         throw new BadRequestException('Workflow has no published version')
+    }
+
+    const execution = result.execution
+
+    try {
+      await this.queue.enqueue(execution.id)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      await repositories.execution.failQueuedExecution(db, execution.id, {
+        message,
+      })
+      throw new ServiceUnavailableException(
+        'Failed to enqueue execution — it will not run',
+      )
+    }
+
+    return execution
+  }
+
+  /** Runs a graph the builder hasn't published (or even committed) yet — checkpoints it under the hood via ensureVersionForGraph so the interpreter has a version row to read, without polluting the "Save as version" history the user curates explicitly. */
+  async testRun(
+    workspaceId: string,
+    workflowId: string,
+    input: TestRunDto,
+  ): Promise<Execution> {
+    try {
+      validateGraphStructure(input.graph)
+      assertNoReservedNodeIds(input.graph)
+    } catch (error) {
+      if (error instanceof WorkflowGraphError) {
+        throw new BadRequestException(error.message)
+      }
+      throw error
+    }
+
+    const version = await repositories.workflow.ensureVersionForGraph(
+      db,
+      workflowId,
+      { graph: input.graph, contentHash: hashWorkflowGraph(input.graph) },
+    )
+
+    const result =
+      await repositories.execution.triggerWorkflowExecutionForVersion(
+        db,
+        workspaceId,
+        workflowId,
+        version.id,
+        { trigger: 'manual' },
+      )
+    switch (result.outcome) {
+      case 'not_found':
+        throw new NotFoundException('Workflow not found')
+      case 'archived':
+        throw new BadRequestException('Workflow is archived')
     }
 
     const execution = result.execution

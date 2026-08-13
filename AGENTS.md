@@ -103,6 +103,34 @@ AI coding agent. Follow them strictly.
   Use `interface` for contracts that will be implemented or extended.
 - Never cast with `as` to paper over a type error — fix the type.
 
+## Design system
+
+- Colors are CSS variable tokens from `packages/ui/src/styles/globals.css`
+  (`bg-card`, `text-muted-foreground`, `bg-surface-canvas`, ...), never a raw
+  hex/oklch value in a component. Adding a genuinely new color means adding a
+  token to `globals.css` (light and dark) and wiring it into `@theme inline`,
+  not inlining it at the call site.
+- Elevation: surfaces get lighter the higher they float above the canvas —
+  `--surface-canvas` (deepest) → `--card` (a node) → `--popover` (a dialog,
+  sheet, or modal — the topmost floating layer). A new floating surface reuses
+  `--popover`; a new base surface reuses `--surface-canvas`. Don't invent a
+  one-off background color for a new panel.
+- Build on `@linea/ui`'s existing primitives (`Sidebar`, `Sheet`, `Field`,
+  `Select`, ...) before writing new chrome from scratch — check
+  `packages/ui/src/components/` first.
+- A feature with several variants (node types, flag types, ...) gets one
+  generic, data/schema-driven component plus a registry of metadata — never a
+  separate component per variant, and never the variant's presentation
+  metadata (icon, color, label, form fields) scattered across several files.
+  `packages/runtime/src/nodes/node-definition.ts`'s `ui` block is the
+  reference example: add a node type by writing one definition file and
+  registering it, and the palette/canvas/config-panel all pick it up with no
+  other file touched.
+- Third-party library default styling (a canvas library's controls/minimap,
+  etc.) must be re-themed to the token system — a component that ships its
+  own hardcoded light-mode colors will break in dark mode and needs explicit
+  overrides, not left as-is.
+
 ## Branching and commits
 
 - One branch per issue: `fix/<slug>` or `feat/<slug>`.

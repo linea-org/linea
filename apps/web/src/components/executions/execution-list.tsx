@@ -1,9 +1,15 @@
-import { Link } from "@tanstack/react-router"
-import { HistoryIcon } from "lucide-react"
+import { Link, useNavigate } from "@tanstack/react-router"
+import { EllipsisVerticalIcon, EyeIcon, HistoryIcon } from "lucide-react"
 
+import { Button } from "@linea/ui/components/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@linea/ui/components/dropdown-menu"
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -67,6 +73,7 @@ export function ExecutionList({
   slug: string
   workflowId: string
 }) {
+  const navigate = useNavigate()
   if (executions.length === 0) {
     return (
       <Empty className="mt-4">
@@ -79,48 +86,91 @@ export function ExecutionList({
             Runs of this workflow will show up here.
           </EmptyDescription>
         </EmptyHeader>
-        <EmptyContent />
       </Empty>
     )
   }
-
   return (
-    <Table className="mt-4">
-      <TableHeader>
-        <TableRow>
-          <TableHead>Status</TableHead>
-          <TableHead>Trigger</TableHead>
-          <TableHead>Duration</TableHead>
-          <TableHead>Cost</TableHead>
-          <TableHead>When</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {executions.map((execution) => (
-          <TableRow key={execution.id}>
-            <TableCell>
-              <Link
-                to="/w/$slug/workflows/$workflowId/executions/$executionId"
-                params={{ slug, workflowId, executionId: execution.id }}
-              >
-                <ExecutionStatusBadge status={execution.status} />
-              </Link>
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {triggerLabel[execution.trigger]}
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {formatDuration(execution.startedAt, execution.completedAt)}
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {formatCost(execution.costMicros, execution.costUnpriced)}
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {new Date(execution.createdAt).toLocaleString()}
-            </TableCell>
+    <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+      <Table>
+        <TableHeader className="bg-muted/40">
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="px-4">Run</TableHead>
+            <TableHead className="px-4">Status</TableHead>
+            <TableHead className="px-4">Trigger</TableHead>
+            <TableHead className="px-4">Duration</TableHead>
+            <TableHead className="px-4">Cost</TableHead>
+            <TableHead className="px-4">When</TableHead>
+            <TableHead className="w-12 px-2">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {executions.map((execution) => (
+            <TableRow key={execution.id}>
+              <TableCell className="px-4 py-3">
+                <Link
+                  to="/w/$slug/workflows/$workflowId/executions/$executionId"
+                  params={{ slug, workflowId, executionId: execution.id }}
+                  className="block min-w-0"
+                >
+                  <span className="block truncate font-mono text-sm font-medium text-foreground hover:underline">
+                    {execution.id}
+                  </span>
+                </Link>
+              </TableCell>
+              <TableCell className="px-4 py-3">
+                <ExecutionStatusBadge status={execution.status} />
+              </TableCell>
+              <TableCell className="px-4 py-3 text-muted-foreground">
+                {triggerLabel[execution.trigger]}
+              </TableCell>
+              <TableCell className="px-4 py-3 text-muted-foreground">
+                {formatDuration(execution.startedAt, execution.completedAt)}
+              </TableCell>
+              <TableCell className="px-4 py-3 text-muted-foreground">
+                {formatCost(execution.costMicros, execution.costUnpriced)}
+              </TableCell>
+              <TableCell className="px-4 py-3 text-muted-foreground">
+                {new Date(execution.createdAt).toLocaleString()}
+              </TableCell>
+              <TableCell className="px-2 py-3 text-right">
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`More options for execution ${execution.id}`}
+                      />
+                    }
+                  >
+                    <EllipsisVerticalIcon />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 min-w-48">
+                    <DropdownMenuItem
+                      onClick={() =>
+                        void navigate({
+                          to: "/w/$slug/workflows/$workflowId/executions/$executionId",
+                          params: {
+                            slug,
+                            workflowId,
+                            executionId: execution.id,
+                          },
+                        })
+                      }
+                    >
+                      <EyeIcon />
+                      View execution
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

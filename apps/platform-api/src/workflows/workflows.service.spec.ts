@@ -157,6 +157,58 @@ describe('WorkflowsService', () => {
         version.id,
       )
       expect(published.publishedVersionId).toBe(version.id)
+
+      // A version can't be read under the wrong workflow, or from another workspace.
+      await expect(
+        service.getVersion(workspaceId, workflowB.id, version.id),
+      ).rejects.toThrow()
+      const fetched = await service.getVersion(
+        workspaceId,
+        workflowA.id,
+        version.id,
+      )
+      expect(fetched.id).toBe(version.id)
+
+      await withOrg(async (otherWorkspaceId) => {
+        await expect(
+          service.getVersion(otherWorkspaceId, workflowA.id, version.id),
+        ).rejects.toThrow()
+      })
+    })
+  })
+
+  it('saves a draft without validating its structure, scoped to the workspace', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [WorkflowsService],
+    }).compile()
+    const service = moduleRef.get(WorkflowsService)
+
+    await withOrg(async (workspaceId) => {
+      const suffix = randomUUID()
+      const workflow = await service.create(workspaceId, {
+        name: 'Draft Workflow',
+        slug: `draft-${suffix}`,
+      })
+
+      // Missing entryNodeId/trigger, a node with no outgoing edge — invalid per
+      // workflowGraphSchema, and that's fine: saveDraft doesn't validate structure.
+      const incompleteGraph = { nodes: [{ id: 'n1' }] }
+      const saved = await service.saveDraft(workspaceId, workflow.id, {
+        graph: incompleteGraph,
+      })
+      expect(saved.draftGraph).toEqual(incompleteGraph)
+
+      const fetched = await service.get(workspaceId, workflow.id)
+      expect(fetched.draftGraph).toEqual(incompleteGraph)
+      expect(fetched.draftUpdatedAt).toBeInstanceOf(Date)
+
+      await withOrg(async (otherWorkspaceId) => {
+        await expect(
+          service.saveDraft(otherWorkspaceId, workflow.id, {
+            graph: { nodes: [] },
+          }),
+        ).rejects.toThrow()
+      })
     })
   })
 })

@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.7.1",
+    "@linea/runtime": "workspace:*",
     "@linea/ui": "workspace:*",
     "@paper-design/shaders-react": "^0.0.78",
     "@tailwindcss/vite": "^4",
@@ -21,12 +23,15 @@
     "@tanstack/react-router-devtools": "latest",
     "@tanstack/react-start": "latest",
     "@tanstack/router-plugin": "latest",
+    "@xyflow/react": "^12.11.3",
     "better-auth": "^1.6.25",
     "lucide-react": "^1.28.0",
     "next-themes": "^0.4.6",
     "playful-avatars": "^1.0.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-hook-form": "^7.85.0",
+    "recharts": "3.8.0",
     "tailwindcss": "^4",
     "zod": "^4.4.3"
   },

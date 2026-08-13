@@ -3,8 +3,8 @@ import { db, repositories, type Signal } from '@linea/db'
 
 @Injectable()
 export class SignalsService {
-  list(workspaceId: string) {
-    return repositories.signal.listSignals(db, workspaceId)
+  list(workspaceId: string, options: { workflowId?: string } = {}) {
+    return repositories.signal.listSignals(db, workspaceId, options)
   }
 
   async get(workspaceId: string, id: string) {

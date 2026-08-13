@@ -55,6 +55,14 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
         `Node "${node.id}" must have exactly one incoming edge, has ${count}`
       )
     }
+    if (
+      node.type === "end" &&
+      graph.edges.some((edge) => edge.from === node.id)
+    ) {
+      throw new WorkflowGraphError(
+        `End node "${node.id}" cannot have outgoing edges`
+      )
+    }
   }
 
   // The walker matches on condition, so a missing or duplicate one is unreachable code.

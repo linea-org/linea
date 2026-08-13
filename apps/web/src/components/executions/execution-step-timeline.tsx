@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
+import { nodeRegistry, type NodeTypeId } from "@linea/runtime/browser"
 
 import {
   Accordion,
@@ -16,7 +17,16 @@ import {
   type ExecutionStepSummary,
   type JsonValue,
 } from "../../lib/executions-api"
+import { NodeIcon } from "../workflow-builder/node-icon"
 import { formatCost, stepCostUnpricedState } from "./execution-list"
+import { ErrorCallout } from "./error-callout"
+
+const stepStatusLabel: Record<ExecutionStepSummary["status"], string> = {
+  running: "Running",
+  succeeded: "Succeeded",
+  failed: "Failed",
+  skipped: "Skipped",
+}
 
 const stepStatusVariant: Record<
   ExecutionStepSummary["status"],
@@ -28,6 +38,27 @@ const stepStatusVariant: Record<
   skipped: "outline",
 }
 
+function isNodeTypeId(value: string): value is NodeTypeId {
+  return value in nodeRegistry
+}
+
+function stepTitle(name: string): string {
+  if (!isNodeTypeId(name)) return name
+  return nodeRegistry[name].ui.label
+}
+
+function formatJson(value: unknown): string {
+  if (typeof value === "string") {
+    try {
+      const parsed: unknown = JSON.parse(value)
+      return JSON.stringify(parsed, null, 2)
+    } catch {
+      return value
+    }
+  }
+  return JSON.stringify(value, null, 2)
+}
+
 function formatStepDuration(startedAt: string, endedAt: string | null) {
   if (!endedAt) return "Running…"
   const ms = new Date(endedAt).getTime() - new Date(startedAt).getTime()
@@ -37,10 +68,12 @@ function formatStepDuration(startedAt: string, endedAt: string | null) {
 function JsonBlock({ label, value }: { label: string; value: unknown }) {
   if (value === null || value === undefined) return null
   return (
-    <div className="mt-2">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 text-xs">
-        {JSON.stringify(value, null, 2)}
+    <div className="mt-3">
+      <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+        {label}
+      </p>
+      <pre className="max-h-64 overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap text-foreground">
+        {formatJson(value)}
       </pre>
     </div>
   )
@@ -183,12 +216,12 @@ export function ExecutionStepTimeline({
   const ordered = groupWithReplays(steps)
 
   return (
-    <Accordion multiple className="mt-4">
+    <Accordion multiple className="px-1">
       {ordered.map((step) =>
         step.isSystemEvent ? (
           <div
             key={step.id}
-            className="flex items-center gap-2 border-b py-4 text-sm text-muted-foreground"
+            className="flex items-center gap-2 border-b px-3 py-4 text-sm text-muted-foreground"
           >
             <Badge variant="outline">Resumed</Badge>
             <span>{new Date(step.startedAt).toLocaleString()}</span>
@@ -198,46 +231,58 @@ export function ExecutionStepTimeline({
             key={step.id}
             value={step.id}
             className={
-              step.replayedFromStepId ? "ml-4 border-l-2 pl-4" : undefined
+              step.replayedFromStepId ? "ml-4 border-l-2 pl-4" : "px-3"
             }
           >
-            <AccordionTrigger>
-              <div className="flex flex-1 items-center gap-3 pr-4">
+            <AccordionTrigger className="hover:no-underline">
+              <div className="flex min-w-0 flex-1 items-center gap-3 pr-4">
                 {step.replayedFromStepId ? (
                   <Badge variant="outline">Replay</Badge>
                 ) : null}
                 <Badge variant={stepStatusVariant[step.status]}>
-                  {step.status}
+                  {stepStatusLabel[step.status]}
                 </Badge>
-                <span className="font-medium text-foreground">
+                {isNodeTypeId(step.name) ? (
+                  <NodeIcon
+                    icon={nodeRegistry[step.name].ui.icon}
+                    className="size-4 shrink-0 text-muted-foreground"
+                  />
+                ) : null}
+                <span className="min-w-0 truncate font-medium text-foreground">
                   {step.replayedFromStepId
-                    ? `Replay of ${step.name}`
-                    : step.name}
+                    ? `Replay of ${stepTitle(step.name)}`
+                    : stepTitle(step.name)}
                 </span>
-                <span className="ml-auto text-xs text-muted-foreground">
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">
                   {formatStepDuration(step.startedAt, step.endedAt)}
                 </span>
               </div>
             </AccordionTrigger>
             <AccordionContent>
-              <dl className="grid grid-cols-2 gap-y-2 text-xs text-muted-foreground">
-                <dt>Node</dt>
-                <dd className="text-foreground">{step.nodeId}</dd>
-                <dt>Attempt</dt>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                <dt className="text-muted-foreground">Node</dt>
+                <dd className="truncate font-mono text-foreground">
+                  {step.nodeId}
+                </dd>
+                <dt className="text-muted-foreground">Attempt</dt>
                 <dd className="text-foreground">{step.attempt}</dd>
-                <dt>Cost</dt>
+                <dt className="text-muted-foreground">Cost</dt>
                 <dd className="text-foreground">
                   {formatCost(step.costMicros, stepCostUnpricedState(step))}
                 </dd>
-                <dt>Tokens</dt>
+                <dt className="text-muted-foreground">Tokens</dt>
                 <dd className="text-foreground">
                   {step.tokensInput} in / {step.tokensOutput} out
                 </dd>
               </dl>
               {step.error ? (
-                <p className="mt-2 text-xs text-destructive">
-                  {step.error.message}
-                </p>
+                <div className="mt-3">
+                  <ErrorCallout
+                    title="This step failed"
+                    message={step.error.message}
+                    stack={step.error.stack}
+                  />
+                </div>
               ) : null}
               <JsonBlock label="Input" value={step.input} />
               <JsonBlock label="Output" value={step.output} />

@@ -18,4 +18,15 @@ export const branchNode: NodeDefinition<
   inputSchema: branchInputSchema,
   outputSchema: branchOutputSchema,
   needsSandbox: false,
+  ui: {
+    label: "Branch",
+    description: "Route to a different next step based on the input value.",
+    category: "logic",
+    icon: "git-branch",
+    // "value" is the runtime input, not config — the handler reads config.cases/defaultBranch instead.
+    fields: [
+      { key: "cases", label: "Cases", widget: "code" },
+      { key: "defaultBranch", label: "Default branch", widget: "text" },
+    ],
+  },
 }

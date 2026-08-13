@@ -80,6 +80,42 @@ export const listExecutionsFn = createServerFn({ method: "GET" })
     return (await res.json()) as ExecutionSummary[]
   })
 
+export const triggerExecutionFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { workflowId: string }) => data)
+  .handler(async ({ data }): Promise<ExecutionSummary> => {
+    const res = await apiFetch(`/workflows/${data.workflowId}/executions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    })
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        message?: string
+      } | null
+      throw new Error(body?.message ?? "Could not run workflow")
+    }
+    return (await res.json()) as ExecutionSummary
+  })
+
+export const testRunFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: { workflowId: string; graph: Record<string, JsonValue> }) => data
+  )
+  .handler(async ({ data }): Promise<ExecutionSummary> => {
+    const res = await apiFetch(`/workflows/${data.workflowId}/test-run`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ graph: data.graph }),
+    })
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        message?: string
+      } | null
+      throw new Error(body?.message ?? "Could not run workflow")
+    }
+    return (await res.json()) as ExecutionSummary
+  })
+
 export type ExecutionDetailResponse = {
   execution: ExecutionDetail
   steps: ExecutionStepSummary[]

@@ -52,12 +52,15 @@ export async function createOrganization(input: {
   return data
 }
 
-export async function inviteMembers(emails: string[]) {
+export async function inviteMembers(
+  emails: string[],
+  role: "member" | "admin" = "member"
+) {
   const failures: string[] = []
   for (const email of emails) {
     const { error } = await authClient.organization.inviteMember({
       email,
-      role: "member",
+      role,
     })
     if (error) {
       failures.push(`${email}: ${authErrorMessage(error)}`)
@@ -65,5 +68,56 @@ export async function inviteMembers(emails: string[]) {
   }
   if (failures.length > 0) {
     throw new Error(failures.join(" · "))
+  }
+}
+
+export async function updateMemberRole(
+  memberId: string,
+  role: "member" | "admin"
+) {
+  const { error } = await authClient.organization.updateMemberRole({
+    memberId,
+    role,
+  })
+  if (error) {
+    throw new Error(authErrorMessage(error, "Could not update role"))
+  }
+}
+
+export async function removeMember(memberIdOrEmail: string) {
+  const { error } = await authClient.organization.removeMember({
+    memberIdOrEmail,
+  })
+  if (error) {
+    throw new Error(authErrorMessage(error, "Could not remove member"))
+  }
+}
+
+export async function updateOrganization(
+  organizationId: string,
+  input: { name?: string; slug?: string }
+) {
+  const { error } = await authClient.organization.update({
+    organizationId,
+    data: input,
+  })
+  if (error) {
+    throw new Error(authErrorMessage(error, "Could not update workspace"))
+  }
+}
+
+export async function deleteOrganization(organizationId: string) {
+  const { error } = await authClient.organization.delete({ organizationId })
+  if (error) {
+    throw new Error(authErrorMessage(error, "Could not delete workspace"))
+  }
+}
+
+export async function cancelInvitation(invitationId: string) {
+  const { error } = await authClient.organization.cancelInvitation({
+    invitationId,
+  })
+  if (error) {
+    throw new Error(authErrorMessage(error, "Could not cancel invitation"))
   }
 }
