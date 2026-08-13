@@ -8,7 +8,7 @@ import {
 import { Link, useLocation, useMatchRoute } from "@tanstack/react-router"
 import {
   HistoryIcon,
-  PanelsTopLeftIcon,
+  HouseIcon,
   SettingsIcon,
   UsersIcon,
   WorkflowIcon,
@@ -80,7 +80,7 @@ export function WorkspaceShell({
                   tooltip="Home"
                   render={<Link to="/w/$slug" params={{ slug }} />}
                 >
-                  <PanelsTopLeftIcon />
+                  <HouseIcon />
                   <span>Home</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -169,13 +169,13 @@ export function WorkspaceShell({
     <SidebarProvider
       open={open}
       onOpenChange={setOpen}
-      className="relative bg-background has-data-[variant=inset]:bg-background"
+      className="relative h-svh max-h-svh overflow-hidden bg-background has-data-[variant=inset]:bg-background"
     >
       {!isBuilder && (
         <Sidebar
           variant="inset"
           collapsible="icon"
-          className="relative z-10 [&_[data-slot=sidebar-inner]]:bg-transparent"
+          className="z-10 [&_[data-slot=sidebar-inner]]:bg-transparent"
         >
           {navigation}
           <SidebarRail />
@@ -191,7 +191,7 @@ export function WorkspaceShell({
       >
         <SidebarInset
           className={cn(
-            "relative z-10 overflow-hidden bg-card md:peer-data-[variant=inset]:rounded-lg",
+            "relative z-10 min-h-0 overflow-hidden bg-card md:peer-data-[variant=inset]:rounded-lg",
             isBuilder && "m-2 rounded-lg bg-transparent"
           )}
         >
