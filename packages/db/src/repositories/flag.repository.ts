@@ -6,6 +6,7 @@ import {
   type Flag,
   type NewFlag,
 } from "../schema/index.js"
+import { recordSignalOccurrence } from "./signal.repository.js"
 import type { DbClient } from "./types.js"
 
 export async function createFlagIfNew(
@@ -17,6 +18,9 @@ export async function createFlagIfNew(
     .values(input)
     .onConflictDoNothing({ target: flags.dedupeKey })
     .returning()
+  if (flag) {
+    await recordSignalOccurrence(db, flag)
+  }
   return flag
 }
 
