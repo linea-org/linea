@@ -19,6 +19,13 @@ export type SendChatMessageResult = {
   conversationId: string
 }
 
+export type ConversationSummary = {
+  conversationId: string
+  preview: string
+  lastMessageAt: string
+  messageCount: number
+}
+
 async function parseErrorMessage(
   res: Response,
   fallback: string
@@ -67,6 +74,28 @@ export const listChatMessagesFn = createServerFn({ method: "GET" })
     }
     return (await res.json()) as ChatMessage[]
   })
+
+export const listConversationsFn = createServerFn({ method: "GET" })
+  .inputValidator((data: { workflowId: string }) => data)
+  .handler(async ({ data }): Promise<ConversationSummary[]> => {
+    const res = await apiFetch(
+      `/workflows/${data.workflowId}/chat-preview/conversations`
+    )
+    if (!res.ok) {
+      throw new Error("Could not load conversations")
+    }
+    return (await res.json()) as ConversationSummary[]
+  })
+
+export function conversationsQueryOptions(
+  workspaceSlug: string,
+  workflowId: string
+) {
+  return queryOptions({
+    queryKey: ["chat-conversations", workspaceSlug, workflowId],
+    queryFn: () => listConversationsFn({ data: { workflowId } }),
+  })
+}
 
 export function chatMessagesQueryOptions(
   workspaceSlug: string,

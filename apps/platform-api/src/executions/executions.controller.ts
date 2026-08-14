@@ -66,6 +66,14 @@ export class ExecutionsController {
     return this.executions.sendChatMessage(workspaceId, workflowId, body)
   }
 
+  @Get('workflows/:workflowId/chat-preview/conversations')
+  listChatConversations(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('workflowId') workflowId: string,
+  ) {
+    return this.executions.listChatConversations(workspaceId, workflowId)
+  }
+
   @Get('workflows/:workflowId/chat-preview/:conversationId/messages')
   listChatMessages(
     @CurrentWorkspaceId() workspaceId: string,

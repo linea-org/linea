@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   createChatMessage,
   listChatMessages,
+  listConversations,
 } from "./chat-message.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 
@@ -100,6 +101,88 @@ describe("chat-message.repository", () => {
       )
       expect(messages).toHaveLength(1)
       expect(messages[0].content).toBe("conversation A")
+    })
+  })
+
+  describe("listConversations", () => {
+    it("groups by conversation, using the first message as preview, ordered most-recent-first", async () => {
+      await withRollback(async (tx) => {
+        const { organization, workflow } = await createTestFixtures(tx)
+        const older = randomUUID()
+        const newer = randomUUID()
+
+        await createChatMessage(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId: older,
+          role: "user",
+          content: "older conversation opener",
+          createdAt: new Date(Date.now() - 60_000),
+        })
+        await createChatMessage(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId: older,
+          role: "assistant",
+          content: "older conversation reply",
+          createdAt: new Date(Date.now() - 50_000),
+        })
+        await createChatMessage(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId: newer,
+          role: "user",
+          content: "newer conversation opener",
+          createdAt: new Date(),
+        })
+
+        const conversations = await listConversations(
+          tx,
+          organization.id,
+          workflow.id
+        )
+        expect(conversations).toHaveLength(2)
+        expect(conversations[0]).toMatchObject({
+          conversationId: newer,
+          preview: "newer conversation opener",
+          messageCount: 1,
+        })
+        expect(conversations[1]).toMatchObject({
+          conversationId: older,
+          preview: "older conversation opener",
+          messageCount: 2,
+        })
+      })
+    })
+
+    it("scopes by workspaceId and workflowId", async () => {
+      await withRollback(async (tx) => {
+        const { organization, workflow } = await createTestFixtures(tx)
+        const otherOrg = await createTestFixtures(tx)
+
+        await createChatMessage(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId: randomUUID(),
+          role: "user",
+          content: "in scope",
+        })
+        await createChatMessage(tx, {
+          workspaceId: otherOrg.organization.id,
+          workflowId: otherOrg.workflow.id,
+          conversationId: randomUUID(),
+          role: "user",
+          content: "different workspace",
+        })
+
+        const conversations = await listConversations(
+          tx,
+          organization.id,
+          workflow.id
+        )
+        expect(conversations).toHaveLength(1)
+        expect(conversations[0].preview).toBe("in scope")
+      })
     })
   })
 })

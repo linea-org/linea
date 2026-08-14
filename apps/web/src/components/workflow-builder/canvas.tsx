@@ -44,7 +44,6 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@linea/ui/components/resizable"
-import { Sheet, SheetContent } from "@linea/ui/components/sheet"
 import {
   ArrowLeftIcon,
   MessageCircleIcon,
@@ -410,9 +409,10 @@ function WorkflowBuilderCanvasInner({
           )}
           <Button
             type="button"
-            variant="outline"
+            variant={chatOpen ? "secondary" : "outline"}
             size="sm"
-            onClick={() => setChatOpen(true)}
+            onClick={() => setChatOpen((open) => !open)}
+            aria-pressed={chatOpen}
           >
             <MessageCircleIcon />
             Chat preview
@@ -562,6 +562,26 @@ function WorkflowBuilderCanvasInner({
               </ResizablePanel>
             </>
           )}
+          {chatOpen && (
+            <>
+              <ResizableHandle className="w-2 bg-transparent after:w-2" />
+              <ResizablePanel
+                id="builder-chat"
+                defaultSize={360}
+                minSize={280}
+                maxSize={640}
+                groupResizeBehavior="preserve-pixel-size"
+                className="min-h-0"
+              >
+                <ChatPreviewPanel
+                  slug={slug}
+                  workflowId={workflowId}
+                  graph={buildGraph(entryNodeId)}
+                  onClose={() => setChatOpen(false)}
+                />
+              </ResizablePanel>
+            </>
+          )}
         </ResizablePanelGroup>
       </div>
       <Dialog
@@ -602,15 +622,6 @@ function WorkflowBuilderCanvasInner({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Sheet open={chatOpen} onOpenChange={setChatOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md">
-          <ChatPreviewPanel
-            slug={slug}
-            workflowId={workflowId}
-            graph={buildGraph(entryNodeId)}
-          />
-        </SheetContent>
-      </Sheet>
     </div>
   )
 }

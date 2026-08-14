@@ -408,6 +408,17 @@ describe('ExecutionsService', () => {
         )
         expect(messages.map((m) => m.content)).toEqual(['hello', 'follow up'])
         expect(messages.every((m) => m.role === 'user')).toBe(true)
+
+        const conversations = await service.listChatConversations(
+          organization.id,
+          workflow.id,
+        )
+        expect(conversations).toHaveLength(1)
+        expect(conversations[0]).toMatchObject({
+          conversationId: first.conversationId,
+          preview: 'hello',
+          messageCount: 2,
+        })
       } finally {
         await moduleRef.close()
         await pool.query('DELETE FROM organizations WHERE id = $1', [
@@ -460,6 +471,10 @@ describe('ExecutionsService', () => {
 
         await expect(
           service.listChatMessages(attackerOrg.id, workflow.id, randomUUID()),
+        ).rejects.toThrow('Workflow not found')
+
+        await expect(
+          service.listChatConversations(attackerOrg.id, workflow.id),
         ).rejects.toThrow('Workflow not found')
       } finally {
         await moduleRef.close()

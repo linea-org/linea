@@ -229,6 +229,22 @@ export class ExecutionsService {
     )
   }
 
+  async listChatConversations(workspaceId: string, workflowId: string) {
+    const workflow = await repositories.workflow.getWorkflowById(
+      db,
+      workspaceId,
+      workflowId,
+    )
+    if (!workflow) {
+      throw new NotFoundException('Workflow not found')
+    }
+    return repositories.chatMessage.listConversations(
+      db,
+      workspaceId,
+      workflowId,
+    )
+  }
+
   async list(workspaceId: string, workflowId: string): Promise<Execution[]> {
     const workflow = await repositories.workflow.getWorkflowById(
       db,

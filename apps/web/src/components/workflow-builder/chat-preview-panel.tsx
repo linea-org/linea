@@ -1,10 +1,36 @@
 import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { SendIcon } from "lucide-react"
+import {
+  HistoryIcon,
+  MessageCircleIcon,
+  SendIcon,
+  SquarePenIcon,
+  XIcon,
+} from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
-import { Textarea } from "@linea/ui/components/textarea"
 import { Bubble, BubbleContent, BubbleGroup } from "@linea/ui/components/bubble"
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@linea/ui/components/combobox"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@linea/ui/components/empty"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupTextarea,
+} from "@linea/ui/components/input-group"
 import { Marker, MarkerContent } from "@linea/ui/components/marker"
 import {
   MessageScroller,
@@ -16,7 +42,9 @@ import {
 
 import {
   chatMessagesQueryOptions,
+  conversationsQueryOptions,
   sendChatMessageFn,
+  type ConversationSummary,
 } from "../../lib/chat-preview-api"
 import { executionQueryOptions, type JsonValue } from "../../lib/executions-api"
 
@@ -24,10 +52,12 @@ export function ChatPreviewPanel({
   slug,
   workflowId,
   graph,
+  onClose,
 }: {
   slug: string
   workflowId: string
   graph: Record<string, JsonValue>
+  onClose: () => void
 }) {
   const queryClient = useQueryClient()
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -35,11 +65,14 @@ export function ChatPreviewPanel({
     null
   )
   const [input, setInput] = useState("")
-
   const { data: messages = [] } = useQuery(
     chatMessagesQueryOptions(slug, workflowId, conversationId)
   )
-
+  const { data: conversations = [] } = useQuery(
+    conversationsQueryOptions(slug, workflowId)
+  )
+  const selectedConversation =
+    conversations.find((c) => c.conversationId === conversationId) ?? null
   const { data: pendingExecution } = useQuery({
     ...executionQueryOptions(slug, pendingExecutionId ?? ""),
     enabled: pendingExecutionId !== null,
@@ -48,7 +81,6 @@ export function ChatPreviewPanel({
       return status === "queued" || status === "running" ? 1000 : false
     },
   })
-
   useEffect(() => {
     const status = pendingExecution?.execution.status
     if (pendingExecutionId && (status === "succeeded" || status === "failed")) {
@@ -66,7 +98,6 @@ export function ChatPreviewPanel({
     slug,
     workflowId,
   ])
-
   const send = useMutation({
     mutationFn: (message: string) =>
       sendChatMessageFn({
@@ -87,29 +118,34 @@ export function ChatPreviewPanel({
           result.conversationId
         ).queryKey,
       })
+      void queryClient.invalidateQueries({
+        queryKey: conversationsQueryOptions(slug, workflowId).queryKey,
+      })
     },
   })
-
+  function selectConversation(conversation: ConversationSummary | null) {
+    setConversationId(conversation?.conversationId ?? null)
+    setPendingExecutionId(null)
+  }
   function handleSend() {
     const trimmed = input.trim()
     if (!trimmed || send.isPending) return
     setInput("")
     send.mutate(trimmed)
   }
-
   function startNewChat() {
     setConversationId(null)
     setPendingExecutionId(null)
     setInput("")
   }
-
   const isWaiting = pendingExecutionId !== null
   const failed = pendingExecution?.execution.status === "failed"
-
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <p className="text-sm font-medium text-foreground">Chat preview</p>
+    <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-border bg-card">
+      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+          Chat preview
+        </p>
         <Button
           type="button"
           variant="ghost"
@@ -117,17 +153,68 @@ export function ChatPreviewPanel({
           onClick={startNewChat}
           disabled={!conversationId && messages.length === 0}
         >
+          <SquarePenIcon />
           New chat
         </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={onClose}
+          aria-label="Close panel"
+        >
+          <XIcon />
+        </Button>
       </div>
+      {conversations.length > 0 && (
+        <div className="border-b border-border p-2">
+          <Combobox
+            items={conversations}
+            value={selectedConversation}
+            onValueChange={selectConversation}
+            itemToStringLabel={(item) => item.preview}
+            isItemEqualToValue={(a, b) => a.conversationId === b.conversationId}
+          >
+            <ComboboxInput placeholder="Search past conversations…" showClear />
+            <ComboboxContent>
+              <ComboboxEmpty>No matching conversations.</ComboboxEmpty>
+              <ComboboxList>
+                {(item: ConversationSummary) => (
+                  <ComboboxItem key={item.conversationId} value={item}>
+                    <HistoryIcon className="text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate">{item.preview}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {new Date(item.lastMessageAt).toLocaleString()} ·{" "}
+                        {item.messageCount} message
+                        {item.messageCount === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                  </ComboboxItem>
+                )}
+              </ComboboxList>
+            </ComboboxContent>
+          </Combobox>
+        </div>
+      )}
       <MessageScrollerProvider>
         <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport>
             <MessageScrollerContent className="px-4 py-4">
               {messages.length === 0 && !isWaiting ? (
-                <p className="text-sm text-muted-foreground">
-                  Send a message to test this workflow as a conversation.
-                </p>
+                <Empty className="border-0 py-8">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <MessageCircleIcon />
+                    </EmptyMedia>
+                    <EmptyTitle className="text-sm">
+                      Test this workflow
+                    </EmptyTitle>
+                    <EmptyDescription>
+                      Send a message to run it as a conversation.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               ) : (
                 messages.map((message) => (
                   <MessageScrollerItem key={message.id}>
@@ -161,35 +248,36 @@ export function ChatPreviewPanel({
           </MessageScrollerViewport>
         </MessageScroller>
       </MessageScrollerProvider>
-      <div className="flex items-end gap-2 border-t border-border px-4 py-3">
-        <Textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault()
-              handleSend()
-            }
-          }}
-          placeholder="Send a message…"
-          className="min-h-10 flex-1 resize-none"
-          rows={1}
-        />
-        <Button
-          type="button"
-          size="icon-sm"
-          onClick={handleSend}
-          disabled={!input.trim() || send.isPending}
-          aria-label="Send message"
-        >
-          <SendIcon />
-        </Button>
+      <div className="border-t border-border p-3">
+        <InputGroup>
+          <InputGroupTextarea
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault()
+                handleSend()
+              }
+            }}
+            placeholder="Send a message…"
+            rows={1}
+          />
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              size="icon-sm"
+              variant="default"
+              onClick={handleSend}
+              disabled={!input.trim() || send.isPending}
+              aria-label="Send message"
+            >
+              <SendIcon />
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
+        {send.isError ? (
+          <p className="mt-2 text-sm text-destructive">{send.error.message}</p>
+        ) : null}
       </div>
-      {send.isError && (
-        <p className="border-t border-border px-4 py-2 text-sm text-destructive">
-          {send.error.message}
-        </p>
-      )}
-    </div>
+    </aside>
   )
 }
