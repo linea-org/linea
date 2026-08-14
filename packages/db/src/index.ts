@@ -10,6 +10,7 @@ export {
   encryptSecret,
   decryptSecret,
   isEncryptedSecret,
+  isCorruptedEncryptedSecret,
 } from "./encryption.js"
 export * as schema from "./schema/index.js"
 export * from "./schema/index.js"

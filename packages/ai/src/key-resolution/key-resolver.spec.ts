@@ -109,4 +109,26 @@ describe("resolveApiKey", () => {
       })
     })
   })
+
+  it("throws instead of using a corrupted encrypted secret as a literal key", async () => {
+    await withRollback(async (tx) => {
+      const organization = await createTestOrganization(tx)
+      const encrypted = encryptSecret("sk-real-key")
+      const [iv, authTag, ciphertext] = encrypted.split(":")
+      const shortTag = Buffer.from(authTag, "base64")
+        .subarray(0, 8)
+        .toString("base64")
+      const tampered = [iv, shortTag, ciphertext].join(":")
+      await repositories.secret.upsertSecret(
+        tx,
+        organization.id,
+        "TEST_PROVIDER_KEY",
+        tampered
+      )
+
+      await expect(
+        resolveApiKey(tx, organization.id, "TEST_PROVIDER_KEY")
+      ).rejects.toThrow(/corrupted/)
+    })
+  })
 })

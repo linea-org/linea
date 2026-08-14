@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 import {
   decryptSecret,
   encryptSecret,
+  isCorruptedEncryptedSecret,
   isEncryptedSecret,
 } from "./encryption.js"
 
@@ -70,5 +71,26 @@ describe("isEncryptedSecret", () => {
       .subarray(0, 8)
       .toString("base64")
     expect(isEncryptedSecret([iv, shortTag, ciphertext].join(":"))).toBe(false)
+  })
+})
+
+describe("isCorruptedEncryptedSecret", () => {
+  it("is true for a value with a truncated authentication tag", () => {
+    const encrypted = encryptSecret("value")
+    const [iv, authTag, ciphertext] = encrypted.split(":")
+    const shortTag = Buffer.from(authTag, "base64")
+      .subarray(0, 8)
+      .toString("base64")
+    expect(
+      isCorruptedEncryptedSecret([iv, shortTag, ciphertext].join(":"))
+    ).toBe(true)
+  })
+
+  it("is false for a fully valid encrypted value", () => {
+    expect(isCorruptedEncryptedSecret(encryptSecret("value"))).toBe(false)
+  })
+
+  it("is false for plaintext that doesn't resemble the encrypted format", () => {
+    expect(isCorruptedEncryptedSecret("sk-plain-key")).toBe(false)
   })
 })

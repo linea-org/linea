@@ -29,15 +29,30 @@ function decodePart(value: string | undefined): Buffer | undefined {
   }
 }
 
-/** True only for this module's own iv:authTag:ciphertext format with full-length parts — lets a caller tell a real encrypted value apart from a legacy plaintext one without risking a false positive on a short/malformed tag. */
+const BASE64_PART_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/
+
+/** True for anything shaped like this module's iv:authTag:ciphertext format, regardless of whether the part lengths are actually correct — a real encrypted value that's been corrupted (e.g. a truncated auth tag) still matches this. Used to tell "corrupted encrypted secret" apart from "genuinely opaque legacy plaintext" so the former can be rejected instead of silently used as a literal API key. */
+function looksLikeEncryptedSecret(value: string): boolean {
+  const parts = value.split(":")
+  return (
+    parts.length === 3 && parts.every((part) => BASE64_PART_PATTERN.test(part))
+  )
+}
+
+/** True only for this module's own iv:authTag:ciphertext format with full-length parts — lets a caller tell a real, decryptable encrypted value apart from a legacy plaintext one. A value that merely looks like this format but has the wrong part lengths (corrupted, not legacy) returns false here too; use looksLikeEncryptedSecret to distinguish that case from true legacy plaintext. */
 export function isEncryptedSecret(value: string): boolean {
-  const [ivB64, authTagB64, ciphertextB64] = value.split(":")
-  if (!ivB64 || !authTagB64 || !ciphertextB64) return false
+  if (!looksLikeEncryptedSecret(value)) return false
+  const [ivB64, authTagB64] = value.split(":")
   const iv = decodePart(ivB64)
   const authTag = decodePart(authTagB64)
   return (
     iv?.length === IV_LENGTH_BYTES && authTag?.length === AUTH_TAG_LENGTH_BYTES
   )
+}
+
+/** True for a value that's shaped like an encrypted secret but fails full validation — a corrupted encrypted value, not a legacy plaintext one. Callers should reject these rather than using them as-is. */
+export function isCorruptedEncryptedSecret(value: string): boolean {
+  return looksLikeEncryptedSecret(value) && !isEncryptedSecret(value)
 }
 
 // Stored as base64(iv):base64(authTag):base64(ciphertext), self-contained — no separate columns needed, and a fresh random iv per call keeps identical plaintexts from producing identical ciphertext.
