@@ -6,6 +6,32 @@ import { CheckpointsService } from "../checkpoints/checkpoints.service"
 import { InterpreterService } from "../graph/interpreter.service"
 import { RunLeaseService } from "./run-lease.service"
 
+function extractConversationId(triggerPayload: unknown): string | undefined {
+  if (triggerPayload === null || typeof triggerPayload !== "object") {
+    return undefined
+  }
+  const value = (triggerPayload as Record<string, unknown>).conversationId
+  return typeof value === "string" ? value : undefined
+}
+
+/** The most recently completed node whose output looks like an AI node's — walked from the end, since a graph can have more than one `ai` node and the chat reply is whichever one ran last. */
+function extractAssistantReply(
+  completed: Map<string, unknown>
+): string | undefined {
+  const values = [...completed.values()]
+  for (let i = values.length - 1; i >= 0; i -= 1) {
+    const value = values[i]
+    if (
+      value !== null &&
+      typeof value === "object" &&
+      typeof (value as Record<string, unknown>).text === "string"
+    ) {
+      return (value as { text: string }).text
+    }
+  }
+  return undefined
+}
+
 @Injectable()
 export class RunsService {
   private readonly logger = new Logger(RunsService.name)
@@ -119,6 +145,30 @@ export class RunsService {
             tokensOutput: outcome.totalTokensOutput,
           }
         )
+
+        // Best-effort: a chat-preview turn's reply persisted for the panel to redisplay. Never allowed to fail the execution it rides on.
+        const conversationId = extractConversationId(execution.triggerPayload)
+        if (conversationId) {
+          const reply = extractAssistantReply(outcome.completed)
+          if (reply) {
+            await repositories.chatMessage
+              .createChatMessage(db, {
+                workspaceId: execution.workspaceId,
+                workflowId: execution.workflowId,
+                conversationId,
+                executionId,
+                role: "assistant",
+                content: reply,
+              })
+              .catch((error: unknown) => {
+                const message =
+                  error instanceof Error ? error.message : String(error)
+                this.logger.warn(
+                  `Execution ${executionId}: failed to persist assistant chat message — ${message}`
+                )
+              })
+          }
+        }
       } else {
         await repositories.execution.completeExecution(
           db,

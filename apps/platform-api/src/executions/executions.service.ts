@@ -5,7 +5,13 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common'
-import { db, repositories, type Execution, type ExecutionStep } from '@linea/db'
+import {
+  db,
+  repositories,
+  type ChatMessage,
+  type Execution,
+  type ExecutionStep,
+} from '@linea/db'
 import {
   assertNoReservedNodeIds,
   hashWorkflowGraph,
@@ -17,6 +23,7 @@ import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 import { WorkflowQueueService } from '../queue/workflow-queue.service'
 import type { CountNewWorkspaceExecutionsDto } from './dto/count-new-workspace-executions.dto'
 import type { ListWorkspaceExecutionsDto } from './dto/list-workspace-executions.dto'
+import type { SendChatMessageDto } from './dto/chat-preview.dto'
 import type { ReplayStepDto } from './dto/replay-step.dto'
 import type { TestRunDto } from './dto/test-run.dto'
 import type { TriggerExecutionDto } from './dto/trigger-execution.dto'
@@ -127,6 +134,99 @@ export class ExecutionsService {
     }
 
     return execution
+  }
+
+  /** One turn of a chat preview: persists the user's message, then runs the (possibly draft) graph as a normal one-shot execution carrying conversationId in triggerPayload — the AI node picks up prior turns from there. Follows testRun's exact draft-graph pattern. A conversation is a sequence of independent executions sharing a conversationId, not one execution pausing repeatedly — the graph is a DAG and can't loop back to "wait for the next message." */
+  async sendChatMessage(
+    workspaceId: string,
+    workflowId: string,
+    input: SendChatMessageDto,
+  ): Promise<{ execution: Execution; conversationId: string }> {
+    const workflow = await repositories.workflow.getWorkflowById(
+      db,
+      workspaceId,
+      workflowId,
+    )
+    if (!workflow) {
+      throw new NotFoundException('Workflow not found')
+    }
+
+    try {
+      validateGraphStructure(input.graph)
+      assertNoReservedNodeIds(input.graph)
+    } catch (error) {
+      if (error instanceof WorkflowGraphError) {
+        throw new BadRequestException(error.message)
+      }
+      throw error
+    }
+
+    const conversationId = input.conversationId ?? randomUUID()
+
+    const version = await repositories.workflow.ensureVersionForGraph(
+      db,
+      workflowId,
+      { graph: input.graph, contentHash: hashWorkflowGraph(input.graph) },
+    )
+
+    await repositories.chatMessage.createChatMessage(db, {
+      workspaceId,
+      workflowId,
+      conversationId,
+      role: 'user',
+      content: input.message,
+    })
+
+    const result =
+      await repositories.execution.triggerWorkflowExecutionForVersion(
+        db,
+        workspaceId,
+        workflowId,
+        version.id,
+        { trigger: 'manual', triggerPayload: { conversationId } },
+      )
+    switch (result.outcome) {
+      case 'not_found':
+        throw new NotFoundException('Workflow not found')
+      case 'archived':
+        throw new BadRequestException('Workflow is archived')
+    }
+
+    const execution = result.execution
+
+    try {
+      await this.queue.enqueue(execution.id)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      await repositories.execution.failQueuedExecution(db, execution.id, {
+        message,
+      })
+      throw new ServiceUnavailableException(
+        'Failed to enqueue execution — it will not run',
+      )
+    }
+
+    return { execution, conversationId }
+  }
+
+  async listChatMessages(
+    workspaceId: string,
+    workflowId: string,
+    conversationId: string,
+  ): Promise<ChatMessage[]> {
+    const workflow = await repositories.workflow.getWorkflowById(
+      db,
+      workspaceId,
+      workflowId,
+    )
+    if (!workflow) {
+      throw new NotFoundException('Workflow not found')
+    }
+    return repositories.chatMessage.listChatMessages(
+      db,
+      workspaceId,
+      conversationId,
+    )
   }
 
   async list(workspaceId: string, workflowId: string): Promise<Execution[]> {

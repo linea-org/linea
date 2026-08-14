@@ -4,6 +4,8 @@ export type NodeExecutionContext = {
   idempotencyKey?: string
   /** Aborted when the caller loses ownership mid-call (a lost lease, a lost replay claim) — handlers making outbound requests should pass it through so loss stops the actual request, not just the bookkeeping. */
   signal?: AbortSignal
+  /** Set when the triggering execution's payload carries a conversationId (chat preview) — lets a handler like AiNode fetch prior turns for message history. */
+  conversationId?: string
 }
 
 export interface NodeHandler {

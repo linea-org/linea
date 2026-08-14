@@ -295,6 +295,151 @@ describe("RunsService failure accounting", () => {
   })
 })
 
+describe("RunsService chat-preview message persistence", () => {
+  it("persists the last AI node's reply as an assistant chat message when triggerPayload carries a conversationId", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Chat Test Org",
+        slug: `runs-chat-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Chat Test Workflow",
+        slug: `runs-chat-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-chat-hash",
+      })
+      const conversationId = randomUUID()
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: { conversationId },
+      })
+
+      const fastInterpreter = {
+        run: () =>
+          Promise.resolve({
+            result: { status: "completed" as const },
+            totalTokensInput: 10,
+            totalTokensOutput: 5,
+            totalCostMicros: 0n,
+            costUnpriced: false,
+            completed: new Map([["n1", { text: "the assistant's reply" }]]),
+          }),
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        fastInterpreter,
+        new RunLeaseService()
+      )
+      await runs.execute(execution.id)
+
+      const messages = await repositories.chatMessage.listChatMessages(
+        db,
+        organization.id,
+        conversationId
+      )
+      expect(messages).toHaveLength(1)
+      expect(messages[0]).toMatchObject({
+        role: "assistant",
+        content: "the assistant's reply",
+        executionId: execution.id,
+      })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("persists nothing when triggerPayload has no conversationId", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Non-Chat Test Org",
+        slug: `runs-non-chat-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Non-Chat Test Workflow",
+        slug: `runs-non-chat-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-non-chat-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+
+      const fastInterpreter = {
+        run: () =>
+          Promise.resolve({
+            result: { status: "completed" as const },
+            totalTokensInput: 10,
+            totalTokensOutput: 5,
+            totalCostMicros: 0n,
+            costUnpriced: false,
+            completed: new Map([["n1", { text: "should not be persisted" }]]),
+          }),
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        fastInterpreter,
+        new RunLeaseService()
+      )
+      await runs.execute(execution.id)
+
+      const { rows } = await pool.query(
+        "SELECT id FROM chat_messages WHERE workspace_id = $1",
+        [organization.id]
+      )
+      expect(rows).toHaveLength(0)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+})
+
 describe("RunsService fencing identity", () => {
   it("gives each execute() call its own leasedBy, even from the same instance", async () => {
     const suffix = randomUUID()

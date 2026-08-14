@@ -19,7 +19,10 @@ export const anthropicProvider: AiProvider = {
         model: request.model,
         system: request.systemPrompt,
         max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
-        messages: [{ role: "user", content: request.prompt }],
+        messages: [
+          ...(request.history ?? []),
+          { role: "user", content: request.prompt },
+        ],
       },
       { signal: request.signal }
     )

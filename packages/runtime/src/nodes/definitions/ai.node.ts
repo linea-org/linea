@@ -5,6 +5,8 @@ const aiInputSchema = z.object({
   prompt: z.string(),
   model: z.string(),
   systemPrompt: z.string().optional(),
+  // Set by the runtime from the execution's trigger payload, not authored on the node — when present, prior turns for this conversation are fetched and sent as message history.
+  conversationId: z.string().optional(),
 })
 
 const aiOutputSchema = z.object({

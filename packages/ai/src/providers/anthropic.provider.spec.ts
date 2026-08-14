@@ -48,6 +48,35 @@ describe("anthropicProvider", () => {
     expect(result.text).toBe("part one. part two.")
   })
 
+  it("puts history before the final prompt turn, with system kept as a separate top-level param", async () => {
+    create.mockResolvedValue({
+      content: [{ type: "text", text: "hi" }],
+      usage: { input_tokens: 1, output_tokens: 1 },
+    })
+
+    await anthropicProvider.complete("key", {
+      model: "claude-sonnet-5",
+      prompt: "and now?",
+      systemPrompt: "be terse",
+      history: [
+        { role: "user", content: "first turn" },
+        { role: "assistant", content: "first reply" },
+      ],
+    })
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: "be terse",
+        messages: [
+          { role: "user", content: "first turn" },
+          { role: "assistant", content: "first reply" },
+          { role: "user", content: "and now?" },
+        ],
+      }),
+      { signal: undefined }
+    )
+  })
+
   it("bounds output tokens with a default when the caller doesn't specify one", async () => {
     create.mockResolvedValue({
       content: [{ type: "text", text: "hi" }],

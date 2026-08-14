@@ -44,8 +44,10 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@linea/ui/components/resizable"
+import { Sheet, SheetContent } from "@linea/ui/components/sheet"
 import {
   ArrowLeftIcon,
+  MessageCircleIcon,
   PanelLeftIcon,
   PlayIcon,
   Redo2Icon,
@@ -53,6 +55,7 @@ import {
 } from "lucide-react"
 import { useWorkspaceOverlayNav } from "../workspace"
 import { testRunFn, type JsonValue } from "../../lib/executions-api"
+import { ChatPreviewPanel } from "./chat-preview-panel"
 import {
   createWorkflowVersionFn,
   publishWorkflowVersionFn,
@@ -233,6 +236,7 @@ function WorkflowBuilderCanvasInner({
       })
     },
   })
+  const [chatOpen, setChatOpen] = useState(false)
   const [commitDialog, setCommitDialog] = useState<"commit" | "publish" | null>(
     null
   )
@@ -404,6 +408,15 @@ function WorkflowBuilderCanvasInner({
           {saveDraft.isPending && (
             <span className="text-xs text-muted-foreground">Saving…</span>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setChatOpen(true)}
+          >
+            <MessageCircleIcon />
+            Chat preview
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -589,6 +602,15 @@ function WorkflowBuilderCanvasInner({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Sheet open={chatOpen} onOpenChange={setChatOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md">
+          <ChatPreviewPanel
+            slug={slug}
+            workflowId={workflowId}
+            graph={buildGraph(entryNodeId)}
+          />
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

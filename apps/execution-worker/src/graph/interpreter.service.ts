@@ -42,6 +42,8 @@ export type RunOutcome = {
   totalCostMicros: bigint
   // true: some step unpriced. null: some step predates tracking. false: all priced.
   costUnpriced: boolean | null
+  // Every completed node's output, in execution order — lets callers (e.g. chat-preview's assistant-message persistence) find "the last AI node's reply" without a second DB round trip.
+  completed: Map<string, unknown>
 }
 
 /** true beats null beats false. */
@@ -52,6 +54,14 @@ function mergeCostUnpriced(
   if (a === true || b === true) return true
   if (a === null || b === null) return null
   return false
+}
+
+function extractConversationId(triggerPayload: unknown): string | undefined {
+  if (triggerPayload === null || typeof triggerPayload !== "object") {
+    return undefined
+  }
+  const value = (triggerPayload as Record<string, unknown>).conversationId
+  return typeof value === "string" ? value : undefined
 }
 
 function extractTokenUsage(
@@ -96,7 +106,8 @@ export class InterpreterService {
     input: unknown,
     workspaceId: string,
     idempotencyKey?: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    conversationId?: string
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -110,6 +121,7 @@ export class InterpreterService {
       workspaceId,
       idempotencyKey,
       signal,
+      conversationId,
     })
     const usage = extractTokenUsage(output)
     return {
@@ -157,7 +169,8 @@ export class InterpreterService {
           step.input,
           input.workspaceId,
           `${input.executionId}:${step.nodeId}`,
-          input.signal
+          input.signal,
+          extractConversationId(input.triggerPayload)
         )
         let costMicros: bigint | undefined
         let stepCostUnpriced: boolean | undefined
@@ -237,6 +250,7 @@ export class InterpreterService {
       totalTokensOutput,
       totalCostMicros,
       costUnpriced,
+      completed,
     }
   }
 }
