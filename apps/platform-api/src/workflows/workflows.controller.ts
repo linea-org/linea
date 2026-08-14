@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
@@ -19,6 +20,10 @@ import {
   createWorkflowSchema,
   type CreateWorkflowDto,
 } from './dto/create-workflow.dto'
+import {
+  saveWorkflowDraftSchema,
+  type SaveWorkflowDraftDto,
+} from './dto/save-workflow-draft.dto'
 import {
   updateWorkflowSchema,
   type UpdateWorkflowDto,
@@ -58,6 +63,16 @@ export class WorkflowsController {
     return this.workflows.update(workspaceId, id, body)
   }
 
+  @Put(':id/draft')
+  saveDraft(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(saveWorkflowDraftSchema))
+    body: SaveWorkflowDraftDto,
+  ) {
+    return this.workflows.saveDraft(workspaceId, id, body)
+  }
+
   @Post(':id/versions')
   createVersion(
     @CurrentWorkspaceId() workspaceId: string,
@@ -66,6 +81,15 @@ export class WorkflowsController {
     body: CreateWorkflowVersionDto,
   ) {
     return this.workflows.createVersion(workspaceId, id, body)
+  }
+
+  @Get(':id/versions/:versionId')
+  getVersion(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+  ) {
+    return this.workflows.getVersion(workspaceId, id, versionId)
   }
 
   @Post(':id/versions/:versionId/publish')

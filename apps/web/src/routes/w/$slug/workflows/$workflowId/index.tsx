@@ -1,14 +1,36 @@
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { useState } from "react"
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
+import { PencilIcon, PencilRulerIcon, PlayIcon } from "lucide-react"
+
+import { Button } from "@linea/ui/components/button"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@linea/ui/components/tabs"
 
 import { ExecutionList } from "../../../../../components/executions"
-import { WorkflowStatusBadge } from "../../../../../components/workflows"
+import { SignalList } from "../../../../../components/signals"
+import {
+  WorkflowFormDialog,
+  WorkflowStatusBadge,
+} from "../../../../../components/workflows"
 import {
   executionsQueryOptions,
   listExecutionsFn,
+  triggerExecutionFn,
 } from "../../../../../lib/executions-api"
+import { workflowSignalsQueryOptions } from "../../../../../lib/signals-api"
 import {
   getWorkflowFn,
+  updateWorkflowFn,
   workflowQueryOptions,
 } from "../../../../../lib/workflows-api"
 
@@ -33,6 +55,9 @@ export const Route = createFileRoute("/w/$slug/workflows/$workflowId/")({
 function WorkflowDetailPage() {
   const { slug, workflowId } = Route.useParams()
   const initialData = Route.useLoaderData()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [editOpen, setEditOpen] = useState(false)
   const { data: workflow } = useSuspenseQuery({
     ...workflowQueryOptions(slug, workflowId),
     initialData: initialData.workflow,
@@ -45,13 +70,79 @@ function WorkflowDetailPage() {
     ...executionsQueryOptions(slug, workflowId),
     initialData: initialData.executions,
   })
+  const {
+    data: signals,
+    isPending: signalsPending,
+    isError: signalsErrored,
+  } = useQuery(workflowSignalsQueryOptions(slug, workflowId))
+
+  const run = useMutation({
+    mutationFn: () => triggerExecutionFn({ data: { workflowId } }),
+    onSuccess: (execution) => {
+      void queryClient.invalidateQueries({
+        queryKey: executionsQueryOptions(slug, workflowId).queryKey,
+      })
+      void navigate({
+        to: "/w/$slug/workflows/$workflowId/executions/$executionId",
+        params: { slug, workflowId, executionId: execution.id },
+      })
+    },
+  })
 
   return (
     <main className="flex flex-1 flex-col px-6 py-8 sm:px-8 sm:py-10">
-      <div className="flex items-center gap-3">
-        <WorkflowStatusBadge workflow={workflow} />
-        <span className="text-sm text-muted-foreground">{workflow.slug}</span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <WorkflowStatusBadge workflow={workflow} />
+          <span className="text-sm text-muted-foreground">{workflow.slug}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setEditOpen(true)}
+          >
+            <PencilIcon />
+            Edit
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => run.mutate()}
+            disabled={run.isPending || !workflow.publishedVersionId}
+            title={
+              workflow.publishedVersionId
+                ? undefined
+                : "Publish a version before running"
+            }
+          >
+            <PlayIcon />
+            {run.isPending ? "Running…" : "Run"}
+          </Button>
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                to="/w/$slug/workflows/$workflowId/builder"
+                params={{ slug, workflowId }}
+              />
+            }
+          >
+            <PencilRulerIcon />
+            Open builder
+          </Button>
+        </div>
       </div>
+
+      {run.isError && (
+        <p className="mt-3 text-sm text-destructive">{run.error.message}</p>
+      )}
+
+      {workflow.description && (
+        <p className="mt-4 max-w-2xl text-sm text-muted-foreground">
+          {workflow.description}
+        </p>
+      )}
 
       <dl className="mt-6 grid max-w-md grid-cols-2 gap-y-3 text-sm">
         <dt className="text-muted-foreground">Created</dt>
@@ -64,24 +155,62 @@ function WorkflowDetailPage() {
         </dd>
       </dl>
 
-      <h2 className="mt-10 font-heading text-xl font-semibold tracking-tight">
-        Executions
-      </h2>
-      {executionsErrored ? (
-        <p className="mt-4 text-sm text-destructive">
-          Could not load executions.
-        </p>
-      ) : executionsPending ? (
-        <p className="mt-4 text-sm text-muted-foreground">
-          Loading executions…
-        </p>
-      ) : (
-        <ExecutionList
-          executions={executions}
-          slug={slug}
-          workflowId={workflowId}
-        />
-      )}
+      <Tabs defaultValue="executions" className="mt-10">
+        <TabsList>
+          <TabsTrigger value="executions">Executions</TabsTrigger>
+          <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+        </TabsList>
+        <TabsContent value="executions">
+          {executionsErrored ? (
+            <p className="mt-4 text-sm text-destructive">
+              Could not load executions.
+            </p>
+          ) : executionsPending ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Loading executions…
+            </p>
+          ) : (
+            <ExecutionList
+              executions={executions}
+              slug={slug}
+              workflowId={workflowId}
+            />
+          )}
+        </TabsContent>
+        <TabsContent value="monitoring">
+          {signalsErrored ? (
+            <p className="mt-4 text-sm text-destructive">
+              Could not load signals.
+            </p>
+          ) : signalsPending ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Loading signals…
+            </p>
+          ) : (
+            <SignalList signals={signals} />
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <WorkflowFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title="Edit workflow"
+        submitLabel="Save"
+        defaultValues={{
+          name: workflow.name,
+          slug: workflow.slug,
+          description: workflow.description ?? "",
+        }}
+        onSubmit={(values) =>
+          updateWorkflowFn({ data: { id: workflow.id, ...values } })
+        }
+        onSuccess={async () => {
+          await queryClient.invalidateQueries({
+            queryKey: workflowQueryOptions(slug, workflowId).queryKey,
+          })
+        }}
+      />
     </main>
   )
 }

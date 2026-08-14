@@ -1,12 +1,21 @@
 import { z } from "zod"
 
-export const nodeTypeSchema = z.enum(["http", "transform", "branch", "ai"])
+export const nodeTypeSchema = z.enum([
+  "start",
+  "end",
+  "http",
+  "transform",
+  "branch",
+  "ai",
+])
 export type NodeType = z.infer<typeof nodeTypeSchema>
 
 export const workflowNodeSchema = z.object({
   id: z.string().min(1),
   type: nodeTypeSchema,
   config: z.record(z.string(), z.unknown()).default({}),
+  // Canvas layout only — absent graphs get auto-laid-out on first open.
+  position: z.object({ x: z.number(), y: z.number() }).optional(),
 })
 export type WorkflowNode = z.infer<typeof workflowNodeSchema>
 

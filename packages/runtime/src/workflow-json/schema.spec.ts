@@ -48,4 +48,15 @@ describe("workflowGraphSchema", () => {
       workflowGraphSchema.parse({ ...validGraph, nodes: [] })
     ).toThrow()
   })
+
+  it("accepts a node's canvas position and leaves it undefined when absent", () => {
+    const withPosition = workflowGraphSchema.parse({
+      ...validGraph,
+      nodes: [{ ...validGraph.nodes[0], position: { x: 120, y: 40 } }],
+    })
+    expect(withPosition.nodes[0].position).toEqual({ x: 120, y: 40 })
+
+    const withoutPosition = workflowGraphSchema.parse(validGraph)
+    expect(withoutPosition.nodes[0].position).toBeUndefined()
+  })
 })

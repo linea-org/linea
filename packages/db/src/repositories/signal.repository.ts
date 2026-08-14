@@ -73,7 +73,8 @@ export type SignalSummary = Signal & {
 
 export async function listSignals(
   db: DbClient,
-  workspaceId: string
+  workspaceId: string,
+  options: { workflowId?: string } = {}
 ): Promise<SignalSummary[]> {
   const rows = await db
     .select({
@@ -84,7 +85,14 @@ export async function listSignals(
     })
     .from(signals)
     .innerJoin(flags, eq(flags.signalId, signals.id))
-    .where(eq(signals.workspaceId, workspaceId))
+    .where(
+      and(
+        eq(signals.workspaceId, workspaceId),
+        options.workflowId
+          ? eq(signals.workflowId, options.workflowId)
+          : undefined
+      )
+    )
     .groupBy(signals.id)
     .orderBy(desc(sql`max(${flags.createdAt})`))
 

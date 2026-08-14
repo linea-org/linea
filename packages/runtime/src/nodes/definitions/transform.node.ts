@@ -18,4 +18,15 @@ export const transformNode: NodeDefinition<
   inputSchema: transformInputSchema,
   outputSchema: transformOutputSchema,
   needsSandbox: false,
+  ui: {
+    label: "Transform",
+    description: "Pick a value out of the upstream step's output by path.",
+    category: "data",
+    icon: "braces",
+    // "input" isn't a config field — it's the runtime value from the upstream node.
+    fields: [
+      { key: "expression", label: "Path (e.g. body.items)", widget: "text" },
+    ],
+    summaryField: "expression",
+  },
 }

@@ -171,6 +171,36 @@ describe("validateGraphStructure", () => {
     ).toThrow(WorkflowGraphError)
   })
 
+  it("accepts an end node with no outgoing edges", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            { id: "a", type: "http", config: {} },
+            { id: "b", type: "end", config: {} },
+          ],
+          edges: [{ from: "a", to: "b" }],
+        })
+      )
+    ).not.toThrow()
+  })
+  it("rejects an end node with an outgoing edge", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            { id: "a", type: "http", config: {} },
+            { id: "b", type: "end", config: {} },
+            { id: "c", type: "transform", config: {} },
+          ],
+          edges: [
+            { from: "a", to: "b" },
+            { from: "b", to: "c" },
+          ],
+        })
+      )
+    ).toThrow(WorkflowGraphError)
+  })
   it("rejects a cycle in a component disconnected from the entry node", () => {
     // Every node still has exactly one incoming edge, so the earlier degree
     // check alone wouldn't catch this — only reachability from entry does.

@@ -14,6 +14,7 @@ import {
   getWorkflowVersionById,
   listWorkflows,
   publishWorkflowVersion,
+  saveWorkflowDraft,
   updateWorkflow,
 } from "./workflow.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
@@ -451,6 +452,61 @@ describe("updateWorkflow", () => {
 
       const list = await listWorkflows(tx, organization.id)
       expect(list.map((w) => w.id)).not.toContain(workflow.id)
+    })
+  })
+})
+
+describe("saveWorkflowDraft", () => {
+  it("upserts draftGraph and draftUpdatedAt, scoped to the owning workspace", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      expect(workflow.draftGraph).toBeNull()
+
+      const draft = { nodes: [{ id: "n1", type: "http" }], edges: [] }
+      const saved = await saveWorkflowDraft(
+        tx,
+        organization.id,
+        workflow.id,
+        draft
+      )
+      expect(saved?.draftGraph).toEqual(draft)
+      expect(saved?.draftUpdatedAt).toBeInstanceOf(Date)
+    })
+  })
+
+  it("accepts a structurally incomplete graph — no validation on this path", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+
+      // No entryNodeId, no trigger, a node with no outgoing edge — none of this is valid
+      // per workflowGraphSchema, and that's the point: a draft can be mid-edit.
+      const incomplete = { nodes: [{ id: "n1" }] }
+      const saved = await saveWorkflowDraft(
+        tx,
+        organization.id,
+        workflow.id,
+        incomplete
+      )
+      expect(saved?.draftGraph).toEqual(incomplete)
+    })
+  })
+
+  it("does not update a draft belonging to a different workspace", async () => {
+    await withRollback(async (tx) => {
+      const { workflow } = await createTestFixtures(tx)
+      const { organization: otherOrg } = await createTestFixtures(tx)
+
+      const result = await saveWorkflowDraft(tx, otherOrg.id, workflow.id, {
+        nodes: [],
+      })
+      expect(result).toBeUndefined()
+
+      const stillUnset = await getWorkflowById(
+        tx,
+        workflow.workspaceId,
+        workflow.id
+      )
+      expect(stillUnset?.draftGraph).toBeNull()
     })
   })
 })

@@ -25,7 +25,6 @@ export const Route = createFileRoute("/w/$slug")({
 function WorkspaceLayout() {
   const { slug } = Route.useParams()
   const { workspaces } = Route.useRouteContext()
-
   return (
     <WorkspaceShell slug={slug} workspaces={workspaces}>
       <Outlet />
