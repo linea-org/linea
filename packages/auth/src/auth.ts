@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter"
 import { organization } from "better-auth/plugins"
-import { db, schema } from "@linea/db"
+import { db, repositories, schema } from "@linea/db"
 import { sendEmail } from "./email.js"
 import {
   organizationInviteEmailHtml,
@@ -133,6 +133,31 @@ export const auth = betterAuth({
           }),
           text: `${data.inviter.user.name} invited you to join ${data.organization.name}. Accept: ${inviteLink}`,
         })
+      },
+      organizationHooks: {
+        // Best-effort: a notification failure shouldn't undo an invitation that already landed — the membership itself was created moments earlier by this same request.
+        async afterAcceptInvitation({ invitation, user, organization }) {
+          try {
+            await repositories.notification.createNotification(db, {
+              userId: invitation.inviterId,
+              workspaceId: organization.id,
+              type: "workspace.invitation_accepted",
+              severity: "success",
+              title: `${user.name} joined ${organization.name}`,
+              body: `${user.email} accepted your invitation to join ${organization.name}.`,
+              metadata: {
+                workspaceId: organization.id,
+                invitationId: invitation.id,
+              },
+            })
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error)
+            console.error(
+              `Failed to create invitation-accepted notification for invitation ${invitation.id}: ${message}`
+            )
+          }
+        },
       },
     }),
   ],

@@ -6,8 +6,34 @@ import {
   type Flag,
   type NewFlag,
 } from "../schema/index.js"
+import { listMemberUserIds } from "./organization.repository.js"
+import { createNotificationsForUsers } from "./notification.repository.js"
 import { recordSignalOccurrence } from "./signal.repository.js"
+import { getWorkflowById } from "./workflow.repository.js"
 import type { DbClient } from "./types.js"
+
+async function notifySignalRegressed(
+  db: DbClient,
+  flag: Flag,
+  signalId: string
+): Promise<void> {
+  const workflow = flag.workflowId
+    ? await getWorkflowById(db, flag.workspaceId, flag.workflowId)
+    : undefined
+  const memberUserIds = await listMemberUserIds(db, flag.workspaceId)
+  await createNotificationsForUsers(db, memberUserIds, {
+    workspaceId: flag.workspaceId,
+    type: "system.warning",
+    severity: "warning",
+    title: `${workflow?.name ?? "A workflow"} regressed: ${flag.flagType.replace(/_/g, " ")}`,
+    body: "An issue that was previously marked resolved was flagged again.",
+    metadata: {
+      workflowId: flag.workflowId ?? undefined,
+      workspaceId: flag.workspaceId,
+      signalId,
+    },
+  })
+}
 
 // Insert and signal linkage share a transaction — a flag that exists must always have already reached its signal, since a crash in between would otherwise leave a permanently unlinked row: dedupeKey suppresses reinsertion on the next sweep, so there is no retry path outside this atomicity.
 export async function createFlagIfNew(
@@ -21,7 +47,19 @@ export async function createFlagIfNew(
       .onConflictDoNothing({ target: flags.dedupeKey })
       .returning()
     if (flag) {
-      await recordSignalOccurrence(tx, flag)
+      const { signal, justRegressed } = await recordSignalOccurrence(tx, flag)
+      if (justRegressed) {
+        // Best-effort: a notification failure shouldn't roll back a real flag/signal that already landed.
+        await notifySignalRegressed(tx, flag, signal.id).catch(
+          (error: unknown) => {
+            const message =
+              error instanceof Error ? error.message : String(error)
+            console.error(
+              `Failed to create signal-regressed notification for signal ${signal.id}: ${message}`
+            )
+          }
+        )
+      }
     }
     return flag
   })

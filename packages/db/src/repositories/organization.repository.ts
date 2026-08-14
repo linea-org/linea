@@ -37,6 +37,18 @@ export async function findOrCreateOrganizationBySlug(
   return existing
 }
 
+/** better-auth's organization plugin owns the members table — this is a read-only lookup for workspace-wide notification fan-out, not a mutation path. */
+export async function listMemberUserIds(
+  db: DbClient,
+  organizationId: string
+): Promise<string[]> {
+  const rows = await db
+    .select({ userId: members.userId })
+    .from(members)
+    .where(eq(members.organizationId, organizationId))
+  return rows.map((r) => r.userId)
+}
+
 /** better-auth's organization plugin owns the members table — this is a read-only lookup for the API's own role checks, not a mutation path. */
 export async function getMemberRole(
   db: DbClient,
