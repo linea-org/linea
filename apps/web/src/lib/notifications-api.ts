@@ -157,36 +157,3 @@ export function unreadNotificationCountQueryOptions(workspaceSlug: string) {
     refetchInterval: 30_000,
   })
 }
-
-/** Where a notification's "View" action should take the reader, computed client-side from its type + metadata rather than a stored href — the frontend already knows the current workspace slug, so there's no need to resolve it server-side at creation time. */
-export function notificationLink(
-  slug: string,
-  notification: Pick<NotificationSummary, "type" | "metadata">
-): string | undefined {
-  const meta = notification.metadata ?? {}
-  switch (notification.type) {
-    case "execution.failed": {
-      const workflowId = meta.workflowId
-      const executionId = meta.executionId
-      if (typeof workflowId === "string" && typeof executionId === "string") {
-        return `/w/${slug}/workflows/${workflowId}/executions/${executionId}`
-      }
-      return undefined
-    }
-    case "system.warning": {
-      const workflowId = meta.workflowId
-      if (typeof workflowId === "string") {
-        return `/w/${slug}/workflows/${workflowId}`
-      }
-      return undefined
-    }
-    case "workspace.invitation_accepted":
-    case "workspace.invitation":
-    case "workspace.member_joined":
-    case "workspace.member_removed":
-    case "workspace.role_changed":
-      return `/w/${slug}/settings/members`
-    default:
-      return undefined
-  }
-}

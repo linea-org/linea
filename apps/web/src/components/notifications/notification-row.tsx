@@ -1,159 +1,185 @@
-import { useState } from "react"
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
-  ChevronDownIcon,
+  CircleAlertIcon,
+  CircleCheckIcon,
   EllipsisVerticalIcon,
-  ExternalLinkIcon,
+  InfoIcon,
   MailIcon,
   MailOpenIcon,
   Trash2Icon,
+  TriangleAlertIcon,
+  type LucideIcon,
 } from "lucide-react"
+import type { ReactNode } from "react"
 
 import { Button } from "@linea/ui/components/button"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@linea/ui/components/collapsible"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@linea/ui/components/dropdown-menu"
-import { Item, ItemContent, ItemTitle } from "@linea/ui/components/item"
 import { cn } from "@linea/ui/lib/utils"
 
-import {
-  notificationLink,
-  type NotificationSummary,
+import type {
+  NotificationSeverity,
+  NotificationSummary,
 } from "../../lib/notifications-api"
+import { formatRelativeTime } from "./format-relative-time"
+import { NotificationTargetLink } from "./notification-target-link"
+import { resolveNotificationTarget } from "./resolve-notification-target"
+
+const severityIcon: Record<NotificationSeverity, LucideIcon> = {
+  info: InfoIcon,
+  success: CircleCheckIcon,
+  warning: TriangleAlertIcon,
+  error: CircleAlertIcon,
+}
+
+const severityColor: Record<NotificationSeverity, string> = {
+  info: "text-muted-foreground",
+  success: "text-muted-foreground",
+  warning: "text-muted-foreground",
+  error: "text-destructive",
+}
 
 export function NotificationRow({
   notification,
   slug,
   archived = false,
+  compact = false,
   onToggleRead,
   onArchive,
   onUnarchive,
   onDelete,
+  onActivate,
 }: {
   notification: NotificationSummary
   slug: string
   archived?: boolean
+  compact?: boolean
   onToggleRead: (id: string, read: boolean) => void
   onArchive: (id: string) => void
-  onUnarchive: (id: string) => void
+  onUnarchive?: (id: string) => void
   onDelete: (id: string) => void
+  onActivate?: () => void
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const link = notificationLink(slug, notification)
-
+  const target = resolveNotificationTarget(notification)
+  const Icon = severityIcon[notification.severity]
+  function followLink() {
+    if (!notification.read) onToggleRead(notification.id, true)
+    onActivate?.()
+  }
+  const copy = (
+    <>
+      <span
+        className={cn(
+          "block text-sm text-foreground",
+          compact ? "truncate" : "line-clamp-2",
+          !notification.read && "font-medium"
+        )}
+      >
+        {notification.title}
+      </span>
+      <span
+        className={cn(
+          "mt-0.5 block text-xs text-muted-foreground",
+          compact ? "truncate" : "line-clamp-2"
+        )}
+      >
+        {notification.body}
+      </span>
+      <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+        {target ? (
+          <span className="text-primary group-hover/link:underline">
+            {target.label}
+          </span>
+        ) : null}
+        {target ? <span aria-hidden="true">·</span> : null}
+        <span>{formatRelativeTime(notification.createdAt)}</span>
+      </span>
+    </>
+  )
+  const content: ReactNode = target ? (
+    <NotificationTargetLink
+      slug={slug}
+      target={target}
+      className="group/link min-w-0 flex-1"
+      onClick={followLink}
+    >
+      {copy}
+    </NotificationTargetLink>
+  ) : (
+    <div className="min-w-0 flex-1">{copy}</div>
+  )
   return (
-    <Item
-      variant="outline"
+    <div
       className={cn(
-        "flex-col items-stretch",
-        !notification.read && "bg-muted/40"
+        "flex items-start gap-1 hover:bg-muted/40",
+        compact ? "px-3 py-2.5" : "px-4 py-3.5",
+        !notification.read && "bg-muted/20"
       )}
     >
-      <Collapsible
-        open={expanded}
-        onOpenChange={(open) => {
-          setExpanded(open)
-          if (open && !notification.read) onToggleRead(notification.id, true)
-        }}
-        className="w-full"
-      >
-        <div className="flex w-full items-start gap-2">
-          <CollapsibleTrigger
+      {!notification.read ? (
+        <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />
+      ) : (
+        <span className="mt-2 size-1.5 shrink-0" />
+      )}
+      <Icon
+        className={cn(
+          "mt-1 size-4 shrink-0",
+          severityColor[notification.severity]
+        )}
+        aria-hidden="true"
+      />
+      {content}
+      <div className="flex shrink-0 items-center gap-0.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={notification.read ? "Mark unread" : "Mark read"}
+          title={notification.read ? "Mark unread" : "Mark read"}
+          onClick={() => onToggleRead(notification.id, !notification.read)}
+        >
+          {notification.read ? <MailIcon /> : <MailOpenIcon />}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
             render={
-              <button
+              <Button
                 type="button"
-                className="flex flex-1 items-start gap-2 text-left"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`More options for ${notification.title}`}
               />
             }
           >
-            {!notification.read ? (
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
+            <EllipsisVerticalIcon />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44 min-w-44">
+            {archived && onUnarchive ? (
+              <DropdownMenuItem onClick={() => onUnarchive(notification.id)}>
+                <ArchiveRestoreIcon />
+                Unarchive
+              </DropdownMenuItem>
             ) : (
-              <span className="mt-1.5 size-1.5 shrink-0" />
+              <DropdownMenuItem onClick={() => onArchive(notification.id)}>
+                <ArchiveIcon />
+                Archive
+              </DropdownMenuItem>
             )}
-            <ItemContent className="gap-0.5">
-              <ItemTitle className="line-clamp-2 whitespace-normal">
-                {notification.title}
-              </ItemTitle>
-              {!expanded ? (
-                <p className="line-clamp-1 text-sm text-muted-foreground">
-                  {notification.body}
-                </p>
-              ) : null}
-            </ItemContent>
-            <ChevronDownIcon
-              className={cn(
-                "mt-1 size-4 shrink-0 text-muted-foreground transition-transform",
-                expanded && "rotate-180"
-              )}
-            />
-          </CollapsibleTrigger>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Notification actions"
-                />
-              }
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => onDelete(notification.id)}
             >
-              <EllipsisVerticalIcon />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44 min-w-44">
-              <DropdownMenuItem
-                onClick={() =>
-                  onToggleRead(notification.id, !notification.read)
-                }
-              >
-                {notification.read ? <MailIcon /> : <MailOpenIcon />}
-                {notification.read ? "Mark unread" : "Mark read"}
-              </DropdownMenuItem>
-              {archived ? (
-                <DropdownMenuItem onClick={() => onUnarchive(notification.id)}>
-                  <ArchiveRestoreIcon />
-                  Unarchive
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onClick={() => onArchive(notification.id)}>
-                  <ArchiveIcon />
-                  Archive
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => onDelete(notification.id)}
-              >
-                <Trash2Icon />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <CollapsibleContent className="pl-3.5">
-          <p className="pt-1 text-sm whitespace-pre-line text-muted-foreground">
-            {notification.body}
-          </p>
-          {link ? (
-            <a
-              href={link}
-              className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
-            >
-              View <ExternalLinkIcon className="size-3.5" />
-            </a>
-          ) : null}
-        </CollapsibleContent>
-      </Collapsible>
-    </Item>
+              <Trash2Icon />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
   )
 }
