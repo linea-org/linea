@@ -34,8 +34,12 @@ export class WorkspaceRoleGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>()
     const userId = request.session?.user?.id
-    // API-key requests have no per-user role — the key itself is an admin-issued, workspace-scoped credential, so it's already privileged.
-    if (!userId) return true
+    // API keys have no per-user role, and — critically — a key issued before its route became admin-gated (e.g. by a plain member, before ApiKeysController required admin+) must not grandfather its way past that requirement. Same rule ApiKeysController itself already applies to key issuance: credential management needs a real session.
+    if (!userId) {
+      throw new ForbiddenException(
+        `Requires a signed-in session with ${required} role or higher — API keys can't be used here`,
+      )
+    }
 
     // Falls back to the session directly so this guard also works on routes (like ApiKeysController) that don't run WorkspaceAuthGuard.
     const workspaceId =

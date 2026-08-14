@@ -50,16 +50,25 @@ describe('WorkspaceRoleGuard', () => {
     expect(allowed).toBe(true)
   })
 
-  it('allows an API-key-authenticated request through regardless of role', async () => {
+  it('allows an API-key-authenticated request through a route with no @RequireRole', async () => {
     const request = {
       workspaceId: 'org-1',
       session: null,
     } as Partial<AuthenticatedRequest>
 
-    const allowed = await guard.canActivate(
-      contextFor(adminOnlyHandler, request),
-    )
+    const allowed = await guard.canActivate(contextFor(openHandler, request))
     expect(allowed).toBe(true)
+  })
+
+  it('rejects an API-key-authenticated request on an admin-only route — a key issued before that route was gated must not grandfather past the requirement', async () => {
+    const request = {
+      workspaceId: 'org-1',
+      session: null,
+    } as Partial<AuthenticatedRequest>
+
+    await expect(
+      guard.canActivate(contextFor(adminOnlyHandler, request)),
+    ).rejects.toThrow(ForbiddenException)
   })
 
   it('rejects a plain member on an admin-only route, and allows an admin', async () => {

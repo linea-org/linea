@@ -1,6 +1,10 @@
 import { randomBytes } from "node:crypto"
 import { beforeEach, describe, expect, it } from "vitest"
-import { decryptSecret, encryptSecret } from "./encryption.js"
+import {
+  decryptSecret,
+  encryptSecret,
+  isEncryptedSecret,
+} from "./encryption.js"
 
 beforeEach(() => {
   process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString("base64")
@@ -36,5 +40,35 @@ describe("encryptSecret / decryptSecret", () => {
     process.env.SECRETS_ENCRYPTION_KEY =
       Buffer.from("too-short").toString("base64")
     expect(() => encryptSecret("value")).toThrow(/32 bytes/)
+  })
+
+  it("rejects a stored value with a truncated authentication tag", () => {
+    const encrypted = encryptSecret("sensitive")
+    const [iv, authTag, ciphertext] = encrypted.split(":")
+    const shortTag = Buffer.from(authTag, "base64")
+      .subarray(0, 8)
+      .toString("base64")
+    const tampered = [iv, shortTag, ciphertext].join(":")
+    expect(() => decryptSecret(tampered)).toThrow(/authentication tag/)
+  })
+})
+
+describe("isEncryptedSecret", () => {
+  it("is true for a value produced by encryptSecret", () => {
+    expect(isEncryptedSecret(encryptSecret("value"))).toBe(true)
+  })
+
+  it("is false for plain text, including plain text that happens to contain colons", () => {
+    expect(isEncryptedSecret("sk-plain-key")).toBe(false)
+    expect(isEncryptedSecret("not:encrypted:either")).toBe(false)
+  })
+
+  it("is false for a value with a truncated authentication tag", () => {
+    const encrypted = encryptSecret("value")
+    const [iv, authTag, ciphertext] = encrypted.split(":")
+    const shortTag = Buffer.from(authTag, "base64")
+      .subarray(0, 8)
+      .toString("base64")
+    expect(isEncryptedSecret([iv, shortTag, ciphertext].join(":"))).toBe(false)
   })
 })

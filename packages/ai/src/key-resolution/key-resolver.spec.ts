@@ -85,4 +85,28 @@ describe("resolveApiKey", () => {
       ).rejects.toThrow(/No workspace key and no platform key/)
     })
   })
+
+  it("uses a legacy plaintext value as-is instead of failing to decrypt it", async () => {
+    await withRollback(async (tx) => {
+      const organization = await createTestOrganization(tx)
+      // Written directly, bypassing encryptSecret — simulates a value stored before encryption existed.
+      await repositories.secret.upsertSecret(
+        tx,
+        organization.id,
+        "TEST_PROVIDER_KEY",
+        "legacy-plaintext-key"
+      )
+
+      const resolved = await resolveApiKey(
+        tx,
+        organization.id,
+        "TEST_PROVIDER_KEY"
+      )
+
+      expect(resolved).toEqual({
+        apiKey: "legacy-plaintext-key",
+        source: "workspace",
+      })
+    })
+  })
 })

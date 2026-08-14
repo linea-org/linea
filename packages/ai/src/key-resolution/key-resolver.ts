@@ -1,4 +1,4 @@
-import { decryptSecret, repositories } from "@linea/db"
+import { decryptSecret, isEncryptedSecret, repositories } from "@linea/db"
 
 type DbClient = repositories.DbClient
 
@@ -14,7 +14,11 @@ export async function resolveApiKey(
 ): Promise<ResolvedApiKey> {
   const secret = await repositories.secret.getSecret(db, workspaceId, keyName)
   if (secret) {
-    return { apiKey: decryptSecret(secret.encryptedValue), source: "workspace" }
+    // A value stored before encryption existed (or written directly, bypassing the Secrets API) won't match the encrypted format — use it as-is rather than failing the whole node on a decrypt error. Every write through the Secrets API always encrypts, so this path only ever serves legacy or out-of-band values.
+    const apiKey = isEncryptedSecret(secret.encryptedValue)
+      ? decryptSecret(secret.encryptedValue)
+      : secret.encryptedValue
+    return { apiKey, source: "workspace" }
   }
 
   const platformKey = process.env[keyName]
