@@ -46,12 +46,22 @@ import {
 } from "@linea/ui/components/resizable"
 import {
   ArrowLeftIcon,
+  CheckIcon,
   PanelLeftIcon,
   PlayIcon,
   Redo2Icon,
+  RefreshCwIcon,
   Undo2Icon,
 } from "lucide-react"
+import { UserAvatar } from "../account"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@linea/ui/components/tooltip"
 import { useWorkspaceOverlayNav } from "../workspace"
+import { authClient } from "../../lib/auth-client"
 import { testRunFn, type JsonValue } from "../../lib/executions-api"
 import {
   createWorkflowVersionFn,
@@ -62,6 +72,10 @@ import { WorkflowPalette, PALETTE_DRAG_MIME } from "./palette"
 import { NodeConfigPanel } from "./node-config-panel"
 import { NodeShell } from "./node-shell"
 import { useUndoHistory } from "./use-undo-history"
+import {
+  useWorkflowRealtime,
+  type DraftUpdatedEvent,
+} from "./use-workflow-realtime"
 import { isValidConnection } from "./connection-validation"
 import { categoryStroke } from "./node-category-colors"
 import {
@@ -200,6 +214,23 @@ function WorkflowBuilderCanvasInner({
   // Serializes draft saves to one in-flight request at a time — otherwise two overlapping PUTs can land out of order and an older save can overwrite newer builder state.
   const draftSaveInFlight = useRef(false)
   const pendingDraftGraph = useRef<Record<string, JsonValue> | null>(null)
+  // True whenever this tab has made a local edit not yet confirmed saved — gates whether a collaborator's live update can apply straight to the canvas or has to wait for the user to say so.
+  const dirtyRef = useRef(false)
+  const { mutateAsync: saveDraftAsync } = saveDraft
+  // "Saving…" while a save is in flight, then "Saved" for a couple seconds so the confirmation is actually visible instead of flickering past in the time it takes a fast request to round-trip.
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
+    "idle"
+  )
+  const savedIndicatorTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
+  useEffect(() => {
+    return () => {
+      if (savedIndicatorTimeout.current) {
+        clearTimeout(savedIndicatorTimeout.current)
+      }
+    }
+  }, [])
   const flushDraftSave = useCallback(
     async (graph: Record<string, JsonValue>) => {
       if (draftSaveInFlight.current) {
@@ -207,19 +238,65 @@ function WorkflowBuilderCanvasInner({
         return
       }
       draftSaveInFlight.current = true
+      setSaveStatus("saving")
+      let succeeded = false
       try {
-        await saveDraft.mutateAsync(graph)
+        await saveDraftAsync(graph)
+        succeeded = true
+        if (!pendingDraftGraph.current) dirtyRef.current = false
       } finally {
         draftSaveInFlight.current = false
         const next = pendingDraftGraph.current
         if (next) {
           pendingDraftGraph.current = null
           void flushDraftSave(next)
+        } else {
+          setSaveStatus(succeeded ? "saved" : "idle")
+          if (succeeded) {
+            if (savedIndicatorTimeout.current) {
+              clearTimeout(savedIndicatorTimeout.current)
+            }
+            savedIndicatorTimeout.current = setTimeout(
+              () => setSaveStatus("idle"),
+              2000
+            )
+          }
         }
       }
     },
-    [saveDraft]
+    // mutateAsync is stable across renders (TanStack Query memoizes it) — the mutation object itself isn't, and depending on it here re-triggers this callback's identity (and the debounce effect below, which lists flushDraftSave) after every save settles, causing a self-perpetuating save loop even with no further edits.
+    [saveDraftAsync]
   )
+  const { data: session } = authClient.useSession()
+  const currentUserId = session?.user.id
+  const [pendingRemoteUpdate, setPendingRemoteUpdate] =
+    useState<DraftUpdatedEvent | null>(null)
+  // Applying a collaborator's graph mutates `nodes`/`edges` the same way a local edit does — this one-shot flag tells the draft-save effect below to skip scheduling a save for that render instead of re-saving (and re-broadcasting) what was just received.
+  const suppressNextSaveRef = useRef(false)
+  const applyRemoteGraph = useCallback(
+    (event: DraftUpdatedEvent) => {
+      const remoteSeeded = ensureStartNode(
+        event.graph as unknown as WorkflowBuilderGraph
+      )
+      const remoteFlow = graphToFlow(remoteSeeded)
+      suppressNextSaveRef.current = true
+      setNodes(remoteFlow.nodes)
+      setEdges(remoteFlow.edges)
+      history.reset({ nodes: remoteFlow.nodes, edges: remoteFlow.edges })
+      dirtyRef.current = false
+      setPendingRemoteUpdate(null)
+    },
+    [history, setNodes, setEdges]
+  )
+  const { viewers } = useWorkflowRealtime(workflowId, (event) => {
+    if (event.savedBy.userId === currentUserId) return
+    if (dirtyRef.current) {
+      setPendingRemoteUpdate(event)
+      return
+    }
+    applyRemoteGraph(event)
+  })
+  const otherViewers = viewers.filter((v) => v.userId !== currentUserId)
   const navigate = useNavigate()
   const testRun = useMutation({
     mutationFn: () =>
@@ -265,7 +342,17 @@ function WorkflowBuilderCanvasInner({
     },
     [history]
   )
+  const didMountRef = useRef(false)
   useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true
+      return
+    }
+    if (suppressNextSaveRef.current) {
+      suppressNextSaveRef.current = false
+      return
+    }
+    dirtyRef.current = true
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
     saveTimeout.current = setTimeout(() => {
       void flushDraftSave(buildGraph(entryNodeId))
@@ -381,6 +468,28 @@ function WorkflowBuilderCanvasInner({
           </Button>
         </div>
         <div className="flex flex-1 items-center justify-end gap-2">
+          {otherViewers.length > 0 && (
+            <TooltipProvider>
+              <div className="mr-1 flex -space-x-2">
+                {otherViewers.slice(0, 5).map((viewer) => (
+                  <Tooltip key={viewer.userId}>
+                    <TooltipTrigger
+                      render={
+                        <span className="rounded-full ring-2 ring-card" />
+                      }
+                    >
+                      <UserAvatar
+                        name={viewer.name}
+                        image={viewer.image}
+                        size="sm"
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>{viewer.name}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </TooltipProvider>
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -401,8 +510,14 @@ function WorkflowBuilderCanvasInner({
           >
             <Redo2Icon />
           </Button>
-          {saveDraft.isPending && (
+          {saveStatus === "saving" && (
             <span className="text-xs text-muted-foreground">Saving…</span>
+          )}
+          {saveStatus === "saved" && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <CheckIcon className="size-3.5" />
+              Saved
+            </span>
           )}
           <Button
             type="button"
@@ -437,6 +552,34 @@ function WorkflowBuilderCanvasInner({
         <p className="border-b border-border bg-destructive/10 px-5 py-2 text-sm text-destructive">
           {(saveVersion.error ?? publish.error ?? testRun.error)?.message}
         </p>
+      )}
+      {pendingRemoteUpdate && (
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-secondary px-5 py-2 text-sm">
+          <span>
+            <strong>{pendingRemoteUpdate.savedBy.name}</strong> made changes
+            while you were editing. Reloading replaces your unsaved changes with
+            theirs.
+          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setPendingRemoteUpdate(null)}
+            >
+              Dismiss
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => applyRemoteGraph(pendingRemoteUpdate)}
+            >
+              <RefreshCwIcon />
+              Reload
+            </Button>
+          </div>
+        </div>
       )}
       <div className="flex min-h-0 flex-1 gap-2 px-2 pt-2 pb-2">
         <WorkflowPalette />
