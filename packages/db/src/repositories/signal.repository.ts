@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm"
+import { and, desc, eq, gte, sql } from "drizzle-orm"
 import {
   executions,
   flags,
@@ -149,6 +149,34 @@ export async function getSignalDetail(
     flags: linkedFlags,
     trend,
   }
+}
+
+/** Daily flag counts across every signal in scope — the workspace-wide (or one workflow's) trend, as opposed to getSignalDetail's trend which is scoped to a single signal. */
+export async function getSignalsTrend(
+  db: DbClient,
+  workspaceId: string,
+  options: { workflowId?: string; days?: number } = {}
+): Promise<SignalTrendPoint[]> {
+  const since = new Date(
+    Date.now() - (options.days ?? 30) * 24 * 60 * 60 * 1000
+  )
+  return db
+    .select({
+      day: sql<string>`to_char(date_trunc('day', ${flags.createdAt}), 'YYYY-MM-DD')`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(flags)
+    .where(
+      and(
+        eq(flags.workspaceId, workspaceId),
+        options.workflowId
+          ? eq(flags.workflowId, options.workflowId)
+          : undefined,
+        gte(flags.createdAt, since)
+      )
+    )
+    .groupBy(sql`date_trunc('day', ${flags.createdAt})`)
+    .orderBy(sql`date_trunc('day', ${flags.createdAt})`)
 }
 
 export async function resolveSignal(

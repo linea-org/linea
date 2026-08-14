@@ -18,19 +18,8 @@ import {
 } from "@linea/ui/components/table"
 
 import type { SignalSummary } from "../../lib/signals-api"
-import { SignalStatusBadge } from "../signals"
+import { flagTypeLabel, SignalStatusBadge } from "../signals"
 import { HomePanel } from "./home-panel"
-
-const flagTypeLabel: Record<string, string> = {
-  retry_storm: "Retry storm",
-  branch_never_taken: "Branch never taken",
-  cost_jump: "Cost jump",
-  excess_resumes: "Excess resumes",
-  tool_error: "Tool error",
-  empty_response: "Empty response",
-  refusal: "Refusal",
-  repeated_replay: "Repeated replay",
-}
 
 export function OpenSignalsWidget({
   slug,
