@@ -7,7 +7,6 @@ import { cn } from "@linea/ui/lib/utils"
 type ErrorCalloutProps = {
   title: string
   message: string
-  stack?: string
 }
 
 function splitErrorMessage(message: string): {
@@ -43,9 +42,9 @@ function splitErrorMessage(message: string): {
   return { summary: trimmed }
 }
 
-export function ErrorCallout({ title, message, stack }: ErrorCalloutProps) {
+export function ErrorCallout({ title, message }: ErrorCalloutProps) {
   const { summary, rest } = splitErrorMessage(message)
-  const details = [rest, stack].filter(Boolean).join("\n\n")
+  const details = rest ?? ""
   const [open, setOpen] = useState(false)
   return (
     <Alert

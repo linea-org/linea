@@ -249,6 +249,113 @@ describe('ExecutionsService', () => {
     }
   })
 
+  describe('testRun()', () => {
+    it('runs the current graph immediately, without a published or committed version', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Test Run Test Org',
+          slug: `test-run-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Unpublished Workflow',
+          slug: `test-run-unpublished-${suffix}`,
+        })
+
+        const execution = await service.testRun(organization.id, workflow.id, {
+          graph,
+        })
+        expect(execution.status).toBe('queued')
+
+        const versions = await pool.query(
+          'SELECT id FROM workflow_versions WHERE workflow_id = $1',
+          [workflow.id],
+        )
+        expect(versions.rows).toHaveLength(1)
+
+        const reloaded = await repositories.workflow.getWorkflowById(
+          db,
+          organization.id,
+          workflow.id,
+        )
+        expect(reloaded?.publishedVersionId).toBeNull()
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it('rejects a workflow from a different workspace and creates no version row for it', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [owningOrg] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Test Run Owning Org',
+          slug: `test-run-owning-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+      const [attackerOrg] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Test Run Attacker Org',
+          slug: `test-run-attacker-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: owningOrg.id,
+          name: 'Victim Workflow',
+          slug: `test-run-victim-${suffix}`,
+        })
+
+        await expect(
+          service.testRun(attackerOrg.id, workflow.id, { graph }),
+        ).rejects.toThrow()
+
+        const versions = await pool.query(
+          'SELECT id FROM workflow_versions WHERE workflow_id = $1',
+          [workflow.id],
+        )
+        expect(versions.rows).toHaveLength(0)
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id IN ($1, $2)', [
+          owningOrg.id,
+          attackerOrg.id,
+        ])
+      }
+    })
+  })
+
   describe('get()', () => {
     it('computes nodeConfigs from the bound workflow version and replayable from origin/status', async () => {
       const moduleRef = await Test.createTestingModule({

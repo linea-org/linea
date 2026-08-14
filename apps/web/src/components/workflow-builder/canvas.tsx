@@ -197,6 +197,29 @@ function WorkflowBuilderCanvasInner({
     mutationFn: (graph: Record<string, JsonValue>) =>
       saveWorkflowDraftFn({ data: { id: workflowId, graph } }),
   })
+  // Serializes draft saves to one in-flight request at a time — otherwise two overlapping PUTs can land out of order and an older save can overwrite newer builder state.
+  const draftSaveInFlight = useRef(false)
+  const pendingDraftGraph = useRef<Record<string, JsonValue> | null>(null)
+  const flushDraftSave = useCallback(
+    async (graph: Record<string, JsonValue>) => {
+      if (draftSaveInFlight.current) {
+        pendingDraftGraph.current = graph
+        return
+      }
+      draftSaveInFlight.current = true
+      try {
+        await saveDraft.mutateAsync(graph)
+      } finally {
+        draftSaveInFlight.current = false
+        const next = pendingDraftGraph.current
+        if (next) {
+          pendingDraftGraph.current = null
+          void flushDraftSave(next)
+        }
+      }
+    },
+    [saveDraft]
+  )
   const navigate = useNavigate()
   const testRun = useMutation({
     mutationFn: () =>
@@ -245,12 +268,12 @@ function WorkflowBuilderCanvasInner({
   useEffect(() => {
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
     saveTimeout.current = setTimeout(() => {
-      saveDraft.mutate(buildGraph(entryNodeId))
+      void flushDraftSave(buildGraph(entryNodeId))
     }, DRAFT_SAVE_DEBOUNCE_MS)
     return () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current)
     }
-  }, [nodes, edges, entryNodeId])
+  }, [nodes, edges, entryNodeId, flushDraftSave])
   const handleNodesChange = useCallback(
     (changes: NodeChange<Node<WorkflowBuilderNodeData>>[]) => {
       onNodesChange(

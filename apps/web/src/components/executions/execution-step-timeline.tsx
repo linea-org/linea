@@ -280,7 +280,6 @@ export function ExecutionStepTimeline({
                   <ErrorCallout
                     title="This step failed"
                     message={step.error.message}
-                    stack={step.error.stack}
                   />
                 </div>
               ) : null}

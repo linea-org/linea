@@ -71,6 +71,16 @@ export class ExecutionsService {
     workflowId: string,
     input: TestRunDto,
   ): Promise<Execution> {
+    // Confirms the workflow belongs to this workspace before any write — ensureVersionForGraph below is not itself workspace-scoped.
+    const workflow = await repositories.workflow.getWorkflowById(
+      db,
+      workspaceId,
+      workflowId,
+    )
+    if (!workflow) {
+      throw new NotFoundException('Workflow not found')
+    }
+
     try {
       validateGraphStructure(input.graph)
       assertNoReservedNodeIds(input.graph)
