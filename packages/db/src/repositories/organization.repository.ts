@@ -1,5 +1,6 @@
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import {
+  members,
   organizations,
   type NewOrganization,
   type Organization,
@@ -34,4 +35,22 @@ export async function findOrCreateOrganizationBySlug(
     throw new Error(`Failed to find or create organization "${input.slug}"`)
   }
   return existing
+}
+
+/** better-auth's organization plugin owns the members table — this is a read-only lookup for the API's own role checks, not a mutation path. */
+export async function getMemberRole(
+  db: DbClient,
+  organizationId: string,
+  userId: string
+): Promise<string | undefined> {
+  const [member] = await db
+    .select({ role: members.role })
+    .from(members)
+    .where(
+      and(
+        eq(members.organizationId, organizationId),
+        eq(members.userId, userId)
+      )
+    )
+  return member?.role
 }

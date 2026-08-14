@@ -1,4 +1,4 @@
-import { repositories } from "@linea/db"
+import { decryptSecret, repositories } from "@linea/db"
 
 type DbClient = repositories.DbClient
 
@@ -7,7 +7,6 @@ export type ResolvedApiKey = {
   source: "workspace" | "platform"
 }
 
-/** SECURITY GAP, tracked not silent: no encryption exists yet, a workspace's key passes through as plaintext — see roadmap.md before trusting this with a real key. */
 export async function resolveApiKey(
   db: DbClient,
   workspaceId: string,
@@ -15,7 +14,7 @@ export async function resolveApiKey(
 ): Promise<ResolvedApiKey> {
   const secret = await repositories.secret.getSecret(db, workspaceId, keyName)
   if (secret) {
-    return { apiKey: secret.encryptedValue, source: "workspace" }
+    return { apiKey: decryptSecret(secret.encryptedValue), source: "workspace" }
   }
 
   const platformKey = process.env[keyName]

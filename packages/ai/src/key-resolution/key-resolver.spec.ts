@@ -1,7 +1,11 @@
-import { randomUUID } from "node:crypto"
-import { describe, expect, it } from "vitest"
-import { db, repositories, schema } from "@linea/db"
+import { randomBytes, randomUUID } from "node:crypto"
+import { beforeEach, describe, expect, it } from "vitest"
+import { db, encryptSecret, repositories, schema } from "@linea/db"
 import { resolveApiKey } from "./key-resolver.js"
+
+beforeEach(() => {
+  process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString("base64")
+})
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -41,7 +45,7 @@ describe("resolveApiKey", () => {
         tx,
         organization.id,
         "TEST_PROVIDER_KEY",
-        "workspace-key"
+        encryptSecret("workspace-key")
       )
 
       const resolved = await resolveApiKey(
