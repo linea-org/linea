@@ -1,7 +1,14 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { KeyIcon, Trash2Icon } from "lucide-react"
+import {
+  EllipsisVerticalIcon,
+  KeyIcon,
+  PencilIcon,
+  PlusIcon,
+  SearchIcon,
+  Trash2Icon,
+} from "lucide-react"
 
 import {
   AlertDialog,
@@ -13,14 +20,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@linea/ui/components/alert-dialog"
+import { Badge } from "@linea/ui/components/badge"
 import { Button } from "@linea/ui/components/button"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@linea/ui/components/card"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@linea/ui/components/dropdown-menu"
 import {
   Empty,
   EmptyDescription,
@@ -29,12 +36,10 @@ import {
   EmptyTitle,
 } from "@linea/ui/components/empty"
 import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@linea/ui/components/input-group"
 import {
   Table,
   TableBody,
@@ -44,10 +49,13 @@ import {
   TableRow,
 } from "@linea/ui/components/table"
 
+import { SecretFormDialog } from "../../../../components/secrets"
 import {
   deleteSecretFn,
+  listAiProvidersFn,
   listSecretsFn,
   upsertSecretFn,
+  type AiProviderKeyStatus,
 } from "../../../../lib/secrets-api"
 
 export const Route = createFileRoute("/w/$slug/settings/secrets")({
@@ -55,13 +63,70 @@ export const Route = createFileRoute("/w/$slug/settings/secrets")({
 })
 
 const secretsQueryKey = ["secrets"]
+const aiProvidersQueryKey = ["secrets", "providers"]
+
+type SecretEditor =
+  | { kind: "create" }
+  | { kind: "replace"; name: string }
+  | { kind: "provider"; name: string; label: string; configured: boolean }
+
+function isForbidden(error: Error) {
+  return error.message.toLowerCase().includes("admin")
+}
+
+function editorNameField(
+  editor: SecretEditor | null
+): "open" | "locked" | "none" {
+  if (!editor) return "none"
+  switch (editor.kind) {
+    case "create":
+      return "open"
+    case "replace":
+      return "locked"
+    case "provider":
+      return "none"
+    default: {
+      const exhaustive: never = editor
+      return exhaustive
+    }
+  }
+}
+
+function editorTitle(editor: SecretEditor) {
+  switch (editor.kind) {
+    case "create":
+      return "Add secret"
+    case "replace":
+      return "Replace secret"
+    case "provider":
+      return editor.configured
+        ? `Replace ${editor.label}`
+        : `Add ${editor.label}`
+    default: {
+      const exhaustive: never = editor
+      return exhaustive
+    }
+  }
+}
 
 function SecretsPage() {
   const queryClient = useQueryClient()
-  const [key, setKey] = useState("")
-  const [value, setValue] = useState("")
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
-
+  const [search, setSearch] = useState("")
+  const [editor, setEditor] = useState<SecretEditor | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{
+    name: string
+    label: string
+  } | null>(null)
+  const {
+    data: providers,
+    isPending: providersPending,
+    isError: providersErrored,
+    error: providersError,
+  } = useQuery({
+    queryKey: aiProvidersQueryKey,
+    queryFn: () => listAiProvidersFn(),
+    retry: false,
+  })
   const {
     data: secrets,
     isPending,
@@ -72,45 +137,41 @@ function SecretsPage() {
     queryFn: () => listSecretsFn(),
     retry: false,
   })
-
+  const forbidden = isError && isForbidden(error)
+  const providerKeys = useMemo(
+    () => new Set((providers ?? []).map((provider) => provider.keyName)),
+    [providers]
+  )
+  const customSecrets = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return (secrets ?? []).filter((secret) => {
+      if (providerKeys.has(secret.key)) return false
+      if (!query) return true
+      return secret.key.toLowerCase().includes(query)
+    })
+  }, [secrets, providerKeys, search])
+  async function invalidate() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: aiProvidersQueryKey }),
+      queryClient.invalidateQueries({ queryKey: secretsQueryKey }),
+    ])
+  }
   const save = useMutation({
-    mutationFn: () => upsertSecretFn({ data: { key, value } }),
-    onSuccess: async () => {
-      setKey("")
-      setValue("")
-      await queryClient.invalidateQueries({ queryKey: secretsQueryKey })
-    },
+    mutationFn: (input: { name: string; secret: string }) =>
+      upsertSecretFn({ data: { key: input.name, value: input.secret } }),
+    onSuccess: () => invalidate(),
   })
-
   const remove = useMutation({
-    mutationFn: (targetKey: string) =>
-      deleteSecretFn({ data: { key: targetKey } }),
+    mutationFn: (name: string) => deleteSecretFn({ data: { key: name } }),
     onSuccess: async () => {
       setDeleteTarget(null)
-      await queryClient.invalidateQueries({ queryKey: secretsQueryKey })
+      await invalidate()
     },
   })
-
-  const forbidden = isError && error.message.toLowerCase().includes("admin")
-
   return (
-    <main className="flex flex-1 flex-col px-6 py-8 sm:px-8 sm:py-10">
-      <h1 className="font-heading text-3xl font-semibold tracking-tight">
-        Secrets
-      </h1>
-      <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-        Workspace credentials for AI providers and other integrations. A key
-        here overrides the platform default for every workflow in this workspace
-        — for example, set ANTHROPIC_API_KEY to use your own Anthropic account
-        instead of Linea&apos;s.
-      </p>
-
-      {isError && !forbidden && (
-        <p className="mt-4 text-sm text-destructive">{error.message}</p>
-      )}
-
+    <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
       {forbidden ? (
-        <Empty className="mt-8">
+        <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <KeyIcon />
@@ -123,138 +184,253 @@ function SecretsPage() {
         </Empty>
       ) : (
         <>
-          <Card className="mt-8 max-w-lg">
-            <CardHeader>
-              <CardTitle>Add or update a key</CardTitle>
-              <CardDescription>
-                Values are encrypted at rest and never shown again after saving.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  if (key.trim() && value.trim()) save.mutate()
-                }}
-              >
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel htmlFor="secret-key">Key</FieldLabel>
-                    <Input
-                      id="secret-key"
-                      placeholder="ANTHROPIC_API_KEY"
-                      value={key}
-                      onChange={(e) => setKey(e.target.value.toUpperCase())}
-                      required
+          <p className="text-sm font-medium text-foreground">AI providers</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Use your own account for models, or keep Linea&apos;s default.
+          </p>
+          {providersErrored && !isForbidden(providersError) ? (
+            <p className="mt-4 text-sm text-destructive">
+              {providersError.message}
+            </p>
+          ) : null}
+          {providersPending ? (
+            <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
+          ) : providers ? (
+            <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+              <Table>
+                <TableHeader className="bg-muted/40">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="px-4">Provider</TableHead>
+                    <TableHead className="px-4">Source</TableHead>
+                    <TableHead className="w-12 px-2">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {providers.map((provider) => (
+                    <ProviderRow
+                      key={provider.id}
+                      provider={provider}
+                      onEdit={() =>
+                        setEditor({
+                          kind: "provider",
+                          name: provider.keyName,
+                          label: provider.label,
+                          configured: provider.configured,
+                        })
+                      }
+                      onRemove={() =>
+                        setDeleteTarget({
+                          name: provider.keyName,
+                          label: provider.label,
+                        })
+                      }
                     />
-                    <FieldDescription>
-                      Upper snake case, matching the provider&apos;s env var
-                      name.
-                    </FieldDescription>
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="secret-value">Value</FieldLabel>
-                    <Input
-                      id="secret-value"
-                      type="password"
-                      value={value}
-                      onChange={(e) => setValue(e.target.value)}
-                      required
-                    />
-                  </Field>
-                </FieldGroup>
-                {save.isError && (
-                  <p className="mt-3 text-sm text-destructive">
-                    {save.error.message}
-                  </p>
-                )}
-                <Button
-                  type="submit"
-                  className="mt-4"
-                  disabled={save.isPending}
-                >
-                  {save.isPending ? "Saving…" : "Save"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Configured keys</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isPending ? (
-                <p className="text-sm text-muted-foreground">Loading…</p>
-              ) : secrets && secrets.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Key</TableHead>
-                      <TableHead>Updated</TableHead>
-                      <TableHead className="w-12">
-                        <span className="sr-only">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {secrets.map((secret) => (
-                      <TableRow key={secret.id}>
-                        <TableCell className="font-mono text-sm text-foreground">
-                          {secret.key}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {new Date(secret.updatedAt).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Delete ${secret.key}`}
-                            onClick={() => setDeleteTarget(secret.key)}
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
+          <div className="mt-8 mb-4 flex flex-wrap items-center gap-2">
+            <InputGroup className="h-8 max-w-sm rounded-lg border-input/30 bg-input/30 shadow-none">
+              <InputGroupAddon>
+                <SearchIcon className="size-4 shrink-0 opacity-50" />
+              </InputGroupAddon>
+              <InputGroupInput
+                placeholder="Search secrets"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </InputGroup>
+            <div className="ml-auto">
+              <Button size="sm" onClick={() => setEditor({ kind: "create" })}>
+                <PlusIcon />
+                Add secret
+              </Button>
+            </div>
+          </div>
+          {isError && !forbidden ? (
+            <p className="text-sm text-destructive">{error.message}</p>
+          ) : isPending ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : customSecrets.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  {search.trim() ? <SearchIcon /> : <KeyIcon />}
+                </EmptyMedia>
+                <EmptyTitle>
+                  {search.trim() ? "No matching secrets" : "No secrets yet"}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {search.trim()
+                    ? "Try a different search."
+                    : "Credentials for integrations, like an HTTP header a workflow needs."}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <Table>
+                <TableHeader className="bg-muted/40">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="px-4">Name</TableHead>
+                    <TableHead className="px-4">Secret</TableHead>
+                    <TableHead className="px-4">Updated</TableHead>
+                    <TableHead className="w-12 px-2">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {customSecrets.map((secret) => (
+                    <TableRow key={secret.id}>
+                      <TableCell className="px-4 py-3 font-medium text-foreground">
+                        {secret.key}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 tracking-widest text-muted-foreground">
+                        ••••••••
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground">
+                        {new Date(secret.updatedAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="px-2 py-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`More options for ${secret.key}`}
+                              />
+                            }
                           >
-                            <Trash2Icon />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No keys configured yet — workflows use Linea&apos;s platform
-                  default keys.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+                            <EllipsisVerticalIcon />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-48 min-w-48"
+                          >
+                            <DropdownMenuItem
+                              onClick={() =>
+                                setEditor({
+                                  kind: "replace",
+                                  name: secret.key,
+                                })
+                              }
+                            >
+                              <PencilIcon />
+                              Replace
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                setDeleteTarget({
+                                  name: secret.key,
+                                  label: secret.key,
+                                })
+                              }
+                            >
+                              <Trash2Icon />
+                              Remove
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </>
       )}
-
+      <SecretFormDialog
+        open={editor !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditor(null)
+        }}
+        title={editor ? editorTitle(editor) : "Add secret"}
+        submitLabel="Save"
+        nameField={editorNameField(editor)}
+        initialName={editor && editor.kind !== "create" ? editor.name : ""}
+        onSubmit={(input) => save.mutateAsync(input)}
+      />
       <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {deleteTarget}?</AlertDialogTitle>
+            <AlertDialogTitle>Remove {deleteTarget?.label}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Workflows in this workspace will fall back to Linea&apos;s
-              platform default key, if one exists.
+              Workflows using this credential will fail until it&apos;s added
+              again.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteTarget && remove.mutate(deleteTarget)}
+              onClick={() => deleteTarget && remove.mutate(deleteTarget.name)}
               disabled={remove.isPending}
             >
-              Delete
+              Remove
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </main>
+  )
+}
+
+function ProviderRow({
+  provider,
+  onEdit,
+  onRemove,
+}: {
+  provider: AiProviderKeyStatus
+  onEdit: () => void
+  onRemove: () => void
+}) {
+  return (
+    <TableRow>
+      <TableCell className="px-4 py-3 font-medium text-foreground">
+        {provider.label}
+      </TableCell>
+      <TableCell className="px-4 py-3">
+        <Badge variant={provider.configured ? "default" : "secondary"}>
+          {provider.configured ? "This workspace" : "Linea default"}
+        </Badge>
+      </TableCell>
+      <TableCell className="px-2 py-3 text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`More options for ${provider.label}`}
+              />
+            }
+          >
+            <EllipsisVerticalIcon />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 min-w-48">
+            <DropdownMenuItem onClick={onEdit}>
+              <PencilIcon />
+              {provider.configured ? "Replace" : "Add"}
+            </DropdownMenuItem>
+            {provider.configured ? (
+              <DropdownMenuItem onClick={onRemove}>
+                <Trash2Icon />
+                Remove
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
   )
 }

@@ -33,6 +33,11 @@ export class SecretsController {
     return this.secrets.list(workspaceId)
   }
 
+  @Get('providers')
+  listAiProviders(@CurrentWorkspaceId() workspaceId: string) {
+    return this.secrets.listAiProviders(workspaceId)
+  }
+
   @Put(':key')
   upsert(
     @CurrentWorkspaceId() workspaceId: string,

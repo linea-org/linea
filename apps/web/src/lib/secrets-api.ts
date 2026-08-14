@@ -29,10 +29,29 @@ export const listSecretsFn = createServerFn({ method: "GET" }).handler(
   }
 )
 
+export type AiProviderKeyStatus = {
+  id: string
+  label: string
+  keyName: string
+  configured: boolean
+}
+
+export const listAiProvidersFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<AiProviderKeyStatus[]> => {
+    const res = await apiFetch("/secrets/providers")
+    if (!res.ok) {
+      throw new Error(
+        await parseErrorMessage(res, "Could not load AI provider keys")
+      )
+    }
+    return (await res.json()) as AiProviderKeyStatus[]
+  }
+)
+
 export const upsertSecretFn = createServerFn({ method: "POST" })
   .inputValidator((data: { key: string; value: string }) => data)
   .handler(async ({ data }): Promise<SecretSummary> => {
-    const res = await apiFetch(`/secrets/${data.key}`, {
+    const res = await apiFetch(`/secrets/${encodeURIComponent(data.key)}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ value: data.value }),
@@ -46,7 +65,9 @@ export const upsertSecretFn = createServerFn({ method: "POST" })
 export const deleteSecretFn = createServerFn({ method: "POST" })
   .inputValidator((data: { key: string }) => data)
   .handler(async ({ data }): Promise<void> => {
-    const res = await apiFetch(`/secrets/${data.key}`, { method: "DELETE" })
+    const res = await apiFetch(`/secrets/${encodeURIComponent(data.key)}`, {
+      method: "DELETE",
+    })
     if (!res.ok) {
       throw new Error(await parseErrorMessage(res, "Could not delete secret"))
     }

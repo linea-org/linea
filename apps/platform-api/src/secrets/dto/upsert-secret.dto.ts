@@ -5,8 +5,8 @@ export const secretKeySchema = z
   .min(1)
   .max(100)
   .regex(
-    /^[A-Z][A-Z0-9_]*$/,
-    'must be upper snake case, e.g. ANTHROPIC_API_KEY',
+    /^[A-Za-z][A-Za-z0-9_-]*$/,
+    'Use letters, numbers, hyphens, and underscores',
   )
 
 export const upsertSecretSchema = z.object({

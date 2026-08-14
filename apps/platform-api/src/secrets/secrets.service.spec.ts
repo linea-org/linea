@@ -90,4 +90,42 @@ describe('SecretsService', () => {
       ])
     }
   })
+
+  it('reports which AI providers this workspace has its own key for, without exposing values', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [SecretsService],
+    }).compile()
+    const service = moduleRef.get(SecretsService)
+
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: 'Secrets Providers Test Org',
+        slug: `secrets-providers-test-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const beforeAny = await service.listAiProviders(organization.id)
+      expect(beforeAny.every((p) => !p.configured)).toBe(true)
+      expect(beforeAny.map((p) => p.keyName)).toContain('ANTHROPIC_API_KEY')
+
+      await service.upsert(organization.id, 'ANTHROPIC_API_KEY', {
+        value: 'sk-workspace-key',
+      })
+
+      const afterOne = await service.listAiProviders(organization.id)
+      const anthropic = afterOne.find((p) => p.keyName === 'ANTHROPIC_API_KEY')
+      expect(anthropic?.configured).toBe(true)
+      expect(anthropic).not.toHaveProperty('value')
+      expect(afterOne.filter((p) => p.configured)).toHaveLength(1)
+    } finally {
+      await moduleRef.close()
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        organization.id,
+      ])
+    }
+  })
 })
