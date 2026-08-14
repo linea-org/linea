@@ -11,18 +11,11 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogHeader,
   AlertDialogFooter,
+  AlertDialogHeader,
   AlertDialogTitle,
 } from "@linea/ui/components/alert-dialog"
 import { Button } from "@linea/ui/components/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@linea/ui/components/card"
 import {
   Field,
   FieldError,
@@ -58,12 +51,10 @@ function WorkspaceSettingsPage() {
   const { data: session } = authClient.useSession()
   const { data: activeOrg, refetch } = authClient.useActiveOrganization()
   const [deleteOpen, setDeleteOpen] = useState(false)
-
   const self = activeOrg?.members.find(
     (member) => member.userId === session?.user.id
   )
   const isOwner = self?.role === "owner"
-
   const {
     register,
     handleSubmit,
@@ -74,7 +65,6 @@ function WorkspaceSettingsPage() {
       ? { name: activeOrg.name, slug: activeOrg.slug }
       : undefined,
   })
-
   const save = useMutation({
     mutationFn: (values: FormValues) => {
       if (!activeOrg) throw new Error("Workspace not loaded yet")
@@ -90,7 +80,6 @@ function WorkspaceSettingsPage() {
       }
     },
   })
-
   const remove = useMutation({
     mutationFn: () => {
       if (!activeOrg) throw new Error("Workspace not loaded yet")
@@ -100,71 +89,69 @@ function WorkspaceSettingsPage() {
       void navigate({ to: "/workspaces" })
     },
   })
-
   return (
-    <main className="flex flex-1 flex-col px-6 py-8 sm:px-8 sm:py-10">
-      <h1 className="font-heading text-3xl font-semibold tracking-tight">
-        Workspace settings
-      </h1>
-      <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-        Manage this workspace&apos;s name and slug.
+    <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
+      <p className="text-sm font-medium text-foreground">General</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Name and URL for this workspace.
       </p>
-
-      <Card className="mt-8 max-w-lg">
-        <CardHeader>
-          <CardTitle>General</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={(e) => {
-              void handleSubmit((values) => save.mutate(values))(e)
-            }}
-          >
-            <FieldGroup>
-              <Field data-invalid={!!errors.name || undefined}>
-                <FieldLabel htmlFor="workspace-name">Name</FieldLabel>
-                <Input id="workspace-name" {...register("name")} />
-                <FieldError>{errors.name?.message}</FieldError>
-              </Field>
-              <Field data-invalid={!!errors.slug || undefined}>
-                <FieldLabel htmlFor="workspace-slug">Slug</FieldLabel>
-                <Input id="workspace-slug" {...register("slug")} />
-                <FieldError>{errors.slug?.message}</FieldError>
-              </Field>
-            </FieldGroup>
-            {save.isError && (
-              <p className="mt-3 text-sm text-destructive">
-                {save.error.message}
+      <form
+        className="mt-4 overflow-hidden rounded-xl border border-border bg-card"
+        onSubmit={(event) => {
+          void handleSubmit((values) => save.mutate(values))(event)
+        }}
+      >
+        <div className="p-4">
+          <FieldGroup>
+            <Field data-invalid={!!errors.name || undefined}>
+              <FieldLabel htmlFor="workspace-name">Name</FieldLabel>
+              <Input id="workspace-name" {...register("name")} />
+              <FieldError>{errors.name?.message}</FieldError>
+            </Field>
+            <Field data-invalid={!!errors.slug || undefined}>
+              <FieldLabel htmlFor="workspace-slug">Slug</FieldLabel>
+              <Input id="workspace-slug" {...register("slug")} />
+              <FieldError>{errors.slug?.message}</FieldError>
+            </Field>
+          </FieldGroup>
+          {save.isError ? (
+            <p className="mt-3 text-sm text-destructive">
+              {save.error.message}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex justify-end border-t border-border px-4 py-3">
+          <Button type="submit" size="sm" disabled={save.isPending}>
+            {save.isPending ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </form>
+      {isOwner ? (
+        <>
+          <p className="mt-8 text-sm font-medium text-foreground">
+            Delete workspace
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Removes every workflow and run in this workspace. This can&apos;t be
+            undone.
+          </p>
+          <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <p className="text-sm text-muted-foreground">
+                Only the owner can do this.
               </p>
-            )}
-            <Button type="submit" className="mt-4" disabled={save.isPending}>
-              {save.isPending ? "Saving…" : "Save"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {isOwner && (
-        <Card className="mt-6 max-w-lg border-destructive/40">
-          <CardHeader>
-            <CardTitle>Danger zone</CardTitle>
-            <CardDescription>
-              Deleting a workspace removes all its workflows and execution
-              history. This can&apos;t be undone.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => setDeleteOpen(true)}
-            >
-              Delete workspace
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteOpen(true)}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </>
+      ) : null}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

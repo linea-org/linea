@@ -1,7 +1,11 @@
-import { randomUUID } from "node:crypto"
-import { describe, expect, it } from "vitest"
-import { db, repositories, schema } from "@linea/db"
+import { randomBytes, randomUUID } from "node:crypto"
+import { beforeEach, describe, expect, it } from "vitest"
+import { db, encryptSecret, repositories, schema } from "@linea/db"
 import { resolveApiKey } from "./key-resolver.js"
+
+beforeEach(() => {
+  process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString("base64")
+})
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -41,7 +45,7 @@ describe("resolveApiKey", () => {
         tx,
         organization.id,
         "TEST_PROVIDER_KEY",
-        "workspace-key"
+        encryptSecret("workspace-key")
       )
 
       const resolved = await resolveApiKey(
@@ -79,6 +83,52 @@ describe("resolveApiKey", () => {
       await expect(
         resolveApiKey(tx, organization.id, "TEST_PROVIDER_KEY_MISSING")
       ).rejects.toThrow(/No workspace key and no platform key/)
+    })
+  })
+
+  it("uses a legacy plaintext value as-is instead of failing to decrypt it", async () => {
+    await withRollback(async (tx) => {
+      const organization = await createTestOrganization(tx)
+      // Written directly, bypassing encryptSecret — simulates a value stored before encryption existed.
+      await repositories.secret.upsertSecret(
+        tx,
+        organization.id,
+        "TEST_PROVIDER_KEY",
+        "legacy-plaintext-key"
+      )
+
+      const resolved = await resolveApiKey(
+        tx,
+        organization.id,
+        "TEST_PROVIDER_KEY"
+      )
+
+      expect(resolved).toEqual({
+        apiKey: "legacy-plaintext-key",
+        source: "workspace",
+      })
+    })
+  })
+
+  it("throws instead of using a corrupted encrypted secret as a literal key", async () => {
+    await withRollback(async (tx) => {
+      const organization = await createTestOrganization(tx)
+      const encrypted = encryptSecret("sk-real-key")
+      const [iv, authTag, ciphertext] = encrypted.split(":")
+      const shortTag = Buffer.from(authTag, "base64")
+        .subarray(0, 8)
+        .toString("base64")
+      const tampered = [iv, shortTag, ciphertext].join(":")
+      await repositories.secret.upsertSecret(
+        tx,
+        organization.id,
+        "TEST_PROVIDER_KEY",
+        tampered
+      )
+
+      await expect(
+        resolveApiKey(tx, organization.id, "TEST_PROVIDER_KEY")
+      ).rejects.toThrow(/corrupted/)
     })
   })
 })

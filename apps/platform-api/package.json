@@ -24,6 +24,7 @@
     "demo": "ts-node scripts/demo.ts"
   },
   "dependencies": {
+    "@linea/ai": "workspace:*",
     "@linea/auth": "workspace:*",
     "@linea/config": "workspace:*",
     "@linea/db": "workspace:*",

@@ -9,6 +9,7 @@ import { Link, useLocation, useMatchRoute } from "@tanstack/react-router"
 import {
   HistoryIcon,
   HouseIcon,
+  KeyIcon,
   SettingsIcon,
   UsersIcon,
   WorkflowIcon,
@@ -139,6 +140,23 @@ export function WorkspaceShell({
                 >
                   <UsersIcon />
                   <span>Members</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={
+                    !!matchRoute({
+                      to: "/w/$slug/settings/secrets",
+                      params: { slug },
+                    })
+                  }
+                  tooltip="Secrets"
+                  render={
+                    <Link to="/w/$slug/settings/secrets" params={{ slug }} />
+                  }
+                >
+                  <KeyIcon />
+                  <span>Secrets</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

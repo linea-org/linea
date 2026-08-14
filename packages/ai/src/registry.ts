@@ -65,3 +65,17 @@ export function resolveKeyName(model: string): string {
   }
   return keyName
 }
+
+export type AiProviderInfo = {
+  id: string
+  label: string
+  keyName: string
+}
+
+/** One row per distinct provider (not per model) — the BYOK settings UI's source of truth for which keys it can offer, so it never drifts from what resolveKeyName actually expects. */
+export const providers: AiProviderInfo[] = [
+  { id: "anthropic", label: "Anthropic", keyName: "ANTHROPIC_API_KEY" },
+  { id: "openai", label: "OpenAI", keyName: "OPENAI_API_KEY" },
+  { id: "groq", label: "Groq", keyName: "GROQ_API_KEY" },
+  { id: "xai", label: "xAI", keyName: "XAI_API_KEY" },
+]

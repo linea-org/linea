@@ -10,7 +10,10 @@ import { hashApiKey } from './api-key.util'
 
 export type AuthenticatedRequest = Request & {
   workspaceId: string
-  session?: { session?: { activeOrganizationId?: string } } | null
+  session?: {
+    session?: { activeOrganizationId?: string }
+    user?: { id: string }
+  } | null
 }
 
 /** Resolves the current workspace from either a Better Auth session (browser) or an `Authorization: Bearer <api-key>` header (external callers). Apply alongside @OptionalAuth() so the global session guard doesn't reject a request before this one runs. */

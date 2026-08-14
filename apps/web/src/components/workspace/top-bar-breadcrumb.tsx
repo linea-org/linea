@@ -81,6 +81,15 @@ function useBreadcrumbs(slug: string): Crumb[] {
       })
       crumbs.push({ label: "Execution" })
     }
+    if (match.routeId === "/w/$slug/settings/") {
+      crumbs.push({ label: "Settings" })
+    }
+    if (match.routeId === "/w/$slug/settings/members") {
+      crumbs.push({ label: "Members" })
+    }
+    if (match.routeId === "/w/$slug/settings/secrets") {
+      crumbs.push({ label: "Secrets" })
+    }
     if (match.routeId === "/w/$slug/workflows/$workflowId/builder") {
       const workflowId = match.params.workflowId
       crumbs.push({

@@ -2,7 +2,13 @@ export {
   resolveApiKey,
   type ResolvedApiKey,
 } from "./key-resolution/key-resolver.js"
-export { registry, resolveKeyName, resolveProvider } from "./registry.js"
+export {
+  registry,
+  providers,
+  resolveKeyName,
+  resolveProvider,
+  type AiProviderInfo,
+} from "./registry.js"
 export type {
   AiProvider,
   CompletionRequest,
