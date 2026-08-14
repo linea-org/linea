@@ -27,6 +27,7 @@ import { Route as WSlugWorkflowsIndexRouteImport } from './routes/w/$slug/workfl
 import { Route as WSlugSettingsIndexRouteImport } from './routes/w/$slug/settings/index'
 import { Route as WSlugExecutionsIndexRouteImport } from './routes/w/$slug/executions/index'
 import { Route as WSlugWorkflowsWorkflowIdRouteImport } from './routes/w/$slug/workflows/$workflowId'
+import { Route as WSlugSettingsSecretsRouteImport } from './routes/w/$slug/settings/secrets'
 import { Route as WSlugSettingsMembersRouteImport } from './routes/w/$slug/settings/members'
 import { Route as WSlugExecutionsExecutionIdRouteImport } from './routes/w/$slug/executions/$executionId'
 import { Route as WSlugWorkflowsWorkflowIdIndexRouteImport } from './routes/w/$slug/workflows/$workflowId/index'
@@ -125,6 +126,11 @@ const WSlugWorkflowsWorkflowIdRoute =
     path: '/workflows/$workflowId',
     getParentRoute: () => WSlugRoute,
   } as any)
+const WSlugSettingsSecretsRoute = WSlugSettingsSecretsRouteImport.update({
+  id: '/settings/secrets',
+  path: '/settings/secrets',
+  getParentRoute: () => WSlugRoute,
+} as any)
 const WSlugSettingsMembersRoute = WSlugSettingsMembersRouteImport.update({
   id: '/settings/members',
   path: '/settings/members',
@@ -172,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug/': typeof WSlugIndexRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
+  '/w/$slug/settings/secrets': typeof WSlugSettingsSecretsRoute
   '/w/$slug/workflows/$workflowId': typeof WSlugWorkflowsWorkflowIdRouteWithChildren
   '/w/$slug/executions/': typeof WSlugExecutionsIndexRoute
   '/w/$slug/settings/': typeof WSlugSettingsIndexRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/w/$slug': typeof WSlugIndexRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
+  '/w/$slug/settings/secrets': typeof WSlugSettingsSecretsRoute
   '/w/$slug/executions': typeof WSlugExecutionsIndexRoute
   '/w/$slug/settings': typeof WSlugSettingsIndexRoute
   '/w/$slug/workflows': typeof WSlugWorkflowsIndexRoute
@@ -221,6 +229,7 @@ export interface FileRoutesById {
   '/w/$slug/': typeof WSlugIndexRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
+  '/w/$slug/settings/secrets': typeof WSlugSettingsSecretsRoute
   '/w/$slug/workflows/$workflowId': typeof WSlugWorkflowsWorkflowIdRouteWithChildren
   '/w/$slug/executions/': typeof WSlugExecutionsIndexRoute
   '/w/$slug/settings/': typeof WSlugSettingsIndexRoute
@@ -248,6 +257,7 @@ export interface FileRouteTypes {
     | '/w/$slug/'
     | '/w/$slug/executions/$executionId'
     | '/w/$slug/settings/members'
+    | '/w/$slug/settings/secrets'
     | '/w/$slug/workflows/$workflowId'
     | '/w/$slug/executions/'
     | '/w/$slug/settings/'
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/w/$slug'
     | '/w/$slug/executions/$executionId'
     | '/w/$slug/settings/members'
+    | '/w/$slug/settings/secrets'
     | '/w/$slug/executions'
     | '/w/$slug/settings'
     | '/w/$slug/workflows'
@@ -296,6 +307,7 @@ export interface FileRouteTypes {
     | '/w/$slug/'
     | '/w/$slug/executions/$executionId'
     | '/w/$slug/settings/members'
+    | '/w/$slug/settings/secrets'
     | '/w/$slug/workflows/$workflowId'
     | '/w/$slug/executions/'
     | '/w/$slug/settings/'
@@ -449,6 +461,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugWorkflowsWorkflowIdRouteImport
       parentRoute: typeof WSlugRoute
     }
+    '/w/$slug/settings/secrets': {
+      id: '/w/$slug/settings/secrets'
+      path: '/settings/secrets'
+      fullPath: '/w/$slug/settings/secrets'
+      preLoaderRoute: typeof WSlugSettingsSecretsRouteImport
+      parentRoute: typeof WSlugRoute
+    }
     '/w/$slug/settings/members': {
       id: '/w/$slug/settings/members'
       path: '/settings/members'
@@ -510,6 +529,7 @@ interface WSlugRouteChildren {
   WSlugIndexRoute: typeof WSlugIndexRoute
   WSlugExecutionsExecutionIdRoute: typeof WSlugExecutionsExecutionIdRoute
   WSlugSettingsMembersRoute: typeof WSlugSettingsMembersRoute
+  WSlugSettingsSecretsRoute: typeof WSlugSettingsSecretsRoute
   WSlugWorkflowsWorkflowIdRoute: typeof WSlugWorkflowsWorkflowIdRouteWithChildren
   WSlugExecutionsIndexRoute: typeof WSlugExecutionsIndexRoute
   WSlugSettingsIndexRoute: typeof WSlugSettingsIndexRoute
@@ -520,6 +540,7 @@ const WSlugRouteChildren: WSlugRouteChildren = {
   WSlugIndexRoute: WSlugIndexRoute,
   WSlugExecutionsExecutionIdRoute: WSlugExecutionsExecutionIdRoute,
   WSlugSettingsMembersRoute: WSlugSettingsMembersRoute,
+  WSlugSettingsSecretsRoute: WSlugSettingsSecretsRoute,
   WSlugWorkflowsWorkflowIdRoute: WSlugWorkflowsWorkflowIdRouteWithChildren,
   WSlugExecutionsIndexRoute: WSlugExecutionsIndexRoute,
   WSlugSettingsIndexRoute: WSlugSettingsIndexRoute,
