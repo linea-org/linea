@@ -214,8 +214,11 @@ function WorkflowBuilderCanvasInner({
   // Serializes draft saves to one in-flight request at a time — otherwise two overlapping PUTs can land out of order and an older save can overwrite newer builder state.
   const draftSaveInFlight = useRef(false)
   const pendingDraftGraph = useRef<Record<string, JsonValue> | null>(null)
+  const pendingDraftGeneration = useRef(0)
   // True whenever this tab has made a local edit not yet confirmed saved — gates whether a collaborator's live update can apply straight to the canvas or has to wait for the user to say so.
   const dirtyRef = useRef(false)
+  // Bumped synchronously on every local edit (independent of the save debounce timer) so a save's completion can tell whether a *newer* edit exists yet, not just whether one has already queued its own flush — a save can otherwise land in the gap between a fresh edit and that edit's own debounce firing, wrongly clearing dirtyRef while real unsaved changes are still sitting in the debounce queue.
+  const editGeneration = useRef(0)
   const { mutateAsync: saveDraftAsync } = saveDraft
   // "Saving…" while a save is in flight, then "Saved" for a couple seconds so the confirmation is actually visible instead of flickering past in the time it takes a fast request to round-trip.
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
@@ -232,9 +235,10 @@ function WorkflowBuilderCanvasInner({
     }
   }, [])
   const flushDraftSave = useCallback(
-    async (graph: Record<string, JsonValue>) => {
+    async (graph: Record<string, JsonValue>, generation: number) => {
       if (draftSaveInFlight.current) {
         pendingDraftGraph.current = graph
+        pendingDraftGeneration.current = generation
         return
       }
       draftSaveInFlight.current = true
@@ -243,13 +247,15 @@ function WorkflowBuilderCanvasInner({
       try {
         await saveDraftAsync(graph)
         succeeded = true
-        if (!pendingDraftGraph.current) dirtyRef.current = false
+        // Only clear dirty if no edit has happened since this save was queued — comparing against the live counter, not just whether a follow-up flush already exists, is what closes the race above.
+        if (editGeneration.current === generation) dirtyRef.current = false
       } finally {
         draftSaveInFlight.current = false
         const next = pendingDraftGraph.current
+        const nextGeneration = pendingDraftGeneration.current
         if (next) {
           pendingDraftGraph.current = null
-          void flushDraftSave(next)
+          void flushDraftSave(next, nextGeneration)
         } else {
           setSaveStatus(succeeded ? "saved" : "idle")
           if (succeeded) {
@@ -353,9 +359,11 @@ function WorkflowBuilderCanvasInner({
       return
     }
     dirtyRef.current = true
+    editGeneration.current += 1
+    const generation = editGeneration.current
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
     saveTimeout.current = setTimeout(() => {
-      void flushDraftSave(buildGraph(entryNodeId))
+      void flushDraftSave(buildGraph(entryNodeId), generation)
     }, DRAFT_SAVE_DEBOUNCE_MS)
     return () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current)
