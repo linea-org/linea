@@ -215,6 +215,27 @@ export async function completeExecution(
   return execution
 }
 
+/** Same guard as `completeExecution` (leasedBy match, unexpired lease, not already terminal) but leaves the row resumable — releases the lease instead of finalizing, for a node pausing on a human decision rather than the run actually finishing. `"paused"` deliberately stays out of `terminalStatuses`. */
+export async function pauseExecution(
+  db: DbClient,
+  executionId: string,
+  leasedBy: string
+): Promise<Execution | undefined> {
+  const [execution] = await db
+    .update(executions)
+    .set({ status: "paused", leasedBy: null, leaseExpiresAt: null })
+    .where(
+      and(
+        eq(executions.id, executionId),
+        eq(executions.leasedBy, leasedBy),
+        gt(executions.leaseExpiresAt, new Date()),
+        notInArray(executions.status, terminalStatuses)
+      )
+    )
+    .returning()
+  return execution
+}
+
 /** Marks a still-queued execution as failed before any worker claimed it — for when enqueueing itself fails, so the row doesn't strand at "queued" with no job behind it. `completeExecution` can't be used here since it requires a `leasedBy` match, and a never-claimed execution's is null. */
 export async function failQueuedExecution(
   db: DbClient,

@@ -35,6 +35,7 @@ export const notificationType = pgEnum("notification_type", [
   "execution.started",
   "execution.completed",
   "execution.failed",
+  "execution.approval_requested",
 
   // System
   "system.info",

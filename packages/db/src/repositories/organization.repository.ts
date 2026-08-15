@@ -1,7 +1,8 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import {
   members,
   organizations,
+  users,
   type NewOrganization,
   type Organization,
 } from "../schema/index.js"
@@ -46,6 +47,26 @@ export async function listMemberUserIds(
     .select({ userId: members.userId })
     .from(members)
     .where(eq(members.organizationId, organizationId))
+  return rows.map((r) => r.userId)
+}
+
+/** Resolves a set of emails to the user ids among them that are actually members of this workspace — silently skips emails with no matching member (e.g. a typo, or someone outside the workspace), rather than failing the whole lookup. */
+export async function listMemberUserIdsByEmail(
+  db: DbClient,
+  organizationId: string,
+  emails: string[]
+): Promise<string[]> {
+  if (emails.length === 0) return []
+  const rows = await db
+    .select({ userId: members.userId })
+    .from(members)
+    .innerJoin(users, eq(users.id, members.userId))
+    .where(
+      and(
+        eq(members.organizationId, organizationId),
+        inArray(users.email, emails)
+      )
+    )
   return rows.map((r) => r.userId)
 }
 

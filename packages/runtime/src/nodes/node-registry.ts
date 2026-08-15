@@ -1,4 +1,5 @@
 import { aiNode } from "./definitions/ai.node.js"
+import { approvalNode } from "./definitions/approval.node.js"
 import { branchNode } from "./definitions/branch.node.js"
 import { endNode } from "./definitions/end.node.js"
 import { httpNode } from "./definitions/http.node.js"
@@ -13,6 +14,7 @@ export const nodeRegistry = {
   transform: transformNode,
   branch: branchNode,
   ai: aiNode,
+  approval: approvalNode,
 } satisfies Record<string, NodeDefinition>
 
 export type NodeTypeId = keyof typeof nodeRegistry

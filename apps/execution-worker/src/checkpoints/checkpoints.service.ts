@@ -47,6 +47,14 @@ export class LeaseLostError extends Error {
   }
 }
 
+/** Thrown by a node handler (e.g. the approval node) to pause the execution pending external input, instead of completing or failing this step. */
+export class PauseExecutionError extends Error {
+  constructor(public readonly nodeId: string) {
+    super(`Execution paused at node ${nodeId}`)
+    this.name = "PauseExecutionError"
+  }
+}
+
 @Injectable()
 export class CheckpointsService {
   /** Writes the step and checkpoint in one transaction; throws `LeaseLostError` if `leasedBy` no longer owns the execution. */

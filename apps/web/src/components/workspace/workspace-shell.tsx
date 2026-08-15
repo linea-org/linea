@@ -7,6 +7,7 @@ import {
 } from "react"
 import { Link, useLocation, useMatchRoute } from "@tanstack/react-router"
 import {
+  CircleCheckIcon,
   HistoryIcon,
   HouseIcon,
   KeyIcon,
@@ -115,6 +116,22 @@ export function WorkspaceShell({
                 >
                   <HistoryIcon />
                   <span>Executions</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={
+                    !!matchRoute({
+                      to: "/w/$slug/approvals",
+                      params: { slug },
+                      fuzzy: true,
+                    })
+                  }
+                  tooltip="Approvals"
+                  render={<Link to="/w/$slug/approvals" params={{ slug }} />}
+                >
+                  <CircleCheckIcon />
+                  <span>Approvals</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

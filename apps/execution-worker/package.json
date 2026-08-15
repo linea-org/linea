@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@linea/ai": "workspace:*",
+    "@linea/auth": "workspace:*",
     "@linea/config": "workspace:*",
     "@linea/db": "workspace:*",
     "@linea/queue": "workspace:*",

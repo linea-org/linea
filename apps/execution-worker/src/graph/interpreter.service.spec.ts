@@ -7,6 +7,7 @@ import {
   LeaseLostError,
 } from "../checkpoints/checkpoints.service"
 import { AiNode } from "./nodes/ai.node"
+import { ApprovalNode } from "./nodes/approval.node"
 import { BranchNode } from "./nodes/branch.node"
 import { HttpNode } from "./nodes/http.node"
 import { TransformNode } from "./nodes/transform.node"
@@ -28,7 +29,8 @@ describe("InterpreterService.executeNode", () => {
       tokenNode,
       new TransformNode(),
       new BranchNode(),
-      new AiNode()
+      new AiNode(),
+      new ApprovalNode()
     )
 
     const result = await interpreter.executeNode(
@@ -51,7 +53,8 @@ describe("InterpreterService.executeNode", () => {
       failingNode,
       new TransformNode(),
       new BranchNode(),
-      new AiNode()
+      new AiNode(),
+      new ApprovalNode()
     )
 
     await expect(
@@ -69,7 +72,8 @@ describe("InterpreterService.executeNode", () => {
       tokenNode,
       new TransformNode(),
       new BranchNode(),
-      new AiNode()
+      new AiNode(),
+      new ApprovalNode()
     )
 
     await expect(
@@ -136,7 +140,8 @@ describe("InterpreterService.run idempotency key", () => {
         spyNode,
         new TransformNode(),
         new BranchNode(),
-        new AiNode()
+        new AiNode(),
+        new ApprovalNode()
       )
 
       await interpreter.run({
@@ -212,7 +217,8 @@ describe("InterpreterService resume", () => {
         tokenNode,
         new TransformNode(),
         new BranchNode(),
-        new AiNode()
+        new AiNode(),
+        new ApprovalNode()
       )
 
       // First run: executes n1, checkpoints its usage, then "crashes" (never completes).
@@ -241,7 +247,7 @@ describe("InterpreterService resume", () => {
         initialTokensOutput: resumeTokens.tokensOutput,
       })
 
-      expect(secondRun.result.status).toBe("completed")
+      expect(secondRun.result!.status).toBe("completed")
       expect(secondRun.totalTokensInput).toBe(100)
       expect(secondRun.totalTokensOutput).toBe(50)
     } finally {
@@ -300,7 +306,8 @@ describe("InterpreterService resume", () => {
         new HttpNode(),
         new TransformNode(),
         new BranchNode(),
-        tokenNode
+        tokenNode,
+        new ApprovalNode()
       )
 
       // First run: executes n1 (unpriced), checkpoints it, then "crashes".
@@ -330,7 +337,7 @@ describe("InterpreterService resume", () => {
         initialCostUnpriced: resumeTokens.costUnpriced,
       })
 
-      expect(secondRun.result.status).toBe("completed")
+      expect(secondRun.result!.status).toBe("completed")
       expect(secondRun.costUnpriced).toBe(true)
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
@@ -427,7 +434,8 @@ describe("InterpreterService resume", () => {
         new HttpNode(),
         new TransformNode(),
         new BranchNode(),
-        tokenNode
+        tokenNode,
+        new ApprovalNode()
       )
 
       // n2 runs fresh and is fully priced, but the legacy gap on n1 must still win.
@@ -444,7 +452,7 @@ describe("InterpreterService resume", () => {
         initialCostUnpriced: resumeTokens.costUnpriced,
       })
 
-      expect(outcome.result.status).toBe("completed")
+      expect(outcome.result!.status).toBe("completed")
       expect(outcome.costUnpriced).toBeNull()
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
@@ -508,7 +516,8 @@ describe("InterpreterService resume", () => {
         new HttpNode(),
         new TransformNode(),
         new BranchNode(),
-        tokenNode
+        tokenNode,
+        new ApprovalNode()
       )
 
       const outcome = await interpreter.run({
@@ -584,7 +593,8 @@ describe("InterpreterService resume", () => {
         new HttpNode(),
         new TransformNode(),
         new BranchNode(),
-        tokenNode
+        tokenNode,
+        new ApprovalNode()
       )
 
       const outcome = await interpreter.run({
@@ -670,7 +680,8 @@ describe("InterpreterService resume", () => {
         tokenNode,
         new TransformNode(),
         new BranchNode(),
-        new AiNode()
+        new AiNode(),
+        new ApprovalNode()
       )
 
       await expect(
@@ -758,7 +769,8 @@ describe("InterpreterService resume", () => {
         spyNode,
         new TransformNode(),
         new BranchNode(),
-        new AiNode()
+        new AiNode(),
+        new ApprovalNode()
       )
 
       await expect(
@@ -837,7 +849,8 @@ describe("InterpreterService resume", () => {
         spyNode,
         new TransformNode(),
         new BranchNode(),
-        new AiNode()
+        new AiNode(),
+        new ApprovalNode()
       )
 
       await expect(

@@ -5,6 +5,7 @@ import type { WorkflowGraph } from "@linea/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
 import { InterpreterService } from "../graph/interpreter.service"
 import { AiNode } from "../graph/nodes/ai.node"
+import { ApprovalNode } from "../graph/nodes/approval.node"
 import { BranchNode } from "../graph/nodes/branch.node"
 import { HttpNode } from "../graph/nodes/http.node"
 import { TransformNode } from "../graph/nodes/transform.node"
@@ -110,7 +111,8 @@ describe("crash-and-resume", () => {
         new HttpNode(),
         transformNode,
         new BranchNode(),
-        new AiNode()
+        new AiNode(),
+        new ApprovalNode()
       )
       const runs = new RunsService(
         checkpoints,

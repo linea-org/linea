@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest"
 import { nodeRegistry } from "./node-registry.js"
 
 describe("nodeRegistry", () => {
-  it("has exactly the Phase 0 node types", () => {
+  it("has exactly the current node types", () => {
     expect(Object.keys(nodeRegistry).sort()).toEqual([
       "ai",
+      "approval",
       "branch",
       "end",
       "http",

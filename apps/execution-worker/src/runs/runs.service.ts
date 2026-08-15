@@ -106,7 +106,15 @@ export class RunsService {
         )
       }
 
-      if (outcome.result.status === "completed") {
+      if (outcome.pausedAt) {
+        await repositories.execution.pauseExecution(db, executionId, attemptId)
+        return
+      }
+
+      // Only absent when pausedAt is set, handled above — safe to assert defined here.
+      const result = outcome.result!
+
+      if (result.status === "completed") {
         await repositories.execution.completeExecution(
           db,
           executionId,
@@ -127,8 +135,8 @@ export class RunsService {
           {
             status: "failed",
             error: {
-              message: outcome.result.error,
-              stepId: outcome.result.nodeId,
+              message: result.error,
+              stepId: result.nodeId,
             },
             costMicros: outcome.totalCostMicros,
             costUnpriced: outcome.costUnpriced,
@@ -136,8 +144,7 @@ export class RunsService {
             tokensOutput: outcome.totalTokensOutput,
           }
         )
-        if (failed)
-          await this.notifyExecutionFailed(failed, outcome.result.error)
+        if (failed) await this.notifyExecutionFailed(failed, result.error)
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
