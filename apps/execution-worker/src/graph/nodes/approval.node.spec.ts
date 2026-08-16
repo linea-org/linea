@@ -40,12 +40,22 @@ async function setup() {
     workflowVersionId: version.id,
     trigger: "manual",
   })
-  return { organization, execution }
+  const [approver] = await db
+    .insert(schema.users)
+    .values({ name: "Test Approver", email: `anyone-${suffix}@test.dev` })
+    .returning()
+  await db.insert(schema.members).values({
+    organizationId: organization.id,
+    userId: approver.id,
+    role: "member",
+    createdAt: new Date(),
+  })
+  return { organization, execution, approverEmail: approver.email }
 }
 
 describe("ApprovalNode", () => {
   it("creates a pending approval and pauses on first visit, then pauses again while still pending", async () => {
-    const { organization, execution } = await setup()
+    const { organization, execution, approverEmail } = await setup()
     try {
       const node = new ApprovalNode()
       const context = {
@@ -74,11 +84,12 @@ describe("ApprovalNode", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
+      await pool.query("DELETE FROM users WHERE email = $1", [approverEmail])
     }
   })
 
   it("resolves to approved output once the approval is responded to", async () => {
-    const { organization, execution } = await setup()
+    const { organization, execution, approverEmail } = await setup()
     try {
       const node = new ApprovalNode()
       const context = {
@@ -102,7 +113,7 @@ describe("ApprovalNode", () => {
         {
           status: "approved",
           respondedBy: null,
-          respondedByEmail: "anyone@test.dev",
+          respondedByEmail: approverEmail,
           comment: "looks good",
         }
       )
@@ -117,11 +128,12 @@ describe("ApprovalNode", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
+      await pool.query("DELETE FROM users WHERE email = $1", [approverEmail])
     }
   })
 
   it("resolves to approved: false when rejected", async () => {
-    const { organization, execution } = await setup()
+    const { organization, execution, approverEmail } = await setup()
     try {
       const node = new ApprovalNode()
       const context = {
@@ -145,7 +157,7 @@ describe("ApprovalNode", () => {
         {
           status: "rejected",
           respondedBy: null,
-          respondedByEmail: "anyone@test.dev",
+          respondedByEmail: approverEmail,
         }
       )
 
@@ -155,11 +167,12 @@ describe("ApprovalNode", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
+      await pool.query("DELETE FROM users WHERE email = $1", [approverEmail])
     }
   })
 
   it("reflects a timed-out resolution", async () => {
-    const { organization, execution } = await setup()
+    const { organization, execution, approverEmail } = await setup()
     try {
       const node = new ApprovalNode()
       const context = {
@@ -183,7 +196,7 @@ describe("ApprovalNode", () => {
         {
           status: "rejected",
           respondedBy: null,
-          respondedByEmail: "anyone@test.dev",
+          respondedByEmail: approverEmail,
           timedOut: true,
         }
       )
@@ -194,11 +207,12 @@ describe("ApprovalNode", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
+      await pool.query("DELETE FROM users WHERE email = $1", [approverEmail])
     }
   })
 
   it("escapes the approval message before sending it as email HTML", async () => {
-    const { organization, execution } = await setup()
+    const { organization, execution, approverEmail } = await setup()
     sendEmail.mockClear()
     try {
       const node = new ApprovalNode()
@@ -232,6 +246,7 @@ describe("ApprovalNode", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
+      await pool.query("DELETE FROM users WHERE email = $1", [approverEmail])
     }
   })
 })

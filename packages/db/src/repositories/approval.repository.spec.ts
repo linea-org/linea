@@ -10,9 +10,9 @@ import {
 } from "./approval.repository.js"
 import { db, pool } from "../clients/index.js"
 import { createExecution, startExecution } from "./execution.repository.js"
-import { executions } from "../schema/index.js"
+import { executions, members, users } from "../schema/index.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
-import type { Transaction } from "./types.js"
+import type { DbClient, Transaction } from "./types.js"
 
 async function insertExecution(tx: Transaction) {
   const { organization, workflow, version } = await createTestFixtures(tx)
@@ -23,6 +23,21 @@ async function insertExecution(tx: Transaction) {
     trigger: "manual",
   })
   return { organization, workflow, version, execution }
+}
+
+/** eligibleForUser now requires live workspace membership, not just an approverEmails match — tests responding as a given email must first seat that email as a real member. */
+async function addMember(db: DbClient, organizationId: string, email: string) {
+  const [member] = await db
+    .insert(users)
+    .values({ name: "Test Member", email })
+    .returning()
+  await db.insert(members).values({
+    organizationId,
+    userId: member.id,
+    role: "member",
+    createdAt: new Date(),
+  })
+  return member
 }
 
 describe("approval.repository", () => {
@@ -61,6 +76,7 @@ describe("approval.repository", () => {
     it("includes approvals with no approverEmails restriction for any user", async () => {
       await withRollback(async (tx) => {
         const { organization, execution } = await insertExecution(tx)
+        await addMember(tx, organization.id, "anyone@test.dev")
         await createApproval(tx, {
           workspaceId: organization.id,
           executionId: execution.id,
@@ -79,6 +95,7 @@ describe("approval.repository", () => {
     it("scopes to listed approverEmails when set", async () => {
       await withRollback(async (tx) => {
         const { organization, execution } = await insertExecution(tx)
+        await addMember(tx, organization.id, "reviewer@test.dev")
         await createApproval(tx, {
           workspaceId: organization.id,
           executionId: execution.id,
@@ -102,6 +119,7 @@ describe("approval.repository", () => {
     it("excludes already-resolved approvals", async () => {
       await withRollback(async (tx) => {
         const { organization, execution } = await insertExecution(tx)
+        await addMember(tx, organization.id, "anyone@test.dev")
         const approval = await createApproval(tx, {
           workspaceId: organization.id,
           executionId: execution.id,
@@ -122,6 +140,7 @@ describe("approval.repository", () => {
     it("matches a designated approver regardless of casing on either side", async () => {
       await withRollback(async (tx) => {
         const { organization, execution } = await insertExecution(tx)
+        await addMember(tx, organization.id, "reviewer@test.dev")
         await createApproval(tx, {
           workspaceId: organization.id,
           executionId: execution.id,
@@ -140,6 +159,7 @@ describe("approval.repository", () => {
     it("resolves a pending approval and flips its paused execution back to queued", async () => {
       await withRollback(async (tx) => {
         const { organization, execution } = await insertExecution(tx)
+        await addMember(tx, organization.id, "anyone@test.dev")
         await tx
           .update(executions)
           .set({ status: "paused", leasedBy: null, leaseExpiresAt: null })
@@ -178,6 +198,7 @@ describe("approval.repository", () => {
     it("returns undefined and does not double-resolve an already-responded approval", async () => {
       await withRollback(async (tx) => {
         const { organization, execution } = await insertExecution(tx)
+        await addMember(tx, organization.id, "anyone@test.dev")
         const approval = await createApproval(tx, {
           workspaceId: organization.id,
           executionId: execution.id,
@@ -206,6 +227,8 @@ describe("approval.repository", () => {
     it("returns undefined when the responder's email is not among the designated approverEmails", async () => {
       await withRollback(async (tx) => {
         const { organization, execution } = await insertExecution(tx)
+        await addMember(tx, organization.id, "designated@test.dev")
+        await addMember(tx, organization.id, "not-designated@test.dev")
         const approval = await createApproval(tx, {
           workspaceId: organization.id,
           executionId: execution.id,
@@ -247,6 +270,7 @@ describe("approval.repository", () => {
     it("resolves for a designated approver even when the responder's stored email differs in casing", async () => {
       await withRollback(async (tx) => {
         const { organization, execution } = await insertExecution(tx)
+        await addMember(tx, organization.id, "designated@test.dev")
         const approval = await createApproval(tx, {
           workspaceId: organization.id,
           executionId: execution.id,
@@ -265,6 +289,43 @@ describe("approval.repository", () => {
           }
         )
         expect(resolved?.status).toBe("approved")
+      })
+    })
+
+    it("returns undefined for a designated approver whose workspace membership was revoked, even though their email still matches", async () => {
+      await withRollback(async (tx) => {
+        const { organization, execution } = await insertExecution(tx)
+        const member = await addMember(
+          tx,
+          organization.id,
+          "designated@test.dev"
+        )
+        const approval = await createApproval(tx, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          nodeId: "approval-1",
+          approverEmails: ["designated@test.dev"],
+        })
+
+        // Simulates a controller-level guard having verified membership moments earlier, then losing the race to a removal.
+        await tx.delete(members).where(eq(members.userId, member.id))
+
+        const resolved = await resolveApproval(
+          tx,
+          organization.id,
+          approval!.id,
+          {
+            status: "approved",
+            respondedBy: null,
+            respondedByEmail: "designated@test.dev",
+          }
+        )
+        expect(resolved).toBeUndefined()
+
+        // Still pending — a revoked member's response must not have consumed it.
+        expect(
+          await getApproval(tx, organization.id, execution.id, "approval-1")
+        ).toMatchObject({ status: "pending" })
       })
     })
   })
@@ -415,6 +476,7 @@ describe("approval.repository", () => {
     it("does not pause when the approval was already resolved", async () => {
       await withRollback(async (tx) => {
         const { organization, execution } = await insertExecution(tx)
+        await addMember(tx, organization.id, "anyone@test.dev")
         await startExecution(
           tx,
           execution.id,
@@ -454,6 +516,7 @@ describe("approval.repository", () => {
       const { organization, execution } = await db.transaction((tx) =>
         insertExecution(tx)
       )
+      const member = await addMember(db, organization.id, "anyone@test.dev")
       try {
         await startExecution(
           db,
@@ -505,6 +568,7 @@ describe("approval.repository", () => {
         await pool.query("DELETE FROM organizations WHERE id = $1", [
           organization.id,
         ])
+        await pool.query("DELETE FROM users WHERE id = $1", [member.id])
       }
     })
   })

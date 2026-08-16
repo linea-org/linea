@@ -861,8 +861,22 @@ describe("RunsService fencing identity", () => {
         createdAt: new Date(),
       })
       .returning()
+    const [approver] = await db
+      .insert(schema.users)
+      .values({
+        name: "Race Test Approver",
+        email: `anyone-${suffix}@test.dev`,
+      })
+      .returning()
 
     try {
+      await db.insert(schema.members).values({
+        organizationId: organization.id,
+        userId: approver.id,
+        role: "member",
+        createdAt: new Date(),
+      })
+
       const graph: WorkflowGraph = {
         version: 1,
         trigger: { type: "manual" },
@@ -901,7 +915,7 @@ describe("RunsService fencing identity", () => {
         {
           status: "approved",
           respondedBy: null,
-          respondedByEmail: "anyone@test.dev",
+          respondedByEmail: approver.email,
         }
       )
 
@@ -948,6 +962,7 @@ describe("RunsService fencing identity", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
+      await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
     }
   })
 

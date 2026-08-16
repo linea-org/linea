@@ -2,6 +2,8 @@ import { and, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm"
 import {
   approvals,
   executions,
+  members,
+  users,
   type Approval,
   type NewApproval,
 } from "../schema/index.js"
@@ -43,12 +45,20 @@ export async function getApproval(
   return approval
 }
 
-/** Empty/null approverEmails means any workspace member may respond. Case-insensitive: approverEmails is stored lowercased (see parseApproverEmails), so the comparison side is lowercased to match. */
-function eligibleForUser(userEmail: string) {
-  return or(
-    isNull(approvals.approverEmails),
-    sql`jsonb_array_length(${approvals.approverEmails}) = 0`,
-    sql`${approvals.approverEmails} @> ${JSON.stringify([userEmail.toLowerCase()])}::jsonb`
+/** Empty/null approverEmails means any workspace member may respond. Case-insensitive: approverEmails is stored lowercased (see parseApproverEmails), so the comparison side is lowercased to match. Re-checks live workspace membership here (not just approverEmails) so a caller whose membership was revoked between the controller's guard check and this query can't still resolve the approval — a guard-only check leaves that window open. */
+function eligibleForUser(workspaceId: string, userEmail: string) {
+  return and(
+    sql`exists (
+      select 1 from ${members}
+      inner join ${users} on ${users.id} = ${members.userId}
+      where ${members.organizationId} = ${workspaceId}
+        and lower(${users.email}) = ${userEmail.toLowerCase()}
+    )`,
+    or(
+      isNull(approvals.approverEmails),
+      sql`jsonb_array_length(${approvals.approverEmails}) = 0`,
+      sql`${approvals.approverEmails} @> ${JSON.stringify([userEmail.toLowerCase()])}::jsonb`
+    )
   )
 }
 
@@ -64,7 +74,7 @@ export async function listPendingApprovals(
       and(
         eq(approvals.workspaceId, workspaceId),
         eq(approvals.status, "pending"),
-        eligibleForUser(userEmail)
+        eligibleForUser(workspaceId, userEmail)
       )
     )
 }
@@ -101,7 +111,7 @@ export async function resolveApproval(
           eq(approvals.id, approvalId),
           eq(approvals.workspaceId, workspaceId),
           eq(approvals.status, "pending"),
-          eligibleForUser(input.respondedByEmail)
+          eligibleForUser(workspaceId, input.respondedByEmail)
         )
       )
       .returning()

@@ -26,6 +26,12 @@ async function setup() {
       email: `approvals-test-${suffix}@test.dev`,
     })
     .returning()
+  await db.insert(schema.members).values({
+    organizationId: organization.id,
+    userId: user.id,
+    role: 'member',
+    createdAt: new Date(),
+  })
   const workflow = await repositories.workflow.createWorkflow(db, {
     workspaceId: organization.id,
     name: 'Approvals Test Workflow',
@@ -137,6 +143,20 @@ describe('ApprovalsService', () => {
         email: `not-designated-${suffix}@test.dev`,
       })
       .returning()
+    await db.insert(schema.members).values([
+      {
+        organizationId: organization.id,
+        userId: designated.id,
+        role: 'member',
+        createdAt: new Date(),
+      },
+      {
+        organizationId: organization.id,
+        userId: outsider.id,
+        role: 'member',
+        createdAt: new Date(),
+      },
+    ])
     await pool.query(
       'UPDATE approvals SET approver_emails = $1 WHERE id = $2',
       [JSON.stringify([designated.email]), approval.id],
