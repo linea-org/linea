@@ -296,7 +296,7 @@ describe("RunsService failure accounting", () => {
 })
 
 describe("RunsService chat-preview message persistence", () => {
-  it("persists the last AI node's reply as an assistant chat message when triggerPayload carries a conversationId", async () => {
+  it("does not persist a reply when triggerPayload carries a conversationId but no chatMessageId to link it to", async () => {
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -359,12 +359,92 @@ describe("RunsService chat-preview message persistence", () => {
         workflow.id,
         conversationId
       )
-      expect(messages).toHaveLength(1)
-      expect(messages[0]).toMatchObject({
-        role: "assistant",
-        content: "the assistant's reply",
-        executionId: execution.id,
+      expect(messages).toHaveLength(0)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("does not persist a reply when chatMessageId points to a real user message from a different conversation", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Chat Forged Test Org",
+        slug: `runs-chat-forged-${suffix}`,
+        createdAt: new Date(),
       })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Chat Forged Test Workflow",
+        slug: `runs-chat-forged-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-chat-forged-hash",
+      })
+      // A real user message, but from an unrelated conversation — passes the DB's FK constraint
+      // (the row genuinely exists), so only an explicit scope check catches the mismatch.
+      const foreignMessage = await repositories.chatMessage.createChatMessage(
+        db,
+        {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId: randomUUID(),
+          role: "user",
+          content: "a message from a different conversation",
+        }
+      )
+      const conversationId = randomUUID()
+      // Simulates an ordinary (non-chat-preview) execution whose caller-supplied triggerPayload
+      // happens to carry a conversationId/chatMessageId that doesn't belong together.
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: { conversationId, chatMessageId: foreignMessage.id },
+      })
+
+      const fastInterpreter = {
+        run: () =>
+          Promise.resolve({
+            result: { status: "completed" as const },
+            totalTokensInput: 10,
+            totalTokensOutput: 5,
+            totalCostMicros: 0n,
+            costUnpriced: false,
+            completed: new Map([["n1", { text: "should not be persisted" }]]),
+          }),
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        fastInterpreter,
+        new RunLeaseService()
+      )
+      await runs.execute(execution.id)
+
+      const messages = await repositories.chatMessage.listChatMessages(
+        db,
+        organization.id,
+        workflow.id,
+        conversationId
+      )
+      expect(messages).toHaveLength(0)
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

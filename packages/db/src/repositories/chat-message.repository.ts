@@ -17,6 +17,29 @@ export async function createChatMessage(
   return message
 }
 
+/** The user turn a reply claims to answer, scoped to the same workspace/workflow/conversation — used to reject a reply's linkage before persisting it, not just trust an id from triggerPayload. */
+export async function getUserChatMessageById(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string,
+  conversationId: string,
+  id: string
+): Promise<ChatMessage | undefined> {
+  const [message] = await db
+    .select()
+    .from(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.id, id),
+        eq(chatMessages.workspaceId, workspaceId),
+        eq(chatMessages.workflowId, workflowId),
+        eq(chatMessages.conversationId, conversationId),
+        eq(chatMessages.role, "user")
+      )
+    )
+  return message
+}
+
 /** Scoped by workspaceId in the same query, not a separate ownership check. Used to compensate for a user turn whose triggering execution never made it onto the queue - there is no reply coming, so the turn shouldn't linger in history either. */
 export async function deleteChatMessage(
   db: DbClient,

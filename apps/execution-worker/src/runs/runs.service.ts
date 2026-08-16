@@ -159,7 +159,19 @@ export class RunsService {
         const conversationId = extractConversationId(execution.triggerPayload)
         if (conversationId) {
           const reply = extractAssistantReply(outcome.completed)
-          if (reply) {
+          const chatMessageId = extractChatMessageId(execution.triggerPayload)
+          // triggerPayload is caller-supplied and unvalidated, so only persist a reply once chatMessageId resolves to a real user turn in this scope.
+          const respondsTo =
+            reply && chatMessageId
+              ? await repositories.chatMessage.getUserChatMessageById(
+                  db,
+                  execution.workspaceId,
+                  execution.workflowId,
+                  conversationId,
+                  chatMessageId
+                )
+              : undefined
+          if (reply && respondsTo) {
             await repositories.chatMessage
               .createChatMessage(db, {
                 workspaceId: execution.workspaceId,
@@ -168,12 +180,7 @@ export class RunsService {
                 executionId,
                 role: "assistant",
                 content: reply,
-                // Links this reply to its own triggering turn so transcript ordering (see
-                // listChatMessages) isn't at the mercy of which of two concurrent executions'
-                // AI calls happens to finish first.
-                respondsToMessageId: extractChatMessageId(
-                  execution.triggerPayload
-                ),
+                respondsToMessageId: respondsTo.id,
               })
               .catch((error: unknown) => {
                 const message =
