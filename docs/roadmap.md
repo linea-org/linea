@@ -8,9 +8,9 @@ question: in what order do we build it, and how do we know a phase is done.
 
 These drive every estimate below. If one changes, the estimates change.
 
-- **Capacity is part-time.** Nights and weekends, roughly 10 to 12 hours a
-  week of focused build time. Every duration here assumes that, not a
-  full-time sprint.
+- **Durations are directional, not commitments.** They assume a small,
+  part-time team and will shift as capacity and contributors change — treat
+  them as relative ordering, not a schedule.
 - **Observability is the wedge.** Not a pillar we get to third. It is the
   reason someone picks Linea, and it shapes what ships in Phase 0. See below.
 - **Technical builders first, non-developers later and deliberately.** The
@@ -310,8 +310,8 @@ budget line against.
   primary audience and the SDK stays first-class.
 - Usage metering and billing, multi-region, an SLA worth publishing.
 
-**Exit criteria.** First paying customer, on a contract, using it for
-something they would notice going down.
+**Exit criteria.** A real workload in production that someone would notice
+going down.
 
 ---
 
@@ -336,8 +336,8 @@ optimizing against, which is exactly what Phase 3 produces. An optimizer
 without good graders makes an agent confidently worse.
 
 Rung 3 is also the literal mechanism behind the vision doc's "compounding
-data" moat claim. A workspace whose workflow has ten thousand executions has
-ten thousand candidate examples. A fresh self-hosted setup has none.
+data" idea. A workspace whose workflow has ten thousand executions has ten
+thousand candidate examples. A fresh self-hosted setup has none.
 
 ## Ordering rules
 

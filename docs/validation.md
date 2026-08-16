@@ -42,13 +42,13 @@ without re-running steps 1 through 3.
 
 **Observability vendors** (LangSmith, Langfuse, Braintrust, Weave, Phoenix,
 Helicone, Latitude). They have better trace UIs than we will have for a while,
-and several are open source. Our answer, stated carefully because the sloppy
-version of it is wrong:
+and several are open source. The real comparison, stated carefully because
+the sloppy version of it is wrong:
 
-- They can display a failure, and the better ones can act on it. Latitude
-  dispatches a coding agent with the failure context and opens a pull request.
-  "They can only show you traces" is not true and saying it in an interview
-  will cost credibility with exactly the people worth talking to.
+- Several of them can already act on a failure, not just display it — some
+  dispatch a coding agent with the failure context and open a pull request.
+  "They can only show you traces" understates the category and isn't a claim
+  worth making.
 - What they cannot do is replay one step from the middle of a graph, because
   that needs the checkpoint, which needs having executed the run. Session-
   level replay against your own endpoint is available to them and is shipping.
@@ -57,19 +57,13 @@ version of it is wrong:
   change, publish a version. That difference is the pitch, and it only matters
   to someone for whom a deploy cycle is the bottleneck.
 
-**Latitude specifically is worth studying rather than dismissing.** Their
-loop, in order, is: OTel telemetry, flaggers that auto-score runs, signals
-that group failures into named tracked patterns, behaviours that cluster
-sessions semantically, monitors that alert, evaluations generated from a
-signal, then coding-agent dispatch. `roadmap.md` adopts flaggers, signals,
-monitors, and signal-generated evals, because those are correct product
-design regardless of who thought of them first, and because Linea can build a
-differentiated version of flaggers using graph-level facts a trace-only tool
-cannot see.
+Flaggers, signals, monitors, and signal-generated evals (see `roadmap.md`) are
+a common shape across this category. Linea's version leans on graph-level
+facts — checkpoints, per-step inputs — that a trace-only tool never has access
+to, which is where the differentiated half of that work lives.
 
-This landscape moves quickly, and this section was written 2026-08-05. Re-check
-specifics before using any of it in a conversation or on a page. Being wrong
-about a competitor in front of a prospect is worse than not mentioning them.
+This landscape moves quickly, and this section was written 2026-08-05.
+Re-check specifics before repeating any of it as current fact.
 
 ## Track A: dogfood
 
