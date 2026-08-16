@@ -1,4 +1,4 @@
-import type { SignalTrendPoint } from "../../lib/signals-api"
+import type { SignalTrendPoint } from "@/lib/signals-api"
 
 function dayKey(date: Date) {
   const year = date.getFullYear()

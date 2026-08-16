@@ -1,9 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import {
-  loadSignalDetail,
-  SignalDetailView,
-} from "../../../../../../components/signals"
+import { loadSignalDetail, SignalDetailView } from "@/components/signals"
 
 export const Route = createFileRoute(
   "/w/$slug/workflows/$workflowId/signals/$signalId"

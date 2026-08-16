@@ -6,9 +6,9 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-import type { WorkspaceExecutionSummary } from "../../lib/executions-api"
-import type { SignalSummary } from "../../lib/signals-api"
-import type { WorkflowSummary } from "../../lib/workflows-api"
+import type { WorkspaceExecutionSummary } from "@/lib/executions-api"
+import type { SignalSummary } from "@/lib/signals-api"
+import type { WorkflowSummary } from "@/lib/workflows-api"
 import { workflowStatus } from "../workflows"
 import { countByDay } from "./count-by-day"
 import { StatSparkline } from "./stat-sparkline"

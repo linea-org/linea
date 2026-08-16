@@ -23,7 +23,7 @@ import {
   createWorkflowFn,
   workflowsQueryOptions,
   type WorkflowSummary,
-} from "../../lib/workflows-api"
+} from "@/lib/workflows-api"
 import { WorkflowFormDialog, WorkflowStatusBadge } from "../workflows"
 import { HomePanel } from "./home-panel"
 

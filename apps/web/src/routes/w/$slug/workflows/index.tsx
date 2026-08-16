@@ -49,14 +49,14 @@ import {
   WorkflowFormDialog,
   WorkflowStatusBadge,
   workflowStatus,
-} from "../../../../components/workflows"
+} from "@/components/workflows"
 import {
   createWorkflowFn,
   listWorkflowsFn,
   updateWorkflowFn,
   workflowsQueryOptions,
   type WorkflowSummary,
-} from "../../../../lib/workflows-api"
+} from "@/lib/workflows-api"
 
 const STATUS_FILTERS = ["Draft", "Published", "Archived"] as const
 type StatusFilter = (typeof STATUS_FILTERS)[number]

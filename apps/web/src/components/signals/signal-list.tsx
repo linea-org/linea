@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@linea/ui/components/table"
 
-import type { SignalSummary } from "../../lib/signals-api"
+import type { SignalSummary } from "@/lib/signals-api"
 import { flagTypeLabel } from "./flag-type-label"
 import { SignalStatusBadge } from "./signal-status-badge"
 

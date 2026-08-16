@@ -1,6 +1,6 @@
 import { Badge } from "@linea/ui/components/badge"
 
-import type { SignalStatus } from "../../lib/signals-api"
+import type { SignalStatus } from "@/lib/signals-api"
 
 const statusVariant: Record<
   SignalStatus,

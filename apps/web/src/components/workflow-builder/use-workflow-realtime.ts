@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { io, type Socket } from "socket.io-client"
 
-import { mintWorkflowRealtimeTokenFn } from "../../lib/workflows-api"
+import { mintWorkflowRealtimeTokenFn } from "@/lib/workflows-api"
 
 export type PresenceViewer = {
   userId: string

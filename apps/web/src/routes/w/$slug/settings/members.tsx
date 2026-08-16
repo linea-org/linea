@@ -55,14 +55,14 @@ import {
   TableRow,
 } from "@linea/ui/components/table"
 
-import { InviteMemberDialog } from "../../../../components/members"
-import { authClient } from "../../../../lib/auth-client"
+import { InviteMemberDialog } from "@/components/members"
+import { authClient } from "@/lib/auth-client"
 import {
   cancelInvitation,
   inviteMembers,
   removeMember,
   updateMemberRole,
-} from "../../../../lib/auth-queries"
+} from "@/lib/auth-queries"
 
 export const Route = createFileRoute("/w/$slug/settings/members")({
   component: MembersPage,

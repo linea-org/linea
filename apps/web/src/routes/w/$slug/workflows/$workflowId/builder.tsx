@@ -4,12 +4,12 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import {
   WorkflowBuilderCanvas,
   type WorkflowBuilderGraph,
-} from "../../../../../components/workflow-builder"
+} from "@/components/workflow-builder"
 import {
   getWorkflowFn,
   getWorkflowVersionFn,
   workflowQueryOptions,
-} from "../../../../../lib/workflows-api"
+} from "@/lib/workflows-api"
 
 const BLANK_GRAPH: WorkflowBuilderGraph = { nodes: [], edges: [] }
 

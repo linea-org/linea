@@ -6,16 +6,13 @@ import {
   OpenSignalsWidget,
   RecentExecutionsWidget,
   WorkflowsWidget,
-} from "../../../components/home"
+} from "@/components/home"
 import {
   listWorkspaceExecutionsFn,
   workspaceExecutionsQueryOptions,
-} from "../../../lib/executions-api"
-import { listSignalsFn } from "../../../lib/signals-api"
-import {
-  listWorkflowsFn,
-  workflowsQueryOptions,
-} from "../../../lib/workflows-api"
+} from "@/lib/executions-api"
+import { listSignalsFn } from "@/lib/signals-api"
+import { listWorkflowsFn, workflowsQueryOptions } from "@/lib/workflows-api"
 
 export const Route = createFileRoute("/w/$slug/")({
   loader: async () => {

@@ -62,14 +62,14 @@ import {
   TooltipTrigger,
 } from "@linea/ui/components/tooltip"
 import { useWorkspaceOverlayNav } from "../workspace"
-import { authClient } from "../../lib/auth-client"
-import { testRunFn, type JsonValue } from "../../lib/executions-api"
+import { authClient } from "@/lib/auth-client"
+import { testRunFn, type JsonValue } from "@/lib/executions-api"
 import { ChatPreviewPanel } from "./chat-preview-panel"
 import {
   createWorkflowVersionFn,
   publishWorkflowVersionFn,
   saveWorkflowDraftFn,
-} from "../../lib/workflows-api"
+} from "@/lib/workflows-api"
 import { WorkflowPalette, PALETTE_DRAG_MIME } from "./palette"
 import { NodeConfigPanel } from "./node-config-panel"
 import { NodeShell } from "./node-shell"

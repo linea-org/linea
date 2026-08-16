@@ -13,7 +13,7 @@ import {
 } from "@linea/ui/components/empty"
 import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
 
-import { NotificationRow } from "../../../components/notifications"
+import { NotificationRow } from "@/components/notifications"
 import {
   archiveNotificationFn,
   deleteNotificationFn,
@@ -23,7 +23,7 @@ import {
   notificationsQueryOptions,
   unarchiveNotificationFn,
   unreadNotificationCountQueryOptions,
-} from "../../../lib/notifications-api"
+} from "@/lib/notifications-api"
 
 export const Route = createFileRoute("/w/$slug/notifications")({
   component: NotificationsPage,

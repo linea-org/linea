@@ -15,8 +15,8 @@ import {
   SidebarMenuItem,
 } from "@linea/ui/components/sidebar"
 
-import { setActiveOrganization } from "../../lib/auth-queries"
-import { authErrorMessage } from "../../lib/auth-redirect"
+import { setActiveOrganization } from "@/lib/auth-queries"
+import { authErrorMessage } from "@/lib/auth-redirect"
 import { PlayfulAvatar } from "../avatar"
 
 export type WorkspaceOption = {

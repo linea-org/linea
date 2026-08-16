@@ -24,11 +24,8 @@ import {
 } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
 
-import { authClient } from "../../../../lib/auth-client"
-import {
-  deleteOrganization,
-  updateOrganization,
-} from "../../../../lib/auth-queries"
+import { authClient } from "@/lib/auth-client"
+import { deleteOrganization, updateOrganization } from "@/lib/auth-queries"
 
 export const Route = createFileRoute("/w/$slug/settings/")({
   component: WorkspaceSettingsPage,

@@ -13,7 +13,7 @@ import {
   resolveSignalFn,
   signalQueryOptions,
   type SignalDetail as SignalDetailResponse,
-} from "../../lib/signals-api"
+} from "@/lib/signals-api"
 import { flagTypeLabel } from "./flag-type-label"
 import { SignalStatusBadge } from "./signal-status-badge"
 import { SignalTrendChart } from "./signal-trend-chart"

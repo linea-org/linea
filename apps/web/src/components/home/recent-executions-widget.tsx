@@ -21,7 +21,7 @@ import {
 import type {
   ExecutionTrigger,
   WorkspaceExecutionSummary,
-} from "../../lib/executions-api"
+} from "@/lib/executions-api"
 import { ExecutionStatusBadge, formatCost } from "../executions"
 import { HomePanel } from "./home-panel"
 

@@ -25,7 +25,7 @@ import { cn } from "@linea/ui/lib/utils"
 import type {
   NotificationSeverity,
   NotificationSummary,
-} from "../../lib/notifications-api"
+} from "@/lib/notifications-api"
 import { formatRelativeTime } from "./format-relative-time"
 import { NotificationTargetLink } from "./notification-target-link"
 import { resolveNotificationTarget } from "./resolve-notification-target"

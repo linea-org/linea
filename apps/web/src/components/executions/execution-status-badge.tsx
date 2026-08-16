@@ -1,6 +1,6 @@
 import { Badge } from "@linea/ui/components/badge"
 
-import type { ExecutionStatus } from "../../lib/executions-api"
+import type { ExecutionStatus } from "@/lib/executions-api"
 
 export const executionStatusLabel: Record<ExecutionStatus, string> = {
   queued: "Queued",

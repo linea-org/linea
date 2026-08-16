@@ -1,8 +1,8 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 
-import { AuthShell } from "../../components/auth"
-import { CreateWorkspaceForm } from "../../components/workspace"
-import { listOrganizations, requireVerifiedUser } from "../../lib/auth-redirect"
+import { AuthShell } from "@/components/auth"
+import { CreateWorkspaceForm } from "@/components/workspace"
+import { listOrganizations, requireVerifiedUser } from "@/lib/auth-redirect"
 
 export const Route = createFileRoute("/onboarding/workspace")({
   beforeLoad: async () => {

@@ -45,8 +45,8 @@ import {
   conversationsQueryOptions,
   sendChatMessageFn,
   type ConversationSummary,
-} from "../../lib/chat-preview-api"
-import { executionQueryOptions, type JsonValue } from "../../lib/executions-api"
+} from "@/lib/chat-preview-api"
+import { executionQueryOptions, type JsonValue } from "@/lib/executions-api"
 
 export function ChatPreviewPanel({
   slug,

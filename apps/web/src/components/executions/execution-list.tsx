@@ -27,7 +27,7 @@ import {
 import type {
   ExecutionStepSummary,
   ExecutionSummary,
-} from "../../lib/executions-api"
+} from "@/lib/executions-api"
 import { ExecutionStatusBadge } from "./execution-status-badge"
 
 const triggerLabel: Record<ExecutionSummary["trigger"], string> = {

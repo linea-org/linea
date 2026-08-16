@@ -1,8 +1,8 @@
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router"
 
-import { WorkspaceShell } from "../../components/workspace"
-import { listOrganizations, requireWorkspace } from "../../lib/auth-redirect"
-import { setActiveOrganizationFn } from "../../lib/auth-session"
+import { WorkspaceShell } from "@/components/workspace"
+import { listOrganizations, requireWorkspace } from "@/lib/auth-redirect"
+import { setActiveOrganizationFn } from "@/lib/auth-session"
 
 export const Route = createFileRoute("/w/$slug")({
   beforeLoad: async ({ params }) => {

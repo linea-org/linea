@@ -1,4 +1,4 @@
-import type { SignalSummary } from "../../lib/signals-api"
+import type { SignalSummary } from "@/lib/signals-api"
 
 function Card({ label, value }: { label: string; value: number }) {
   return (

@@ -16,31 +16,28 @@ import {
   TabsTrigger,
 } from "@linea/ui/components/tabs"
 
-import { ExecutionList } from "../../../../../components/executions"
+import { ExecutionList } from "@/components/executions"
 import {
   SignalFlagTypeBreakdown,
   SignalList,
   SignalStatCards,
   SignalTrendChart,
-} from "../../../../../components/signals"
-import {
-  WorkflowFormDialog,
-  WorkflowStatusBadge,
-} from "../../../../../components/workflows"
+} from "@/components/signals"
+import { WorkflowFormDialog, WorkflowStatusBadge } from "@/components/workflows"
 import {
   executionsQueryOptions,
   listExecutionsFn,
   triggerExecutionFn,
-} from "../../../../../lib/executions-api"
+} from "@/lib/executions-api"
 import {
   signalsTrendQueryOptions,
   workflowSignalsQueryOptions,
-} from "../../../../../lib/signals-api"
+} from "@/lib/signals-api"
 import {
   getWorkflowFn,
   updateWorkflowFn,
   workflowQueryOptions,
-} from "../../../../../lib/workflows-api"
+} from "@/lib/workflows-api"
 
 export const Route = createFileRoute("/w/$slug/workflows/$workflowId/")({
   loader: async ({ params }) => {
