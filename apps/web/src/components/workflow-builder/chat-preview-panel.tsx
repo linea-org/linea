@@ -129,7 +129,8 @@ export function ChatPreviewPanel({
   }
   function handleSend() {
     const trimmed = input.trim()
-    if (!trimmed || send.isPending) return
+    // Blocked while a prior turn is still unanswered — overlapping turns would race each other for AI history.
+    if (!trimmed || send.isPending || isWaiting) return
     setInput("")
     send.mutate(trimmed)
   }
@@ -267,7 +268,7 @@ export function ChatPreviewPanel({
               size="icon-sm"
               variant="default"
               onClick={handleSend}
-              disabled={!input.trim() || send.isPending}
+              disabled={!input.trim() || send.isPending || isWaiting}
               aria-label="Send message"
             >
               <SendIcon />

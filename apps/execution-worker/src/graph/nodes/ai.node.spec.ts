@@ -40,9 +40,14 @@ describe("AiNode", () => {
   it("uses the latest conversation message as the prompt and everything before it as history when no chatMessageId is set", async () => {
     complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
     listChatMessages.mockResolvedValue([
-      { role: "user", content: "first turn" },
-      { role: "assistant", content: "first reply" },
-      { role: "user", content: "second turn" },
+      { id: "m1", role: "user", content: "first turn" },
+      {
+        id: "m2",
+        role: "assistant",
+        content: "first reply",
+        respondsToMessageId: "m1",
+      },
+      { id: "m3", role: "user", content: "second turn" },
     ])
 
     const node = new AiNode()
@@ -69,7 +74,12 @@ describe("AiNode", () => {
     complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
     listChatMessages.mockResolvedValue([
       { id: "m1", role: "user", content: "first turn" },
-      { id: "m2", role: "assistant", content: "first reply" },
+      {
+        id: "m2",
+        role: "assistant",
+        content: "first reply",
+        respondsToMessageId: "m1",
+      },
       { id: "m3", role: "user", content: "this execution's own turn" },
       // Submitted by a second, concurrent chat turn before this AI node's query ran — the old
       // "latest message wins" logic would have mistaken this for the prompt.
@@ -87,6 +97,40 @@ describe("AiNode", () => {
       "secret",
       expect.objectContaining({
         prompt: "this execution's own turn",
+        history: [
+          { role: "user", content: "first turn" },
+          { role: "assistant", content: "first reply" },
+        ],
+      })
+    )
+  })
+
+  it("drops a still-unanswered earlier turn from history instead of sending consecutive unreplied user messages", async () => {
+    complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+    listChatMessages.mockResolvedValue([
+      { id: "m1", role: "user", content: "first turn" },
+      {
+        id: "m2",
+        role: "assistant",
+        content: "first reply",
+        respondsToMessageId: "m1",
+      },
+      // Submitted before its own execution's AI node ran — no reply exists for it yet.
+      { id: "m3", role: "user", content: "second turn, still unanswered" },
+      { id: "m4", role: "user", content: "third turn (this execution's own)" },
+    ])
+
+    const node = new AiNode()
+    await node.execute(
+      { prompt: "unused static prompt", model: "claude-sonnet-5" },
+      undefined,
+      { ...context, conversationId: "conv1", chatMessageId: "m4" }
+    )
+
+    expect(complete).toHaveBeenCalledWith(
+      "secret",
+      expect.objectContaining({
+        prompt: "third turn (this execution's own)",
         history: [
           { role: "user", content: "first turn" },
           { role: "assistant", content: "first reply" },

@@ -52,8 +52,17 @@ export class AiNode implements NodeHandler {
       }
       prompt = own.content
       // Sliced up to (not including) this execution's own message — a later turn queried before it lands must not be mistaken for history.
-      history = messages
-        .slice(0, ownIndex)
+      const priorMessages = messages.slice(0, ownIndex)
+      const repliedToIds = new Set(
+        priorMessages
+          .filter((message) => message.role === "assistant")
+          .map((message) => message.respondsToMessageId)
+      )
+      // Drops a still-unanswered earlier turn — otherwise overlapping turns could send the provider consecutive unreplied user messages.
+      history = priorMessages
+        .filter(
+          (message) => message.role !== "user" || repliedToIds.has(message.id)
+        )
         .map((message) => ({ role: message.role, content: message.content }))
     }
 
