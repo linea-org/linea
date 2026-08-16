@@ -39,6 +39,7 @@ export type SignalTrendPoint = { day: string; count: number }
 
 export type SignalDetail = SignalSummary & {
   flags: FlagSummary[]
+  affectedExecutions: number
   trend: SignalTrendPoint[]
 }
 

@@ -155,6 +155,34 @@ describe("recordSignalOccurrence (via createFlagIfNew)", () => {
       expect(detail?.trend[0].count).toBe(1)
     })
   })
+
+  it("bounds the occurrence page while occurrenceCount/affectedExecutions reflect the true totals", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+
+      for (let i = 0; i < 35; i++) {
+        const execution = await createExecution(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+        })
+        await createFlagIfNew(tx, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          nodeId: "n1",
+          flagType: "retry_storm",
+          dedupeKey: `retry_storm:${execution.id}:n1`,
+        })
+      }
+
+      const [signal] = await listSignals(tx, organization.id)
+      const detail = await getSignalDetail(tx, organization.id, signal.id)
+      expect(detail?.flags).toHaveLength(30)
+      expect(detail?.occurrenceCount).toBe(35)
+      expect(detail?.affectedExecutions).toBe(35)
+    })
+  })
 })
 
 describe("getSignalsTrend", () => {
@@ -248,6 +276,57 @@ describe("getSignalsTrend", () => {
       await createFlagIfNew(tx, {
         workspaceId: organization.id,
         workflowId: otherWorkflow.id,
+        executionId: otherExecution.id,
+        nodeId: "n1",
+        flagType: "retry_storm",
+        dedupeKey: `retry_storm:${otherExecution.id}:n1`,
+      })
+
+      const trend = await getSignalsTrend(tx, organization.id, {
+        workflowId: workflow.id,
+      })
+      expect(trend.reduce((sum, point) => sum + point.count, 0)).toBe(1)
+    })
+  })
+
+  it("includes flags whose workflow is only resolvable via executionId (most flaggers never set flags.workflowId directly)", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const suffix = randomUUID()
+      const otherWorkflow = await createWorkflow(tx, {
+        workspaceId: organization.id,
+        name: "Other Workflow",
+        slug: `other-workflow-${suffix}`,
+      })
+      const otherVersion = await createWorkflowVersion(tx, {
+        workflowId: otherWorkflow.id,
+        graph: { nodes: [], edges: [] },
+        contentHash: "other-test-hash",
+      })
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      const otherExecution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: otherWorkflow.id,
+        workflowVersionId: otherVersion.id,
+        trigger: "manual",
+      })
+
+      // Matches how the real transcript/graph flaggers call createFlagIfNew for every flag type
+      // except branch_never_taken - no workflowId, only executionId.
+      await createFlagIfNew(tx, {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: "n1",
+        flagType: "retry_storm",
+        dedupeKey: `retry_storm:${execution.id}:n1`,
+      })
+      await createFlagIfNew(tx, {
+        workspaceId: organization.id,
         executionId: otherExecution.id,
         nodeId: "n1",
         flagType: "retry_storm",

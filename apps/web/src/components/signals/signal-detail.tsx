@@ -64,10 +64,10 @@ export function SignalDetailView({
     },
   })
 
-  const affectedExecutions = new Set(
-    signal.flags.map((flag) => flag.executionId).filter(Boolean)
-  ).size
-  const occurrences = signal.flags.slice(0, 30)
+  // signal.flags is already the bounded (most-recent-30) page from the API - occurrenceCount
+  // and affectedExecutions are separate server-computed totals over every occurrence, not
+  // derived from this page.
+  const occurrences = signal.flags
 
   return (
     <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
@@ -109,7 +109,7 @@ export function SignalDetailView({
           <Stat label="Occurrences" value={String(signal.occurrenceCount)} />
           <Stat
             label="Affected executions"
-            value={String(affectedExecutions)}
+            value={String(signal.affectedExecutions)}
           />
           <Stat
             label="First seen"
@@ -139,9 +139,10 @@ export function SignalDetailView({
         <div className="border-b border-border px-4 py-3">
           <p className="text-sm font-medium text-foreground">
             Occurrences
-            {signal.flags.length > 30 && (
+            {signal.occurrenceCount > occurrences.length && (
               <span className="ml-2 font-normal text-muted-foreground">
-                showing 30 most recent of {signal.flags.length}
+                showing {occurrences.length} most recent of{" "}
+                {signal.occurrenceCount}
               </span>
             )}
           </p>

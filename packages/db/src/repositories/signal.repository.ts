@@ -107,8 +107,13 @@ export async function listSignals(
 
 export type SignalTrendPoint = { day: string; count: number }
 
+// Long-lived signals can accumulate thousands of occurrences - the detail view only ever
+// renders the most recent page of them, so the query (and payload) stays bounded to match.
+const DETAIL_OCCURRENCE_LIMIT = 30
+
 export type SignalDetail = SignalSummary & {
   flags: Flag[]
+  affectedExecutions: number
   trend: SignalTrendPoint[]
 }
 
@@ -123,11 +128,25 @@ export async function getSignalDetail(
     .where(and(eq(signals.id, signalId), eq(signals.workspaceId, workspaceId)))
   if (!signal) return undefined
 
-  const linkedFlags = await db
+  // Aggregates computed server-side over every linked flag, independent of how many of them
+  // the caller actually renders - the recent-occurrences page below is bounded, but these
+  // totals (and the trend query further down, already bucketed) must not be.
+  const [stats] = await db
+    .select({
+      occurrenceCount: sql<number>`count(*)::int`,
+      affectedExecutions: sql<number>`count(distinct ${flags.executionId})::int`,
+      firstFlaggedAt: sql<Date>`min(${flags.createdAt})`,
+      lastFlaggedAt: sql<Date>`max(${flags.createdAt})`,
+    })
+    .from(flags)
+    .where(eq(flags.signalId, signalId))
+
+  const recentFlags = await db
     .select()
     .from(flags)
     .where(eq(flags.signalId, signalId))
     .orderBy(desc(flags.createdAt))
+    .limit(DETAIL_OCCURRENCE_LIMIT)
 
   const trend = await db
     .select({
@@ -143,10 +162,11 @@ export async function getSignalDetail(
     ...signal,
     status: deriveSignalStatus(signal),
     // A signal always has at least one linked flag — the one that created it via recordSignalOccurrence.
-    occurrenceCount: linkedFlags.length,
-    firstFlaggedAt: linkedFlags[linkedFlags.length - 1].createdAt,
-    lastFlaggedAt: linkedFlags[0].createdAt,
-    flags: linkedFlags,
+    occurrenceCount: stats.occurrenceCount,
+    affectedExecutions: stats.affectedExecutions,
+    firstFlaggedAt: stats.firstFlaggedAt,
+    lastFlaggedAt: stats.lastFlaggedAt,
+    flags: recentFlags,
     trend,
   }
 }
@@ -160,23 +180,30 @@ export async function getSignalsTrend(
   const since = new Date(
     Date.now() - (options.days ?? 30) * 24 * 60 * 60 * 1000
   )
-  return db
-    .select({
-      day: sql<string>`to_char(date_trunc('day', ${flags.createdAt}), 'YYYY-MM-DD')`,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(flags)
-    .where(
-      and(
-        eq(flags.workspaceId, workspaceId),
-        options.workflowId
-          ? eq(flags.workflowId, options.workflowId)
-          : undefined,
-        gte(flags.createdAt, since)
+  return (
+    db
+      .select({
+        day: sql<string>`to_char(date_trunc('day', ${flags.createdAt}), 'YYYY-MM-DD')`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(flags)
+      // Most flaggers only set flags.executionId, not flags.workflowId directly - the workflow is
+      // resolved indirectly (see resolveWorkflowId above) and lands on signals.workflowId, the same
+      // field listSignals already scopes by. Filtering flags.workflowId here would silently drop
+      // every flag type except branch_never_taken (the one flagger that does set it directly).
+      .innerJoin(signals, eq(flags.signalId, signals.id))
+      .where(
+        and(
+          eq(flags.workspaceId, workspaceId),
+          options.workflowId
+            ? eq(signals.workflowId, options.workflowId)
+            : undefined,
+          gte(flags.createdAt, since)
+        )
       )
-    )
-    .groupBy(sql`date_trunc('day', ${flags.createdAt})`)
-    .orderBy(sql`date_trunc('day', ${flags.createdAt})`)
+      .groupBy(sql`date_trunc('day', ${flags.createdAt})`)
+      .orderBy(sql`date_trunc('day', ${flags.createdAt})`)
+  )
 }
 
 export async function resolveSignal(
