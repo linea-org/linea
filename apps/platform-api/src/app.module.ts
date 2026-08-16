@@ -8,6 +8,7 @@ import { AppService } from './app.service'
 import { ExecutionsModule } from './executions/executions.module'
 import { HealthController } from './health/health.controller'
 import { MeController } from './me/me.controller'
+import { NotificationsModule } from './notifications/notifications.module'
 import { QueueModule } from './queue/queue.module'
 import { SecretsModule } from './secrets/secrets.module'
 import { SignalsModule } from './signals/signals.module'
@@ -27,6 +28,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     TriggersModule,
     SignalsModule,
     SecretsModule,
+    NotificationsModule,
   ],
   controllers: [AppController, HealthController, MeController],
   providers: [AppService],

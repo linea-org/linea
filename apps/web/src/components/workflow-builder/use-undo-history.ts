@@ -31,5 +31,12 @@ export function useUndoHistory<T>(initial: T) {
   const canUndo = useCallback(() => past.current.length > 0, [])
   const canRedo = useCallback(() => future.current.length > 0, [])
 
-  return { push, undo, redo, canUndo, canRedo }
+  // Replaces the current snapshot without recording an undo step — for state that arrived from outside the local edit history (e.g. a collaborator's change applied live).
+  const reset = useCallback((snapshot: T) => {
+    past.current = []
+    future.current = []
+    current.current = snapshot
+  }, [])
+
+  return { push, undo, redo, canUndo, canRedo, reset }
 }

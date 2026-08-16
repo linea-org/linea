@@ -6,25 +6,64 @@ import {
   type Flag,
   type NewFlag,
 } from "../schema/index.js"
+import { listMemberUserIds } from "./organization.repository.js"
+import { createNotificationsForUsers } from "./notification.repository.js"
 import { recordSignalOccurrence } from "./signal.repository.js"
+import { getWorkflowById } from "./workflow.repository.js"
 import type { DbClient } from "./types.js"
+
+async function notifySignalRegressed(
+  db: DbClient,
+  flag: Flag,
+  signalId: string
+): Promise<void> {
+  const workflow = flag.workflowId
+    ? await getWorkflowById(db, flag.workspaceId, flag.workflowId)
+    : undefined
+  const memberUserIds = await listMemberUserIds(db, flag.workspaceId)
+  await createNotificationsForUsers(db, memberUserIds, {
+    workspaceId: flag.workspaceId,
+    type: "system.warning",
+    severity: "warning",
+    title: `${workflow?.name ?? "A workflow"} regressed: ${flag.flagType.replace(/_/g, " ")}`,
+    body: "An issue that was previously marked resolved was flagged again.",
+    metadata: {
+      workflowId: flag.workflowId ?? undefined,
+      workspaceId: flag.workspaceId,
+      signalId,
+    },
+  })
+}
 
 // Insert and signal linkage share a transaction — a flag that exists must always have already reached its signal, since a crash in between would otherwise leave a permanently unlinked row: dedupeKey suppresses reinsertion on the next sweep, so there is no retry path outside this atomicity.
 export async function createFlagIfNew(
   db: DbClient,
   input: NewFlag
 ): Promise<Flag | undefined> {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [flag] = await tx
       .insert(flags)
       .values(input)
       .onConflictDoNothing({ target: flags.dedupeKey })
       .returning()
-    if (flag) {
-      await recordSignalOccurrence(tx, flag)
-    }
-    return flag
+    if (!flag) return undefined
+    const { signal, justRegressed } = await recordSignalOccurrence(tx, flag)
+    return { flag, signal, justRegressed }
   })
+
+  if (result?.justRegressed) {
+    // Runs after commit, on the outer client — inside the tx, a caught rejection still aborts it.
+    await notifySignalRegressed(db, result.flag, result.signal.id).catch(
+      (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error(
+          `Failed to create signal-regressed notification for signal ${result.signal.id}: ${message}`
+        )
+      }
+    )
+  }
+
+  return result?.flag
 }
 
 export type RetryStormResult = {

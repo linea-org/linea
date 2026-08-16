@@ -107,6 +107,95 @@ describe("RunsService failure accounting", () => {
     }
   })
 
+  it("notifies every workspace member when a run fails outright", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Notify Test Org",
+        slug: `runs-notify-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    const [member] = await db
+      .insert(schema.users)
+      .values({
+        name: "Notify Member",
+        email: `notify-member-${suffix}@test.dev`,
+      })
+      .returning()
+
+    try {
+      await db.insert(schema.members).values({
+        organizationId: organization.id,
+        userId: member.id,
+        role: "member",
+        createdAt: new Date(),
+      })
+
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "transform", config: { expression: "" } }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Notify Test Workflow",
+        slug: `runs-notify-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-notify-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+
+      const poisonInterpreter = {
+        run: () =>
+          Promise.reject(new Error("simulated failure for notification test")),
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        poisonInterpreter,
+        new RunLeaseService()
+      )
+
+      await expect(runs.execute(execution.id)).rejects.toThrow(
+        "simulated failure for notification test"
+      )
+
+      const notifications = await repositories.notification.listNotifications(
+        db,
+        member.id,
+        { workspaceId: organization.id }
+      )
+      expect(notifications).toHaveLength(1)
+      expect(notifications[0]).toMatchObject({
+        type: "execution.failed",
+        severity: "error",
+        title: "Runs Service Notify Test Workflow run failed",
+      })
+      expect(notifications[0].metadata).toMatchObject({
+        workflowId: workflow.id,
+        executionId: execution.id,
+      })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+      await pool.query("DELETE FROM users WHERE id = $1", [member.id])
+    }
+  })
+
   it("reflects a step checkpointed during a run that then throws, not the stale pre-run state", async () => {
     const suffix = randomUUID()
     const [organization] = await db

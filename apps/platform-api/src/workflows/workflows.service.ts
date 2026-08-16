@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common'
 import {
   db,
@@ -15,6 +16,10 @@ import {
   validateGraphStructure,
   WorkflowGraphError,
 } from '@linea/runtime'
+import type { UserSession } from '@thallesp/nestjs-better-auth'
+import type { auth } from '@linea/auth'
+import { RealtimeTokenService } from '../realtime/realtime-token.service'
+import { WorkflowsGateway } from '../realtime/workflows.gateway'
 import type { CreateWorkflowDto } from './dto/create-workflow.dto'
 import type { CreateWorkflowVersionDto } from './dto/create-workflow-version.dto'
 import type { SaveWorkflowDraftDto } from './dto/save-workflow-draft.dto'
@@ -22,6 +27,11 @@ import type { UpdateWorkflowDto } from './dto/update-workflow.dto'
 
 @Injectable()
 export class WorkflowsService {
+  constructor(
+    private readonly realtimeTokens: RealtimeTokenService,
+    private readonly gateway: WorkflowsGateway,
+  ) {}
+
   async create(
     workspaceId: string,
     input: CreateWorkflowDto,
@@ -81,6 +91,7 @@ export class WorkflowsService {
     workspaceId: string,
     id: string,
     input: SaveWorkflowDraftDto,
+    savedBy?: { userId: string; name: string },
   ): Promise<Workflow> {
     const workflow = await repositories.workflow.saveWorkflowDraft(
       db,
@@ -91,7 +102,34 @@ export class WorkflowsService {
     if (!workflow) {
       throw new NotFoundException('Workflow not found')
     }
+    // savedBy is absent for an API-key-authenticated save (no session user) — nobody realistically has that workflow's builder open with an API key, so skipping the broadcast there is harmless.
+    if (savedBy && workflow.draftUpdatedAt) {
+      this.gateway.broadcastDraftUpdate(id, {
+        graph: input.graph,
+        updatedAt: workflow.draftUpdatedAt.toISOString(),
+        savedBy,
+      })
+    }
     return workflow
+  }
+
+  async mintRealtimeToken(
+    workspaceId: string,
+    id: string,
+    session: UserSession<typeof auth> | null,
+  ) {
+    if (!session?.user) {
+      throw new UnauthorizedException('A signed-in session is required')
+    }
+    // Confirms the workflow belongs to this workspace before minting a token for it.
+    await this.get(workspaceId, id)
+    return this.realtimeTokens.mint({
+      userId: session.user.id,
+      name: session.user.name,
+      image: session.user.image ?? null,
+      workspaceId,
+      workflowId: id,
+    })
   }
 
   async createVersion(

@@ -46,13 +46,23 @@ import {
 } from "@linea/ui/components/resizable"
 import {
   ArrowLeftIcon,
+  CheckIcon,
   MessageCircleIcon,
   PanelLeftIcon,
   PlayIcon,
   Redo2Icon,
+  RefreshCwIcon,
   Undo2Icon,
 } from "lucide-react"
+import { UserAvatar } from "../account"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@linea/ui/components/tooltip"
 import { useWorkspaceOverlayNav } from "../workspace"
+import { authClient } from "../../lib/auth-client"
 import { testRunFn, type JsonValue } from "../../lib/executions-api"
 import { ChatPreviewPanel } from "./chat-preview-panel"
 import {
@@ -64,6 +74,10 @@ import { WorkflowPalette, PALETTE_DRAG_MIME } from "./palette"
 import { NodeConfigPanel } from "./node-config-panel"
 import { NodeShell } from "./node-shell"
 import { useUndoHistory } from "./use-undo-history"
+import {
+  useWorkflowRealtime,
+  type DraftUpdatedEvent,
+} from "./use-workflow-realtime"
 import { isValidConnection } from "./connection-validation"
 import { categoryStroke } from "./node-category-colors"
 import {
@@ -202,26 +216,96 @@ function WorkflowBuilderCanvasInner({
   // Serializes draft saves to one in-flight request at a time — otherwise two overlapping PUTs can land out of order and an older save can overwrite newer builder state.
   const draftSaveInFlight = useRef(false)
   const pendingDraftGraph = useRef<Record<string, JsonValue> | null>(null)
+  const pendingDraftGeneration = useRef(0)
+  // True whenever this tab has made a local edit not yet confirmed saved — gates whether a collaborator's live update can apply straight to the canvas or has to wait for the user to say so.
+  const dirtyRef = useRef(false)
+  // Bumped during render, not in a passive effect — a save resolving in the post-paint gap before
+  // an effect runs would otherwise see a stale generation and wrongly clear dirtyRef.
+  const editGeneration = useRef(0)
+  const { mutateAsync: saveDraftAsync } = saveDraft
+  // "Saving…" while a save is in flight, then "Saved" for a couple seconds so the confirmation is actually visible instead of flickering past in the time it takes a fast request to round-trip.
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
+    "idle"
+  )
+  const savedIndicatorTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
+  useEffect(() => {
+    return () => {
+      if (savedIndicatorTimeout.current) {
+        clearTimeout(savedIndicatorTimeout.current)
+      }
+    }
+  }, [])
   const flushDraftSave = useCallback(
-    async (graph: Record<string, JsonValue>) => {
+    async (graph: Record<string, JsonValue>, generation: number) => {
       if (draftSaveInFlight.current) {
         pendingDraftGraph.current = graph
+        pendingDraftGeneration.current = generation
         return
       }
       draftSaveInFlight.current = true
+      setSaveStatus("saving")
+      let succeeded = false
       try {
-        await saveDraft.mutateAsync(graph)
+        await saveDraftAsync(graph)
+        succeeded = true
+        // Only clear dirty if no edit has happened since this save was queued — comparing against the live counter, not just whether a follow-up flush already exists, is what closes the race above.
+        if (editGeneration.current === generation) dirtyRef.current = false
       } finally {
         draftSaveInFlight.current = false
         const next = pendingDraftGraph.current
+        const nextGeneration = pendingDraftGeneration.current
         if (next) {
           pendingDraftGraph.current = null
-          void flushDraftSave(next)
+          void flushDraftSave(next, nextGeneration)
+        } else {
+          setSaveStatus(succeeded ? "saved" : "idle")
+          if (succeeded) {
+            if (savedIndicatorTimeout.current) {
+              clearTimeout(savedIndicatorTimeout.current)
+            }
+            savedIndicatorTimeout.current = setTimeout(
+              () => setSaveStatus("idle"),
+              2000
+            )
+          }
         }
       }
     },
-    [saveDraft]
+    // mutateAsync is stable across renders (TanStack Query memoizes it) — the mutation object itself isn't, and depending on it here re-triggers this callback's identity (and the debounce effect below, which lists flushDraftSave) after every save settles, causing a self-perpetuating save loop even with no further edits.
+    [saveDraftAsync]
   )
+  const { data: session } = authClient.useSession()
+  const currentUserId = session?.user.id
+  const [pendingRemoteUpdate, setPendingRemoteUpdate] =
+    useState<DraftUpdatedEvent | null>(null)
+  // Applying a collaborator's graph mutates `nodes`/`edges` the same way a local edit does — this one-shot flag tells the draft-save effect below to skip scheduling a save for that render instead of re-saving (and re-broadcasting) what was just received.
+  const suppressNextSaveRef = useRef(false)
+  const applyRemoteGraph = useCallback(
+    (event: DraftUpdatedEvent) => {
+      const remoteSeeded = ensureStartNode(
+        event.graph as unknown as WorkflowBuilderGraph
+      )
+      const remoteFlow = graphToFlow(remoteSeeded)
+      suppressNextSaveRef.current = true
+      setNodes(remoteFlow.nodes)
+      setEdges(remoteFlow.edges)
+      history.reset({ nodes: remoteFlow.nodes, edges: remoteFlow.edges })
+      dirtyRef.current = false
+      setPendingRemoteUpdate(null)
+    },
+    [history, setNodes, setEdges]
+  )
+  const { viewers } = useWorkflowRealtime(workflowId, (event) => {
+    if (event.savedBy.userId === currentUserId) return
+    if (dirtyRef.current) {
+      setPendingRemoteUpdate(event)
+      return
+    }
+    applyRemoteGraph(event)
+  })
+  const otherViewers = viewers.filter((v) => v.userId !== currentUserId)
   const navigate = useNavigate()
   const testRun = useMutation({
     mutationFn: () =>
@@ -268,10 +352,31 @@ function WorkflowBuilderCanvasInner({
     },
     [history]
   )
+  // Detected during render, not the effect below, so there's no window for a settling save promise
+  // to observe a stale generation. Safe under double-invocation (e.g. StrictMode) since prevNodesRef
+  // is already updated by the first pass; seeded with the initial nodes/edges so mount isn't an edit.
+  const prevNodesRef = useRef(nodes)
+  const prevEdgesRef = useRef(edges)
+  // The generation the currently-scheduled debounced save is for, so the effect below can tell a
+  // real edit apart from a re-render that didn't touch identity for an edit reason.
+  const scheduledGeneration = useRef(0)
+  if (prevNodesRef.current !== nodes || prevEdgesRef.current !== edges) {
+    prevNodesRef.current = nodes
+    prevEdgesRef.current = edges
+    if (suppressNextSaveRef.current) {
+      suppressNextSaveRef.current = false
+    } else {
+      dirtyRef.current = true
+      editGeneration.current += 1
+    }
+  }
   useEffect(() => {
+    if (editGeneration.current === scheduledGeneration.current) return
+    scheduledGeneration.current = editGeneration.current
+    const generation = editGeneration.current
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
     saveTimeout.current = setTimeout(() => {
-      void flushDraftSave(buildGraph(entryNodeId))
+      void flushDraftSave(buildGraph(entryNodeId), generation)
     }, DRAFT_SAVE_DEBOUNCE_MS)
     return () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current)
@@ -384,6 +489,28 @@ function WorkflowBuilderCanvasInner({
           </Button>
         </div>
         <div className="flex flex-1 items-center justify-end gap-2">
+          {otherViewers.length > 0 && (
+            <TooltipProvider>
+              <div className="mr-1 flex -space-x-2">
+                {otherViewers.slice(0, 5).map((viewer) => (
+                  <Tooltip key={viewer.userId}>
+                    <TooltipTrigger
+                      render={
+                        <span className="rounded-full ring-2 ring-card" />
+                      }
+                    >
+                      <UserAvatar
+                        name={viewer.name}
+                        image={viewer.image}
+                        size="sm"
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>{viewer.name}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </TooltipProvider>
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -404,8 +531,14 @@ function WorkflowBuilderCanvasInner({
           >
             <Redo2Icon />
           </Button>
-          {saveDraft.isPending && (
+          {saveStatus === "saving" && (
             <span className="text-xs text-muted-foreground">Saving…</span>
+          )}
+          {saveStatus === "saved" && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <CheckIcon className="size-3.5" />
+              Saved
+            </span>
           )}
           <Button
             type="button"
@@ -450,6 +583,34 @@ function WorkflowBuilderCanvasInner({
         <p className="border-b border-border bg-destructive/10 px-5 py-2 text-sm text-destructive">
           {(saveVersion.error ?? publish.error ?? testRun.error)?.message}
         </p>
+      )}
+      {pendingRemoteUpdate && (
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-secondary px-5 py-2 text-sm">
+          <span>
+            <strong>{pendingRemoteUpdate.savedBy.name}</strong> made changes
+            while you were editing. Reloading replaces your unsaved changes with
+            theirs.
+          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setPendingRemoteUpdate(null)}
+            >
+              Dismiss
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => applyRemoteGraph(pendingRemoteUpdate)}
+            >
+              <RefreshCwIcon />
+              Reload
+            </Button>
+          </div>
+        </div>
       )}
       <div className="flex min-h-0 flex-1 gap-2 px-2 pt-2 pb-2">
         <WorkflowPalette />
