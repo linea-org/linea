@@ -217,11 +217,8 @@ function WorkflowBuilderCanvasInner({
   const pendingDraftGeneration = useRef(0)
   // True whenever this tab has made a local edit not yet confirmed saved — gates whether a collaborator's live update can apply straight to the canvas or has to wait for the user to say so.
   const dirtyRef = useRef(false)
-  // Bumped during render (see the nodes/edges-identity check below), not in a passive effect —
-  // a save's completion needs to tell whether a *newer* edit exists yet, and a passive effect
-  // only runs after paint. A save's promise can resolve in that post-paint gap and still see a
-  // generation that hasn't been bumped for an edit React has already committed, wrongly clearing
-  // dirtyRef while that edit is still sitting in the debounce queue.
+  // Bumped during render, not in a passive effect — a save resolving in the post-paint gap before
+  // an effect runs would otherwise see a stale generation and wrongly clear dirtyRef.
   const editGeneration = useRef(0)
   const { mutateAsync: saveDraftAsync } = saveDraft
   // "Saving…" while a save is in flight, then "Saved" for a couple seconds so the confirmation is actually visible instead of flickering past in the time it takes a fast request to round-trip.
@@ -352,18 +349,13 @@ function WorkflowBuilderCanvasInner({
     },
     [history]
   )
-  // Detected here, during render, instead of in the effect below: render runs synchronously as
-  // part of the same commit that changed nodes/edges, so there's no window for a settling save
-  // promise to observe a stale generation. (Safe to mutate refs this way — idempotent if this
-  // render is invoked twice for the same commit, e.g. under StrictMode, since prevNodesRef is
-  // already updated to `nodes` by the first invocation.) On mount, prevNodesRef/prevEdgesRef
-  // are seeded with the initial nodes/edges, so the very first render doesn't count as an edit.
+  // Detected during render, not the effect below, so there's no window for a settling save promise
+  // to observe a stale generation. Safe under double-invocation (e.g. StrictMode) since prevNodesRef
+  // is already updated by the first pass; seeded with the initial nodes/edges so mount isn't an edit.
   const prevNodesRef = useRef(nodes)
   const prevEdgesRef = useRef(edges)
-  // Which generation the currently-scheduled (or last-scheduled) debounced save is for — lets
-  // the effect below tell a real edit apart from a re-render that didn't touch nodes/edges'
-  // identity for an edit reason (e.g. a suppressed remote-update apply) without redoing the
-  // suppression check itself.
+  // The generation the currently-scheduled debounced save is for, so the effect below can tell a
+  // real edit apart from a re-render that didn't touch identity for an edit reason.
   const scheduledGeneration = useRef(0)
   if (prevNodesRef.current !== nodes || prevEdgesRef.current !== edges) {
     prevNodesRef.current = nodes
