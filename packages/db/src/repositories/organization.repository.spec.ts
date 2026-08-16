@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
+import { members, users } from "../schema/index.js"
+import { createTestFixtures, withRollback } from "./test-utils.js"
 import {
   findOrCreateOrganizationBySlug,
   getOrganizationBySlug,
+  listMemberUserIdsByEmail,
 } from "./organization.repository.js"
 
 describe("findOrCreateOrganizationBySlug", () => {
@@ -51,5 +54,31 @@ describe("findOrCreateOrganizationBySlug", () => {
     } finally {
       await pool.query("DELETE FROM organizations WHERE slug = $1", [slug])
     }
+  })
+})
+
+describe("listMemberUserIdsByEmail", () => {
+  it("matches a member regardless of casing on either side", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const [member] = await tx
+        .insert(users)
+        .values({
+          name: "Casing Test Member",
+          email: `Casing-Test-${randomUUID()}@Test.dev`,
+        })
+        .returning()
+      await tx.insert(members).values({
+        organizationId: organization.id,
+        userId: member.id,
+        role: "member",
+        createdAt: new Date(),
+      })
+
+      const userIds = await listMemberUserIdsByEmail(tx, organization.id, [
+        member.email.toLowerCase(),
+      ])
+      expect(userIds).toEqual([member.id])
+    })
   })
 })

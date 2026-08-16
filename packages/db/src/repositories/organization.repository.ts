@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 import {
   members,
   organizations,
@@ -50,7 +50,7 @@ export async function listMemberUserIds(
   return rows.map((r) => r.userId)
 }
 
-/** Resolves a set of emails to the user ids among them that are actually members of this workspace — silently skips emails with no matching member (e.g. a typo, or someone outside the workspace), rather than failing the whole lookup. */
+/** Resolves a set of emails to the user ids among them that are actually members of this workspace — silently skips emails with no matching member (e.g. a typo, or someone outside the workspace), rather than failing the whole lookup. Case-insensitive: a stored account email can differ in casing from a caller-supplied one. */
 export async function listMemberUserIdsByEmail(
   db: DbClient,
   organizationId: string,
@@ -64,7 +64,10 @@ export async function listMemberUserIdsByEmail(
     .where(
       and(
         eq(members.organizationId, organizationId),
-        inArray(users.email, emails)
+        inArray(
+          sql`lower(${users.email})`,
+          emails.map((email) => email.toLowerCase())
+        )
       )
     )
   return rows.map((r) => r.userId)
