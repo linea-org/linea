@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import {
   createChatMessage,
+  deleteOrphanedChatMessages,
   listChatMessages,
   listConversations,
 } from "./chat-message.repository.js"
+import { createExecution, failQueuedExecution } from "./execution.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 
 describe("chat-message.repository", () => {
@@ -334,6 +336,138 @@ describe("chat-message.repository", () => {
         )
         expect(conversations).toHaveLength(1)
         expect(conversations[0].preview).toBe("in scope")
+      })
+    })
+  })
+
+  describe("deleteOrphanedChatMessages", () => {
+    it("deletes a user turn whose triggering execution failed and was never answered", async () => {
+      await withRollback(async (tx) => {
+        const { organization, workflow, version } = await createTestFixtures(tx)
+        const conversationId = randomUUID()
+        const message = await createChatMessage(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "user",
+          content: "hello",
+          createdAt: new Date(Date.now() - 120_000),
+        })
+        const execution = await createExecution(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          triggerPayload: { conversationId, chatMessageId: message.id },
+        })
+        await failQueuedExecution(tx, execution.id, { message: "boom" })
+
+        const deleted = await deleteOrphanedChatMessages(
+          tx,
+          new Date(Date.now() - 60_000)
+        )
+        expect(deleted).toBe(1)
+
+        const remaining = await listChatMessages(
+          tx,
+          organization.id,
+          workflow.id,
+          conversationId
+        )
+        expect(remaining).toHaveLength(0)
+      })
+    })
+
+    it("does not delete a user turn that already has a reply", async () => {
+      await withRollback(async (tx) => {
+        const { organization, workflow, version } = await createTestFixtures(tx)
+        const conversationId = randomUUID()
+        const message = await createChatMessage(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "user",
+          content: "hello",
+          createdAt: new Date(Date.now() - 120_000),
+        })
+        const execution = await createExecution(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          triggerPayload: { conversationId, chatMessageId: message.id },
+        })
+        await failQueuedExecution(tx, execution.id, { message: "boom" })
+        await createChatMessage(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "assistant",
+          content: "a reply arrived anyway",
+          respondsToMessageId: message.id,
+        })
+
+        const deleted = await deleteOrphanedChatMessages(
+          tx,
+          new Date(Date.now() - 60_000)
+        )
+        expect(deleted).toBe(0)
+      })
+    })
+
+    it("does not delete a user turn whose execution hasn't failed yet", async () => {
+      await withRollback(async (tx) => {
+        const { organization, workflow, version } = await createTestFixtures(tx)
+        const conversationId = randomUUID()
+        const message = await createChatMessage(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "user",
+          content: "hello",
+          createdAt: new Date(Date.now() - 120_000),
+        })
+        await createExecution(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          triggerPayload: { conversationId, chatMessageId: message.id },
+        })
+
+        const deleted = await deleteOrphanedChatMessages(
+          tx,
+          new Date(Date.now() - 60_000)
+        )
+        expect(deleted).toBe(0)
+      })
+    })
+
+    it("does not delete a turn newer than the cutoff, even if its execution already failed", async () => {
+      await withRollback(async (tx) => {
+        const { organization, workflow, version } = await createTestFixtures(tx)
+        const conversationId = randomUUID()
+        const message = await createChatMessage(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "user",
+          content: "hello",
+        })
+        const execution = await createExecution(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          triggerPayload: { conversationId, chatMessageId: message.id },
+        })
+        await failQueuedExecution(tx, execution.id, { message: "boom" })
+
+        const deleted = await deleteOrphanedChatMessages(
+          tx,
+          new Date(Date.now() - 60_000)
+        )
+        expect(deleted).toBe(0)
       })
     })
   })

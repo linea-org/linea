@@ -2,6 +2,7 @@ import { and, desc, eq, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import {
   chatMessages,
+  executions,
   type ChatMessage,
   type NewChatMessage,
 } from "../schema/index.js"
@@ -51,6 +52,28 @@ export async function deleteChatMessage(
     .where(
       and(eq(chatMessages.id, id), eq(chatMessages.workspaceId, workspaceId))
     )
+}
+
+/** Catches what a failed compensating delete missed: a user turn whose triggering execution definitively failed (so no reply is ever coming) and that's still unanswered, older than the given cutoff so a turn mid-flight is never touched. */
+export async function deleteOrphanedChatMessages(
+  db: DbClient,
+  olderThan: Date
+): Promise<number> {
+  const result = await db.execute(sql`
+    delete from ${chatMessages}
+    where ${chatMessages.role} = 'user'
+      and ${chatMessages.createdAt} < ${olderThan}
+      and exists (
+        select 1 from ${executions}
+        where ${executions.triggerPayload} ->> 'chatMessageId' = ${chatMessages.id}::text
+          and ${executions.status} = 'failed'
+      )
+      and not exists (
+        select 1 from ${chatMessages} as reply
+        where reply.responds_to_message_id = ${chatMessages.id}
+      )
+  `)
+  return result.rowCount ?? 0
 }
 
 /** Ordered by turn (via each reply's linked user message's `sequence`), not raw insertion time — independent executions can finish out of wall-clock order, and `sequence` (unlike `createdAt`) can't tie. */
