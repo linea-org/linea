@@ -25,6 +25,17 @@ afterAll(async () => {
 })
 
 describe("workflow-execution queue", () => {
+  it("configures retries with backoff, so a lost lease isn't left permanently stuck", async () => {
+    queue = createWorkflowExecutionQueue(connection)
+
+    const job = await enqueueWorkflowExecution(queue, {
+      executionId: "exec-retry",
+    })
+
+    expect(job.opts.attempts).toBeGreaterThan(1)
+    expect(job.opts.backoff).toBeTruthy()
+  })
+
   it("delivers an enqueued job's payload to a worker", async () => {
     queue = createWorkflowExecutionQueue(connection)
 
