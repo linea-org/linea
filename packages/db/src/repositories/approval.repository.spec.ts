@@ -118,6 +118,22 @@ describe("approval.repository", () => {
         ).toHaveLength(0)
       })
     })
+
+    it("matches a designated approver regardless of casing on either side", async () => {
+      await withRollback(async (tx) => {
+        const { organization, execution } = await insertExecution(tx)
+        await createApproval(tx, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          nodeId: "approval-1",
+          approverEmails: ["Reviewer@Test.dev"],
+        })
+
+        expect(
+          await listPendingApprovals(tx, organization.id, "reviewer@test.dev")
+        ).toHaveLength(1)
+      })
+    })
   })
 
   describe("resolveApproval", () => {
@@ -222,6 +238,30 @@ describe("approval.repository", () => {
             status: "approved",
             respondedBy: null,
             respondedByEmail: "designated@test.dev",
+          }
+        )
+        expect(resolved?.status).toBe("approved")
+      })
+    })
+
+    it("resolves for a designated approver even when the responder's stored email differs in casing", async () => {
+      await withRollback(async (tx) => {
+        const { organization, execution } = await insertExecution(tx)
+        const approval = await createApproval(tx, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          nodeId: "approval-1",
+          approverEmails: ["designated@test.dev"],
+        })
+
+        const resolved = await resolveApproval(
+          tx,
+          organization.id,
+          approval!.id,
+          {
+            status: "approved",
+            respondedBy: null,
+            respondedByEmail: "Designated@Test.dev",
           }
         )
         expect(resolved?.status).toBe("approved")

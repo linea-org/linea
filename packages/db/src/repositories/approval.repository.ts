@@ -8,13 +8,17 @@ import {
 import { pauseExecution } from "./execution.repository.js"
 import type { DbClient } from "./types.js"
 
+// Normalized here, not just at the caller, so storage stays consistent regardless of how a row is created — matches the lowercasing eligibleForUser applies when comparing.
 export async function createApproval(
   db: DbClient,
   input: NewApproval
 ): Promise<Approval | undefined> {
   const [approval] = await db
     .insert(approvals)
-    .values(input)
+    .values({
+      ...input,
+      approverEmails: input.approverEmails?.map((email) => email.toLowerCase()),
+    })
     .onConflictDoNothing({ target: [approvals.executionId, approvals.nodeId] })
     .returning()
   return approval
@@ -39,12 +43,12 @@ export async function getApproval(
   return approval
 }
 
-/** Empty/null approverEmails means any workspace member may respond. */
+/** Empty/null approverEmails means any workspace member may respond. Case-insensitive: approverEmails is stored lowercased (see parseApproverEmails), so the comparison side is lowercased to match. */
 function eligibleForUser(userEmail: string) {
   return or(
     isNull(approvals.approverEmails),
     sql`jsonb_array_length(${approvals.approverEmails}) = 0`,
-    sql`${approvals.approverEmails} @> ${JSON.stringify([userEmail])}::jsonb`
+    sql`${approvals.approverEmails} @> ${JSON.stringify([userEmail.toLowerCase()])}::jsonb`
   )
 }
 

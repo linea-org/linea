@@ -8,11 +8,12 @@ import type {
   NodeHandler,
 } from "./node-handler.interface"
 
+// Lowercased so a workflow author's casing can't diverge from a designated approver's own stored email (see eligibleForUser).
 function parseApproverEmails(raw: unknown): string[] | undefined {
   if (typeof raw !== "string" || raw.trim() === "") return undefined
   return raw
     .split(",")
-    .map((email) => email.trim())
+    .map((email) => email.trim().toLowerCase())
     .filter(Boolean)
 }
 
