@@ -2,10 +2,17 @@ import { randomUUID } from 'node:crypto'
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common'
-import { db, repositories, type Execution, type ExecutionStep } from '@linea/db'
+import {
+  db,
+  repositories,
+  type ChatMessage,
+  type Execution,
+  type ExecutionStep,
+} from '@linea/db'
 import {
   assertNoReservedNodeIds,
   hashWorkflowGraph,
@@ -17,12 +24,40 @@ import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 import { WorkflowQueueService } from '../queue/workflow-queue.service'
 import type { CountNewWorkspaceExecutionsDto } from './dto/count-new-workspace-executions.dto'
 import type { ListWorkspaceExecutionsDto } from './dto/list-workspace-executions.dto'
+import type { SendChatMessageDto } from './dto/chat-preview.dto'
 import type { ReplayStepDto } from './dto/replay-step.dto'
 import type { TestRunDto } from './dto/test-run.dto'
 import type { TriggerExecutionDto } from './dto/trigger-execution.dto'
 
+const DELETE_CHAT_MESSAGE_RETRY_ATTEMPTS = 3
+const DELETE_CHAT_MESSAGE_RETRY_DELAY_MS = 200
+
+/** Retries a transient failure a few times before giving up, closing most of the window where a blip would otherwise leave an unanswered turn stuck in history. */
+export async function deleteChatMessageWithRetry(
+  deleteFn: () => Promise<void>,
+  onGiveUp: (error: unknown) => void,
+  attempts = DELETE_CHAT_MESSAGE_RETRY_ATTEMPTS,
+): Promise<void> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await deleteFn()
+      return
+    } catch (error) {
+      if (attempt === attempts) {
+        onGiveUp(error)
+        return
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, DELETE_CHAT_MESSAGE_RETRY_DELAY_MS),
+      )
+    }
+  }
+}
+
 @Injectable()
 export class ExecutionsService {
+  private readonly logger = new Logger(ExecutionsService.name)
+
   constructor(
     private readonly queue: WorkflowQueueService,
     private readonly stepReplayQueue: StepReplayQueueService,
@@ -127,6 +162,144 @@ export class ExecutionsService {
     }
 
     return execution
+  }
+
+  /** One turn of a chat preview: persists the user's message, then runs the (possibly draft) graph as a normal one-shot execution carrying conversationId in triggerPayload — the AI node picks up prior turns from there. Follows testRun's exact draft-graph pattern. A conversation is a sequence of independent executions sharing a conversationId, not one execution pausing repeatedly — the graph is a DAG and can't loop back to "wait for the next message." */
+  async sendChatMessage(
+    workspaceId: string,
+    workflowId: string,
+    input: SendChatMessageDto,
+  ): Promise<{ execution: Execution; conversationId: string }> {
+    const workflow = await repositories.workflow.getWorkflowById(
+      db,
+      workspaceId,
+      workflowId,
+    )
+    if (!workflow) {
+      throw new NotFoundException('Workflow not found')
+    }
+
+    try {
+      validateGraphStructure(input.graph)
+      assertNoReservedNodeIds(input.graph)
+    } catch (error) {
+      if (error instanceof WorkflowGraphError) {
+        throw new BadRequestException(error.message)
+      }
+      throw error
+    }
+
+    const conversationId = input.conversationId ?? randomUUID()
+
+    const version = await repositories.workflow.ensureVersionForGraph(
+      db,
+      workflowId,
+      { graph: input.graph, contentHash: hashWorkflowGraph(input.graph) },
+    )
+
+    // Created in one transaction so a trigger failure rolls back the message too, not an orphaned turn.
+    const { chatMessage, execution } = await db.transaction(async (tx) => {
+      const chatMessage = await repositories.chatMessage.createChatMessage(tx, {
+        workspaceId,
+        workflowId,
+        conversationId,
+        role: 'user',
+        content: input.message,
+      })
+
+      const result =
+        await repositories.execution.triggerWorkflowExecutionForVersion(
+          tx,
+          workspaceId,
+          workflowId,
+          version.id,
+          {
+            trigger: 'manual',
+            triggerPayload: { conversationId, chatMessageId: chatMessage.id },
+          },
+        )
+      switch (result.outcome) {
+        case 'not_found':
+          throw new NotFoundException('Workflow not found')
+        case 'archived':
+          throw new BadRequestException('Workflow is archived')
+      }
+
+      return { chatMessage, execution: result.execution }
+    })
+
+    try {
+      await this.queue.enqueue(execution.id)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      const failed = await repositories.execution.failQueuedExecution(
+        db,
+        execution.id,
+        { message },
+      )
+      // Only delete the message if we genuinely won the "failed" transition — a worker may already have claimed this execution (see WorkflowQueueService's accepted-risk note), in which case it's still running and needs this message.
+      if (failed) {
+        await deleteChatMessageWithRetry(
+          () =>
+            repositories.chatMessage.deleteChatMessage(
+              db,
+              workspaceId,
+              chatMessage.id,
+            ),
+          (deleteError) => {
+            const deleteMessage =
+              deleteError instanceof Error
+                ? deleteError.message
+                : String(deleteError)
+            this.logger.warn(
+              `Execution ${execution.id}: failed to delete orphaned chat message ${chatMessage.id} after enqueue failure — it will remain in conversation history unanswered: ${deleteMessage}`,
+            )
+          },
+        )
+      }
+      throw new ServiceUnavailableException(
+        'Failed to enqueue execution — it will not run',
+      )
+    }
+
+    return { execution, conversationId }
+  }
+
+  async listChatMessages(
+    workspaceId: string,
+    workflowId: string,
+    conversationId: string,
+  ): Promise<ChatMessage[]> {
+    const workflow = await repositories.workflow.getWorkflowById(
+      db,
+      workspaceId,
+      workflowId,
+    )
+    if (!workflow) {
+      throw new NotFoundException('Workflow not found')
+    }
+    return repositories.chatMessage.listChatMessages(
+      db,
+      workspaceId,
+      workflowId,
+      conversationId,
+    )
+  }
+
+  async listChatConversations(workspaceId: string, workflowId: string) {
+    const workflow = await repositories.workflow.getWorkflowById(
+      db,
+      workspaceId,
+      workflowId,
+    )
+    if (!workflow) {
+      throw new NotFoundException('Workflow not found')
+    }
+    return repositories.chatMessage.listConversations(
+      db,
+      workspaceId,
+      workflowId,
+    )
   }
 
   async list(workspaceId: string, workflowId: string): Promise<Execution[]> {

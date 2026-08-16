@@ -13,6 +13,7 @@ export type {
   AiProvider,
   CompletionRequest,
   CompletionResult,
+  ConversationTurn,
 } from "./providers/provider.interface.js"
 export { calculateCostMicros } from "./pricing/pricing-table.js"
 export type { ModelPrice } from "./pricing/pricing-table.js"
