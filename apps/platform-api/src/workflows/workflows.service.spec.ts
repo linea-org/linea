@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import { db, pool, schema } from '@linea/db'
 import type { WorkflowGraph } from '@linea/runtime'
+import { RealtimeTokenService } from '../realtime/realtime-token.service'
+import { WorkflowsGateway } from '../realtime/workflows.gateway'
 import { WorkflowsService } from './workflows.service'
+
+const providers = [WorkflowsService, RealtimeTokenService, WorkflowsGateway]
 
 afterAll(async () => {
   await pool.end()
@@ -42,7 +46,7 @@ describe('WorkflowsService', () => {
 
   it('creates, lists, gets, and updates a workflow, all scoped to the workspace', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [WorkflowsService],
+      providers,
     }).compile()
     const service = moduleRef.get(WorkflowsService)
 
@@ -74,7 +78,7 @@ describe('WorkflowsService', () => {
 
   it('rejects a structurally invalid graph before it ever reaches the database', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [WorkflowsService],
+      providers,
     }).compile()
     const service = moduleRef.get(WorkflowsService)
 
@@ -106,7 +110,7 @@ describe('WorkflowsService', () => {
 
   it('rejects a graph that uses the reserved resume-event node id', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [WorkflowsService],
+      providers,
     }).compile()
     const service = moduleRef.get(WorkflowsService)
 
@@ -127,7 +131,7 @@ describe('WorkflowsService', () => {
 
   it('creates and publishes a version, scoped to the owning workflow', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [WorkflowsService],
+      providers,
     }).compile()
     const service = moduleRef.get(WorkflowsService)
 
@@ -179,7 +183,7 @@ describe('WorkflowsService', () => {
 
   it('saves a draft without validating its structure, scoped to the workspace', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [WorkflowsService],
+      providers,
     }).compile()
     const service = moduleRef.get(WorkflowsService)
 
@@ -207,6 +211,81 @@ describe('WorkflowsService', () => {
           service.saveDraft(otherWorkspaceId, workflow.id, {
             graph: { nodes: [] },
           }),
+        ).rejects.toThrow()
+      })
+    })
+  })
+
+  it('broadcasts a draft save to the workflow room only when a saver is given', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers,
+    }).compile()
+    const service = moduleRef.get(WorkflowsService)
+    const gateway = moduleRef.get(WorkflowsGateway)
+    const broadcast = jest
+      .spyOn(gateway, 'broadcastDraftUpdate')
+      .mockImplementation(() => undefined)
+
+    await withOrg(async (workspaceId) => {
+      const suffix = randomUUID()
+      const workflow = await service.create(workspaceId, {
+        name: 'Broadcast Draft Workflow',
+        slug: `broadcast-draft-${suffix}`,
+      })
+
+      await service.saveDraft(workspaceId, workflow.id, {
+        graph: { nodes: [] },
+      })
+      expect(broadcast).not.toHaveBeenCalled()
+
+      await service.saveDraft(
+        workspaceId,
+        workflow.id,
+        { graph: { nodes: [] } },
+        { userId: 'user-1', name: 'Ada Lovelace' },
+      )
+      expect(broadcast).toHaveBeenCalledTimes(1)
+      expect(broadcast).toHaveBeenCalledWith(
+        workflow.id,
+        expect.objectContaining({
+          savedBy: { userId: 'user-1', name: 'Ada Lovelace' },
+        }),
+      )
+    })
+
+    broadcast.mockRestore()
+  })
+
+  it('mints a realtime token only for a signed-in session on a workflow in the right workspace', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers,
+    }).compile()
+    const service = moduleRef.get(WorkflowsService)
+
+    await withOrg(async (workspaceId) => {
+      const suffix = randomUUID()
+      const workflow = await service.create(workspaceId, {
+        name: 'Realtime Token Workflow',
+        slug: `realtime-token-${suffix}`,
+      })
+      const session = {
+        user: { id: 'user-1', name: 'Ada Lovelace', image: null },
+      } as Parameters<typeof service.mintRealtimeToken>[2]
+
+      await expect(
+        service.mintRealtimeToken(workspaceId, workflow.id, null),
+      ).rejects.toThrow()
+
+      const { token } = await service.mintRealtimeToken(
+        workspaceId,
+        workflow.id,
+        session,
+      )
+      expect(typeof token).toBe('string')
+
+      await withOrg(async (otherWorkspaceId) => {
+        await expect(
+          service.mintRealtimeToken(otherWorkspaceId, workflow.id, session),
         ).rejects.toThrow()
       })
     })

@@ -39,10 +39,12 @@ export async function recordSignalOccurrence(
   const workflowId = await resolveWorkflowId(db, flag)
   const signalKey = `${flag.flagType}:${workflowId ?? "none"}:${flag.nodeId ?? "none"}`
 
+  // Locked so two concurrent occurrences on the same signalKey serialize instead of both firing a regression notification.
   const [existing] = await db
     .select({ resolvedAt: signals.resolvedAt })
     .from(signals)
     .where(eq(signals.signalKey, signalKey))
+    .for("update")
 
   const [signal] = await db
     .insert(signals)

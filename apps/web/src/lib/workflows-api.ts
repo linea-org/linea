@@ -123,6 +123,22 @@ export const saveWorkflowDraftFn = createServerFn({ method: "POST" })
     return (await res.json()) as WorkflowSummary
   })
 
+export type RealtimeToken = { token: string; expiresAt: number }
+
+export const mintWorkflowRealtimeTokenFn = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => data)
+  .handler(async ({ data }): Promise<RealtimeToken> => {
+    const res = await apiFetch(`/workflows/${data.id}/realtime-token`, {
+      method: "POST",
+    })
+    if (!res.ok) {
+      throw new Error(
+        await parseErrorMessage(res, "Could not start the live session")
+      )
+    }
+    return (await res.json()) as RealtimeToken
+  })
+
 export const createWorkflowVersionFn = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {

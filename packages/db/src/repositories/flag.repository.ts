@@ -40,29 +40,30 @@ export async function createFlagIfNew(
   db: DbClient,
   input: NewFlag
 ): Promise<Flag | undefined> {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [flag] = await tx
       .insert(flags)
       .values(input)
       .onConflictDoNothing({ target: flags.dedupeKey })
       .returning()
-    if (flag) {
-      const { signal, justRegressed } = await recordSignalOccurrence(tx, flag)
-      if (justRegressed) {
-        // Best-effort: a notification failure shouldn't roll back a real flag/signal that already landed.
-        await notifySignalRegressed(tx, flag, signal.id).catch(
-          (error: unknown) => {
-            const message =
-              error instanceof Error ? error.message : String(error)
-            console.error(
-              `Failed to create signal-regressed notification for signal ${signal.id}: ${message}`
-            )
-          }
+    if (!flag) return undefined
+    const { signal, justRegressed } = await recordSignalOccurrence(tx, flag)
+    return { flag, signal, justRegressed }
+  })
+
+  if (result?.justRegressed) {
+    // Runs after commit, on the outer client — inside the tx, a caught rejection still aborts it.
+    await notifySignalRegressed(db, result.flag, result.signal.id).catch(
+      (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error(
+          `Failed to create signal-regressed notification for signal ${result.signal.id}: ${message}`
         )
       }
-    }
-    return flag
-  })
+    )
+  }
+
+  return result?.flag
 }
 
 export type RetryStormResult = {
