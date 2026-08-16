@@ -565,4 +565,93 @@ describe("RunsService fencing identity", () => {
       ])
     }
   })
+
+  it("throws instead of falsely reporting paused when the lease is lost before the pause is recorded", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Approval Lease Loss Test Org",
+        slug: `runs-approval-lease-loss-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "approval-1",
+        nodes: [{ id: "approval-1", type: "approval", config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Approval Lease Loss Test Workflow",
+        slug: `runs-approval-lease-loss-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-approval-lease-loss-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.approval.createApproval(db, {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: "approval-1",
+      })
+
+      const leaseStealingInterpreter = {
+        run: async () => {
+          // Simulates the lease being reclaimed (or simply expiring) in the gap between the
+          // approval node throwing PauseExecutionError and claimPauseForPendingApproval
+          // running - execute()'s own startExecution call already set leased_by to its
+          // attemptId before this runs, so overwriting it here means the guarded UPDATE inside
+          // claimPauseForPendingApproval's pauseExecution call can't possibly match.
+          await pool.query(
+            "UPDATE executions SET leased_by = $1, lease_expires_at = $2 WHERE id = $3",
+            ["someone-else", new Date(Date.now() + 60_000), execution.id]
+          )
+          return {
+            pausedAt: "approval-1",
+            totalTokensInput: 0,
+            totalTokensOutput: 0,
+            totalCostMicros: 0n,
+            costUnpriced: false as const,
+          }
+        },
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        leaseStealingInterpreter,
+        new RunLeaseService()
+      )
+
+      // Must surface as a real failure, not resolve silently - a silent success would let the
+      // job complete while the execution row is left running under someone else's lease with
+      // a still-pending approval and nothing left to resume it.
+      await expect(runs.execute(execution.id)).rejects.toThrow(/lease/i)
+
+      const reloaded = await repositories.execution.getExecutionById(
+        db,
+        execution.id
+      )
+      // Not falsely marked "paused" - and completeExecution's own lease guard means this
+      // worker can't overwrite whoever now legitimately owns the row either.
+      expect(reloaded?.status).not.toBe("paused")
+      expect(reloaded?.leasedBy).toBe("someone-else")
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
 })

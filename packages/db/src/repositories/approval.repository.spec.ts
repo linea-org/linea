@@ -339,6 +339,40 @@ describe("approval.repository", () => {
       })
     })
 
+    it("reports lease-lost instead of paused when the caller's lease no longer holds", async () => {
+      await withRollback(async (tx) => {
+        const { organization, execution } = await insertExecution(tx)
+        await startExecution(
+          tx,
+          execution.id,
+          "worker-a",
+          new Date(Date.now() - 1_000) // already expired
+        )
+        await createApproval(tx, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          nodeId: "approval-1",
+        })
+
+        const claim = await claimPauseForPendingApproval(
+          tx,
+          organization.id,
+          execution.id,
+          "approval-1",
+          "worker-a"
+        )
+        expect(claim.outcome).toBe("lease-lost")
+
+        // Must not be falsely reported as paused while actually left "running" with a dead
+        // lease - nothing would ever resume it (not a response, not the stale-queued sweep).
+        const [reloaded] = await tx
+          .select()
+          .from(executions)
+          .where(eq(executions.id, execution.id))
+        expect(reloaded.status).toBe("running")
+      })
+    })
+
     it("does not pause when the approval was already resolved", async () => {
       await withRollback(async (tx) => {
         const { organization, execution } = await insertExecution(tx)

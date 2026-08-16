@@ -2,7 +2,10 @@ import { randomUUID } from "node:crypto"
 import { Injectable, Logger } from "@nestjs/common"
 import { db, repositories, type Execution } from "@linea/db"
 import { validateGraphStructure, workflowGraphSchema } from "@linea/runtime"
-import { CheckpointsService } from "../checkpoints/checkpoints.service"
+import {
+  CheckpointsService,
+  LeaseLostError,
+} from "../checkpoints/checkpoints.service"
 import {
   InterpreterService,
   type RunOutcome,
@@ -118,6 +121,13 @@ export class RunsService {
         if (claim.outcome === "paused") {
           paused = true
           break
+        }
+        if (claim.outcome === "lease-lost") {
+          // Same handling as any other lease loss (see CheckpointsService) - the outer catch
+          // below attempts a best-effort completeExecution (a no-op if the lease is truly gone)
+          // and rethrows, so the job fails visibly instead of silently reporting "paused" while
+          // the execution row is actually left running with a dead lease and nothing to resume it.
+          throw new LeaseLostError(executionId)
         }
       }
       knownTokensInput = outcome.totalTokensInput

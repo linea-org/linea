@@ -123,6 +123,9 @@ export async function resolveApproval(
 export type ClaimPauseResult =
   | { outcome: "paused" }
   | { outcome: "already-resolved" }
+  // pauseExecution's own guard (leasedBy match, unexpired lease) didn't hold - the caller's
+  // lease is gone, so it can't legitimately claim to have paused anything.
+  | { outcome: "lease-lost" }
 
 /** Atomically re-checks the approval a node just paused on and, only if it's still pending,
  * marks the execution paused in the same transaction - closing the window between "we saw it was
@@ -157,7 +160,15 @@ export async function claimPauseForPendingApproval(
       return { outcome: "already-resolved" }
     }
 
-    await pauseExecution(tx, executionId, leasedBy)
+    const paused = await pauseExecution(tx, executionId, leasedBy)
+    if (!paused) {
+      // The lease expired (or was reclaimed) in the gap between the node throwing
+      // PauseExecutionError and this transaction running - reporting "paused" here would let
+      // the caller finish its job successfully while the execution row stays "running" with a
+      // dead lease, a pending approval, and no job left to resume it. The caller must instead
+      // treat this the same as any other lease loss.
+      return { outcome: "lease-lost" }
+    }
     return { outcome: "paused" }
   })
 }
