@@ -63,6 +63,36 @@ describe("createOpenAiCompatibleProvider", () => {
     )
   })
 
+  it("inserts history between the system prompt and the final prompt turn", async () => {
+    create.mockResolvedValue({
+      choices: [{ message: { content: "hi" } }],
+      usage: { prompt_tokens: 1, completion_tokens: 1 },
+    })
+
+    const provider = createOpenAiCompatibleProvider()
+    await provider.complete("key", {
+      model: "gpt-5",
+      prompt: "and now?",
+      systemPrompt: "be terse",
+      history: [
+        { role: "user", content: "first turn" },
+        { role: "assistant", content: "first reply" },
+      ],
+    })
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: "system", content: "be terse" },
+          { role: "user", content: "first turn" },
+          { role: "assistant", content: "first reply" },
+          { role: "user", content: "and now?" },
+        ],
+      }),
+      { signal: undefined }
+    )
+  })
+
   it("maps the response into text and token counts", async () => {
     create.mockResolvedValue({
       choices: [{ message: { content: "the answer" } }],

@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm"
+import { and, desc, eq, gte, sql } from "drizzle-orm"
 import {
   executions,
   flags,
@@ -116,8 +116,12 @@ export async function listSignals(
 
 export type SignalTrendPoint = { day: string; count: number }
 
+// Bounds the detail view's DB read and payload to what it actually renders, not the full history.
+const DETAIL_OCCURRENCE_LIMIT = 30
+
 export type SignalDetail = SignalSummary & {
   flags: Flag[]
+  affectedExecutions: number
   trend: SignalTrendPoint[]
 }
 
@@ -132,11 +136,23 @@ export async function getSignalDetail(
     .where(and(eq(signals.id, signalId), eq(signals.workspaceId, workspaceId)))
   if (!signal) return undefined
 
-  const linkedFlags = await db
+  // Computed over every linked flag, not just the bounded page below — these totals must not be capped.
+  const [stats] = await db
+    .select({
+      occurrenceCount: sql<number>`count(*)::int`,
+      affectedExecutions: sql<number>`count(distinct ${flags.executionId})::int`,
+      firstFlaggedAt: sql<Date>`min(${flags.createdAt})`,
+      lastFlaggedAt: sql<Date>`max(${flags.createdAt})`,
+    })
+    .from(flags)
+    .where(eq(flags.signalId, signalId))
+
+  const recentFlags = await db
     .select()
     .from(flags)
     .where(eq(flags.signalId, signalId))
     .orderBy(desc(flags.createdAt))
+    .limit(DETAIL_OCCURRENCE_LIMIT)
 
   const trend = await db
     .select({
@@ -152,12 +168,45 @@ export async function getSignalDetail(
     ...signal,
     status: deriveSignalStatus(signal),
     // A signal always has at least one linked flag — the one that created it via recordSignalOccurrence.
-    occurrenceCount: linkedFlags.length,
-    firstFlaggedAt: linkedFlags[linkedFlags.length - 1].createdAt,
-    lastFlaggedAt: linkedFlags[0].createdAt,
-    flags: linkedFlags,
+    occurrenceCount: stats.occurrenceCount,
+    affectedExecutions: stats.affectedExecutions,
+    firstFlaggedAt: stats.firstFlaggedAt,
+    lastFlaggedAt: stats.lastFlaggedAt,
+    flags: recentFlags,
     trend,
   }
+}
+
+/** Daily flag counts across every signal in scope — the workspace-wide (or one workflow's) trend, as opposed to getSignalDetail's trend which is scoped to a single signal. */
+export async function getSignalsTrend(
+  db: DbClient,
+  workspaceId: string,
+  options: { workflowId?: string; days?: number } = {}
+): Promise<SignalTrendPoint[]> {
+  const since = new Date(
+    Date.now() - (options.days ?? 30) * 24 * 60 * 60 * 1000
+  )
+  return (
+    db
+      .select({
+        day: sql<string>`to_char(date_trunc('day', ${flags.createdAt}), 'YYYY-MM-DD')`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(flags)
+      // Filters on signals.workflowId, not flags.workflowId — most flaggers never set the latter directly.
+      .innerJoin(signals, eq(flags.signalId, signals.id))
+      .where(
+        and(
+          eq(flags.workspaceId, workspaceId),
+          options.workflowId
+            ? eq(signals.workflowId, options.workflowId)
+            : undefined,
+          gte(flags.createdAt, since)
+        )
+      )
+      .groupBy(sql`date_trunc('day', ${flags.createdAt})`)
+      .orderBy(sql`date_trunc('day', ${flags.createdAt})`)
+  )
 }
 
 export async function resolveSignal(

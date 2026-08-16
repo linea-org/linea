@@ -164,6 +164,31 @@ describe("startExecution", () => {
       expect(reclaimed?.leasedBy).toBe("worker-2")
     })
   })
+
+  it("cannot claim an execution that failQueuedExecution already marked terminal", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const failed = await failQueuedExecution(tx, execution.id, {
+        message: "enqueue timed out",
+      })
+      expect(failed?.status).toBe("failed")
+
+      const claimed = await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+      expect(claimed).toBeUndefined()
+    })
+  })
 })
 
 describe("renewLease", () => {
@@ -504,6 +529,46 @@ describe("failQueuedExecution", () => {
       const [row] = await listExecutions(tx, workflow.id)
       expect(row.status).toBe("running")
     })
+  })
+
+  // Real concurrent connections (not withRollback's shared tx), proving mutual exclusion under genuine Postgres row-locking.
+  it("never lets both a fail and a claim win on the same execution, whichever runs first", async () => {
+    const { organization, workflow, version } = await db.transaction((tx) =>
+      createTestFixtures(tx)
+    )
+    try {
+      const execution = await createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const [failResult, claimResult] = await Promise.all([
+        failQueuedExecution(db, execution.id, { message: "enqueue timed out" }),
+        startExecution(
+          db,
+          execution.id,
+          "worker-1",
+          new Date(Date.now() + 60_000)
+        ),
+      ])
+
+      // Exactly one side won — never both, never neither.
+      expect(Boolean(failResult) === Boolean(claimResult)).toBe(false)
+
+      const [finalExecution] = await listExecutions(db, workflow.id)
+      if (failResult) {
+        expect(finalExecution.status).toBe("failed")
+      } else {
+        expect(finalExecution.status).toBe("running")
+        expect(finalExecution.leasedBy).toBe("worker-1")
+      }
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
   })
 })
 

@@ -47,6 +47,7 @@ import {
 import {
   ArrowLeftIcon,
   CheckIcon,
+  MessageCircleIcon,
   PanelLeftIcon,
   PlayIcon,
   Redo2Icon,
@@ -63,6 +64,7 @@ import {
 import { useWorkspaceOverlayNav } from "../workspace"
 import { authClient } from "../../lib/auth-client"
 import { testRunFn, type JsonValue } from "../../lib/executions-api"
+import { ChatPreviewPanel } from "./chat-preview-panel"
 import {
   createWorkflowVersionFn,
   publishWorkflowVersionFn,
@@ -317,6 +319,7 @@ function WorkflowBuilderCanvasInner({
       })
     },
   })
+  const [chatOpen, setChatOpen] = useState(false)
   const [commitDialog, setCommitDialog] = useState<"commit" | "publish" | null>(
     null
   )
@@ -539,6 +542,16 @@ function WorkflowBuilderCanvasInner({
           )}
           <Button
             type="button"
+            variant={chatOpen ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setChatOpen((open) => !open)}
+            aria-pressed={chatOpen}
+          >
+            <MessageCircleIcon />
+            Chat preview
+          </Button>
+          <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => testRun.mutate()}
@@ -706,6 +719,26 @@ function WorkflowBuilderCanvasInner({
                     )
                     setNodes(nextNodes)
                   }}
+                />
+              </ResizablePanel>
+            </>
+          )}
+          {chatOpen && (
+            <>
+              <ResizableHandle className="w-2 bg-transparent after:w-2" />
+              <ResizablePanel
+                id="builder-chat"
+                defaultSize={360}
+                minSize={280}
+                maxSize={640}
+                groupResizeBehavior="preserve-pixel-size"
+                className="min-h-0"
+              >
+                <ChatPreviewPanel
+                  slug={slug}
+                  workflowId={workflowId}
+                  graph={buildGraph(entryNodeId)}
+                  onClose={() => setChatOpen(false)}
                 />
               </ResizablePanel>
             </>

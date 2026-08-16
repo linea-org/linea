@@ -17,7 +17,12 @@ import {
 } from "@linea/ui/components/tabs"
 
 import { ExecutionList } from "../../../../../components/executions"
-import { SignalList } from "../../../../../components/signals"
+import {
+  SignalFlagTypeBreakdown,
+  SignalList,
+  SignalStatCards,
+  SignalTrendChart,
+} from "../../../../../components/signals"
 import {
   WorkflowFormDialog,
   WorkflowStatusBadge,
@@ -27,7 +32,10 @@ import {
   listExecutionsFn,
   triggerExecutionFn,
 } from "../../../../../lib/executions-api"
-import { workflowSignalsQueryOptions } from "../../../../../lib/signals-api"
+import {
+  signalsTrendQueryOptions,
+  workflowSignalsQueryOptions,
+} from "../../../../../lib/signals-api"
 import {
   getWorkflowFn,
   updateWorkflowFn,
@@ -75,6 +83,9 @@ function WorkflowDetailPage() {
     isPending: signalsPending,
     isError: signalsErrored,
   } = useQuery(workflowSignalsQueryOptions(slug, workflowId))
+  const { data: signalsTrend } = useQuery(
+    signalsTrendQueryOptions(slug, workflowId)
+  )
 
   const run = useMutation({
     mutationFn: () => triggerExecutionFn({ data: { workflowId } }),
@@ -187,7 +198,34 @@ function WorkflowDetailPage() {
               Loading signals…
             </p>
           ) : (
-            <SignalList signals={signals} />
+            <div className="mt-4 flex flex-col gap-4">
+              <SignalStatCards signals={signals} />
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="overflow-hidden rounded-xl border border-border bg-card lg:col-span-2">
+                  <div className="border-b border-border px-4 py-3">
+                    <p className="text-sm font-medium text-foreground">Trend</p>
+                  </div>
+                  <div className="px-4 py-4">
+                    <SignalTrendChart trend={signalsTrend ?? []} />
+                  </div>
+                </div>
+                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                  <div className="border-b border-border px-4 py-3">
+                    <p className="text-sm font-medium text-foreground">
+                      By type
+                    </p>
+                  </div>
+                  <div className="px-4 py-4">
+                    <SignalFlagTypeBreakdown signals={signals} />
+                  </div>
+                </div>
+              </div>
+              <SignalList
+                signals={signals}
+                slug={slug}
+                workflowId={workflowId}
+              />
+            </div>
           )}
         </TabsContent>
       </Tabs>

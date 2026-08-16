@@ -25,6 +25,7 @@ export function createOpenAiCompatibleProvider(baseURL?: string): AiProvider {
             ...(request.systemPrompt
               ? [{ role: "system" as const, content: request.systemPrompt }]
               : []),
+            ...(request.history ?? []),
             { role: "user" as const, content: request.prompt },
           ],
         },

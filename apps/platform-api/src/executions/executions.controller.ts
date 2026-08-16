@@ -12,6 +12,10 @@ import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
+  sendChatMessageSchema,
+  type SendChatMessageDto,
+} from './dto/chat-preview.dto'
+import {
   countNewWorkspaceExecutionsSchema,
   type CountNewWorkspaceExecutionsDto,
 } from './dto/count-new-workspace-executions.dto'
@@ -50,6 +54,37 @@ export class ExecutionsController {
     @Body(new ZodValidationPipe(testRunSchema)) body: TestRunDto,
   ) {
     return this.executions.testRun(workspaceId, workflowId, body)
+  }
+
+  @Post('workflows/:workflowId/chat-preview')
+  sendChatMessage(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('workflowId') workflowId: string,
+    @Body(new ZodValidationPipe(sendChatMessageSchema))
+    body: SendChatMessageDto,
+  ) {
+    return this.executions.sendChatMessage(workspaceId, workflowId, body)
+  }
+
+  @Get('workflows/:workflowId/chat-preview/conversations')
+  listChatConversations(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('workflowId') workflowId: string,
+  ) {
+    return this.executions.listChatConversations(workspaceId, workflowId)
+  }
+
+  @Get('workflows/:workflowId/chat-preview/:conversationId/messages')
+  listChatMessages(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('workflowId') workflowId: string,
+    @Param('conversationId') conversationId: string,
+  ) {
+    return this.executions.listChatMessages(
+      workspaceId,
+      workflowId,
+      conversationId,
+    )
   }
 
   @Get('workflows/:workflowId/executions')

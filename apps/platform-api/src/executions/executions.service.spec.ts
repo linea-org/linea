@@ -3,12 +3,55 @@ import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import { db, pool, repositories, schema } from '@linea/db'
 import type { WorkflowGraph } from '@linea/runtime'
-import { ExecutionsService } from './executions.service'
+import {
+  deleteChatMessageWithRetry,
+  ExecutionsService,
+} from './executions.service'
 import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 import { WorkflowQueueService } from '../queue/workflow-queue.service'
 
 afterAll(async () => {
   await pool.end()
+})
+
+describe('deleteChatMessageWithRetry', () => {
+  it('does not retry once the delete succeeds', async () => {
+    const deleteFn = jest.fn().mockResolvedValue(undefined)
+    const onGiveUp = jest.fn()
+
+    await deleteChatMessageWithRetry(deleteFn, onGiveUp, 3)
+
+    expect(deleteFn).toHaveBeenCalledTimes(1)
+    expect(onGiveUp).not.toHaveBeenCalled()
+  })
+
+  it('retries a failing delete and succeeds once it stops failing', async () => {
+    const deleteFn = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('connection reset'))
+      .mockResolvedValueOnce(undefined)
+    const onGiveUp = jest.fn()
+
+    await deleteChatMessageWithRetry(deleteFn, onGiveUp, 3)
+
+    expect(deleteFn).toHaveBeenCalledTimes(2)
+    expect(onGiveUp).not.toHaveBeenCalled()
+  })
+
+  it('gives up and reports the last error once every attempt has failed', async () => {
+    const lastError = new Error('still down')
+    const deleteFn = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('down'))
+      .mockRejectedValueOnce(new Error('still down'))
+      .mockRejectedValueOnce(lastError)
+    const onGiveUp = jest.fn()
+
+    await deleteChatMessageWithRetry(deleteFn, onGiveUp, 3)
+
+    expect(deleteFn).toHaveBeenCalledTimes(3)
+    expect(onGiveUp).toHaveBeenCalledWith(lastError)
+  })
 })
 
 const graph: WorkflowGraph = {
@@ -351,6 +394,327 @@ describe('ExecutionsService', () => {
         await pool.query('DELETE FROM organizations WHERE id IN ($1, $2)', [
           owningOrg.id,
           attackerOrg.id,
+        ])
+      }
+    })
+  })
+
+  describe('sendChatMessage() / listChatMessages()', () => {
+    it('generates a conversationId on the first turn, reuses it on later turns, and returns them in order', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Test Org',
+          slug: `chat-preview-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Chat Preview Workflow',
+          slug: `chat-preview-${suffix}`,
+        })
+
+        const first = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          { graph, message: 'hello' },
+        )
+        expect(first.execution.status).toBe('queued')
+        const messagesAfterFirst = await service.listChatMessages(
+          organization.id,
+          workflow.id,
+          first.conversationId,
+        )
+        expect(first.execution.triggerPayload).toEqual({
+          conversationId: first.conversationId,
+          chatMessageId: messagesAfterFirst[0].id,
+        })
+
+        const second = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          { graph, message: 'follow up', conversationId: first.conversationId },
+        )
+        expect(second.conversationId).toBe(first.conversationId)
+
+        const messages = await service.listChatMessages(
+          organization.id,
+          workflow.id,
+          first.conversationId,
+        )
+        expect(messages.map((m) => m.content)).toEqual(['hello', 'follow up'])
+        expect(messages.every((m) => m.role === 'user')).toBe(true)
+
+        const conversations = await service.listChatConversations(
+          organization.id,
+          workflow.id,
+        )
+        expect(conversations).toHaveLength(1)
+        expect(conversations[0]).toMatchObject({
+          conversationId: first.conversationId,
+          preview: 'hello',
+          messageCount: 2,
+        })
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it('rejects a workflow from a different workspace for both sending and listing', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [owningOrg] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Owning Org',
+          slug: `chat-preview-owning-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+      const [attackerOrg] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Attacker Org',
+          slug: `chat-preview-attacker-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: owningOrg.id,
+          name: 'Victim Chat Workflow',
+          slug: `chat-preview-victim-${suffix}`,
+        })
+
+        await expect(
+          service.sendChatMessage(attackerOrg.id, workflow.id, {
+            graph,
+            message: 'hi',
+          }),
+        ).rejects.toThrow('Workflow not found')
+
+        await expect(
+          service.listChatMessages(attackerOrg.id, workflow.id, randomUUID()),
+        ).rejects.toThrow('Workflow not found')
+
+        await expect(
+          service.listChatConversations(attackerOrg.id, workflow.id),
+        ).rejects.toThrow('Workflow not found')
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id IN ($1, $2)', [
+          owningOrg.id,
+          attackerOrg.id,
+        ])
+      }
+    })
+
+    it('scopes a conversation lookup by workflow, not just workspace', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Cross-Workflow Test Org',
+          slug: `chat-preview-cross-workflow-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflowA = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Workflow A',
+          slug: `chat-preview-a-${suffix}`,
+        })
+        const workflowB = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Workflow B',
+          slug: `chat-preview-b-${suffix}`,
+        })
+
+        const turn = await service.sendChatMessage(
+          organization.id,
+          workflowA.id,
+          {
+            graph,
+            message: "workflow A's secret turn",
+          },
+        )
+
+        // Workflow B, in the same workspace, must not see workflow A's transcript even though
+        // it supplies the same conversationId.
+        const leaked = await service.listChatMessages(
+          organization.id,
+          workflowB.id,
+          turn.conversationId,
+        )
+        expect(leaked).toEqual([])
+
+        const own = await service.listChatMessages(
+          organization.id,
+          workflowA.id,
+          turn.conversationId,
+        )
+        expect(own).toHaveLength(1)
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it('does not leave an orphaned user turn when enqueueing fails', async () => {
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Enqueue Fail Test Org',
+          slug: `chat-preview-enqueue-fail-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Enqueue Fail Chat Workflow',
+          slug: `chat-preview-enqueue-fail-${suffix}`,
+        })
+
+        const failingQueue = {
+          enqueue: () => Promise.reject(new Error('redis unreachable')),
+        } as unknown as WorkflowQueueService
+        const unusedStepReplayQueue = {} as StepReplayQueueService
+        const service = new ExecutionsService(
+          failingQueue,
+          unusedStepReplayQueue,
+        )
+
+        await expect(
+          service.sendChatMessage(organization.id, workflow.id, {
+            graph,
+            message: 'hello',
+          }),
+        ).rejects.toThrow()
+
+        const list = await repositories.execution.listExecutions(
+          db,
+          workflow.id,
+        )
+        expect(list).toHaveLength(1)
+        expect(list[0].status).toBe('failed')
+
+        const conversations = await repositories.chatMessage.listConversations(
+          db,
+          organization.id,
+          workflow.id,
+        )
+        expect(conversations).toEqual([])
+      } finally {
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it('does not delete the triggering message when the execution was already claimed despite the enqueue error', async () => {
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Racy Enqueue Test Org',
+          slug: `chat-preview-racy-enqueue-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Racy Enqueue Chat Workflow',
+          slug: `chat-preview-racy-enqueue-${suffix}`,
+        })
+
+        // Simulates the real race the fix protects against: the enqueue's underlying Redis
+        // command actually landed and a worker claimed the execution before this call's own
+        // timeout/error fired (WorkflowQueueService's own "accepted Phase 0 risk" note).
+        const racyQueue = {
+          enqueue: async (executionId: string) => {
+            await repositories.execution.startExecution(
+              db,
+              executionId,
+              'worker-a',
+              new Date(Date.now() + 60_000),
+            )
+            throw new Error('enqueue timed out (but the job actually landed)')
+          },
+        } as unknown as WorkflowQueueService
+        const unusedStepReplayQueue = {} as StepReplayQueueService
+        const service = new ExecutionsService(racyQueue, unusedStepReplayQueue)
+
+        await expect(
+          service.sendChatMessage(organization.id, workflow.id, {
+            graph,
+            message: 'hello',
+          }),
+        ).rejects.toThrow()
+
+        const list = await repositories.execution.listExecutions(
+          db,
+          workflow.id,
+        )
+        expect(list).toHaveLength(1)
+        // failQueuedExecution only transitions a still-"queued" row - this one was already
+        // claimed, so it stays "running", not "failed".
+        expect(list[0].status).toBe('running')
+
+        // The running execution still needs this message to persist its linked reply - it
+        // must not have been deleted.
+        const conversations = await repositories.chatMessage.listConversations(
+          db,
+          organization.id,
+          workflow.id,
+        )
+        expect(conversations).toHaveLength(1)
+        expect(conversations[0].messageCount).toBe(1)
+      } finally {
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
         ])
       }
     })

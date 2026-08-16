@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto"
 import { Injectable, Logger } from "@nestjs/common"
 import { db, repositories, type Execution } from "@linea/db"
-import { validateGraphStructure, workflowGraphSchema } from "@linea/runtime"
+import {
+  validateGraphStructure,
+  workflowGraphSchema,
+  type WorkflowGraph,
+} from "@linea/runtime"
 import {
   CheckpointsService,
   LeaseLostError,
@@ -11,6 +15,45 @@ import {
   type RunOutcome,
 } from "../graph/interpreter.service"
 import { RunLeaseService } from "./run-lease.service"
+
+function extractConversationId(triggerPayload: unknown): string | undefined {
+  if (triggerPayload === null || typeof triggerPayload !== "object") {
+    return undefined
+  }
+  const value = (triggerPayload as Record<string, unknown>).conversationId
+  return typeof value === "string" ? value : undefined
+}
+
+function extractChatMessageId(triggerPayload: unknown): string | undefined {
+  if (triggerPayload === null || typeof triggerPayload !== "object") {
+    return undefined
+  }
+  const value = (triggerPayload as Record<string, unknown>).chatMessageId
+  return typeof value === "string" ? value : undefined
+}
+
+/** The most recently completed `ai` node's output — walked from the end, since a graph can have more than one and the chat reply is whichever one ran last. Checks the node's actual type, not just the shape of its output, since a transform/http node's output could coincidentally also carry a `text` field. */
+function extractAssistantReply(
+  completed: Map<string, unknown>,
+  graph: WorkflowGraph
+): string | undefined {
+  const aiNodeIds = new Set(
+    graph.nodes.filter((node) => node.type === "ai").map((node) => node.id)
+  )
+  const entries = [...completed.entries()]
+  for (let i = entries.length - 1; i >= 0; i -= 1) {
+    const [nodeId, value] = entries[i]
+    if (!aiNodeIds.has(nodeId)) continue
+    if (
+      value !== null &&
+      typeof value === "object" &&
+      typeof (value as Record<string, unknown>).text === "string"
+    ) {
+      return (value as { text: string }).text
+    }
+  }
+  return undefined
+}
 
 @Injectable()
 export class RunsService {
@@ -95,6 +138,7 @@ export class RunsService {
         outcome = await this.interpreter.run({
           executionId,
           workspaceId: execution.workspaceId,
+          workflowId: execution.workflowId,
           leasedBy: attemptId,
           graph,
           triggerPayload: execution.triggerPayload,
@@ -158,6 +202,43 @@ export class RunsService {
             tokensOutput: outcome.totalTokensOutput,
           }
         )
+
+        // Best-effort: a chat-preview turn's reply persisted for the panel to redisplay. Never allowed to fail the execution it rides on.
+        const conversationId = extractConversationId(execution.triggerPayload)
+        if (conversationId) {
+          const reply = extractAssistantReply(outcome.completed, graph)
+          const chatMessageId = extractChatMessageId(execution.triggerPayload)
+          // triggerPayload is caller-supplied and unvalidated, so only persist a reply once chatMessageId resolves to a real user turn in this scope.
+          const respondsTo =
+            reply && chatMessageId
+              ? await repositories.chatMessage.getUserChatMessageById(
+                  db,
+                  execution.workspaceId,
+                  execution.workflowId,
+                  conversationId,
+                  chatMessageId
+                )
+              : undefined
+          if (reply && respondsTo) {
+            await repositories.chatMessage
+              .createChatMessage(db, {
+                workspaceId: execution.workspaceId,
+                workflowId: execution.workflowId,
+                conversationId,
+                executionId,
+                role: "assistant",
+                content: reply,
+                respondsToMessageId: respondsTo.id,
+              })
+              .catch((error: unknown) => {
+                const message =
+                  error instanceof Error ? error.message : String(error)
+                this.logger.warn(
+                  `Execution ${executionId}: failed to persist assistant chat message — ${message}`
+                )
+              })
+          }
+        }
       } else {
         const failed = await repositories.execution.completeExecution(
           db,

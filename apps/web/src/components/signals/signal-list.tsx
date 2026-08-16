@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router"
 import { ActivityIcon } from "lucide-react"
 
 import {
@@ -18,20 +19,18 @@ import {
 } from "@linea/ui/components/table"
 
 import type { SignalSummary } from "../../lib/signals-api"
+import { flagTypeLabel } from "./flag-type-label"
 import { SignalStatusBadge } from "./signal-status-badge"
 
-const flagTypeLabel: Record<string, string> = {
-  retry_storm: "Retry storm",
-  branch_never_taken: "Branch never taken",
-  cost_jump: "Cost jump",
-  excess_resumes: "Excess resumes",
-  tool_error: "Tool error",
-  empty_response: "Empty response",
-  refusal: "Refusal",
-  repeated_replay: "Repeated replay",
-}
-
-export function SignalList({ signals }: { signals: SignalSummary[] }) {
+export function SignalList({
+  signals,
+  slug,
+  workflowId,
+}: {
+  signals: SignalSummary[]
+  slug: string
+  workflowId: string
+}) {
   if (signals.length === 0) {
     return (
       <Empty className="mt-4">
@@ -63,12 +62,18 @@ export function SignalList({ signals }: { signals: SignalSummary[] }) {
       </TableHeader>
       <TableBody>
         {signals.map((signal) => (
-          <TableRow key={signal.id}>
+          <TableRow key={signal.id} className="cursor-pointer">
             <TableCell>
               <SignalStatusBadge status={signal.status} />
             </TableCell>
             <TableCell className="text-foreground">
-              {flagTypeLabel[signal.flagType] ?? signal.flagType}
+              <Link
+                to="/w/$slug/workflows/$workflowId/signals/$signalId"
+                params={{ slug, workflowId, signalId: signal.id }}
+                className="hover:underline"
+              >
+                {flagTypeLabel[signal.flagType] ?? signal.flagType}
+              </Link>
             </TableCell>
             <TableCell className="text-muted-foreground">
               {signal.nodeId ?? "—"}

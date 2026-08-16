@@ -24,6 +24,9 @@ import { TransformNode } from "./nodes/transform.node"
 export type RunInput = {
   executionId: string
   workspaceId: string
+  // Only needed to scope a chat-preview conversation lookup by workflow (see AiNode) - optional
+  // so callers with no conversation concept (replay, most tests) don't need to supply it.
+  workflowId?: string
   leasedBy: string
   graph: WorkflowGraph
   triggerPayload: unknown
@@ -47,6 +50,8 @@ export type RunOutcome = {
   totalCostMicros: bigint
   // true: some step unpriced. null: some step predates tracking. false: all priced.
   costUnpriced: boolean | null
+  // Every completed node's output, in execution order — lets callers (e.g. chat-preview's assistant-message persistence) find "the last AI node's reply" without a second DB round trip.
+  completed: Map<string, unknown>
 }
 
 /** true beats null beats false. */
@@ -57,6 +62,22 @@ function mergeCostUnpriced(
   if (a === true || b === true) return true
   if (a === null || b === null) return null
   return false
+}
+
+function extractConversationId(triggerPayload: unknown): string | undefined {
+  if (triggerPayload === null || typeof triggerPayload !== "object") {
+    return undefined
+  }
+  const value = (triggerPayload as Record<string, unknown>).conversationId
+  return typeof value === "string" ? value : undefined
+}
+
+function extractChatMessageId(triggerPayload: unknown): string | undefined {
+  if (triggerPayload === null || typeof triggerPayload !== "object") {
+    return undefined
+  }
+  const value = (triggerPayload as Record<string, unknown>).chatMessageId
+  return typeof value === "string" ? value : undefined
 }
 
 function extractTokenUsage(
@@ -104,7 +125,10 @@ export class InterpreterService {
     workspaceId: string,
     idempotencyKey?: string,
     signal?: AbortSignal,
-    executionId?: string
+    executionId?: string,
+    conversationId?: string,
+    workflowId?: string,
+    chatMessageId?: string
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -120,6 +144,9 @@ export class InterpreterService {
       signal,
       executionId,
       nodeId: node.id,
+      conversationId,
+      workflowId,
+      chatMessageId,
     })
     const usage = extractTokenUsage(output)
     return {
@@ -168,7 +195,10 @@ export class InterpreterService {
           input.workspaceId,
           `${input.executionId}:${step.nodeId}`,
           input.signal,
-          input.executionId
+          input.executionId,
+          extractConversationId(input.triggerPayload),
+          input.workflowId,
+          extractChatMessageId(input.triggerPayload)
         )
         let costMicros: bigint | undefined
         let stepCostUnpriced: boolean | undefined
@@ -227,6 +257,7 @@ export class InterpreterService {
             totalTokensOutput,
             totalCostMicros,
             costUnpriced,
+            completed,
           }
         }
 
@@ -258,6 +289,7 @@ export class InterpreterService {
       totalTokensOutput,
       totalCostMicros,
       costUnpriced,
+      completed,
     }
   }
 }
