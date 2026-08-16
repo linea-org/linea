@@ -84,16 +84,11 @@ export class RunsService {
         )
       }
 
-      // An approval node never checkpoints before throwing PauseExecutionError (there's no
-      // output to record yet), so re-running from the same resumeFrom just re-enters it. That
-      // makes this loop safe as the fix for a real race: the approval node creates its row and
-      // notifies before this execution is ever marked "paused" below, so a fast enough response
-      // could otherwise find nothing to flip back from "paused" to "queued" and land permanently
-      // stuck. claimPauseForPendingApproval re-checks the approval and marks the execution paused
-      // atomically (locking the approval row first, so a concurrent resolveApproval blocks behind
-      // it instead of racing past it) — closing the window a separate check-then-pause would
-      // still leave open. If it finds the approval already resolved, loop back immediately
-      // instead — the node returns its real output rather than pausing again.
+      // A response can resolve the approval before this loop marks the execution "paused" below,
+      // so claimPauseForPendingApproval re-checks and pauses atomically (locking the approval row
+      // first) instead of racing a separate check-then-pause. If already resolved, loop back
+      // immediately — safe because an approval node never checkpoints before pausing, so re-running
+      // just re-enters it and this time returns its real output.
       let outcome: RunOutcome
       let paused = false
       for (;;) {
@@ -123,10 +118,7 @@ export class RunsService {
           break
         }
         if (claim.outcome === "lease-lost") {
-          // Same handling as any other lease loss (see CheckpointsService) - the outer catch
-          // below attempts a best-effort completeExecution (a no-op if the lease is truly gone)
-          // and rethrows, so the job fails visibly instead of silently reporting "paused" while
-          // the execution row is actually left running with a dead lease and nothing to resume it.
+          // Same handling as any other lease loss (see CheckpointsService) — fails visibly instead of silently reporting "paused" on a dead lease.
           throw new LeaseLostError(executionId)
         }
       }

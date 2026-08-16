@@ -363,8 +363,7 @@ describe("approval.repository", () => {
         )
         expect(claim.outcome).toBe("lease-lost")
 
-        // Must not be falsely reported as paused while actually left "running" with a dead
-        // lease - nothing would ever resume it (not a response, not the stale-queued sweep).
+        // Must not be falsely reported as paused while actually left "running" with a dead lease.
         const [reloaded] = await tx
           .select()
           .from(executions)
@@ -410,9 +409,7 @@ describe("approval.repository", () => {
       })
     })
 
-    // Real concurrent connections (not withRollback's single shared tx) - exercises actual
-    // Postgres row-locking, the same "two callers, one shared connection pool" pattern already
-    // used by schedule.repository.spec.ts's claimAndFireDueSchedule concurrency test.
+    // Real concurrent connections (not withRollback's shared tx), same pattern as schedule.repository.spec.ts's concurrency test.
     it("never leaves the execution paused with an already-resolved approval, whichever caller wins the race", async () => {
       const { organization, execution } = await db.transaction((tx) =>
         insertExecution(tx)
@@ -450,20 +447,17 @@ describe("approval.repository", () => {
           .from(executions)
           .where(eq(executions.id, execution.id))
 
-        // The invariant this fix protects: never end up paused with a resolved approval and
-        // nothing left able to resume it.
+        // The invariant this fix protects: never end up paused with a resolved approval and nothing left to resume it.
         expect(
           finalExecution.status === "paused" && resolveResult !== undefined
         ).toBe(false)
 
         if (claimResult.outcome === "paused") {
-          // resolveApproval only ran after the pause committed, so its own paused->queued flip
-          // matched and succeeded.
+          // resolveApproval only ran after the pause committed, so its paused->queued flip matched and succeeded.
           expect(resolveResult).toBeDefined()
           expect(finalExecution.status).toBe("queued")
         } else {
-          // resolveApproval won first; claimPauseForPendingApproval correctly saw the approval
-          // was no longer pending and did not pause on top of it.
+          // resolveApproval won first; claimPauseForPendingApproval saw it was no longer pending and did not pause on top of it.
           expect(resolveResult).toBeDefined()
           expect(finalExecution.status).toBe("running")
         }

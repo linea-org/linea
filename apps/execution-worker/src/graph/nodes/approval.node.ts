@@ -23,8 +23,7 @@ function parseTimeoutAt(raw: unknown): Date | undefined {
   return new Date(Date.now() + minutes * 60_000)
 }
 
-// approval.message is workflow-author-controlled and interpolated into an email's HTML body —
-// escaped so it can only ever render as inert text, never as markup (links, images, scripts).
+// approval.message is workflow-author-controlled and lands in an email's HTML body — must stay inert text.
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")

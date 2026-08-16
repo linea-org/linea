@@ -499,10 +499,7 @@ describe("RunsService fencing identity", () => {
         triggerPayload: {},
       })
 
-      // Simulates a response racing ahead of the pause: the approval already exists and is
-      // already resolved before RunsService ever gets to mark the execution "paused" - the
-      // real-world sequence is the approval node creating the row and notifying, then the
-      // approver responding, all before this function's own pausedAt handling runs.
+      // Simulates a response racing ahead of the pause: the approval is already resolved before RunsService's own pausedAt handling runs.
       const approval = await repositories.approval.createApproval(db, {
         workspaceId: organization.id,
         executionId: execution.id,
@@ -550,8 +547,7 @@ describe("RunsService fencing identity", () => {
       )
       await runs.execute(execution.id)
 
-      // Proves the loop actually re-ran the interpreter instead of pausing on the first
-      // pausedAt result.
+      // Proves the loop actually re-ran the interpreter instead of pausing on the first pausedAt result.
       expect(callCount).toBe(2)
 
       const reloaded = await repositories.execution.getExecutionById(
@@ -610,11 +606,7 @@ describe("RunsService fencing identity", () => {
 
       const leaseStealingInterpreter = {
         run: async () => {
-          // Simulates the lease being reclaimed (or simply expiring) in the gap between the
-          // approval node throwing PauseExecutionError and claimPauseForPendingApproval
-          // running - execute()'s own startExecution call already set leased_by to its
-          // attemptId before this runs, so overwriting it here means the guarded UPDATE inside
-          // claimPauseForPendingApproval's pauseExecution call can't possibly match.
+          // Simulates the lease being reclaimed in the gap between the pause and claimPauseForPendingApproval running, so its guarded UPDATE can't match.
           await pool.query(
             "UPDATE executions SET leased_by = $1, lease_expires_at = $2 WHERE id = $3",
             ["someone-else", new Date(Date.now() + 60_000), execution.id]
@@ -635,17 +627,14 @@ describe("RunsService fencing identity", () => {
         new RunLeaseService()
       )
 
-      // Must surface as a real failure, not resolve silently - a silent success would let the
-      // job complete while the execution row is left running under someone else's lease with
-      // a still-pending approval and nothing left to resume it.
+      // Must surface as a real failure — a silent success would leave the row running under someone else's lease with a pending approval and nothing left to resume it.
       await expect(runs.execute(execution.id)).rejects.toThrow(/lease/i)
 
       const reloaded = await repositories.execution.getExecutionById(
         db,
         execution.id
       )
-      // Not falsely marked "paused" - and completeExecution's own lease guard means this
-      // worker can't overwrite whoever now legitimately owns the row either.
+      // Not falsely marked "paused" — completeExecution's lease guard also stops this worker overwriting the new owner.
       expect(reloaded?.status).not.toBe("paused")
       expect(reloaded?.leasedBy).toBe("someone-else")
     } finally {

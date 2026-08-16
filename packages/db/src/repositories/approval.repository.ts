@@ -68,10 +68,7 @@ export async function listPendingApprovals(
 export type ResolveApprovalInput = {
   status: "approved" | "rejected"
   respondedBy: string | null
-  // The responder's email, checked against approverEmails in the same query that resolves the
-  // row — required for every human response so a non-designated workspace member's request
-  // simply matches no row, the same way an already-resolved approval does, rather than being
-  // checked separately (and skippably) before this call.
+  // Checked against approverEmails in the same query that resolves the row, so a non-designated responder simply matches no row.
   respondedByEmail: string
   comment?: string | null
   // True only when the background-worker timeout poller resolved this, never a human response.
@@ -123,19 +120,14 @@ export async function resolveApproval(
 export type ClaimPauseResult =
   | { outcome: "paused" }
   | { outcome: "already-resolved" }
-  // pauseExecution's own guard (leasedBy match, unexpired lease) didn't hold - the caller's
-  // lease is gone, so it can't legitimately claim to have paused anything.
+  // pauseExecution's own guard (leasedBy match, unexpired lease) didn't hold.
   | { outcome: "lease-lost" }
 
-/** Atomically re-checks the approval a node just paused on and, only if it's still pending,
- * marks the execution paused in the same transaction - closing the window between "we saw it was
- * still pending" and "we recorded the pause" that a human response or timeout could otherwise
- * land in (resolving the approval while the execution is still "running", so the resolver's own
- * paused->queued flip matches nothing and the execution is later paused with no one left to
- * resume it). The approval row is locked first via FOR UPDATE: resolveApproval's own UPDATE
- * targets the same row by id, so it blocks behind this transaction rather than racing past it -
- * whichever side commits first is authoritative, and the loser correctly observes the winner's
- * already-committed result instead of missing it. */
+/** Re-checks the approval a node just paused on and, only if still pending, marks the execution
+ * paused in the same transaction — closing the window where a response could resolve it while
+ * the execution is still "running", leaving nothing to flip it back. The approval row is locked
+ * via FOR UPDATE first, so resolveApproval's UPDATE on the same row blocks behind this transaction
+ * instead of racing past it. */
 export async function claimPauseForPendingApproval(
   db: DbClient,
   workspaceId: string,
@@ -162,11 +154,7 @@ export async function claimPauseForPendingApproval(
 
     const paused = await pauseExecution(tx, executionId, leasedBy)
     if (!paused) {
-      // The lease expired (or was reclaimed) in the gap between the node throwing
-      // PauseExecutionError and this transaction running - reporting "paused" here would let
-      // the caller finish its job successfully while the execution row stays "running" with a
-      // dead lease, a pending approval, and no job left to resume it. The caller must instead
-      // treat this the same as any other lease loss.
+      // The lease expired between the node pausing and this transaction running — must not be reported as "paused" on a dead lease.
       return { outcome: "lease-lost" }
     }
     return { outcome: "paused" }
