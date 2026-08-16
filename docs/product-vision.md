@@ -34,21 +34,17 @@ The honest limit on both: they only apply to workflows already running on Linea,
 
 **The code node is an escape hatch, not the default.** Integrations, transforms, AI calls, KB/memory nodes cover the common cases. This is also why sandboxing only needs to exist for that one node type — the product decision and the infra decision reinforce each other.
 
-## The moat
+## Why this compounds
 
-Nothing stops a determined team from building this themselves. The actual moat is two things, not secrecy:
-
-1. **Hosted convenience.** Self-hosting the ops layer is exactly the toil the product removes. Most teams capable of DIY-ing it still won't bother.
+1. **Hosted convenience.** Self-hosting the ops layer is exactly the toil the product removes, so most teams capable of DIY-ing it still won't bother.
 2. **Compounding data, per workspace.** Memory accumulates, KB gets richer, and once evals/observability exist, usage history becomes something Linea can act on — a fresh self-hosted setup starts without any of that.
-
-**Open, not decided:** whether any part of the core runtime or SDK should be open source.
 
 ## Product pillars
 
 In the order they matter to a builder deciding whether to trust Linea with something unattended:
 
 1. **Workflow builder + runtime.** Design the graph, trigger it, get checkpoint/resume and crash safety for free. Everything else sits on top of this working — including pillar 2, since the checkpoint is also what replay reads from.
-2. **Observability, evals, tuning.** The selling point, not the third thing we get to. Observability first (what a run actually did — trace, logs, cost, failures — plus step-level replay, the part a bolt-on tracer can't do). Evals next (define correct output, build datasets from real runs, catch regressions). Tuning after that, and it means something specific: surfaced failure patterns and few-shot selection from a workspace's own run history first, automated prompt optimization only once evals produce a metric worth optimizing against. The full ladder is in `roadmap.md`. This is also where the moat's "compounding data" claim becomes real.
+2. **Observability, evals, tuning.** The selling point, not the third thing we get to. Observability first (what a run actually did — trace, logs, cost, failures — plus step-level replay, the part a bolt-on tracer can't do). Evals next (define correct output, build datasets from real runs, catch regressions). Tuning after that, and it means something specific: surfaced failure patterns and few-shot selection from a workspace's own run history first, automated prompt optimization only once evals produce a metric worth optimizing against. The full ladder is in `roadmap.md`. This is also where the "compounding data" idea above becomes real.
 3. **Memory and knowledge.** Agents remember facts across runs without a hand-built fact store; search a workspace's own docs or existing tools without a hand-built RAG pipeline. Owned KB is the default, connectors are additive.
 4. **Distribution.** SDK, public API, embeddable chat/runner components, and mobile as an addition to this pillar rather than a separate one. Mobile ships as monitoring and approval first — watching runs and approving a paused step, which is the same checkpoint-and-resume machinery pointed at a person instead of a crash. Full mobile authoring comes later, with the non-developer audience it serves.
 

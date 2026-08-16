@@ -111,8 +111,8 @@ to match what already exists. Full data model: `execution-architecture.md`.
 ## Work items
 
 Nine items. The dependency order is strict for items 1 through 4; items 5
-through 8 can start once item 1 has landed. Estimates assume 10 to 12 hours a
-week.
+through 8 can start once item 1 has landed. Estimates assume a small,
+part-time team.
 
 ### 1. Runtime schema in `packages/db`
 
