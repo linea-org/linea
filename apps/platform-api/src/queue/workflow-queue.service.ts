@@ -1,5 +1,6 @@
 import { Injectable, type OnModuleDestroy } from '@nestjs/common'
 import {
+  closeQueueConnection,
   createConnection,
   createWorkflowExecutionQueue,
   enqueueWorkflowExecution,
@@ -46,9 +47,7 @@ export class WorkflowQueueService implements OnModuleDestroy {
     }
   }
 
-  // queue.close() only stops the queue's own usage — it doesn't own a connection passed in from outside, so the connection needs its own quit.
   async onModuleDestroy(): Promise<void> {
-    await this.queue.close()
-    await this.connection.quit()
+    await closeQueueConnection(this.queue, this.connection)
   }
 }
