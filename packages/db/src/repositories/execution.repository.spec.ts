@@ -531,10 +531,7 @@ describe("failQueuedExecution", () => {
     })
   })
 
-  // Real concurrent connections (not withRollback's shared tx), proving the mutual exclusion holds
-  // under genuine Postgres row-locking, not just a fixed call order — closes the "a late worker
-  // claim slips in between failQueuedExecution succeeding and its caller acting on that" race a
-  // guarded update on the same status column can't actually leave open.
+  // Real concurrent connections (not withRollback's shared tx), proving mutual exclusion under genuine Postgres row-locking.
   it("never lets both a fail and a claim win on the same execution, whichever runs first", async () => {
     const { organization, workflow, version } = await db.transaction((tx) =>
       createTestFixtures(tx)

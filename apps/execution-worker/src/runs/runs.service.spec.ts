@@ -396,8 +396,7 @@ describe("RunsService chat-preview message persistence", () => {
         graph,
         contentHash: "runs-chat-forged-hash",
       })
-      // A real user message, but from an unrelated conversation — passes the DB's FK constraint
-      // (the row genuinely exists), so only an explicit scope check catches the mismatch.
+      // Real row, wrong conversation — passes the FK constraint, so only an explicit scope check catches this.
       const foreignMessage = await repositories.chatMessage.createChatMessage(
         db,
         {
@@ -409,8 +408,7 @@ describe("RunsService chat-preview message persistence", () => {
         }
       )
       const conversationId = randomUUID()
-      // Simulates an ordinary (non-chat-preview) execution whose caller-supplied triggerPayload
-      // happens to carry a conversationId/chatMessageId that doesn't belong together.
+      // Simulates an ordinary execution whose triggerPayload happens to carry a mismatched pair.
       const execution = await repositories.execution.createExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
