@@ -34,9 +34,9 @@
       "require": "./dist/index.cjs"
     },
     "./email": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "types": "./dist/email.d.ts",
+      "import": "./dist/email.js",
+      "require": "./dist/email.cjs"
     },
     "./emails": {
       "types": "./dist/index.d.ts",

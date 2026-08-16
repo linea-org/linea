@@ -4,6 +4,9 @@ export type NodeExecutionContext = {
   idempotencyKey?: string
   /** Aborted when the caller loses ownership mid-call (a lost lease, a lost replay claim) — handlers making outbound requests should pass it through so loss stops the actual request, not just the bookkeeping. */
   signal?: AbortSignal
+  /** Only populated for handlers that need to pause/resume against their own row (the approval node) — most handlers don't need these. */
+  executionId?: string
+  nodeId?: string
   /** Set when the triggering execution's payload carries a conversationId (chat preview) — lets a handler like AiNode fetch prior turns for message history. */
   conversationId?: string
   /** The workflow this execution belongs to — set whenever conversationId is, so a handler can scope a conversation lookup by workflow, not just workspace. */

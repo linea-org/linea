@@ -15,6 +15,9 @@ class FakeController {
   @RequireRole('admin')
   adminOnlyAction() {}
 
+  @RequireRole('member')
+  memberOnlyAction() {}
+
   openAction() {}
 }
 
@@ -25,6 +28,8 @@ const target = new FakeController()
 const openHandler = target.openAction
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const adminOnlyHandler = target.adminOnlyAction
+// eslint-disable-next-line @typescript-eslint/unbound-method
+const memberOnlyHandler = target.memberOnlyAction
 
 function contextFor(
   handler: () => void,
@@ -130,6 +135,39 @@ describe('WorkspaceRoleGuard', () => {
         memberUser.id,
         adminUser.id,
       ])
+    }
+  })
+
+  it('rejects a user with no membership row at all, even on a member-level route — a session can outlive the membership it was set from', async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: 'Removed Member Test Org',
+        slug: `removed-member-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    const [removedUser] = await db
+      .insert(schema.users)
+      .values({ name: 'Removed User', email: `removed-${suffix}@test.dev` })
+      .returning()
+
+    try {
+      // No members row inserted — simulates a user removed from the workspace after their session was issued.
+      const request = {
+        workspaceId: organization.id,
+        session: { user: { id: removedUser.id } },
+      } as Partial<AuthenticatedRequest>
+
+      await expect(
+        guard.canActivate(contextFor(memberOnlyHandler, request)),
+      ).rejects.toThrow(ForbiddenException)
+    } finally {
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        organization.id,
+      ])
+      await pool.query('DELETE FROM users WHERE id = $1', [removedUser.id])
     }
   })
 })

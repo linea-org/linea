@@ -10,8 +10,10 @@ import type {
 import {
   CheckpointsService,
   LeaseLostError,
+  PauseExecutionError,
 } from "../checkpoints/checkpoints.service"
 import { AiNode } from "./nodes/ai.node"
+import { ApprovalNode } from "./nodes/approval.node"
 import { BranchNode } from "./nodes/branch.node"
 import { EndNode } from "./nodes/end.node"
 import { HttpNode } from "./nodes/http.node"
@@ -39,7 +41,10 @@ export type RunInput = {
 }
 
 export type RunOutcome = {
-  result: WalkResult
+  // Absent (undefined) `result` only when `pausedAt` is set — the walk was abandoned mid-node, not completed or failed.
+  result?: WalkResult
+  // Set when a node handler threw PauseExecutionError — the run stopped short pending external input, distinct from completing or failing.
+  pausedAt?: string
   totalTokensInput: number
   totalTokensOutput: number
   totalCostMicros: bigint
@@ -99,13 +104,15 @@ export class InterpreterService {
     httpNode: HttpNode,
     transformNode: TransformNode,
     branchNode: BranchNode,
-    aiNode: AiNode
+    aiNode: AiNode,
+    approvalNode: ApprovalNode
   ) {
     this.handlers = {
       http: httpNode,
       transform: transformNode,
       branch: branchNode,
       ai: aiNode,
+      approval: approvalNode,
       start: new StartNode(),
       end: new EndNode(),
     }
@@ -118,6 +125,7 @@ export class InterpreterService {
     workspaceId: string,
     idempotencyKey?: string,
     signal?: AbortSignal,
+    executionId?: string,
     conversationId?: string,
     workflowId?: string,
     chatMessageId?: string
@@ -134,6 +142,8 @@ export class InterpreterService {
       workspaceId,
       idempotencyKey,
       signal,
+      executionId,
+      nodeId: node.id,
       conversationId,
       workflowId,
       chatMessageId,
@@ -185,6 +195,7 @@ export class InterpreterService {
           input.workspaceId,
           `${input.executionId}:${step.nodeId}`,
           input.signal,
+          input.executionId,
           extractConversationId(input.triggerPayload),
           input.workflowId,
           extractChatMessageId(input.triggerPayload)
@@ -237,6 +248,17 @@ export class InterpreterService {
         // input.signal is only aborted by RunsService on lease loss, so an abort here is a lease loss discovered mid-call, not a genuine node failure — same handling as the up-front assertOwnsLease check.
         if (input.signal?.aborted) {
           throw new LeaseLostError(input.executionId)
+        }
+        // No checkpoint write here: this node never produced output, so `completed` (and the latest checkpoint) already reflect every prior successful node — exactly the state a later resume should restart from.
+        if (error instanceof PauseExecutionError) {
+          return {
+            pausedAt: error.nodeId,
+            totalTokensInput,
+            totalTokensOutput,
+            totalCostMicros,
+            costUnpriced,
+            completed,
+          }
         }
 
         const message = error instanceof Error ? error.message : String(error)

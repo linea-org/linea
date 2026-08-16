@@ -108,6 +108,9 @@ importers:
       '@linea/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@linea/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@linea/config':
         specifier: workspace:*
         version: link:../../packages/config

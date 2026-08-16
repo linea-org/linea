@@ -850,4 +850,201 @@ describe("RunsService fencing identity", () => {
       ])
     }
   })
+
+  it("loops back and continues immediately instead of pausing when the approval resolves before the pause is recorded", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Approval Race Test Org",
+        slug: `runs-approval-race-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    const [approver] = await db
+      .insert(schema.users)
+      .values({
+        name: "Race Test Approver",
+        email: `anyone-${suffix}@test.dev`,
+      })
+      .returning()
+
+    try {
+      await db.insert(schema.members).values({
+        organizationId: organization.id,
+        userId: approver.id,
+        role: "member",
+        createdAt: new Date(),
+      })
+
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "approval-1",
+        nodes: [{ id: "approval-1", type: "approval", config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Approval Race Test Workflow",
+        slug: `runs-approval-race-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-approval-race-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+
+      // Simulates a response racing ahead of the pause: the approval is already resolved before RunsService's own pausedAt handling runs.
+      const approval = await repositories.approval.createApproval(db, {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: "approval-1",
+      })
+      await repositories.approval.resolveApproval(
+        db,
+        organization.id,
+        approval!.id,
+        {
+          status: "approved",
+          respondedBy: null,
+          respondedByEmail: approver.email,
+        }
+      )
+
+      let callCount = 0
+      const racyInterpreter = {
+        run: () => {
+          callCount += 1
+          if (callCount === 1) {
+            return Promise.resolve({
+              pausedAt: "approval-1",
+              totalTokensInput: 0,
+              totalTokensOutput: 0,
+              totalCostMicros: 0n,
+              costUnpriced: false as const,
+            })
+          }
+          return Promise.resolve({
+            result: { status: "completed" as const },
+            totalTokensInput: 0,
+            totalTokensOutput: 0,
+            totalCostMicros: 0n,
+            costUnpriced: false as const,
+            completed: new Map(),
+          })
+        },
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        racyInterpreter,
+        new RunLeaseService()
+      )
+      await runs.execute(execution.id)
+
+      // Proves the loop actually re-ran the interpreter instead of pausing on the first pausedAt result.
+      expect(callCount).toBe(2)
+
+      const reloaded = await repositories.execution.getExecutionById(
+        db,
+        execution.id
+      )
+      expect(reloaded?.status).toBe("succeeded")
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+      await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
+    }
+  })
+
+  it("throws instead of falsely reporting paused when the lease is lost before the pause is recorded", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Approval Lease Loss Test Org",
+        slug: `runs-approval-lease-loss-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "approval-1",
+        nodes: [{ id: "approval-1", type: "approval", config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Approval Lease Loss Test Workflow",
+        slug: `runs-approval-lease-loss-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-approval-lease-loss-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.approval.createApproval(db, {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: "approval-1",
+      })
+
+      const leaseStealingInterpreter = {
+        run: async () => {
+          // Simulates the lease being reclaimed in the gap between the pause and claimPauseForPendingApproval running, so its guarded UPDATE can't match.
+          await pool.query(
+            "UPDATE executions SET leased_by = $1, lease_expires_at = $2 WHERE id = $3",
+            ["someone-else", new Date(Date.now() + 60_000), execution.id]
+          )
+          return {
+            pausedAt: "approval-1",
+            totalTokensInput: 0,
+            totalTokensOutput: 0,
+            totalCostMicros: 0n,
+            costUnpriced: false as const,
+          }
+        },
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        leaseStealingInterpreter,
+        new RunLeaseService()
+      )
+
+      // Must surface as a real failure — a silent success would leave the row running under someone else's lease with a pending approval and nothing left to resume it.
+      await expect(runs.execute(execution.id)).rejects.toThrow(/lease/i)
+
+      const reloaded = await repositories.execution.getExecutionById(
+        db,
+        execution.id
+      )
+      // Not falsely marked "paused" — completeExecution's lease guard also stops this worker overwriting the new owner.
+      expect(reloaded?.status).not.toBe("paused")
+      expect(reloaded?.leasedBy).toBe("someone-else")
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
 })

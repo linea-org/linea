@@ -24,6 +24,7 @@ import { Route as OnboardingInviteRouteImport } from './routes/onboarding/invite
 import { Route as AcceptInvitationInvitationIdRouteImport } from './routes/accept-invitation.$invitationId'
 import { Route as WSlugIndexRouteImport } from './routes/w/$slug/index'
 import { Route as WSlugNotificationsRouteImport } from './routes/w/$slug/notifications'
+import { Route as WSlugApprovalsRouteImport } from './routes/w/$slug/approvals'
 import { Route as WSlugWorkflowsIndexRouteImport } from './routes/w/$slug/workflows/index'
 import { Route as WSlugSettingsIndexRouteImport } from './routes/w/$slug/settings/index'
 import { Route as WSlugExecutionsIndexRouteImport } from './routes/w/$slug/executions/index'
@@ -112,6 +113,11 @@ const WSlugNotificationsRoute = WSlugNotificationsRouteImport.update({
   path: '/notifications',
   getParentRoute: () => WSlugRoute,
 } as any)
+const WSlugApprovalsRoute = WSlugApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
+  getParentRoute: () => WSlugRoute,
+} as any)
 const WSlugWorkflowsIndexRoute = WSlugWorkflowsIndexRouteImport.update({
   id: '/workflows/',
   path: '/workflows/',
@@ -188,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/onboarding/invite': typeof OnboardingInviteRoute
   '/onboarding/workspace': typeof OnboardingWorkspaceRoute
   '/w/$slug': typeof WSlugRouteWithChildren
+  '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
   '/w/$slug/': typeof WSlugIndexRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
@@ -215,6 +222,7 @@ export interface FileRoutesByTo {
   '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/onboarding/invite': typeof OnboardingInviteRoute
   '/onboarding/workspace': typeof OnboardingWorkspaceRoute
+  '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
   '/w/$slug': typeof WSlugIndexRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
@@ -243,6 +251,7 @@ export interface FileRoutesById {
   '/onboarding/invite': typeof OnboardingInviteRoute
   '/onboarding/workspace': typeof OnboardingWorkspaceRoute
   '/w/$slug': typeof WSlugRouteWithChildren
+  '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
   '/w/$slug/': typeof WSlugIndexRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
@@ -273,6 +282,7 @@ export interface FileRouteTypes {
     | '/onboarding/invite'
     | '/onboarding/workspace'
     | '/w/$slug'
+    | '/w/$slug/approvals'
     | '/w/$slug/notifications'
     | '/w/$slug/'
     | '/w/$slug/executions/$executionId'
@@ -300,6 +310,7 @@ export interface FileRouteTypes {
     | '/accept-invitation/$invitationId'
     | '/onboarding/invite'
     | '/onboarding/workspace'
+    | '/w/$slug/approvals'
     | '/w/$slug/notifications'
     | '/w/$slug'
     | '/w/$slug/executions/$executionId'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/onboarding/invite'
     | '/onboarding/workspace'
     | '/w/$slug'
+    | '/w/$slug/approvals'
     | '/w/$slug/notifications'
     | '/w/$slug/'
     | '/w/$slug/executions/$executionId'
@@ -465,6 +477,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugNotificationsRouteImport
       parentRoute: typeof WSlugRoute
     }
+    '/w/$slug/approvals': {
+      id: '/w/$slug/approvals'
+      path: '/approvals'
+      fullPath: '/w/$slug/approvals'
+      preLoaderRoute: typeof WSlugApprovalsRouteImport
+      parentRoute: typeof WSlugRoute
+    }
     '/w/$slug/workflows/': {
       id: '/w/$slug/workflows/'
       path: '/workflows'
@@ -568,6 +587,7 @@ const WSlugWorkflowsWorkflowIdRouteWithChildren =
   )
 
 interface WSlugRouteChildren {
+  WSlugApprovalsRoute: typeof WSlugApprovalsRoute
   WSlugNotificationsRoute: typeof WSlugNotificationsRoute
   WSlugIndexRoute: typeof WSlugIndexRoute
   WSlugExecutionsExecutionIdRoute: typeof WSlugExecutionsExecutionIdRoute
@@ -580,6 +600,7 @@ interface WSlugRouteChildren {
 }
 
 const WSlugRouteChildren: WSlugRouteChildren = {
+  WSlugApprovalsRoute: WSlugApprovalsRoute,
   WSlugNotificationsRoute: WSlugNotificationsRoute,
   WSlugIndexRoute: WSlugIndexRoute,
   WSlugExecutionsExecutionIdRoute: WSlugExecutionsExecutionIdRoute,

@@ -6,8 +6,14 @@ import {
   workflowGraphSchema,
   type WorkflowGraph,
 } from "@linea/runtime"
-import { CheckpointsService } from "../checkpoints/checkpoints.service"
-import { InterpreterService } from "../graph/interpreter.service"
+import {
+  CheckpointsService,
+  LeaseLostError,
+} from "../checkpoints/checkpoints.service"
+import {
+  InterpreterService,
+  type RunOutcome,
+} from "../graph/interpreter.service"
 import { RunLeaseService } from "./run-lease.service"
 
 function extractConversationId(triggerPayload: unknown): string | undefined {
@@ -121,20 +127,45 @@ export class RunsService {
         )
       }
 
-      const outcome = await this.interpreter.run({
-        executionId,
-        workspaceId: execution.workspaceId,
-        workflowId: execution.workflowId,
-        leasedBy: attemptId,
-        graph,
-        triggerPayload: execution.triggerPayload,
-        resumeFrom,
-        initialTokensInput: resumeTokens.tokensInput,
-        initialTokensOutput: resumeTokens.tokensOutput,
-        initialCostMicros: resumeTokens.costMicros,
-        initialCostUnpriced: resumeTokens.costUnpriced,
-        signal: abortController.signal,
-      })
+      // A response can resolve the approval before this loop marks the execution "paused" below,
+      // so claimPauseForPendingApproval re-checks and pauses atomically (locking the approval row
+      // first) instead of racing a separate check-then-pause. If already resolved, loop back
+      // immediately — safe because an approval node never checkpoints before pausing, so re-running
+      // just re-enters it and this time returns its real output.
+      let outcome: RunOutcome
+      let paused = false
+      for (;;) {
+        outcome = await this.interpreter.run({
+          executionId,
+          workspaceId: execution.workspaceId,
+          workflowId: execution.workflowId,
+          leasedBy: attemptId,
+          graph,
+          triggerPayload: execution.triggerPayload,
+          resumeFrom,
+          initialTokensInput: resumeTokens.tokensInput,
+          initialTokensOutput: resumeTokens.tokensOutput,
+          initialCostMicros: resumeTokens.costMicros,
+          initialCostUnpriced: resumeTokens.costUnpriced,
+          signal: abortController.signal,
+        })
+        if (!outcome.pausedAt) break
+        const claim = await repositories.approval.claimPauseForPendingApproval(
+          db,
+          execution.workspaceId,
+          executionId,
+          outcome.pausedAt,
+          attemptId
+        )
+        if (claim.outcome === "paused") {
+          paused = true
+          break
+        }
+        if (claim.outcome === "lease-lost") {
+          // Same handling as any other lease loss (see CheckpointsService) — fails visibly instead of silently reporting "paused" on a dead lease.
+          throw new LeaseLostError(executionId)
+        }
+      }
       knownTokensInput = outcome.totalTokensInput
       knownTokensOutput = outcome.totalTokensOutput
       knownCostMicros = outcome.totalCostMicros
@@ -150,7 +181,15 @@ export class RunsService {
         )
       }
 
-      if (outcome.result.status === "completed") {
+      if (paused) {
+        // Already marked paused atomically by claimPauseForPendingApproval above.
+        return
+      }
+
+      // Only absent when pausedAt is set, handled above — safe to assert defined here.
+      const result = outcome.result!
+
+      if (result.status === "completed") {
         await repositories.execution.completeExecution(
           db,
           executionId,
@@ -208,8 +247,8 @@ export class RunsService {
           {
             status: "failed",
             error: {
-              message: outcome.result.error,
-              stepId: outcome.result.nodeId,
+              message: result.error,
+              stepId: result.nodeId,
             },
             costMicros: outcome.totalCostMicros,
             costUnpriced: outcome.costUnpriced,
@@ -217,8 +256,7 @@ export class RunsService {
             tokensOutput: outcome.totalTokensOutput,
           }
         )
-        if (failed)
-          await this.notifyExecutionFailed(failed, outcome.result.error)
+        if (failed) await this.notifyExecutionFailed(failed, result.error)
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
