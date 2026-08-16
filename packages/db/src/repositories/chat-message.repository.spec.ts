@@ -65,8 +65,7 @@ describe("chat-message.repository", () => {
         content: "second turn",
         createdAt: new Date(now + 1_000),
       })
-      // Turn 2's independent execution finishes first in wall-clock time, even though turn 1
-      // was submitted first - a real race between two concurrent AI calls.
+      // Turn 2's execution finishes first in wall-clock time, even though turn 1 was submitted first.
       await createChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -84,6 +83,64 @@ describe("chat-message.repository", () => {
         content: "first reply",
         respondsToMessageId: user1.id,
         createdAt: new Date(now + 3_000),
+      })
+
+      const messages = await listChatMessages(
+        tx,
+        organization.id,
+        workflow.id,
+        conversationId
+      )
+      expect(messages.map((m) => m.content)).toEqual([
+        "first turn",
+        "first reply",
+        "second turn",
+        "second reply",
+      ])
+    })
+  })
+
+  it("orders correctly even when two user turns share the exact same createdAt timestamp", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      const conversationId = randomUUID()
+      // Same timestamp for both user turns — only correct if something besides createdAt orders them.
+      const tiedTimestamp = new Date()
+
+      const user1 = await createChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "first turn",
+        createdAt: tiedTimestamp,
+      })
+      const user2 = await createChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "second turn",
+        createdAt: tiedTimestamp,
+      })
+      // Turn 2's reply persisted first, but there's no timestamp gap here for coalesce() to fall back on.
+      await createChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "assistant",
+        content: "second reply",
+        respondsToMessageId: user2.id,
+        createdAt: tiedTimestamp,
+      })
+      await createChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "assistant",
+        content: "first reply",
+        respondsToMessageId: user1.id,
+        createdAt: tiedTimestamp,
       })
 
       const messages = await listChatMessages(

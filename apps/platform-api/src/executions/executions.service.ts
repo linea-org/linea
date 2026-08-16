@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common'
@@ -30,6 +31,8 @@ import type { TriggerExecutionDto } from './dto/trigger-execution.dto'
 
 @Injectable()
 export class ExecutionsService {
+  private readonly logger = new Logger(ExecutionsService.name)
+
   constructor(
     private readonly queue: WorkflowQueueService,
     private readonly stepReplayQueue: StepReplayQueueService,
@@ -169,11 +172,7 @@ export class ExecutionsService {
       { graph: input.graph, contentHash: hashWorkflowGraph(input.graph) },
     )
 
-    // The user turn and the execution that will answer it are created together so a trigger
-    // failure (e.g. the workflow was archived in the gap since the check above) rolls back the
-    // message too, instead of leaving an orphaned turn with nothing able to reply to it. The
-    // message's own id rides along in triggerPayload as chatMessageId so the AI node can find
-    // its own turn precisely rather than assuming "whichever message is latest" once it runs.
+    // Created in one transaction so a trigger failure rolls back the message too, not an orphaned turn.
     const { chatMessage, execution } = await db.transaction(async (tx) => {
       const chatMessage = await repositories.chatMessage.createChatMessage(tx, {
         workspaceId,
@@ -213,16 +212,20 @@ export class ExecutionsService {
         execution.id,
         { message },
       )
-      // failQueuedExecution only transitions a still-"queued" row - an enqueue() timeout doesn't
-      // guarantee the underlying Redis command actually failed (see WorkflowQueueService's own
-      // accepted-risk note), so a worker may already have claimed this execution by the time we
-      // get here. Only delete the triggering message when we genuinely won the "failed"
-      // transition - otherwise the execution really is running and still needs this message to
-      // persist its linked reply.
+      // Only delete the message if we genuinely won the "failed" transition — a worker may already have claimed this execution (see WorkflowQueueService's accepted-risk note), in which case it's still running and needs this message.
       if (failed) {
+        // Best-effort: log rather than swallow, so an orphaned unanswered turn stays findable.
         await repositories.chatMessage
           .deleteChatMessage(db, workspaceId, chatMessage.id)
-          .catch(() => {})
+          .catch((deleteError: unknown) => {
+            const deleteMessage =
+              deleteError instanceof Error
+                ? deleteError.message
+                : String(deleteError)
+            this.logger.warn(
+              `Execution ${execution.id}: failed to delete orphaned chat message ${chatMessage.id} after enqueue failure — it will remain in conversation history unanswered: ${deleteMessage}`,
+            )
+          })
       }
       throw new ServiceUnavailableException(
         'Failed to enqueue execution — it will not run',

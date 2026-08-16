@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm"
+import { and, desc, eq, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import {
   chatMessages,
@@ -30,11 +30,7 @@ export async function deleteChatMessage(
     )
 }
 
-/** Ordered by turn, not raw insertion time: independent executions can complete out of wall-clock
- * order (a later turn's AI call finishing before an earlier turn's), so an assistant reply's own
- * createdAt isn't a reliable position - it's sorted by the createdAt of the user message it
- * responds to instead (falling back to its own createdAt for messages with no link, i.e. every
- * user message), with the user message itself always ordered just before its reply. */
+/** Ordered by turn (via each reply's linked user message's `sequence`), not raw insertion time — independent executions can finish out of wall-clock order, and `sequence` (unlike `createdAt`) can't tie. */
 export async function listChatMessages(
   db: DbClient,
   workspaceId: string,
@@ -53,9 +49,8 @@ export async function listChatMessages(
       )
     )
     .orderBy(
-      sql`coalesce(${respondsTo.createdAt}, ${chatMessages.createdAt})`,
-      sql`case when ${chatMessages.role} = 'user' then 0 else 1 end`,
-      asc(chatMessages.createdAt)
+      sql`coalesce(${respondsTo.sequence}, ${chatMessages.sequence})`,
+      sql`case when ${chatMessages.role} = 'user' then 0 else 1 end`
     )
   return rows.map((row) => row.message)
 }
