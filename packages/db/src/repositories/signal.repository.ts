@@ -107,8 +107,7 @@ export async function listSignals(
 
 export type SignalTrendPoint = { day: string; count: number }
 
-// Long-lived signals can accumulate thousands of occurrences - the detail view only ever
-// renders the most recent page of them, so the query (and payload) stays bounded to match.
+// Bounds the detail view's DB read and payload to what it actually renders, not the full history.
 const DETAIL_OCCURRENCE_LIMIT = 30
 
 export type SignalDetail = SignalSummary & {
@@ -128,9 +127,7 @@ export async function getSignalDetail(
     .where(and(eq(signals.id, signalId), eq(signals.workspaceId, workspaceId)))
   if (!signal) return undefined
 
-  // Aggregates computed server-side over every linked flag, independent of how many of them
-  // the caller actually renders - the recent-occurrences page below is bounded, but these
-  // totals (and the trend query further down, already bucketed) must not be.
+  // Computed over every linked flag, not just the bounded page below — these totals must not be capped.
   const [stats] = await db
     .select({
       occurrenceCount: sql<number>`count(*)::int`,
@@ -187,10 +184,7 @@ export async function getSignalsTrend(
         count: sql<number>`count(*)::int`,
       })
       .from(flags)
-      // Most flaggers only set flags.executionId, not flags.workflowId directly - the workflow is
-      // resolved indirectly (see resolveWorkflowId above) and lands on signals.workflowId, the same
-      // field listSignals already scopes by. Filtering flags.workflowId here would silently drop
-      // every flag type except branch_never_taken (the one flagger that does set it directly).
+      // Filters on signals.workflowId, not flags.workflowId — most flaggers never set the latter directly.
       .innerJoin(signals, eq(flags.signalId, signals.id))
       .where(
         and(

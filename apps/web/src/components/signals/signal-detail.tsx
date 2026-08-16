@@ -64,9 +64,7 @@ export function SignalDetailView({
     },
   })
 
-  // signal.flags is already the bounded (most-recent-30) page from the API - occurrenceCount
-  // and affectedExecutions are separate server-computed totals over every occurrence, not
-  // derived from this page.
+  // occurrenceCount/affectedExecutions are server totals over every occurrence, not derived from this bounded page.
   const occurrences = signal.flags
 
   return (

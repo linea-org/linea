@@ -316,8 +316,7 @@ describe("getSignalsTrend", () => {
         trigger: "manual",
       })
 
-      // Matches how the real transcript/graph flaggers call createFlagIfNew for every flag type
-      // except branch_never_taken - no workflowId, only executionId.
+      // Matches how every flagger except branch_never_taken calls createFlagIfNew: executionId only.
       await createFlagIfNew(tx, {
         workspaceId: organization.id,
         executionId: execution.id,
