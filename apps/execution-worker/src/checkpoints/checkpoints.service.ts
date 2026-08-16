@@ -106,14 +106,19 @@ export class CheckpointsService {
     }
   }
 
-  /** Reconstructs the walker's `completed` map from the latest checkpoint — empty for a fresh execution. */
+  /** Reconstructs the walker's `completed` map from the latest checkpoint — empty for a fresh execution. Ordered by `completedStepIds`, not `Object.entries(context)`: a plain object always iterates integer-like keys in numeric order ahead of insertion order, so a node id that happens to look like a number (e.g. "1") would silently reorder the map on resume. */
   async getResumeState(executionId: string): Promise<Map<string, unknown>> {
     const checkpoint = await repositories.checkpoint.getLatestCheckpoint(
       db,
       executionId
     )
     if (!checkpoint) return new Map()
-    return new Map(Object.entries(checkpoint.context))
+    return new Map(
+      checkpoint.completedStepIds.map((nodeId) => [
+        nodeId,
+        checkpoint.context[nodeId],
+      ])
+    )
   }
 
   /** Marks a genuine resume on the timeline — call only when getResumeState returned non-empty state. Throws `LeaseLostError` if `leasedBy` no longer owns the execution, matching recordStep. */
