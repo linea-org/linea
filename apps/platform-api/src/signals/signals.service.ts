@@ -7,6 +7,10 @@ export class SignalsService {
     return repositories.signal.listSignals(db, workspaceId, options)
   }
 
+  trend(workspaceId: string, options: { workflowId?: string } = {}) {
+    return repositories.signal.getSignalsTrend(db, workspaceId, options)
+  }
+
   async get(workspaceId: string, id: string) {
     const detail = await repositories.signal.getSignalDetail(
       db,

@@ -4,6 +4,10 @@ import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import { listSignalsSchema, type ListSignalsDto } from './dto/list-signals.dto'
+import {
+  signalsTrendSchema,
+  type SignalsTrendDto,
+} from './dto/signals-trend.dto'
 import { SignalsService } from './signals.service'
 
 @Controller('signals')
@@ -18,6 +22,15 @@ export class SignalsController {
     @Query(new ZodValidationPipe(listSignalsSchema)) query: ListSignalsDto,
   ) {
     return this.signals.list(workspaceId, query)
+  }
+
+  // Must come before ':id' — otherwise Nest would match "trend" as an :id param.
+  @Get('trend')
+  trend(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Query(new ZodValidationPipe(signalsTrendSchema)) query: SignalsTrendDto,
+  ) {
+    return this.signals.trend(workspaceId, query)
   }
 
   @Get(':id')
