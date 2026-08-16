@@ -29,6 +29,31 @@ import type { ReplayStepDto } from './dto/replay-step.dto'
 import type { TestRunDto } from './dto/test-run.dto'
 import type { TriggerExecutionDto } from './dto/trigger-execution.dto'
 
+const DELETE_CHAT_MESSAGE_RETRY_ATTEMPTS = 3
+const DELETE_CHAT_MESSAGE_RETRY_DELAY_MS = 200
+
+/** Retries a transient failure a few times before giving up, closing most of the window where a blip would otherwise leave an unanswered turn stuck in history. */
+export async function deleteChatMessageWithRetry(
+  deleteFn: () => Promise<void>,
+  onGiveUp: (error: unknown) => void,
+  attempts = DELETE_CHAT_MESSAGE_RETRY_ATTEMPTS,
+): Promise<void> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await deleteFn()
+      return
+    } catch (error) {
+      if (attempt === attempts) {
+        onGiveUp(error)
+        return
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, DELETE_CHAT_MESSAGE_RETRY_DELAY_MS),
+      )
+    }
+  }
+}
+
 @Injectable()
 export class ExecutionsService {
   private readonly logger = new Logger(ExecutionsService.name)
@@ -214,10 +239,14 @@ export class ExecutionsService {
       )
       // Only delete the message if we genuinely won the "failed" transition — a worker may already have claimed this execution (see WorkflowQueueService's accepted-risk note), in which case it's still running and needs this message.
       if (failed) {
-        // Best-effort: log rather than swallow, so an orphaned unanswered turn stays findable.
-        await repositories.chatMessage
-          .deleteChatMessage(db, workspaceId, chatMessage.id)
-          .catch((deleteError: unknown) => {
+        await deleteChatMessageWithRetry(
+          () =>
+            repositories.chatMessage.deleteChatMessage(
+              db,
+              workspaceId,
+              chatMessage.id,
+            ),
+          (deleteError) => {
             const deleteMessage =
               deleteError instanceof Error
                 ? deleteError.message
@@ -225,7 +254,8 @@ export class ExecutionsService {
             this.logger.warn(
               `Execution ${execution.id}: failed to delete orphaned chat message ${chatMessage.id} after enqueue failure — it will remain in conversation history unanswered: ${deleteMessage}`,
             )
-          })
+          },
+        )
       }
       throw new ServiceUnavailableException(
         'Failed to enqueue execution — it will not run',

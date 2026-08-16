@@ -3,12 +3,55 @@ import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import { db, pool, repositories, schema } from '@linea/db'
 import type { WorkflowGraph } from '@linea/runtime'
-import { ExecutionsService } from './executions.service'
+import {
+  deleteChatMessageWithRetry,
+  ExecutionsService,
+} from './executions.service'
 import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 import { WorkflowQueueService } from '../queue/workflow-queue.service'
 
 afterAll(async () => {
   await pool.end()
+})
+
+describe('deleteChatMessageWithRetry', () => {
+  it('does not retry once the delete succeeds', async () => {
+    const deleteFn = jest.fn().mockResolvedValue(undefined)
+    const onGiveUp = jest.fn()
+
+    await deleteChatMessageWithRetry(deleteFn, onGiveUp, 3)
+
+    expect(deleteFn).toHaveBeenCalledTimes(1)
+    expect(onGiveUp).not.toHaveBeenCalled()
+  })
+
+  it('retries a failing delete and succeeds once it stops failing', async () => {
+    const deleteFn = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('connection reset'))
+      .mockResolvedValueOnce(undefined)
+    const onGiveUp = jest.fn()
+
+    await deleteChatMessageWithRetry(deleteFn, onGiveUp, 3)
+
+    expect(deleteFn).toHaveBeenCalledTimes(2)
+    expect(onGiveUp).not.toHaveBeenCalled()
+  })
+
+  it('gives up and reports the last error once every attempt has failed', async () => {
+    const lastError = new Error('still down')
+    const deleteFn = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('down'))
+      .mockRejectedValueOnce(new Error('still down'))
+      .mockRejectedValueOnce(lastError)
+    const onGiveUp = jest.fn()
+
+    await deleteChatMessageWithRetry(deleteFn, onGiveUp, 3)
+
+    expect(deleteFn).toHaveBeenCalledTimes(3)
+    expect(onGiveUp).toHaveBeenCalledWith(lastError)
+  })
 })
 
 const graph: WorkflowGraph = {
