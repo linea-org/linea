@@ -11,14 +11,10 @@ you'd like to help build one, contributions are welcome.
 
 ## Stack
 
-| Layer    | Technology                                         |
-| -------- | -------------------------------------------------- |
-| Frontend | TanStack Start, React 19, Tailwind CSS, shadcn/ui  |
-| Backend  | NestJS                                             |
-| Database | PostgreSQL (pgvector), Drizzle ORM                 |
-| Auth     | better-auth (email/password + Google/GitHub OAuth) |
-| Email    | Resend                                             |
-| Monorepo | pnpm workspaces + Turborepo                        |
+TanStack Start + React 19 + Tailwind/shadcn on the frontend, NestJS on the
+backend, PostgreSQL (pgvector) with Drizzle ORM, better-auth for
+email/password and Google/GitHub OAuth, Resend for email, pnpm workspaces +
+Turborepo for the monorepo.
 
 ## Quick start
 
@@ -42,11 +38,8 @@ pnpm db:migrate
 pnpm dev
 ```
 
-| App              | URL                          |
-| ---------------- | ---------------------------- |
-| Web              | http://localhost:3001        |
-| API (NestJS)     | http://localhost:3000        |
-| API health check | http://localhost:3000/health |
+Web runs at http://localhost:3001, the API at http://localhost:3000
+(health check at `/health`).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full setup guide, project
 layout, and environment variable reference.
