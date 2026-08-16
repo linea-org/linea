@@ -52,10 +52,7 @@ export async function createFlagIfNew(
   })
 
   if (result?.justRegressed) {
-    // Run after the transaction commits, on the outer (non-transactional) client: a failure here
-    // must stay best-effort in the Postgres sense too, not just the JS sense — a notification
-    // insert that fails mid-transaction aborts the whole transaction regardless of whether the
-    // rejection is caught, silently rolling back the flag/signal write it was never supposed to affect.
+    // Runs after commit, on the outer client — inside the tx, a caught rejection still aborts it.
     await notifySignalRegressed(db, result.flag, result.signal.id).catch(
       (error: unknown) => {
         const message = error instanceof Error ? error.message : String(error)

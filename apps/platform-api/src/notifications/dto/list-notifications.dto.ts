@@ -1,8 +1,7 @@
 import { z } from 'zod'
 
 export const listNotificationsSchema = z.object({
-  // z.coerce.boolean() treats any non-empty string as true, so "?archived=false" would
-  // otherwise be indistinguishable from "?archived=true" - only 'true'/'false' are accepted.
+  // z.coerce.boolean() treats any non-empty string as true, so "?archived=false" would be truthy.
   unreadOnly: z
     .enum(['true', 'false'])
     .transform((value) => value === 'true')
