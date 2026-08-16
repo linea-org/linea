@@ -45,7 +45,8 @@ export class AiNode implements NodeHandler {
         ? messages.findIndex((message) => message.id === context.chatMessageId)
         : messages.length - 1
       const own = ownIndex === -1 ? undefined : messages[ownIndex]
-      if (own) {
+      // A forged/stale chatMessageId could point at an assistant message — only a real user turn is a valid prompt.
+      if (own?.role === "user") {
         prompt = own.content
         // Sliced up to (not including) this execution's own message, not the whole array minus
         // one — a later turn that landed in the table before this query ran, but after this

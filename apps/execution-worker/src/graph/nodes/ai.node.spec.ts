@@ -95,6 +95,26 @@ describe("AiNode", () => {
     )
   })
 
+  it("falls back to the authored prompt when chatMessageId points at an assistant message, not a user turn", async () => {
+    complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+    listChatMessages.mockResolvedValue([
+      { id: "m1", role: "user", content: "first turn" },
+      { id: "m2", role: "assistant", content: "first reply" },
+    ])
+
+    const node = new AiNode()
+    await node.execute(
+      { prompt: "fallback prompt", model: "claude-sonnet-5" },
+      undefined,
+      { ...context, conversationId: "conv1", chatMessageId: "m2" }
+    )
+
+    expect(complete).toHaveBeenCalledWith(
+      "secret",
+      expect.objectContaining({ prompt: "fallback prompt", history: undefined })
+    )
+  })
+
   it("falls back to the authored prompt when the conversation has no messages yet", async () => {
     complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
     listChatMessages.mockResolvedValue([])
