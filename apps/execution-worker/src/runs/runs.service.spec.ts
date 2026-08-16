@@ -529,6 +529,92 @@ describe("RunsService chat-preview message persistence", () => {
     }
   })
 
+  it("does not mistake a later non-ai node's coincidental text field for the assistant's reply", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Chat Non-AI Text Test Org",
+        slug: `runs-chat-non-ai-text-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [
+          { id: "n1", type: "ai", config: { model: "groq/compound" } },
+          { id: "n2", type: "transform", config: { expression: "input" } },
+        ],
+        edges: [{ from: "n1", to: "n2" }],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Chat Non-AI Text Test Workflow",
+        slug: `runs-chat-non-ai-text-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-chat-non-ai-text-hash",
+      })
+      const conversationId = randomUUID()
+      const userMessage = await repositories.chatMessage.createChatMessage(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "hello",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: { conversationId, chatMessageId: userMessage.id },
+      })
+
+      const fastInterpreter = {
+        run: () =>
+          Promise.resolve({
+            result: { status: "completed" as const },
+            totalTokensInput: 10,
+            totalTokensOutput: 5,
+            totalCostMicros: 0n,
+            costUnpriced: false,
+            // n2 (a transform node) ran after the ai node and happens to also carry a `text` field.
+            completed: new Map([
+              ["n1", { text: "the actual ai reply" }],
+              ["n2", { text: "coincidental transform output" }],
+            ]),
+          }),
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        fastInterpreter,
+        new RunLeaseService()
+      )
+      await runs.execute(execution.id)
+
+      const messages = await repositories.chatMessage.listChatMessages(
+        db,
+        organization.id,
+        workflow.id,
+        conversationId
+      )
+      const reply = messages.find((m) => m.role === "assistant")
+      expect(reply?.content).toBe("the actual ai reply")
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
   it("persists nothing when triggerPayload has no conversationId", async () => {
     const suffix = randomUUID()
     const [organization] = await db
