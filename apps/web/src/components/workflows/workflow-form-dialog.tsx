@@ -22,8 +22,8 @@ import {
 import { Input } from "@linea/ui/components/input"
 import { Textarea } from "@linea/ui/components/textarea"
 
-import { slugify } from "../../lib/auth-redirect"
-import { type WorkflowSummary } from "../../lib/workflows-api"
+import { slugify } from "@/lib/auth-redirect"
+import { type WorkflowSummary } from "@/lib/workflows-api"
 
 const schema = z.object({
   name: z.string().min(1, "Name is required"),

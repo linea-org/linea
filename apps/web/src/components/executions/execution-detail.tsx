@@ -6,8 +6,8 @@ import {
   getExecutionFn,
   type ExecutionDetailResponse,
   type ExecutionTrigger,
-} from "../../lib/executions-api"
-import { getWorkflowFn, type WorkflowSummary } from "../../lib/workflows-api"
+} from "@/lib/executions-api"
+import { getWorkflowFn, type WorkflowSummary } from "@/lib/workflows-api"
 import { ErrorCallout } from "./error-callout"
 import { ExecutionStatusBadge } from "./execution-status-badge"
 import { ExecutionStepTimeline } from "./execution-step-timeline"

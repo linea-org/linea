@@ -16,7 +16,7 @@ import {
   replayStepFn,
   type ExecutionStepSummary,
   type JsonValue,
-} from "../../lib/executions-api"
+} from "@/lib/executions-api"
 import { NodeIcon } from "../workflow-builder/node-icon"
 import { formatCost, stepCostUnpricedState } from "./execution-list"
 import { ErrorCallout } from "./error-callout"

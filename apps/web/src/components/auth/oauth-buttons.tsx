@@ -3,8 +3,8 @@ import { useState } from "react"
 import { Button } from "@linea/ui/components/button"
 import { Separator } from "@linea/ui/components/separator"
 
-import { authClient } from "../../lib/auth-client"
-import { authErrorMessage } from "../../lib/auth-redirect"
+import { authClient } from "@/lib/auth-client"
+import { authErrorMessage } from "@/lib/auth-redirect"
 
 type OAuthButtonsProps = {
   invitationId?: string

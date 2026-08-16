@@ -49,14 +49,14 @@ import {
   TableRow,
 } from "@linea/ui/components/table"
 
-import { SecretFormDialog } from "../../../../components/secrets"
+import { SecretFormDialog } from "@/components/secrets"
 import {
   deleteSecretFn,
   listAiProvidersFn,
   listSecretsFn,
   upsertSecretFn,
   type AiProviderKeyStatus,
-} from "../../../../lib/secrets-api"
+} from "@/lib/secrets-api"
 
 export const Route = createFileRoute("/w/$slug/settings/secrets")({
   component: SecretsPage,

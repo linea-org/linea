@@ -19,8 +19,8 @@ import {
 } from "@linea/ui/components/dropdown-menu"
 import { cn } from "@linea/ui/lib/utils"
 
-import { authClient } from "../../lib/auth-client"
-import { getAppOrigin } from "../../lib/workspace-host"
+import { authClient } from "@/lib/auth-client"
+import { getAppOrigin } from "@/lib/workspace-host"
 import { UserAvatar } from "./user-avatar"
 
 type UserMenuProps = {

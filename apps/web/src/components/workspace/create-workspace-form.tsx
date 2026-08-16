@@ -13,11 +13,8 @@ import {
 } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
 
-import {
-  createOrganization,
-  setActiveOrganization,
-} from "../../lib/auth-queries"
-import { authErrorMessage, slugify } from "../../lib/auth-redirect"
+import { createOrganization, setActiveOrganization } from "@/lib/auth-queries"
+import { authErrorMessage, slugify } from "@/lib/auth-redirect"
 
 const schema = z.object({
   name: z.string().min(2, "Workspace name is required"),

@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import {
   ExecutionDetailView,
   loadExecutionDetail,
-} from "../../../../components/executions"
+} from "@/components/executions"
 
 export const Route = createFileRoute("/w/$slug/executions/$executionId")({
   loader: ({ params }) => loadExecutionDetail(params.executionId),

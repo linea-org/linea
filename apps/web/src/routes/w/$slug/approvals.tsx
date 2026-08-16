@@ -16,7 +16,7 @@ import { Textarea } from "@linea/ui/components/textarea"
 import {
   pendingApprovalsQueryOptions,
   respondToApprovalFn,
-} from "../../../lib/approvals-api"
+} from "@/lib/approvals-api"
 
 export const Route = createFileRoute("/w/$slug/approvals")({
   component: ApprovalsPage,

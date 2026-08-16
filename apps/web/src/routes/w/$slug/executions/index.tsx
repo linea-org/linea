@@ -55,7 +55,7 @@ import {
   ExecutionStatusBadge,
   executionStatusLabel,
   formatCost,
-} from "../../../../components/executions"
+} from "@/components/executions"
 import {
   encodeExecutionCursor,
   listWorkspaceExecutionsFn,
@@ -63,7 +63,7 @@ import {
   workspaceExecutionsQueryOptions,
   type ExecutionStatus,
   type ExecutionTrigger,
-} from "../../../../lib/executions-api"
+} from "@/lib/executions-api"
 
 const EXECUTION_STATUSES: ExecutionStatus[] = [
   "queued",

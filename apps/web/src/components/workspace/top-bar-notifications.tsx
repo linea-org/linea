@@ -27,7 +27,7 @@ import {
   markNotificationUnreadFn,
   notificationsQueryOptions,
   unreadNotificationCountQueryOptions,
-} from "../../lib/notifications-api"
+} from "@/lib/notifications-api"
 
 export function TopBarNotifications({ slug }: { slug: string }) {
   const queryClient = useQueryClient()

@@ -7,7 +7,7 @@ import {
   type ChartConfig,
 } from "@linea/ui/components/chart"
 
-import type { SignalTrendPoint } from "../../lib/signals-api"
+import type { SignalTrendPoint } from "@/lib/signals-api"
 import { fillTrendGaps } from "./fill-trend-gaps"
 
 const chartConfig = {

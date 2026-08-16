@@ -1,4 +1,4 @@
-import type { NotificationSummary } from "../../lib/notifications-api"
+import type { NotificationSummary } from "@/lib/notifications-api"
 
 export type NotificationTarget =
   | {

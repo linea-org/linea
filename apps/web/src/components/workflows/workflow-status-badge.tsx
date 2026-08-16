@@ -1,6 +1,6 @@
 import { Badge } from "@linea/ui/components/badge"
 
-import type { WorkflowSummary } from "../../lib/workflows-api"
+import type { WorkflowSummary } from "@/lib/workflows-api"
 
 export function workflowStatus(workflow: WorkflowSummary) {
   if (workflow.archivedAt) return "Archived" as const

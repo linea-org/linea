@@ -1,4 +1,4 @@
-import type { SignalSummary } from "../../lib/signals-api"
+import type { SignalSummary } from "@/lib/signals-api"
 import { flagTypeLabel } from "./flag-type-label"
 
 export function SignalFlagTypeBreakdown({
