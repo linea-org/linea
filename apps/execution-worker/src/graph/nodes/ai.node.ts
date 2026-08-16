@@ -25,16 +25,15 @@ export class AiNode implements NodeHandler {
     const keyName = resolveKeyName(parsed.model)
     const { apiKey } = await resolveApiKey(db, context.workspaceId, keyName)
 
-    // In chat mode the authored `prompt` config isn't used for the turn's content — there's
-    // no upstream-output templating in the interpreter yet, so the only way this node sees
-    // the user's actual message is via the conversation's message log. The chat-preview
-    // endpoint persists the user's turn and stamps its id into triggerPayload as
-    // chatMessageId before triggering, so this execution can find its own turn precisely —
-    // "whichever message is latest" breaks the moment a second turn is submitted before this
-    // execution's AI node gets here, since both executions would then answer the second turn.
+    // Chat mode ignores the authored prompt — the turn's real content comes from chatMessageId, since there's no upstream-output templating yet.
     let prompt = parsed.prompt
     let history: { role: "user" | "assistant"; content: string }[] | undefined
-    if (parsed.conversationId && context.workflowId) {
+    if (parsed.conversationId) {
+      if (!context.workflowId) {
+        throw new Error(
+          `Chat execution for conversation ${parsed.conversationId} is missing workflowId`
+        )
+      }
       const messages = await repositories.chatMessage.listChatMessages(
         db,
         context.workspaceId,
@@ -45,16 +44,17 @@ export class AiNode implements NodeHandler {
         ? messages.findIndex((message) => message.id === context.chatMessageId)
         : messages.length - 1
       const own = ownIndex === -1 ? undefined : messages[ownIndex]
-      // A forged/stale chatMessageId could point at an assistant message — only a real user turn is a valid prompt.
-      if (own?.role === "user") {
-        prompt = own.content
-        // Sliced up to (not including) this execution's own message, not the whole array minus
-        // one — a later turn that landed in the table before this query ran, but after this
-        // execution's own turn, must not be mistaken for history or for the prompt.
-        history = messages
-          .slice(0, ownIndex)
-          .map((message) => ({ role: message.role, content: message.content }))
+      // A chatMessageId that doesn't resolve to a real user turn must fail the node, not silently call the provider with the authored fallback.
+      if (own?.role !== "user") {
+        throw new Error(
+          `Chat execution's chatMessageId did not resolve to a user turn in conversation ${parsed.conversationId}`
+        )
       }
+      prompt = own.content
+      // Sliced up to (not including) this execution's own message — a later turn queried before it lands must not be mistaken for history.
+      history = messages
+        .slice(0, ownIndex)
+        .map((message) => ({ role: message.role, content: message.content }))
     }
 
     // Unlike HttpNode, idempotencyKey isn't forwarded — no supported provider accepts one.

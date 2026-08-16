@@ -95,40 +95,38 @@ describe("AiNode", () => {
     )
   })
 
-  it("falls back to the authored prompt when chatMessageId points at an assistant message, not a user turn", async () => {
-    complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+  it("throws, without calling the provider, when chatMessageId points at an assistant message, not a user turn", async () => {
     listChatMessages.mockResolvedValue([
       { id: "m1", role: "user", content: "first turn" },
       { id: "m2", role: "assistant", content: "first reply" },
     ])
+    const callsBefore = complete.mock.calls.length
 
     const node = new AiNode()
-    await node.execute(
-      { prompt: "fallback prompt", model: "claude-sonnet-5" },
-      undefined,
-      { ...context, conversationId: "conv1", chatMessageId: "m2" }
-    )
+    await expect(
+      node.execute(
+        { prompt: "fallback prompt", model: "claude-sonnet-5" },
+        undefined,
+        { ...context, conversationId: "conv1", chatMessageId: "m2" }
+      )
+    ).rejects.toThrow("did not resolve to a user turn")
 
-    expect(complete).toHaveBeenCalledWith(
-      "secret",
-      expect.objectContaining({ prompt: "fallback prompt", history: undefined })
-    )
+    expect(complete).toHaveBeenCalledTimes(callsBefore)
   })
 
-  it("falls back to the authored prompt when the conversation has no messages yet", async () => {
-    complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+  it("throws, without calling the provider, when the conversation has no messages yet", async () => {
     listChatMessages.mockResolvedValue([])
+    const callsBefore = complete.mock.calls.length
 
     const node = new AiNode()
-    await node.execute(
-      { prompt: "fallback prompt", model: "claude-sonnet-5" },
-      undefined,
-      { ...context, conversationId: "conv1" }
-    )
+    await expect(
+      node.execute(
+        { prompt: "fallback prompt", model: "claude-sonnet-5" },
+        undefined,
+        { ...context, conversationId: "conv1" }
+      )
+    ).rejects.toThrow("did not resolve to a user turn")
 
-    expect(complete).toHaveBeenCalledWith(
-      "secret",
-      expect.objectContaining({ prompt: "fallback prompt", history: undefined })
-    )
+    expect(complete).toHaveBeenCalledTimes(callsBefore)
   })
 })
