@@ -1,5 +1,6 @@
 import { Injectable, type OnModuleDestroy } from '@nestjs/common'
 import {
+  closeQueueConnection,
   createConnection,
   createWorkflowStepReplayQueue,
   enqueueWorkflowStepReplay,
@@ -46,7 +47,6 @@ export class StepReplayQueueService implements OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.queue.close()
-    await this.connection.quit()
+    await closeQueueConnection(this.queue, this.connection)
   }
 }

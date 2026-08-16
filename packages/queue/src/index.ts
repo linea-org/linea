@@ -1,4 +1,4 @@
-export { createConnection } from "./connection.js"
+export { closeQueueConnection, createConnection } from "./connection.js"
 export {
   WORKFLOW_EXECUTION_QUEUE,
   createWorkflowExecutionQueue,
