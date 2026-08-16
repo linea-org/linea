@@ -356,6 +356,7 @@ describe("RunsService chat-preview message persistence", () => {
       const messages = await repositories.chatMessage.listChatMessages(
         db,
         organization.id,
+        workflow.id,
         conversationId
       )
       expect(messages).toHaveLength(1)

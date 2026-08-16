@@ -14,9 +14,23 @@ export async function createChatMessage(
   return message
 }
 
+/** Scoped by workspaceId in the same query, not a separate ownership check. Used to compensate for a user turn whose triggering execution never made it onto the queue - there is no reply coming, so the turn shouldn't linger in history either. */
+export async function deleteChatMessage(
+  db: DbClient,
+  workspaceId: string,
+  id: string
+): Promise<void> {
+  await db
+    .delete(chatMessages)
+    .where(
+      and(eq(chatMessages.id, id), eq(chatMessages.workspaceId, workspaceId))
+    )
+}
+
 export async function listChatMessages(
   db: DbClient,
   workspaceId: string,
+  workflowId: string,
   conversationId: string
 ): Promise<ChatMessage[]> {
   return db
@@ -25,6 +39,7 @@ export async function listChatMessages(
     .where(
       and(
         eq(chatMessages.workspaceId, workspaceId),
+        eq(chatMessages.workflowId, workflowId),
         eq(chatMessages.conversationId, conversationId)
       )
     )

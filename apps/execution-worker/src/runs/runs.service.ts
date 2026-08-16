@@ -107,6 +107,7 @@ export class RunsService {
       const outcome = await this.interpreter.run({
         executionId,
         workspaceId: execution.workspaceId,
+        workflowId: execution.workflowId,
         leasedBy: attemptId,
         graph,
         triggerPayload: execution.triggerPayload,

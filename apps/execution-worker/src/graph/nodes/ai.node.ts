@@ -28,21 +28,30 @@ export class AiNode implements NodeHandler {
     // In chat mode the authored `prompt` config isn't used for the turn's content — there's
     // no upstream-output templating in the interpreter yet, so the only way this node sees
     // the user's actual message is via the conversation's message log. The chat-preview
-    // endpoint always persists the user's turn before triggering, so the latest row here is
-    // always that message; everything before it becomes history.
+    // endpoint persists the user's turn and stamps its id into triggerPayload as
+    // chatMessageId before triggering, so this execution can find its own turn precisely —
+    // "whichever message is latest" breaks the moment a second turn is submitted before this
+    // execution's AI node gets here, since both executions would then answer the second turn.
     let prompt = parsed.prompt
     let history: { role: "user" | "assistant"; content: string }[] | undefined
-    if (parsed.conversationId) {
+    if (parsed.conversationId && context.workflowId) {
       const messages = await repositories.chatMessage.listChatMessages(
         db,
         context.workspaceId,
+        context.workflowId,
         parsed.conversationId
       )
-      const latest = messages[messages.length - 1]
-      if (latest) {
-        prompt = latest.content
+      const ownIndex = context.chatMessageId
+        ? messages.findIndex((message) => message.id === context.chatMessageId)
+        : messages.length - 1
+      const own = ownIndex === -1 ? undefined : messages[ownIndex]
+      if (own) {
+        prompt = own.content
+        // Sliced up to (not including) this execution's own message, not the whole array minus
+        // one — a later turn that landed in the table before this query ran, but after this
+        // execution's own turn, must not be mistaken for history or for the prompt.
         history = messages
-          .slice(0, -1)
+          .slice(0, ownIndex)
           .map((message) => ({ role: message.role, content: message.content }))
       }
     }

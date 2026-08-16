@@ -169,30 +169,40 @@ export class ExecutionsService {
       { graph: input.graph, contentHash: hashWorkflowGraph(input.graph) },
     )
 
-    await repositories.chatMessage.createChatMessage(db, {
-      workspaceId,
-      workflowId,
-      conversationId,
-      role: 'user',
-      content: input.message,
-    })
-
-    const result =
-      await repositories.execution.triggerWorkflowExecutionForVersion(
-        db,
+    // The user turn and the execution that will answer it are created together so a trigger
+    // failure (e.g. the workflow was archived in the gap since the check above) rolls back the
+    // message too, instead of leaving an orphaned turn with nothing able to reply to it. The
+    // message's own id rides along in triggerPayload as chatMessageId so the AI node can find
+    // its own turn precisely rather than assuming "whichever message is latest" once it runs.
+    const { chatMessage, execution } = await db.transaction(async (tx) => {
+      const chatMessage = await repositories.chatMessage.createChatMessage(tx, {
         workspaceId,
         workflowId,
-        version.id,
-        { trigger: 'manual', triggerPayload: { conversationId } },
-      )
-    switch (result.outcome) {
-      case 'not_found':
-        throw new NotFoundException('Workflow not found')
-      case 'archived':
-        throw new BadRequestException('Workflow is archived')
-    }
+        conversationId,
+        role: 'user',
+        content: input.message,
+      })
 
-    const execution = result.execution
+      const result =
+        await repositories.execution.triggerWorkflowExecutionForVersion(
+          tx,
+          workspaceId,
+          workflowId,
+          version.id,
+          {
+            trigger: 'manual',
+            triggerPayload: { conversationId, chatMessageId: chatMessage.id },
+          },
+        )
+      switch (result.outcome) {
+        case 'not_found':
+          throw new NotFoundException('Workflow not found')
+        case 'archived':
+          throw new BadRequestException('Workflow is archived')
+      }
+
+      return { chatMessage, execution: result.execution }
+    })
 
     try {
       await this.queue.enqueue(execution.id)
@@ -201,6 +211,12 @@ export class ExecutionsService {
       await repositories.execution.failQueuedExecution(db, execution.id, {
         message,
       })
+      // No execution will ever answer this turn now - drop it rather than leave it stranded in
+      // history (where a retry would otherwise duplicate it and feed the orphan into later
+      // turns' AI history).
+      await repositories.chatMessage
+        .deleteChatMessage(db, workspaceId, chatMessage.id)
+        .catch(() => {})
       throw new ServiceUnavailableException(
         'Failed to enqueue execution — it will not run',
       )
@@ -225,6 +241,7 @@ export class ExecutionsService {
     return repositories.chatMessage.listChatMessages(
       db,
       workspaceId,
+      workflowId,
       conversationId,
     )
   }

@@ -31,6 +31,7 @@ describe("chat-message.repository", () => {
       const messages = await listChatMessages(
         tx,
         organization.id,
+        workflow.id,
         conversationId
       )
       expect(messages).toHaveLength(2)
@@ -66,10 +67,45 @@ describe("chat-message.repository", () => {
       const messages = await listChatMessages(
         tx,
         organization.id,
+        workflow.id,
         conversationId
       )
       expect(messages).toHaveLength(1)
       expect(messages[0].content).toBe("in scope")
+    })
+  })
+
+  it("scopes by workflowId, excluding another workflow's conversation of the same id in the same workspace", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      const otherWorkflow = await createTestFixtures(tx)
+      const conversationId = randomUUID()
+
+      await createChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "workflow A's turn",
+      })
+      // Same workspace as `organization`, different workflow, reusing the same conversationId -
+      // must not be visible when scoped to `workflow`.
+      await createChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: otherWorkflow.workflow.id,
+        conversationId,
+        role: "user",
+        content: "workflow B's turn",
+      })
+
+      const messages = await listChatMessages(
+        tx,
+        organization.id,
+        workflow.id,
+        conversationId
+      )
+      expect(messages).toHaveLength(1)
+      expect(messages[0].content).toBe("workflow A's turn")
     })
   })
 
@@ -97,6 +133,7 @@ describe("chat-message.repository", () => {
       const messages = await listChatMessages(
         tx,
         organization.id,
+        workflow.id,
         conversationA
       )
       expect(messages).toHaveLength(1)

@@ -390,8 +390,14 @@ describe('ExecutionsService', () => {
           { graph, message: 'hello' },
         )
         expect(first.execution.status).toBe('queued')
+        const messagesAfterFirst = await service.listChatMessages(
+          organization.id,
+          workflow.id,
+          first.conversationId,
+        )
         expect(first.execution.triggerPayload).toEqual({
           conversationId: first.conversationId,
+          chatMessageId: messagesAfterFirst[0].id,
         })
 
         const second = await service.sendChatMessage(
@@ -481,6 +487,124 @@ describe('ExecutionsService', () => {
         await pool.query('DELETE FROM organizations WHERE id IN ($1, $2)', [
           owningOrg.id,
           attackerOrg.id,
+        ])
+      }
+    })
+
+    it('scopes a conversation lookup by workflow, not just workspace', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Cross-Workflow Test Org',
+          slug: `chat-preview-cross-workflow-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflowA = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Workflow A',
+          slug: `chat-preview-a-${suffix}`,
+        })
+        const workflowB = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Workflow B',
+          slug: `chat-preview-b-${suffix}`,
+        })
+
+        const turn = await service.sendChatMessage(
+          organization.id,
+          workflowA.id,
+          {
+            graph,
+            message: "workflow A's secret turn",
+          },
+        )
+
+        // Workflow B, in the same workspace, must not see workflow A's transcript even though
+        // it supplies the same conversationId.
+        const leaked = await service.listChatMessages(
+          organization.id,
+          workflowB.id,
+          turn.conversationId,
+        )
+        expect(leaked).toEqual([])
+
+        const own = await service.listChatMessages(
+          organization.id,
+          workflowA.id,
+          turn.conversationId,
+        )
+        expect(own).toHaveLength(1)
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it('does not leave an orphaned user turn when enqueueing fails', async () => {
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Enqueue Fail Test Org',
+          slug: `chat-preview-enqueue-fail-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Enqueue Fail Chat Workflow',
+          slug: `chat-preview-enqueue-fail-${suffix}`,
+        })
+
+        const failingQueue = {
+          enqueue: () => Promise.reject(new Error('redis unreachable')),
+        } as unknown as WorkflowQueueService
+        const unusedStepReplayQueue = {} as StepReplayQueueService
+        const service = new ExecutionsService(
+          failingQueue,
+          unusedStepReplayQueue,
+        )
+
+        await expect(
+          service.sendChatMessage(organization.id, workflow.id, {
+            graph,
+            message: 'hello',
+          }),
+        ).rejects.toThrow()
+
+        const list = await repositories.execution.listExecutions(
+          db,
+          workflow.id,
+        )
+        expect(list).toHaveLength(1)
+        expect(list[0].status).toBe('failed')
+
+        const conversations = await repositories.chatMessage.listConversations(
+          db,
+          organization.id,
+          workflow.id,
+        )
+        expect(conversations).toEqual([])
+      } finally {
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
         ])
       }
     })

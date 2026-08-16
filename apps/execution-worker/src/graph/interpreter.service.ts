@@ -22,6 +22,9 @@ import { TransformNode } from "./nodes/transform.node"
 export type RunInput = {
   executionId: string
   workspaceId: string
+  // Only needed to scope a chat-preview conversation lookup by workflow (see AiNode) - optional
+  // so callers with no conversation concept (replay, most tests) don't need to supply it.
+  workflowId?: string
   leasedBy: string
   graph: WorkflowGraph
   triggerPayload: unknown
@@ -61,6 +64,14 @@ function extractConversationId(triggerPayload: unknown): string | undefined {
     return undefined
   }
   const value = (triggerPayload as Record<string, unknown>).conversationId
+  return typeof value === "string" ? value : undefined
+}
+
+function extractChatMessageId(triggerPayload: unknown): string | undefined {
+  if (triggerPayload === null || typeof triggerPayload !== "object") {
+    return undefined
+  }
+  const value = (triggerPayload as Record<string, unknown>).chatMessageId
   return typeof value === "string" ? value : undefined
 }
 
@@ -107,7 +118,9 @@ export class InterpreterService {
     workspaceId: string,
     idempotencyKey?: string,
     signal?: AbortSignal,
-    conversationId?: string
+    conversationId?: string,
+    workflowId?: string,
+    chatMessageId?: string
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -122,6 +135,8 @@ export class InterpreterService {
       idempotencyKey,
       signal,
       conversationId,
+      workflowId,
+      chatMessageId,
     })
     const usage = extractTokenUsage(output)
     return {
@@ -170,7 +185,9 @@ export class InterpreterService {
           input.workspaceId,
           `${input.executionId}:${step.nodeId}`,
           input.signal,
-          extractConversationId(input.triggerPayload)
+          extractConversationId(input.triggerPayload),
+          input.workflowId,
+          extractChatMessageId(input.triggerPayload)
         )
         let costMicros: bigint | undefined
         let stepCostUnpriced: boolean | undefined
