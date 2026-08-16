@@ -608,6 +608,73 @@ describe('ExecutionsService', () => {
         ])
       }
     })
+
+    it('does not delete the triggering message when the execution was already claimed despite the enqueue error', async () => {
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Racy Enqueue Test Org',
+          slug: `chat-preview-racy-enqueue-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Racy Enqueue Chat Workflow',
+          slug: `chat-preview-racy-enqueue-${suffix}`,
+        })
+
+        // Simulates the real race the fix protects against: the enqueue's underlying Redis
+        // command actually landed and a worker claimed the execution before this call's own
+        // timeout/error fired (WorkflowQueueService's own "accepted Phase 0 risk" note).
+        const racyQueue = {
+          enqueue: async (executionId: string) => {
+            await repositories.execution.startExecution(
+              db,
+              executionId,
+              'worker-a',
+              new Date(Date.now() + 60_000),
+            )
+            throw new Error('enqueue timed out (but the job actually landed)')
+          },
+        } as unknown as WorkflowQueueService
+        const unusedStepReplayQueue = {} as StepReplayQueueService
+        const service = new ExecutionsService(racyQueue, unusedStepReplayQueue)
+
+        await expect(
+          service.sendChatMessage(organization.id, workflow.id, {
+            graph,
+            message: 'hello',
+          }),
+        ).rejects.toThrow()
+
+        const list = await repositories.execution.listExecutions(
+          db,
+          workflow.id,
+        )
+        expect(list).toHaveLength(1)
+        // failQueuedExecution only transitions a still-"queued" row - this one was already
+        // claimed, so it stays "running", not "failed".
+        expect(list[0].status).toBe('running')
+
+        // The running execution still needs this message to persist its linked reply - it
+        // must not have been deleted.
+        const conversations = await repositories.chatMessage.listConversations(
+          db,
+          organization.id,
+          workflow.id,
+        )
+        expect(conversations).toHaveLength(1)
+        expect(conversations[0].messageCount).toBe(1)
+      } finally {
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
   })
 
   describe('get()', () => {

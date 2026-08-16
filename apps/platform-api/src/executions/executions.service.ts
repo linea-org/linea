@@ -208,15 +208,22 @@ export class ExecutionsService {
       await this.queue.enqueue(execution.id)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      await repositories.execution.failQueuedExecution(db, execution.id, {
-        message,
-      })
-      // No execution will ever answer this turn now - drop it rather than leave it stranded in
-      // history (where a retry would otherwise duplicate it and feed the orphan into later
-      // turns' AI history).
-      await repositories.chatMessage
-        .deleteChatMessage(db, workspaceId, chatMessage.id)
-        .catch(() => {})
+      const failed = await repositories.execution.failQueuedExecution(
+        db,
+        execution.id,
+        { message },
+      )
+      // failQueuedExecution only transitions a still-"queued" row - an enqueue() timeout doesn't
+      // guarantee the underlying Redis command actually failed (see WorkflowQueueService's own
+      // accepted-risk note), so a worker may already have claimed this execution by the time we
+      // get here. Only delete the triggering message when we genuinely won the "failed"
+      // transition - otherwise the execution really is running and still needs this message to
+      // persist its linked reply.
+      if (failed) {
+        await repositories.chatMessage
+          .deleteChatMessage(db, workspaceId, chatMessage.id)
+          .catch(() => {})
+      }
       throw new ServiceUnavailableException(
         'Failed to enqueue execution — it will not run',
       )
