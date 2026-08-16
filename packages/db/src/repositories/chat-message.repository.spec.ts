@@ -43,6 +43,64 @@ describe("chat-message.repository", () => {
     })
   })
 
+  it("orders assistant replies by their own turn, not by which execution's AI call finished first", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      const conversationId = randomUUID()
+      const now = Date.now()
+
+      const user1 = await createChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "first turn",
+        createdAt: new Date(now),
+      })
+      const user2 = await createChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "second turn",
+        createdAt: new Date(now + 1_000),
+      })
+      // Turn 2's independent execution finishes first in wall-clock time, even though turn 1
+      // was submitted first - a real race between two concurrent AI calls.
+      await createChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "assistant",
+        content: "second reply",
+        respondsToMessageId: user2.id,
+        createdAt: new Date(now + 2_000),
+      })
+      await createChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "assistant",
+        content: "first reply",
+        respondsToMessageId: user1.id,
+        createdAt: new Date(now + 3_000),
+      })
+
+      const messages = await listChatMessages(
+        tx,
+        organization.id,
+        workflow.id,
+        conversationId
+      )
+      expect(messages.map((m) => m.content)).toEqual([
+        "first turn",
+        "first reply",
+        "second turn",
+        "second reply",
+      ])
+    })
+  })
+
   it("scopes by workspaceId, excluding another workspace's conversation of the same id", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)

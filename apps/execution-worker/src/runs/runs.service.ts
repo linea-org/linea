@@ -14,6 +14,14 @@ function extractConversationId(triggerPayload: unknown): string | undefined {
   return typeof value === "string" ? value : undefined
 }
 
+function extractChatMessageId(triggerPayload: unknown): string | undefined {
+  if (triggerPayload === null || typeof triggerPayload !== "object") {
+    return undefined
+  }
+  const value = (triggerPayload as Record<string, unknown>).chatMessageId
+  return typeof value === "string" ? value : undefined
+}
+
 /** The most recently completed node whose output looks like an AI node's — walked from the end, since a graph can have more than one `ai` node and the chat reply is whichever one ran last. */
 function extractAssistantReply(
   completed: Map<string, unknown>
@@ -160,6 +168,12 @@ export class RunsService {
                 executionId,
                 role: "assistant",
                 content: reply,
+                // Links this reply to its own triggering turn so transcript ordering (see
+                // listChatMessages) isn't at the mercy of which of two concurrent executions'
+                // AI calls happens to finish first.
+                respondsToMessageId: extractChatMessageId(
+                  execution.triggerPayload
+                ),
               })
               .catch((error: unknown) => {
                 const message =

@@ -372,6 +372,85 @@ describe("RunsService chat-preview message persistence", () => {
     }
   })
 
+  it("links the persisted assistant reply to its own triggering user message via respondsToMessageId", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Chat Order Test Org",
+        slug: `runs-chat-order-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Chat Order Test Workflow",
+        slug: `runs-chat-order-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-chat-order-hash",
+      })
+      const conversationId = randomUUID()
+      const userMessage = await repositories.chatMessage.createChatMessage(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "hello",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: { conversationId, chatMessageId: userMessage.id },
+      })
+
+      const fastInterpreter = {
+        run: () =>
+          Promise.resolve({
+            result: { status: "completed" as const },
+            totalTokensInput: 10,
+            totalTokensOutput: 5,
+            totalCostMicros: 0n,
+            costUnpriced: false,
+            completed: new Map([["n1", { text: "the reply" }]]),
+          }),
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        fastInterpreter,
+        new RunLeaseService()
+      )
+      await runs.execute(execution.id)
+
+      const messages = await repositories.chatMessage.listChatMessages(
+        db,
+        organization.id,
+        workflow.id,
+        conversationId
+      )
+      const reply = messages.find((m) => m.role === "assistant")
+      expect(reply?.respondsToMessageId).toBe(userMessage.id)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
   it("persists nothing when triggerPayload has no conversationId", async () => {
     const suffix = randomUUID()
     const [organization] = await db

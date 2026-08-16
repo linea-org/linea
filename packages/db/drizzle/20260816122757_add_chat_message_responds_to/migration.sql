@@ -1,0 +1,2 @@
+ALTER TABLE "chat_messages" ADD COLUMN "responds_to_message_id" uuid;--> statement-breakpoint
+ALTER TABLE "chat_messages" ADD CONSTRAINT "chat_messages_responds_to_message_id_chat_messages_id_fkey" FOREIGN KEY ("responds_to_message_id") REFERENCES "chat_messages"("id");
