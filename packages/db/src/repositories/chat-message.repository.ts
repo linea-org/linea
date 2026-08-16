@@ -54,7 +54,7 @@ export async function deleteChatMessage(
     )
 }
 
-/** Catches what a failed compensating delete missed: a user turn whose triggering execution definitively failed (so no reply is ever coming) and that's still unanswered, older than the given cutoff so a turn mid-flight is never touched. */
+/** Catches what a failed compensating delete missed: a user turn whose triggering execution definitively failed (so no reply is ever coming) and that's still unanswered, older than the given cutoff so a turn mid-flight is never touched. The matching execution is also scoped by workspace/workflow, not just chatMessageId — triggerPayload is caller-supplied, so an unscoped match could delete an unrelated message in another workflow. */
 export async function deleteOrphanedChatMessages(
   db: DbClient,
   olderThan: Date
@@ -66,6 +66,8 @@ export async function deleteOrphanedChatMessages(
       and exists (
         select 1 from ${executions}
         where ${executions.triggerPayload} ->> 'chatMessageId' = ${chatMessages.id}::text
+          and ${executions.workspaceId} = ${chatMessages.workspaceId}
+          and ${executions.workflowId} = ${chatMessages.workflowId}
           and ${executions.status} = 'failed'
       )
       and not exists (

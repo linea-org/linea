@@ -470,5 +470,44 @@ describe("chat-message.repository", () => {
         expect(deleted).toBe(0)
       })
     })
+
+    it("does not delete a message when a failed execution in a different workflow happens to carry the same chatMessageId", async () => {
+      await withRollback(async (tx) => {
+        const { organization, workflow } = await createTestFixtures(tx)
+        const otherWorkflow = await createTestFixtures(tx)
+        const conversationId = randomUUID()
+        const message = await createChatMessage(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "user",
+          content: "hello",
+          createdAt: new Date(Date.now() - 120_000),
+        })
+        // Unrelated execution in a different workflow, whose triggerPayload happens to name this exact message id.
+        const foreignExecution = await createExecution(tx, {
+          workspaceId: otherWorkflow.organization.id,
+          workflowId: otherWorkflow.workflow.id,
+          workflowVersionId: otherWorkflow.version.id,
+          trigger: "manual",
+          triggerPayload: { conversationId, chatMessageId: message.id },
+        })
+        await failQueuedExecution(tx, foreignExecution.id, { message: "boom" })
+
+        const deleted = await deleteOrphanedChatMessages(
+          tx,
+          new Date(Date.now() - 60_000)
+        )
+        expect(deleted).toBe(0)
+
+        const remaining = await listChatMessages(
+          tx,
+          organization.id,
+          workflow.id,
+          conversationId
+        )
+        expect(remaining).toHaveLength(1)
+      })
+    })
   })
 })
