@@ -33,6 +33,8 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.2.1",
+    "@nestjs/websockets": "^11.2.1",
     "@thallesp/nestjs-better-auth": "2.7.0",
     "better-auth": "1.6.25",
     "bullmq": "^5",
@@ -40,6 +42,7 @@
     "ioredis": "^5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.8.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {

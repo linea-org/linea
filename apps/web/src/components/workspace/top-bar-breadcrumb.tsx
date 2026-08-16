@@ -81,6 +81,9 @@ function useBreadcrumbs(slug: string): Crumb[] {
       })
       crumbs.push({ label: "Execution" })
     }
+    if (match.routeId === "/w/$slug/notifications") {
+      crumbs.push({ label: "Notifications" })
+    }
     if (match.routeId === "/w/$slug/settings/") {
       crumbs.push({ label: "Settings" })
     }

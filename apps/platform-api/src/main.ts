@@ -2,27 +2,16 @@ import '@linea/config/env'
 import type { NextFunction, Request, Response } from 'express'
 import helmet from 'helmet'
 import { NestFactory } from '@nestjs/core'
+import { IoAdapter } from '@nestjs/platform-socket.io'
 import { enabledSocialProviders } from '@linea/auth'
 import { AppModule } from './app.module'
 import { bigIntJsonReplacer } from './common/bigint-json-replacer'
+import { getTrustedOrigins, isTrustedOrigin } from './common/trusted-origin'
 
 function normalizeClientIp(raw: string | undefined) {
   if (!raw) return '127.0.0.1'
   if (raw === '::1' || raw === '::ffff:127.0.0.1') return '127.0.0.1'
   return raw.startsWith('::ffff:') ? raw.slice('::ffff:'.length) : raw
-}
-
-function isTrustedOrigin(origin: string, allowlist: string[]) {
-  if (allowlist.includes(origin)) return true
-
-  try {
-    const appUrl = process.env.APP_URL
-    if (appUrl && origin === new URL(appUrl).origin) return true
-  } catch {
-    return false
-  }
-
-  return false
 }
 
 async function bootstrap() {
@@ -35,6 +24,7 @@ async function bootstrap() {
   }
   expressApp.set('trust proxy', 1)
   expressApp.set('json replacer', bigIntJsonReplacer)
+  app.useWebSocketAdapter(new IoAdapter(app))
 
   app.use((req: Request, _res: Response, next: NextFunction) => {
     const ip = normalizeClientIp(req.socket.remoteAddress)
@@ -47,14 +37,7 @@ async function bootstrap() {
     next()
   })
 
-  const trustedOrigins = (
-    process.env.TRUSTED_ORIGINS ??
-    process.env.APP_URL ??
-    ''
-  )
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean)
+  const trustedOrigins = getTrustedOrigins()
 
   app.use(
     helmet({

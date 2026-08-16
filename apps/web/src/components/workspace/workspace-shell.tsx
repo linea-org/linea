@@ -224,7 +224,7 @@ export function WorkspaceShell({
                 <TopBarSearch />
               </div>
               <div className="flex flex-1 items-center justify-end">
-                <TopBarNotifications />
+                <TopBarNotifications slug={slug} />
               </div>
             </div>
           )}

@@ -8,7 +8,12 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common'
-import { OptionalAuth } from '@thallesp/nestjs-better-auth'
+import {
+  OptionalAuth,
+  Session,
+  type UserSession,
+} from '@thallesp/nestjs-better-auth'
+import type { auth } from '@linea/auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
@@ -65,12 +70,25 @@ export class WorkflowsController {
 
   @Put(':id/draft')
   saveDraft(
+    @Session() session: UserSession<typeof auth> | null,
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id') id: string,
     @Body(new ZodValidationPipe(saveWorkflowDraftSchema))
     body: SaveWorkflowDraftDto,
   ) {
-    return this.workflows.saveDraft(workspaceId, id, body)
+    const savedBy = session?.user
+      ? { userId: session.user.id, name: session.user.name }
+      : undefined
+    return this.workflows.saveDraft(workspaceId, id, body, savedBy)
+  }
+
+  @Post(':id/realtime-token')
+  mintRealtimeToken(
+    @Session() session: UserSession<typeof auth> | null,
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('id') id: string,
+  ) {
+    return this.workflows.mintRealtimeToken(workspaceId, id, session)
   }
 
   @Post(':id/versions')
