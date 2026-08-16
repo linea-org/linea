@@ -40,29 +40,33 @@ export async function createFlagIfNew(
   db: DbClient,
   input: NewFlag
 ): Promise<Flag | undefined> {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [flag] = await tx
       .insert(flags)
       .values(input)
       .onConflictDoNothing({ target: flags.dedupeKey })
       .returning()
-    if (flag) {
-      const { signal, justRegressed } = await recordSignalOccurrence(tx, flag)
-      if (justRegressed) {
-        // Best-effort: a notification failure shouldn't roll back a real flag/signal that already landed.
-        await notifySignalRegressed(tx, flag, signal.id).catch(
-          (error: unknown) => {
-            const message =
-              error instanceof Error ? error.message : String(error)
-            console.error(
-              `Failed to create signal-regressed notification for signal ${signal.id}: ${message}`
-            )
-          }
+    if (!flag) return undefined
+    const { signal, justRegressed } = await recordSignalOccurrence(tx, flag)
+    return { flag, signal, justRegressed }
+  })
+
+  if (result?.justRegressed) {
+    // Run after the transaction commits, on the outer (non-transactional) client: a failure here
+    // must stay best-effort in the Postgres sense too, not just the JS sense — a notification
+    // insert that fails mid-transaction aborts the whole transaction regardless of whether the
+    // rejection is caught, silently rolling back the flag/signal write it was never supposed to affect.
+    await notifySignalRegressed(db, result.flag, result.signal.id).catch(
+      (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error(
+          `Failed to create signal-regressed notification for signal ${result.signal.id}: ${message}`
         )
       }
-    }
-    return flag
-  })
+    )
+  }
+
+  return result?.flag
 }
 
 export type RetryStormResult = {
