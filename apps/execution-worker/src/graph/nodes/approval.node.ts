@@ -23,6 +23,17 @@ function parseTimeoutAt(raw: unknown): Date | undefined {
   return new Date(Date.now() + minutes * 60_000)
 }
 
+// approval.message is workflow-author-controlled and interpolated into an email's HTML body —
+// escaped so it can only ever render as inert text, never as markup (links, images, scripts).
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 @Injectable()
 export class ApprovalNode implements NodeHandler {
   private readonly logger = new Logger(ApprovalNode.name)
@@ -141,7 +152,7 @@ export class ApprovalNode implements NodeHandler {
             sendEmail({
               to,
               subject: `${workflow?.name ?? "A workflow"} needs your approval`,
-              html: `<p>${approval.message ?? "A workflow run is waiting on your decision."}</p>`,
+              html: `<p>${escapeHtml(approval.message ?? "A workflow run is waiting on your decision.")}</p>`,
               text:
                 approval.message ??
                 "A workflow run is waiting on your decision.",

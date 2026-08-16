@@ -3,7 +3,10 @@ import { Injectable, Logger } from "@nestjs/common"
 import { db, repositories, type Execution } from "@linea/db"
 import { validateGraphStructure, workflowGraphSchema } from "@linea/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
-import { InterpreterService } from "../graph/interpreter.service"
+import {
+  InterpreterService,
+  type RunOutcome,
+} from "../graph/interpreter.service"
 import { RunLeaseService } from "./run-lease.service"
 
 @Injectable()
@@ -78,19 +81,37 @@ export class RunsService {
         )
       }
 
-      const outcome = await this.interpreter.run({
-        executionId,
-        workspaceId: execution.workspaceId,
-        leasedBy: attemptId,
-        graph,
-        triggerPayload: execution.triggerPayload,
-        resumeFrom,
-        initialTokensInput: resumeTokens.tokensInput,
-        initialTokensOutput: resumeTokens.tokensOutput,
-        initialCostMicros: resumeTokens.costMicros,
-        initialCostUnpriced: resumeTokens.costUnpriced,
-        signal: abortController.signal,
-      })
+      // An approval node never checkpoints before throwing PauseExecutionError (there's no
+      // output to record yet), so re-running from the same resumeFrom just re-enters it. That
+      // makes this loop safe as the fix for a real race: the approval node creates its row and
+      // notifies before this execution is ever marked "paused" below, so a fast enough response
+      // can find nothing to flip back from "paused" to "queued" and land permanently stuck. If
+      // the approval is already resolved by the time we're about to pause, skip pausing and
+      // loop back immediately — the node returns its real output instead of pausing again.
+      let outcome: RunOutcome
+      for (;;) {
+        outcome = await this.interpreter.run({
+          executionId,
+          workspaceId: execution.workspaceId,
+          leasedBy: attemptId,
+          graph,
+          triggerPayload: execution.triggerPayload,
+          resumeFrom,
+          initialTokensInput: resumeTokens.tokensInput,
+          initialTokensOutput: resumeTokens.tokensOutput,
+          initialCostMicros: resumeTokens.costMicros,
+          initialCostUnpriced: resumeTokens.costUnpriced,
+          signal: abortController.signal,
+        })
+        if (!outcome.pausedAt) break
+        const approval = await repositories.approval.getApproval(
+          db,
+          execution.workspaceId,
+          executionId,
+          outcome.pausedAt
+        )
+        if (!approval || approval.status === "pending") break
+      }
       knownTokensInput = outcome.totalTokensInput
       knownTokensOutput = outcome.totalTokensOutput
       knownCostMicros = outcome.totalCostMicros

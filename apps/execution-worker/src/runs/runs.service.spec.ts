@@ -461,4 +461,108 @@ describe("RunsService fencing identity", () => {
       ])
     }
   })
+
+  it("loops back and continues immediately instead of pausing when the approval resolves before the pause is recorded", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Approval Race Test Org",
+        slug: `runs-approval-race-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "approval-1",
+        nodes: [{ id: "approval-1", type: "approval", config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Approval Race Test Workflow",
+        slug: `runs-approval-race-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-approval-race-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+
+      // Simulates a response racing ahead of the pause: the approval already exists and is
+      // already resolved before RunsService ever gets to mark the execution "paused" - the
+      // real-world sequence is the approval node creating the row and notifying, then the
+      // approver responding, all before this function's own pausedAt handling runs.
+      const approval = await repositories.approval.createApproval(db, {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: "approval-1",
+      })
+      await repositories.approval.resolveApproval(
+        db,
+        organization.id,
+        approval!.id,
+        {
+          status: "approved",
+          respondedBy: null,
+          respondedByEmail: "anyone@test.dev",
+        }
+      )
+
+      let callCount = 0
+      const racyInterpreter = {
+        run: () => {
+          callCount += 1
+          if (callCount === 1) {
+            return Promise.resolve({
+              pausedAt: "approval-1",
+              totalTokensInput: 0,
+              totalTokensOutput: 0,
+              totalCostMicros: 0n,
+              costUnpriced: false as const,
+            })
+          }
+          return Promise.resolve({
+            result: { status: "completed" as const },
+            totalTokensInput: 0,
+            totalTokensOutput: 0,
+            totalCostMicros: 0n,
+            costUnpriced: false as const,
+            completed: new Map(),
+          })
+        },
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        racyInterpreter,
+        new RunLeaseService()
+      )
+      await runs.execute(execution.id)
+
+      // Proves the loop actually re-ran the interpreter instead of pausing on the first
+      // pausedAt result.
+      expect(callCount).toBe(2)
+
+      const reloaded = await repositories.execution.getExecutionById(
+        db,
+        execution.id
+      )
+      expect(reloaded?.status).toBe("succeeded")
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
 })

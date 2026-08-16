@@ -67,12 +67,17 @@ export async function listPendingApprovals(
 export type ResolveApprovalInput = {
   status: "approved" | "rejected"
   respondedBy: string | null
+  // The responder's email, checked against approverEmails in the same query that resolves the
+  // row — required for every human response so a non-designated workspace member's request
+  // simply matches no row, the same way an already-resolved approval does, rather than being
+  // checked separately (and skippably) before this call.
+  respondedByEmail: string
   comment?: string | null
   // True only when the background-worker timeout poller resolved this, never a human response.
   timedOut?: boolean
 }
 
-/** Resolves the approval (only if still pending — prevents double-response) and flips its execution back to `queued` in the same transaction, so the caller only needs to enqueue afterward. */
+/** Resolves the approval (only if still pending and the responder is eligible — see eligibleForUser — which also prevents double-response) and flips its execution back to `queued` in the same transaction, so the caller only needs to enqueue afterward. */
 export async function resolveApproval(
   db: DbClient,
   workspaceId: string,
@@ -93,7 +98,8 @@ export async function resolveApproval(
         and(
           eq(approvals.id, approvalId),
           eq(approvals.workspaceId, workspaceId),
-          eq(approvals.status, "pending")
+          eq(approvals.status, "pending"),
+          eligibleForUser(input.respondedByEmail)
         )
       )
       .returning()

@@ -108,6 +108,7 @@ describe("approval.repository", () => {
         await resolveApproval(tx, organization.id, approval!.id, {
           status: "approved",
           respondedBy: null,
+          respondedByEmail: "anyone@test.dev",
         })
 
         expect(
@@ -139,6 +140,7 @@ describe("approval.repository", () => {
           {
             status: "approved",
             respondedBy: null,
+            respondedByEmail: "anyone@test.dev",
             comment: "looks good",
           }
         )
@@ -166,6 +168,7 @@ describe("approval.repository", () => {
         await resolveApproval(tx, organization.id, approval!.id, {
           status: "approved",
           respondedBy: null,
+          respondedByEmail: "anyone@test.dev",
         })
 
         const second = await resolveApproval(
@@ -175,9 +178,51 @@ describe("approval.repository", () => {
           {
             status: "rejected",
             respondedBy: null,
+            respondedByEmail: "anyone@test.dev",
           }
         )
         expect(second).toBeUndefined()
+      })
+    })
+
+    it("returns undefined when the responder's email is not among the designated approverEmails", async () => {
+      await withRollback(async (tx) => {
+        const { organization, execution } = await insertExecution(tx)
+        const approval = await createApproval(tx, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          nodeId: "approval-1",
+          approverEmails: ["designated@test.dev"],
+        })
+
+        const rejected = await resolveApproval(
+          tx,
+          organization.id,
+          approval!.id,
+          {
+            status: "approved",
+            respondedBy: null,
+            respondedByEmail: "not-designated@test.dev",
+          }
+        )
+        expect(rejected).toBeUndefined()
+
+        // Still pending — a non-designated response must not have consumed it.
+        expect(
+          await listPendingApprovals(tx, organization.id, "designated@test.dev")
+        ).toHaveLength(1)
+
+        const resolved = await resolveApproval(
+          tx,
+          organization.id,
+          approval!.id,
+          {
+            status: "approved",
+            respondedBy: null,
+            respondedByEmail: "designated@test.dev",
+          }
+        )
+        expect(resolved?.status).toBe("approved")
       })
     })
   })

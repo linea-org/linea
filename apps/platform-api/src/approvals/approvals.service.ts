@@ -29,6 +29,11 @@ export class ApprovalsService {
     approvalId: string,
     input: RespondToApprovalDto,
   ) {
+    const user = await repositories.user.getUserById(db, userId)
+    if (!user) {
+      throw new UnauthorizedException('A signed-in session is required')
+    }
+
     const approval = await repositories.approval.resolveApproval(
       db,
       workspaceId,
@@ -36,11 +41,14 @@ export class ApprovalsService {
       {
         status: input.approved ? 'approved' : 'rejected',
         respondedBy: userId,
+        respondedByEmail: user.email,
         comment: input.comment,
       },
     )
     if (!approval) {
-      throw new NotFoundException('Approval not found or already responded to')
+      throw new NotFoundException(
+        'Approval not found, already responded to, or you are not a designated approver',
+      )
     }
 
     try {

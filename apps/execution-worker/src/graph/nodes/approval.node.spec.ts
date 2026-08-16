@@ -1,6 +1,13 @@
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
+
+const sendEmail = jest.fn<
+  Promise<void>,
+  [{ to: string; subject: string; html: string; text?: string }]
+>(() => Promise.resolve())
+jest.mock("@linea/auth/email", () => ({ sendEmail }))
+
 import { ApprovalNode } from "./approval.node"
 
 afterAll(async () => {
@@ -95,6 +102,7 @@ describe("ApprovalNode", () => {
         {
           status: "approved",
           respondedBy: null,
+          respondedByEmail: "anyone@test.dev",
           comment: "looks good",
         }
       )
@@ -137,6 +145,7 @@ describe("ApprovalNode", () => {
         {
           status: "rejected",
           respondedBy: null,
+          respondedByEmail: "anyone@test.dev",
         }
       )
 
@@ -174,12 +183,51 @@ describe("ApprovalNode", () => {
         {
           status: "rejected",
           respondedBy: null,
+          respondedByEmail: "anyone@test.dev",
           timedOut: true,
         }
       )
 
       const output = await node.execute({}, undefined, context)
       expect(output).toMatchObject({ approved: false, timedOut: true })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("escapes the approval message before sending it as email HTML", async () => {
+    const { organization, execution } = await setup()
+    sendEmail.mockClear()
+    try {
+      const node = new ApprovalNode()
+      const context = {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: "approval-1",
+      }
+
+      await expect(
+        node.execute(
+          {
+            message: '<img src=x onerror="alert(1)"> ship it & <b>hurry</b>',
+            approverEmails: "designated@test.dev",
+          },
+          undefined,
+          context
+        )
+      ).rejects.toThrow("Execution paused at node approval-1")
+
+      expect(sendEmail).toHaveBeenCalledTimes(1)
+      const [call] = sendEmail.mock.calls
+      expect(call[0].to).toBe("designated@test.dev")
+      const html = call[0].html
+      expect(html).toContain(
+        "&lt;img src=x onerror=&quot;alert(1)&quot;&gt; ship it &amp; &lt;b&gt;hurry&lt;/b&gt;"
+      )
+      expect(html).not.toContain("<img")
+      expect(html).not.toContain("<b>")
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

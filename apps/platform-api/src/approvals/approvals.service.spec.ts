@@ -105,13 +105,73 @@ describe('ApprovalsService', () => {
         service.respond(user.id, organization.id, approval.id, {
           approved: false,
         }),
-      ).rejects.toThrow('Approval not found or already responded to')
+      ).rejects.toThrow(/not found|already responded|designated approver/)
     } finally {
       await moduleRef.close()
       await pool.query('DELETE FROM organizations WHERE id = $1', [
         organization.id,
       ])
       await pool.query('DELETE FROM users WHERE id = $1', [user.id])
+    }
+  })
+
+  it('rejects a response from a workspace member who is not a designated approver', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [ApprovalsService, WorkflowQueueService],
+    }).compile()
+    const service = moduleRef.get(ApprovalsService)
+
+    const { organization, execution, approval } = await setup()
+    const suffix = randomUUID()
+    const [designated] = await db
+      .insert(schema.users)
+      .values({
+        name: 'Designated Approver',
+        email: `designated-${suffix}@test.dev`,
+      })
+      .returning()
+    const [outsider] = await db
+      .insert(schema.users)
+      .values({
+        name: 'Not Designated',
+        email: `not-designated-${suffix}@test.dev`,
+      })
+      .returning()
+    await pool.query(
+      'UPDATE approvals SET approver_emails = $1 WHERE id = $2',
+      [JSON.stringify([designated.email]), approval.id],
+    )
+
+    try {
+      await expect(
+        service.respond(outsider.id, organization.id, approval.id, {
+          approved: true,
+        }),
+      ).rejects.toThrow('not a designated approver')
+
+      // Not consumed by the rejected attempt - the designated approver can still respond.
+      const resolved = await service.respond(
+        designated.id,
+        organization.id,
+        approval.id,
+        { approved: true },
+      )
+      expect(resolved.status).toBe('approved')
+
+      const reloaded = await repositories.execution.getExecutionById(
+        db,
+        execution.id,
+      )
+      expect(reloaded?.status).toBe('queued')
+    } finally {
+      await moduleRef.close()
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        organization.id,
+      ])
+      await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [
+        designated.id,
+        outsider.id,
+      ])
     }
   })
 })
