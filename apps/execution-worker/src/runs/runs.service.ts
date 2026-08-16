@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { Injectable, Logger } from "@nestjs/common"
-import { db, repositories } from "@linea/db"
+import { db, repositories, type Execution } from "@linea/db"
 import { validateGraphStructure, workflowGraphSchema } from "@linea/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
 import { InterpreterService } from "../graph/interpreter.service"
@@ -120,7 +120,7 @@ export class RunsService {
           }
         )
       } else {
-        await repositories.execution.completeExecution(
+        const failed = await repositories.execution.completeExecution(
           db,
           executionId,
           attemptId,
@@ -136,6 +136,8 @@ export class RunsService {
             tokensOutput: outcome.totalTokensOutput,
           }
         )
+        if (failed)
+          await this.notifyExecutionFailed(failed, outcome.result.error)
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -148,7 +150,7 @@ export class RunsService {
           costMicros: knownCostMicros,
           costUnpriced: knownCostUnpriced,
         }))
-      await repositories.execution.completeExecution(
+      const failed = await repositories.execution.completeExecution(
         db,
         executionId,
         attemptId,
@@ -161,9 +163,49 @@ export class RunsService {
           tokensOutput: latestKnown.tokensOutput,
         }
       )
+      if (failed) await this.notifyExecutionFailed(failed, message)
       throw error
     } finally {
       this.lease.stopHeartbeat(attemptId)
+    }
+  }
+
+  /** Best-effort: a notification failure shouldn't fail the execution itself, which has already been finalized by the time this runs. Only called when completeExecution actually won the transition — a worker that lost the lease race stays silent so the winner's own call is the only one that notifies. */
+  private async notifyExecutionFailed(
+    execution: Execution,
+    errorMessage: string
+  ): Promise<void> {
+    try {
+      const [workflow, memberUserIds] = await Promise.all([
+        repositories.workflow.getWorkflowById(
+          db,
+          execution.workspaceId,
+          execution.workflowId
+        ),
+        repositories.organization.listMemberUserIds(db, execution.workspaceId),
+      ])
+      await repositories.notification.createNotificationsForUsers(
+        db,
+        memberUserIds,
+        {
+          workspaceId: execution.workspaceId,
+          type: "execution.failed",
+          severity: "error",
+          title: `${workflow?.name ?? "Workflow"} run failed`,
+          body: errorMessage,
+          metadata: {
+            workflowId: execution.workflowId,
+            executionId: execution.id,
+            workspaceId: execution.workspaceId,
+          },
+        }
+      )
+    } catch (notifyError) {
+      const message =
+        notifyError instanceof Error ? notifyError.message : String(notifyError)
+      this.logger.warn(
+        `Failed to create execution-failed notification for execution ${execution.id}: ${message}`
+      )
     }
   }
 }

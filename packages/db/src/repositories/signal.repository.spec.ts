@@ -1,6 +1,9 @@
+import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
+import { members, users } from "../schema/index.js"
 import { createExecution } from "./execution.repository.js"
 import { createFlagIfNew } from "./flag.repository.js"
+import { listNotifications } from "./notification.repository.js"
 import {
   deriveSignalStatus,
   getSignalDetail,
@@ -123,6 +126,88 @@ describe("recordSignalOccurrence (via createFlagIfNew)", () => {
       expect(regressed.status).toBe("regressed")
       expect(regressed.resolvedAt).toBeNull()
       expect(regressed.occurrenceCount).toBe(2)
+    })
+  })
+
+  it("notifies workspace members exactly once when a signal regresses, not on first creation or repeat occurrences", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const [member] = await tx
+        .insert(users)
+        .values({
+          name: "Signal Notify Member",
+          email: `signal-notify-${randomUUID()}@test.dev`,
+        })
+        .returning()
+      await tx.insert(members).values({
+        organizationId: organization.id,
+        userId: member.id,
+        role: "member",
+        createdAt: new Date(),
+      })
+
+      const executionA = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      const executionB = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      const executionC = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      // First occurrence — brand new signal, not a regression.
+      await createFlagIfNew(tx, {
+        workspaceId: organization.id,
+        executionId: executionA.id,
+        nodeId: "n1",
+        flagType: "retry_storm",
+        dedupeKey: `retry_storm:${executionA.id}:n1`,
+      })
+      expect(
+        await listNotifications(tx, member.id, { workspaceId: organization.id })
+      ).toHaveLength(0)
+
+      const [openSignal] = await listSignals(tx, organization.id)
+      await resolveSignal(tx, organization.id, openSignal.id)
+
+      // Second occurrence, after resolution — this is the regression.
+      await createFlagIfNew(tx, {
+        workspaceId: organization.id,
+        executionId: executionB.id,
+        nodeId: "n1",
+        flagType: "retry_storm",
+        dedupeKey: `retry_storm:${executionB.id}:n1`,
+      })
+      const afterRegression = await listNotifications(tx, member.id, {
+        workspaceId: organization.id,
+      })
+      expect(afterRegression).toHaveLength(1)
+      expect(afterRegression[0]).toMatchObject({
+        type: "system.warning",
+        severity: "warning",
+      })
+
+      // Third occurrence, still regressed (not re-resolved) — no second notification.
+      await createFlagIfNew(tx, {
+        workspaceId: organization.id,
+        executionId: executionC.id,
+        nodeId: "n1",
+        flagType: "retry_storm",
+        dedupeKey: `retry_storm:${executionC.id}:n1`,
+      })
+      expect(
+        await listNotifications(tx, member.id, { workspaceId: organization.id })
+      ).toHaveLength(1)
     })
   })
 

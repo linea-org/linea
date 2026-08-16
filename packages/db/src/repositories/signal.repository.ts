@@ -29,13 +29,22 @@ async function resolveWorkflowId(
   return execution?.workflowId
 }
 
-/** Groups a newly created flag into its signal — the same pattern (flag type + workflow + node) recurring across different executions — creating one on first occurrence, and reopening it as "regressed" if it lands on a signal previously marked resolved. */
+export type SignalOccurrenceResult = { signal: Signal; justRegressed: boolean }
+
+/** Groups a newly created flag into its signal — the same pattern (flag type + workflow + node) recurring across different executions — creating one on first occurrence, and reopening it as "regressed" if it lands on a signal previously marked resolved. `justRegressed` reflects only this call's own transition (read before the write, so it never re-fires for a signal that was already sitting regressed). */
 export async function recordSignalOccurrence(
   db: DbClient,
   flag: Flag
-): Promise<Signal> {
+): Promise<SignalOccurrenceResult> {
   const workflowId = await resolveWorkflowId(db, flag)
   const signalKey = `${flag.flagType}:${workflowId ?? "none"}:${flag.nodeId ?? "none"}`
+
+  // Locked so two concurrent occurrences on the same signalKey serialize instead of both firing a regression notification.
+  const [existing] = await db
+    .select({ resolvedAt: signals.resolvedAt })
+    .from(signals)
+    .where(eq(signals.signalKey, signalKey))
+    .for("update")
 
   const [signal] = await db
     .insert(signals)
@@ -61,7 +70,7 @@ export async function recordSignalOccurrence(
     .set({ signalId: signal.id })
     .where(eq(flags.id, flag.id))
 
-  return signal
+  return { signal, justRegressed: existing?.resolvedAt != null }
 }
 
 export type SignalSummary = Signal & {

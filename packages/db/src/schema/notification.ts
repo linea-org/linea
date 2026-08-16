@@ -96,6 +96,10 @@ export const notifications = snakeCase.table(
       withTimezone: true,
     }),
 
+    archivedAt: timestamp({
+      withTimezone: true,
+    }),
+
     createdAt: timestamp({
       withTimezone: true,
     })
