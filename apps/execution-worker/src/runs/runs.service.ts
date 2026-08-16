@@ -85,10 +85,14 @@ export class RunsService {
       // output to record yet), so re-running from the same resumeFrom just re-enters it. That
       // makes this loop safe as the fix for a real race: the approval node creates its row and
       // notifies before this execution is ever marked "paused" below, so a fast enough response
-      // can find nothing to flip back from "paused" to "queued" and land permanently stuck. If
-      // the approval is already resolved by the time we're about to pause, skip pausing and
-      // loop back immediately — the node returns its real output instead of pausing again.
+      // could otherwise find nothing to flip back from "paused" to "queued" and land permanently
+      // stuck. claimPauseForPendingApproval re-checks the approval and marks the execution paused
+      // atomically (locking the approval row first, so a concurrent resolveApproval blocks behind
+      // it instead of racing past it) — closing the window a separate check-then-pause would
+      // still leave open. If it finds the approval already resolved, loop back immediately
+      // instead — the node returns its real output rather than pausing again.
       let outcome: RunOutcome
+      let paused = false
       for (;;) {
         outcome = await this.interpreter.run({
           executionId,
@@ -104,13 +108,17 @@ export class RunsService {
           signal: abortController.signal,
         })
         if (!outcome.pausedAt) break
-        const approval = await repositories.approval.getApproval(
+        const claim = await repositories.approval.claimPauseForPendingApproval(
           db,
           execution.workspaceId,
           executionId,
-          outcome.pausedAt
+          outcome.pausedAt,
+          attemptId
         )
-        if (!approval || approval.status === "pending") break
+        if (claim.outcome === "paused") {
+          paused = true
+          break
+        }
       }
       knownTokensInput = outcome.totalTokensInput
       knownTokensOutput = outcome.totalTokensOutput
@@ -127,8 +135,8 @@ export class RunsService {
         )
       }
 
-      if (outcome.pausedAt) {
-        await repositories.execution.pauseExecution(db, executionId, attemptId)
+      if (paused) {
+        // Already marked paused atomically by claimPauseForPendingApproval above.
         return
       }
 

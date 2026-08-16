@@ -2,12 +2,14 @@ import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import {
   claimAndResolveTimedOutApproval,
+  claimPauseForPendingApproval,
   createApproval,
   getApproval,
   listPendingApprovals,
   resolveApproval,
 } from "./approval.repository.js"
-import { createExecution } from "./execution.repository.js"
+import { db, pool } from "../clients/index.js"
+import { createExecution, startExecution } from "./execution.repository.js"
 import { executions } from "../schema/index.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import type { Transaction } from "./types.js"
@@ -301,6 +303,141 @@ describe("approval.repository", () => {
         const result = await claimAndResolveTimedOutApproval(tx)
         expect(result.outcome).toBe("empty")
       })
+    })
+  })
+
+  describe("claimPauseForPendingApproval", () => {
+    it("pauses the execution when the approval is still pending", async () => {
+      await withRollback(async (tx) => {
+        const { organization, execution } = await insertExecution(tx)
+        await startExecution(
+          tx,
+          execution.id,
+          "worker-a",
+          new Date(Date.now() + 60_000)
+        )
+        await createApproval(tx, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          nodeId: "approval-1",
+        })
+
+        const claim = await claimPauseForPendingApproval(
+          tx,
+          organization.id,
+          execution.id,
+          "approval-1",
+          "worker-a"
+        )
+        expect(claim.outcome).toBe("paused")
+
+        const [reloaded] = await tx
+          .select()
+          .from(executions)
+          .where(eq(executions.id, execution.id))
+        expect(reloaded.status).toBe("paused")
+      })
+    })
+
+    it("does not pause when the approval was already resolved", async () => {
+      await withRollback(async (tx) => {
+        const { organization, execution } = await insertExecution(tx)
+        await startExecution(
+          tx,
+          execution.id,
+          "worker-a",
+          new Date(Date.now() + 60_000)
+        )
+        const approval = await createApproval(tx, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          nodeId: "approval-1",
+        })
+        await resolveApproval(tx, organization.id, approval!.id, {
+          status: "approved",
+          respondedBy: null,
+          respondedByEmail: "anyone@test.dev",
+        })
+
+        const claim = await claimPauseForPendingApproval(
+          tx,
+          organization.id,
+          execution.id,
+          "approval-1",
+          "worker-a"
+        )
+        expect(claim.outcome).toBe("already-resolved")
+
+        const [reloaded] = await tx
+          .select()
+          .from(executions)
+          .where(eq(executions.id, execution.id))
+        expect(reloaded.status).toBe("running")
+      })
+    })
+
+    // Real concurrent connections (not withRollback's single shared tx) - exercises actual
+    // Postgres row-locking, the same "two callers, one shared connection pool" pattern already
+    // used by schedule.repository.spec.ts's claimAndFireDueSchedule concurrency test.
+    it("never leaves the execution paused with an already-resolved approval, whichever caller wins the race", async () => {
+      const { organization, execution } = await db.transaction((tx) =>
+        insertExecution(tx)
+      )
+      try {
+        await startExecution(
+          db,
+          execution.id,
+          "worker-a",
+          new Date(Date.now() + 60_000)
+        )
+        const approval = await createApproval(db, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          nodeId: "approval-1",
+        })
+
+        const [claimResult, resolveResult] = await Promise.all([
+          claimPauseForPendingApproval(
+            db,
+            organization.id,
+            execution.id,
+            "approval-1",
+            "worker-a"
+          ),
+          resolveApproval(db, organization.id, approval!.id, {
+            status: "approved",
+            respondedBy: null,
+            respondedByEmail: "anyone@test.dev",
+          }),
+        ])
+
+        const [finalExecution] = await db
+          .select()
+          .from(executions)
+          .where(eq(executions.id, execution.id))
+
+        // The invariant this fix protects: never end up paused with a resolved approval and
+        // nothing left able to resume it.
+        expect(
+          finalExecution.status === "paused" && resolveResult !== undefined
+        ).toBe(false)
+
+        if (claimResult.outcome === "paused") {
+          // resolveApproval only ran after the pause committed, so its own paused->queued flip
+          // matched and succeeded.
+          expect(resolveResult).toBeDefined()
+          expect(finalExecution.status).toBe("queued")
+        } else {
+          // resolveApproval won first; claimPauseForPendingApproval correctly saw the approval
+          // was no longer pending and did not pause on top of it.
+          expect(resolveResult).toBeDefined()
+          expect(finalExecution.status).toBe("running")
+        }
+      } finally {
+        await pool.query("DELETE FROM organizations WHERE id = $1", [
+          organization.id,
+        ])
+      }
     })
   })
 })

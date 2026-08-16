@@ -5,6 +5,7 @@ import {
   type Approval,
   type NewApproval,
 } from "../schema/index.js"
+import { pauseExecution } from "./execution.repository.js"
 import type { DbClient } from "./types.js"
 
 export async function createApproval(
@@ -116,6 +117,48 @@ export async function resolveApproval(
       )
 
     return approval
+  })
+}
+
+export type ClaimPauseResult =
+  | { outcome: "paused" }
+  | { outcome: "already-resolved" }
+
+/** Atomically re-checks the approval a node just paused on and, only if it's still pending,
+ * marks the execution paused in the same transaction - closing the window between "we saw it was
+ * still pending" and "we recorded the pause" that a human response or timeout could otherwise
+ * land in (resolving the approval while the execution is still "running", so the resolver's own
+ * paused->queued flip matches nothing and the execution is later paused with no one left to
+ * resume it). The approval row is locked first via FOR UPDATE: resolveApproval's own UPDATE
+ * targets the same row by id, so it blocks behind this transaction rather than racing past it -
+ * whichever side commits first is authoritative, and the loser correctly observes the winner's
+ * already-committed result instead of missing it. */
+export async function claimPauseForPendingApproval(
+  db: DbClient,
+  workspaceId: string,
+  executionId: string,
+  nodeId: string,
+  leasedBy: string
+): Promise<ClaimPauseResult> {
+  return db.transaction(async (tx) => {
+    const [approval] = await tx
+      .select()
+      .from(approvals)
+      .where(
+        and(
+          eq(approvals.workspaceId, workspaceId),
+          eq(approvals.executionId, executionId),
+          eq(approvals.nodeId, nodeId)
+        )
+      )
+      .for("update")
+
+    if (!approval || approval.status !== "pending") {
+      return { outcome: "already-resolved" }
+    }
+
+    await pauseExecution(tx, executionId, leasedBy)
+    return { outcome: "paused" }
   })
 }
 
