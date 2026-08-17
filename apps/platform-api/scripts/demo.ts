@@ -34,7 +34,7 @@ const POLL_TIMEOUT_MS = 60_000
 const MODEL_BY_ENV_KEY: [envKey: string, model: string][] = [
   ['ANTHROPIC_API_KEY', 'claude-haiku-4-5-20251001'],
   ['OPENAI_API_KEY', 'gpt-5-mini'],
-  ['GROQ_API_KEY', 'llama-3.1-8b-instant'],
+  ['GROQ_API_KEY', 'openai/gpt-oss-20b'],
   ['XAI_API_KEY', 'grok-4.5'],
 ]
 

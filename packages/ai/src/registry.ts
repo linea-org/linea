@@ -17,8 +17,6 @@ export const registry: Record<string, AiProvider> = {
   "gpt-4o": openaiProvider,
 
   // Chat/text only — Groq also hosts whisper/TTS/moderation models, a different shape.
-  "llama-3.1-8b-instant": groqProvider,
-  "llama-3.3-70b-versatile": groqProvider,
   "openai/gpt-oss-120b": groqProvider,
   "openai/gpt-oss-20b": groqProvider,
   "groq/compound": groqProvider,
@@ -48,8 +46,6 @@ const keyNameByModel: Record<string, string> = {
   "gpt-4.1": "OPENAI_API_KEY",
   "gpt-4o": "OPENAI_API_KEY",
 
-  "llama-3.1-8b-instant": "GROQ_API_KEY",
-  "llama-3.3-70b-versatile": "GROQ_API_KEY",
   "openai/gpt-oss-120b": "GROQ_API_KEY",
   "openai/gpt-oss-20b": "GROQ_API_KEY",
   "groq/compound": "GROQ_API_KEY",
