@@ -34,6 +34,7 @@ import {
 import { Marker, MarkerContent } from "@linea/ui/components/marker"
 import {
   MessageScroller,
+  MessageScrollerButton,
   MessageScrollerContent,
   MessageScrollerItem,
   MessageScrollerProvider,
@@ -198,7 +199,7 @@ export function ChatPreviewPanel({
           </Combobox>
         </div>
       )}
-      <MessageScrollerProvider>
+      <MessageScrollerProvider autoScroll>
         <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport>
             <MessageScrollerContent className="px-4 py-4">
@@ -217,8 +218,11 @@ export function ChatPreviewPanel({
                   </EmptyHeader>
                 </Empty>
               ) : (
-                messages.map((message) => (
-                  <MessageScrollerItem key={message.id}>
+                messages.map((message, index) => (
+                  <MessageScrollerItem
+                    key={message.id}
+                    scrollAnchor={index === messages.length - 1}
+                  >
                     <BubbleGroup>
                       <Bubble
                         align={message.role === "user" ? "end" : "start"}
@@ -247,6 +251,7 @@ export function ChatPreviewPanel({
               )}
             </MessageScrollerContent>
           </MessageScrollerViewport>
+          <MessageScrollerButton />
         </MessageScroller>
       </MessageScrollerProvider>
       <div className="border-t border-border p-3">
