@@ -227,7 +227,7 @@ export function WorkspaceShell({
         <SidebarInset
           className={cn(
             "relative z-10 min-h-0 overflow-hidden bg-card md:peer-data-[variant=inset]:rounded-lg",
-            isBuilder && "m-2 rounded-lg bg-transparent"
+            isBuilder && "m-2 rounded-lg bg-background shadow-sm"
           )}
         >
           {!isBuilder && (
