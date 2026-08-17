@@ -43,14 +43,6 @@ export const aiNode: NodeDefinition<
           { label: "GPT-5 mini", value: "gpt-5-mini" },
           { label: "GPT-4.1", value: "gpt-4.1" },
           { label: "GPT-4o", value: "gpt-4o" },
-          {
-            label: "Llama 3.1 8B Instant (Groq)",
-            value: "llama-3.1-8b-instant",
-          },
-          {
-            label: "Llama 3.3 70B Versatile (Groq)",
-            value: "llama-3.3-70b-versatile",
-          },
           { label: "GPT-OSS 120B (Groq)", value: "openai/gpt-oss-120b" },
           { label: "GPT-OSS 20B (Groq)", value: "openai/gpt-oss-20b" },
           { label: "Compound (Groq)", value: "groq/compound" },
