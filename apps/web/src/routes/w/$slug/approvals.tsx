@@ -44,18 +44,20 @@ function ApprovalsPage() {
   })
 
   return (
-    <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
-      <h1 className="text-lg font-medium text-foreground">Pending approvals</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+    <main className="flex flex-1 flex-col px-4 py-4">
+      <h1 className="pl-1 text-base font-medium text-foreground">
+        Pending approvals
+      </h1>
+      <p className="mt-1 pl-1 text-xs text-muted-foreground">
         Workflow executions waiting on a decision before they continue.
       </p>
 
       {approvalsQuery.isError ? (
-        <p className="mt-6 text-sm text-destructive">
+        <p className="mt-6 text-xs text-destructive">
           Could not load approvals.
         </p>
       ) : approvalsQuery.isPending ? (
-        <p className="mt-6 text-sm text-muted-foreground">Loading…</p>
+        <p className="mt-6 text-xs text-muted-foreground">Loading…</p>
       ) : approvals.length === 0 ? (
         <Empty className="mt-6">
           <EmptyHeader>
@@ -77,7 +79,7 @@ function ApprovalsPage() {
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="text-xs font-medium text-foreground">
                     {approval.message ?? "Approval requested"}
                   </p>
                   <Link
@@ -134,7 +136,7 @@ function ApprovalsPage() {
         </ul>
       )}
       {respond.isError && (
-        <p className="mt-3 text-sm text-destructive">{respond.error.message}</p>
+        <p className="mt-3 text-xs text-destructive">{respond.error.message}</p>
       )}
     </main>
   )

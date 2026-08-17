@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
@@ -29,8 +30,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarRail,
+  SidebarSeparator,
   SidebarTrigger,
+  useSidebar,
 } from "@linea/ui/components/sidebar"
 import { Separator } from "@linea/ui/components/separator"
 import { cn } from "@linea/ui/lib/utils"
@@ -49,6 +51,23 @@ export function useWorkspaceOverlayNav() {
   return useContext(WorkspaceOverlayNavContext)
 }
 
+function InsetCollapseEdge() {
+  const { toggleSidebar, open } = useSidebar()
+  return (
+    <button
+      type="button"
+      aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
+      title={open ? "Collapse sidebar" : "Expand sidebar"}
+      onClick={toggleSidebar}
+      className={cn(
+        "absolute inset-y-0 left-0 z-20 hidden w-2 rounded-l-lg md:block",
+        "after:absolute after:inset-y-0 after:left-0 after:w-px after:bg-transparent after:transition-colors hover:after:bg-border",
+        open ? "cursor-w-resize" : "cursor-e-resize"
+      )}
+    />
+  )
+}
+
 type WorkspaceShellProps = {
   slug: string
   workspaces: WorkspaceOption[]
@@ -63,17 +82,28 @@ export function WorkspaceShell({
   const matchRoute = useMatchRoute()
   const { pathname } = useLocation()
   const isBuilder = pathname.endsWith("/builder")
+  const railOpenRef = useRef(true)
+  const wasBuilderRef = useRef(isBuilder)
   const [open, setOpen] = useState(!isBuilder)
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (!isBuilder) {
+      railOpenRef.current = next
+    }
+  }
   useEffect(() => {
-    setOpen(!pathname.endsWith("/builder"))
-  }, [pathname])
+    if (wasBuilderRef.current === isBuilder) return
+    wasBuilderRef.current = isBuilder
+    setOpen(isBuilder ? false : railOpenRef.current)
+  }, [isBuilder])
   const navigation = (
     <>
-      <SidebarHeader>
+      <SidebarHeader className="p-1 pb-2 group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:pb-3">
         <WorkspaceSwitcher currentSlug={slug} workspaces={workspaces} />
       </SidebarHeader>
+      <SidebarSeparator className="group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:data-horizontal:w-5" />
       <SidebarContent>
-        <SidebarGroup>
+        <SidebarGroup className="group-data-[collapsible=icon]:pt-3">
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -195,7 +225,8 @@ export function WorkspaceShell({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarSeparator className="group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:data-horizontal:w-5" />
+      <SidebarFooter className="px-1 pt-2 pb-2 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:pt-2 group-data-[collapsible=icon]:pb-2">
         <UserMenu showDetails align="start" className="w-full" />
       </SidebarFooter>
     </>
@@ -203,7 +234,7 @@ export function WorkspaceShell({
   return (
     <SidebarProvider
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={handleOpenChange}
       className="relative h-svh max-h-svh overflow-hidden bg-background has-data-[variant=inset]:bg-background"
     >
       {!isBuilder && (
@@ -213,28 +244,28 @@ export function WorkspaceShell({
           className="z-10 [&_[data-slot=sidebar-inner]]:bg-transparent"
         >
           {navigation}
-          <SidebarRail />
         </Sidebar>
       )}
       {isBuilder && open && (
-        <div className="absolute inset-y-2 left-2 z-30 flex w-72 animate-in flex-col overflow-hidden rounded-lg bg-popover shadow-md ring-1 ring-foreground/10 duration-200 fade-in-0 slide-in-from-left-2">
+        <div className="absolute inset-y-1 left-1 z-30 flex w-[var(--sidebar-width)] animate-in flex-col overflow-hidden rounded-lg bg-popover shadow-md ring-1 ring-foreground/10 duration-200 fade-in-0 slide-in-from-left-2">
           {navigation}
         </div>
       )}
       <WorkspaceOverlayNavContext.Provider
-        value={() => setOpen((current) => !current)}
+        value={() => handleOpenChange(!open)}
       >
         <SidebarInset
           className={cn(
             "relative z-10 min-h-0 overflow-hidden bg-card md:peer-data-[variant=inset]:rounded-lg",
-            isBuilder && "m-2 rounded-lg bg-background shadow-sm"
+            isBuilder && "m-2 rounded-lg shadow-sm"
           )}
         >
+          {!isBuilder && <InsetCollapseEdge />}
           {!isBuilder && (
-            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border/70 px-5">
+            <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border/70 py-0 pr-3 pl-2">
               <div className="flex min-w-0 flex-1 items-center gap-2">
-                <SidebarTrigger className="md:hidden" />
-                <Separator orientation="vertical" className="h-4 md:hidden" />
+                <SidebarTrigger size="icon-xs" />
+                <Separator orientation="vertical" className="h-6 self-center" />
                 <TopBarBreadcrumb slug={slug} />
               </div>
               <div className="hidden flex-1 justify-center sm:flex">

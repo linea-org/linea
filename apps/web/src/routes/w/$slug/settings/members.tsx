@@ -166,8 +166,8 @@ function MembersPage() {
   const confirmPending =
     confirmTarget?.kind === "member" ? remove.isPending : cancelInvite.isPending
   return (
-    <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+    <main className="flex flex-1 flex-col px-4 py-4">
+      <div className="mb-4 flex flex-wrap items-center gap-2 pl-1">
         <InputGroup className="h-8 max-w-sm rounded-lg border-input/30 bg-input/30 shadow-none">
           <InputGroupAddon>
             <SearchIcon className="size-4 shrink-0 opacity-50" />
@@ -186,7 +186,7 @@ function MembersPage() {
         </div>
       </div>
       {isPending ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-xs text-muted-foreground">Loading…</p>
       ) : filteredMembers.length === 0 ? (
         <Empty>
           <EmptyHeader>
@@ -311,7 +311,7 @@ function MembersPage() {
       )}
       {filteredInvites.length > 0 ? (
         <>
-          <p className="mt-8 text-sm font-medium text-foreground">
+          <p className="mt-8 pl-1 text-sm font-medium text-foreground">
             Pending invitations
           </p>
           <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">

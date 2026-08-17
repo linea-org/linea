@@ -114,7 +114,7 @@ export function ExecutionList({
                   params={{ slug, workflowId, executionId: execution.id }}
                   className="block min-w-0"
                 >
-                  <span className="block truncate font-mono text-sm font-medium text-foreground hover:underline">
+                  <span className="block truncate font-mono text-xs font-medium text-foreground hover:underline">
                     {execution.id}
                   </span>
                 </Link>
