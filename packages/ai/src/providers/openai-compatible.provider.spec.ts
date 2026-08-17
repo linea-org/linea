@@ -157,4 +157,132 @@ describe("createOpenAiCompatibleProvider", () => {
       { signal: undefined }
     )
   })
+
+  it("maps tool definitions to OpenAI's function-tool shape", async () => {
+    create.mockResolvedValue({
+      choices: [{ message: { content: "hi" } }],
+      usage: { prompt_tokens: 1, completion_tokens: 1 },
+    })
+
+    const provider = createOpenAiCompatibleProvider()
+    await provider.complete("key", {
+      model: "gpt-5",
+      prompt: "what's the weather?",
+      tools: [
+        {
+          name: "get_weather",
+          description: "Look up current weather",
+          parameters: {
+            type: "object",
+            properties: { city: { type: "string" } },
+          },
+        },
+      ],
+    })
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "get_weather",
+              description: "Look up current weather",
+              parameters: {
+                type: "object",
+                properties: { city: { type: "string" } },
+              },
+            },
+          },
+        ],
+      }),
+      { signal: undefined }
+    )
+  })
+
+  it("parses tool_calls' JSON-string arguments into objects", async () => {
+    create.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: null,
+            tool_calls: [
+              {
+                id: "call_1",
+                type: "function",
+                function: {
+                  name: "get_weather",
+                  arguments: '{"city":"Berlin"}',
+                },
+              },
+            ],
+          },
+        },
+      ],
+      usage: { prompt_tokens: 5, completion_tokens: 2 },
+    })
+
+    const provider = createOpenAiCompatibleProvider()
+    const result = await provider.complete("key", {
+      model: "gpt-5",
+      prompt: "what's the weather in Berlin?",
+    })
+
+    expect(result.toolCalls).toEqual([
+      { id: "call_1", name: "get_weather", arguments: { city: "Berlin" } },
+    ])
+  })
+
+  it("sends assistant tool-call turns and tool-result turns in their OpenAI shapes, and omits the final prompt turn when it's undefined", async () => {
+    create.mockResolvedValue({
+      choices: [{ message: { content: "it's sunny" } }],
+      usage: { prompt_tokens: 1, completion_tokens: 1 },
+    })
+
+    const provider = createOpenAiCompatibleProvider()
+    await provider.complete("key", {
+      model: "gpt-5",
+      history: [
+        { role: "user", content: "what's the weather in Berlin?" },
+        {
+          role: "assistant",
+          toolCalls: [
+            {
+              id: "call_1",
+              name: "get_weather",
+              arguments: { city: "Berlin" },
+            },
+          ],
+        },
+        { role: "tool", toolCallId: "call_1", content: '{"tempC":18}' },
+      ],
+    })
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: "user", content: "what's the weather in Berlin?" },
+          {
+            role: "assistant",
+            tool_calls: [
+              {
+                id: "call_1",
+                type: "function",
+                function: {
+                  name: "get_weather",
+                  arguments: '{"city":"Berlin"}',
+                },
+              },
+            ],
+          },
+          {
+            role: "tool",
+            tool_call_id: "call_1",
+            content: '{"tempC":18}',
+          },
+        ],
+      }),
+      { signal: undefined }
+    )
+  })
 })
