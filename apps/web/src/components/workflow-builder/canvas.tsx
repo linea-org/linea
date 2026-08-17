@@ -612,7 +612,7 @@ function WorkflowBuilderCanvasInner({
           </div>
         </div>
       )}
-      <div className="flex min-h-0 flex-1 gap-2 px-2 pt-2 pb-2">
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border">
         <WorkflowPalette />
         <ResizablePanelGroup
           orientation="horizontal"
@@ -620,7 +620,7 @@ function WorkflowBuilderCanvasInner({
         >
           <ResizablePanel id="builder-canvas" minSize={280} className="min-h-0">
             <div
-              className="h-full min-h-0 overflow-hidden rounded-xl bg-surface-canvas"
+              className="h-full min-h-0 overflow-hidden bg-surface-canvas"
               style={FLOW_THEME_VARS}
               onDrop={onDrop}
               onDragOver={(e) => e.preventDefault()}
@@ -690,7 +690,7 @@ function WorkflowBuilderCanvasInner({
           </ResizablePanel>
           {selectedNode && (
             <>
-              <ResizableHandle className="w-2 bg-transparent after:w-2" />
+              <ResizableHandle />
               <ResizablePanel
                 id="builder-config"
                 defaultSize={320}
@@ -725,7 +725,7 @@ function WorkflowBuilderCanvasInner({
           )}
           {chatOpen && (
             <>
-              <ResizableHandle className="w-2 bg-transparent after:w-2" />
+              <ResizableHandle />
               <ResizablePanel
                 id="builder-chat"
                 defaultSize={360}

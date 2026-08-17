@@ -102,7 +102,7 @@ export function WorkflowPalette() {
   return (
     <div className="relative z-10 flex min-h-0 shrink-0">
       {!panelCollapsed && (
-        <aside className="flex min-h-0 w-64 flex-col self-stretch overflow-hidden rounded-xl border border-border bg-card">
+        <aside className="flex min-h-0 w-64 flex-col self-stretch overflow-hidden border-r border-border bg-card">
           <div className="shrink-0 p-3">
             <InputGroup className="h-8 rounded-lg border-input/30 bg-input/30 shadow-none">
               <InputGroupAddon>
