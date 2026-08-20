@@ -99,7 +99,9 @@ async function callTool(
   }
   const headers: Record<string, string> = {}
   if (tool.method !== "GET") headers["Content-Type"] = "application/json"
-  // Matches HttpNode — lets a compliant destination dedupe a call repeated by a lease-loss replay.
+  // Backstop for the one gap the ledger can't close itself (a crash between this request succeeding
+  // and its record committing): deterministic across a resume, so a compliant destination dedupes
+  // the retry with no local record of the first attempt — bounded by destination support, same as HttpNode.
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey
   const response = await fetch(url, {
     method: tool.method,

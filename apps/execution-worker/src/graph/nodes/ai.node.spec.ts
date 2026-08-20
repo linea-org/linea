@@ -499,6 +499,59 @@ describe("AiNode", () => {
       expect(replayedKey).toBe(originalKey)
     })
 
+    it("derives a deterministic idempotency key on a mid-loop resume, so a compliant destination dedupes a re-fired call even if the ledger row didn't survive the crash", async () => {
+      getAiNodeProgress.mockResolvedValueOnce({
+        conversation: [
+          { role: "user", content: "what's the weather in Berlin?" },
+          {
+            role: "assistant",
+            toolCalls: [
+              {
+                id: "call_1",
+                name: "get_weather",
+                arguments: { city: "Berlin" },
+              },
+            ],
+          },
+        ],
+        iteration: 1,
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+      complete.mockResolvedValueOnce({
+        text: "it's sunny in Berlin",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+      const resumeFetch = mockFetch()
+
+      await new AiNode().execute(
+        {
+          prompt: "unused",
+          model: "claude-sonnet-5",
+          tools: [
+            {
+              name: "get_weather",
+              parameters: {},
+              url: "https://api.example.com/weather",
+              method: "GET",
+            },
+          ],
+        },
+        undefined,
+        { ...contextWithLedger, idempotencyKey: "exec-1:ai-1" }
+      )
+      const [, resumeInit] = resumeFetch.mock.calls[0] as [URL, RequestInit]
+      const resumedKey = (resumeInit.headers as Record<string, string>)[
+        "Idempotency-Key"
+      ]
+
+      // exec-1:ai-1 (context.idempotencyKey) + the call's content hash + occurrence 1 — the same
+      // inputs an uncrashed first attempt would have hashed, since the restored conversation is
+      // byte-identical and occurrence comes from re-scanning it, not from a fresh model call.
+      expect(resumedKey).toMatch(/^exec-1:ai-1:[0-9a-f]{16}:1$/)
+    })
+
     it("omits the Idempotency-Key header entirely when the execution context has none", async () => {
       complete
         .mockResolvedValueOnce({
