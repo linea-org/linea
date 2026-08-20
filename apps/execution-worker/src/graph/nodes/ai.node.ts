@@ -175,9 +175,15 @@ export class AiNode implements NodeHandler {
     const keyName = resolveKeyName(parsed.model)
     const { apiKey } = await resolveApiKey(db, context.workspaceId, keyName)
 
+    // leasedBy is required here (not just executionId/nodeId) so a saved-progress write can be
+    // fenced against the execution's lease at commit time, not just checked at call time.
     const nodeKey =
-      context.executionId && context.nodeId
-        ? { executionId: context.executionId, nodeId: context.nodeId }
+      context.executionId && context.nodeId && context.leasedBy
+        ? {
+            executionId: context.executionId,
+            nodeId: context.nodeId,
+            leasedBy: context.leasedBy,
+          }
         : undefined
     const savedProgress = nodeKey
       ? await repositories.aiNodeProgress.getAiNodeProgress(
@@ -320,8 +326,8 @@ export class AiNode implements NodeHandler {
       }
 
       conversation.push({ role: "assistant", toolCalls: result.toolCalls })
-      // Signal fires only on lease loss — skips a save that would otherwise race a worker that
-      // has since reclaimed this execution and may have already written newer progress.
+      // The write itself is lease-fenced (see saveAiNodeProgress) — this local check is just an
+      // early exit, skipping a DB round trip we already know the fencing would reject.
       if (nodeKey && !context.signal?.aborted) {
         // Saved before the calls below run, so a crash mid-tool-execution resumes here rather
         // than re-asking the provider (whose response isn't reproducible on a second call).

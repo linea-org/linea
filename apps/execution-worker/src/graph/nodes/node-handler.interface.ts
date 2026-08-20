@@ -7,6 +7,8 @@ export type NodeExecutionContext = {
   /** Only populated for handlers that need to pause/resume against their own row (the approval node) — most handlers don't need these. */
   executionId?: string
   nodeId?: string
+  /** The current lease owner, set only on the real run path (never for step-level replay). A handler persisting its own mid-execution state should condition the write on this still matching the execution's lease at commit time, not just when the handler started. */
+  leasedBy?: string
   /** Set when the triggering execution's payload carries a conversationId (chat preview) — lets a handler like AiNode fetch prior turns for message history. */
   conversationId?: string
   /** The workflow this execution belongs to — set whenever conversationId is, so a handler can scope a conversation lookup by workflow, not just workspace. */

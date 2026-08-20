@@ -70,6 +70,7 @@ const contextWithLedger = {
   ...context,
   executionId: "exec-1",
   nodeId: "ai-1",
+  leasedBy: "worker-1",
 }
 
 function mockFetch(): jest.Mock {
@@ -1040,6 +1041,48 @@ describe("AiNode", () => {
         },
         undefined,
         context
+      )
+
+      expect(getAiNodeProgress).not.toHaveBeenCalled()
+      expect(saveAiNodeProgress).not.toHaveBeenCalled()
+    })
+
+    it("does not read or save progress when executionId/nodeId are set but leasedBy is missing", async () => {
+      complete
+        .mockResolvedValueOnce({
+          text: "",
+          tokensInput: 1,
+          tokensOutput: 1,
+          toolCalls: [
+            {
+              id: "call_1",
+              name: "get_weather",
+              arguments: { city: "Berlin" },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          text: "done",
+          tokensInput: 1,
+          tokensOutput: 1,
+        })
+      mockFetch()
+
+      await new AiNode().execute(
+        {
+          prompt: "what's the weather in Berlin?",
+          model: "claude-sonnet-5",
+          tools: [
+            {
+              name: "get_weather",
+              parameters: {},
+              url: "https://api.example.com/weather",
+              method: "GET",
+            },
+          ],
+        },
+        undefined,
+        { ...context, executionId: "exec-1", nodeId: "ai-1" }
       )
 
       expect(getAiNodeProgress).not.toHaveBeenCalled()

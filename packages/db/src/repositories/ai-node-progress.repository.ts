@@ -1,5 +1,5 @@
-import { and, eq } from "drizzle-orm"
-import { aiNodeProgress } from "../schema/index.js"
+import { and, eq, sql } from "drizzle-orm"
+import { aiNodeProgress, executions } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
 export async function getAiNodeProgress(
@@ -25,6 +25,9 @@ export async function saveAiNodeProgress(
   input: {
     executionId: string
     nodeId: string
+    // Required so the conflict branch below can be fenced: an overwrite only applies if this
+    // caller still holds the execution's lease at commit time, not just when it started the call.
+    leasedBy: string
     conversation: unknown[]
     iteration: number
     tokensInput: number
@@ -33,7 +36,14 @@ export async function saveAiNodeProgress(
 ): Promise<void> {
   await db
     .insert(aiNodeProgress)
-    .values(input)
+    .values({
+      executionId: input.executionId,
+      nodeId: input.nodeId,
+      conversation: input.conversation,
+      iteration: input.iteration,
+      tokensInput: input.tokensInput,
+      tokensOutput: input.tokensOutput,
+    })
     .onConflictDoUpdate({
       target: [aiNodeProgress.executionId, aiNodeProgress.nodeId],
       set: {
@@ -43,5 +53,11 @@ export async function saveAiNodeProgress(
         tokensOutput: input.tokensOutput,
         updatedAt: new Date(),
       },
+      setWhere: sql`exists (
+        select 1 from ${executions}
+        where ${executions.id} = ${aiNodeProgress.executionId}
+          and ${executions.leasedBy} = ${input.leasedBy}
+          and ${executions.leaseExpiresAt} > now()
+      )`,
     })
 }

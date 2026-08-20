@@ -128,7 +128,8 @@ export class InterpreterService {
     executionId?: string,
     conversationId?: string,
     workflowId?: string,
-    chatMessageId?: string
+    chatMessageId?: string,
+    leasedBy?: string
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -147,6 +148,7 @@ export class InterpreterService {
       conversationId,
       workflowId,
       chatMessageId,
+      leasedBy,
     })
     const usage = extractTokenUsage(output)
     return {
@@ -198,7 +200,8 @@ export class InterpreterService {
           input.executionId,
           extractConversationId(input.triggerPayload),
           input.workflowId,
-          extractChatMessageId(input.triggerPayload)
+          extractChatMessageId(input.triggerPayload),
+          input.leasedBy
         )
         let costMicros: bigint | undefined
         let stepCostUnpriced: boolean | undefined
