@@ -279,6 +279,94 @@ describe("AiNode", () => {
       })
     })
 
+    it("forwards a per-call idempotency key derived from the execution's, scoped so two calls in the same iteration don't collide", async () => {
+      complete
+        .mockResolvedValueOnce({
+          text: "",
+          tokensInput: 1,
+          tokensOutput: 1,
+          toolCalls: [
+            { id: "call_1", name: "set_reminder", arguments: { text: "a" } },
+            { id: "call_2", name: "set_reminder", arguments: { text: "b" } },
+          ],
+        })
+        .mockResolvedValueOnce({
+          text: "done",
+          tokensInput: 1,
+          tokensOutput: 1,
+        })
+      const fetchMock = mockFetch()
+
+      const node = new AiNode()
+      await node.execute(
+        {
+          prompt: "set two reminders",
+          model: "claude-sonnet-5",
+          tools: [
+            {
+              name: "set_reminder",
+              parameters: {},
+              url: "https://api.example.com/reminders",
+              method: "POST",
+            },
+          ],
+        },
+        undefined,
+        { ...context, idempotencyKey: "exec-1:ai-1" }
+      )
+
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      const [, firstInit] = fetchMock.mock.calls[0] as [URL, RequestInit]
+      const [, secondInit] = fetchMock.mock.calls[1] as [URL, RequestInit]
+      expect(
+        (firstInit.headers as Record<string, string>)["Idempotency-Key"]
+      ).toBe("exec-1:ai-1:0:0")
+      expect(
+        (secondInit.headers as Record<string, string>)["Idempotency-Key"]
+      ).toBe("exec-1:ai-1:0:1")
+    })
+
+    it("omits the Idempotency-Key header entirely when the execution context has none", async () => {
+      complete
+        .mockResolvedValueOnce({
+          text: "",
+          tokensInput: 1,
+          tokensOutput: 1,
+          toolCalls: [
+            { id: "call_1", name: "set_reminder", arguments: { text: "a" } },
+          ],
+        })
+        .mockResolvedValueOnce({
+          text: "done",
+          tokensInput: 1,
+          tokensOutput: 1,
+        })
+      const fetchMock = mockFetch()
+
+      const node = new AiNode()
+      await node.execute(
+        {
+          prompt: "set a reminder",
+          model: "claude-sonnet-5",
+          tools: [
+            {
+              name: "set_reminder",
+              parameters: {},
+              url: "https://api.example.com/reminders",
+              method: "POST",
+            },
+          ],
+        },
+        undefined,
+        context
+      )
+
+      const [, calledInit] = fetchMock.mock.calls[0] as [URL, RequestInit]
+      expect(
+        (calledInit.headers as Record<string, string>)["Idempotency-Key"]
+      ).toBeUndefined()
+    })
+
     it("sends non-GET tool arguments as a JSON body instead of query params", async () => {
       complete
         .mockResolvedValueOnce({

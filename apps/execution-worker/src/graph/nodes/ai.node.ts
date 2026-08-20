@@ -26,6 +26,7 @@ type AiTool = {
 async function callTool(
   tool: AiTool,
   args: Record<string, unknown>,
+  idempotencyKey: string | undefined,
   signal?: AbortSignal
 ): Promise<unknown> {
   const url = new URL(tool.url)
@@ -35,12 +36,15 @@ async function callTool(
       url.searchParams.set(key, String(value))
     }
   }
+  const headers: Record<string, string> = {}
+  if (tool.method !== "GET") headers["Content-Type"] = "application/json"
+  // Matches HttpNode: a compliant destination can recognize a call replayed after a lease loss
+  // instead of repeating a state-changing mutation. Scoped per iteration+position, not just the
+  // execution-wide key, so two distinct tool calls in the same run don't collide with each other.
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey
   const response = await fetch(url, {
     method: tool.method,
-    headers:
-      tool.method === "GET"
-        ? undefined
-        : { "Content-Type": "application/json" },
+    headers,
     body: tool.method === "GET" ? undefined : JSON.stringify(args),
     signal,
   })
@@ -157,10 +161,13 @@ export class AiNode implements NodeHandler {
       }
 
       conversation.push({ role: "assistant", toolCalls: result.toolCalls })
-      for (const call of result.toolCalls) {
+      for (const [callIndex, call] of result.toolCalls.entries()) {
         const tool = toolsByName.get(call.name)
+        const idempotencyKey = context.idempotencyKey
+          ? `${context.idempotencyKey}:${iteration}:${callIndex}`
+          : undefined
         const output = tool
-          ? await callTool(tool, call.arguments, context.signal)
+          ? await callTool(tool, call.arguments, idempotencyKey, context.signal)
           : { error: `Unknown tool "${call.name}"` }
         conversation.push({
           role: "tool",
