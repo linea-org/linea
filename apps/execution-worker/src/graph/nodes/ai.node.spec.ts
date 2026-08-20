@@ -34,11 +34,37 @@ const recordToolCall = jest.fn<
     },
   ]
 >(() => Promise.resolve(undefined))
+type SavedAiNodeProgress = {
+  conversation: unknown[]
+  iteration: number
+  tokensInput: number
+  tokensOutput: number
+}
+const getAiNodeProgress = jest.fn<
+  Promise<SavedAiNodeProgress | undefined>,
+  [db: unknown, executionId: string, nodeId: string]
+>(() => Promise.resolve(undefined))
+const saveAiNodeProgress = jest.fn<
+  Promise<undefined>,
+  [
+    db: unknown,
+    input: SavedAiNodeProgress & { executionId: string; nodeId: string },
+  ]
+>(() => Promise.resolve(undefined))
+const deleteAiNodeProgress = jest.fn<
+  Promise<undefined>,
+  [db: unknown, executionId: string, nodeId: string]
+>(() => Promise.resolve(undefined))
 jest.mock("@linea/db", () => ({
   db: {},
   repositories: {
     chatMessage: { listChatMessages },
     toolCallRecord: { getToolCallRecord, recordToolCall },
+    aiNodeProgress: {
+      getAiNodeProgress,
+      saveAiNodeProgress,
+      deleteAiNodeProgress,
+    },
   },
 }))
 
@@ -224,6 +250,10 @@ describe("AiNode", () => {
       getToolCallRecord.mockClear()
       getToolCallRecord.mockResolvedValue(undefined)
       recordToolCall.mockClear()
+      getAiNodeProgress.mockClear()
+      getAiNodeProgress.mockResolvedValue(undefined)
+      saveAiNodeProgress.mockClear()
+      deleteAiNodeProgress.mockClear()
     })
 
     it("calls a configured HTTP tool, feeds the result back, and returns the model's final answer", async () => {
@@ -649,6 +679,216 @@ describe("AiNode", () => {
 
       // The "apple" occurrence is served from the ledger; only "banana" is genuinely new.
       expect(replayFetch).toHaveBeenCalledTimes(1)
+    })
+
+    it("saves progress right after the assistant's tool-calls turn, before executing any of those calls", async () => {
+      complete
+        .mockResolvedValueOnce({
+          text: "",
+          tokensInput: 1,
+          tokensOutput: 1,
+          toolCalls: [
+            {
+              id: "call_1",
+              name: "get_weather",
+              arguments: { city: "Berlin" },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          text: "done",
+          tokensInput: 1,
+          tokensOutput: 1,
+        })
+      mockFetch()
+
+      await new AiNode().execute(
+        {
+          prompt: "what's the weather in Berlin?",
+          model: "claude-sonnet-5",
+          tools: [
+            {
+              name: "get_weather",
+              parameters: {},
+              url: "https://api.example.com/weather",
+              method: "GET",
+            },
+          ],
+        },
+        undefined,
+        contextWithLedger
+      )
+
+      expect(saveAiNodeProgress).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          executionId: "exec-1",
+          nodeId: "ai-1",
+          iteration: 1,
+          conversation: expect.arrayContaining([
+            expect.objectContaining({
+              role: "assistant",
+              toolCalls: [
+                {
+                  id: "call_1",
+                  name: "get_weather",
+                  arguments: { city: "Berlin" },
+                },
+              ],
+            }),
+          ]) as unknown,
+        })
+      )
+    })
+
+    it("deletes any saved progress once a final answer is reached", async () => {
+      complete.mockResolvedValueOnce({
+        text: "hi",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+
+      await new AiNode().execute(
+        { prompt: "hello", model: "claude-sonnet-5" },
+        undefined,
+        contextWithLedger
+      )
+
+      expect(deleteAiNodeProgress).toHaveBeenCalledWith(
+        expect.anything(),
+        "exec-1",
+        "ai-1"
+      )
+    })
+
+    it("resumes from saved progress instead of restarting the conversation from the original prompt", async () => {
+      getAiNodeProgress.mockResolvedValueOnce({
+        conversation: [
+          { role: "user", content: "what's the weather in Berlin?" },
+          {
+            role: "assistant",
+            toolCalls: [
+              {
+                id: "call_1",
+                name: "get_weather",
+                arguments: { city: "Berlin" },
+              },
+            ],
+          },
+        ],
+        iteration: 1,
+        tokensInput: 5,
+        tokensOutput: 2,
+      })
+      complete.mockResolvedValueOnce({
+        text: "it's sunny in Berlin",
+        tokensInput: 3,
+        tokensOutput: 4,
+      })
+      const fetchMock = mockFetch()
+
+      const result = await new AiNode().execute(
+        {
+          // Ignored — a resumed run never rebuilds the prompt from the authored config.
+          prompt: "unused",
+          model: "claude-sonnet-5",
+          tools: [
+            {
+              name: "get_weather",
+              parameters: {},
+              url: "https://api.example.com/weather",
+              method: "GET",
+            },
+          ],
+        },
+        undefined,
+        contextWithLedger
+      )
+
+      // The pending tool call from the restored turn is executed for real, exactly once.
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+
+      // The provider is called with the restored conversation, not a fresh prompt.
+      expect(complete).toHaveBeenCalledTimes(1)
+      expect(complete).toHaveBeenCalledWith(
+        "secret",
+        expect.objectContaining({
+          prompt: undefined,
+          history: [
+            { role: "user", content: "what's the weather in Berlin?" },
+            {
+              role: "assistant",
+              toolCalls: [
+                {
+                  id: "call_1",
+                  name: "get_weather",
+                  arguments: { city: "Berlin" },
+                },
+              ],
+            },
+            {
+              role: "tool",
+              toolCallId: "call_1",
+              content: JSON.stringify({ status: 200, body: { tempC: 18 } }),
+            },
+          ],
+        })
+      )
+
+      // Tokens accumulate on top of the restored counts, not from zero.
+      expect(result).toEqual({
+        text: "it's sunny in Berlin",
+        tokensInput: 8,
+        tokensOutput: 6,
+      })
+      expect(deleteAiNodeProgress).toHaveBeenCalledWith(
+        expect.anything(),
+        "exec-1",
+        "ai-1"
+      )
+    })
+
+    it("does not read, save, or delete progress when the execution context has no executionId/nodeId", async () => {
+      complete
+        .mockResolvedValueOnce({
+          text: "",
+          tokensInput: 1,
+          tokensOutput: 1,
+          toolCalls: [
+            {
+              id: "call_1",
+              name: "get_weather",
+              arguments: { city: "Berlin" },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          text: "done",
+          tokensInput: 1,
+          tokensOutput: 1,
+        })
+      mockFetch()
+
+      await new AiNode().execute(
+        {
+          prompt: "what's the weather in Berlin?",
+          model: "claude-sonnet-5",
+          tools: [
+            {
+              name: "get_weather",
+              parameters: {},
+              url: "https://api.example.com/weather",
+              method: "GET",
+            },
+          ],
+        },
+        undefined,
+        context
+      )
+
+      expect(getAiNodeProgress).not.toHaveBeenCalled()
+      expect(saveAiNodeProgress).not.toHaveBeenCalled()
+      expect(deleteAiNodeProgress).not.toHaveBeenCalled()
     })
 
     it("sends non-GET tool arguments as a JSON body instead of query params", async () => {

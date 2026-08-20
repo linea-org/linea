@@ -51,6 +51,23 @@ type ToolCallRecordKey = {
   occurrence: number
 }
 
+// Occurrence numbers must match what was assigned when these same turns were first produced —
+// rebuilding by re-scanning restored history keeps that consistent across a resume.
+function rebuildOccurrenceCounts(
+  turns: ConversationTurn[]
+): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const turn of turns) {
+    if ("toolCalls" in turn) {
+      for (const call of turn.toolCalls) {
+        const hash = toolCallContentHash(call.name, call.arguments)
+        counts.set(hash, (counts.get(hash) ?? 0) + 1)
+      }
+    }
+  }
+  return counts
+}
+
 // record is checked before and written after, so a whole-node replay can recognize an already-made call from durable state.
 async function callTool(
   tool: AiTool,
@@ -100,6 +117,40 @@ async function callTool(
   return { status: response.status, body }
 }
 
+async function resolveToolCallTurn(
+  call: { id: string; name: string; arguments: Record<string, unknown> },
+  toolsByName: Map<string, AiTool>,
+  toolCallOccurrences: Map<string, number>,
+  context: NodeExecutionContext
+): Promise<ConversationTurn> {
+  const tool = toolsByName.get(call.name)
+  const contentHash = toolCallContentHash(call.name, call.arguments)
+  const occurrence = (toolCallOccurrences.get(contentHash) ?? 0) + 1
+  toolCallOccurrences.set(contentHash, occurrence)
+  const idempotencyKey = context.idempotencyKey
+    ? `${context.idempotencyKey}:${contentHash}:${occurrence}`
+    : undefined
+  const record =
+    context.executionId && context.nodeId
+      ? {
+          executionId: context.executionId,
+          nodeId: context.nodeId,
+          contentHash,
+          occurrence,
+        }
+      : undefined
+  const output = tool
+    ? await callTool(
+        tool,
+        call.arguments,
+        record,
+        idempotencyKey,
+        context.signal
+      )
+    : { error: `Unknown tool "${call.name}"` }
+  return { role: "tool", toolCallId: call.id, content: JSON.stringify(output) }
+}
+
 @Injectable()
 export class AiNode implements NodeHandler {
   async execute(
@@ -120,46 +171,17 @@ export class AiNode implements NodeHandler {
     const keyName = resolveKeyName(parsed.model)
     const { apiKey } = await resolveApiKey(db, context.workspaceId, keyName)
 
-    // Chat mode ignores the authored prompt — the turn's real content comes from chatMessageId, since there's no upstream-output templating yet.
-    let prompt = parsed.prompt
-    let history: ConversationTurn[] | undefined
-    if (parsed.conversationId) {
-      if (!context.workflowId) {
-        throw new Error(
-          `Chat execution for conversation ${parsed.conversationId} is missing workflowId`
+    const nodeKey =
+      context.executionId && context.nodeId
+        ? { executionId: context.executionId, nodeId: context.nodeId }
+        : undefined
+    const savedProgress = nodeKey
+      ? await repositories.aiNodeProgress.getAiNodeProgress(
+          db,
+          nodeKey.executionId,
+          nodeKey.nodeId
         )
-      }
-      const messages = await repositories.chatMessage.listChatMessages(
-        db,
-        context.workspaceId,
-        context.workflowId,
-        parsed.conversationId
-      )
-      const ownIndex = context.chatMessageId
-        ? messages.findIndex((message) => message.id === context.chatMessageId)
-        : messages.length - 1
-      const own = ownIndex === -1 ? undefined : messages[ownIndex]
-      // A chatMessageId that doesn't resolve to a real user turn must fail the node, not silently call the provider with the authored fallback.
-      if (own?.role !== "user") {
-        throw new Error(
-          `Chat execution's chatMessageId did not resolve to a user turn in conversation ${parsed.conversationId}`
-        )
-      }
-      prompt = own.content
-      // Sliced up to (not including) this execution's own message — a later turn queried before it lands must not be mistaken for history.
-      const priorMessages = messages.slice(0, ownIndex)
-      const repliedToIds = new Set(
-        priorMessages
-          .filter((message) => message.role === "assistant")
-          .map((message) => message.respondsToMessageId)
-      )
-      // Drops a still-unanswered earlier turn — otherwise overlapping turns could send the provider consecutive unreplied user messages.
-      history = priorMessages
-        .filter(
-          (message) => message.role !== "user" || repliedToIds.has(message.id)
-        )
-        .map((message) => ({ role: message.role, content: message.content }))
-    }
+      : undefined
 
     const tools: ToolDefinition[] | undefined = parsed.tools?.map((tool) => ({
       name: tool.name,
@@ -171,15 +193,98 @@ export class AiNode implements NodeHandler {
     )
     const maxIterations = parsed.maxIterations ?? DEFAULT_MAX_ITERATIONS
 
-    // Empty/no tools resolves on the first iteration exactly like the old single-call path — history
-    // stays undefined instead of [] so this is a no-op for every caller that isn't using tools.
-    const conversation: ConversationTurn[] = history ?? []
-    let nextPrompt: string | undefined = prompt
-    let tokensInput = 0
-    let tokensOutput = 0
-    const toolCallOccurrences = new Map<string, number>()
+    let conversation: ConversationTurn[]
+    let nextPrompt: string | undefined
+    let startIteration: number
+    let tokensInput: number
+    let tokensOutput: number
 
-    for (let iteration = 0; iteration < maxIterations; iteration++) {
+    if (savedProgress) {
+      // A crash previously interrupted this exact node execution — pick up the saved
+      // conversation instead of restarting it from the original prompt, since the provider
+      // isn't guaranteed to regenerate the same tool calls the second time.
+      conversation = savedProgress.conversation as ConversationTurn[]
+      nextPrompt = undefined
+      startIteration = savedProgress.iteration
+      tokensInput = savedProgress.tokensInput
+      tokensOutput = savedProgress.tokensOutput
+    } else {
+      // Chat mode ignores the authored prompt — the turn's real content comes from chatMessageId, since there's no upstream-output templating yet.
+      let prompt = parsed.prompt
+      let history: ConversationTurn[] | undefined
+      if (parsed.conversationId) {
+        if (!context.workflowId) {
+          throw new Error(
+            `Chat execution for conversation ${parsed.conversationId} is missing workflowId`
+          )
+        }
+        const messages = await repositories.chatMessage.listChatMessages(
+          db,
+          context.workspaceId,
+          context.workflowId,
+          parsed.conversationId
+        )
+        const ownIndex = context.chatMessageId
+          ? messages.findIndex(
+              (message) => message.id === context.chatMessageId
+            )
+          : messages.length - 1
+        const own = ownIndex === -1 ? undefined : messages[ownIndex]
+        // A chatMessageId that doesn't resolve to a real user turn must fail the node, not silently call the provider with the authored fallback.
+        if (own?.role !== "user") {
+          throw new Error(
+            `Chat execution's chatMessageId did not resolve to a user turn in conversation ${parsed.conversationId}`
+          )
+        }
+        prompt = own.content
+        // Sliced up to (not including) this execution's own message — a later turn queried before it lands must not be mistaken for history.
+        const priorMessages = messages.slice(0, ownIndex)
+        const repliedToIds = new Set(
+          priorMessages
+            .filter((message) => message.role === "assistant")
+            .map((message) => message.respondsToMessageId)
+        )
+        // Drops a still-unanswered earlier turn — otherwise overlapping turns could send the provider consecutive unreplied user messages.
+        history = priorMessages
+          .filter(
+            (message) => message.role !== "user" || repliedToIds.has(message.id)
+          )
+          .map((message) => ({ role: message.role, content: message.content }))
+      }
+      // Empty/no tools resolves on the first iteration exactly like the old single-call path —
+      // history stays undefined instead of [] so this is a no-op for every non-tool-using caller.
+      conversation = history ?? []
+      nextPrompt = prompt
+      startIteration = 0
+      tokensInput = 0
+      tokensOutput = 0
+    }
+
+    const toolCallOccurrences = rebuildOccurrenceCounts(conversation)
+
+    // Resumed mid-iteration: progress is only saved right after the assistant's tool-calls turn
+    // is pushed, before any of those calls run — so a saved conversation ending in one always
+    // means those specific calls (each idempotent via the ledger) still need resolving.
+    const lastTurn = conversation.at(-1)
+    if (lastTurn && "toolCalls" in lastTurn) {
+      for (const call of lastTurn.toolCalls) {
+        conversation.push(
+          await resolveToolCallTurn(
+            call,
+            toolsByName,
+            toolCallOccurrences,
+            context
+          )
+        )
+      }
+      startIteration += 1
+    }
+
+    for (
+      let iteration = startIteration;
+      iteration < maxIterations;
+      iteration++
+    ) {
       // Unlike HttpNode, idempotencyKey isn't forwarded — no supported provider accepts one.
       const result = await provider.complete(apiKey, {
         model: parsed.model,
@@ -199,6 +304,13 @@ export class AiNode implements NodeHandler {
       nextPrompt = undefined
 
       if (!result.toolCalls || result.toolCalls.length === 0) {
+        if (nodeKey) {
+          await repositories.aiNodeProgress.deleteAiNodeProgress(
+            db,
+            nodeKey.executionId,
+            nodeKey.nodeId
+          )
+        }
         return nodeRegistry.ai.outputSchema.parse({
           text: result.text,
           tokensInput,
@@ -207,37 +319,26 @@ export class AiNode implements NodeHandler {
       }
 
       conversation.push({ role: "assistant", toolCalls: result.toolCalls })
-      for (const call of result.toolCalls) {
-        const tool = toolsByName.get(call.name)
-        const contentHash = toolCallContentHash(call.name, call.arguments)
-        const occurrence = (toolCallOccurrences.get(contentHash) ?? 0) + 1
-        toolCallOccurrences.set(contentHash, occurrence)
-        const idempotencyKey = context.idempotencyKey
-          ? `${context.idempotencyKey}:${contentHash}:${occurrence}`
-          : undefined
-        const record =
-          context.executionId && context.nodeId
-            ? {
-                executionId: context.executionId,
-                nodeId: context.nodeId,
-                contentHash,
-                occurrence,
-              }
-            : undefined
-        const output = tool
-          ? await callTool(
-              tool,
-              call.arguments,
-              record,
-              idempotencyKey,
-              context.signal
-            )
-          : { error: `Unknown tool "${call.name}"` }
-        conversation.push({
-          role: "tool",
-          toolCallId: call.id,
-          content: JSON.stringify(output),
+      if (nodeKey) {
+        // Saved before the calls below run, so a crash mid-tool-execution resumes here rather
+        // than re-asking the provider (whose response isn't reproducible on a second call).
+        await repositories.aiNodeProgress.saveAiNodeProgress(db, {
+          ...nodeKey,
+          conversation,
+          iteration: iteration + 1,
+          tokensInput,
+          tokensOutput,
         })
+      }
+      for (const call of result.toolCalls) {
+        conversation.push(
+          await resolveToolCallTurn(
+            call,
+            toolsByName,
+            toolCallOccurrences,
+            context
+          )
+        )
       }
     }
 
