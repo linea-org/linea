@@ -51,6 +51,10 @@ const saveAiNodeProgress = jest.fn<
     input: SavedAiNodeProgress & { executionId: string; nodeId: string },
   ]
 >(() => Promise.resolve(undefined))
+const isLeaseValid = jest.fn<
+  Promise<boolean>,
+  [db: unknown, executionId: string, leasedBy: string]
+>(() => Promise.resolve(true))
 jest.mock("@linea/db", () => ({
   db: {},
   repositories: {
@@ -60,6 +64,7 @@ jest.mock("@linea/db", () => ({
       getAiNodeProgress,
       saveAiNodeProgress,
     },
+    execution: { isLeaseValid },
   },
 }))
 
@@ -249,6 +254,8 @@ describe("AiNode", () => {
       getAiNodeProgress.mockClear()
       getAiNodeProgress.mockResolvedValue(undefined)
       saveAiNodeProgress.mockClear()
+      isLeaseValid.mockClear()
+      isLeaseValid.mockResolvedValue(true)
     })
 
     it("calls a configured HTTP tool, feeds the result back, and returns the model's final answer", async () => {
@@ -647,6 +654,45 @@ describe("AiNode", () => {
           ]) as unknown,
         })
       )
+    })
+
+    it("does not fire the real HTTP request when the lease is no longer valid at the point of the call, even with an empty ledger", async () => {
+      isLeaseValid.mockResolvedValueOnce(false)
+      complete.mockResolvedValueOnce({
+        text: "",
+        tokensInput: 1,
+        tokensOutput: 1,
+        toolCalls: [
+          { id: "call_1", name: "set_reminder", arguments: { text: "a" } },
+        ],
+      })
+      const fetchMock = mockFetch()
+
+      await expect(
+        new AiNode().execute(
+          {
+            prompt: "set a reminder",
+            model: "claude-sonnet-5",
+            tools: [
+              {
+                name: "set_reminder",
+                parameters: {},
+                url: "https://api.example.com/reminders",
+                method: "POST",
+              },
+            ],
+          },
+          undefined,
+          contextWithLedger
+        )
+      ).rejects.toThrow(/lease/i)
+
+      expect(isLeaseValid).toHaveBeenCalledWith(
+        expect.anything(),
+        "exec-1",
+        "worker-1"
+      )
+      expect(fetchMock).not.toHaveBeenCalled()
     })
 
     it("a whole-node replay that regenerates a different count of an identical call doesn't re-execute an already-recorded one, and still executes a genuinely new one", async () => {

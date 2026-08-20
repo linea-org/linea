@@ -47,6 +47,7 @@ function toolCallContentHash(toolName: string, args: Record<string, unknown>) {
 type ToolCallRecordKey = {
   executionId: string
   nodeId: string
+  leasedBy: string
   contentHash: string
   occurrence: number
 }
@@ -89,6 +90,19 @@ async function callTool(
       record.occurrence
     )
     if (existing) return { status: existing.status, body: existing.body }
+    // Live check right before the mutation, not just the read above — narrows (doesn't close,
+    // same bound as assertOwnsLease) the window where an overlapping reclaim lets two workers
+    // both see an empty ledger and both fire the request.
+    const stillOwnsLease = await repositories.execution.isLeaseValid(
+      db,
+      record.executionId,
+      record.leasedBy
+    )
+    if (!stillOwnsLease) {
+      throw new Error(
+        `Lost the lease for execution ${record.executionId} before tool call could run`
+      )
+    }
   }
   const url = new URL(tool.url)
   // GET can't carry a body — the only way to pass arguments is the query string.
@@ -137,10 +151,11 @@ async function resolveToolCallTurn(
     ? `${context.idempotencyKey}:${contentHash}:${occurrence}`
     : undefined
   const record =
-    context.executionId && context.nodeId
+    context.executionId && context.nodeId && context.leasedBy
       ? {
           executionId: context.executionId,
           nodeId: context.nodeId,
+          leasedBy: context.leasedBy,
           contentHash,
           occurrence,
         }
