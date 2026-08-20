@@ -217,8 +217,8 @@ function ExecutionsPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+    <main className="flex flex-1 flex-col px-4 py-4">
+      <div className="mb-4 flex flex-wrap items-center gap-2 pl-1">
         <Select
           value={search.status ?? "all"}
           onValueChange={(value) => {
@@ -292,7 +292,7 @@ function ExecutionsPage() {
         <button
           type="button"
           onClick={showNewExecutions}
-          className="mb-4 flex w-fit items-center gap-2 rounded-md border border-input bg-accent px-3 py-1.5 text-sm text-accent-foreground transition-colors hover:bg-accent/80"
+          className="mb-4 flex w-fit items-center gap-2 rounded-md border border-input bg-accent px-3 py-1.5 text-xs text-accent-foreground transition-colors hover:bg-accent/80"
         >
           <SparklesIcon className="size-4" />
           {newCount === 1
@@ -435,7 +435,7 @@ function ExecutionsPage() {
 
           {isFirstPage && !hasMore ? null : (
             <div className="mt-4 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Page {currentPageNumber} · {total} total
               </p>
               <Pagination className="mx-0 w-auto">

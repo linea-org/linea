@@ -43,17 +43,23 @@ export function UserAvatar({
     return (
       <PlayfulAvatar
         name={seed}
-        shape="circle"
+        shape="rounded"
         className={cn(sizeClass[size], className)}
       />
     )
   }
 
   return (
-    <Avatar size={size} className={cn(className)}>
+    <Avatar
+      size={size}
+      className={cn(
+        "rounded-md after:rounded-md [&_[data-slot=avatar-fallback]]:rounded-md [&_[data-slot=avatar-image]]:rounded-md",
+        className
+      )}
+    >
       <AvatarImage src={image} alt="" />
-      <AvatarFallback className="overflow-hidden p-0">
-        <PlayfulAvatar name={seed} shape="circle" className="size-full" />
+      <AvatarFallback className="overflow-hidden rounded-md p-0">
+        <PlayfulAvatar name={seed} shape="rounded" className="size-full" />
       </AvatarFallback>
     </Avatar>
   )

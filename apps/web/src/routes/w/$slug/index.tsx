@@ -43,7 +43,7 @@ function WorkspaceHomePage() {
     initialData: initialData.workflows,
   })
   return (
-    <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
+    <main className="flex flex-1 flex-col px-4 py-4">
       <HomeStats
         workflows={workflows}
         signals={signals}

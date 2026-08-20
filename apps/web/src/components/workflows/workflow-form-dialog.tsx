@@ -143,7 +143,7 @@ export function WorkflowFormDialog({
             </Field>
           </FieldGroup>
           {mutation.isError && (
-            <p className="mt-3 text-sm text-destructive">
+            <p className="mt-3 text-xs text-destructive">
               {mutation.error.message}
             </p>
           )}

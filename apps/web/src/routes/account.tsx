@@ -67,7 +67,7 @@ function AccountPage() {
             <h1 className="font-heading text-3xl font-semibold tracking-tight">
               Account
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-xs text-muted-foreground">
               Your personal settings for Linea.
             </p>
           </div>
@@ -77,7 +77,7 @@ function AccountPage() {
               <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 Name
               </div>
-              <div className="mt-1 text-sm font-medium">
+              <div className="mt-1 text-xs font-medium">
                 {user?.name || "—"}
               </div>
             </div>
@@ -85,7 +85,7 @@ function AccountPage() {
               <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 Email
               </div>
-              <div className="mt-1 truncate text-sm font-medium">
+              <div className="mt-1 truncate text-xs font-medium">
                 {user?.email || "—"}
               </div>
             </div>

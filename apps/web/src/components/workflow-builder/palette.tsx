@@ -44,9 +44,11 @@ function setRoundedDragImage(
   ghost.style.width = `${rect.width}px`
   ghost.style.margin = "0"
   ghost.style.pointerEvents = "none"
-  ghost.style.borderRadius = "12px"
+  ghost.style.borderRadius = "6px"
   ghost.style.overflow = "hidden"
-  ghost.style.clipPath = "inset(0 round 12px)"
+  ghost.style.backgroundColor = "var(--popover)"
+  ghost.style.border = "1px solid var(--border)"
+  ghost.style.clipPath = "inset(0 round 6px)"
   document.body.appendChild(ghost)
   event.dataTransfer.setDragImage(
     ghost,
@@ -56,12 +58,17 @@ function setRoundedDragImage(
   source.addEventListener("dragend", () => ghost.remove(), { once: true })
 }
 
-export function WorkflowPalette() {
+export function WorkflowPalette({
+  collapsed,
+  onCollapsedChange,
+}: {
+  collapsed: boolean
+  onCollapsedChange: (collapsed: boolean) => void
+}) {
   const [search, setSearch] = useState("")
-  const [panelCollapsed, setPanelCollapsed] = useState(false)
-  const [collapsed, setCollapsed] = useState<Set<NodeUICategory>>(
-    () => new Set()
-  )
+  const [categoriesCollapsed, setCategoriesCollapsed] = useState<
+    Set<NodeUICategory>
+  >(() => new Set())
   const searchRef = useRef<HTMLInputElement>(null)
   const pendingSearchFocus = useRef(false)
   const grouped = useMemo(() => {
@@ -84,27 +91,32 @@ export function WorkflowPalette() {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "k" || !(event.metaKey || event.ctrlKey)) return
       event.preventDefault()
-      if (panelCollapsed) {
+      if (collapsed) {
         pendingSearchFocus.current = true
-        setPanelCollapsed(false)
+        onCollapsedChange(false)
         return
       }
       searchRef.current?.focus()
     }
     document.addEventListener("keydown", onKeyDown)
     return () => document.removeEventListener("keydown", onKeyDown)
-  }, [panelCollapsed])
+  }, [collapsed, onCollapsedChange])
   useEffect(() => {
-    if (panelCollapsed || !pendingSearchFocus.current) return
+    if (collapsed || !pendingSearchFocus.current) return
     pendingSearchFocus.current = false
     searchRef.current?.focus()
-  }, [panelCollapsed])
+  }, [collapsed])
   return (
-    <div className="relative z-10 flex min-h-0 shrink-0">
-      {!panelCollapsed && (
-        <aside className="flex min-h-0 w-64 flex-col self-stretch overflow-hidden rounded-xl border border-border bg-card">
-          <div className="shrink-0 p-3">
-            <InputGroup className="h-8 rounded-lg border-input/30 bg-input/30 shadow-none">
+    <div className="relative z-20 flex min-h-0 shrink-0 self-stretch">
+      <div
+        className={cn(
+          "min-h-0 self-stretch overflow-hidden transition-[width] duration-500 ease-in",
+          collapsed ? "w-0" : "w-52"
+        )}
+      >
+        <aside className="flex h-full min-h-0 w-52 flex-col overflow-hidden bg-card">
+          <div className="shrink-0 px-2 pt-2 pb-1.5">
+            <InputGroup className="h-8 rounded-md border-input/30 bg-input/30 shadow-none">
               <InputGroupAddon>
                 <SearchIcon className="size-4 shrink-0 opacity-50" />
               </InputGroupAddon>
@@ -126,11 +138,11 @@ export function WorkflowPalette() {
             {[...grouped.entries()].map(([category, nodeTypes]) => (
               <Collapsible
                 key={category}
-                className="group px-3 pb-3"
-                open={searching || !collapsed.has(category)}
+                className="group px-1.5 pb-0.5"
+                open={searching || !categoriesCollapsed.has(category)}
                 onOpenChange={(open) => {
                   if (searching) return
-                  setCollapsed((prev) => {
+                  setCategoriesCollapsed((prev) => {
                     const next = new Set(prev)
                     if (open) next.delete(category)
                     else next.add(category)
@@ -138,12 +150,12 @@ export function WorkflowPalette() {
                   })
                 }}
               >
-                <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between rounded-md px-1 py-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+                <CollapsibleTrigger className="flex h-7 w-full cursor-pointer items-center justify-between rounded-md px-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
                   {NODE_CATEGORY_LABELS[category]}
                   <ChevronDownIcon className="size-3.5 shrink-0 -rotate-90 transition-transform duration-200 group-data-open:rotate-0" />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <ul className="mt-1.5 flex flex-col gap-2">
+                  <ul className="flex flex-col">
                     {nodeTypes.map((nodeType) => {
                       const definition = nodeRegistry[nodeType]
                       const colors =
@@ -162,24 +174,21 @@ export function WorkflowPalette() {
                               setRoundedDragImage(e, e.currentTarget)
                             }}
                             title={definition.ui.description}
-                            className={cn(
-                              "flex w-full cursor-grab items-center gap-2.5 overflow-hidden rounded-xl border border-border px-2.5 py-2 text-left shadow-none hover:opacity-90 active:cursor-grabbing",
-                              colors.bg
-                            )}
+                            className="flex h-7 w-full cursor-grab items-center justify-between gap-2 overflow-hidden rounded-md px-1.5 text-left hover:bg-muted active:cursor-grabbing"
                           >
+                            <span className="min-w-0 truncate text-xs">
+                              {definition.ui.label}
+                            </span>
                             <span
                               className={cn(
-                                "flex size-8 shrink-0 items-center justify-center rounded-md bg-background/50",
-                                colors.icon
+                                "inline-flex size-5 shrink-0 items-center justify-center rounded-full",
+                                colors.badge
                               )}
                             >
                               <NodeIcon
                                 icon={definition.ui.icon}
-                                className="size-4"
+                                className="size-2.5"
                               />
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                              {definition.ui.label}
                             </span>
                           </button>
                         </li>
@@ -191,24 +200,20 @@ export function WorkflowPalette() {
             ))}
           </div>
         </aside>
-      )}
+      </div>
       <Button
         type="button"
         variant="outline"
-        size={panelCollapsed ? "icon-sm" : "icon-xs"}
+        size="icon-xs"
         className={cn(
-          "border-border bg-card shadow-none dark:bg-card dark:hover:bg-secondary",
-          panelCollapsed
-            ? "mt-2"
-            : "absolute top-5 right-0.5 z-10 translate-x-1/2"
+          "absolute top-4 left-full z-10 size-5 border-border bg-card p-0 shadow-none transition-transform duration-500 ease-in dark:bg-card dark:hover:bg-secondary [&_svg:not([class*='size-'])]:size-2.5",
+          !collapsed && "-translate-x-1/2"
         )}
-        onClick={() => setPanelCollapsed((current) => !current)}
-        aria-label={
-          panelCollapsed ? "Expand node panel" : "Collapse node panel"
-        }
-        aria-expanded={!panelCollapsed}
+        onClick={() => onCollapsedChange(!collapsed)}
+        aria-label={collapsed ? "Expand node panel" : "Collapse node panel"}
+        aria-expanded={!collapsed}
       >
-        {panelCollapsed ? <ChevronsRightIcon /> : <ChevronsLeftIcon />}
+        {collapsed ? <ChevronsRightIcon /> : <ChevronsLeftIcon />}
       </Button>
     </div>
   )

@@ -169,7 +169,7 @@ function SecretsPage() {
     },
   })
   return (
-    <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
+    <main className="flex flex-1 flex-col px-4 py-4">
       {forbidden ? (
         <Empty>
           <EmptyHeader>
@@ -184,17 +184,19 @@ function SecretsPage() {
         </Empty>
       ) : (
         <>
-          <p className="text-sm font-medium text-foreground">AI providers</p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="pl-1 text-sm font-medium text-foreground">
+            AI providers
+          </p>
+          <p className="mt-1 pl-1 text-xs text-muted-foreground">
             Use your own account for models, or keep Linea&apos;s default.
           </p>
           {providersErrored && !isForbidden(providersError) ? (
-            <p className="mt-4 text-sm text-destructive">
+            <p className="mt-4 text-xs text-destructive">
               {providersError.message}
             </p>
           ) : null}
           {providersPending ? (
-            <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
+            <p className="mt-4 text-xs text-muted-foreground">Loading…</p>
           ) : providers ? (
             <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
               <Table>
@@ -232,7 +234,7 @@ function SecretsPage() {
               </Table>
             </div>
           ) : null}
-          <div className="mt-8 mb-4 flex flex-wrap items-center gap-2">
+          <div className="mt-8 mb-4 flex flex-wrap items-center gap-2 pl-1">
             <InputGroup className="h-8 max-w-sm rounded-lg border-input/30 bg-input/30 shadow-none">
               <InputGroupAddon>
                 <SearchIcon className="size-4 shrink-0 opacity-50" />
@@ -251,9 +253,9 @@ function SecretsPage() {
             </div>
           </div>
           {isError && !forbidden ? (
-            <p className="text-sm text-destructive">{error.message}</p>
+            <p className="text-xs text-destructive">{error.message}</p>
           ) : isPending ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <p className="text-xs text-muted-foreground">Loading…</p>
           ) : customSecrets.length === 0 ? (
             <Empty>
               <EmptyHeader>

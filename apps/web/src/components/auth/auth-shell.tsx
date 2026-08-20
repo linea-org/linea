@@ -66,7 +66,7 @@ export function AuthShell({
               {title}
             </h1>
             {description ? (
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground sm:text-base">
                 {description}
               </p>
             ) : null}
@@ -74,7 +74,7 @@ export function AuthShell({
             <div className="mt-8">{children}</div>
 
             {footer ? (
-              <div className="mt-8 text-sm text-muted-foreground">{footer}</div>
+              <div className="mt-8 text-xs text-muted-foreground">{footer}</div>
             ) : null}
           </div>
         </div>
