@@ -1,9 +1,11 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter"
 import { organization } from "better-auth/plugins"
+import { eq } from "drizzle-orm"
 import { db, repositories, schema } from "@linea/db"
 import { sendEmail } from "./email.js"
 import {
+  existingAccountEmailHtml,
   organizationInviteEmailHtml,
   resetPasswordEmailHtml,
   verificationEmailHtml,
@@ -45,6 +47,30 @@ export const enabledSocialProviders = [
   ...(googleCredentials ? (["google"] as const) : []),
   ...(githubCredentials ? (["github"] as const) : []),
 ]
+
+const socialProviderLabels: Record<string, string> = {
+  google: "Google",
+  github: "GitHub",
+}
+
+// Used only for the onExistingUserSignUp notice, so a real account owner learns how they
+// actually sign in — never surfaced to the anonymous caller who triggered the duplicate attempt.
+async function describeSignInMethod(userId: string): Promise<string> {
+  const linkedAccounts = await db
+    .select({ providerId: schema.accounts.providerId })
+    .from(schema.accounts)
+    .where(eq(schema.accounts.userId, userId))
+  const socialLabels = linkedAccounts
+    .map((account) => socialProviderLabels[account.providerId])
+    .filter((label): label is string => Boolean(label))
+  if (socialLabels.length > 0) {
+    return `Sign in with ${socialLabels.join(" or ")}`
+  }
+  if (linkedAccounts.some((account) => account.providerId === "credential")) {
+    return "Sign in with your email and password"
+  }
+  return "Sign in to your account"
+}
 
 export const auth = betterAuth({
   appName: "Linea",
@@ -103,6 +129,23 @@ export const auth = betterAuth({
         subject: "Reset your Linea password",
         html: resetPasswordEmailHtml({ name: user.name, url }),
         text: `Reset your password: ${url}`,
+      })
+    },
+    // Fires when a sign-up targets an email that already has an account (only under
+    // requireEmailVerification/autoSignIn:false, which is why this always applies here) — the
+    // caller still gets the same synthetic response either way, this just tells the real owner.
+    onExistingUserSignUp: async ({ user }) => {
+      const signInMethod = await describeSignInMethod(user.id)
+      const signInUrl = `${appUrl}/sign-in`
+      await sendEmail({
+        to: user.email,
+        subject: "Someone tried to sign up with your Linea email",
+        html: existingAccountEmailHtml({
+          name: user.name,
+          signInMethod,
+          signInUrl,
+        }),
+        text: `Someone just tried to create a new Linea account with this email. You already have one. ${signInMethod}: ${signInUrl}`,
       })
     },
   },
