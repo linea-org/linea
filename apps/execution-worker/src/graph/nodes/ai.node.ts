@@ -1,11 +1,176 @@
+import { createHash } from "node:crypto"
 import { Injectable } from "@nestjs/common"
-import { resolveApiKey, resolveKeyName, resolveProvider } from "@linea/ai"
+import {
+  resolveApiKey,
+  resolveKeyName,
+  resolveProvider,
+  type ConversationTurn,
+  type ToolDefinition,
+} from "@linea/ai"
 import { db, repositories } from "@linea/db"
 import { nodeRegistry } from "@linea/runtime"
 import type {
   NodeExecutionContext,
   NodeHandler,
 } from "./node-handler.interface"
+
+const DEFAULT_MAX_ITERATIONS = 10
+
+type AiTool = {
+  name: string
+  description?: string
+  parameters: Record<string, unknown>
+  url: string
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`
+  }
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(
+      ([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)
+    )
+    return `{${entries.map(([key, v]) => `${JSON.stringify(key)}:${canonicalJson(v)}`).join(",")}}`
+  }
+  return JSON.stringify(value)
+}
+
+function toolCallContentHash(toolName: string, args: Record<string, unknown>) {
+  return createHash("sha256")
+    .update(`${toolName}:${canonicalJson(args)}`)
+    .digest("hex")
+    .slice(0, 16)
+}
+
+type ToolCallRecordKey = {
+  executionId: string
+  nodeId: string
+  leasedBy: string
+  contentHash: string
+  occurrence: number
+}
+
+// Occurrence numbers must match what was assigned when these same turns were first produced —
+// rebuilding by re-scanning restored history keeps that consistent across a resume. The last
+// turn is skipped when it's a pending toolCalls turn: those calls haven't been resolved yet, so
+// the resume block below assigns their occurrence itself — counting them here too would shift
+// them past their original number and miss the ledger row already written for them.
+function rebuildOccurrenceCounts(
+  turns: ConversationTurn[]
+): Map<string, number> {
+  const counts = new Map<string, number>()
+  const lastIndex = turns.length - 1
+  turns.forEach((turn, index) => {
+    if ("toolCalls" in turn && index !== lastIndex) {
+      for (const call of turn.toolCalls) {
+        const hash = toolCallContentHash(call.name, call.arguments)
+        counts.set(hash, (counts.get(hash) ?? 0) + 1)
+      }
+    }
+  })
+  return counts
+}
+
+// record is checked before and written after, so a whole-node replay can recognize an already-made call from durable state.
+async function callTool(
+  tool: AiTool,
+  args: Record<string, unknown>,
+  record: ToolCallRecordKey | undefined,
+  idempotencyKey: string | undefined,
+  signal?: AbortSignal
+): Promise<unknown> {
+  if (record) {
+    const existing = await repositories.toolCallRecord.getToolCallRecord(
+      db,
+      record.executionId,
+      record.nodeId,
+      record.contentHash,
+      record.occurrence
+    )
+    if (existing) return { status: existing.status, body: existing.body }
+    // Live check right before the mutation, not just the read above — narrows (doesn't close,
+    // same bound as assertOwnsLease) the window where an overlapping reclaim lets two workers
+    // both see an empty ledger and both fire the request.
+    const stillOwnsLease = await repositories.execution.isLeaseValid(
+      db,
+      record.executionId,
+      record.leasedBy
+    )
+    if (!stillOwnsLease) {
+      throw new Error(
+        `Lost the lease for execution ${record.executionId} before tool call could run`
+      )
+    }
+  }
+  const url = new URL(tool.url)
+  // GET can't carry a body — the only way to pass arguments is the query string.
+  if (tool.method === "GET") {
+    for (const [key, value] of Object.entries(args)) {
+      url.searchParams.set(key, String(value))
+    }
+  }
+  const headers: Record<string, string> = {}
+  if (tool.method !== "GET") headers["Content-Type"] = "application/json"
+  // Backstop for the one gap the ledger can't close itself (a crash between this request succeeding
+  // and its record committing): deterministic across a resume, so a compliant destination dedupes
+  // the retry with no local record of the first attempt — bounded by destination support, same as HttpNode.
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey
+  const response = await fetch(url, {
+    method: tool.method,
+    headers,
+    body: tool.method === "GET" ? undefined : JSON.stringify(args),
+    signal,
+  })
+  const contentType = response.headers.get("content-type") ?? ""
+  const body: unknown = contentType.includes("application/json")
+    ? await response.json()
+    : await response.text()
+  if (record) {
+    await repositories.toolCallRecord.recordToolCall(db, {
+      ...record,
+      status: response.status,
+      body,
+    })
+  }
+  return { status: response.status, body }
+}
+
+async function resolveToolCallTurn(
+  call: { id: string; name: string; arguments: Record<string, unknown> },
+  toolsByName: Map<string, AiTool>,
+  toolCallOccurrences: Map<string, number>,
+  context: NodeExecutionContext
+): Promise<ConversationTurn> {
+  const tool = toolsByName.get(call.name)
+  const contentHash = toolCallContentHash(call.name, call.arguments)
+  const occurrence = (toolCallOccurrences.get(contentHash) ?? 0) + 1
+  toolCallOccurrences.set(contentHash, occurrence)
+  const idempotencyKey = context.idempotencyKey
+    ? `${context.idempotencyKey}:${contentHash}:${occurrence}`
+    : undefined
+  const record =
+    context.executionId && context.nodeId && context.leasedBy
+      ? {
+          executionId: context.executionId,
+          nodeId: context.nodeId,
+          leasedBy: context.leasedBy,
+          contentHash,
+          occurrence,
+        }
+      : undefined
+  const output = tool
+    ? await callTool(
+        tool,
+        call.arguments,
+        record,
+        idempotencyKey,
+        context.signal
+      )
+    : { error: `Unknown tool "${call.name}"` }
+  return { role: "tool", toolCallId: call.id, content: JSON.stringify(output) }
+}
 
 @Injectable()
 export class AiNode implements NodeHandler {
@@ -19,62 +184,192 @@ export class AiNode implements NodeHandler {
       model: config.model,
       systemPrompt: config.systemPrompt,
       conversationId: context.conversationId,
+      tools: config.tools,
+      maxIterations: config.maxIterations,
     })
 
     const provider = resolveProvider(parsed.model)
     const keyName = resolveKeyName(parsed.model)
     const { apiKey } = await resolveApiKey(db, context.workspaceId, keyName)
 
-    // Chat mode ignores the authored prompt — the turn's real content comes from chatMessageId, since there's no upstream-output templating yet.
-    let prompt = parsed.prompt
-    let history: { role: "user" | "assistant"; content: string }[] | undefined
-    if (parsed.conversationId) {
-      if (!context.workflowId) {
-        throw new Error(
-          `Chat execution for conversation ${parsed.conversationId} is missing workflowId`
+    // leasedBy is required here (not just executionId/nodeId) so a saved-progress write can be
+    // fenced against the execution's lease at commit time, not just checked at call time.
+    const nodeKey =
+      context.executionId && context.nodeId && context.leasedBy
+        ? {
+            executionId: context.executionId,
+            nodeId: context.nodeId,
+            leasedBy: context.leasedBy,
+          }
+        : undefined
+    const savedProgress = nodeKey
+      ? await repositories.aiNodeProgress.getAiNodeProgress(
+          db,
+          nodeKey.executionId,
+          nodeKey.nodeId
         )
+      : undefined
+
+    const tools: ToolDefinition[] | undefined = parsed.tools?.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+    }))
+    const toolsByName = new Map(
+      (parsed.tools ?? []).map((tool) => [tool.name, tool])
+    )
+    const maxIterations = parsed.maxIterations ?? DEFAULT_MAX_ITERATIONS
+
+    let conversation: ConversationTurn[]
+    let nextPrompt: string | undefined
+    let startIteration: number
+    let tokensInput: number
+    let tokensOutput: number
+
+    if (savedProgress) {
+      // A crash previously interrupted this exact node execution — pick up the saved
+      // conversation instead of restarting it from the original prompt, since the provider
+      // isn't guaranteed to regenerate the same tool calls the second time.
+      conversation = savedProgress.conversation as ConversationTurn[]
+      nextPrompt = undefined
+      startIteration = savedProgress.iteration
+      tokensInput = savedProgress.tokensInput
+      tokensOutput = savedProgress.tokensOutput
+    } else {
+      // Chat mode ignores the authored prompt — the turn's real content comes from chatMessageId, since there's no upstream-output templating yet.
+      let prompt = parsed.prompt
+      let history: ConversationTurn[] | undefined
+      if (parsed.conversationId) {
+        if (!context.workflowId) {
+          throw new Error(
+            `Chat execution for conversation ${parsed.conversationId} is missing workflowId`
+          )
+        }
+        const messages = await repositories.chatMessage.listChatMessages(
+          db,
+          context.workspaceId,
+          context.workflowId,
+          parsed.conversationId
+        )
+        const ownIndex = context.chatMessageId
+          ? messages.findIndex(
+              (message) => message.id === context.chatMessageId
+            )
+          : messages.length - 1
+        const own = ownIndex === -1 ? undefined : messages[ownIndex]
+        // A chatMessageId that doesn't resolve to a real user turn must fail the node, not silently call the provider with the authored fallback.
+        if (own?.role !== "user") {
+          throw new Error(
+            `Chat execution's chatMessageId did not resolve to a user turn in conversation ${parsed.conversationId}`
+          )
+        }
+        prompt = own.content
+        // Sliced up to (not including) this execution's own message — a later turn queried before it lands must not be mistaken for history.
+        const priorMessages = messages.slice(0, ownIndex)
+        const repliedToIds = new Set(
+          priorMessages
+            .filter((message) => message.role === "assistant")
+            .map((message) => message.respondsToMessageId)
+        )
+        // Drops a still-unanswered earlier turn — otherwise overlapping turns could send the provider consecutive unreplied user messages.
+        history = priorMessages
+          .filter(
+            (message) => message.role !== "user" || repliedToIds.has(message.id)
+          )
+          .map((message) => ({ role: message.role, content: message.content }))
       }
-      const messages = await repositories.chatMessage.listChatMessages(
-        db,
-        context.workspaceId,
-        context.workflowId,
-        parsed.conversationId
-      )
-      const ownIndex = context.chatMessageId
-        ? messages.findIndex((message) => message.id === context.chatMessageId)
-        : messages.length - 1
-      const own = ownIndex === -1 ? undefined : messages[ownIndex]
-      // A chatMessageId that doesn't resolve to a real user turn must fail the node, not silently call the provider with the authored fallback.
-      if (own?.role !== "user") {
-        throw new Error(
-          `Chat execution's chatMessageId did not resolve to a user turn in conversation ${parsed.conversationId}`
-        )
-      }
-      prompt = own.content
-      // Sliced up to (not including) this execution's own message — a later turn queried before it lands must not be mistaken for history.
-      const priorMessages = messages.slice(0, ownIndex)
-      const repliedToIds = new Set(
-        priorMessages
-          .filter((message) => message.role === "assistant")
-          .map((message) => message.respondsToMessageId)
-      )
-      // Drops a still-unanswered earlier turn — otherwise overlapping turns could send the provider consecutive unreplied user messages.
-      history = priorMessages
-        .filter(
-          (message) => message.role !== "user" || repliedToIds.has(message.id)
-        )
-        .map((message) => ({ role: message.role, content: message.content }))
+      // Empty/no tools resolves on the first iteration exactly like the old single-call path —
+      // history stays undefined instead of [] so this is a no-op for every non-tool-using caller.
+      conversation = history ?? []
+      nextPrompt = prompt
+      startIteration = 0
+      tokensInput = 0
+      tokensOutput = 0
     }
 
-    // Unlike HttpNode, idempotencyKey isn't forwarded — no supported provider accepts one.
-    const result = await provider.complete(apiKey, {
-      model: parsed.model,
-      prompt,
-      systemPrompt: parsed.systemPrompt,
-      history,
-      signal: context.signal,
-    })
+    const toolCallOccurrences = rebuildOccurrenceCounts(conversation)
 
-    return nodeRegistry.ai.outputSchema.parse(result)
+    // Resumed mid-iteration: progress is only saved right after the assistant's tool-calls turn
+    // is pushed, before any of those calls run — so a saved conversation ending in one always
+    // means those specific calls (each idempotent via the ledger) still need resolving.
+    // savedProgress.iteration already names the next iteration to run — no further advance here.
+    const lastTurn = conversation.at(-1)
+    if (lastTurn && "toolCalls" in lastTurn) {
+      for (const call of lastTurn.toolCalls) {
+        conversation.push(
+          await resolveToolCallTurn(
+            call,
+            toolsByName,
+            toolCallOccurrences,
+            context
+          )
+        )
+      }
+    }
+
+    for (
+      let iteration = startIteration;
+      iteration < maxIterations;
+      iteration++
+    ) {
+      // Unlike HttpNode, idempotencyKey isn't forwarded — no supported provider accepts one.
+      const result = await provider.complete(apiKey, {
+        model: parsed.model,
+        prompt: nextPrompt,
+        systemPrompt: parsed.systemPrompt,
+        // A snapshot, not the live array — conversation is mutated right after this call returns, and that must not retroactively change what this call was seen to send.
+        history: conversation.length > 0 ? [...conversation] : undefined,
+        tools,
+        signal: context.signal,
+      })
+      tokensInput += result.tokensInput
+      tokensOutput += result.tokensOutput
+
+      if (nextPrompt !== undefined) {
+        conversation.push({ role: "user", content: nextPrompt })
+      }
+      nextPrompt = undefined
+
+      if (!result.toolCalls || result.toolCalls.length === 0) {
+        // Left in place, not deleted: this step's checkpoint isn't written until after execute()
+        // returns, and deleting here would leave a crash in that gap with neither a checkpoint
+        // nor a saved conversation to resume from. A stray row for a node that did complete is
+        // harmless — it's never read again once the node's checkpoint exists.
+        return nodeRegistry.ai.outputSchema.parse({
+          text: result.text,
+          tokensInput,
+          tokensOutput,
+        })
+      }
+
+      conversation.push({ role: "assistant", toolCalls: result.toolCalls })
+      // The write itself is lease-fenced (see saveAiNodeProgress) — this local check is just an
+      // early exit, skipping a DB round trip we already know the fencing would reject.
+      if (nodeKey && !context.signal?.aborted) {
+        // Saved before the calls below run, so a crash mid-tool-execution resumes here rather
+        // than re-asking the provider (whose response isn't reproducible on a second call).
+        await repositories.aiNodeProgress.saveAiNodeProgress(db, {
+          ...nodeKey,
+          conversation,
+          iteration: iteration + 1,
+          tokensInput,
+          tokensOutput,
+        })
+      }
+      for (const call of result.toolCalls) {
+        conversation.push(
+          await resolveToolCallTurn(
+            call,
+            toolsByName,
+            toolCallOccurrences,
+            context
+          )
+        )
+      }
+    }
+
+    throw new Error(
+      `AI node exceeded maxIterations (${maxIterations}) without a final answer`
+    )
   }
 }

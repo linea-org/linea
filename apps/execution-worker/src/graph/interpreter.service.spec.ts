@@ -66,6 +66,38 @@ describe("InterpreterService.executeNode", () => {
     ).rejects.toThrow("handler exploded")
   })
 
+  it("passes leasedBy through to the handler's execution context", async () => {
+    const execute = jest.fn().mockResolvedValue({})
+    const capturingNode = { execute } as unknown as HttpNode
+    const interpreter = new InterpreterService(
+      new CheckpointsService(),
+      capturingNode,
+      new TransformNode(),
+      new BranchNode(),
+      new AiNode(),
+      new ApprovalNode()
+    )
+
+    await interpreter.executeNode(
+      { id: "n1", type: "http", config: {} },
+      {},
+      "workspace-1",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      "worker-1"
+    )
+
+    expect(execute).toHaveBeenCalledWith(
+      {},
+      {},
+      expect.objectContaining({ leasedBy: "worker-1" })
+    )
+  })
+
   it("throws for a node type with no registered handler", async () => {
     const interpreter = new InterpreterService(
       new CheckpointsService(),
