@@ -848,6 +848,98 @@ describe("AiNode", () => {
       )
     })
 
+    it("resumes a pending call at its original occurrence, reusing the ledger record instead of re-executing it", async () => {
+      const store = new Map<string, { status: number; body: unknown }>()
+      getToolCallRecord.mockImplementation(
+        (_db, executionId, nodeId, contentHash, occurrence) =>
+          Promise.resolve(
+            store.get(`${executionId}:${nodeId}:${contentHash}:${occurrence}`)
+          )
+      )
+      recordToolCall.mockImplementation((_db, input) => {
+        store.set(
+          `${input.executionId}:${input.nodeId}:${input.contentHash}:${input.occurrence}`,
+          { status: input.status, body: input.body }
+        )
+        return Promise.resolve(undefined)
+      })
+      const tools = [
+        {
+          name: "get_weather",
+          parameters: {},
+          url: "https://api.example.com/weather",
+          method: "GET" as const,
+        },
+      ]
+
+      // Original attempt records the pending call's result in the ledger under occurrence 1.
+      complete
+        .mockResolvedValueOnce({
+          text: "",
+          tokensInput: 1,
+          tokensOutput: 1,
+          toolCalls: [
+            {
+              id: "call_1",
+              name: "get_weather",
+              arguments: { city: "Berlin" },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          text: "it's sunny",
+          tokensInput: 1,
+          tokensOutput: 1,
+        })
+      const originalFetch = mockFetch()
+      await new AiNode().execute(
+        {
+          prompt: "what's the weather in Berlin?",
+          model: "claude-sonnet-5",
+          tools,
+        },
+        undefined,
+        contextWithLedger
+      )
+      expect(originalFetch).toHaveBeenCalledTimes(1)
+
+      // Simulate a crash that lost everything after the assistant's tool-calls turn was saved —
+      // resume from that exact saved conversation with the ledger from the original attempt intact.
+      getAiNodeProgress.mockResolvedValueOnce({
+        conversation: [
+          { role: "user", content: "what's the weather in Berlin?" },
+          {
+            role: "assistant",
+            toolCalls: [
+              {
+                id: "call_1",
+                name: "get_weather",
+                arguments: { city: "Berlin" },
+              },
+            ],
+          },
+        ],
+        iteration: 1,
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+      complete.mockResolvedValueOnce({
+        text: "it's sunny in Berlin",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+      const resumeFetch = mockFetch()
+
+      await new AiNode().execute(
+        { prompt: "unused", model: "claude-sonnet-5", tools },
+        undefined,
+        contextWithLedger
+      )
+
+      // The ledger already holds occurrence 1 for this call — resuming must reuse it, not re-fire it.
+      expect(resumeFetch).not.toHaveBeenCalled()
+    })
+
     it("does not read, save, or delete progress when the execution context has no executionId/nodeId", async () => {
       complete
         .mockResolvedValueOnce({

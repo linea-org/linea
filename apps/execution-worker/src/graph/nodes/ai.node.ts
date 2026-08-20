@@ -52,19 +52,23 @@ type ToolCallRecordKey = {
 }
 
 // Occurrence numbers must match what was assigned when these same turns were first produced —
-// rebuilding by re-scanning restored history keeps that consistent across a resume.
+// rebuilding by re-scanning restored history keeps that consistent across a resume. The last
+// turn is skipped when it's a pending toolCalls turn: those calls haven't been resolved yet, so
+// the resume block below assigns their occurrence itself — counting them here too would shift
+// them past their original number and miss the ledger row already written for them.
 function rebuildOccurrenceCounts(
   turns: ConversationTurn[]
 ): Map<string, number> {
   const counts = new Map<string, number>()
-  for (const turn of turns) {
-    if ("toolCalls" in turn) {
+  const lastIndex = turns.length - 1
+  turns.forEach((turn, index) => {
+    if ("toolCalls" in turn && index !== lastIndex) {
       for (const call of turn.toolCalls) {
         const hash = toolCallContentHash(call.name, call.arguments)
         counts.set(hash, (counts.get(hash) ?? 0) + 1)
       }
     }
-  }
+  })
   return counts
 }
 
