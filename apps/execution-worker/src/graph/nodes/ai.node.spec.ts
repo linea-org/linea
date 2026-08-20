@@ -10,14 +10,46 @@ jest.mock("@linea/ai", () => ({
 }))
 
 const listChatMessages = jest.fn()
+const getToolCallRecord = jest.fn<
+  Promise<{ status: number; body: unknown } | undefined>,
+  [
+    db: unknown,
+    executionId: string,
+    nodeId: string,
+    contentHash: string,
+    occurrence: number,
+  ]
+>(() => Promise.resolve(undefined))
+const recordToolCall = jest.fn<
+  Promise<undefined>,
+  [
+    db: unknown,
+    input: {
+      executionId: string
+      nodeId: string
+      contentHash: string
+      occurrence: number
+      status: number
+      body: unknown
+    },
+  ]
+>(() => Promise.resolve(undefined))
 jest.mock("@linea/db", () => ({
   db: {},
-  repositories: { chatMessage: { listChatMessages } },
+  repositories: {
+    chatMessage: { listChatMessages },
+    toolCallRecord: { getToolCallRecord, recordToolCall },
+  },
 }))
 
 import { AiNode } from "./ai.node"
 
 const context = { workspaceId: "ws1", workflowId: "wf1" }
+const contextWithLedger = {
+  ...context,
+  executionId: "exec-1",
+  nodeId: "ai-1",
+}
 
 function mockFetch(): jest.Mock {
   const fetchMock = jest.fn().mockResolvedValue({
@@ -189,6 +221,9 @@ describe("AiNode", () => {
     // call history accumulates — clear it here so nth-call/count assertions below are test-local.
     beforeEach(() => {
       complete.mockClear()
+      getToolCallRecord.mockClear()
+      getToolCallRecord.mockResolvedValue(undefined)
+      recordToolCall.mockClear()
     })
 
     it("calls a configured HTTP tool, feeds the result back, and returns the model's final answer", async () => {
@@ -478,6 +513,142 @@ describe("AiNode", () => {
       expect(
         (calledInit.headers as Record<string, string>)["Idempotency-Key"]
       ).toBeUndefined()
+    })
+
+    it("returns a persisted record instead of making a real HTTP call when one already exists for this execution+node+content+occurrence", async () => {
+      getToolCallRecord.mockResolvedValueOnce({
+        status: 200,
+        body: { confirmed: true },
+      })
+      complete
+        .mockResolvedValueOnce({
+          text: "",
+          tokensInput: 1,
+          tokensOutput: 1,
+          toolCalls: [
+            { id: "call_1", name: "set_reminder", arguments: { text: "a" } },
+          ],
+        })
+        .mockResolvedValueOnce({
+          text: "done",
+          tokensInput: 1,
+          tokensOutput: 1,
+        })
+      const fetchMock = mockFetch()
+
+      await new AiNode().execute(
+        {
+          prompt: "set a reminder",
+          model: "claude-sonnet-5",
+          tools: [
+            {
+              name: "set_reminder",
+              parameters: {},
+              url: "https://api.example.com/reminders",
+              method: "POST",
+            },
+          ],
+        },
+        undefined,
+        contextWithLedger
+      )
+
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(complete).toHaveBeenNthCalledWith(
+        2,
+        "secret",
+        expect.objectContaining({
+          history: expect.arrayContaining([
+            expect.objectContaining({
+              role: "tool",
+              content: JSON.stringify({
+                status: 200,
+                body: { confirmed: true },
+              }),
+            }),
+          ]) as unknown,
+        })
+      )
+    })
+
+    it("a whole-node replay that regenerates a different count of an identical call doesn't re-execute an already-recorded one, and still executes a genuinely new one", async () => {
+      const store = new Map<string, { status: number; body: unknown }>()
+      getToolCallRecord.mockImplementation(
+        (_db, executionId, nodeId, contentHash, occurrence) =>
+          Promise.resolve(
+            store.get(`${executionId}:${nodeId}:${contentHash}:${occurrence}`)
+          )
+      )
+      recordToolCall.mockImplementation((_db, input) => {
+        store.set(
+          `${input.executionId}:${input.nodeId}:${input.contentHash}:${input.occurrence}`,
+          { status: input.status, body: input.body }
+        )
+        return Promise.resolve(undefined)
+      })
+      const tools = [
+        {
+          name: "add_to_cart",
+          parameters: {},
+          url: "https://api.example.com/cart",
+          method: "POST" as const,
+        },
+      ]
+
+      // Original attempt: the model calls the same tool with identical arguments twice.
+      complete
+        .mockResolvedValueOnce({
+          text: "",
+          tokensInput: 1,
+          tokensOutput: 1,
+          toolCalls: [
+            { id: "call_1", name: "add_to_cart", arguments: { item: "apple" } },
+            { id: "call_2", name: "add_to_cart", arguments: { item: "apple" } },
+          ],
+        })
+        .mockResolvedValueOnce({
+          text: "done",
+          tokensInput: 1,
+          tokensOutput: 1,
+        })
+      const firstRunFetch = mockFetch()
+      await new AiNode().execute(
+        { prompt: "add two apples", model: "claude-sonnet-5", tools },
+        undefined,
+        contextWithLedger
+      )
+      expect(firstRunFetch).toHaveBeenCalledTimes(2)
+
+      // Replay after a crash: the whole node restarts and the model regenerates only one of
+      // those two identical calls, plus a genuinely different one.
+      complete
+        .mockResolvedValueOnce({
+          text: "",
+          tokensInput: 1,
+          tokensOutput: 1,
+          toolCalls: [
+            { id: "call_1", name: "add_to_cart", arguments: { item: "apple" } },
+            {
+              id: "call_2",
+              name: "add_to_cart",
+              arguments: { item: "banana" },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          text: "done",
+          tokensInput: 1,
+          tokensOutput: 1,
+        })
+      const replayFetch = mockFetch()
+      await new AiNode().execute(
+        { prompt: "add two apples", model: "claude-sonnet-5", tools },
+        undefined,
+        contextWithLedger
+      )
+
+      // The "apple" occurrence is served from the ledger; only "banana" is genuinely new.
+      expect(replayFetch).toHaveBeenCalledTimes(1)
     })
 
     it("sends non-GET tool arguments as a JSON body instead of query params", async () => {

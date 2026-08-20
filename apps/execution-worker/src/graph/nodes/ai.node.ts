@@ -37,7 +37,6 @@ function canonicalJson(value: unknown): string {
   return JSON.stringify(value)
 }
 
-// Keyed by content, not iteration/position — checkpointing is whole-node, so a replay regenerates the conversation and won't reliably reproduce a call at the same spot.
 function toolCallContentHash(toolName: string, args: Record<string, unknown>) {
   return createHash("sha256")
     .update(`${toolName}:${canonicalJson(args)}`)
@@ -45,28 +44,31 @@ function toolCallContentHash(toolName: string, args: Record<string, unknown>) {
     .slice(0, 16)
 }
 
-// Suffixed with which occurrence this is (1st, 2nd, ...) of that same content within the run, so
-// two intentional repeats of the same call — e.g. the model adding the same item twice — get
-// distinct keys instead of the second one silently deduping against the first. A replay still
-// lands on the same key per occurrence as long as it repeats the call the same number of times.
-function toolCallIdempotencyKey(
-  executionKey: string,
-  toolName: string,
-  args: Record<string, unknown>,
-  occurrenceCounts: Map<string, number>
-): string {
-  const hash = toolCallContentHash(toolName, args)
-  const occurrence = (occurrenceCounts.get(hash) ?? 0) + 1
-  occurrenceCounts.set(hash, occurrence)
-  return `${executionKey}:${hash}:${occurrence}`
+type ToolCallRecordKey = {
+  executionId: string
+  nodeId: string
+  contentHash: string
+  occurrence: number
 }
 
+// record is checked before and written after, so a whole-node replay can recognize an already-made call from durable state.
 async function callTool(
   tool: AiTool,
   args: Record<string, unknown>,
+  record: ToolCallRecordKey | undefined,
   idempotencyKey: string | undefined,
   signal?: AbortSignal
 ): Promise<unknown> {
+  if (record) {
+    const existing = await repositories.toolCallRecord.getToolCallRecord(
+      db,
+      record.executionId,
+      record.nodeId,
+      record.contentHash,
+      record.occurrence
+    )
+    if (existing) return { status: existing.status, body: existing.body }
+  }
   const url = new URL(tool.url)
   // GET can't carry a body — the only way to pass arguments is the query string.
   if (tool.method === "GET") {
@@ -88,6 +90,13 @@ async function callTool(
   const body: unknown = contentType.includes("application/json")
     ? await response.json()
     : await response.text()
+  if (record) {
+    await repositories.toolCallRecord.recordToolCall(db, {
+      ...record,
+      status: response.status,
+      body,
+    })
+  }
   return { status: response.status, body }
 }
 
@@ -200,16 +209,29 @@ export class AiNode implements NodeHandler {
       conversation.push({ role: "assistant", toolCalls: result.toolCalls })
       for (const call of result.toolCalls) {
         const tool = toolsByName.get(call.name)
+        const contentHash = toolCallContentHash(call.name, call.arguments)
+        const occurrence = (toolCallOccurrences.get(contentHash) ?? 0) + 1
+        toolCallOccurrences.set(contentHash, occurrence)
         const idempotencyKey = context.idempotencyKey
-          ? toolCallIdempotencyKey(
-              context.idempotencyKey,
-              call.name,
-              call.arguments,
-              toolCallOccurrences
-            )
+          ? `${context.idempotencyKey}:${contentHash}:${occurrence}`
           : undefined
+        const record =
+          context.executionId && context.nodeId
+            ? {
+                executionId: context.executionId,
+                nodeId: context.nodeId,
+                contentHash,
+                occurrence,
+              }
+            : undefined
         const output = tool
-          ? await callTool(tool, call.arguments, idempotencyKey, context.signal)
+          ? await callTool(
+              tool,
+              call.arguments,
+              record,
+              idempotencyKey,
+              context.signal
+            )
           : { error: `Unknown tool "${call.name}"` }
         conversation.push({
           role: "tool",
