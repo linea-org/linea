@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { Injectable } from "@nestjs/common"
 import {
   resolveApiKey,
@@ -23,6 +24,32 @@ type AiTool = {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
 }
 
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`
+  }
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(
+      ([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)
+    )
+    return `{${entries.map(([key, v]) => `${JSON.stringify(key)}:${canonicalJson(v)}`).join(",")}}`
+  }
+  return JSON.stringify(value)
+}
+
+// Keyed by content, not iteration/position — checkpointing is whole-node, so a replay regenerates the conversation and won't reliably reproduce a call at the same spot.
+function toolCallIdempotencyKey(
+  executionKey: string,
+  toolName: string,
+  args: Record<string, unknown>
+): string {
+  const hash = createHash("sha256")
+    .update(`${toolName}:${canonicalJson(args)}`)
+    .digest("hex")
+    .slice(0, 16)
+  return `${executionKey}:${hash}`
+}
+
 async function callTool(
   tool: AiTool,
   args: Record<string, unknown>,
@@ -38,9 +65,7 @@ async function callTool(
   }
   const headers: Record<string, string> = {}
   if (tool.method !== "GET") headers["Content-Type"] = "application/json"
-  // Matches HttpNode: a compliant destination can recognize a call replayed after a lease loss
-  // instead of repeating a state-changing mutation. Scoped per iteration+position, not just the
-  // execution-wide key, so two distinct tool calls in the same run don't collide with each other.
+  // Matches HttpNode — lets a compliant destination dedupe a call repeated by a lease-loss replay.
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey
   const response = await fetch(url, {
     method: tool.method,
@@ -161,10 +186,14 @@ export class AiNode implements NodeHandler {
       }
 
       conversation.push({ role: "assistant", toolCalls: result.toolCalls })
-      for (const [callIndex, call] of result.toolCalls.entries()) {
+      for (const call of result.toolCalls) {
         const tool = toolsByName.get(call.name)
         const idempotencyKey = context.idempotencyKey
-          ? `${context.idempotencyKey}:${iteration}:${callIndex}`
+          ? toolCallIdempotencyKey(
+              context.idempotencyKey,
+              call.name,
+              call.arguments
+            )
           : undefined
         const output = tool
           ? await callTool(tool, call.arguments, idempotencyKey, context.signal)

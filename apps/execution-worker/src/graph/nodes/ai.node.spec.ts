@@ -279,7 +279,7 @@ describe("AiNode", () => {
       })
     })
 
-    it("forwards a per-call idempotency key derived from the execution's, scoped so two calls in the same iteration don't collide", async () => {
+    it("derives distinct idempotency keys for two different tool calls in the same run", async () => {
       complete
         .mockResolvedValueOnce({
           text: "",
@@ -318,12 +318,79 @@ describe("AiNode", () => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
       const [, firstInit] = fetchMock.mock.calls[0] as [URL, RequestInit]
       const [, secondInit] = fetchMock.mock.calls[1] as [URL, RequestInit]
-      expect(
-        (firstInit.headers as Record<string, string>)["Idempotency-Key"]
-      ).toBe("exec-1:ai-1:0:0")
-      expect(
-        (secondInit.headers as Record<string, string>)["Idempotency-Key"]
-      ).toBe("exec-1:ai-1:0:1")
+      const firstKey = (firstInit.headers as Record<string, string>)[
+        "Idempotency-Key"
+      ]
+      const secondKey = (secondInit.headers as Record<string, string>)[
+        "Idempotency-Key"
+      ]
+      expect(firstKey).toEqual(expect.stringMatching(/^exec-1:ai-1:/))
+      expect(secondKey).toEqual(expect.stringMatching(/^exec-1:ai-1:/))
+      expect(firstKey).not.toBe(secondKey)
+    })
+
+    it("derives the same idempotency key for the same tool call regardless of its position, so a whole-node replay (which restarts the loop from scratch) doesn't assign it a different key", async () => {
+      complete.mockResolvedValueOnce({
+        text: "",
+        tokensInput: 1,
+        tokensOutput: 1,
+        toolCalls: [
+          { id: "call_1", name: "set_reminder", arguments: { text: "a" } },
+          { id: "call_2", name: "set_reminder", arguments: { text: "b" } },
+        ],
+      })
+      complete.mockResolvedValueOnce({
+        text: "done",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+      const firstRunFetch = mockFetch()
+      const tools = [
+        {
+          name: "set_reminder",
+          parameters: {},
+          url: "https://api.example.com/reminders",
+          method: "POST" as const,
+        },
+      ]
+      await new AiNode().execute(
+        { prompt: "set two reminders", model: "claude-sonnet-5", tools },
+        undefined,
+        { ...context, idempotencyKey: "exec-1:ai-1" }
+      )
+      const [, replayedCallInit] = firstRunFetch.mock.calls[1] as [
+        URL,
+        RequestInit,
+      ]
+      const originalKey = (replayedCallInit.headers as Record<string, string>)[
+        "Idempotency-Key"
+      ]
+
+      complete.mockResolvedValueOnce({
+        text: "",
+        tokensInput: 1,
+        tokensOutput: 1,
+        toolCalls: [
+          { id: "call_1", name: "set_reminder", arguments: { text: "b" } },
+        ],
+      })
+      complete.mockResolvedValueOnce({
+        text: "done",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+      const replayFetch = mockFetch()
+      await new AiNode().execute(
+        { prompt: "set two reminders", model: "claude-sonnet-5", tools },
+        undefined,
+        { ...context, idempotencyKey: "exec-1:ai-1" }
+      )
+      const [, replayInit] = replayFetch.mock.calls[0] as [URL, RequestInit]
+      const replayedKey = (replayInit.headers as Record<string, string>)[
+        "Idempotency-Key"
+      ]
+
+      expect(replayedKey).toBe(originalKey)
     })
 
     it("omits the Idempotency-Key header entirely when the execution context has none", async () => {
