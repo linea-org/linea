@@ -49,6 +49,8 @@ import {
 } from "@/lib/chat-preview-api"
 import { executionQueryOptions, type JsonValue } from "@/lib/executions-api"
 
+import { ChatMarkdown } from "./chat-markdown"
+
 export function ChatPreviewPanel({
   slug,
   workflowId,
@@ -230,7 +232,9 @@ export function ChatPreviewPanel({
                           message.role === "user" ? "default" : "secondary"
                         }
                       >
-                        <BubbleContent>{message.content}</BubbleContent>
+                        <BubbleContent>
+                          <ChatMarkdown content={message.content} />
+                        </BubbleContent>
                       </Bubble>
                     </BubbleGroup>
                   </MessageScrollerItem>

@@ -194,6 +194,10 @@ function WorkflowBuilderCanvasInner({
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges)
   const [entryNodeId] = useState(seeded.entryNodeId)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  // Which of the two right-hand panels is visible — kept as one variable, not two
+  // independent booleans, so a node selection and the chat toggle can never both
+  // decide to show a panel at the same time.
+  const [rightPanel, setRightPanel] = useState<"config" | "chat" | null>(null)
   const { resolvedTheme } = useTheme()
   const { screenToFlowPosition } = useReactFlow<Node<WorkflowBuilderNodeData>>()
   const history = useUndoHistory({ nodes: initial.nodes, edges: initial.edges })
@@ -319,7 +323,6 @@ function WorkflowBuilderCanvasInner({
       })
     },
   })
-  const [chatOpen, setChatOpen] = useState(false)
   const [commitDialog, setCommitDialog] = useState<"commit" | "publish" | null>(
     null
   )
@@ -431,6 +434,7 @@ function WorkflowBuilderCanvasInner({
       ]
       setNodes(nextNodes)
       setSelectedNodeId(id)
+      setRightPanel("config")
       pushHistory(nextNodes, edges)
     },
     [nodes, edges, screenToFlowPosition, setNodes, pushHistory]
@@ -542,10 +546,12 @@ function WorkflowBuilderCanvasInner({
           )}
           <Button
             type="button"
-            variant={chatOpen ? "secondary" : "outline"}
+            variant={rightPanel === "chat" ? "secondary" : "outline"}
             size="sm"
-            onClick={() => setChatOpen((open) => !open)}
-            aria-pressed={chatOpen}
+            onClick={() =>
+              setRightPanel((current) => (current === "chat" ? null : "chat"))
+            }
+            aria-pressed={rightPanel === "chat"}
           >
             <MessageCircleIcon />
             Chat preview
@@ -634,9 +640,14 @@ function WorkflowBuilderCanvasInner({
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 onNodeDragStop={() => pushHistory(nodes, edges)}
-                onSelectionChange={({ nodes: selected }) =>
+                // A direct click always means "show this node's config" — unlike
+                // onSelectionChange below, it isn't re-fired by React Flow on unrelated
+                // updates while a node merely stays selected, so it can't fight the chat
+                // panel for a slot it didn't just get clicked into.
+                onNodeClick={() => setRightPanel("config")}
+                onSelectionChange={({ nodes: selected }) => {
                   setSelectedNodeId(selected[0]?.id ?? null)
-                }
+                }}
                 isValidConnection={(connection) =>
                   isValidConnection(
                     connection,
@@ -688,12 +699,12 @@ function WorkflowBuilderCanvasInner({
               </ReactFlow>
             </div>
           </ResizablePanel>
-          {selectedNode && (
+          {rightPanel === "config" && selectedNode && (
             <>
               <ResizableHandle className="w-2 bg-transparent after:w-2" />
               <ResizablePanel
                 id="builder-config"
-                defaultSize={320}
+                defaultSize={340}
                 minSize={280}
                 maxSize={640}
                 groupResizeBehavior="preserve-pixel-size"
@@ -704,6 +715,7 @@ function WorkflowBuilderCanvasInner({
                   nodeType={selectedNode.data.nodeType}
                   config={selectedNode.data.config}
                   onClose={() => {
+                    setRightPanel(null)
                     setSelectedNodeId(null)
                     setNodes((current) =>
                       current.map((n) =>
@@ -723,12 +735,12 @@ function WorkflowBuilderCanvasInner({
               </ResizablePanel>
             </>
           )}
-          {chatOpen && (
+          {rightPanel === "chat" && (
             <>
               <ResizableHandle className="w-2 bg-transparent after:w-2" />
               <ResizablePanel
                 id="builder-chat"
-                defaultSize={360}
+                defaultSize={340}
                 minSize={280}
                 maxSize={640}
                 groupResizeBehavior="preserve-pixel-size"
@@ -738,7 +750,7 @@ function WorkflowBuilderCanvasInner({
                   slug={slug}
                   workflowId={workflowId}
                   graph={buildGraph(entryNodeId)}
-                  onClose={() => setChatOpen(false)}
+                  onClose={() => setRightPanel(null)}
                 />
               </ResizablePanel>
             </>
