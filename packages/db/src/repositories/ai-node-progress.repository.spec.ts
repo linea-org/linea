@@ -142,6 +142,41 @@ describe("saveAiNodeProgress / getAiNodeProgress", () => {
     })
   })
 
+  it("does not create a row at all when the caller's lease was already lost before the first save", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      // worker-1's lease expired and worker-2 reclaimed it before worker-1's first save landed —
+      // no row exists yet, so this must be caught on the insert path, not just a later overwrite.
+      await startExecution(
+        tx,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() - 1000)
+      )
+      await startExecution(tx, execution.id, "worker-2", farFuture)
+
+      await saveAiNodeProgress(tx, {
+        executionId: execution.id,
+        nodeId: "ai-1",
+        leasedBy: "worker-1",
+        conversation: [{ role: "user", content: "from stale worker-1" }],
+        iteration: 1,
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+
+      const progress = await getAiNodeProgress(tx, execution.id, "ai-1")
+
+      expect(progress).toBeUndefined()
+    })
+  })
+
   it("keeps progress for different nodes in the same execution separate", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
