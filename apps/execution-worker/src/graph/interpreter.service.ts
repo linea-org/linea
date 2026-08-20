@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import { calculateCostMicros } from "@linea/ai"
-import { walk } from "@linea/runtime"
+import { retryPolicySchema, walk, type RetryPolicy } from "@linea/runtime"
 import type {
   StepResult,
   WalkResult,
@@ -18,14 +18,45 @@ import { BranchNode } from "./nodes/branch.node"
 import { EndNode } from "./nodes/end.node"
 import { HttpNode } from "./nodes/http.node"
 import type { NodeHandler } from "./nodes/node-handler.interface"
+import { NonRetryableError } from "./nodes/non-retryable-error"
 import { StartNode } from "./nodes/start.node"
 import { TransformNode } from "./nodes/transform.node"
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function computeBackoffDelayMs(
+  backoff: RetryPolicy["backoff"],
+  attemptsMade: number
+): number {
+  if (backoff.type === "fixed") return backoff.delayMs
+  return backoff.delayMs * 2 ** (attemptsMade - 1)
+}
+
+// Invalid shape is no retry, not a hard fail — the panel already rejects bad JSON.
+function parseRetryPolicy(raw: unknown): RetryPolicy | undefined {
+  if (raw === undefined || raw === null) return undefined
+  const result = retryPolicySchema.safeParse(raw)
+  return result.success ? result.data : undefined
+}
+
+// Must not abort input.signal — the outer catch treats that abort as lease loss.
+function withAttemptTimeout(
+  leaseSignal: AbortSignal | undefined,
+  timeoutMs: number | undefined
+): AbortSignal | undefined {
+  if (timeoutMs === undefined) return leaseSignal
+  const timeoutSignal = AbortSignal.timeout(timeoutMs)
+  return leaseSignal
+    ? AbortSignal.any([leaseSignal, timeoutSignal])
+    : timeoutSignal
+}
 
 export type RunInput = {
   executionId: string
   workspaceId: string
-  // Only needed to scope a chat-preview conversation lookup by workflow (see AiNode) - optional
-  // so callers with no conversation concept (replay, most tests) don't need to supply it.
+  // Optional so replay/tests without a conversation don't have to supply it.
   workflowId?: string
   leasedBy: string
   graph: WorkflowGraph
@@ -183,26 +214,57 @@ export class InterpreterService {
 
       const startedAt = new Date()
       let stepResult: StepResult
+      let attemptsMade = 1
 
       try {
-        // A worker that already lost the lease shouldn't start a new HTTP/AI call at all.
         await this.checkpoints.assertOwnsLease(
           input.executionId,
           input.leasedBy
         )
 
-        const { output, tokensInput, tokensOutput } = await this.executeNode(
-          node,
-          step.input,
-          input.workspaceId,
-          `${input.executionId}:${step.nodeId}`,
-          input.signal,
-          input.executionId,
-          extractConversationId(input.triggerPayload),
-          input.workflowId,
-          extractChatMessageId(input.triggerPayload),
-          input.leasedBy
-        )
+        const retryPolicy = parseRetryPolicy(node.config.retryPolicy)
+        const maxAttempts = retryPolicy?.maxAttempts ?? 1
+
+        let executed: {
+          output: unknown
+          tokensInput?: number
+          tokensOutput?: number
+        }
+        for (;;) {
+          try {
+            executed = await this.executeNode(
+              node,
+              step.input,
+              input.workspaceId,
+              `${input.executionId}:${step.nodeId}`,
+              withAttemptTimeout(input.signal, retryPolicy?.timeoutMs),
+              input.executionId,
+              extractConversationId(input.triggerPayload),
+              input.workflowId,
+              extractChatMessageId(input.triggerPayload),
+              input.leasedBy
+            )
+            break
+          } catch (attemptError) {
+            // Don't spend retry budget on a call that was never ours.
+            if (input.signal?.aborted) throw attemptError
+            if (attemptError instanceof NonRetryableError) throw attemptError
+            if (attemptsMade >= maxAttempts) throw attemptError
+            attemptsMade += 1
+            // Recheck before sleep — a retry can outlive the lease that covered attempt 1.
+            await this.checkpoints.assertOwnsLease(
+              input.executionId,
+              input.leasedBy
+            )
+            if (retryPolicy) {
+              await sleep(
+                computeBackoffDelayMs(retryPolicy.backoff, attemptsMade - 1)
+              )
+            }
+          }
+        }
+
+        const { output, tokensInput, tokensOutput } = executed
         let costMicros: bigint | undefined
         let stepCostUnpriced: boolean | undefined
         if (tokensInput !== undefined && tokensOutput !== undefined) {
@@ -239,6 +301,7 @@ export class InterpreterService {
           tokensOutput,
           costMicros,
           costUnpriced: stepCostUnpriced,
+          retryAttempts: attemptsMade > 1 ? attemptsMade : undefined,
           completed,
         })
 
@@ -277,6 +340,7 @@ export class InterpreterService {
           error: { message, stack },
           startedAt,
           endedAt: new Date(),
+          retryAttempts: attemptsMade > 1 ? attemptsMade : undefined,
           completed,
         })
 
