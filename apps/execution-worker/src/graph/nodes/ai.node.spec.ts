@@ -51,10 +51,6 @@ const saveAiNodeProgress = jest.fn<
     input: SavedAiNodeProgress & { executionId: string; nodeId: string },
   ]
 >(() => Promise.resolve(undefined))
-const deleteAiNodeProgress = jest.fn<
-  Promise<undefined>,
-  [db: unknown, executionId: string, nodeId: string]
->(() => Promise.resolve(undefined))
 jest.mock("@linea/db", () => ({
   db: {},
   repositories: {
@@ -63,7 +59,6 @@ jest.mock("@linea/db", () => ({
     aiNodeProgress: {
       getAiNodeProgress,
       saveAiNodeProgress,
-      deleteAiNodeProgress,
     },
   },
 }))
@@ -253,7 +248,6 @@ describe("AiNode", () => {
       getAiNodeProgress.mockClear()
       getAiNodeProgress.mockResolvedValue(undefined)
       saveAiNodeProgress.mockClear()
-      deleteAiNodeProgress.mockClear()
     })
 
     it("calls a configured HTTP tool, feeds the result back, and returns the model's final answer", async () => {
@@ -741,24 +735,99 @@ describe("AiNode", () => {
       )
     })
 
-    it("deletes any saved progress once a final answer is reached", async () => {
-      complete.mockResolvedValueOnce({
-        text: "hi",
+    it("does not skip an iteration on resume — savedProgress.iteration already names the next one to run", async () => {
+      // Only one provider call remains under the cap; skipping ahead would exceed maxIterations
+      // before the model gets a chance to answer.
+      getAiNodeProgress.mockResolvedValueOnce({
+        conversation: [
+          { role: "user", content: "what's the weather in Berlin?" },
+          {
+            role: "assistant",
+            toolCalls: [
+              {
+                id: "call_1",
+                name: "get_weather",
+                arguments: { city: "Berlin" },
+              },
+            ],
+          },
+        ],
+        iteration: 1,
         tokensInput: 1,
         tokensOutput: 1,
       })
+      complete.mockResolvedValueOnce({
+        text: "it's sunny in Berlin",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+      mockFetch()
 
-      await new AiNode().execute(
-        { prompt: "hello", model: "claude-sonnet-5" },
+      const result = await new AiNode().execute(
+        {
+          prompt: "unused",
+          model: "claude-sonnet-5",
+          maxIterations: 2,
+          tools: [
+            {
+              name: "get_weather",
+              parameters: {},
+              url: "https://api.example.com/weather",
+              method: "GET",
+            },
+          ],
+        },
         undefined,
         contextWithLedger
       )
 
-      expect(deleteAiNodeProgress).toHaveBeenCalledWith(
-        expect.anything(),
-        "exec-1",
-        "ai-1"
+      expect(complete).toHaveBeenCalledTimes(1)
+      expect(result).toEqual(
+        expect.objectContaining({ text: "it's sunny in Berlin" })
       )
+    })
+
+    it("skips saving progress once the execution signal is already aborted, so a stale worker can't overwrite newer progress", async () => {
+      complete
+        .mockResolvedValueOnce({
+          text: "",
+          tokensInput: 1,
+          tokensOutput: 1,
+          toolCalls: [
+            {
+              id: "call_1",
+              name: "get_weather",
+              arguments: { city: "Berlin" },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          text: "done",
+          tokensInput: 1,
+          tokensOutput: 1,
+        })
+      mockFetch()
+      const controller = new AbortController()
+      controller.abort()
+
+      await new AiNode().execute(
+        {
+          prompt: "what's the weather in Berlin?",
+          model: "claude-sonnet-5",
+          tools: [
+            {
+              name: "get_weather",
+              parameters: {},
+              url: "https://api.example.com/weather",
+              method: "GET",
+            },
+          ],
+        },
+        undefined,
+        { ...contextWithLedger, signal: controller.signal }
+      )
+
+      expect(saveAiNodeProgress).not.toHaveBeenCalled()
     })
 
     it("resumes from saved progress instead of restarting the conversation from the original prompt", async () => {
@@ -841,11 +910,6 @@ describe("AiNode", () => {
         tokensInput: 8,
         tokensOutput: 6,
       })
-      expect(deleteAiNodeProgress).toHaveBeenCalledWith(
-        expect.anything(),
-        "exec-1",
-        "ai-1"
-      )
     })
 
     it("resumes a pending call at its original occurrence, reusing the ledger record instead of re-executing it", async () => {
@@ -940,7 +1004,7 @@ describe("AiNode", () => {
       expect(resumeFetch).not.toHaveBeenCalled()
     })
 
-    it("does not read, save, or delete progress when the execution context has no executionId/nodeId", async () => {
+    it("does not read or save progress when the execution context has no executionId/nodeId", async () => {
       complete
         .mockResolvedValueOnce({
           text: "",
@@ -980,7 +1044,6 @@ describe("AiNode", () => {
 
       expect(getAiNodeProgress).not.toHaveBeenCalled()
       expect(saveAiNodeProgress).not.toHaveBeenCalled()
-      expect(deleteAiNodeProgress).not.toHaveBeenCalled()
     })
 
     it("sends non-GET tool arguments as a JSON body instead of query params", async () => {

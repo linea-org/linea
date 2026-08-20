@@ -45,18 +45,3 @@ export async function saveAiNodeProgress(
       },
     })
 }
-
-export async function deleteAiNodeProgress(
-  db: DbClient,
-  executionId: string,
-  nodeId: string
-): Promise<void> {
-  await db
-    .delete(aiNodeProgress)
-    .where(
-      and(
-        eq(aiNodeProgress.executionId, executionId),
-        eq(aiNodeProgress.nodeId, nodeId)
-      )
-    )
-}

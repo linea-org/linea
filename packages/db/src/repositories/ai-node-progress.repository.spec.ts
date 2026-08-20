@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest"
 import { createExecution } from "./execution.repository.js"
 import {
-  deleteAiNodeProgress,
   getAiNodeProgress,
   saveAiNodeProgress,
 } from "./ai-node-progress.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 
-describe("saveAiNodeProgress / getAiNodeProgress / deleteAiNodeProgress", () => {
+describe("saveAiNodeProgress / getAiNodeProgress", () => {
   it("returns undefined when no progress has been saved yet", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -110,32 +109,6 @@ describe("saveAiNodeProgress / getAiNodeProgress / deleteAiNodeProgress", () => 
       const otherNode = await getAiNodeProgress(tx, execution.id, "ai-2")
 
       expect(otherNode).toBeUndefined()
-    })
-  })
-
-  it("removes the row on delete", async () => {
-    await withRollback(async (tx) => {
-      const { organization, workflow, version } = await createTestFixtures(tx)
-      const execution = await createExecution(tx, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-      })
-
-      await saveAiNodeProgress(tx, {
-        executionId: execution.id,
-        nodeId: "ai-1",
-        conversation: [{ role: "user", content: "hi" }],
-        iteration: 1,
-        tokensInput: 1,
-        tokensOutput: 1,
-      })
-      await deleteAiNodeProgress(tx, execution.id, "ai-1")
-
-      const progress = await getAiNodeProgress(tx, execution.id, "ai-1")
-
-      expect(progress).toBeUndefined()
     })
   })
 })

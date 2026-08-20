@@ -269,6 +269,7 @@ export class AiNode implements NodeHandler {
     // Resumed mid-iteration: progress is only saved right after the assistant's tool-calls turn
     // is pushed, before any of those calls run — so a saved conversation ending in one always
     // means those specific calls (each idempotent via the ledger) still need resolving.
+    // savedProgress.iteration already names the next iteration to run — no further advance here.
     const lastTurn = conversation.at(-1)
     if (lastTurn && "toolCalls" in lastTurn) {
       for (const call of lastTurn.toolCalls) {
@@ -281,7 +282,6 @@ export class AiNode implements NodeHandler {
           )
         )
       }
-      startIteration += 1
     }
 
     for (
@@ -308,13 +308,10 @@ export class AiNode implements NodeHandler {
       nextPrompt = undefined
 
       if (!result.toolCalls || result.toolCalls.length === 0) {
-        if (nodeKey) {
-          await repositories.aiNodeProgress.deleteAiNodeProgress(
-            db,
-            nodeKey.executionId,
-            nodeKey.nodeId
-          )
-        }
+        // Left in place, not deleted: this step's checkpoint isn't written until after execute()
+        // returns, and deleting here would leave a crash in that gap with neither a checkpoint
+        // nor a saved conversation to resume from. A stray row for a node that did complete is
+        // harmless — it's never read again once the node's checkpoint exists.
         return nodeRegistry.ai.outputSchema.parse({
           text: result.text,
           tokensInput,
@@ -323,7 +320,9 @@ export class AiNode implements NodeHandler {
       }
 
       conversation.push({ role: "assistant", toolCalls: result.toolCalls })
-      if (nodeKey) {
+      // Signal fires only on lease loss — skips a save that would otherwise race a worker that
+      // has since reclaimed this execution and may have already written newer progress.
+      if (nodeKey && !context.signal?.aborted) {
         // Saved before the calls below run, so a crash mid-tool-execution resumes here rather
         // than re-asking the provider (whose response isn't reproducible on a second call).
         await repositories.aiNodeProgress.saveAiNodeProgress(db, {
