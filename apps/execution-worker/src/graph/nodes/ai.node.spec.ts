@@ -27,6 +27,7 @@ const recordToolCall = jest.fn<
     input: {
       executionId: string
       nodeId: string
+      leasedBy: string
       contentHash: string
       occurrence: number
       status: number

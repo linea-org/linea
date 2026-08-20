@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm"
 import {
+  executions,
   toolCallRecords,
   type NewToolCallRecord,
   type ToolCallRecord,
@@ -28,10 +29,31 @@ export async function getToolCallRecord(
   return record
 }
 
-/** A racing duplicate (e.g. two overlapping reclaims) is safe — the unique index makes the second insert a no-op instead of a duplicate row. */
+/** Lease-checked before writing (same shape as saveAiNodeProgress) so a stale worker's response can't win first-write-wins over a valid one — its insert is dropped instead of racing for the row. Once a valid write lands, a second valid racer's insert is still a safe no-op via the unique index. */
 export async function recordToolCall(
   db: DbClient,
-  input: Omit<NewToolCallRecord, "id" | "createdAt">
+  input: Omit<NewToolCallRecord, "id" | "createdAt"> & { leasedBy: string }
 ): Promise<void> {
-  await db.insert(toolCallRecords).values(input).onConflictDoNothing()
+  const { leasedBy, ...record } = input
+  await db.transaction(async (tx) => {
+    const [execution] = await tx
+      .select({
+        leasedBy: executions.leasedBy,
+        leaseExpiresAt: executions.leaseExpiresAt,
+      })
+      .from(executions)
+      .where(eq(executions.id, record.executionId))
+      .for("update")
+
+    if (
+      !execution ||
+      execution.leasedBy !== leasedBy ||
+      execution.leaseExpiresAt === null ||
+      execution.leaseExpiresAt <= new Date()
+    ) {
+      return
+    }
+
+    await tx.insert(toolCallRecords).values(record).onConflictDoNothing()
+  })
 }
