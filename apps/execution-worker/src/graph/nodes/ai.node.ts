@@ -38,16 +38,27 @@ function canonicalJson(value: unknown): string {
 }
 
 // Keyed by content, not iteration/position — checkpointing is whole-node, so a replay regenerates the conversation and won't reliably reproduce a call at the same spot.
-function toolCallIdempotencyKey(
-  executionKey: string,
-  toolName: string,
-  args: Record<string, unknown>
-): string {
-  const hash = createHash("sha256")
+function toolCallContentHash(toolName: string, args: Record<string, unknown>) {
+  return createHash("sha256")
     .update(`${toolName}:${canonicalJson(args)}`)
     .digest("hex")
     .slice(0, 16)
-  return `${executionKey}:${hash}`
+}
+
+// Suffixed with which occurrence this is (1st, 2nd, ...) of that same content within the run, so
+// two intentional repeats of the same call — e.g. the model adding the same item twice — get
+// distinct keys instead of the second one silently deduping against the first. A replay still
+// lands on the same key per occurrence as long as it repeats the call the same number of times.
+function toolCallIdempotencyKey(
+  executionKey: string,
+  toolName: string,
+  args: Record<string, unknown>,
+  occurrenceCounts: Map<string, number>
+): string {
+  const hash = toolCallContentHash(toolName, args)
+  const occurrence = (occurrenceCounts.get(hash) ?? 0) + 1
+  occurrenceCounts.set(hash, occurrence)
+  return `${executionKey}:${hash}:${occurrence}`
 }
 
 async function callTool(
@@ -157,6 +168,7 @@ export class AiNode implements NodeHandler {
     let nextPrompt: string | undefined = prompt
     let tokensInput = 0
     let tokensOutput = 0
+    const toolCallOccurrences = new Map<string, number>()
 
     for (let iteration = 0; iteration < maxIterations; iteration++) {
       // Unlike HttpNode, idempotencyKey isn't forwarded — no supported provider accepts one.
@@ -192,7 +204,8 @@ export class AiNode implements NodeHandler {
           ? toolCallIdempotencyKey(
               context.idempotencyKey,
               call.name,
-              call.arguments
+              call.arguments,
+              toolCallOccurrences
             )
           : undefined
         const output = tool

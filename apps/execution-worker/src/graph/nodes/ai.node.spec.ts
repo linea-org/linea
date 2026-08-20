@@ -329,6 +329,52 @@ describe("AiNode", () => {
       expect(firstKey).not.toBe(secondKey)
     })
 
+    it("derives distinct idempotency keys for two intentional calls to the same tool with identical arguments, so the second isn't silently deduped", async () => {
+      complete
+        .mockResolvedValueOnce({
+          text: "",
+          tokensInput: 1,
+          tokensOutput: 1,
+          toolCalls: [
+            { id: "call_1", name: "add_to_cart", arguments: { item: "apple" } },
+            { id: "call_2", name: "add_to_cart", arguments: { item: "apple" } },
+          ],
+        })
+        .mockResolvedValueOnce({
+          text: "done",
+          tokensInput: 1,
+          tokensOutput: 1,
+        })
+      const fetchMock = mockFetch()
+
+      await new AiNode().execute(
+        {
+          prompt: "add two apples, one call each",
+          model: "claude-sonnet-5",
+          tools: [
+            {
+              name: "add_to_cart",
+              parameters: {},
+              url: "https://api.example.com/cart",
+              method: "POST",
+            },
+          ],
+        },
+        undefined,
+        { ...context, idempotencyKey: "exec-1:ai-1" }
+      )
+
+      const [, firstInit] = fetchMock.mock.calls[0] as [URL, RequestInit]
+      const [, secondInit] = fetchMock.mock.calls[1] as [URL, RequestInit]
+      const firstKey = (firstInit.headers as Record<string, string>)[
+        "Idempotency-Key"
+      ]
+      const secondKey = (secondInit.headers as Record<string, string>)[
+        "Idempotency-Key"
+      ]
+      expect(firstKey).not.toBe(secondKey)
+    })
+
     it("derives the same idempotency key for the same tool call regardless of its position, so a whole-node replay (which restarts the loop from scratch) doesn't assign it a different key", async () => {
       complete.mockResolvedValueOnce({
         text: "",
