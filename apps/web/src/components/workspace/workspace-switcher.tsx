@@ -37,13 +37,11 @@ export function WorkspaceSwitcher({
   const navigate = useNavigate()
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-
   const current =
     workspaces.find((workspace) => workspace.slug === currentSlug) ??
     workspaces[0]
   const name = current?.name?.trim() || currentSlug
   const slug = current?.slug || currentSlug
-
   async function switchTo(workspace: WorkspaceOption) {
     if (workspace.slug === currentSlug) return
     setError(null)
@@ -56,7 +54,6 @@ export function WorkspaceSwitcher({
       setError(authErrorMessage(err, "Could not switch workspace"))
     }
   }
-
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -65,13 +62,13 @@ export function WorkspaceSwitcher({
             render={
               <SidebarMenuButton
                 size="lg"
-                className="cursor-pointer data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
+                className="h-8 cursor-pointer data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
                 aria-label="Switch workspace"
               />
             }
           >
-            <PlayfulAvatar name={name} shape="rounded" className="size-8" />
-            <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
+            <PlayfulAvatar name={name} shape="rounded" className="size-7" />
+            <span className="grid min-w-0 flex-1 text-left text-xs leading-tight">
               <span className="truncate font-heading font-semibold tracking-tight">
                 {name}
               </span>
@@ -79,7 +76,7 @@ export function WorkspaceSwitcher({
                 {slug}
               </span>
             </span>
-            <ChevronsUpDownIcon className="ml-auto size-4" />
+            <ChevronsUpDownIcon className="ml-auto size-3.5 group-data-[collapsible=icon]:hidden" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="start"
@@ -105,7 +102,7 @@ export function WorkspaceSwitcher({
                     className="size-7"
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">
+                    <span className="block truncate text-xs font-medium">
                       {workspace.name}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">

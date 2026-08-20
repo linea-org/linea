@@ -34,6 +34,7 @@ import {
 import { Marker, MarkerContent } from "@linea/ui/components/marker"
 import {
   MessageScroller,
+  MessageScrollerButton,
   MessageScrollerContent,
   MessageScrollerItem,
   MessageScrollerProvider,
@@ -47,6 +48,8 @@ import {
   type ConversationSummary,
 } from "@/lib/chat-preview-api"
 import { executionQueryOptions, type JsonValue } from "@/lib/executions-api"
+
+import { ChatMarkdown } from "./chat-markdown"
 
 export function ChatPreviewPanel({
   slug,
@@ -142,9 +145,9 @@ export function ChatPreviewPanel({
   const isWaiting = pendingExecutionId !== null
   const failed = pendingExecution?.execution.status === "failed"
   return (
-    <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-border bg-card">
-      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+    <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
           Chat preview
         </p>
         <Button
@@ -198,7 +201,7 @@ export function ChatPreviewPanel({
           </Combobox>
         </div>
       )}
-      <MessageScrollerProvider>
+      <MessageScrollerProvider autoScroll>
         <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport>
             <MessageScrollerContent className="px-4 py-4">
@@ -208,7 +211,7 @@ export function ChatPreviewPanel({
                     <EmptyMedia variant="icon">
                       <MessageCircleIcon />
                     </EmptyMedia>
-                    <EmptyTitle className="text-sm">
+                    <EmptyTitle className="text-xs">
                       Test this workflow
                     </EmptyTitle>
                     <EmptyDescription>
@@ -217,8 +220,11 @@ export function ChatPreviewPanel({
                   </EmptyHeader>
                 </Empty>
               ) : (
-                messages.map((message) => (
-                  <MessageScrollerItem key={message.id}>
+                messages.map((message, index) => (
+                  <MessageScrollerItem
+                    key={message.id}
+                    scrollAnchor={index === messages.length - 1}
+                  >
                     <BubbleGroup>
                       <Bubble
                         align={message.role === "user" ? "end" : "start"}
@@ -226,7 +232,9 @@ export function ChatPreviewPanel({
                           message.role === "user" ? "default" : "secondary"
                         }
                       >
-                        <BubbleContent>{message.content}</BubbleContent>
+                        <BubbleContent>
+                          <ChatMarkdown content={message.content} />
+                        </BubbleContent>
                       </Bubble>
                     </BubbleGroup>
                   </MessageScrollerItem>
@@ -247,6 +255,7 @@ export function ChatPreviewPanel({
               )}
             </MessageScrollerContent>
           </MessageScrollerViewport>
+          <MessageScrollerButton />
         </MessageScroller>
       </MessageScrollerProvider>
       <div className="border-t border-border p-3">
@@ -276,7 +285,7 @@ export function ChatPreviewPanel({
           </InputGroupAddon>
         </InputGroup>
         {send.isError ? (
-          <p className="mt-2 text-sm text-destructive">{send.error.message}</p>
+          <p className="mt-2 text-xs text-destructive">{send.error.message}</p>
         ) : null}
       </div>
     </aside>

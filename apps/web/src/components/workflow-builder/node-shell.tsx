@@ -3,6 +3,7 @@ import { nodeRegistry } from "@linea/runtime/browser"
 import { cn } from "@linea/ui/lib/utils"
 import { NodeIcon } from "./node-icon"
 import { NODE_CATEGORY_COLORS } from "./node-category-colors"
+import { NodeHoverToolbar } from "./node-hover-toolbar"
 import type { WorkflowBuilderNodeData } from "./graph-conversion"
 
 const HANDLE_CLASS = "!z-10 !size-3 !border-2 !border-transparent"
@@ -11,8 +12,8 @@ type WorkflowNodeShellProps = NodeProps & {
   data: WorkflowBuilderNodeData
 }
 
-/** One registry-driven shell for every node type — icon, name, type, and optional summaryField. */
-export function NodeShell({ data, selected }: WorkflowNodeShellProps) {
+/** One registry-driven shell for every node type — name, type badge, and optional summaryField. */
+export function NodeShell({ id, data, selected }: WorkflowNodeShellProps) {
   const definition = nodeRegistry[data.nodeType]
   const colors = NODE_CATEGORY_COLORS[definition.ui.category]
   const customName =
@@ -24,55 +25,61 @@ export function NodeShell({ data, selected }: WorkflowNodeShellProps) {
     data.nodeType === "branch"
       ? Object.keys((data.config.cases as Record<string, unknown>) ?? {})
       : []
-  const rawSummaryValue = definition.ui.summaryField
-    ? data.config[definition.ui.summaryField]
+  const summaryField = definition.ui.summaryField
+  const summaryFieldMeta = summaryField
+    ? definition.ui.fields.find((field) => field.key === summaryField)
     : undefined
+  const rawSummaryValue = summaryField ? data.config[summaryField] : undefined
   const summaryValue =
     typeof rawSummaryValue === "string" || typeof rawSummaryValue === "number"
       ? String(rawSummaryValue)
       : undefined
+  const summaryOptionLabel = summaryFieldMeta?.options?.find(
+    (option) => option.value === summaryValue
+  )?.label
   return (
     <div
       className={cn(
-        "w-64 rounded-xl border border-border shadow-sm",
-        colors.bg,
-        selected && "border-primary ring-2 ring-primary/40"
+        "group/node relative w-52 rounded-lg border border-border bg-card shadow-sm",
+        selected && "border-primary"
       )}
     >
       {!isStart && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          className={cn(HANDLE_CLASS, colors.port)}
-        />
+        <>
+          <NodeHoverToolbar nodeId={id} selected={selected} canDelete />
+          <Handle
+            type="target"
+            position={Position.Left}
+            className={cn(HANDLE_CLASS, colors.port)}
+          />
+        </>
       )}
-      <div className="flex items-center gap-2.5 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2 px-2.5 py-2">
+        <p className="min-w-0 truncate text-xs font-medium text-foreground">
+          {title}
+        </p>
         <span
           className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-md bg-background/50",
-            colors.icon
+            "inline-flex h-5 max-w-[7rem] shrink-0 items-center gap-1 rounded-full px-2 text-xs font-medium",
+            colors.badge
           )}
         >
-          <NodeIcon icon={definition.ui.icon} className="size-4" />
+          <NodeIcon icon={definition.ui.icon} className="size-3 shrink-0" />
+          <span className="truncate">{definition.ui.label}</span>
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground">
-            {title}
-          </p>
-          {customName ? (
-            <p className="truncate text-xs text-muted-foreground">
-              {definition.ui.label}
-            </p>
-          ) : null}
-        </div>
       </div>
       {summaryValue !== undefined && (
-        <p className="truncate border-t border-border px-3 py-2 text-xs text-muted-foreground">
-          {summaryValue}
-        </p>
+        <div className="flex min-w-0 items-center gap-1.5 px-2.5 pb-2 text-xs text-muted-foreground">
+          {summaryFieldMeta ? (
+            <span className="shrink-0">{summaryFieldMeta.label}:</span>
+          ) : null}
+          <span className="min-w-0 truncate rounded-md border border-border px-1.5 py-0.5">
+            {summaryOptionLabel ?? summaryValue}
+          </span>
+        </div>
       )}
       {branches.length > 0 && (
-        <div className="flex flex-col gap-1.5 border-t border-border px-3 py-2 text-xs text-muted-foreground">
+        <div className="flex flex-col gap-1.5 border-t border-border px-2.5 py-2 text-xs text-muted-foreground">
           {branches.map((branch) => (
             <div
               key={branch}

@@ -209,7 +209,7 @@ export function ExecutionStepTimeline({
 }) {
   if (steps.length === 0) {
     return (
-      <p className="mt-4 text-sm text-muted-foreground">No steps recorded.</p>
+      <p className="mt-4 text-xs text-muted-foreground">No steps recorded.</p>
     )
   }
 
@@ -221,7 +221,7 @@ export function ExecutionStepTimeline({
         step.isSystemEvent ? (
           <div
             key={step.id}
-            className="flex items-center gap-2 border-b px-3 py-4 text-sm text-muted-foreground"
+            className="flex items-center gap-2 border-b px-3 py-4 text-xs text-muted-foreground"
           >
             <Badge variant="outline">Resumed</Badge>
             <span>{new Date(step.startedAt).toLocaleString()}</span>

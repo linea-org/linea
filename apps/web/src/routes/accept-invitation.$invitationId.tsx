@@ -70,7 +70,7 @@ function AcceptInvitationPage() {
   if (sessionPending || invitationQuery.isPending) {
     return (
       <AuthShell title="Loading invitation…" description="One moment.">
-        <p className="text-sm text-muted-foreground">Checking your session…</p>
+        <p className="text-xs text-muted-foreground">Checking your session…</p>
       </AuthShell>
     )
   }

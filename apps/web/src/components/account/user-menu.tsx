@@ -64,10 +64,10 @@ export function UserMenu({
             variant="ghost"
             aria-label="Open account menu"
             className={cn(
-              "h-auto gap-3 transition-colors hover:bg-secondary hover:text-secondary-foreground",
+              "h-auto gap-2 transition-colors hover:bg-secondary hover:text-secondary-foreground",
               showDetails
-                ? "w-full justify-start rounded-md px-2 py-2"
-                : "size-10 rounded-full p-0",
+                ? "h-8 w-full justify-start rounded-md px-2 group-data-[collapsible=icon]:size-7 group-data-[collapsible=icon]:w-7 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:p-0"
+                : "size-8 rounded-full p-0",
               className
             )}
           />
@@ -77,26 +77,27 @@ export function UserMenu({
           name={user?.name}
           email={user?.email}
           image={user?.image}
-          size="lg"
+          size="sm"
+          className="size-7 group-data-[collapsible=icon]:size-7"
         />
         {showDetails ? (
           <>
-            <span className="min-w-0 flex-1 text-left leading-tight">
-              <span className="block truncate text-sm font-medium text-foreground">
+            <span className="min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+              <span className="block truncate text-xs font-medium text-foreground">
                 {user?.name || "Account"}
               </span>
               <span className="block truncate text-xs text-muted-foreground">
                 {user?.email}
               </span>
             </span>
-            <EllipsisVerticalIcon className="size-4 shrink-0 text-muted-foreground" />
+            <EllipsisVerticalIcon className="size-3.5 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
           </>
         ) : null}
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="w-56 min-w-56">
         <DropdownMenuItem className="cursor-pointer" onClick={goToAccount}>
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="truncate text-sm font-medium text-foreground">
+            <span className="truncate text-xs font-medium text-foreground">
               {user?.name || "Account"}
             </span>
             <span className="truncate text-xs text-muted-foreground">

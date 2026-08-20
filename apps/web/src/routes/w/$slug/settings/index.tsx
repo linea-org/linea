@@ -87,9 +87,9 @@ function WorkspaceSettingsPage() {
     },
   })
   return (
-    <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
-      <p className="text-sm font-medium text-foreground">General</p>
-      <p className="mt-1 text-sm text-muted-foreground">
+    <main className="flex flex-1 flex-col px-4 py-4">
+      <p className="pl-1 text-sm font-medium text-foreground">General</p>
+      <p className="mt-1 pl-1 text-xs text-muted-foreground">
         Name and URL for this workspace.
       </p>
       <form
@@ -112,7 +112,7 @@ function WorkspaceSettingsPage() {
             </Field>
           </FieldGroup>
           {save.isError ? (
-            <p className="mt-3 text-sm text-destructive">
+            <p className="mt-3 text-xs text-destructive">
               {save.error.message}
             </p>
           ) : null}
@@ -125,16 +125,16 @@ function WorkspaceSettingsPage() {
       </form>
       {isOwner ? (
         <>
-          <p className="mt-8 text-sm font-medium text-foreground">
+          <p className="mt-8 pl-1 text-sm font-medium text-foreground">
             Delete workspace
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 pl-1 text-xs text-muted-foreground">
             Removes every workflow and run in this workspace. This can&apos;t be
             undone.
           </p>
           <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
             <div className="flex items-center justify-between gap-3 px-4 py-3">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Only the owner can do this.
               </p>
               <Button

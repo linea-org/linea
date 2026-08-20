@@ -120,8 +120,8 @@ function WorkflowsListPage() {
     />
   )
   return (
-    <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+    <main className="flex flex-1 flex-col px-4 py-4">
+      <div className="mb-4 flex flex-wrap items-center gap-2 pl-1">
         <InputGroup className="h-8 max-w-sm rounded-lg border-input/30 bg-input/30 shadow-none">
           <InputGroupAddon>
             <SearchIcon className="size-4 shrink-0 opacity-50" />

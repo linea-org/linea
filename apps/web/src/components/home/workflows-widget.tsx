@@ -65,7 +65,7 @@ export function WorkflowsWidget({
       action={
         <div className="flex items-center gap-1">
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             nativeButton={false}
             render={<Link to="/w/$slug/workflows" params={{ slug }} />}

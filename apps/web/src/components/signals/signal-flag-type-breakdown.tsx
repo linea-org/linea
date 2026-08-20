@@ -17,13 +17,13 @@ export function SignalFlagTypeBreakdown({
   const max = ranked[0]?.[1] ?? 0
 
   if (ranked.length === 0) {
-    return <p className="text-sm text-muted-foreground">No occurrences yet.</p>
+    return <p className="text-xs text-muted-foreground">No occurrences yet.</p>
   }
 
   return (
     <ul className="space-y-3">
       {ranked.map(([flagType, count]) => (
-        <li key={flagType} className="text-sm">
+        <li key={flagType} className="text-xs">
           <div className="flex items-center justify-between gap-2">
             <span className="text-foreground">
               {flagTypeLabel[flagType] ?? flagType}

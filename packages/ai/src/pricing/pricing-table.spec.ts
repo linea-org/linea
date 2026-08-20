@@ -11,8 +11,8 @@ describe("calculateCostMicros", () => {
   })
 
   it("rounds to the nearest whole micro", () => {
-    // llama-3.1-8b-instant: 0.05 micros/input token — 3 tokens = 0.15, rounds to 0.
-    expect(calculateCostMicros("llama-3.1-8b-instant", 3, 0)).toBe(0n)
+    // openai/gpt-oss-20b: 0.075 micros/input token — 3 tokens = 0.225, rounds to 0.
+    expect(calculateCostMicros("openai/gpt-oss-20b", 3, 0)).toBe(0n)
   })
 
   it("prices grok-4.5 by context tier", () => {

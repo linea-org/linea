@@ -30,7 +30,7 @@ export function OpenSignalsWidget({
 }) {
   const open = signals.filter((s) => s.status !== "resolved").slice(0, 6)
   return (
-    <HomePanel title="Signals" action={null}>
+    <HomePanel title="Signals">
       {open.length === 0 ? (
         <Empty className="border-0">
           <EmptyHeader>

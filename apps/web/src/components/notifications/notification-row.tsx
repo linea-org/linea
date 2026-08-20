@@ -75,7 +75,7 @@ export function NotificationRow({
     <>
       <span
         className={cn(
-          "block text-sm text-foreground",
+          "block text-xs text-foreground",
           compact ? "truncate" : "line-clamp-2",
           !notification.read && "font-medium"
         )}

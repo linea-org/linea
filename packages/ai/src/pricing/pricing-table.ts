@@ -18,14 +18,6 @@ const modelPricing: Record<string, ModelPrice> = {
   "gpt-4.1": { inputMicrosPerToken: 2.0, outputMicrosPerToken: 8.0 },
   "gpt-4o": { inputMicrosPerToken: 2.5, outputMicrosPerToken: 10.0 },
 
-  "llama-3.1-8b-instant": {
-    inputMicrosPerToken: 0.05,
-    outputMicrosPerToken: 0.08,
-  },
-  "llama-3.3-70b-versatile": {
-    inputMicrosPerToken: 0.59,
-    outputMicrosPerToken: 0.79,
-  },
   "openai/gpt-oss-120b": {
     inputMicrosPerToken: 0.15,
     outputMicrosPerToken: 0.6,

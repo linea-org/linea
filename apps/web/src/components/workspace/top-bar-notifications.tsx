@@ -65,7 +65,7 @@ export function TopBarNotifications({ slug }: { slug: string }) {
     <Popover open={open} onOpenChange={setOpen}>
       <div className="relative">
         <PopoverTrigger
-          className={buttonVariants({ variant: "ghost", size: "icon" })}
+          className={buttonVariants({ variant: "ghost", size: "icon-xs" })}
           aria-label={
             unreadCount > 0
               ? `Notifications (${unreadCount} unread)`
@@ -75,7 +75,7 @@ export function TopBarNotifications({ slug }: { slug: string }) {
           <BellIcon />
         </PopoverTrigger>
         {unreadCount > 0 ? (
-          <span className="pointer-events-none absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+          <span className="pointer-events-none absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-medium text-primary-foreground">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         ) : null}
@@ -90,7 +90,7 @@ export function TopBarNotifications({ slug }: { slug: string }) {
             aria-hidden="true"
           />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-foreground">Notifications</p>
+            <p className="text-xs font-medium text-foreground">Notifications</p>
             {unreadCount > 0 ? (
               <p className="text-xs text-muted-foreground">
                 {unreadCount} unread
@@ -111,14 +111,14 @@ export function TopBarNotifications({ slug }: { slug: string }) {
         </div>
         <div className="max-h-80 overflow-auto">
           {notificationsQuery.isPending ? (
-            <p className="px-4 py-6 text-sm text-muted-foreground">Loading…</p>
+            <p className="px-4 py-6 text-xs text-muted-foreground">Loading…</p>
           ) : notifications.length === 0 ? (
             <Empty className="border-0 py-8">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <BellIcon />
                 </EmptyMedia>
-                <EmptyTitle className="text-sm">
+                <EmptyTitle className="text-xs">
                   You&apos;re all caught up
                 </EmptyTitle>
                 <EmptyDescription>No new notifications.</EmptyDescription>

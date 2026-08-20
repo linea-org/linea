@@ -16,7 +16,6 @@ type PlayfulAvatarProps = {
   name: string
   variant?: PlayfulAvatarVariant
   className?: string
-  /** Circle for people, rounded square for workspaces. */
   shape?: "circle" | "rounded"
 }
 
@@ -41,7 +40,7 @@ export function PlayfulAvatar({
   const shapeClass =
     shape === "circle"
       ? "rounded-full [&::part(svg)]:rounded-full"
-      : "rounded-xl [&::part(svg)]:rounded-xl"
+      : "rounded-md [&::part(svg)]:rounded-md"
 
   if (!ready) {
     return (
