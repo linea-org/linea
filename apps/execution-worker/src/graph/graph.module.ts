@@ -6,6 +6,7 @@ import { ApprovalNode } from "./nodes/approval.node"
 import { BranchNode } from "./nodes/branch.node"
 import { HttpNode } from "./nodes/http.node"
 import { TransformNode } from "./nodes/transform.node"
+import { WaitNode } from "./nodes/wait.node"
 
 @Module({
   imports: [CheckpointsModule],
@@ -16,6 +17,7 @@ import { TransformNode } from "./nodes/transform.node"
     BranchNode,
     AiNode,
     ApprovalNode,
+    WaitNode,
   ],
   exports: [InterpreterService],
 })

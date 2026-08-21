@@ -20,6 +20,7 @@ import { HttpNode } from "./nodes/http.node"
 import type { NodeHandler } from "./nodes/node-handler.interface"
 import { StartNode } from "./nodes/start.node"
 import { TransformNode } from "./nodes/transform.node"
+import { WaitNode } from "./nodes/wait.node"
 
 export type RunInput = {
   executionId: string
@@ -105,7 +106,8 @@ export class InterpreterService {
     transformNode: TransformNode,
     branchNode: BranchNode,
     aiNode: AiNode,
-    approvalNode: ApprovalNode
+    approvalNode: ApprovalNode,
+    waitNode: WaitNode
   ) {
     this.handlers = {
       http: httpNode,
@@ -113,6 +115,7 @@ export class InterpreterService {
       branch: branchNode,
       ai: aiNode,
       approval: approvalNode,
+      wait: waitNode,
       start: new StartNode(),
       end: new EndNode(),
     }

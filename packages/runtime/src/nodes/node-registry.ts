@@ -5,6 +5,7 @@ import { endNode } from "./definitions/end.node.js"
 import { httpNode } from "./definitions/http.node.js"
 import { startNode } from "./definitions/start.node.js"
 import { transformNode } from "./definitions/transform.node.js"
+import { waitNode } from "./definitions/wait.node.js"
 import type { NodeDefinition } from "./node-definition.js"
 
 export const nodeRegistry = {
@@ -15,6 +16,7 @@ export const nodeRegistry = {
   branch: branchNode,
   ai: aiNode,
   approval: approvalNode,
+  wait: waitNode,
 } satisfies Record<string, NodeDefinition>
 
 export type NodeTypeId = keyof typeof nodeRegistry

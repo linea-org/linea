@@ -6,6 +6,7 @@ import { CheckpointsService } from "../checkpoints/checkpoints.service"
 import { InterpreterService } from "../graph/interpreter.service"
 import { AiNode } from "../graph/nodes/ai.node"
 import { ApprovalNode } from "../graph/nodes/approval.node"
+import { WaitNode } from "../graph/nodes/wait.node"
 import { BranchNode } from "../graph/nodes/branch.node"
 import { HttpNode } from "../graph/nodes/http.node"
 import { TransformNode } from "../graph/nodes/transform.node"
@@ -112,7 +113,8 @@ describe("crash-and-resume", () => {
         transformNode,
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new WaitNode()
       )
       const runs = new RunsService(
         checkpoints,

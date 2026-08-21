@@ -11,6 +11,7 @@ describe("nodeRegistry", () => {
       "http",
       "start",
       "transform",
+      "wait",
     ])
   })
 
