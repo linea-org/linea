@@ -41,6 +41,20 @@ export async function getWaitTimer(
   return timer
 }
 
+/** For display only (e.g. "what is this paused execution waiting on") — at most one unfired timer can exist per execution at a time, since a node is only ever visited once and the walker doesn't advance past it until it resolves. */
+export async function getPendingWaitTimerForExecution(
+  db: DbClient,
+  executionId: string
+): Promise<WaitTimer | undefined> {
+  const [timer] = await db
+    .select()
+    .from(waitTimers)
+    .where(
+      and(eq(waitTimers.executionId, executionId), eq(waitTimers.fired, false))
+    )
+  return timer
+}
+
 export type ClaimPauseResult =
   | { outcome: "paused" }
   | { outcome: "already-resolved" }

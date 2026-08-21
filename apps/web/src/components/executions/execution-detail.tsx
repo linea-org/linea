@@ -72,7 +72,7 @@ export function ExecutionDetailView({
     null
   )
   const {
-    data: { execution, steps, nodeConfigs },
+    data: { execution, steps, nodeConfigs, pausedAtNode },
   } = useSuspenseQuery({
     ...executionQueryOptions(slug, executionId),
     initialData: initialData.detail,
@@ -130,7 +130,7 @@ export function ExecutionDetailView({
       <div className="mt-4 flex flex-col gap-2">
         <p className="pl-1 text-sm font-medium text-foreground">Steps</p>
         <div className="overflow-hidden rounded-xl border border-border bg-card">
-          {steps.length === 0 ? (
+          {steps.length === 0 && !pausedAtNode ? (
             <p className="px-4 py-6 text-xs text-muted-foreground">
               No steps recorded.
             </p>
@@ -140,6 +140,7 @@ export function ExecutionDetailView({
               steps={steps}
               nodeConfigs={nodeConfigs}
               replayable={execution.replayable}
+              pausedAtNode={pausedAtNode}
               onReplayTriggered={setPendingReplayStepId}
             />
           )}

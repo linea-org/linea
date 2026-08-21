@@ -187,6 +187,79 @@ describe('ExecutionsService', () => {
     }
   })
 
+  it('reports pausedAtNode for an execution paused on a wait timer, and omits it once resolved', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        ExecutionsService,
+        WorkflowQueueService,
+        StepReplayQueueService,
+      ],
+    }).compile()
+    const service = moduleRef.get(ExecutionsService)
+
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: 'Executions PausedAtNode Test Org',
+        slug: `executions-paused-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const waitGraph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: 'manual' },
+        entryNodeId: 'wait-1',
+        nodes: [{ id: 'wait-1', type: 'wait', config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: 'Paused Workflow',
+        slug: `paused-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph: waitGraph,
+        contentHash: 'paused-test-hash',
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: 'manual',
+      })
+      await pool.query(
+        "UPDATE executions SET status = 'paused', leased_by = NULL, lease_expires_at = NULL WHERE id = $1",
+        [execution.id],
+      )
+      await repositories.waitTimer.createWaitTimer(db, {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: 'wait-1',
+        resumeAt: new Date(Date.now() + 60_000),
+      })
+
+      const paused = await service.get(organization.id, execution.id)
+      expect(paused.pausedAtNode).toEqual({ nodeId: 'wait-1', type: 'wait' })
+
+      // Resolved (fired) — no longer paused, so pausedAtNode should disappear.
+      await repositories.waitTimer.claimAndResolveDueWaitTimer(
+        db,
+        new Date(Date.now() + 120_000),
+      )
+      const resolved = await service.get(organization.id, execution.id)
+      expect(resolved.pausedAtNode).toBeUndefined()
+    } finally {
+      await moduleRef.close()
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        organization.id,
+      ])
+    }
+  })
+
   it('rejects triggering an archived workflow, even with a published version', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [

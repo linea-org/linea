@@ -79,6 +79,23 @@ export async function listPendingApprovals(
     )
 }
 
+/** For display only (e.g. "what is this paused execution waiting on") — at most one pending approval can exist per execution at a time, since a node is only ever visited once and the walker doesn't advance past it until it resolves. */
+export async function getPendingApprovalForExecution(
+  db: DbClient,
+  executionId: string
+): Promise<Approval | undefined> {
+  const [approval] = await db
+    .select()
+    .from(approvals)
+    .where(
+      and(
+        eq(approvals.executionId, executionId),
+        eq(approvals.status, "pending")
+      )
+    )
+  return approval
+}
+
 export type ResolveApprovalInput = {
   status: "approved" | "rejected"
   respondedBy: string | null

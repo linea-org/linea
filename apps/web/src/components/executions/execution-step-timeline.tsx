@@ -199,21 +199,29 @@ export function ExecutionStepTimeline({
   steps,
   nodeConfigs,
   replayable,
+  pausedAtNode,
   onReplayTriggered,
 }: {
   executionId: string
   steps: ExecutionStepSummary[]
   nodeConfigs: Record<string, Record<string, JsonValue>>
   replayable: boolean
+  // The node a paused execution is currently waiting on — rendered as a placeholder row since
+  // neither Approval nor Wait checkpoints a real step until it resolves.
+  pausedAtNode?: { nodeId: string; type: string }
   onReplayTriggered: (replayStepId: string) => void
 }) {
-  if (steps.length === 0) {
+  if (steps.length === 0 && !pausedAtNode) {
     return (
       <p className="mt-4 text-xs text-muted-foreground">No steps recorded.</p>
     )
   }
 
   const ordered = groupWithReplays(steps)
+  // Only shown once — if the node it names already has a real checkpointed step (the pause just
+  // resolved and a fresh fetch hasn't landed yet), the placeholder would be a stale duplicate.
+  const pausedNodeAlreadyCheckpointed =
+    pausedAtNode && steps.some((step) => step.nodeId === pausedAtNode.nodeId)
 
   return (
     <Accordion multiple className="px-1">
@@ -297,6 +305,23 @@ export function ExecutionStepTimeline({
           </AccordionItem>
         )
       )}
+      {pausedAtNode && !pausedNodeAlreadyCheckpointed ? (
+        <div className="flex items-center gap-3 border-b px-3 py-4 text-xs last:border-b-0">
+          <Badge variant="outline">Paused</Badge>
+          {isNodeTypeId(pausedAtNode.type) ? (
+            <NodeIcon
+              icon={nodeRegistry[pausedAtNode.type].ui.icon}
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+          ) : null}
+          <span className="font-medium text-foreground">
+            {stepTitle(pausedAtNode.type)}
+          </span>
+          <span className="ml-auto shrink-0 text-muted-foreground">
+            Waiting…
+          </span>
+        </div>
+      ) : null}
     </Accordion>
   )
 }

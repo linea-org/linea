@@ -121,6 +121,8 @@ export type ExecutionDetailResponse = {
   steps: ExecutionStepSummary[]
   /** nodeId -> the node's config in the workflow version this execution ran, for pre-filling the replay override form. */
   nodeConfigs: Record<string, Record<string, JsonValue>>
+  /** The node a paused execution is currently waiting on — undefined once resolved or if the execution isn't paused. Neither Approval nor Wait checkpoints before pausing, so this is the only way to know which node it stopped at. */
+  pausedAtNode?: { nodeId: string; type: string }
 }
 
 export const getExecutionFn = createServerFn({ method: "GET" })
