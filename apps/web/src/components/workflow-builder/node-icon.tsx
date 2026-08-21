@@ -1,4 +1,5 @@
 import {
+  Brain,
   Braces,
   CircleStop,
   GitBranch,
@@ -17,6 +18,7 @@ const ICONS: Record<string, LucideIcon> = {
   braces: Braces,
   play: Play,
   "circle-stop": CircleStop,
+  brain: Brain,
 }
 
 export function NodeIcon({

@@ -5,6 +5,7 @@ import { AiNode } from "./nodes/ai.node"
 import { ApprovalNode } from "./nodes/approval.node"
 import { BranchNode } from "./nodes/branch.node"
 import { HttpNode } from "./nodes/http.node"
+import { MemoryNode } from "./nodes/memory.node"
 import { TransformNode } from "./nodes/transform.node"
 
 @Module({
@@ -16,6 +17,7 @@ import { TransformNode } from "./nodes/transform.node"
     BranchNode,
     AiNode,
     ApprovalNode,
+    MemoryNode,
   ],
   exports: [InterpreterService],
 })

@@ -18,6 +18,7 @@ import { BranchNode } from "./nodes/branch.node"
 import { EndNode } from "./nodes/end.node"
 import { HttpNode } from "./nodes/http.node"
 import type { NodeHandler } from "./nodes/node-handler.interface"
+import { MemoryNode } from "./nodes/memory.node"
 import { StartNode } from "./nodes/start.node"
 import { TransformNode } from "./nodes/transform.node"
 
@@ -105,7 +106,8 @@ export class InterpreterService {
     transformNode: TransformNode,
     branchNode: BranchNode,
     aiNode: AiNode,
-    approvalNode: ApprovalNode
+    approvalNode: ApprovalNode,
+    memoryNode: MemoryNode
   ) {
     this.handlers = {
       http: httpNode,
@@ -113,6 +115,7 @@ export class InterpreterService {
       branch: branchNode,
       ai: aiNode,
       approval: approvalNode,
+      memory: memoryNode,
       start: new StartNode(),
       end: new EndNode(),
     }

@@ -9,6 +9,7 @@ describe("nodeRegistry", () => {
       "branch",
       "end",
       "http",
+      "memory",
       "start",
       "transform",
     ])

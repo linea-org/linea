@@ -8,6 +8,7 @@ import {
 } from "../checkpoints/checkpoints.service"
 import { AiNode } from "./nodes/ai.node"
 import { ApprovalNode } from "./nodes/approval.node"
+import { MemoryNode } from "./nodes/memory.node"
 import { BranchNode } from "./nodes/branch.node"
 import { HttpNode } from "./nodes/http.node"
 import { TransformNode } from "./nodes/transform.node"
@@ -30,7 +31,8 @@ describe("InterpreterService.executeNode", () => {
       new TransformNode(),
       new BranchNode(),
       new AiNode(),
-      new ApprovalNode()
+      new ApprovalNode(),
+      new MemoryNode()
     )
 
     const result = await interpreter.executeNode(
@@ -54,7 +56,8 @@ describe("InterpreterService.executeNode", () => {
       new TransformNode(),
       new BranchNode(),
       new AiNode(),
-      new ApprovalNode()
+      new ApprovalNode(),
+      new MemoryNode()
     )
 
     await expect(
@@ -75,7 +78,8 @@ describe("InterpreterService.executeNode", () => {
       new TransformNode(),
       new BranchNode(),
       new AiNode(),
-      new ApprovalNode()
+      new ApprovalNode(),
+      new MemoryNode()
     )
 
     await interpreter.executeNode(
@@ -105,7 +109,8 @@ describe("InterpreterService.executeNode", () => {
       new TransformNode(),
       new BranchNode(),
       new AiNode(),
-      new ApprovalNode()
+      new ApprovalNode(),
+      new MemoryNode()
     )
 
     await expect(
@@ -173,7 +178,8 @@ describe("InterpreterService.run idempotency key", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new MemoryNode()
       )
 
       await interpreter.run({
@@ -250,7 +256,8 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new MemoryNode()
       )
 
       // First run: executes n1, checkpoints its usage, then "crashes" (never completes).
@@ -339,7 +346,8 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         tokenNode,
-        new ApprovalNode()
+        new ApprovalNode(),
+        new MemoryNode()
       )
 
       // First run: executes n1 (unpriced), checkpoints it, then "crashes".
@@ -467,7 +475,8 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         tokenNode,
-        new ApprovalNode()
+        new ApprovalNode(),
+        new MemoryNode()
       )
 
       // n2 runs fresh and is fully priced, but the legacy gap on n1 must still win.
@@ -549,7 +558,8 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         tokenNode,
-        new ApprovalNode()
+        new ApprovalNode(),
+        new MemoryNode()
       )
 
       const outcome = await interpreter.run({
@@ -626,7 +636,8 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         tokenNode,
-        new ApprovalNode()
+        new ApprovalNode(),
+        new MemoryNode()
       )
 
       const outcome = await interpreter.run({
@@ -713,7 +724,8 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new MemoryNode()
       )
 
       await expect(
@@ -802,7 +814,8 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new MemoryNode()
       )
 
       await expect(
@@ -882,7 +895,8 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new MemoryNode()
       )
 
       await expect(
