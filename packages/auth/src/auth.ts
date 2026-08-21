@@ -1,9 +1,10 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter"
-import { organization } from "better-auth/plugins"
+import { magicLink, organization } from "better-auth/plugins"
 import { db, repositories, schema } from "@linea/db"
 import { sendEmail } from "./email.js"
 import {
+  magicLinkEmailHtml,
   organizationInviteEmailHtml,
   resetPasswordEmailHtml,
   verificationEmailHtml,
@@ -23,6 +24,31 @@ if (!baseUrl) {
 
 if (!secret) {
   throw new Error("BETTER_AUTH_SECRET is required to initialize @linea/auth")
+}
+
+function appEmailLink(
+  path: string,
+  authUrl: string,
+  extra?: Record<string, string>
+) {
+  const incoming = new URL(authUrl)
+  const token = incoming.searchParams.get("token")
+  if (!token) {
+    throw new Error("Auth email link is missing a token")
+  }
+  const landing = new URL(path, `${appUrl}/`)
+  landing.searchParams.set("token", token)
+  const callbackURL = incoming.searchParams.get("callbackURL") ?? ""
+  const invite = /\/accept-invitation\/([^/?#]+)/.exec(callbackURL)
+  if (invite?.[1]) {
+    landing.searchParams.set("invitationId", invite[1])
+  }
+  if (extra) {
+    for (const [key, value] of Object.entries(extra)) {
+      if (value) landing.searchParams.set(key, value)
+    }
+  }
+  return landing.toString()
 }
 
 function envCredential(idKey: string, secretKey: string) {
@@ -111,15 +137,28 @@ export const auth = betterAuth({
     sendOnSignIn: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
+      const link = appEmailLink("/verify-email", url, { email: user.email })
       await sendEmail({
         to: user.email,
         subject: "Verify your Linea email",
-        html: verificationEmailHtml({ name: user.name, url }),
-        text: `Verify your email: ${url}`,
+        html: verificationEmailHtml({ name: user.name, url: link }),
+        text: `Verify your email: ${link}`,
       })
     },
   },
   plugins: [
+    magicLink({
+      storeToken: "hashed",
+      sendMagicLink: async ({ email, url }) => {
+        const link = appEmailLink("/magic-link", url)
+        await sendEmail({
+          to: email,
+          subject: "Sign in to Linea",
+          html: magicLinkEmailHtml({ url: link }),
+          text: `Sign in: ${link}`,
+        })
+      },
+    }),
     organization({
       async sendInvitationEmail(data) {
         const inviteLink = `${appUrl}/accept-invitation/${data.id}`
