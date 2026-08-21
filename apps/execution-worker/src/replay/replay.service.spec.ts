@@ -6,7 +6,10 @@ import { CheckpointsService } from "../checkpoints/checkpoints.service"
 import { AiNode } from "../graph/nodes/ai.node"
 import { ApprovalNode } from "../graph/nodes/approval.node"
 import { BranchNode } from "../graph/nodes/branch.node"
+import { DatetimeNode } from "../graph/nodes/datetime.node"
+import { FilterNode } from "../graph/nodes/filter.node"
 import type { HttpNode } from "../graph/nodes/http.node"
+import { MergeNode } from "../graph/nodes/merge.node"
 import { TransformNode } from "../graph/nodes/transform.node"
 import { InterpreterService } from "../graph/interpreter.service"
 import { ReplayService } from "./replay.service"
@@ -87,7 +90,10 @@ async function setUpExecutionWithStep(
     new TransformNode(),
     new BranchNode(),
     new AiNode(),
-    new ApprovalNode()
+    new ApprovalNode(),
+    new DatetimeNode(),
+    new FilterNode(),
+    new MergeNode()
   )
   const replay = new ReplayService(interpreter)
 
@@ -256,7 +262,10 @@ describe("ReplayService.replay", () => {
         new TransformNode(),
         new BranchNode(),
         spyAiNode,
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
       const replay = new ReplayService(interpreter)
 

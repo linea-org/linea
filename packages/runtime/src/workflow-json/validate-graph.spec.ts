@@ -201,6 +201,100 @@ describe("validateGraphStructure", () => {
       )
     ).toThrow(WorkflowGraphError)
   })
+  it("accepts a merge node with exactly two incoming edges", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            { id: "a", type: "http", config: {} },
+            { id: "b", type: "transform", config: {} },
+            { id: "c", type: "transform", config: {} },
+            { id: "d", type: "merge", config: {} },
+          ],
+          edges: [
+            { from: "a", to: "b" },
+            { from: "a", to: "c" },
+            { from: "b", to: "d" },
+            { from: "c", to: "d" },
+          ],
+        })
+      )
+    ).not.toThrow()
+  })
+
+  it("rejects a merge node with only one incoming edge", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            { id: "a", type: "http", config: {} },
+            { id: "b", type: "merge", config: {} },
+          ],
+          edges: [{ from: "a", to: "b" }],
+        })
+      )
+    ).toThrow(WorkflowGraphError)
+  })
+
+  it("rejects a merge node with three incoming edges", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            { id: "a", type: "http", config: {} },
+            { id: "b", type: "transform", config: {} },
+            { id: "c", type: "transform", config: {} },
+            { id: "d", type: "transform", config: {} },
+            { id: "e", type: "merge", config: {} },
+          ],
+          edges: [
+            { from: "a", to: "b" },
+            { from: "a", to: "c" },
+            { from: "a", to: "d" },
+            { from: "b", to: "e" },
+            { from: "c", to: "e" },
+            { from: "d", to: "e" },
+          ],
+        })
+      )
+    ).toThrow(WorkflowGraphError)
+  })
+
+  it("accepts a non-branch node with multiple unconditioned outgoing edges", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            { id: "a", type: "http", config: {} },
+            { id: "b", type: "transform", config: {} },
+            { id: "c", type: "transform", config: {} },
+            { id: "d", type: "merge", config: {} },
+          ],
+          edges: [
+            { from: "a", to: "b" },
+            { from: "a", to: "c" },
+            { from: "b", to: "d" },
+            { from: "c", to: "d" },
+          ],
+        })
+      )
+    ).not.toThrow()
+  })
+
+  it("rejects a conditioned outgoing edge from a non-branch node", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            { id: "a", type: "http", config: {} },
+            { id: "b", type: "transform", config: {} },
+          ],
+          edges: [{ from: "a", to: "b", condition: "x" }],
+        })
+      )
+    ).toThrow(WorkflowGraphError)
+  })
+
   it("rejects a cycle in a component disconnected from the entry node", () => {
     // Every node still has exactly one incoming edge, so the earlier degree
     // check alone wouldn't catch this — only reachability from entry does.

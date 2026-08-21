@@ -50,10 +50,14 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
           `Entry node "${node.id}" cannot have incoming edges`
         )
       }
-    } else if (count !== 1) {
-      throw new WorkflowGraphError(
-        `Node "${node.id}" must have exactly one incoming edge, has ${count}`
-      )
+    } else {
+      // Only a merge node fans in — every other node still takes exactly one predecessor.
+      const expected = node.type === "merge" ? 2 : 1
+      if (count !== expected) {
+        throw new WorkflowGraphError(
+          `Node "${node.id}" must have exactly ${expected} incoming edge${expected === 1 ? "" : "s"}, has ${count}`
+        )
+      }
     }
     if (
       node.type === "end" &&
@@ -61,6 +65,20 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
     ) {
       throw new WorkflowGraphError(
         `End node "${node.id}" cannot have outgoing edges`
+      )
+    }
+  }
+
+  // A condition on a non-branch node's edge would be silently ignored by the walker (it isn't
+  // matched against anything) — reject it here rather than let it quietly do nothing.
+  for (const node of graph.nodes) {
+    if (node.type === "branch") continue
+    const stray = graph.edges.find(
+      (edge) => edge.from === node.id && edge.condition !== undefined
+    )
+    if (stray) {
+      throw new WorkflowGraphError(
+        `Node "${node.id}" is not a branch node but has a conditioned outgoing edge to "${stray.to}"`
       )
     }
   }

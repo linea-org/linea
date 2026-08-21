@@ -105,11 +105,12 @@ export function NodeConfigPanel({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <FieldGroup className="p-4">
           {definition.ui.fields.map((field) => {
-            if (
-              field.showIf &&
-              draft[field.showIf.key] !== field.showIf.equals
-            ) {
-              return null
+            if (field.showIf) {
+              const expected = field.showIf.equals
+              const matches = Array.isArray(expected)
+                ? expected.includes(draft[field.showIf.key])
+                : draft[field.showIf.key] === expected
+              if (!matches) return null
             }
             const invalid = Boolean(jsonErrors[field.key])
             return (
