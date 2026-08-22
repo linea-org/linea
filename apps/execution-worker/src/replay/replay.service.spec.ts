@@ -563,4 +563,131 @@ describe("ReplayService.replay", () => {
       ])
     }
   })
+
+  it("rejects replaying a completed Approval step, rather than silently returning the original human decision", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Approval Test Org",
+        slug: `replay-approval-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "approval", config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Replay Approval Test Workflow",
+        slug: `replay-approval-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: `replay-approval-hash-${suffix}`,
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "setup-worker",
+        new Date(Date.now() + 60_000)
+      )
+      await repositories.execution.completeExecution(
+        db,
+        execution.id,
+        "setup-worker",
+        {
+          status: "succeeded",
+          costMicros: 0n,
+          costUnpriced: false,
+          tokensInput: 0,
+          tokensOutput: 0,
+        }
+      )
+      const created = await repositories.approval.createApproval(db, {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: "n1",
+      })
+      await repositories.approval.resolveApproval(
+        db,
+        organization.id,
+        created!.id,
+        {
+          status: "approved",
+          respondedBy: null,
+          respondedByEmail: "reviewer@test.dev",
+          comment: "looks good",
+        }
+      )
+      const [originalStep] = await db
+        .insert(schema.executionSteps)
+        .values({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: execution.id,
+          spanId: "original-span",
+          name: "approval",
+          startedAt: new Date(),
+          endedAt: new Date(),
+          status: "succeeded",
+          nodeId: "n1",
+          sequence: 1,
+          input: {},
+          output: { approved: true, comment: "looks good" },
+        })
+        .returning()
+
+      const interpreter = new InterpreterService(
+        new CheckpointsService(),
+        {} as HttpNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new ApprovalNode(),
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
+      )
+      const replay = new ReplayService(interpreter)
+
+      const replayStepId = randomUUID()
+      // An override that would produce a different response if it were honored — proves the
+      // rejection isn't a coincidence of the fixed-config case.
+      await replay.replay({
+        replayStepId,
+        originalStepId: originalStep.id,
+        overrideConfig: { message: "a different question entirely" },
+      })
+
+      const result = await repositories.execution.getExecutionWithSteps(
+        db,
+        execution.id
+      )
+      const replayRow = result?.steps.find((s) => s.id === replayStepId)
+      expect(replayRow?.status).toBe("failed")
+      expect(replayRow?.error?.message).toMatch(/can't be replayed/)
+      expect(replayRow?.output).toBeNull()
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
 })

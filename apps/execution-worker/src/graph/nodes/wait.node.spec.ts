@@ -96,13 +96,29 @@ describe("WaitNode", () => {
         )
       ).rejects.toThrow()
 
-      const fireResult =
-        await repositories.waitTimer.claimAndResolveDueWaitTimer(
+      // claimAndResolveDueWaitTimer claims one arbitrary due row database-wide (it backs the
+      // background poller's "fire the next one" step, not scoped to a workspace) — so a real
+      // leftover due timer anywhere in this shared local dev Postgres could get claimed instead
+      // of this test's own timer. Draining fully (not trusting a single claim's own return value)
+      // guarantees this test's timer is fired regardless of what else is due, then reading it back
+      // directly gets the specific row this assertion actually needs.
+      const futureNow = new Date(Date.now() + 60_000) // force it due, regardless of the real 1-second wait
+      let drainResult =
+        await repositories.waitTimer.claimAndResolveDueWaitTimer(db, futureNow)
+      while (drainResult.outcome === "fired") {
+        drainResult = await repositories.waitTimer.claimAndResolveDueWaitTimer(
           db,
-          new Date(Date.now() + 60_000) // force it due, regardless of the real 1-second wait
+          futureNow
         )
-      expect(fireResult.outcome).toBe("fired")
-      if (fireResult.outcome !== "fired") return
+      }
+
+      const firedTimer = await repositories.waitTimer.getWaitTimer(
+        db,
+        organization.id,
+        execution.id,
+        "wait-1"
+      )
+      expect(firedTimer?.fired).toBe(true)
 
       const output = await node.execute(
         { mode: "duration", amount: 1, unit: "seconds" },
@@ -110,7 +126,7 @@ describe("WaitNode", () => {
         context
       )
       expect(output).toEqual({
-        resumedAt: fireResult.waitTimer.firedAt!.toISOString(),
+        resumedAt: firedTimer!.firedAt!.toISOString(),
       })
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [

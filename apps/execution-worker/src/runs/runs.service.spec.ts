@@ -11,6 +11,20 @@ afterAll(async () => {
   await pool.end()
 })
 
+// claimAndResolveDueWaitTimer claims one arbitrary due wait timer across the whole database by
+// design (it backs the background poller's "fire the next one" step, not scoped to a workspace)
+// — so a real leftover due timer anywhere in this shared local dev Postgres could get claimed
+// ahead of the one this test just created, leaving the test's own timer still unfired. Draining
+// first clears that backlog (a real, if benign, side effect here — this test isn't wrapped in a
+// rolled-back transaction — but every drained timer really was due, so firing it early is exactly
+// what the real poller would have done anyway).
+async function drainDueWaitTimers(): Promise<void> {
+  let result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
+  while (result.outcome === "fired") {
+    result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
+  }
+}
+
 describe("RunsService failure accounting", () => {
   it("preserves previously checkpointed token usage when a resumed run fails outright", async () => {
     const suffix = randomUUID()
@@ -1092,7 +1106,7 @@ describe("RunsService fencing identity", () => {
         nodeId: "wait-1",
         resumeAt: new Date(Date.now() - 60_000),
       })
-      await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
+      await drainDueWaitTimers()
 
       let callCount = 0
       const racyInterpreter = {
