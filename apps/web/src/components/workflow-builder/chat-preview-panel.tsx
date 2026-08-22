@@ -3,11 +3,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   HistoryIcon,
   MessageCircleIcon,
+  PlusIcon,
   SendIcon,
   SquarePenIcon,
   XIcon,
 } from "lucide-react"
 
+import { Badge } from "@linea/ui/components/badge"
 import { Button } from "@linea/ui/components/button"
 import { Bubble, BubbleContent, BubbleGroup } from "@linea/ui/components/bubble"
 import {
@@ -25,6 +27,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@linea/ui/components/empty"
+import { Input } from "@linea/ui/components/input"
 import {
   InputGroup,
   InputGroupAddon,
@@ -68,6 +71,10 @@ export function ChatPreviewPanel({
     null
   )
   const [input, setInput] = useState("")
+  // "Test as" knob for memory-scoped nodes — editable only before a conversation's first message,
+  // then locked (mirrors conversationId itself already being fixed for the conversation's lifetime).
+  const [externalSubjectId, setExternalSubjectId] = useState("")
+  const [contextOpen, setContextOpen] = useState(false)
   const { data: messages = [] } = useQuery(
     chatMessagesQueryOptions(slug, workflowId, conversationId)
   )
@@ -109,6 +116,7 @@ export function ChatPreviewPanel({
           graph,
           message,
           conversationId: conversationId ?? undefined,
+          externalSubjectId: externalSubjectId.trim() || undefined,
         },
       }),
     onSuccess: (result) => {
@@ -129,6 +137,8 @@ export function ChatPreviewPanel({
   function selectConversation(conversation: ConversationSummary | null) {
     setConversationId(conversation?.conversationId ?? null)
     setPendingExecutionId(null)
+    setExternalSubjectId(conversation?.externalSubjectId ?? "")
+    setContextOpen(false)
   }
   function handleSend() {
     const trimmed = input.trim()
@@ -141,6 +151,8 @@ export function ChatPreviewPanel({
     setConversationId(null)
     setPendingExecutionId(null)
     setInput("")
+    setExternalSubjectId("")
+    setContextOpen(false)
   }
   const isWaiting = pendingExecutionId !== null
   const failed = pendingExecution?.execution.status === "failed"
@@ -170,6 +182,44 @@ export function ChatPreviewPanel({
           <XIcon />
         </Button>
       </div>
+      {conversationId === null ? (
+        <div className="border-b border-border px-3 py-2">
+          {contextOpen ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={externalSubjectId}
+                onChange={(event) => setExternalSubjectId(event.target.value)}
+                placeholder="External subject ID (optional)"
+                className="h-7 text-xs"
+                autoFocus
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setContextOpen(false)}
+                aria-label="Hide test context"
+              >
+                <XIcon />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setContextOpen(true)}
+            >
+              <PlusIcon />
+              Test context
+            </Button>
+          )}
+        </div>
+      ) : externalSubjectId ? (
+        <div className="border-b border-border px-3 py-2">
+          <Badge variant="outline">Testing as: {externalSubjectId}</Badge>
+        </div>
+      ) : null}
       {conversations.length > 0 && (
         <div className="border-b border-border p-2">
           <Combobox

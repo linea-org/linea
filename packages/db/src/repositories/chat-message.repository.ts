@@ -108,6 +108,7 @@ export type ConversationSummary = {
   preview: string
   lastMessageAt: Date
   messageCount: number
+  externalSubjectId: string | null
 }
 
 /** One row per conversation in this workflow — preview is the first (oldest) message's content, for a history picker to label each entry. */
@@ -122,6 +123,10 @@ export async function listConversations(
       preview: sql<string>`(array_agg(${chatMessages.content} order by ${chatMessages.createdAt} asc))[1]`,
       lastMessageAt: sql<Date>`max(${chatMessages.createdAt})`,
       messageCount: sql<number>`count(*)::int`,
+      // Same value on every message in a conversation — any() picks whichever non-null one exists.
+      externalSubjectId: sql<
+        string | null
+      >`(array_agg(${chatMessages.externalSubjectId}) filter (where ${chatMessages.externalSubjectId} is not null))[1]`,
     })
     .from(chatMessages)
     .where(

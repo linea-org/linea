@@ -476,6 +476,121 @@ describe('ExecutionsService', () => {
       }
     })
 
+    it('carries externalSubjectId into triggerPayload on every turn, and surfaces it on the conversation list, when provided', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Subject Test Org',
+          slug: `chat-preview-subject-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Chat Preview Subject Workflow',
+          slug: `chat-preview-subject-${suffix}`,
+        })
+
+        const first = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          { graph, message: 'hello', externalSubjectId: 'customer-42' },
+        )
+        expect(first.execution.triggerPayload).toMatchObject({
+          externalSubjectId: 'customer-42',
+        })
+
+        const second = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          {
+            graph,
+            message: 'follow up',
+            conversationId: first.conversationId,
+            externalSubjectId: 'customer-42',
+          },
+        )
+        expect(second.execution.triggerPayload).toMatchObject({
+          externalSubjectId: 'customer-42',
+        })
+
+        const conversations = await service.listChatConversations(
+          organization.id,
+          workflow.id,
+        )
+        expect(conversations[0]).toMatchObject({
+          conversationId: first.conversationId,
+          externalSubjectId: 'customer-42',
+        })
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it('omits externalSubjectId from triggerPayload entirely when not provided', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview No Subject Test Org',
+          slug: `chat-preview-no-subject-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Chat Preview No Subject Workflow',
+          slug: `chat-preview-no-subject-${suffix}`,
+        })
+
+        const first = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          { graph, message: 'hello' },
+        )
+        expect(first.execution.triggerPayload).not.toHaveProperty(
+          'externalSubjectId',
+        )
+
+        const conversations = await service.listChatConversations(
+          organization.id,
+          workflow.id,
+        )
+        expect(conversations[0]).toMatchObject({ externalSubjectId: null })
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
     it('rejects a workflow from a different workspace for both sending and listing', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [

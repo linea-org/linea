@@ -205,6 +205,7 @@ export class ExecutionsService {
         conversationId,
         role: 'user',
         content: input.message,
+        externalSubjectId: input.externalSubjectId,
       })
 
       const result =
@@ -215,7 +216,13 @@ export class ExecutionsService {
           version.id,
           {
             trigger: 'manual',
-            triggerPayload: { conversationId, chatMessageId: chatMessage.id },
+            triggerPayload: {
+              conversationId,
+              chatMessageId: chatMessage.id,
+              ...(input.externalSubjectId
+                ? { externalSubjectId: input.externalSubjectId }
+                : {}),
+            },
           },
         )
       switch (result.outcome) {

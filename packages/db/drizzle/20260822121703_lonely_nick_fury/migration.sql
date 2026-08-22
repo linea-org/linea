@@ -1,0 +1,1 @@
+ALTER TABLE "chat_messages" ADD COLUMN "external_subject_id" text;
