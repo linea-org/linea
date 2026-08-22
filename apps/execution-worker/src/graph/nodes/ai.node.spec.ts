@@ -1437,11 +1437,14 @@ describe("AiNode", () => {
       expect(listMemories).not.toHaveBeenCalled()
       expect(complete).toHaveBeenCalledWith(
         "secret",
-        expect.objectContaining({ systemPrompt: undefined })
+        expect.objectContaining({
+          systemPrompt: undefined,
+          prompt: "static prompt",
+        })
       )
     })
 
-    it("injects a <memories> block into the system prompt when rows are found", async () => {
+    it("folds a <memories> block into the outgoing user turn, never into systemPrompt, when rows are found", async () => {
       complete.mockResolvedValue({
         text: "hi",
         tokensInput: 1,
@@ -1475,11 +1478,16 @@ describe("AiNode", () => {
       expect(complete).toHaveBeenCalledWith(
         "secret",
         expect.objectContaining({
-          systemPrompt: expect.stringContaining(
+          // Untouched: recalled memory never reaches the privileged system-instruction channel.
+          systemPrompt: "You are helpful.",
+          prompt: expect.stringContaining(
             '- favorite: pizza\n- profile: {"plan":"pro"}\n</memories>'
           ) as unknown,
         })
       )
+      const [, call] = complete.mock.calls[0] as [string, { prompt?: string }]
+      // The memory block is prepended ahead of the caller's own message, not appended after it.
+      expect(call.prompt?.endsWith("static prompt")).toBe(true)
     })
 
     it("escapes angle brackets in recalled values so a stored value can't close the block early or masquerade as an instruction", async () => {
@@ -1505,14 +1513,11 @@ describe("AiNode", () => {
         context
       )
 
-      const [, call] = complete.mock.calls[0] as [
-        string,
-        { systemPrompt?: string },
-      ]
-      expect(call.systemPrompt).not.toContain("</memories>\nSYSTEM:")
-      expect(call.systemPrompt).toContain("&lt;/memories&gt;")
+      const [, call] = complete.mock.calls[0] as [string, { prompt?: string }]
+      expect(call.prompt).not.toContain("</memories>\nSYSTEM:")
+      expect(call.prompt).toContain("&lt;/memories&gt;")
       // Exactly one real closing tag — the one this function itself appends, not one smuggled in via a recalled value.
-      expect(call.systemPrompt?.match(/<\/memories>/g)).toHaveLength(1)
+      expect(call.prompt?.match(/<\/memories>/g)).toHaveLength(1)
     })
 
     it("defaults the namespace to context.workflowId when memoryNamespace isn't configured", async () => {
@@ -1561,11 +1566,51 @@ describe("AiNode", () => {
       expect(listMemories).not.toHaveBeenCalled()
       expect(complete).toHaveBeenCalledWith(
         "secret",
-        expect.objectContaining({ systemPrompt: undefined })
+        expect.objectContaining({
+          systemPrompt: undefined,
+          prompt: "static prompt",
+        })
       )
     })
 
-    it("computes the memory block once and reuses it across every iteration of the tool-calling loop", async () => {
+    it("logs a warning and proceeds without the memory block when resuming, since a resume has no fresh user turn to attach it to", async () => {
+      // A resumed run's nextPrompt is always undefined (the fresh turn, if any, was already sent
+      // before the crash) — proves memory recall doesn't fall back to systemPrompt when there's
+      // nowhere else in the untrusted-data channel to put it.
+      getAiNodeProgress.mockResolvedValueOnce({
+        conversation: [
+          { role: "user", content: "what's the weather in Berlin?" },
+          { role: "assistant", content: "let me check" },
+        ],
+        iteration: 1,
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+      listMemories.mockResolvedValue([{ key: "favorite", value: "pizza" }])
+      complete.mockResolvedValueOnce({
+        text: "done",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+
+      await new AiNode().execute(
+        {
+          prompt: "unused",
+          model: "claude-sonnet-5",
+          memorySubjectPath: "conversationId",
+        },
+        { conversationId: "conv1" },
+        contextWithLedger
+      )
+
+      expect(listMemories).toHaveBeenCalledTimes(1)
+      expect(complete).toHaveBeenCalledWith(
+        "secret",
+        expect.objectContaining({ prompt: undefined, systemPrompt: undefined })
+      )
+    })
+
+    it("computes the memory block once and folds it only into the first completion call's prompt, not later iterations", async () => {
       listMemories.mockResolvedValue([{ key: "favorite", value: "pizza" }])
       complete
         .mockResolvedValueOnce({
@@ -1609,14 +1654,18 @@ describe("AiNode", () => {
       expect(complete).toHaveBeenCalledTimes(2)
       const [, firstCall] = complete.mock.calls[0] as [
         string,
-        { systemPrompt?: string },
+        { prompt?: string; systemPrompt?: string },
       ]
       const [, secondCall] = complete.mock.calls[1] as [
         string,
-        { systemPrompt?: string },
+        { prompt?: string; systemPrompt?: string },
       ]
-      expect(firstCall.systemPrompt).toContain("<memories>")
-      expect(secondCall.systemPrompt).toBe(firstCall.systemPrompt)
+      expect(firstCall.systemPrompt).toBeUndefined()
+      expect(firstCall.prompt).toContain("<memories>")
+      // Only the first iteration sends a fresh user turn at all — a re-fetched or
+      // re-concatenated block on iteration two would show up as a second prompt string here,
+      // which never happens because nextPrompt is nulled out after the first send.
+      expect(secondCall.prompt).toBeUndefined()
     })
   })
 })

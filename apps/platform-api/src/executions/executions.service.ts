@@ -195,20 +195,6 @@ export class ExecutionsService {
 
     const conversationId = input.conversationId ?? randomUUID()
 
-    // A conversation's subject is pinned by its first turn — a later turn's own request value is
-    // never allowed to override it, or memory-scoped nodes could silently read/write a different
-    // subject's partition mid-conversation depending on what a given request happened to send.
-    const established =
-      await repositories.chatMessage.getEstablishedExternalSubjectId(
-        db,
-        workspaceId,
-        workflowId,
-        conversationId,
-      )
-    const externalSubjectId = established.found
-      ? (established.externalSubjectId ?? undefined)
-      : input.externalSubjectId
-
     const version = await repositories.workflow.ensureVersionForGraph(
       db,
       workflowId,
@@ -217,6 +203,29 @@ export class ExecutionsService {
 
     // Created in one transaction so a trigger failure rolls back the message too, not an orphaned turn.
     const { chatMessage, execution } = await db.transaction(async (tx) => {
+      // A conversation's subject is pinned by its first turn — a later turn's own request value
+      // is never allowed to override it, or memory-scoped nodes could silently read/write a
+      // different subject's partition mid-conversation depending on what a given request
+      // happened to send. The lock serializes two concurrent first turns for the same
+      // conversationId: without it, both could read "not found" here and each insert with a
+      // different subject, and the DB has no unique constraint on conversationId to catch that.
+      await repositories.chatMessage.acquireConversationLock(
+        tx,
+        workspaceId,
+        workflowId,
+        conversationId,
+      )
+      const established =
+        await repositories.chatMessage.getEstablishedExternalSubjectId(
+          tx,
+          workspaceId,
+          workflowId,
+          conversationId,
+        )
+      const externalSubjectId = established.found
+        ? (established.externalSubjectId ?? undefined)
+        : input.externalSubjectId
+
       const chatMessage = await repositories.chatMessage.createChatMessage(tx, {
         workspaceId,
         workflowId,
@@ -362,6 +371,10 @@ export class ExecutionsService {
     steps: ExecutionStep[]
     nodeConfigs: Record<string, Record<string, unknown>>
     replayable: boolean
+    // The node a paused execution is currently waiting on — undefined once resolved (it becomes a
+    // real checkpointed step instead) or if the execution isn't paused. Neither Approval nor Wait
+    // checkpoints before pausing, so there's no other way to know which node it stopped at.
+    pausedAtNode?: { nodeId: string; type: string }
   }> {
     const result = await repositories.execution.getExecutionWithSteps(db, id)
     if (!result || result.execution.workspaceId !== workspaceId) {
@@ -373,10 +386,12 @@ export class ExecutionsService {
       result.execution.workflowVersionId,
     )
     const nodeConfigs: Record<string, Record<string, unknown>> = {}
+    const nodeTypes: Record<string, string> = {}
     if (version) {
       const graph = workflowGraphSchema.parse(version.graph)
       for (const node of graph.nodes) {
         nodeConfigs[node.id] = node.config
+        nodeTypes[node.id] = node.type
       }
     }
 
@@ -384,7 +399,19 @@ export class ExecutionsService {
       result.execution.origin === 'native' &&
       repositories.execution.terminalStatuses.includes(result.execution.status)
 
-    return { ...result, nodeConfigs, replayable }
+    let pausedAtNode: { nodeId: string; type: string } | undefined
+    if (result.execution.status === 'paused') {
+      const [pendingApproval, pendingWaitTimer] = await Promise.all([
+        repositories.approval.getPendingApprovalForExecution(db, id),
+        repositories.waitTimer.getPendingWaitTimerForExecution(db, id),
+      ])
+      const nodeId = pendingApproval?.nodeId ?? pendingWaitTimer?.nodeId
+      if (nodeId && nodeTypes[nodeId]) {
+        pausedAtNode = { nodeId, type: nodeTypes[nodeId] }
+      }
+    }
+
+    return { ...result, nodeConfigs, replayable, pausedAtNode }
   }
 
   async replayStep(
