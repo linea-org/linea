@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { Injectable } from "@nestjs/common"
+import { Injectable, Logger } from "@nestjs/common"
 import {
   resolveApiKey,
   resolveKeyName,
@@ -8,13 +8,35 @@ import {
   type ToolDefinition,
 } from "@linea/ai"
 import { db, repositories } from "@linea/db"
+import type { Memory } from "@linea/db"
 import { nodeRegistry } from "@linea/runtime"
+import { resolveNamespace, resolveSubjectId } from "./memory-scope"
 import type {
   NodeExecutionContext,
   NodeHandler,
 } from "./node-handler.interface"
 
 const DEFAULT_MAX_ITERATIONS = 10
+// Matches production practice (Mem0's own per-turn recall default, OpenAI's agent-context cookbook)
+// rather than "as much as fits" — a longer recency-only list actively hurts (lost-in-the-middle),
+// and a small cap keeps the extra DB round trip and the completion call itself fast.
+const DEFAULT_MEMORY_RECALL_LIMIT = 10
+const MEMORY_BLOCK_CHAR_BUDGET = 2000
+
+// A row cap alone doesn't bound tokens — arbitrary-length fact values could still blow up the
+// prompt even at 10 rows, so the assembled block itself is also capped.
+function formatMemoriesForPrompt(rows: Pick<Memory, "key" | "value">[]): string {
+  const lines = rows.map((row) => {
+    const value =
+      typeof row.value === "string" ? row.value : JSON.stringify(row.value)
+    return `- ${row.key}: ${value}`
+  })
+  let block = lines.join("\n")
+  if (block.length > MEMORY_BLOCK_CHAR_BUDGET) {
+    block = `${block.slice(0, MEMORY_BLOCK_CHAR_BUDGET)}\n…`
+  }
+  return `<memories>\n${block}\n</memories>`
+}
 
 type AiTool = {
   name: string
@@ -174,9 +196,11 @@ async function resolveToolCallTurn(
 
 @Injectable()
 export class AiNode implements NodeHandler {
+  private readonly logger = new Logger(AiNode.name)
+
   async execute(
     config: Record<string, unknown>,
-    _input: unknown,
+    input: unknown,
     context: NodeExecutionContext
   ): Promise<unknown> {
     const parsed = nodeRegistry.ai.inputSchema.parse({
@@ -186,6 +210,8 @@ export class AiNode implements NodeHandler {
       conversationId: context.conversationId,
       tools: config.tools,
       maxIterations: config.maxIterations,
+      memorySubjectPath: config.memorySubjectPath,
+      memoryNamespace: config.memoryNamespace,
     })
 
     const provider = resolveProvider(parsed.model)
@@ -307,6 +333,45 @@ export class AiNode implements NodeHandler {
       }
     }
 
+    // Computed once here (not inside the loop below) so a multi-iteration tool-calling run sends
+    // the identical block on every completion call instead of re-querying/re-concatenating it.
+    // Failure here never fails the node — memory is an enhancement to a call whose core job is
+    // still to respond, unlike the Memory node itself where storage IS the point and a bad
+    // config throws loudly.
+    let effectiveSystemPrompt = parsed.systemPrompt
+    if (
+      typeof parsed.memorySubjectPath === "string" &&
+      parsed.memorySubjectPath.trim() !== ""
+    ) {
+      try {
+        const externalSubjectId = resolveSubjectId(
+          input,
+          parsed.memorySubjectPath,
+          "Agent node memory"
+        )
+        const namespace = resolveNamespace(
+          parsed.memoryNamespace,
+          context.workflowId,
+          "Agent node memory"
+        )
+        const memories = await repositories.memory.listMemories(db, {
+          workspaceId: context.workspaceId,
+          externalSubjectId,
+          namespace,
+          limit: DEFAULT_MEMORY_RECALL_LIMIT,
+        })
+        if (memories.length > 0) {
+          const memoryBlock = formatMemoriesForPrompt(memories)
+          effectiveSystemPrompt = effectiveSystemPrompt
+            ? `${effectiveSystemPrompt}\n\n${memoryBlock}`
+            : memoryBlock
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        this.logger.warn(`Agent node: skipping memory recall — ${message}`)
+      }
+    }
+
     for (
       let iteration = startIteration;
       iteration < maxIterations;
@@ -316,7 +381,7 @@ export class AiNode implements NodeHandler {
       const result = await provider.complete(apiKey, {
         model: parsed.model,
         prompt: nextPrompt,
-        systemPrompt: parsed.systemPrompt,
+        systemPrompt: effectiveSystemPrompt,
         // A snapshot, not the live array — conversation is mutated right after this call returns, and that must not retroactively change what this call was seen to send.
         history: conversation.length > 0 ? [...conversation] : undefined,
         tools,

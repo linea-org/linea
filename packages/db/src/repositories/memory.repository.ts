@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, or } from "drizzle-orm"
+import { and, desc, eq, gt, isNull, or } from "drizzle-orm"
 import { memories, type NewMemory } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
@@ -65,4 +65,29 @@ export async function readMemory(
       )
     )
   return row
+}
+
+export type ListMemoriesInput = MemoryScope & { limit: number }
+
+// Most-recently-updated first, capped at the caller's limit — recency is the only ordering signal
+// available without semantic search, and matches production practice (Mem0, OpenAI's own agent
+// context guidance) for automatic recall: a small, recent set beats dumping everything stored.
+export async function listMemories(
+  db: DbClient,
+  input: ListMemoriesInput,
+  now: Date = new Date()
+) {
+  return db
+    .select()
+    .from(memories)
+    .where(
+      and(
+        eq(memories.workspaceId, input.workspaceId),
+        eq(memories.externalSubjectId, input.externalSubjectId),
+        eq(memories.namespace, input.namespace),
+        or(isNull(memories.expiresAt), gt(memories.expiresAt, now))
+      )
+    )
+    .orderBy(desc(memories.updatedAt))
+    .limit(input.limit)
 }

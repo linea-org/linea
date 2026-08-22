@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { organizations } from "../schema/index.js"
-import { readMemory, writeMemory } from "./memory.repository.js"
+import { listMemories, readMemory, writeMemory } from "./memory.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 
 describe("memory.repository", () => {
@@ -161,6 +161,95 @@ describe("memory.repository", () => {
 
       const read = await readMemory(tx, { ...scope, key: "favorite" })
       expect(read).toBeUndefined()
+    })
+  })
+
+  describe("listMemories", () => {
+    it("orders by most-recently-updated first", async () => {
+      await withRollback(async (tx) => {
+        const { organization } = await createTestFixtures(tx)
+        const scope = {
+          workspaceId: organization.id,
+          externalSubjectId: "user-1",
+          namespace: "wf-1",
+        }
+
+        await writeMemory(tx, { ...scope, key: "a", value: "1st" })
+        await writeMemory(tx, { ...scope, key: "b", value: "2nd" })
+        // Re-writing "a" bumps its updatedAt past "b"'s, so it should sort first now.
+        await writeMemory(tx, { ...scope, key: "a", value: "1st-updated" })
+
+        const rows = await listMemories(tx, { ...scope, limit: 10 })
+        expect(rows.map((r) => r.key)).toEqual(["a", "b"])
+      })
+    })
+
+    it("respects the limit", async () => {
+      await withRollback(async (tx) => {
+        const { organization } = await createTestFixtures(tx)
+        const scope = {
+          workspaceId: organization.id,
+          externalSubjectId: "user-1",
+          namespace: "wf-1",
+        }
+
+        for (const key of ["a", "b", "c", "d"]) {
+          await writeMemory(tx, { ...scope, key, value: key })
+        }
+
+        const rows = await listMemories(tx, { ...scope, limit: 2 })
+        expect(rows).toHaveLength(2)
+      })
+    })
+
+    it("excludes expired rows", async () => {
+      await withRollback(async (tx) => {
+        const { organization } = await createTestFixtures(tx)
+        const scope = {
+          workspaceId: organization.id,
+          externalSubjectId: "user-1",
+          namespace: "wf-1",
+        }
+
+        await writeMemory(tx, { ...scope, key: "active", value: "still here" })
+        await writeMemory(tx, {
+          ...scope,
+          key: "expired",
+          value: "gone",
+          expiresAt: new Date(Date.now() - 60_000),
+        })
+
+        const rows = await listMemories(tx, { ...scope, limit: 10 })
+        expect(rows.map((r) => r.key)).toEqual(["active"])
+      })
+    })
+
+    it("isolates by scope — a different namespace or subject doesn't leak in", async () => {
+      await withRollback(async (tx) => {
+        const { organization } = await createTestFixtures(tx)
+        const scope = {
+          workspaceId: organization.id,
+          externalSubjectId: "user-1",
+          namespace: "wf-1",
+        }
+
+        await writeMemory(tx, { ...scope, key: "a", value: "1" })
+        await writeMemory(tx, {
+          ...scope,
+          namespace: "wf-2",
+          key: "b",
+          value: "2",
+        })
+        await writeMemory(tx, {
+          ...scope,
+          externalSubjectId: "user-2",
+          key: "c",
+          value: "3",
+        })
+
+        const rows = await listMemories(tx, { ...scope, limit: 10 })
+        expect(rows.map((r) => r.key)).toEqual(["a"])
+      })
     })
   })
 })

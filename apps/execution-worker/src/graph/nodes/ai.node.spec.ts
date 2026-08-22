@@ -56,6 +56,18 @@ const isLeaseValid = jest.fn<
   Promise<boolean>,
   [db: unknown, executionId: string, leasedBy: string]
 >(() => Promise.resolve(true))
+const listMemories = jest.fn<
+  Promise<{ key: string; value: unknown }[]>,
+  [
+    db: unknown,
+    input: {
+      workspaceId: string
+      externalSubjectId: string
+      namespace: string
+      limit: number
+    },
+  ]
+>(() => Promise.resolve([]))
 jest.mock("@linea/db", () => ({
   db: {},
   repositories: {
@@ -66,6 +78,7 @@ jest.mock("@linea/db", () => ({
       saveAiNodeProgress,
     },
     execution: { isLeaseValid },
+    memory: { listMemories },
   },
 }))
 
@@ -1398,6 +1411,149 @@ describe("AiNode", () => {
         tokensInput: 1,
         tokensOutput: 1,
       })
+    })
+  })
+
+  describe("memory recall", () => {
+    beforeEach(() => {
+      listMemories.mockClear()
+      listMemories.mockResolvedValue([])
+      complete.mockClear()
+    })
+
+    it("does not look up memory when memorySubjectPath isn't configured", async () => {
+      complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+
+      await new AiNode().execute(
+        { prompt: "static prompt", model: "claude-sonnet-5" },
+        { conversationId: "conv1" },
+        context
+      )
+
+      expect(listMemories).not.toHaveBeenCalled()
+      expect(complete).toHaveBeenCalledWith(
+        "secret",
+        expect.objectContaining({ systemPrompt: undefined })
+      )
+    })
+
+    it("injects a <memories> block into the system prompt when rows are found", async () => {
+      complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+      listMemories.mockResolvedValue([
+        { key: "favorite", value: "pizza" },
+        { key: "profile", value: { plan: "pro" } },
+      ])
+
+      await new AiNode().execute(
+        {
+          prompt: "static prompt",
+          systemPrompt: "You are helpful.",
+          model: "claude-sonnet-5",
+          memorySubjectPath: "conversationId",
+        },
+        { conversationId: "conv1" },
+        context
+      )
+
+      expect(listMemories).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({
+          workspaceId: "ws1",
+          externalSubjectId: "conv1",
+          namespace: "wf1",
+          limit: 10,
+        })
+      )
+      expect(complete).toHaveBeenCalledWith(
+        "secret",
+        expect.objectContaining({
+          systemPrompt: expect.stringContaining(
+            "<memories>\n- favorite: pizza\n- profile: {\"plan\":\"pro\"}\n</memories>"
+          ) as unknown,
+        })
+      )
+    })
+
+    it("defaults the namespace to context.workflowId when memoryNamespace isn't configured", async () => {
+      complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+      listMemories.mockResolvedValue([{ key: "a", value: "1" }])
+
+      await new AiNode().execute(
+        {
+          prompt: "static prompt",
+          model: "claude-sonnet-5",
+          memorySubjectPath: "conversationId",
+        },
+        { conversationId: "conv1" },
+        { ...context, workflowId: "wf-custom" }
+      )
+
+      expect(listMemories).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({ namespace: "wf-custom" })
+      )
+    })
+
+    it("logs a warning and proceeds without the memory block when the subjectPath doesn't resolve", async () => {
+      complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+
+      await expect(
+        new AiNode().execute(
+          {
+            prompt: "static prompt",
+            model: "claude-sonnet-5",
+            memorySubjectPath: "missing.path",
+          },
+          { conversationId: "conv1" },
+          context
+        )
+      ).resolves.toEqual({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+
+      expect(listMemories).not.toHaveBeenCalled()
+      expect(complete).toHaveBeenCalledWith(
+        "secret",
+        expect.objectContaining({ systemPrompt: undefined })
+      )
+    })
+
+    it("computes the memory block once and reuses it across every iteration of the tool-calling loop", async () => {
+      listMemories.mockResolvedValue([{ key: "favorite", value: "pizza" }])
+      complete
+        .mockResolvedValueOnce({
+          text: "",
+          tokensInput: 1,
+          tokensOutput: 1,
+          toolCalls: [
+            { id: "call_1", name: "get_weather", arguments: { city: "Berlin" } },
+          ],
+        })
+        .mockResolvedValueOnce({ text: "done", tokensInput: 1, tokensOutput: 1 })
+      mockFetch()
+
+      await new AiNode().execute(
+        {
+          prompt: "what's the weather in Berlin?",
+          model: "claude-sonnet-5",
+          memorySubjectPath: "conversationId",
+          tools: [
+            {
+              name: "get_weather",
+              parameters: {},
+              url: "https://api.example.com/weather",
+              method: "GET",
+            },
+          ],
+        },
+        { conversationId: "conv1" },
+        context
+      )
+
+      expect(listMemories).toHaveBeenCalledTimes(1)
+      expect(complete).toHaveBeenCalledTimes(2)
+      const firstSystemPrompt = complete.mock.calls[0][1].systemPrompt
+      const secondSystemPrompt = complete.mock.calls[1][1].systemPrompt
+      expect(firstSystemPrompt).toContain("<memories>")
+      expect(secondSystemPrompt).toBe(firstSystemPrompt)
     })
   })
 })

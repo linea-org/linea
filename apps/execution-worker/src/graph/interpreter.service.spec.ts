@@ -19,6 +19,11 @@ const tokenNode = {
   execute: () => Promise.resolve({ tokensInput: 100, tokensOutput: 50 }),
 } as unknown as HttpNode
 
+// Same stand-in, cast for the aiNode constructor slot instead of httpNode.
+const tokenAiNode = {
+  execute: () => Promise.resolve({ tokensInput: 100, tokensOutput: 50 }),
+} as unknown as AiNode
+
 afterAll(async () => {
   await pool.end()
 })
@@ -345,7 +350,7 @@ describe("InterpreterService resume", () => {
         new HttpNode(),
         new TransformNode(),
         new BranchNode(),
-        tokenNode,
+        tokenAiNode,
         new ApprovalNode(),
         new MemoryNode()
       )
@@ -474,7 +479,7 @@ describe("InterpreterService resume", () => {
         new HttpNode(),
         new TransformNode(),
         new BranchNode(),
-        tokenNode,
+        tokenAiNode,
         new ApprovalNode(),
         new MemoryNode()
       )
@@ -557,7 +562,7 @@ describe("InterpreterService resume", () => {
         new HttpNode(),
         new TransformNode(),
         new BranchNode(),
-        tokenNode,
+        tokenAiNode,
         new ApprovalNode(),
         new MemoryNode()
       )
@@ -635,7 +640,7 @@ describe("InterpreterService resume", () => {
         new HttpNode(),
         new TransformNode(),
         new BranchNode(),
-        tokenNode,
+        tokenAiNode,
         new ApprovalNode(),
         new MemoryNode()
       )
