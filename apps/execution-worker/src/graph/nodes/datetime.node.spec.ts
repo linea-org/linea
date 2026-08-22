@@ -17,6 +17,38 @@ describe("DatetimeNode", () => {
     expect(output).toEqual({ result: "2026-01-06T00:00:00.000Z" })
   })
 
+  it("accepts amount as a string, matching what the builder's text-widget config actually sends", async () => {
+    const node = new DatetimeNode()
+
+    const output = await node.execute(
+      {
+        operation: "add",
+        date: "2026-01-01T00:00:00.000Z",
+        unit: "days",
+        amount: "5",
+      },
+      undefined
+    )
+
+    expect(output).toEqual({ result: "2026-01-06T00:00:00.000Z" })
+  })
+
+  it("treats an empty string amount as missing, not as zero", () => {
+    const node = new DatetimeNode()
+
+    expect(() =>
+      node.execute(
+        {
+          operation: "add",
+          date: "2026-01-01T00:00:00.000Z",
+          unit: "days",
+          amount: "",
+        },
+        undefined
+      )
+    ).toThrow('missing "amount"')
+  })
+
   it("subtracts a duration from a date", async () => {
     const node = new DatetimeNode()
 

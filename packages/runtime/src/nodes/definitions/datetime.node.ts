@@ -22,6 +22,17 @@ const datetimePartSchema = z.enum([
   "dayOfYear",
 ])
 
+// The builder only has text/textarea/select/code/key-value widgets — no dedicated numeric one —
+// so "amount" always arrives as a string from the config editor. Preprocessed rather than
+// z.coerce'd: an empty string must still read as "missing" (surfaced as the handler's own clear
+// "Datetime node is missing amount" error), not silently coerce to 0 the way Number("") would.
+const amountSchema = z.preprocess((value) => {
+  if (value === undefined || value === null || value === "") return undefined
+  if (typeof value !== "string") return value
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : value
+}, z.number().optional())
+
 const datetimeInputSchema = z.object({
   // Runtime value from the upstream node — used as the date when the "date" config field below
   // is left empty, so this node can operate on a date coming from an earlier step without
@@ -39,7 +50,7 @@ const datetimeInputSchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   unit: datetimeUnitSchema.optional(),
-  amount: z.number().optional(),
+  amount: amountSchema,
   part: datetimePartSchema.optional(),
   // Custom token string (YYYY/MM/DD/HH/mm/ss) — empty means ISO 8601.
   format: z.string().optional(),
