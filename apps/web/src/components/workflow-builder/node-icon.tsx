@@ -1,4 +1,5 @@
 import {
+  Brain,
   Braces,
   CircleStop,
   Clock,
@@ -18,6 +19,7 @@ const ICONS: Record<string, LucideIcon> = {
   braces: Braces,
   play: Play,
   "circle-stop": CircleStop,
+  brain: Brain,
   clock: Clock,
 }
 

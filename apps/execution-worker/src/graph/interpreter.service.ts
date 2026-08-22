@@ -19,6 +19,7 @@ import { DatetimeNode } from "./nodes/datetime.node"
 import { EndNode } from "./nodes/end.node"
 import { FilterNode } from "./nodes/filter.node"
 import { HttpNode } from "./nodes/http.node"
+import { MemoryNode } from "./nodes/memory.node"
 import { MergeNode } from "./nodes/merge.node"
 import type { NodeHandler } from "./nodes/node-handler.interface"
 import { NonRetryableError } from "./nodes/non-retryable-error"
@@ -150,6 +151,7 @@ export class InterpreterService {
     branchNode: BranchNode,
     aiNode: AiNode,
     approvalNode: ApprovalNode,
+    memoryNode: MemoryNode,
     waitNode: WaitNode,
     datetimeNode: DatetimeNode,
     filterNode: FilterNode,
@@ -161,6 +163,7 @@ export class InterpreterService {
       branch: branchNode,
       ai: aiNode,
       approval: approvalNode,
+      memory: memoryNode,
       wait: waitNode,
       datetime: datetimeNode,
       filter: filterNode,

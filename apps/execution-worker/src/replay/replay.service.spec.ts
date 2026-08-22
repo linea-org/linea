@@ -5,6 +5,7 @@ import type { WorkflowGraph } from "@linea/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
 import { AiNode } from "../graph/nodes/ai.node"
 import { ApprovalNode } from "../graph/nodes/approval.node"
+import { MemoryNode } from "../graph/nodes/memory.node"
 import { WaitNode } from "../graph/nodes/wait.node"
 import { BranchNode } from "../graph/nodes/branch.node"
 import { DatetimeNode } from "../graph/nodes/datetime.node"
@@ -92,6 +93,7 @@ async function setUpExecutionWithStep(
     new BranchNode(),
     new AiNode(),
     new ApprovalNode(),
+    new MemoryNode(),
     new WaitNode(),
     new DatetimeNode(),
     new FilterNode(),
@@ -265,6 +267,7 @@ describe("ReplayService.replay", () => {
         new BranchNode(),
         spyAiNode,
         new ApprovalNode(),
+        new MemoryNode(),
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
@@ -529,6 +532,7 @@ describe("ReplayService.replay", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new MemoryNode(),
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),

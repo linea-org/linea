@@ -11,6 +11,7 @@ describe("nodeRegistry", () => {
       "end",
       "filter",
       "http",
+      "memory",
       "merge",
       "start",
       "transform",

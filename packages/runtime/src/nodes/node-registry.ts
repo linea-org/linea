@@ -5,6 +5,7 @@ import { datetimeNode } from "./definitions/datetime.node.js"
 import { endNode } from "./definitions/end.node.js"
 import { filterNode } from "./definitions/filter.node.js"
 import { httpNode } from "./definitions/http.node.js"
+import { memoryNode } from "./definitions/memory.node.js"
 import { mergeNode } from "./definitions/merge.node.js"
 import { startNode } from "./definitions/start.node.js"
 import { transformNode } from "./definitions/transform.node.js"
@@ -19,6 +20,7 @@ export const nodeRegistry = {
   branch: branchNode,
   ai: aiNode,
   approval: approvalNode,
+  memory: memoryNode,
   wait: waitNode,
   datetime: datetimeNode,
   filter: filterNode,
