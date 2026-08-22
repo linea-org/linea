@@ -1,5 +1,6 @@
 import { z } from "zod"
 import type { NodeDefinition } from "../node-definition.js"
+import { retryPolicySchema } from "../retry-policy.js"
 
 const aiToolSchema = z.object({
   name: z.string(),
@@ -20,6 +21,8 @@ const aiInputSchema = z.object({
   tools: z.array(aiToolSchema).optional(),
   // Not yet UI-exposed — caps the tool-calling loop; defaulted by the execution-worker handler.
   maxIterations: z.number().int().positive().optional(),
+  // Interpreter-owned; omitted means no retry. Completions are not idempotent.
+  retryPolicy: retryPolicySchema.optional(),
 })
 
 const aiOutputSchema = z.object({
@@ -83,6 +86,13 @@ export const aiNode: NodeDefinition<
         widget: "code",
         description:
           "Optional HTTP tools the model can call: JSON array of {name, description, parameters (JSON Schema), url, method}. Leave empty for a single-shot completion.",
+      },
+      {
+        key: "retryPolicy",
+        label: "Retry policy",
+        widget: "code",
+        description:
+          'Retry a failed completion. Warning: no supported provider has an idempotency mechanism for completions, so a retry after a slow/dropped response can bill twice. JSON: {"maxAttempts": 3, "backoff": {"type": "exponential", "delayMs": 500}, "timeoutMs": 30000}. Leave empty for no retry.',
       },
     ],
     summaryField: "model",

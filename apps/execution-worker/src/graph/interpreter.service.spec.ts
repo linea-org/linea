@@ -9,8 +9,13 @@ import {
 import { AiNode } from "./nodes/ai.node"
 import { ApprovalNode } from "./nodes/approval.node"
 import { MemoryNode } from "./nodes/memory.node"
+import { WaitNode } from "./nodes/wait.node"
 import { BranchNode } from "./nodes/branch.node"
+import { DatetimeNode } from "./nodes/datetime.node"
+import { FilterNode } from "./nodes/filter.node"
 import { HttpNode } from "./nodes/http.node"
+import { MergeNode } from "./nodes/merge.node"
+import { NonRetryableError } from "./nodes/non-retryable-error"
 import { TransformNode } from "./nodes/transform.node"
 import { InterpreterService } from "./interpreter.service"
 
@@ -32,7 +37,11 @@ describe("InterpreterService.executeNode", () => {
       new BranchNode(),
       new AiNode(),
       new ApprovalNode(),
-      new MemoryNode()
+      new MemoryNode(),
+      new WaitNode(),
+      new DatetimeNode(),
+      new FilterNode(),
+      new MergeNode()
     )
 
     const result = await interpreter.executeNode(
@@ -57,7 +66,11 @@ describe("InterpreterService.executeNode", () => {
       new BranchNode(),
       new AiNode(),
       new ApprovalNode(),
-      new MemoryNode()
+      new MemoryNode(),
+      new WaitNode(),
+      new DatetimeNode(),
+      new FilterNode(),
+      new MergeNode()
     )
 
     await expect(
@@ -79,7 +92,11 @@ describe("InterpreterService.executeNode", () => {
       new BranchNode(),
       new AiNode(),
       new ApprovalNode(),
-      new MemoryNode()
+      new MemoryNode(),
+      new WaitNode(),
+      new DatetimeNode(),
+      new FilterNode(),
+      new MergeNode()
     )
 
     await interpreter.executeNode(
@@ -110,7 +127,11 @@ describe("InterpreterService.executeNode", () => {
       new BranchNode(),
       new AiNode(),
       new ApprovalNode(),
-      new MemoryNode()
+      new MemoryNode(),
+      new WaitNode(),
+      new DatetimeNode(),
+      new FilterNode(),
+      new MergeNode()
     )
 
     await expect(
@@ -179,7 +200,11 @@ describe("InterpreterService.run idempotency key", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
-        new MemoryNode()
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       await interpreter.run({
@@ -257,7 +282,11 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
-        new MemoryNode()
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       // First run: executes n1, checkpoints its usage, then "crashes" (never completes).
@@ -347,7 +376,11 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         tokenNode,
         new ApprovalNode(),
-        new MemoryNode()
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       // First run: executes n1 (unpriced), checkpoints it, then "crashes".
@@ -476,7 +509,11 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         tokenNode,
         new ApprovalNode(),
-        new MemoryNode()
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       // n2 runs fresh and is fully priced, but the legacy gap on n1 must still win.
@@ -559,7 +596,11 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         tokenNode,
         new ApprovalNode(),
-        new MemoryNode()
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
@@ -637,7 +678,11 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         tokenNode,
         new ApprovalNode(),
-        new MemoryNode()
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
@@ -725,7 +770,11 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
-        new MemoryNode()
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       await expect(
@@ -815,7 +864,11 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
-        new MemoryNode()
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       await expect(
@@ -896,7 +949,11 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
-        new MemoryNode()
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       await expect(
@@ -911,6 +968,542 @@ describe("InterpreterService resume", () => {
       ).rejects.toThrow(LeaseLostError)
 
       expect(executeSpy).not.toHaveBeenCalled()
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+})
+
+describe("InterpreterService retry policy", () => {
+  async function setupExecution(suffix: string, graph: WorkflowGraph) {
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Interpreter Retry Test Org",
+        slug: `interpreter-retry-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    const workflow = await repositories.workflow.createWorkflow(db, {
+      workspaceId: organization.id,
+      name: "Interpreter Retry Test Workflow",
+      slug: `interpreter-retry-workflow-${suffix}`,
+    })
+    const version = await repositories.workflow.createWorkflowVersion(db, {
+      workflowId: workflow.id,
+      graph,
+      contentHash: `interpreter-retry-hash-${suffix}`,
+    })
+    const execution = await repositories.execution.createExecution(db, {
+      workspaceId: organization.id,
+      workflowId: workflow.id,
+      workflowVersionId: version.id,
+      trigger: "manual",
+      triggerPayload: {},
+    })
+    return { organization, execution }
+  }
+
+  it("retries a failing node and succeeds once the handler stops throwing", async () => {
+    const suffix = randomUUID()
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "n1",
+      nodes: [
+        {
+          id: "n1",
+          type: "http",
+          config: {
+            retryPolicy: {
+              maxAttempts: 3,
+              backoff: { type: "fixed", delayMs: 10 },
+            },
+          },
+        },
+      ],
+      edges: [],
+    }
+    const { organization, execution } = await setupExecution(suffix, graph)
+    try {
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      let calls = 0
+      const executeSpy = jest.fn(() => {
+        calls += 1
+        if (calls < 3) return Promise.reject(new Error("flaky"))
+        return Promise.resolve({ tokensInput: 0, tokensOutput: 0 })
+      })
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const interpreter = new InterpreterService(
+        new CheckpointsService(),
+        spyNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new ApprovalNode(),
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
+      )
+
+      const outcome = await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: new Map(),
+      })
+
+      expect(executeSpy).toHaveBeenCalledTimes(3)
+      expect(outcome.result?.status).toBe("completed")
+
+      const steps = await repositories.checkpoint.getStepsForExecution(
+        db,
+        execution.id
+      )
+      expect(steps[0]?.status).toBe("succeeded")
+      expect(steps[0]?.attributes?.retryAttempts).toBe(3)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("fails the step once retries are exhausted, recording how many attempts were made", async () => {
+    const suffix = randomUUID()
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "n1",
+      nodes: [
+        {
+          id: "n1",
+          type: "http",
+          config: {
+            retryPolicy: {
+              maxAttempts: 2,
+              backoff: { type: "fixed", delayMs: 10 },
+            },
+          },
+        },
+      ],
+      edges: [],
+    }
+    const { organization, execution } = await setupExecution(suffix, graph)
+    try {
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const executeSpy = jest.fn(() =>
+        Promise.reject(new Error("always fails"))
+      )
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const interpreter = new InterpreterService(
+        new CheckpointsService(),
+        spyNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new ApprovalNode(),
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
+      )
+
+      const outcome = await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: new Map(),
+      })
+
+      expect(executeSpy).toHaveBeenCalledTimes(2)
+      expect(outcome.result?.status).toBe("failed")
+
+      const steps = await repositories.checkpoint.getStepsForExecution(
+        db,
+        execution.id
+      )
+      expect(steps[0]?.status).toBe("failed")
+      expect(steps[0]?.attributes?.retryAttempts).toBe(2)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("does not retry a NonRetryableError, even with attempts remaining", async () => {
+    const suffix = randomUUID()
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "n1",
+      nodes: [
+        {
+          id: "n1",
+          type: "http",
+          config: {
+            retryPolicy: {
+              maxAttempts: 5,
+              backoff: { type: "fixed", delayMs: 10 },
+            },
+          },
+        },
+      ],
+      edges: [],
+    }
+    const { organization, execution } = await setupExecution(suffix, graph)
+    try {
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const executeSpy = jest.fn(() =>
+        Promise.reject(new NonRetryableError("bad request"))
+      )
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const interpreter = new InterpreterService(
+        new CheckpointsService(),
+        spyNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new ApprovalNode(),
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
+      )
+
+      const outcome = await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: new Map(),
+      })
+
+      expect(executeSpy).toHaveBeenCalledTimes(1)
+      expect(outcome.result?.status).toBe("failed")
+
+      const steps = await repositories.checkpoint.getStepsForExecution(
+        db,
+        execution.id
+      )
+      expect(steps[0]?.attributes?.retryAttempts).toBeUndefined()
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("aborts the attempt once its own timeout elapses, then retries", async () => {
+    const suffix = randomUUID()
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "n1",
+      nodes: [
+        {
+          id: "n1",
+          type: "http",
+          config: {
+            retryPolicy: {
+              maxAttempts: 2,
+              backoff: { type: "fixed", delayMs: 10 },
+              timeoutMs: 1000,
+            },
+          },
+        },
+      ],
+      edges: [],
+    }
+    const { organization, execution } = await setupExecution(suffix, graph)
+    try {
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      let calls = 0
+      const executeSpy = jest.fn(
+        (
+          _config: unknown,
+          _input: unknown,
+          context: { signal?: AbortSignal }
+        ) => {
+          calls += 1
+          if (calls === 1) {
+            // Simulate a hung call by waiting for this attempt's own combined signal to abort.
+            return new Promise((_resolve, reject) => {
+              context.signal?.addEventListener("abort", () =>
+                reject(new Error("aborted"))
+              )
+            })
+          }
+          return Promise.resolve({ tokensInput: 0, tokensOutput: 0 })
+        }
+      )
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const interpreter = new InterpreterService(
+        new CheckpointsService(),
+        spyNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new ApprovalNode(),
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
+      )
+
+      const outcome = await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: new Map(),
+      })
+
+      expect(executeSpy).toHaveBeenCalledTimes(2)
+      expect(outcome.result?.status).toBe("completed")
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  }, 15_000)
+
+  it("stops retrying and surfaces a lease loss once the lease expires between attempts", async () => {
+    const suffix = randomUUID()
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "n1",
+      nodes: [
+        {
+          id: "n1",
+          type: "http",
+          config: {
+            retryPolicy: {
+              maxAttempts: 3,
+              backoff: { type: "fixed", delayMs: 10 },
+            },
+          },
+        },
+      ],
+      edges: [],
+    }
+    const { organization, execution } = await setupExecution(suffix, graph)
+    try {
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      // The first attempt's failure expires the lease itself (standing in for a real reclaim
+      // during that call), deterministically, instead of racing real wall-clock timing.
+      const executeSpy = jest.fn(async () => {
+        await pool.query(
+          "UPDATE executions SET lease_expires_at = $1 WHERE id = $2",
+          [new Date(Date.now() - 1000), execution.id]
+        )
+        throw new Error("flaky")
+      })
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const interpreter = new InterpreterService(
+        new CheckpointsService(),
+        spyNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new ApprovalNode(),
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
+      )
+
+      await expect(
+        interpreter.run({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          leasedBy: "worker-1",
+          graph,
+          triggerPayload: {},
+          resumeFrom: new Map(),
+        })
+      ).rejects.toThrow(LeaseLostError)
+
+      expect(executeSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("does not start a retry attempt if the lease expired during the backoff sleep itself, not just before it", async () => {
+    const suffix = randomUUID()
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "n1",
+      nodes: [
+        {
+          id: "n1",
+          type: "http",
+          config: {
+            retryPolicy: {
+              maxAttempts: 2,
+              backoff: { type: "fixed", delayMs: 200 },
+            },
+          },
+        },
+      ],
+      edges: [],
+    }
+    const { organization, execution } = await setupExecution(suffix, graph)
+    try {
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      // Attempt 1 fails with the lease still fully valid — the existing pre-sleep check passes —
+      // then the lease expires while the interpreter's own 200ms backoff is still in progress, so
+      // only the post-sleep check (not the pre-sleep one) can catch it before attempt 2 fires.
+      const executeSpy = jest.fn(() => {
+        setTimeout(() => {
+          void pool.query(
+            "UPDATE executions SET lease_expires_at = $1 WHERE id = $2",
+            [new Date(Date.now() - 1000), execution.id]
+          )
+        }, 50)
+        throw new Error("flaky")
+      })
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const interpreter = new InterpreterService(
+        new CheckpointsService(),
+        spyNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new ApprovalNode(),
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
+      )
+
+      await expect(
+        interpreter.run({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          leasedBy: "worker-1",
+          graph,
+          triggerPayload: {},
+          resumeFrom: new Map(),
+        })
+      ).rejects.toThrow(LeaseLostError)
+
+      expect(executeSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("behaves exactly as before when no retryPolicy is configured", async () => {
+    const suffix = randomUUID()
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "n1",
+      nodes: [{ id: "n1", type: "http", config: {} }],
+      edges: [],
+    }
+    const { organization, execution } = await setupExecution(suffix, graph)
+    try {
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const executeSpy = jest.fn(() => Promise.reject(new Error("fails")))
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const interpreter = new InterpreterService(
+        new CheckpointsService(),
+        spyNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new ApprovalNode(),
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
+      )
+
+      const outcome = await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: new Map(),
+      })
+
+      expect(executeSpy).toHaveBeenCalledTimes(1)
+      expect(outcome.result?.status).toBe("failed")
+
+      const steps = await repositories.checkpoint.getStepsForExecution(
+        db,
+        execution.id
+      )
+      expect(steps[0]?.attributes?.retryAttempts).toBeUndefined()
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
