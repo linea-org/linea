@@ -60,7 +60,11 @@ async function describeSignInMethod(userId: string): Promise<string> {
     .select({ providerId: schema.accounts.providerId })
     .from(schema.accounts)
     .where(eq(schema.accounts.userId, userId))
+  // A linked account row surviving from before a provider was disabled in this deployment
+  // doesn't mean that provider still works — only recommend one that's actually enabled now.
+  const enabledProviderIds: string[] = enabledSocialProviders
   const socialLabels = linkedAccounts
+    .filter((account) => enabledProviderIds.includes(account.providerId))
     .map((account) => socialProviderLabels[account.providerId])
     .filter((label): label is string => Boolean(label))
   if (socialLabels.length > 0) {
