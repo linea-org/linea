@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "47b7386c-da2b-4d24-b0d7-3a93f14c475f",
+  "id": "0e475e06-8631-48f2-9f0f-c0bc2037c0a2",
   "prevIds": [
-    "c64a0b0b-f6a0-4850-ada5-8860023f89f9"
+    "0874ebd7-9f11-407f-ba65-4c051a2fbf9f"
   ],
   "ddl": [
     {
@@ -365,6 +365,12 @@
     {
       "isRlsEnabled": false,
       "name": "memories",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "wait_timers",
       "entityType": "tables",
       "schema": "public"
     },
@@ -3619,6 +3625,110 @@
       "table": "memories"
     },
     {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "wait_timers"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "workspace_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "wait_timers"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "execution_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "wait_timers"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "node_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "wait_timers"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "resume_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "wait_timers"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "fired",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "wait_timers"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "fired_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "wait_timers"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "wait_timers"
+    },
+    {
       "nameExplicit": true,
       "columns": [
         {
@@ -4613,6 +4723,83 @@
       "table": "memories"
     },
     {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "execution_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "wait_timers_execution_node_uidx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "wait_timers"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "workspace_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "fired",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "wait_timers_workspace_fired_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "wait_timers"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "resume_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"fired\" = false",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "wait_timers_resume_at_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "wait_timers"
+    },
+    {
       "nameExplicit": false,
       "columns": [
         "user_id"
@@ -5150,6 +5337,23 @@
       "table": "ai_node_progress"
     },
     {
+      "nameExplicit": false,
+      "columns": [
+        "workspace_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "organizations",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "memories_workspace_id_organizations_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "memories"
+    },
+    {
       "columns": [
         "user_id"
       ],
@@ -5397,6 +5601,16 @@
       "name": "memories_pkey",
       "schema": "public",
       "table": "memories",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "wait_timers_pkey",
+      "schema": "public",
+      "table": "wait_timers",
       "entityType": "pks"
     },
     {
