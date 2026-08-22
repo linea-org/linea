@@ -14,6 +14,26 @@ afterAll(async () => {
   await pool.end()
 })
 
+// claimAndResolveDueWaitTimer claims one arbitrary due wait timer across the whole database by
+// design (it backs the background poller's "fire the next one" step, not scoped to a workspace)
+// — so a real leftover due timer anywhere in this shared local dev Postgres could get claimed
+// ahead of the one this test just created, leaving the test's own timer still unfired. Draining
+// first clears that backlog (a real, if benign, side effect here — this test isn't wrapped in a
+// rolled-back transaction — but every drained timer really was due, so firing it early is exactly
+// what the real poller would have done anyway).
+//
+// Deliberately always uses the real current time, never a pumped-forward "now": a caller wanting
+// to force its own not-yet-due row to fire immediately must update that specific row directly (by
+// workspace/execution/node) rather than pass a future cutoff here — pumping the cutoff for this
+// whole-database drain would also claim and permanently fire any concurrently running test's own
+// legitimately-not-yet-due timer, corrupting that test's state.
+async function drainDueWaitTimers(): Promise<void> {
+  let result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
+  while (result.outcome === 'fired') {
+    result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
+  }
+}
+
 describe('deleteChatMessageWithRetry', () => {
   it('does not retry once the delete succeeds', async () => {
     const deleteFn = jest.fn().mockResolvedValue(undefined)
@@ -151,6 +171,16 @@ describe('ExecutionsService', () => {
       })
       expect(execution.status).toBe('queued')
       expect(execution.trigger).toBe('manual')
+      expect(execution.environment).toBe('dev')
+
+      const prodExecution = await service.trigger(
+        organization.id,
+        workflow.id,
+        {
+          environment: 'production',
+        },
+      )
+      expect(prodExecution.environment).toBe('production')
 
       const list = await service.list(organization.id, workflow.id)
       expect(list.map((e) => e.id)).toContain(execution.id)
@@ -183,6 +213,85 @@ describe('ExecutionsService', () => {
       await pool.query('DELETE FROM organizations WHERE id IN ($1, $2)', [
         organization.id,
         otherOrg.id,
+      ])
+    }
+  })
+
+  it('reports pausedAtNode for an execution paused on a wait timer, and omits it once resolved', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        ExecutionsService,
+        WorkflowQueueService,
+        StepReplayQueueService,
+      ],
+    }).compile()
+    const service = moduleRef.get(ExecutionsService)
+
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: 'Executions PausedAtNode Test Org',
+        slug: `executions-paused-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      await drainDueWaitTimers()
+
+      const waitGraph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: 'manual' },
+        entryNodeId: 'wait-1',
+        nodes: [{ id: 'wait-1', type: 'wait', config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: 'Paused Workflow',
+        slug: `paused-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph: waitGraph,
+        contentHash: 'paused-test-hash',
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: 'manual',
+      })
+      await pool.query(
+        "UPDATE executions SET status = 'paused', leased_by = NULL, lease_expires_at = NULL WHERE id = $1",
+        [execution.id],
+      )
+      await repositories.waitTimer.createWaitTimer(db, {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: 'wait-1',
+        resumeAt: new Date(Date.now() + 60_000),
+      })
+
+      const paused = await service.get(organization.id, execution.id)
+      expect(paused.pausedAtNode).toEqual({ nodeId: 'wait-1', type: 'wait' })
+
+      // Resolved (fired) — no longer paused, so pausedAtNode should disappear. Forces only this
+      // specific row due (not a database-wide pumped-forward "now", which would also claim any
+      // concurrently running test's own not-yet-due timer and corrupt its state), then drains at
+      // the real current time so this row — now genuinely due — is guaranteed to be processed.
+      await pool.query(
+        "UPDATE wait_timers SET resume_at = now() - interval '1 second' WHERE workspace_id = $1 AND execution_id = $2 AND node_id = $3",
+        [organization.id, execution.id, 'wait-1'],
+      )
+      await drainDueWaitTimers()
+      const resolved = await service.get(organization.id, execution.id)
+      expect(resolved.pausedAtNode).toBeUndefined()
+    } finally {
+      await moduleRef.close()
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        organization.id,
       ])
     }
   })
@@ -324,6 +433,7 @@ describe('ExecutionsService', () => {
           graph,
         })
         expect(execution.status).toBe('queued')
+        expect(execution.environment).toBe('draft')
 
         const versions = await pool.query(
           'SELECT id FROM workflow_versions WHERE workflow_id = $1',
@@ -442,6 +552,7 @@ describe('ExecutionsService', () => {
           conversationId: first.conversationId,
           chatMessageId: messagesAfterFirst[0].id,
         })
+        expect(first.execution.environment).toBe('draft')
 
         const second = await service.sendChatMessage(
           organization.id,
@@ -468,6 +579,312 @@ describe('ExecutionsService', () => {
           preview: 'hello',
           messageCount: 2,
         })
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it('carries externalSubjectId into triggerPayload on every turn, and surfaces it on the conversation list, when provided', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Subject Test Org',
+          slug: `chat-preview-subject-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Chat Preview Subject Workflow',
+          slug: `chat-preview-subject-${suffix}`,
+        })
+
+        const first = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          { graph, message: 'hello', externalSubjectId: 'customer-42' },
+        )
+        expect(first.execution.triggerPayload).toMatchObject({
+          externalSubjectId: 'customer-42',
+        })
+
+        const second = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          {
+            graph,
+            message: 'follow up',
+            conversationId: first.conversationId,
+            externalSubjectId: 'customer-42',
+          },
+        )
+        expect(second.execution.triggerPayload).toMatchObject({
+          externalSubjectId: 'customer-42',
+        })
+
+        const conversations = await service.listChatConversations(
+          organization.id,
+          workflow.id,
+        )
+        expect(conversations[0]).toMatchObject({
+          conversationId: first.conversationId,
+          externalSubjectId: 'customer-42',
+        })
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it("pins a conversation's externalSubjectId to what its first turn established, ignoring a different or omitted value on a later turn", async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Subject Pinning Test Org',
+          slug: `chat-preview-subject-pinning-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Chat Preview Subject Pinning Workflow',
+          slug: `chat-preview-subject-pinning-${suffix}`,
+        })
+
+        const first = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          { graph, message: 'hello', externalSubjectId: 'customer-42' },
+        )
+        expect(first.execution.triggerPayload).toMatchObject({
+          externalSubjectId: 'customer-42',
+        })
+
+        // A different subject on a follow-up must not override the one already established.
+        const differentSubject = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          {
+            graph,
+            message: 'someone else?',
+            conversationId: first.conversationId,
+            externalSubjectId: 'customer-99',
+          },
+        )
+        expect(differentSubject.execution.triggerPayload).toMatchObject({
+          externalSubjectId: 'customer-42',
+        })
+
+        // Omitting it on a follow-up must not drop the established one either.
+        const omittedSubject = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          {
+            graph,
+            message: 'no subject this time',
+            conversationId: first.conversationId,
+          },
+        )
+        expect(omittedSubject.execution.triggerPayload).toMatchObject({
+          externalSubjectId: 'customer-42',
+        })
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it('serializes two concurrent first turns for the same new conversation, so they agree on one established subject instead of racing to different ones', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Subject Race Test Org',
+          slug: `chat-preview-subject-race-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Chat Preview Subject Race Workflow',
+          slug: `chat-preview-subject-race-${suffix}`,
+        })
+        const conversationId = randomUUID()
+
+        // Both requests target the same brand-new conversationId with different subjects — without
+        // acquireConversationLock serializing the read-then-insert, both could read "not found" and
+        // each insert with its own subject.
+        const [first, second] = await Promise.all([
+          service.sendChatMessage(organization.id, workflow.id, {
+            graph,
+            message: 'hello from A',
+            conversationId,
+            externalSubjectId: 'customer-a',
+          }),
+          service.sendChatMessage(organization.id, workflow.id, {
+            graph,
+            message: 'hello from B',
+            conversationId,
+            externalSubjectId: 'customer-b',
+          }),
+        ])
+
+        const firstSubject = (
+          first.execution.triggerPayload as { externalSubjectId?: string }
+        ).externalSubjectId
+        const secondSubject = (
+          second.execution.triggerPayload as { externalSubjectId?: string }
+        ).externalSubjectId
+        expect(firstSubject).toBe(secondSubject)
+        expect(['customer-a', 'customer-b']).toContain(firstSubject)
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it("leaves a conversation's subject unestablished if its first turn had none, even if a later turn tries to introduce one", async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview No Subject Pinning Test Org',
+          slug: `chat-preview-no-subject-pinning-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Chat Preview No Subject Pinning Workflow',
+          slug: `chat-preview-no-subject-pinning-${suffix}`,
+        })
+
+        const first = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          { graph, message: 'hello' },
+        )
+        expect(first.execution.triggerPayload).not.toHaveProperty(
+          'externalSubjectId',
+        )
+
+        const second = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          {
+            graph,
+            message: 'now with a subject',
+            conversationId: first.conversationId,
+            externalSubjectId: 'customer-42',
+          },
+        )
+        expect(second.execution.triggerPayload).not.toHaveProperty(
+          'externalSubjectId',
+        )
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it('omits externalSubjectId from triggerPayload entirely when not provided', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview No Subject Test Org',
+          slug: `chat-preview-no-subject-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Chat Preview No Subject Workflow',
+          slug: `chat-preview-no-subject-${suffix}`,
+        })
+
+        const first = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          { graph, message: 'hello' },
+        )
+        expect(first.execution.triggerPayload).not.toHaveProperty(
+          'externalSubjectId',
+        )
+
+        const conversations = await service.listChatConversations(
+          organization.id,
+          workflow.id,
+        )
+        expect(conversations[0]).toMatchObject({ externalSubjectId: null })
       } finally {
         await moduleRef.close()
         await pool.query('DELETE FROM organizations WHERE id = $1', [

@@ -5,4 +5,5 @@ export {
   resetPasswordEmailHtml,
   magicLinkEmailHtml,
   organizationInviteEmailHtml,
+  existingAccountEmailHtml,
 } from "./templates.js"

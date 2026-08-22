@@ -71,8 +71,8 @@ function NotificationsPage() {
   const notifications = notificationsQuery.data ?? []
   const unreadCount = unreadCountQuery.data?.count ?? 0
   return (
-    <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+    <main className="flex flex-1 flex-col px-4 py-4">
+      <div className="mb-4 flex flex-wrap items-center gap-2 pl-1">
         <Tabs
           value={tab}
           onValueChange={(value) => {
@@ -107,11 +107,11 @@ function NotificationsPage() {
       </div>
       {notificationsQuery.isPending ? (
         <div className="rounded-xl border border-border bg-card px-4 py-8">
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <p className="text-xs text-muted-foreground">Loading…</p>
         </div>
       ) : notificationsQuery.isError ? (
         <div className="rounded-xl border border-border bg-card px-4 py-8">
-          <p className="text-sm text-destructive">
+          <p className="text-xs text-destructive">
             {notificationsQuery.error.message}
           </p>
         </div>

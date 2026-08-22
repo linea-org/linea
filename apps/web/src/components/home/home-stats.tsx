@@ -30,7 +30,7 @@ function StatCard({
     <section className="flex min-h-48 flex-col overflow-hidden rounded-xl border border-border bg-card">
       <div className="flex items-start justify-between gap-3 px-4 pt-4">
         <div className="min-w-0">
-          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="text-xs text-muted-foreground">{label}</p>
           <p className="mt-1.5 truncate font-heading text-3xl font-semibold tracking-tight text-foreground tabular-nums">
             {value}
           </p>

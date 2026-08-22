@@ -1023,6 +1023,27 @@ describe("triggerWorkflowExecution", () => {
         expect(bySlug.execution.trigger).toBe("webhook")
         expect(bySlug.execution.triggerPayload).toEqual({ source: "test" })
       }
+      if (byId.outcome === "created") {
+        expect(byId.execution.environment).toBe("dev")
+      }
+    })
+  })
+
+  it("passes through an explicit environment instead of defaulting to dev", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      await publishWorkflowVersion(tx, workflow.id, version.id)
+
+      const result = await triggerWorkflowExecution(
+        tx,
+        organization.id,
+        { by: "id", value: workflow.id },
+        { trigger: "manual", environment: "production" }
+      )
+      expect(result.outcome).toBe("created")
+      if (result.outcome === "created") {
+        expect(result.execution.environment).toBe("production")
+      }
     })
   })
 

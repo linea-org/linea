@@ -100,6 +100,31 @@ function groupWithReplays(
   ])
 }
 
+/** A resume marker is a standalone row in raw storage, but chronologically it always sits directly
+ * before whichever step actually ran once the execution resumed — a crash-resume, a lease reclaim,
+ * or a paused node (Approval/Wait) unblocking are all the same shape. Folding it into that step's
+ * own card (rather than showing it as a separate row) keeps one row per node instead of splitting
+ * a single logical event — e.g. "Wait, paused, then resumed, then succeeded" — across three rows.
+ * `steps` must be in raw (startedAt, createdAt) order, before groupWithReplays reshuffles it. */
+function attachResumeMarkers(steps: ExecutionStepSummary[]): {
+  resumedAtByStepId: Map<string, string>
+  orphanedResumeEvents: ExecutionStepSummary[]
+} {
+  const resumedAtByStepId = new Map<string, string>()
+  const orphanedResumeEvents: ExecutionStepSummary[] = []
+  for (let i = 0; i < steps.length; i += 1) {
+    const step = steps[i]
+    if (!step.isSystemEvent) continue
+    const next = steps[i + 1]
+    if (next && !next.isSystemEvent) {
+      resumedAtByStepId.set(next.id, step.startedAt)
+    } else {
+      orphanedResumeEvents.push(step)
+    }
+  }
+  return { resumedAtByStepId, orphanedResumeEvents }
+}
+
 function ReplayAction({
   executionId,
   step,
@@ -199,29 +224,48 @@ export function ExecutionStepTimeline({
   steps,
   nodeConfigs,
   replayable,
+  pausedAtNode,
   onReplayTriggered,
 }: {
   executionId: string
   steps: ExecutionStepSummary[]
   nodeConfigs: Record<string, Record<string, JsonValue>>
   replayable: boolean
+  // The node a paused execution is currently waiting on — rendered as a placeholder row since
+  // neither Approval nor Wait checkpoints a real step until it resolves.
+  pausedAtNode?: { nodeId: string; type: string }
   onReplayTriggered: (replayStepId: string) => void
 }) {
-  if (steps.length === 0) {
+  if (steps.length === 0 && !pausedAtNode) {
     return (
-      <p className="mt-4 text-sm text-muted-foreground">No steps recorded.</p>
+      <p className="mt-4 text-xs text-muted-foreground">No steps recorded.</p>
     )
   }
 
+  // Computed from raw (startedAt, createdAt) order, before groupWithReplays reshuffles replays in.
+  const { resumedAtByStepId, orphanedResumeEvents } = attachResumeMarkers(steps)
+  const orphanedResumeEventIds = new Set(
+    orphanedResumeEvents.map((event) => event.id)
+  )
   const ordered = groupWithReplays(steps)
+  // Only shown once — if the node it names already has a real checkpointed step (the pause just
+  // resolved and a fresh fetch hasn't landed yet), the placeholder would be a stale duplicate.
+  const pausedNodeAlreadyCheckpointed =
+    pausedAtNode && steps.some((step) => step.nodeId === pausedAtNode.nodeId)
 
   return (
     <Accordion multiple className="px-1">
-      {ordered.map((step) =>
-        step.isSystemEvent ? (
+      {ordered.map((step) => {
+        // Attached to the step it unblocked (see attachResumeMarkers) — rendered as a detail on
+        // that step's own card below, not as a separate row. An orphan (no following step, which
+        // shouldn't normally happen) still falls back to its own row so it isn't silently dropped.
+        if (step.isSystemEvent && !orphanedResumeEventIds.has(step.id)) {
+          return null
+        }
+        return step.isSystemEvent ? (
           <div
             key={step.id}
-            className="flex items-center gap-2 border-b px-3 py-4 text-sm text-muted-foreground"
+            className="flex items-center gap-2 border-b px-3 py-4 text-xs text-muted-foreground"
           >
             <Badge variant="outline">Resumed</Badge>
             <span>{new Date(step.startedAt).toLocaleString()}</span>
@@ -242,6 +286,9 @@ export function ExecutionStepTimeline({
                 <Badge variant={stepStatusVariant[step.status]}>
                   {stepStatusLabel[step.status]}
                 </Badge>
+                {resumedAtByStepId.has(step.id) ? (
+                  <Badge variant="outline">Resumed</Badge>
+                ) : null}
                 {isNodeTypeId(step.name) ? (
                   <NodeIcon
                     icon={nodeRegistry[step.name].ui.icon}
@@ -274,6 +321,16 @@ export function ExecutionStepTimeline({
                 <dd className="text-foreground">
                   {step.tokensInput} in / {step.tokensOutput} out
                 </dd>
+                {resumedAtByStepId.has(step.id) ? (
+                  <>
+                    <dt className="text-muted-foreground">Resumed</dt>
+                    <dd className="text-foreground">
+                      {new Date(
+                        resumedAtByStepId.get(step.id)!
+                      ).toLocaleString()}
+                    </dd>
+                  </>
+                ) : null}
               </dl>
               {step.error ? (
                 <div className="mt-3">
@@ -296,7 +353,24 @@ export function ExecutionStepTimeline({
             </AccordionContent>
           </AccordionItem>
         )
-      )}
+      })}
+      {pausedAtNode && !pausedNodeAlreadyCheckpointed ? (
+        <div className="flex items-center gap-3 border-b px-3 py-4 text-xs last:border-b-0">
+          <Badge variant="outline">Paused</Badge>
+          {isNodeTypeId(pausedAtNode.type) ? (
+            <NodeIcon
+              icon={nodeRegistry[pausedAtNode.type].ui.icon}
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+          ) : null}
+          <span className="font-medium text-foreground">
+            {stepTitle(pausedAtNode.type)}
+          </span>
+          <span className="ml-auto shrink-0 text-muted-foreground">
+            Waiting…
+          </span>
+        </div>
+      ) : null}
     </Accordion>
   )
 }

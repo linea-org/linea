@@ -97,7 +97,7 @@ function WorkspacesPage() {
             <h1 className="font-heading text-3xl font-semibold tracking-tight">
               Workspaces
             </h1>
-            <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+            <p className="mt-2 max-w-xs text-xs text-muted-foreground">
               Pick a workspace to continue.
             </p>
           </div>

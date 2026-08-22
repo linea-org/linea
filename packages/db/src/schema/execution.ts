@@ -37,6 +37,18 @@ export const executionTrigger = pgEnum("execution_trigger", [
   "api",
 ])
 
+// Which of the customer's own deployments this execution came from — orthogonal to `trigger`
+// (which is about the mechanism, not the caller). "draft" is reserved for Linea's own builder
+// testing surfaces (Chat Preview, Test Run) and is always set server-side, never caller-supplied,
+// so a real customer execution can never be mistaken for a Linea-internal test run. "dev"/"production"
+// come from the trigger API's caller (the future SDK, or a direct API call); default is "dev" so an
+// execution is never miscategorized as real production traffic unless a caller explicitly says so.
+export const executionEnvironment = pgEnum("execution_environment", [
+  "draft",
+  "dev",
+  "production",
+])
+
 type ExecutionError = {
   message: string
   stepId?: string
@@ -59,6 +71,7 @@ export const executions = snakeCase.table(
     origin: executionOrigin().notNull().default("native"),
     trigger: executionTrigger().notNull(),
     triggerPayload: jsonb().$type<Record<string, unknown>>(),
+    environment: executionEnvironment().notNull().default("dev"),
 
     leasedBy: text(),
     leaseExpiresAt: timestamp({ withTimezone: true }),

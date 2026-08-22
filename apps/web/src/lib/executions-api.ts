@@ -13,11 +13,14 @@ export type ExecutionStatus =
 
 export type ExecutionTrigger = "manual" | "schedule" | "webhook" | "api"
 
+export type ExecutionEnvironment = "draft" | "dev" | "production"
+
 export type ExecutionSummary = {
   id: string
   workflowId: string
   status: ExecutionStatus
   trigger: ExecutionTrigger
+  environment: ExecutionEnvironment
   costMicros: string
   // True: costMicros is a known-partial lower bound. False: fully priced. Null: this execution predates cost-unpriced tracking, not the same as false.
   costUnpriced: boolean | null
@@ -121,6 +124,8 @@ export type ExecutionDetailResponse = {
   steps: ExecutionStepSummary[]
   /** nodeId -> the node's config in the workflow version this execution ran, for pre-filling the replay override form. */
   nodeConfigs: Record<string, Record<string, JsonValue>>
+  /** The node a paused execution is currently waiting on — undefined once resolved or if the execution isn't paused. Neither Approval nor Wait checkpoints before pausing, so this is the only way to know which node it stopped at. */
+  pausedAtNode?: { nodeId: string; type: string }
 }
 
 export const getExecutionFn = createServerFn({ method: "GET" })

@@ -11,6 +11,20 @@ afterAll(async () => {
   await pool.end()
 })
 
+// claimAndResolveDueWaitTimer claims one arbitrary due wait timer across the whole database by
+// design (it backs the background poller's "fire the next one" step, not scoped to a workspace)
+// — so a real leftover due timer anywhere in this shared local dev Postgres could get claimed
+// ahead of the one this test just created, leaving the test's own timer still unfired. Draining
+// first clears that backlog (a real, if benign, side effect here — this test isn't wrapped in a
+// rolled-back transaction — but every drained timer really was due, so firing it early is exactly
+// what the real poller would have done anyway).
+async function drainDueWaitTimers(): Promise<void> {
+  let result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
+  while (result.outcome === "fired") {
+    result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
+  }
+}
+
 describe("RunsService failure accounting", () => {
   it("preserves previously checkpointed token usage when a resumed run fails outright", async () => {
     const suffix = randomUUID()
@@ -1032,6 +1046,181 @@ describe("RunsService fencing identity", () => {
       )
 
       // Must surface as a real failure — a silent success would leave the row running under someone else's lease with a pending approval and nothing left to resume it.
+      await expect(runs.execute(execution.id)).rejects.toThrow(/lease/i)
+
+      const reloaded = await repositories.execution.getExecutionById(
+        db,
+        execution.id
+      )
+      // Not falsely marked "paused" — completeExecution's lease guard also stops this worker overwriting the new owner.
+      expect(reloaded?.status).not.toBe("paused")
+      expect(reloaded?.leasedBy).toBe("someone-else")
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("loops back and continues immediately instead of pausing when the wait timer fires before the pause is recorded", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Wait Race Test Org",
+        slug: `runs-wait-race-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "wait-1",
+        nodes: [{ id: "wait-1", type: "wait", config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Wait Race Test Workflow",
+        slug: `runs-wait-race-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-wait-race-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+
+      // Simulates the poller firing the timer ahead of the pause: the timer is already fired before RunsService's own pausedAt handling runs.
+      await repositories.waitTimer.createWaitTimer(db, {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: "wait-1",
+        resumeAt: new Date(Date.now() - 60_000),
+      })
+      await drainDueWaitTimers()
+
+      let callCount = 0
+      const racyInterpreter = {
+        run: () => {
+          callCount += 1
+          if (callCount === 1) {
+            return Promise.resolve({
+              pausedAt: "wait-1",
+              totalTokensInput: 0,
+              totalTokensOutput: 0,
+              totalCostMicros: 0n,
+              costUnpriced: false as const,
+            })
+          }
+          return Promise.resolve({
+            result: { status: "completed" as const },
+            totalTokensInput: 0,
+            totalTokensOutput: 0,
+            totalCostMicros: 0n,
+            costUnpriced: false as const,
+            completed: new Map(),
+          })
+        },
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        racyInterpreter,
+        new RunLeaseService()
+      )
+      await runs.execute(execution.id)
+
+      // Proves the loop actually re-ran the interpreter instead of pausing on the first pausedAt result.
+      expect(callCount).toBe(2)
+
+      const reloaded = await repositories.execution.getExecutionById(
+        db,
+        execution.id
+      )
+      expect(reloaded?.status).toBe("succeeded")
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("throws instead of falsely reporting paused when the lease is lost before a wait pause is recorded", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Wait Lease Loss Test Org",
+        slug: `runs-wait-lease-loss-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "wait-1",
+        nodes: [{ id: "wait-1", type: "wait", config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Runs Service Wait Lease Loss Test Workflow",
+        slug: `runs-wait-lease-loss-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-wait-lease-loss-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.waitTimer.createWaitTimer(db, {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: "wait-1",
+        resumeAt: new Date(Date.now() + 60_000),
+      })
+
+      const leaseStealingInterpreter = {
+        run: async () => {
+          // Simulates the lease being reclaimed in the gap between the pause and claimPauseForPendingWait running, so its guarded UPDATE can't match.
+          await pool.query(
+            "UPDATE executions SET leased_by = $1, lease_expires_at = $2 WHERE id = $3",
+            ["someone-else", new Date(Date.now() + 60_000), execution.id]
+          )
+          return {
+            pausedAt: "wait-1",
+            totalTokensInput: 0,
+            totalTokensOutput: 0,
+            totalCostMicros: 0n,
+            costUnpriced: false as const,
+          }
+        },
+      } as unknown as InterpreterService
+
+      const runs = new RunsService(
+        new CheckpointsService(),
+        leaseStealingInterpreter,
+        new RunLeaseService()
+      )
+
+      // Must surface as a real failure — a silent success would leave the row running under someone else's lease with a pending wait timer and nothing left to resume it.
       await expect(runs.execute(execution.id)).rejects.toThrow(/lease/i)
 
       const reloaded = await repositories.execution.getExecutionById(

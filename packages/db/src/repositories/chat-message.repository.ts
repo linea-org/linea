@@ -103,11 +103,59 @@ export async function listChatMessages(
   return rows.map((row) => row.message)
 }
 
+/** Serializes concurrent first turns of the same conversation so subject establishment can't race:
+ * two requests reading getEstablishedExternalSubjectId at the same instant would otherwise both
+ * see "not found" and each proceed to insert with a different externalSubjectId. Call inside the
+ * same transaction that will read-then-insert, before the read — pg_advisory_xact_lock blocks a
+ * concurrent transaction taking the same key until this one commits or rolls back (auto-released
+ * either way), so the second caller's read only runs after the first caller's insert is visible.
+ * Scoped per (workspaceId, workflowId, conversationId), not globally, so unrelated conversations
+ * never contend with each other. */
+export async function acquireConversationLock(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string,
+  conversationId: string
+): Promise<void> {
+  const key = `${workspaceId}:${workflowId}:${conversationId}`
+  await db.execute(sql`select pg_advisory_xact_lock(hashtext(${key})::bigint)`)
+}
+
+/** Whether this conversationId already has any turns, and if so, the externalSubjectId established
+ * by its first message — the caller-supplied value on a later turn must never override this, or a
+ * conversation could silently wobble between memory-scoped subjects turn to turn. A conversation
+ * with no prior turns yet (found: false) has nothing established, so the current turn's own value
+ * is free to set it for the first time. */
+export async function getEstablishedExternalSubjectId(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string,
+  conversationId: string
+): Promise<{ found: boolean; externalSubjectId: string | null }> {
+  const [row] = await db
+    .select({ externalSubjectId: chatMessages.externalSubjectId })
+    .from(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.workspaceId, workspaceId),
+        eq(chatMessages.workflowId, workflowId),
+        eq(chatMessages.conversationId, conversationId)
+      )
+    )
+    // Prefer a row that actually has one set, in case an older conversation (predating this
+    // check) has an inconsistent mix — matches listConversations' own "any non-null" preference.
+    .orderBy(sql`${chatMessages.externalSubjectId} is null asc`)
+    .limit(1)
+  if (!row) return { found: false, externalSubjectId: null }
+  return { found: true, externalSubjectId: row.externalSubjectId }
+}
+
 export type ConversationSummary = {
   conversationId: string
   preview: string
   lastMessageAt: Date
   messageCount: number
+  externalSubjectId: string | null
 }
 
 /** One row per conversation in this workflow — preview is the first (oldest) message's content, for a history picker to label each entry. */
@@ -122,6 +170,10 @@ export async function listConversations(
       preview: sql<string>`(array_agg(${chatMessages.content} order by ${chatMessages.createdAt} asc))[1]`,
       lastMessageAt: sql<Date>`max(${chatMessages.createdAt})`,
       messageCount: sql<number>`count(*)::int`,
+      // Same value on every message in a conversation — any() picks whichever non-null one exists.
+      externalSubjectId: sql<
+        string | null
+      >`(array_agg(${chatMessages.externalSubjectId}) filter (where ${chatMessages.externalSubjectId} is not null))[1]`,
     })
     .from(chatMessages)
     .where(

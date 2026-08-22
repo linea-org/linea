@@ -33,7 +33,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-card px-4 py-3">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 truncate text-sm text-foreground">{value}</p>
+      <p className="mt-0.5 truncate text-xs text-foreground">{value}</p>
     </div>
   )
 }
@@ -68,11 +68,11 @@ export function SignalDetailView({
   const occurrences = signal.flags
 
   return (
-    <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
+    <main className="flex flex-1 flex-col px-4 py-4">
       <Link
         to="/w/$slug/workflows/$workflowId"
         params={{ slug, workflowId }}
-        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex w-fit items-center gap-1.5 pl-1 text-xs text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon className="size-3.5" />
         Back to workflow
@@ -81,7 +81,7 @@ export function SignalDetailView({
       <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">
+            <p className="truncate text-xs font-medium text-foreground">
               {flagTypeLabel[signal.flagType] ?? signal.flagType}
             </p>
             <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
@@ -121,63 +121,63 @@ export function SignalDetailView({
       </div>
 
       {resolve.isError && (
-        <p className="mt-2 text-sm text-destructive">{resolve.error.message}</p>
+        <p className="mt-2 text-xs text-destructive">{resolve.error.message}</p>
       )}
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
-        <div className="border-b border-border px-4 py-3">
-          <p className="text-sm font-medium text-foreground">Trend</p>
-        </div>
-        <div className="px-4 py-4">
-          <SignalTrendChart trend={signal.trend} />
+      <div className="mt-4 flex flex-col gap-2">
+        <p className="pl-1 text-sm font-medium text-foreground">Trend</p>
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="px-4 py-4">
+            <SignalTrendChart trend={signal.trend} />
+          </div>
         </div>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
-        <div className="border-b border-border px-4 py-3">
-          <p className="text-sm font-medium text-foreground">
-            Occurrences
-            {signal.occurrenceCount > occurrences.length && (
-              <span className="ml-2 font-normal text-muted-foreground">
-                showing {occurrences.length} most recent of{" "}
-                {signal.occurrenceCount}
-              </span>
-            )}
-          </p>
+      <div className="mt-4 flex flex-col gap-2">
+        <p className="pl-1 text-sm font-medium text-foreground">
+          Occurrences
+          {signal.occurrenceCount > occurrences.length && (
+            <span className="ml-2 font-normal text-muted-foreground">
+              showing {occurrences.length} most recent of{" "}
+              {signal.occurrenceCount}
+            </span>
+          )}
+        </p>
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          {occurrences.length === 0 ? (
+            <p className="px-4 py-6 text-xs text-muted-foreground">
+              No occurrences recorded.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {occurrences.map((flag) => (
+                <li
+                  key={flag.id}
+                  className="flex items-center justify-between px-4 py-3 text-xs"
+                >
+                  <span className="text-muted-foreground">
+                    {new Date(flag.createdAt).toLocaleString()}
+                  </span>
+                  {flag.executionId ? (
+                    <Link
+                      to="/w/$slug/workflows/$workflowId/executions/$executionId"
+                      params={{
+                        slug,
+                        workflowId,
+                        executionId: flag.executionId,
+                      }}
+                      className="font-mono text-xs text-foreground hover:underline"
+                    >
+                      {flag.executionId}
+                    </Link>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        {occurrences.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-muted-foreground">
-            No occurrences recorded.
-          </p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {occurrences.map((flag) => (
-              <li
-                key={flag.id}
-                className="flex items-center justify-between px-4 py-3 text-sm"
-              >
-                <span className="text-muted-foreground">
-                  {new Date(flag.createdAt).toLocaleString()}
-                </span>
-                {flag.executionId ? (
-                  <Link
-                    to="/w/$slug/workflows/$workflowId/executions/$executionId"
-                    params={{
-                      slug,
-                      workflowId,
-                      executionId: flag.executionId,
-                    }}
-                    className="font-mono text-xs text-foreground hover:underline"
-                  >
-                    {flag.executionId}
-                  </Link>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     </main>
   )

@@ -4,6 +4,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import {
   executionQueryOptions,
   getExecutionFn,
+  type ExecutionDetail,
   type ExecutionDetailResponse,
   type ExecutionTrigger,
 } from "@/lib/executions-api"
@@ -18,6 +19,12 @@ const triggerLabel: Record<ExecutionTrigger, string> = {
   schedule: "Schedule",
   webhook: "Webhook",
   api: "API",
+}
+
+const environmentLabel: Record<ExecutionDetail["environment"], string> = {
+  draft: "Draft",
+  dev: "Dev",
+  production: "Production",
 }
 
 export type ExecutionDetailData = {
@@ -54,7 +61,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-card px-4 py-3">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 truncate text-sm text-foreground">{value}</p>
+      <p className="mt-0.5 truncate text-xs text-foreground">{value}</p>
     </div>
   )
 }
@@ -72,7 +79,7 @@ export function ExecutionDetailView({
     null
   )
   const {
-    data: { execution, steps, nodeConfigs },
+    data: { execution, steps, nodeConfigs, pausedAtNode },
   } = useSuspenseQuery({
     ...executionQueryOptions(slug, executionId),
     initialData: initialData.detail,
@@ -86,11 +93,11 @@ export function ExecutionDetailView({
   })
   const workflowName = initialData.workflow?.name ?? "Execution"
   return (
-    <main className="flex flex-1 flex-col px-6 py-6 sm:px-8">
+    <main className="flex flex-1 flex-col px-4 py-4">
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">
+            <p className="truncate text-xs font-medium text-foreground">
               {workflowName}
             </p>
             <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
@@ -100,7 +107,10 @@ export function ExecutionDetailView({
           <ExecutionStatusBadge status={execution.status} />
         </div>
         <div className="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4">
-          <Stat label="Trigger" value={triggerLabel[execution.trigger]} />
+          <Stat
+            label="Trigger"
+            value={`${triggerLabel[execution.trigger]} · ${environmentLabel[execution.environment]}`}
+          />
           <Stat
             label="Duration"
             value={formatDuration(execution.startedAt, execution.completedAt)}
@@ -127,23 +137,24 @@ export function ExecutionDetailView({
           />
         </div>
       ) : null}
-      <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
-        <div className="border-b border-border px-4 py-3">
-          <p className="text-sm font-medium text-foreground">Steps</p>
+      <div className="mt-4 flex flex-col gap-2">
+        <p className="pl-1 text-sm font-medium text-foreground">Steps</p>
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          {steps.length === 0 && !pausedAtNode ? (
+            <p className="px-4 py-6 text-xs text-muted-foreground">
+              No steps recorded.
+            </p>
+          ) : (
+            <ExecutionStepTimeline
+              executionId={executionId}
+              steps={steps}
+              nodeConfigs={nodeConfigs}
+              replayable={execution.replayable}
+              pausedAtNode={pausedAtNode}
+              onReplayTriggered={setPendingReplayStepId}
+            />
+          )}
         </div>
-        {steps.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-muted-foreground">
-            No steps recorded.
-          </p>
-        ) : (
-          <ExecutionStepTimeline
-            executionId={executionId}
-            steps={steps}
-            nodeConfigs={nodeConfigs}
-            replayable={execution.replayable}
-            onReplayTriggered={setPendingReplayStepId}
-          />
-        )}
       </div>
     </main>
   )

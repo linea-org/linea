@@ -14,6 +14,8 @@ export type {
   CompletionRequest,
   CompletionResult,
   ConversationTurn,
+  ToolCall,
+  ToolDefinition,
 } from "./providers/provider.interface.js"
 export { calculateCostMicros } from "./pricing/pricing-table.js"
 export type { ModelPrice } from "./pricing/pricing-table.js"

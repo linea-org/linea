@@ -98,11 +98,11 @@ function WorkflowDetailPage() {
   })
 
   return (
-    <main className="flex flex-1 flex-col px-6 py-8 sm:px-8 sm:py-10">
-      <div className="flex items-center justify-between gap-3">
+    <main className="flex flex-1 flex-col px-4 py-4">
+      <div className="flex items-center justify-between gap-3 pl-1">
         <div className="flex items-center gap-3">
           <WorkflowStatusBadge workflow={workflow} />
-          <span className="text-sm text-muted-foreground">{workflow.slug}</span>
+          <span className="text-xs text-muted-foreground">{workflow.slug}</span>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -143,16 +143,16 @@ function WorkflowDetailPage() {
       </div>
 
       {run.isError && (
-        <p className="mt-3 text-sm text-destructive">{run.error.message}</p>
+        <p className="mt-3 text-xs text-destructive">{run.error.message}</p>
       )}
 
       {workflow.description && (
-        <p className="mt-4 max-w-2xl text-sm text-muted-foreground">
+        <p className="mt-4 max-w-2xl text-xs text-muted-foreground">
           {workflow.description}
         </p>
       )}
 
-      <dl className="mt-6 grid max-w-md grid-cols-2 gap-y-3 text-sm">
+      <dl className="mt-6 grid max-w-md grid-cols-2 gap-y-3 text-xs">
         <dt className="text-muted-foreground">Created</dt>
         <dd className="text-foreground">
           {new Date(workflow.createdAt).toLocaleString()}
@@ -170,11 +170,11 @@ function WorkflowDetailPage() {
         </TabsList>
         <TabsContent value="executions">
           {executionsErrored ? (
-            <p className="mt-4 text-sm text-destructive">
+            <p className="mt-4 text-xs text-destructive">
               Could not load executions.
             </p>
           ) : executionsPending ? (
-            <p className="mt-4 text-sm text-muted-foreground">
+            <p className="mt-4 text-xs text-muted-foreground">
               Loading executions…
             </p>
           ) : (
@@ -187,33 +187,35 @@ function WorkflowDetailPage() {
         </TabsContent>
         <TabsContent value="monitoring">
           {signalsErrored ? (
-            <p className="mt-4 text-sm text-destructive">
+            <p className="mt-4 text-xs text-destructive">
               Could not load signals.
             </p>
           ) : signalsPending ? (
-            <p className="mt-4 text-sm text-muted-foreground">
+            <p className="mt-4 text-xs text-muted-foreground">
               Loading signals…
             </p>
           ) : (
             <div className="mt-4 flex flex-col gap-4">
               <SignalStatCards signals={signals} />
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <div className="overflow-hidden rounded-xl border border-border bg-card lg:col-span-2">
-                  <div className="border-b border-border px-4 py-3">
-                    <p className="text-sm font-medium text-foreground">Trend</p>
-                  </div>
-                  <div className="px-4 py-4">
-                    <SignalTrendChart trend={signalsTrend ?? []} />
+                <div className="flex flex-col gap-2 lg:col-span-2">
+                  <p className="pl-1 text-sm font-medium text-foreground">
+                    Trend
+                  </p>
+                  <div className="overflow-hidden rounded-xl border border-border bg-card">
+                    <div className="px-4 py-4">
+                      <SignalTrendChart trend={signalsTrend ?? []} />
+                    </div>
                   </div>
                 </div>
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
-                  <div className="border-b border-border px-4 py-3">
-                    <p className="text-sm font-medium text-foreground">
-                      By type
-                    </p>
-                  </div>
-                  <div className="px-4 py-4">
-                    <SignalFlagTypeBreakdown signals={signals} />
+                <div className="flex flex-col gap-2">
+                  <p className="pl-1 text-sm font-medium text-foreground">
+                    By type
+                  </p>
+                  <div className="overflow-hidden rounded-xl border border-border bg-card">
+                    <div className="px-4 py-4">
+                      <SignalFlagTypeBreakdown signals={signals} />
+                    </div>
                   </div>
                 </div>
               </div>

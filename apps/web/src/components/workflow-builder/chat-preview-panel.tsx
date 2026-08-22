@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   HistoryIcon,
   MessageCircleIcon,
+  PlusIcon,
   SendIcon,
   SquarePenIcon,
   XIcon,
@@ -25,6 +26,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@linea/ui/components/empty"
+import { Input } from "@linea/ui/components/input"
 import {
   InputGroup,
   InputGroupAddon,
@@ -34,6 +36,7 @@ import {
 import { Marker, MarkerContent } from "@linea/ui/components/marker"
 import {
   MessageScroller,
+  MessageScrollerButton,
   MessageScrollerContent,
   MessageScrollerItem,
   MessageScrollerProvider,
@@ -47,6 +50,8 @@ import {
   type ConversationSummary,
 } from "@/lib/chat-preview-api"
 import { executionQueryOptions, type JsonValue } from "@/lib/executions-api"
+
+import { ChatMarkdown } from "./chat-markdown"
 
 export function ChatPreviewPanel({
   slug,
@@ -65,6 +70,10 @@ export function ChatPreviewPanel({
     null
   )
   const [input, setInput] = useState("")
+  // "Test as" knob for memory-scoped nodes — editable only before a conversation's first message,
+  // then locked (mirrors conversationId itself already being fixed for the conversation's lifetime).
+  const [externalSubjectId, setExternalSubjectId] = useState("")
+  const [contextOpen, setContextOpen] = useState(false)
   const { data: messages = [] } = useQuery(
     chatMessagesQueryOptions(slug, workflowId, conversationId)
   )
@@ -106,6 +115,7 @@ export function ChatPreviewPanel({
           graph,
           message,
           conversationId: conversationId ?? undefined,
+          externalSubjectId: externalSubjectId.trim() || undefined,
         },
       }),
     onSuccess: (result) => {
@@ -126,6 +136,8 @@ export function ChatPreviewPanel({
   function selectConversation(conversation: ConversationSummary | null) {
     setConversationId(conversation?.conversationId ?? null)
     setPendingExecutionId(null)
+    setExternalSubjectId(conversation?.externalSubjectId ?? "")
+    setContextOpen(false)
   }
   function handleSend() {
     const trimmed = input.trim()
@@ -138,21 +150,29 @@ export function ChatPreviewPanel({
     setConversationId(null)
     setPendingExecutionId(null)
     setInput("")
+    setExternalSubjectId("")
+    setContextOpen(false)
   }
   const isWaiting = pendingExecutionId !== null
   const failed = pendingExecution?.execution.status === "failed"
   return (
-    <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-border bg-card">
-      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+    <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
           Chat preview
+          {conversationId !== null && externalSubjectId ? (
+            <span className="font-normal text-muted-foreground">
+              {" "}
+              · Testing as: {externalSubjectId}
+            </span>
+          ) : null}
         </p>
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={startNewChat}
-          disabled={!conversationId && messages.length === 0}
+          disabled={(!conversationId && messages.length === 0) || isWaiting}
         >
           <SquarePenIcon />
           New chat
@@ -167,6 +187,41 @@ export function ChatPreviewPanel({
           <XIcon />
         </Button>
       </div>
+      {conversationId === null ? (
+        <div className="border-b border-border px-3 py-2">
+          {contextOpen ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={externalSubjectId}
+                onChange={(event) => setExternalSubjectId(event.target.value)}
+                placeholder="External subject ID (optional)"
+                className="h-7 text-xs"
+                disabled={isWaiting}
+                autoFocus
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setContextOpen(false)}
+                aria-label="Hide test context"
+              >
+                <XIcon />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setContextOpen(true)}
+            >
+              <PlusIcon />
+              Test context
+            </Button>
+          )}
+        </div>
+      ) : null}
       {conversations.length > 0 && (
         <div className="border-b border-border p-2">
           <Combobox
@@ -176,7 +231,12 @@ export function ChatPreviewPanel({
             itemToStringLabel={(item) => item.preview}
             isItemEqualToValue={(a, b) => a.conversationId === b.conversationId}
           >
-            <ComboboxInput placeholder="Search past conversations…" showClear />
+            <ComboboxInput
+              placeholder="Search past conversations…"
+              showClear
+              className="cursor-pointer"
+              disabled={isWaiting}
+            />
             <ComboboxContent>
               <ComboboxEmpty>No matching conversations.</ComboboxEmpty>
               <ComboboxList>
@@ -198,7 +258,7 @@ export function ChatPreviewPanel({
           </Combobox>
         </div>
       )}
-      <MessageScrollerProvider>
+      <MessageScrollerProvider autoScroll>
         <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport>
             <MessageScrollerContent className="px-4 py-4">
@@ -208,7 +268,7 @@ export function ChatPreviewPanel({
                     <EmptyMedia variant="icon">
                       <MessageCircleIcon />
                     </EmptyMedia>
-                    <EmptyTitle className="text-sm">
+                    <EmptyTitle className="text-xs">
                       Test this workflow
                     </EmptyTitle>
                     <EmptyDescription>
@@ -217,8 +277,11 @@ export function ChatPreviewPanel({
                   </EmptyHeader>
                 </Empty>
               ) : (
-                messages.map((message) => (
-                  <MessageScrollerItem key={message.id}>
+                messages.map((message, index) => (
+                  <MessageScrollerItem
+                    key={message.id}
+                    scrollAnchor={index === messages.length - 1}
+                  >
                     <BubbleGroup>
                       <Bubble
                         align={message.role === "user" ? "end" : "start"}
@@ -226,7 +289,9 @@ export function ChatPreviewPanel({
                           message.role === "user" ? "default" : "secondary"
                         }
                       >
-                        <BubbleContent>{message.content}</BubbleContent>
+                        <BubbleContent>
+                          <ChatMarkdown content={message.content} />
+                        </BubbleContent>
                       </Bubble>
                     </BubbleGroup>
                   </MessageScrollerItem>
@@ -247,6 +312,7 @@ export function ChatPreviewPanel({
               )}
             </MessageScrollerContent>
           </MessageScrollerViewport>
+          <MessageScrollerButton />
         </MessageScroller>
       </MessageScrollerProvider>
       <div className="border-t border-border p-3">
@@ -276,7 +342,7 @@ export function ChatPreviewPanel({
           </InputGroupAddon>
         </InputGroup>
         {send.isError ? (
-          <p className="mt-2 text-sm text-destructive">{send.error.message}</p>
+          <p className="mt-2 text-xs text-destructive">{send.error.message}</p>
         ) : null}
       </div>
     </aside>

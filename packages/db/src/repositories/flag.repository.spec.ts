@@ -18,6 +18,19 @@ import {
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import type { Transaction } from "./types.js"
 
+// Every detect* function scans the whole executionSteps table by design (a background flagging
+// sweep has no single workspace to scope to) — so a test asserting on its raw result is really
+// asserting the local dev Postgres this suite runs against currently has no other matching rows,
+// which stops being true the moment any other manual testing or a stray prior run has left real
+// data behind. Filtering to this test's own execution.id before asserting keeps every test correct
+// regardless of what else happens to be sitting in the shared database.
+function ownRows<T extends { executionId: string }>(
+  rows: T[],
+  executionId: string
+): T[] {
+  return rows.filter((row) => row.executionId === executionId)
+}
+
 async function insertStep(
   tx: Transaction,
   overrides: Partial<typeof executionSteps.$inferInsert> &
@@ -64,7 +77,7 @@ describe("detectRetryStorm", () => {
       })
 
       const results = await detectRetryStorm(tx, 3)
-      expect(results).toEqual([
+      expect(ownRows(results, execution.id)).toEqual([
         expect.objectContaining({
           executionId: execution.id,
           nodeId: "stormy",
@@ -96,7 +109,7 @@ describe("detectRetryStorm", () => {
       })
 
       const results = await detectRetryStorm(tx, 3)
-      expect(results).toEqual([])
+      expect(ownRows(results, execution.id)).toEqual([])
     })
   })
 })
@@ -124,7 +137,7 @@ describe("detectExcessResumes", () => {
       }
 
       const results = await detectExcessResumes(tx, 2)
-      expect(results).toEqual([
+      expect(ownRows(results, execution.id)).toEqual([
         expect.objectContaining({
           executionId: execution.id,
           resumeCount: 3,
@@ -153,7 +166,7 @@ describe("detectExcessResumes", () => {
       })
 
       const results = await detectExcessResumes(tx, 2)
-      expect(results).toEqual([])
+      expect(ownRows(results, execution.id)).toEqual([])
     })
   })
 })
@@ -197,7 +210,7 @@ describe("detectCostJump", () => {
       })
 
       const results = await detectCostJump(tx, 10, 3)
-      expect(results).toEqual([
+      expect(ownRows(results, spikedExecution.id)).toEqual([
         expect.objectContaining({
           executionId: spikedExecution.id,
           nodeId: "n1",
@@ -223,7 +236,7 @@ describe("detectCostJump", () => {
       })
 
       const results = await detectCostJump(tx, 10, 3)
-      expect(results).toEqual([])
+      expect(ownRows(results, execution.id)).toEqual([])
     })
   })
 
@@ -408,7 +421,7 @@ describe("detectToolErrors", () => {
       })
 
       const results = await detectToolErrors(tx)
-      expect(results).toEqual([
+      expect(ownRows(results, execution.id)).toEqual([
         expect.objectContaining({ stepId: failedHttp.id, nodeId: "http-step" }),
       ])
     })
@@ -440,7 +453,7 @@ describe("detectEmptyResponses", () => {
       })
 
       const results = await detectEmptyResponses(tx)
-      expect(results).toEqual([
+      expect(ownRows(results, execution.id)).toEqual([
         expect.objectContaining({ stepId: blank.id, nodeId: "blank-step" }),
       ])
     })
@@ -472,7 +485,7 @@ describe("detectRefusals", () => {
       })
 
       const results = await detectRefusals(tx)
-      expect(results).toEqual([
+      expect(ownRows(results, execution.id)).toEqual([
         expect.objectContaining({ stepId: refused.id, nodeId: "refused-step" }),
       ])
     })
@@ -505,7 +518,7 @@ describe("detectRepeatedReplay", () => {
       }
 
       const results = await detectRepeatedReplay(tx, 3)
-      expect(results).toEqual([
+      expect(ownRows(results, execution.id)).toEqual([
         expect.objectContaining({
           executionId: execution.id,
           originalStepId: original.id,
@@ -537,7 +550,7 @@ describe("detectRepeatedReplay", () => {
       })
 
       const results = await detectRepeatedReplay(tx, 3)
-      expect(results).toEqual([])
+      expect(ownRows(results, execution.id)).toEqual([])
     })
   })
 })

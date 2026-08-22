@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router"
 import { EllipsisVerticalIcon, EyeIcon, HistoryIcon } from "lucide-react"
 
+import { Badge } from "@linea/ui/components/badge"
 import { Button } from "@linea/ui/components/button"
 import {
   DropdownMenu,
@@ -35,6 +36,21 @@ const triggerLabel: Record<ExecutionSummary["trigger"], string> = {
   schedule: "Schedule",
   webhook: "Webhook",
   api: "API",
+}
+
+const environmentLabel: Record<ExecutionSummary["environment"], string> = {
+  draft: "Draft",
+  dev: "Dev",
+  production: "Production",
+}
+
+const environmentBadgeVariant: Record<
+  ExecutionSummary["environment"],
+  "outline" | "secondary" | "default"
+> = {
+  draft: "outline",
+  dev: "secondary",
+  production: "default",
 }
 
 function formatDuration(startedAt: string | null, completedAt: string | null) {
@@ -97,6 +113,7 @@ export function ExecutionList({
             <TableHead className="px-4">Run</TableHead>
             <TableHead className="px-4">Status</TableHead>
             <TableHead className="px-4">Trigger</TableHead>
+            <TableHead className="px-4">Environment</TableHead>
             <TableHead className="px-4">Duration</TableHead>
             <TableHead className="px-4">Cost</TableHead>
             <TableHead className="px-4">When</TableHead>
@@ -114,7 +131,7 @@ export function ExecutionList({
                   params={{ slug, workflowId, executionId: execution.id }}
                   className="block min-w-0"
                 >
-                  <span className="block truncate font-mono text-sm font-medium text-foreground hover:underline">
+                  <span className="block truncate font-mono text-xs font-medium text-foreground hover:underline">
                     {execution.id}
                   </span>
                 </Link>
@@ -124,6 +141,11 @@ export function ExecutionList({
               </TableCell>
               <TableCell className="px-4 py-3 text-muted-foreground">
                 {triggerLabel[execution.trigger]}
+              </TableCell>
+              <TableCell className="px-4 py-3">
+                <Badge variant={environmentBadgeVariant[execution.environment]}>
+                  {environmentLabel[execution.environment]}
+                </Badge>
               </TableCell>
               <TableCell className="px-4 py-3 text-muted-foreground">
                 {formatDuration(execution.startedAt, execution.completedAt)}

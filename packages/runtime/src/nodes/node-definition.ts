@@ -13,8 +13,8 @@ export type NodeUIField = {
   widget: NodeUIFieldWidget
   options?: { label: string; value: string }[]
   description?: string
-  // Field only shows when another field in the same config currently equals this value.
-  showIf?: { key: string; equals: string }
+  // Field only shows when another field in the same config currently equals this value (or one of these values).
+  showIf?: { key: string; equals: string | string[] }
 }
 
 export type NodeUICategory = "trigger" | "ai" | "integration" | "logic" | "data"

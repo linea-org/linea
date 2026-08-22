@@ -174,3 +174,44 @@ pnpm queue:logs           # tail Redis logs
 - Schema changes must include a generated migration file
 - Don't commit `.env` — it's gitignored by design
 - No AI-assistant co-authorship lines in commit messages
+
+### PR title format
+
+`<type>(<scope>): <summary>` — this becomes the squash-merge commit message
+on `main`, so it's what shows up in `git log` for anyone bisecting or
+writing release notes later.
+
+**Type** (required):
+
+| Type       | Use for                                                |
+| ---------- | ------------------------------------------------------ |
+| `feat`     | A new feature or capability                            |
+| `fix`      | A bug fix                                              |
+| `chore`    | Dependency bumps, config, tooling — no behavior change |
+| `docs`     | Documentation only                                     |
+| `refactor` | Code restructuring with no behavior change             |
+| `test`     | Adding or fixing tests only, no production code change |
+| `perf`     | A performance improvement                              |
+
+**Scope** (optional, but preferred): the directory name of whichever app
+under `apps/` or package under `packages/` the PR mostly touches (see
+[Project structure](#project-structure) above) — e.g. `execution-worker`,
+`platform-api`, `web`, `db`. Not a fixed list: any current directory name
+is a valid scope, and a repo's `area:` labels track the same set. Omit the
+scope for a PR that's genuinely repo-wide (tooling, CI, root config).
+
+**Summary**: lowercase, imperative mood ("add", not "added" or "adds"),
+no trailing period.
+
+Examples:
+
+```
+feat(execution-worker): add Wait node for pausing on a timer
+fix(platform-api): pin chat conversation subject to its first turn
+chore(db): squash migration chain after parallel-branch merge
+docs: document PR title conventions
+```
+
+A breaking change gets a `!` after the type/scope, e.g.
+`feat(runtime)!: drop the deprecated \`legacyConfig\` field` — call out
+what breaks and how to migrate in the PR description.

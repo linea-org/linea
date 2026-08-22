@@ -1,5 +1,9 @@
 import { useState } from "react"
-import { nodeRegistry, type NodeTypeId } from "@linea/runtime/browser"
+import {
+  nodeRegistry,
+  retryPolicySchema,
+  type NodeTypeId,
+} from "@linea/runtime/browser"
 import type { NodeUIField } from "@linea/runtime/browser"
 import { XIcon } from "lucide-react"
 import { Button } from "@linea/ui/components/button"
@@ -77,6 +81,19 @@ export function NodeConfigPanel({
       }
       try {
         const parsed: unknown = JSON.parse(rawValue)
+        // Valid JSON isn't the same as a valid policy — retryPolicy has a strict runtime schema
+        // (maxAttempts, backoff, timeoutMs), and saving something that merely parses but doesn't
+        // match it used to mean retries silently never actually applied.
+        if (field.key === "retryPolicy") {
+          const result = retryPolicySchema.safeParse(parsed)
+          if (!result.success) {
+            setJsonErrors((prev) => ({
+              ...prev,
+              [field.key]: `Doesn't match the retry policy shape: ${result.error.issues[0]?.message ?? "invalid"}`,
+            }))
+            return
+          }
+        }
         setJsonErrors((prev) => ({ ...prev, [field.key]: "" }))
         onChange({ ...config, [field.key]: parsed })
       } catch {
@@ -87,15 +104,15 @@ export function NodeConfigPanel({
     onChange({ ...config, [field.key]: rawValue })
   }
   return (
-    <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border border-border bg-card">
-      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+    <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
           {title}
         </p>
         <Button
           type="button"
           variant="ghost"
-          size="icon-sm"
+          size="icon-xs"
           onClick={onClose}
           aria-label="Close panel"
         >
@@ -105,11 +122,12 @@ export function NodeConfigPanel({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <FieldGroup className="p-4">
           {definition.ui.fields.map((field) => {
-            if (
-              field.showIf &&
-              draft[field.showIf.key] !== field.showIf.equals
-            ) {
-              return null
+            if (field.showIf) {
+              const expected = field.showIf.equals
+              const matches = Array.isArray(expected)
+                ? expected.includes(draft[field.showIf.key])
+                : draft[field.showIf.key] === expected
+              if (!matches) return null
             }
             const invalid = Boolean(jsonErrors[field.key])
             return (

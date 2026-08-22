@@ -6,6 +6,7 @@ import { FlaggersModule } from "./flaggers/flaggers.module"
 import { QueueModule } from "./queue/queue.module"
 import { ReplayModule } from "./replay/replay.module"
 import { SchedulesModule } from "./schedules/schedules.module"
+import { WaitsModule } from "./waits/waits.module"
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SchedulesModule } from "./schedules/schedules.module"
     FlaggersModule,
     ApprovalsModule,
     ChatModule,
+    WaitsModule,
   ],
 })
 export class AppModule {}

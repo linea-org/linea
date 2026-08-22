@@ -54,6 +54,7 @@ import {
   RefreshCwIcon,
   Undo2Icon,
 } from "lucide-react"
+import { cn } from "@linea/ui/lib/utils"
 import { UserAvatar } from "../account"
 import {
   Tooltip,
@@ -194,6 +195,10 @@ function WorkflowBuilderCanvasInner({
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges)
   const [entryNodeId] = useState(seeded.entryNodeId)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  // Which of the two right-hand panels is visible — kept as one variable, not two
+  // independent booleans, so a node selection and the chat toggle can never both
+  // decide to show a panel at the same time.
+  const [rightPanel, setRightPanel] = useState<"config" | "chat" | null>(null)
   const { resolvedTheme } = useTheme()
   const { screenToFlowPosition } = useReactFlow<Node<WorkflowBuilderNodeData>>()
   const history = useUndoHistory({ nodes: initial.nodes, edges: initial.edges })
@@ -319,7 +324,7 @@ function WorkflowBuilderCanvasInner({
       })
     },
   })
-  const [chatOpen, setChatOpen] = useState(false)
+  const [paletteCollapsed, setPaletteCollapsed] = useState(false)
   const [commitDialog, setCommitDialog] = useState<"commit" | "publish" | null>(
     null
   )
@@ -431,6 +436,7 @@ function WorkflowBuilderCanvasInner({
       ]
       setNodes(nextNodes)
       setSelectedNodeId(id)
+      setRightPanel("config")
       pushHistory(nextNodes, edges)
     },
     [nodes, edges, screenToFlowPosition, setNodes, pushHistory]
@@ -460,13 +466,13 @@ function WorkflowBuilderCanvasInner({
   const toggleNav = useWorkspaceOverlayNav()
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-transparent">
-      <div className="mx-2 mt-2 flex h-14 shrink-0 items-center gap-3 rounded-xl border border-border bg-card px-4">
+      <div className="flex shrink-0 items-center justify-between gap-2 p-2">
         <div className="flex items-center gap-1">
           {toggleNav && (
             <Button
               type="button"
               variant="ghost"
-              size="icon-sm"
+              size="icon-xs"
               onClick={toggleNav}
               aria-label="Toggle navigation"
             >
@@ -476,7 +482,7 @@ function WorkflowBuilderCanvasInner({
           <Button
             nativeButton={false}
             variant="ghost"
-            size="sm"
+            size="xs"
             render={
               <Link
                 to="/w/$slug/workflows/$workflowId"
@@ -488,7 +494,7 @@ function WorkflowBuilderCanvasInner({
             Back
           </Button>
         </div>
-        <div className="flex flex-1 items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-2">
           {otherViewers.length > 0 && (
             <TooltipProvider>
               <div className="mr-1 flex -space-x-2">
@@ -514,7 +520,7 @@ function WorkflowBuilderCanvasInner({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon-xs"
             onClick={undo}
             disabled={!history.canUndo()}
             aria-label="Undo"
@@ -524,7 +530,7 @@ function WorkflowBuilderCanvasInner({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon-xs"
             onClick={redo}
             disabled={!history.canRedo()}
             aria-label="Redo"
@@ -542,10 +548,12 @@ function WorkflowBuilderCanvasInner({
           )}
           <Button
             type="button"
-            variant={chatOpen ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => setChatOpen((open) => !open)}
-            aria-pressed={chatOpen}
+            variant={rightPanel === "chat" ? "secondary" : "outline"}
+            size="xs"
+            onClick={() =>
+              setRightPanel((current) => (current === "chat" ? null : "chat"))
+            }
+            aria-pressed={rightPanel === "chat"}
           >
             <MessageCircleIcon />
             Chat preview
@@ -553,7 +561,7 @@ function WorkflowBuilderCanvasInner({
           <Button
             type="button"
             variant="outline"
-            size="sm"
+            size="xs"
             onClick={() => testRun.mutate()}
             disabled={testRun.isPending}
           >
@@ -563,7 +571,7 @@ function WorkflowBuilderCanvasInner({
           <Button
             type="button"
             variant="outline"
-            size="sm"
+            size="xs"
             onClick={() => setCommitDialog("commit")}
             disabled={saveVersion.isPending}
           >
@@ -571,7 +579,7 @@ function WorkflowBuilderCanvasInner({
           </Button>
           <Button
             type="button"
-            size="sm"
+            size="xs"
             onClick={() => setCommitDialog("publish")}
             disabled={publish.isPending}
           >
@@ -580,12 +588,12 @@ function WorkflowBuilderCanvasInner({
         </div>
       </div>
       {(saveVersion.isError || publish.isError || testRun.isError) && (
-        <p className="border-b border-border bg-destructive/10 px-5 py-2 text-sm text-destructive">
+        <p className="border-b border-border bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {(saveVersion.error ?? publish.error ?? testRun.error)?.message}
         </p>
       )}
       {pendingRemoteUpdate && (
-        <div className="flex items-center justify-between gap-3 border-b border-border bg-secondary px-5 py-2 text-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-secondary px-3 py-2 text-xs">
           <span>
             <strong>{pendingRemoteUpdate.savedBy.name}</strong> made changes
             while you were editing. Reloading replaces your unsaved changes with
@@ -612,21 +620,28 @@ function WorkflowBuilderCanvasInner({
           </div>
         </div>
       )}
-      <div className="flex min-h-0 flex-1 gap-2 px-2 pt-2 pb-2">
-        <WorkflowPalette />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <WorkflowPalette
+          collapsed={paletteCollapsed}
+          onCollapsedChange={setPaletteCollapsed}
+        />
         <ResizablePanelGroup
           orientation="horizontal"
-          className="min-h-0 min-w-0 flex-1"
+          className={cn(
+            "min-h-0 min-w-0 flex-1 pb-2 transition-[padding] duration-500 ease-in",
+            paletteCollapsed && "pl-2",
+            !rightPanel && "pr-2"
+          )}
         >
           <ResizablePanel id="builder-canvas" minSize={280} className="min-h-0">
             <div
-              className="h-full min-h-0 overflow-hidden rounded-xl bg-surface-canvas"
+              className="h-full min-h-0 overflow-hidden rounded-lg bg-surface-canvas"
               style={FLOW_THEME_VARS}
               onDrop={onDrop}
               onDragOver={(e) => e.preventDefault()}
             >
               <ReactFlow
-                className="h-full [&_.react-flow__node]:rounded-xl [&_.react-flow__node]:bg-transparent [&_.react-flow__node]:p-0 [&_.react-flow__node]:shadow-none"
+                className="h-full [&_.react-flow__node]:overflow-visible [&_.react-flow__node]:rounded-lg [&_.react-flow__node]:bg-transparent [&_.react-flow__node]:p-0 [&_.react-flow__node]:shadow-none"
                 nodes={nodes}
                 edges={displayEdges}
                 nodeTypes={nodeTypes}
@@ -634,9 +649,14 @@ function WorkflowBuilderCanvasInner({
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 onNodeDragStop={() => pushHistory(nodes, edges)}
-                onSelectionChange={({ nodes: selected }) =>
+                // A direct click always means "show this node's config" — unlike
+                // onSelectionChange below, it isn't re-fired by React Flow on unrelated
+                // updates while a node merely stays selected, so it can't fight the chat
+                // panel for a slot it didn't just get clicked into.
+                onNodeClick={() => setRightPanel("config")}
+                onSelectionChange={({ nodes: selected }) => {
                   setSelectedNodeId(selected[0]?.id ?? null)
-                }
+                }}
                 isValidConnection={(connection) =>
                   isValidConnection(
                     connection,
@@ -666,7 +686,7 @@ function WorkflowBuilderCanvasInner({
                 <Background gap={16} size={1} />
                 <Controls
                   showInteractive={false}
-                  className="overflow-hidden rounded-lg border border-border shadow-none"
+                  className="overflow-hidden rounded-lg shadow-none"
                 />
                 <MiniMap
                   pannable
@@ -683,17 +703,17 @@ function WorkflowBuilderCanvasInner({
                       typeof nodeType === "string" ? nodeType : undefined
                     )
                   }}
-                  className="overflow-hidden rounded-xl border border-border"
+                  className="overflow-hidden rounded-lg"
                 />
               </ReactFlow>
             </div>
           </ResizablePanel>
-          {selectedNode && (
+          {rightPanel === "config" && selectedNode && (
             <>
-              <ResizableHandle className="w-2 bg-transparent after:w-2" />
+              <ResizableHandle className="w-0 bg-transparent" />
               <ResizablePanel
                 id="builder-config"
-                defaultSize={320}
+                defaultSize={340}
                 minSize={280}
                 maxSize={640}
                 groupResizeBehavior="preserve-pixel-size"
@@ -704,6 +724,7 @@ function WorkflowBuilderCanvasInner({
                   nodeType={selectedNode.data.nodeType}
                   config={selectedNode.data.config}
                   onClose={() => {
+                    setRightPanel(null)
                     setSelectedNodeId(null)
                     setNodes((current) =>
                       current.map((n) =>
@@ -723,12 +744,12 @@ function WorkflowBuilderCanvasInner({
               </ResizablePanel>
             </>
           )}
-          {chatOpen && (
+          {rightPanel === "chat" && (
             <>
-              <ResizableHandle className="w-2 bg-transparent after:w-2" />
+              <ResizableHandle className="w-0 bg-transparent" />
               <ResizablePanel
                 id="builder-chat"
-                defaultSize={360}
+                defaultSize={340}
                 minSize={280}
                 maxSize={640}
                 groupResizeBehavior="preserve-pixel-size"
@@ -738,7 +759,7 @@ function WorkflowBuilderCanvasInner({
                   slug={slug}
                   workflowId={workflowId}
                   graph={buildGraph(entryNodeId)}
-                  onClose={() => setChatOpen(false)}
+                  onClose={() => setRightPanel(null)}
                 />
               </ResizablePanel>
             </>
