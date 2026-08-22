@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "35d6c426-d859-408e-80d7-258eecd67f5f",
+  "id": "44e6a10d-5407-47e3-9a25-41b6e74a4488",
   "prevIds": [
-    "375a226e-9abb-4dbb-a74c-181ed2aef262"
+    "35d6c426-d859-408e-80d7-258eecd67f5f"
   ],
   "ddl": [
     {
@@ -5112,6 +5112,23 @@
       "entityType": "fks",
       "schema": "public",
       "table": "ai_node_progress"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "workspace_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "organizations",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "memories_workspace_id_organizations_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "memories"
     },
     {
       "columns": [

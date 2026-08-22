@@ -315,4 +315,71 @@ describe("MemoryNode", () => {
       ])
     }
   })
+
+  it("throws instead of writing when operation is missing or malformed, rather than silently defaulting to write", async () => {
+    const { organization } = await setup()
+    try {
+      const node = new MemoryNode()
+      const context = { workspaceId: organization.id, workflowId: "wf-1" }
+
+      await expect(
+        node.execute(
+          { subjectPath: "userId", key: "favorite" },
+          { userId: "u1" },
+          context
+        )
+      ).rejects.toThrow('operation to be "read" or "write"')
+
+      await expect(
+        node.execute(
+          { operation: "delete", subjectPath: "userId", key: "favorite" },
+          { userId: "u1" },
+          context
+        )
+      ).rejects.toThrow('operation to be "read" or "write"')
+
+      const readOutput = await node.execute(
+        { operation: "read", subjectPath: "userId", key: "favorite" },
+        { userId: "u1" },
+        context
+      )
+      expect(readOutput).toEqual({ found: false, value: null })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("throws a clear error when valuePath doesn't resolve, instead of writing an undefined value", async () => {
+    const { organization } = await setup()
+    try {
+      const node = new MemoryNode()
+      const context = { workspaceId: organization.id, workflowId: "wf-1" }
+
+      await expect(
+        node.execute(
+          {
+            operation: "write",
+            subjectPath: "userId",
+            key: "favorite",
+            valuePath: "missingField",
+          },
+          { userId: "u1" },
+          context
+        )
+      ).rejects.toThrow('no value found at valuePath "missingField"')
+
+      const readOutput = await node.execute(
+        { operation: "read", subjectPath: "userId", key: "favorite" },
+        { userId: "u1" },
+        context
+      )
+      expect(readOutput).toEqual({ found: false, value: null })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
 })

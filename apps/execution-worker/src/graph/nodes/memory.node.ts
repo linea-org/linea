@@ -76,11 +76,20 @@ export class MemoryNode implements NodeHandler {
         value: row?.value ?? null,
       })
     }
+    if (config.operation !== "write") {
+      throw new Error('Memory node requires operation to be "read" or "write"')
+    }
 
-    const value =
+    const hasValuePath =
       typeof config.valuePath === "string" && config.valuePath.trim() !== ""
-        ? getPath(input, config.valuePath)
-        : input
+    const value = hasValuePath
+      ? getPath(input, config.valuePath as string)
+      : input
+    if (hasValuePath && value === undefined) {
+      throw new Error(
+        `Memory node: no value found at valuePath "${config.valuePath as string}"`
+      )
+    }
     const expiresAt = resolveExpiresAt(config.ttlSeconds)
 
     await repositories.memory.writeMemory(db, {

@@ -1,4 +1,6 @@
+import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
+import { organizations } from "../schema/index.js"
 import { readMemory, writeMemory } from "./memory.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 
@@ -139,6 +141,25 @@ describe("memory.repository", () => {
         externalSubjectId: "user-2",
         key: "favorite",
       })
+      expect(read).toBeUndefined()
+    })
+  })
+
+  it("deletes a workspace's memory rows when the workspace itself is deleted, instead of leaving them orphaned", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const scope = {
+        workspaceId: organization.id,
+        externalSubjectId: "user-1",
+        namespace: "wf-1",
+      }
+      await writeMemory(tx, { ...scope, key: "favorite", value: "pizza" })
+
+      await tx
+        .delete(organizations)
+        .where(eq(organizations.id, organization.id))
+
+      const read = await readMemory(tx, { ...scope, key: "favorite" })
       expect(read).toBeUndefined()
     })
   })

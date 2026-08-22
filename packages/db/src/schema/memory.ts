@@ -6,13 +6,16 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
+import { organizations } from "./organisation.js"
 
 export const memories = snakeCase.table(
   "memories",
   {
     id: uuid().defaultRandom().primaryKey(),
 
-    workspaceId: uuid().notNull(),
+    workspaceId: uuid()
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
     // Arbitrary caller-supplied string, not a UUID — the customer's own end-user id, an email,
     // whatever they already use. Linea has no identity table backing this; it's whatever the
     // workflow author's configured dot-path resolves to on the node's input.
