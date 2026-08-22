@@ -35,8 +35,23 @@ export type RecordStepInput = {
   costUnpriced?: boolean
   tokensInput?: number
   tokensOutput?: number
+  // Omitted when attemptsMade is 1 so "never retried" is distinguishable from "retried once."
+  retryAttempts?: number
   // Includes this step if it just succeeded — a failed step is never added, matching the walker's own map.
   completed: Map<string, unknown>
+}
+
+function buildStepAttributes(
+  input: Pick<RecordStepInput, "costUnpriced" | "retryAttempts">
+): Record<string, unknown> | undefined {
+  const attributes: Record<string, unknown> = {}
+  if (input.costUnpriced !== undefined) {
+    attributes.costUnpriced = input.costUnpriced
+  }
+  if (input.retryAttempts !== undefined) {
+    attributes.retryAttempts = input.retryAttempts
+  }
+  return Object.keys(attributes).length > 0 ? attributes : undefined
 }
 
 /** Thrown when a checkpoint write is rejected because another worker reclaimed the lease. */
@@ -83,10 +98,7 @@ export class CheckpointsService {
         error: input.error,
         idempotencyKey: `${input.executionId}:${input.nodeId}`,
         costMicros: input.costMicros ?? 0n,
-        attributes:
-          input.costUnpriced !== undefined
-            ? { costUnpriced: input.costUnpriced }
-            : undefined,
+        attributes: buildStepAttributes(input),
         tokensInput: input.tokensInput ?? 0,
         tokensOutput: input.tokensOutput ?? 0,
       },

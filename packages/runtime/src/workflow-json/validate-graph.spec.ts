@@ -31,6 +31,45 @@ describe("validateGraphStructure", () => {
     ).toThrow(WorkflowGraphError)
   })
 
+  it("accepts a node with a valid retryPolicy", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            {
+              id: "a",
+              type: "http",
+              config: {
+                retryPolicy: {
+                  maxAttempts: 3,
+                  backoff: { type: "fixed", delayMs: 500 },
+                },
+              },
+            },
+            { id: "b", type: "transform", config: {} },
+          ],
+        })
+      )
+    ).not.toThrow()
+  })
+
+  it("rejects a node with a retryPolicy that doesn't match the schema", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            {
+              id: "a",
+              type: "http",
+              config: { retryPolicy: { maxAttempts: 0 } },
+            },
+            { id: "b", type: "transform", config: {} },
+          ],
+        })
+      )
+    ).toThrow(WorkflowGraphError)
+  })
+
   it("rejects an edge referencing an unknown node", () => {
     expect(() =>
       validateGraphStructure(graph({ edges: [{ from: "a", to: "c" }] }))

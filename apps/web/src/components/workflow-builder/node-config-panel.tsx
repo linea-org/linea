@@ -1,5 +1,9 @@
 import { useState } from "react"
-import { nodeRegistry, type NodeTypeId } from "@linea/runtime/browser"
+import {
+  nodeRegistry,
+  retryPolicySchema,
+  type NodeTypeId,
+} from "@linea/runtime/browser"
 import type { NodeUIField } from "@linea/runtime/browser"
 import { XIcon } from "lucide-react"
 import { Button } from "@linea/ui/components/button"
@@ -77,6 +81,19 @@ export function NodeConfigPanel({
       }
       try {
         const parsed: unknown = JSON.parse(rawValue)
+        // Valid JSON isn't the same as a valid policy — retryPolicy has a strict runtime schema
+        // (maxAttempts, backoff, timeoutMs), and saving something that merely parses but doesn't
+        // match it used to mean retries silently never actually applied.
+        if (field.key === "retryPolicy") {
+          const result = retryPolicySchema.safeParse(parsed)
+          if (!result.success) {
+            setJsonErrors((prev) => ({
+              ...prev,
+              [field.key]: `Doesn't match the retry policy shape: ${result.error.issues[0]?.message ?? "invalid"}`,
+            }))
+            return
+          }
+        }
         setJsonErrors((prev) => ({ ...prev, [field.key]: "" }))
         onChange({ ...config, [field.key]: parsed })
       } catch {

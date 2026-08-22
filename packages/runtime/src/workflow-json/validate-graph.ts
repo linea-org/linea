@@ -1,3 +1,4 @@
+import { retryPolicySchema } from "../nodes/retry-policy.js"
 import type { WorkflowGraph } from "./schema.js"
 
 export class WorkflowGraphError extends Error {}
@@ -91,6 +92,20 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
     if (stray) {
       throw new WorkflowGraphError(
         `Node "${node.id}" is not a branch node but has a conditioned outgoing edge to "${stray.to}"`
+      )
+    }
+  }
+
+  // Runs here (not just in the builder's config panel) so a graph that was saved before this
+  // field existed, or edited outside the UI, is rejected on every path that reaches the
+  // interpreter — publish, trigger/test-run, and the worker's own pre-execution check — instead
+  // of silently having its retries disabled deep inside interpreter.service.ts.
+  for (const node of graph.nodes) {
+    if (node.config.retryPolicy === undefined) continue
+    const result = retryPolicySchema.safeParse(node.config.retryPolicy)
+    if (!result.success) {
+      throw new WorkflowGraphError(
+        `Node "${node.id}" has an invalid retryPolicy: ${result.error.message}`
       )
     }
   }
