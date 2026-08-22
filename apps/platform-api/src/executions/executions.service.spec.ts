@@ -165,6 +165,16 @@ describe('ExecutionsService', () => {
       })
       expect(execution.status).toBe('queued')
       expect(execution.trigger).toBe('manual')
+      expect(execution.environment).toBe('dev')
+
+      const prodExecution = await service.trigger(
+        organization.id,
+        workflow.id,
+        {
+          environment: 'production',
+        },
+      )
+      expect(prodExecution.environment).toBe('production')
 
       const list = await service.list(organization.id, workflow.id)
       expect(list.map((e) => e.id)).toContain(execution.id)
@@ -261,11 +271,10 @@ describe('ExecutionsService', () => {
       const paused = await service.get(organization.id, execution.id)
       expect(paused.pausedAtNode).toEqual({ nodeId: 'wait-1', type: 'wait' })
 
-      // Resolved (fired) — no longer paused, so pausedAtNode should disappear.
-      await repositories.waitTimer.claimAndResolveDueWaitTimer(
-        db,
-        new Date(Date.now() + 120_000),
-      )
+      // Resolved (fired) — no longer paused, so pausedAtNode should disappear. Drains every
+      // currently-due timer at this pumped-forward "now" (not just one claim) so this test's own
+      // row is guaranteed to be among them regardless of how many other due rows exist elsewhere.
+      await drainDueWaitTimers(new Date(Date.now() + 120_000))
       const resolved = await service.get(organization.id, execution.id)
       expect(resolved.pausedAtNode).toBeUndefined()
     } finally {
@@ -413,6 +422,7 @@ describe('ExecutionsService', () => {
           graph,
         })
         expect(execution.status).toBe('queued')
+        expect(execution.environment).toBe('draft')
 
         const versions = await pool.query(
           'SELECT id FROM workflow_versions WHERE workflow_id = $1',
@@ -531,6 +541,7 @@ describe('ExecutionsService', () => {
           conversationId: first.conversationId,
           chatMessageId: messagesAfterFirst[0].id,
         })
+        expect(first.execution.environment).toBe('draft')
 
         const second = await service.sendChatMessage(
           organization.id,

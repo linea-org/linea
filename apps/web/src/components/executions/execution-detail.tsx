@@ -4,6 +4,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import {
   executionQueryOptions,
   getExecutionFn,
+  type ExecutionDetail,
   type ExecutionDetailResponse,
   type ExecutionTrigger,
 } from "@/lib/executions-api"
@@ -18,6 +19,12 @@ const triggerLabel: Record<ExecutionTrigger, string> = {
   schedule: "Schedule",
   webhook: "Webhook",
   api: "API",
+}
+
+const environmentLabel: Record<ExecutionDetail["environment"], string> = {
+  draft: "Draft",
+  dev: "Dev",
+  production: "Production",
 }
 
 export type ExecutionDetailData = {
@@ -100,7 +107,10 @@ export function ExecutionDetailView({
           <ExecutionStatusBadge status={execution.status} />
         </div>
         <div className="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4">
-          <Stat label="Trigger" value={triggerLabel[execution.trigger]} />
+          <Stat
+            label="Trigger"
+            value={`${triggerLabel[execution.trigger]} · ${environmentLabel[execution.environment]}`}
+          />
           <Stat
             label="Duration"
             value={formatDuration(execution.startedAt, execution.completedAt)}
