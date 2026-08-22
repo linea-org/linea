@@ -9,7 +9,6 @@ import {
   XIcon,
 } from "lucide-react"
 
-import { Badge } from "@linea/ui/components/badge"
 import { Button } from "@linea/ui/components/button"
 import { Bubble, BubbleContent, BubbleGroup } from "@linea/ui/components/bubble"
 import {
@@ -161,12 +160,13 @@ export function ChatPreviewPanel({
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
           Chat preview
+          {conversationId !== null && externalSubjectId ? (
+            <span className="font-normal text-muted-foreground">
+              {" "}
+              · Testing as: {externalSubjectId}
+            </span>
+          ) : null}
         </p>
-        {conversationId !== null && externalSubjectId ? (
-          <Badge variant="outline" className="shrink-0">
-            Testing as: {externalSubjectId}
-          </Badge>
-        ) : null}
         <Button
           type="button"
           variant="ghost"
