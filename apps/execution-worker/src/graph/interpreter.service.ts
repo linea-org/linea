@@ -15,8 +15,11 @@ import {
 import { AiNode } from "./nodes/ai.node"
 import { ApprovalNode } from "./nodes/approval.node"
 import { BranchNode } from "./nodes/branch.node"
+import { DatetimeNode } from "./nodes/datetime.node"
 import { EndNode } from "./nodes/end.node"
+import { FilterNode } from "./nodes/filter.node"
 import { HttpNode } from "./nodes/http.node"
+import { MergeNode } from "./nodes/merge.node"
 import type { NodeHandler } from "./nodes/node-handler.interface"
 import { NonRetryableError } from "./nodes/non-retryable-error"
 import { StartNode } from "./nodes/start.node"
@@ -145,7 +148,10 @@ export class InterpreterService {
     transformNode: TransformNode,
     branchNode: BranchNode,
     aiNode: AiNode,
-    approvalNode: ApprovalNode
+    approvalNode: ApprovalNode,
+    datetimeNode: DatetimeNode,
+    filterNode: FilterNode,
+    mergeNode: MergeNode
   ) {
     this.handlers = {
       http: httpNode,
@@ -153,6 +159,9 @@ export class InterpreterService {
       branch: branchNode,
       ai: aiNode,
       approval: approvalNode,
+      datetime: datetimeNode,
+      filter: filterNode,
+      merge: mergeNode,
       start: new StartNode(),
       end: new EndNode(),
     }

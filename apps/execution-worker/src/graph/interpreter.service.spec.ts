@@ -9,7 +9,10 @@ import {
 import { AiNode } from "./nodes/ai.node"
 import { ApprovalNode } from "./nodes/approval.node"
 import { BranchNode } from "./nodes/branch.node"
+import { DatetimeNode } from "./nodes/datetime.node"
+import { FilterNode } from "./nodes/filter.node"
 import { HttpNode } from "./nodes/http.node"
+import { MergeNode } from "./nodes/merge.node"
 import { NonRetryableError } from "./nodes/non-retryable-error"
 import { TransformNode } from "./nodes/transform.node"
 import { InterpreterService } from "./interpreter.service"
@@ -31,7 +34,10 @@ describe("InterpreterService.executeNode", () => {
       new TransformNode(),
       new BranchNode(),
       new AiNode(),
-      new ApprovalNode()
+      new ApprovalNode(),
+      new DatetimeNode(),
+      new FilterNode(),
+      new MergeNode()
     )
 
     const result = await interpreter.executeNode(
@@ -55,7 +61,10 @@ describe("InterpreterService.executeNode", () => {
       new TransformNode(),
       new BranchNode(),
       new AiNode(),
-      new ApprovalNode()
+      new ApprovalNode(),
+      new DatetimeNode(),
+      new FilterNode(),
+      new MergeNode()
     )
 
     await expect(
@@ -76,7 +85,10 @@ describe("InterpreterService.executeNode", () => {
       new TransformNode(),
       new BranchNode(),
       new AiNode(),
-      new ApprovalNode()
+      new ApprovalNode(),
+      new DatetimeNode(),
+      new FilterNode(),
+      new MergeNode()
     )
 
     await interpreter.executeNode(
@@ -106,7 +118,10 @@ describe("InterpreterService.executeNode", () => {
       new TransformNode(),
       new BranchNode(),
       new AiNode(),
-      new ApprovalNode()
+      new ApprovalNode(),
+      new DatetimeNode(),
+      new FilterNode(),
+      new MergeNode()
     )
 
     await expect(
@@ -174,7 +189,10 @@ describe("InterpreterService.run idempotency key", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       await interpreter.run({
@@ -251,7 +269,10 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       // First run: executes n1, checkpoints its usage, then "crashes" (never completes).
@@ -340,7 +361,10 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         tokenNode,
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       // First run: executes n1 (unpriced), checkpoints it, then "crashes".
@@ -468,7 +492,10 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         tokenNode,
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       // n2 runs fresh and is fully priced, but the legacy gap on n1 must still win.
@@ -550,7 +577,10 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         tokenNode,
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
@@ -627,7 +657,10 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         tokenNode,
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
@@ -714,7 +747,10 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       await expect(
@@ -803,7 +839,10 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       await expect(
@@ -883,7 +922,10 @@ describe("InterpreterService resume", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       await expect(
@@ -978,7 +1020,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
@@ -1045,7 +1090,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
@@ -1112,7 +1160,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
@@ -1195,7 +1246,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
@@ -1261,7 +1315,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       await expect(
@@ -1331,7 +1388,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       await expect(
@@ -1379,7 +1439,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
