@@ -24,6 +24,7 @@ import type { NodeHandler } from "./nodes/node-handler.interface"
 import { NonRetryableError } from "./nodes/non-retryable-error"
 import { StartNode } from "./nodes/start.node"
 import { TransformNode } from "./nodes/transform.node"
+import { WaitNode } from "./nodes/wait.node"
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -149,6 +150,7 @@ export class InterpreterService {
     branchNode: BranchNode,
     aiNode: AiNode,
     approvalNode: ApprovalNode,
+    waitNode: WaitNode,
     datetimeNode: DatetimeNode,
     filterNode: FilterNode,
     mergeNode: MergeNode
@@ -159,6 +161,7 @@ export class InterpreterService {
       branch: branchNode,
       ai: aiNode,
       approval: approvalNode,
+      wait: waitNode,
       datetime: datetimeNode,
       filter: filterNode,
       merge: mergeNode,

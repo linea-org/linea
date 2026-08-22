@@ -14,6 +14,7 @@ describe("nodeRegistry", () => {
       "merge",
       "start",
       "transform",
+      "wait",
     ])
   })
 

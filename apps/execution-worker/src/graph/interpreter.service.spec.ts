@@ -8,6 +8,7 @@ import {
 } from "../checkpoints/checkpoints.service"
 import { AiNode } from "./nodes/ai.node"
 import { ApprovalNode } from "./nodes/approval.node"
+import { WaitNode } from "./nodes/wait.node"
 import { BranchNode } from "./nodes/branch.node"
 import { DatetimeNode } from "./nodes/datetime.node"
 import { FilterNode } from "./nodes/filter.node"
@@ -35,6 +36,7 @@ describe("InterpreterService.executeNode", () => {
       new BranchNode(),
       new AiNode(),
       new ApprovalNode(),
+      new WaitNode(),
       new DatetimeNode(),
       new FilterNode(),
       new MergeNode()
@@ -62,6 +64,7 @@ describe("InterpreterService.executeNode", () => {
       new BranchNode(),
       new AiNode(),
       new ApprovalNode(),
+      new WaitNode(),
       new DatetimeNode(),
       new FilterNode(),
       new MergeNode()
@@ -86,6 +89,7 @@ describe("InterpreterService.executeNode", () => {
       new BranchNode(),
       new AiNode(),
       new ApprovalNode(),
+      new WaitNode(),
       new DatetimeNode(),
       new FilterNode(),
       new MergeNode()
@@ -119,6 +123,7 @@ describe("InterpreterService.executeNode", () => {
       new BranchNode(),
       new AiNode(),
       new ApprovalNode(),
+      new WaitNode(),
       new DatetimeNode(),
       new FilterNode(),
       new MergeNode()
@@ -190,6 +195,7 @@ describe("InterpreterService.run idempotency key", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -270,6 +276,7 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -362,6 +369,7 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         tokenNode,
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -493,6 +501,7 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         tokenNode,
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -578,6 +587,7 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         tokenNode,
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -658,6 +668,7 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         tokenNode,
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -748,6 +759,7 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -840,6 +852,7 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -923,6 +936,7 @@ describe("InterpreterService resume", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -1021,6 +1035,7 @@ describe("InterpreterService retry policy", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -1091,6 +1106,7 @@ describe("InterpreterService retry policy", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -1161,6 +1177,7 @@ describe("InterpreterService retry policy", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -1247,6 +1264,7 @@ describe("InterpreterService retry policy", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -1316,6 +1334,7 @@ describe("InterpreterService retry policy", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -1389,6 +1408,7 @@ describe("InterpreterService retry policy", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()
@@ -1440,6 +1460,7 @@ describe("InterpreterService retry policy", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
+        new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
         new MergeNode()

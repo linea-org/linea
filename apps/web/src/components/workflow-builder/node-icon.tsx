@@ -1,6 +1,7 @@
 import {
   Braces,
   CircleStop,
+  Clock,
   GitBranch,
   Globe,
   Play,
@@ -17,6 +18,7 @@ const ICONS: Record<string, LucideIcon> = {
   braces: Braces,
   play: Play,
   "circle-stop": CircleStop,
+  clock: Clock,
 }
 
 export function NodeIcon({
