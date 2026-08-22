@@ -9,6 +9,9 @@ export const nodeTypeSchema = z.enum([
   "ai",
   "approval",
   "wait",
+  "datetime",
+  "filter",
+  "merge",
 ])
 export type NodeType = z.infer<typeof nodeTypeSchema>
 

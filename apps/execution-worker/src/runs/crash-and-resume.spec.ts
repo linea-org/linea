@@ -8,7 +8,10 @@ import { AiNode } from "../graph/nodes/ai.node"
 import { ApprovalNode } from "../graph/nodes/approval.node"
 import { WaitNode } from "../graph/nodes/wait.node"
 import { BranchNode } from "../graph/nodes/branch.node"
+import { DatetimeNode } from "../graph/nodes/datetime.node"
+import { FilterNode } from "../graph/nodes/filter.node"
 import { HttpNode } from "../graph/nodes/http.node"
+import { MergeNode } from "../graph/nodes/merge.node"
 import { TransformNode } from "../graph/nodes/transform.node"
 import { RunLeaseService } from "./run-lease.service"
 import { RunsService } from "./runs.service"
@@ -114,7 +117,10 @@ describe("crash-and-resume", () => {
         new BranchNode(),
         new AiNode(),
         new ApprovalNode(),
-        new WaitNode()
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
       const runs = new RunsService(
         checkpoints,

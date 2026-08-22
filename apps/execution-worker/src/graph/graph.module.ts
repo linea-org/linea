@@ -4,7 +4,10 @@ import { InterpreterService } from "./interpreter.service"
 import { AiNode } from "./nodes/ai.node"
 import { ApprovalNode } from "./nodes/approval.node"
 import { BranchNode } from "./nodes/branch.node"
+import { DatetimeNode } from "./nodes/datetime.node"
+import { FilterNode } from "./nodes/filter.node"
 import { HttpNode } from "./nodes/http.node"
+import { MergeNode } from "./nodes/merge.node"
 import { TransformNode } from "./nodes/transform.node"
 import { WaitNode } from "./nodes/wait.node"
 
@@ -18,6 +21,9 @@ import { WaitNode } from "./nodes/wait.node"
     AiNode,
     ApprovalNode,
     WaitNode,
+    DatetimeNode,
+    FilterNode,
+    MergeNode,
   ],
   exports: [InterpreterService],
 })

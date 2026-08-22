@@ -4,4 +4,5 @@ export {
   verificationEmailHtml,
   resetPasswordEmailHtml,
   organizationInviteEmailHtml,
+  existingAccountEmailHtml,
 } from "./templates.js"
