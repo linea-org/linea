@@ -21,10 +21,16 @@ afterAll(async () => {
 // first clears that backlog (a real, if benign, side effect here — this test isn't wrapped in a
 // rolled-back transaction — but every drained timer really was due, so firing it early is exactly
 // what the real poller would have done anyway).
-async function drainDueWaitTimers(now?: Date): Promise<void> {
-  let result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db, now)
+//
+// Deliberately always uses the real current time, never a pumped-forward "now": a caller wanting
+// to force its own not-yet-due row to fire immediately must update that specific row directly (by
+// workspace/execution/node) rather than pass a future cutoff here — pumping the cutoff for this
+// whole-database drain would also claim and permanently fire any concurrently running test's own
+// legitimately-not-yet-due timer, corrupting that test's state.
+async function drainDueWaitTimers(): Promise<void> {
+  let result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
   while (result.outcome === 'fired') {
-    result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db, now)
+    result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
   }
 }
 
@@ -271,10 +277,15 @@ describe('ExecutionsService', () => {
       const paused = await service.get(organization.id, execution.id)
       expect(paused.pausedAtNode).toEqual({ nodeId: 'wait-1', type: 'wait' })
 
-      // Resolved (fired) — no longer paused, so pausedAtNode should disappear. Drains every
-      // currently-due timer at this pumped-forward "now" (not just one claim) so this test's own
-      // row is guaranteed to be among them regardless of how many other due rows exist elsewhere.
-      await drainDueWaitTimers(new Date(Date.now() + 120_000))
+      // Resolved (fired) — no longer paused, so pausedAtNode should disappear. Forces only this
+      // specific row due (not a database-wide pumped-forward "now", which would also claim any
+      // concurrently running test's own not-yet-due timer and corrupt its state), then drains at
+      // the real current time so this row — now genuinely due — is guaranteed to be processed.
+      await pool.query(
+        "UPDATE wait_timers SET resume_at = now() - interval '1 second' WHERE workspace_id = $1 AND execution_id = $2 AND node_id = $3",
+        [organization.id, execution.id, 'wait-1'],
+      )
+      await drainDueWaitTimers()
       const resolved = await service.get(organization.id, execution.id)
       expect(resolved.pausedAtNode).toBeUndefined()
     } finally {
