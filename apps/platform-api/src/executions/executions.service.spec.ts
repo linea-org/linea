@@ -542,6 +542,135 @@ describe('ExecutionsService', () => {
       }
     })
 
+    it("pins a conversation's externalSubjectId to what its first turn established, ignoring a different or omitted value on a later turn", async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Subject Pinning Test Org',
+          slug: `chat-preview-subject-pinning-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Chat Preview Subject Pinning Workflow',
+          slug: `chat-preview-subject-pinning-${suffix}`,
+        })
+
+        const first = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          { graph, message: 'hello', externalSubjectId: 'customer-42' },
+        )
+        expect(first.execution.triggerPayload).toMatchObject({
+          externalSubjectId: 'customer-42',
+        })
+
+        // A different subject on a follow-up must not override the one already established.
+        const differentSubject = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          {
+            graph,
+            message: 'someone else?',
+            conversationId: first.conversationId,
+            externalSubjectId: 'customer-99',
+          },
+        )
+        expect(differentSubject.execution.triggerPayload).toMatchObject({
+          externalSubjectId: 'customer-42',
+        })
+
+        // Omitting it on a follow-up must not drop the established one either.
+        const omittedSubject = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          {
+            graph,
+            message: 'no subject this time',
+            conversationId: first.conversationId,
+          },
+        )
+        expect(omittedSubject.execution.triggerPayload).toMatchObject({
+          externalSubjectId: 'customer-42',
+        })
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
+    it("leaves a conversation's subject unestablished if its first turn had none, even if a later turn tries to introduce one", async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview No Subject Pinning Test Org',
+          slug: `chat-preview-no-subject-pinning-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Chat Preview No Subject Pinning Workflow',
+          slug: `chat-preview-no-subject-pinning-${suffix}`,
+        })
+
+        const first = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          { graph, message: 'hello' },
+        )
+        expect(first.execution.triggerPayload).not.toHaveProperty(
+          'externalSubjectId',
+        )
+
+        const second = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          {
+            graph,
+            message: 'now with a subject',
+            conversationId: first.conversationId,
+            externalSubjectId: 'customer-42',
+          },
+        )
+        expect(second.execution.triggerPayload).not.toHaveProperty(
+          'externalSubjectId',
+        )
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
     it('omits externalSubjectId from triggerPayload entirely when not provided', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [

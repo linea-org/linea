@@ -172,7 +172,7 @@ export function ChatPreviewPanel({
           variant="ghost"
           size="sm"
           onClick={startNewChat}
-          disabled={!conversationId && messages.length === 0}
+          disabled={(!conversationId && messages.length === 0) || isWaiting}
         >
           <SquarePenIcon />
           New chat
@@ -196,6 +196,7 @@ export function ChatPreviewPanel({
                 onChange={(event) => setExternalSubjectId(event.target.value)}
                 placeholder="External subject ID (optional)"
                 className="h-7 text-xs"
+                disabled={isWaiting}
                 autoFocus
               />
               <Button
@@ -234,6 +235,7 @@ export function ChatPreviewPanel({
               placeholder="Search past conversations…"
               showClear
               className="cursor-pointer"
+              disabled={isWaiting}
             />
             <ComboboxContent>
               <ComboboxEmpty>No matching conversations.</ComboboxEmpty>

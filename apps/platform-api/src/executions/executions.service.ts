@@ -191,6 +191,20 @@ export class ExecutionsService {
 
     const conversationId = input.conversationId ?? randomUUID()
 
+    // A conversation's subject is pinned by its first turn — a later turn's own request value is
+    // never allowed to override it, or memory-scoped nodes could silently read/write a different
+    // subject's partition mid-conversation depending on what a given request happened to send.
+    const established =
+      await repositories.chatMessage.getEstablishedExternalSubjectId(
+        db,
+        workspaceId,
+        workflowId,
+        conversationId,
+      )
+    const externalSubjectId = established.found
+      ? (established.externalSubjectId ?? undefined)
+      : input.externalSubjectId
+
     const version = await repositories.workflow.ensureVersionForGraph(
       db,
       workflowId,
@@ -205,7 +219,7 @@ export class ExecutionsService {
         conversationId,
         role: 'user',
         content: input.message,
-        externalSubjectId: input.externalSubjectId,
+        externalSubjectId,
       })
 
       const result =
@@ -219,9 +233,7 @@ export class ExecutionsService {
             triggerPayload: {
               conversationId,
               chatMessageId: chatMessage.id,
-              ...(input.externalSubjectId
-                ? { externalSubjectId: input.externalSubjectId }
-                : {}),
+              ...(externalSubjectId ? { externalSubjectId } : {}),
             },
           },
         )

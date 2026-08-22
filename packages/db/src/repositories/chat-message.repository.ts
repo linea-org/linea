@@ -103,6 +103,35 @@ export async function listChatMessages(
   return rows.map((row) => row.message)
 }
 
+/** Whether this conversationId already has any turns, and if so, the externalSubjectId established
+ * by its first message — the caller-supplied value on a later turn must never override this, or a
+ * conversation could silently wobble between memory-scoped subjects turn to turn. A conversation
+ * with no prior turns yet (found: false) has nothing established, so the current turn's own value
+ * is free to set it for the first time. */
+export async function getEstablishedExternalSubjectId(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string,
+  conversationId: string
+): Promise<{ found: boolean; externalSubjectId: string | null }> {
+  const [row] = await db
+    .select({ externalSubjectId: chatMessages.externalSubjectId })
+    .from(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.workspaceId, workspaceId),
+        eq(chatMessages.workflowId, workflowId),
+        eq(chatMessages.conversationId, conversationId)
+      )
+    )
+    // Prefer a row that actually has one set, in case an older conversation (predating this
+    // check) has an inconsistent mix — matches listConversations' own "any non-null" preference.
+    .orderBy(sql`${chatMessages.externalSubjectId} is null asc`)
+    .limit(1)
+  if (!row) return { found: false, externalSubjectId: null }
+  return { found: true, externalSubjectId: row.externalSubjectId }
+}
+
 export type ConversationSummary = {
   conversationId: string
   preview: string
