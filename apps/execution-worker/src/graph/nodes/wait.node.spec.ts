@@ -96,20 +96,22 @@ describe("WaitNode", () => {
         )
       ).rejects.toThrow()
 
-      // claimAndResolveDueWaitTimer claims one arbitrary due row database-wide (it backs the
-      // background poller's "fire the next one" step, not scoped to a workspace) — so a real
-      // leftover due timer anywhere in this shared local dev Postgres could get claimed instead
-      // of this test's own timer. Draining fully (not trusting a single claim's own return value)
-      // guarantees this test's timer is fired regardless of what else is due, then reading it back
-      // directly gets the specific row this assertion actually needs.
-      const futureNow = new Date(Date.now() + 60_000) // force it due, regardless of the real 1-second wait
+      // Forces only this specific row due — not a database-wide pumped-forward "now", which would
+      // also claim and permanently fire any concurrently running test's own legitimately-not-yet-
+      // due timer and corrupt its state. Then drains at the real current time (claimAndResolveDueWaitTimer
+      // claims one arbitrary due row database-wide by design, so a real leftover due timer
+      // elsewhere in this shared local dev Postgres could still be claimed first) so this row —
+      // now genuinely due — is guaranteed to be processed, and reads it back directly for the
+      // specific value this assertion needs.
+      await pool.query(
+        "UPDATE wait_timers SET resume_at = now() - interval '1 second' WHERE workspace_id = $1 AND execution_id = $2 AND node_id = $3",
+        [organization.id, execution.id, "wait-1"]
+      )
       let drainResult =
-        await repositories.waitTimer.claimAndResolveDueWaitTimer(db, futureNow)
+        await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
       while (drainResult.outcome === "fired") {
-        drainResult = await repositories.waitTimer.claimAndResolveDueWaitTimer(
-          db,
-          futureNow
-        )
+        drainResult =
+          await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
       }
 
       const firedTimer = await repositories.waitTimer.getWaitTimer(
