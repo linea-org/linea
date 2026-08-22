@@ -1020,7 +1020,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
@@ -1087,7 +1090,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
@@ -1154,7 +1160,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
@@ -1237,7 +1246,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
@@ -1303,7 +1315,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       await expect(
@@ -1373,7 +1388,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       await expect(
@@ -1421,7 +1439,10 @@ describe("InterpreterService retry policy", () => {
         new TransformNode(),
         new BranchNode(),
         new AiNode(),
-        new ApprovalNode()
+        new ApprovalNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode()
       )
 
       const outcome = await interpreter.run({
