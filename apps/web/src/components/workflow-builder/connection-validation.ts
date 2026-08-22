@@ -26,6 +26,16 @@ export function isValidConnection(
   const incomingToTarget = edges.filter((edge) => edge.target === target)
   const maxIncoming = targetType === "merge" ? 2 : 1
   if (incomingToTarget.length >= maxIncoming) return false
+  // A merge's two incoming edges must be two distinct predecessors — two edges from the same
+  // source isn't two real inputs, it's the same value read twice (matches validate-graph.ts's
+  // own runtime check), so the canvas must refuse it too instead of letting it fail later at
+  // versioning/publish/test-run/execution.
+  if (
+    targetType === "merge" &&
+    incomingToTarget.some((edge) => edge.source === source)
+  ) {
+    return false
+  }
 
   const sourceType = nodeTypeById.get(source)
   if (sourceType === "end") return false
