@@ -34,11 +34,20 @@ function computeBackoffDelayMs(
   return backoff.delayMs * 2 ** (attemptsMade - 1)
 }
 
-// Invalid shape is no retry, not a hard fail — the panel already rejects bad JSON.
+// Invalid shape is no retry, not a hard fail — a graph committed before the builder's own
+// validation existed (or authored outside the builder entirely) shouldn't suddenly hard-fail a
+// node that used to run fine without retries. Logged rather than silently swallowed, though —
+// an author who thinks they configured retries deserves to know they're actually getting none.
 function parseRetryPolicy(raw: unknown): RetryPolicy | undefined {
   if (raw === undefined || raw === null) return undefined
   const result = retryPolicySchema.safeParse(raw)
-  return result.success ? result.data : undefined
+  if (!result.success) {
+    console.warn(
+      `Node has a retryPolicy configured but it doesn't match the expected shape — retries are disabled for this run: ${result.error.message}`
+    )
+    return undefined
+  }
+  return result.data
 }
 
 // Must not abort input.signal — the outer catch treats that abort as lease loss.
@@ -259,6 +268,14 @@ export class InterpreterService {
             if (retryPolicy) {
               await sleep(
                 computeBackoffDelayMs(retryPolicy.backoff, attemptsMade - 1)
+              )
+              // And again after — the lease that just passed above can still expire and be
+              // reclaimed during the backoff itself (which can run to tens of seconds under
+              // exponential backoff), letting a stale worker fire an uncheckpointed HTTP/AI call
+              // alongside whoever reclaimed the work.
+              await this.checkpoints.assertOwnsLease(
+                input.executionId,
+                input.leasedBy
               )
             }
           }

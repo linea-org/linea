@@ -1283,6 +1283,76 @@ describe("InterpreterService retry policy", () => {
     }
   })
 
+  it("does not start a retry attempt if the lease expired during the backoff sleep itself, not just before it", async () => {
+    const suffix = randomUUID()
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "n1",
+      nodes: [
+        {
+          id: "n1",
+          type: "http",
+          config: {
+            retryPolicy: {
+              maxAttempts: 2,
+              backoff: { type: "fixed", delayMs: 200 },
+            },
+          },
+        },
+      ],
+      edges: [],
+    }
+    const { organization, execution } = await setupExecution(suffix, graph)
+    try {
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      // Attempt 1 fails with the lease still fully valid — the existing pre-sleep check passes —
+      // then the lease expires while the interpreter's own 200ms backoff is still in progress, so
+      // only the post-sleep check (not the pre-sleep one) can catch it before attempt 2 fires.
+      const executeSpy = jest.fn(() => {
+        setTimeout(() => {
+          void pool.query(
+            "UPDATE executions SET lease_expires_at = $1 WHERE id = $2",
+            [new Date(Date.now() - 1000), execution.id]
+          )
+        }, 50)
+        throw new Error("flaky")
+      })
+      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const interpreter = new InterpreterService(
+        new CheckpointsService(),
+        spyNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new ApprovalNode()
+      )
+
+      await expect(
+        interpreter.run({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          leasedBy: "worker-1",
+          graph,
+          triggerPayload: {},
+          resumeFrom: new Map(),
+        })
+      ).rejects.toThrow(LeaseLostError)
+
+      expect(executeSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
   it("behaves exactly as before when no retryPolicy is configured", async () => {
     const suffix = randomUUID()
     const graph: WorkflowGraph = {
