@@ -162,6 +162,11 @@ export function ChatPreviewPanel({
         <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
           Chat preview
         </p>
+        {conversationId !== null && externalSubjectId ? (
+          <Badge variant="outline" className="shrink-0">
+            Testing as: {externalSubjectId}
+          </Badge>
+        ) : null}
         <Button
           type="button"
           variant="ghost"
@@ -215,10 +220,6 @@ export function ChatPreviewPanel({
             </Button>
           )}
         </div>
-      ) : externalSubjectId ? (
-        <div className="border-b border-border px-3 py-2">
-          <Badge variant="outline">Testing as: {externalSubjectId}</Badge>
-        </div>
       ) : null}
       {conversations.length > 0 && (
         <div className="border-b border-border p-2">
@@ -229,7 +230,11 @@ export function ChatPreviewPanel({
             itemToStringLabel={(item) => item.preview}
             isItemEqualToValue={(a, b) => a.conversationId === b.conversationId}
           >
-            <ComboboxInput placeholder="Search past conversations…" showClear />
+            <ComboboxInput
+              placeholder="Search past conversations…"
+              showClear
+              className="cursor-pointer"
+            />
             <ComboboxContent>
               <ComboboxEmpty>No matching conversations.</ComboboxEmpty>
               <ComboboxList>
