@@ -614,6 +614,68 @@ describe('ExecutionsService', () => {
       }
     })
 
+    it('serializes two concurrent first turns for the same new conversation, so they agree on one established subject instead of racing to different ones', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [
+          ExecutionsService,
+          WorkflowQueueService,
+          StepReplayQueueService,
+        ],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+
+      const suffix = randomUUID()
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Chat Preview Subject Race Test Org',
+          slug: `chat-preview-subject-race-test-${suffix}`,
+          createdAt: new Date(),
+        })
+        .returning()
+
+      try {
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          workspaceId: organization.id,
+          name: 'Chat Preview Subject Race Workflow',
+          slug: `chat-preview-subject-race-${suffix}`,
+        })
+        const conversationId = randomUUID()
+
+        // Both requests target the same brand-new conversationId with different subjects — without
+        // acquireConversationLock serializing the read-then-insert, both could read "not found" and
+        // each insert with its own subject.
+        const [first, second] = await Promise.all([
+          service.sendChatMessage(organization.id, workflow.id, {
+            graph,
+            message: 'hello from A',
+            conversationId,
+            externalSubjectId: 'customer-a',
+          }),
+          service.sendChatMessage(organization.id, workflow.id, {
+            graph,
+            message: 'hello from B',
+            conversationId,
+            externalSubjectId: 'customer-b',
+          }),
+        ])
+
+        const firstSubject = (
+          first.execution.triggerPayload as { externalSubjectId?: string }
+        ).externalSubjectId
+        const secondSubject = (
+          second.execution.triggerPayload as { externalSubjectId?: string }
+        ).externalSubjectId
+        expect(firstSubject).toBe(secondSubject)
+        expect(['customer-a', 'customer-b']).toContain(firstSubject)
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+
     it("leaves a conversation's subject unestablished if its first turn had none, even if a later turn tries to introduce one", async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [

@@ -103,6 +103,24 @@ export async function listChatMessages(
   return rows.map((row) => row.message)
 }
 
+/** Serializes concurrent first turns of the same conversation so subject establishment can't race:
+ * two requests reading getEstablishedExternalSubjectId at the same instant would otherwise both
+ * see "not found" and each proceed to insert with a different externalSubjectId. Call inside the
+ * same transaction that will read-then-insert, before the read — pg_advisory_xact_lock blocks a
+ * concurrent transaction taking the same key until this one commits or rolls back (auto-released
+ * either way), so the second caller's read only runs after the first caller's insert is visible.
+ * Scoped per (workspaceId, workflowId, conversationId), not globally, so unrelated conversations
+ * never contend with each other. */
+export async function acquireConversationLock(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string,
+  conversationId: string
+): Promise<void> {
+  const key = `${workspaceId}:${workflowId}:${conversationId}`
+  await db.execute(sql`select pg_advisory_xact_lock(hashtext(${key})::bigint)`)
+}
+
 /** Whether this conversationId already has any turns, and if so, the externalSubjectId established
  * by its first message — the caller-supplied value on a later turn must never override this, or a
  * conversation could silently wobble between memory-scoped subjects turn to turn. A conversation
