@@ -29,6 +29,37 @@ function getNode(graph: WorkflowGraph, id: string): WorkflowNode {
   return node
 }
 
+function incomingEdges(graph: WorkflowGraph, nodeId: string) {
+  return graph.edges.filter((edge) => edge.to === nodeId)
+}
+
+// A completed branch node doesn't activate all its outgoing edges, only the one matching its
+// output — everything else (including a merge node's two edges) activates unconditionally once
+// its source is done.
+function isEdgeActivated(
+  graph: WorkflowGraph,
+  edge: WorkflowGraph["edges"][number],
+  completed: Map<string, unknown>
+): boolean {
+  if (!completed.has(edge.from)) return false
+  const from = getNode(graph, edge.from)
+  if (from.type !== "branch") return true
+  const output = completed.get(edge.from) as { branch: string }
+  return output.branch === edge.condition
+}
+
+// A merge node needs every predecessor's edge activated, not just one — this is the only place
+// node type changes what "ready" means; everything else here is predecessor-count-agnostic.
+function isReady(
+  graph: WorkflowGraph,
+  nodeId: string,
+  completed: Map<string, unknown>
+): boolean {
+  return incomingEdges(graph, nodeId).every((edge) =>
+    isEdgeActivated(graph, edge, completed)
+  )
+}
+
 function resolveInput(
   graph: WorkflowGraph,
   node: WorkflowNode,
@@ -37,28 +68,27 @@ function resolveInput(
 ): unknown {
   if (node.id === graph.entryNodeId) return triggerPayload
 
-  const incoming = graph.edges.filter((edge) => edge.to === node.id)
+  const incoming = incomingEdges(graph, node.id)
+  if (node.type === "merge") {
+    // Edge-declaration order, not completion order — the same graph always produces the same
+    // merge input regardless of which predecessor happens to finish first.
+    return incoming.map((edge) => completed.get(edge.from))
+  }
   if (incoming.length !== 1) {
     throw new WorkflowWalkError(
       `Node "${node.id}" must have exactly one incoming edge, has ${incoming.length}`
     )
   }
-  const [edge] = incoming
-  if (!completed.has(edge.from)) {
-    throw new WorkflowWalkError(
-      `Node "${node.id}"'s predecessor "${edge.from}" has not completed`
-    )
-  }
-  return completed.get(edge.from)
+  return completed.get(incoming[0].from)
 }
 
-function nextNodeId(
+function nextNodeIds(
   graph: WorkflowGraph,
   node: WorkflowNode,
   output: unknown
-): string | null {
+): string[] {
   const outgoing = graph.edges.filter((edge) => edge.from === node.id)
-  if (outgoing.length === 0) return null
+  if (outgoing.length === 0) return []
 
   if (node.type === "branch") {
     const branch = (output as { branch: string }).branch
@@ -68,44 +98,62 @@ function nextNodeId(
         `Branch node "${node.id}" produced unmatched branch "${branch}"`
       )
     }
-    return matched.to
+    return [matched.to]
   }
 
-  if (outgoing.length > 1) {
-    throw new WorkflowWalkError(
-      `Node "${node.id}" has multiple outgoing edges but is not a branch node`
-    )
-  }
-  return outgoing[0].to
+  // Any number of unconditioned edges are all followed — validateGraphStructure guarantees none
+  // of them carry a condition for a non-branch node, so there's nothing to match here.
+  return outgoing.map((edge) => edge.to)
 }
 
-/** Yields one step at a time; the caller owns checkpointing and feeds the result back via .next(). */
+/** Yields one step at a time; the caller owns checkpointing and feeds the result back via .next().
+ * A node is "ready" once every one of its predecessors is in `completed` — for a linear or
+ * branch-only graph that's always exactly one node at a time, so this is a strict generalization
+ * of the old single-cursor walk, not a behavior change for graphs without a merge node. */
 export function* walk(
   graph: WorkflowGraph,
   options: WalkOptions = {}
 ): Generator<StepToExecute, WalkResult, StepResult> {
   const completed = new Map(options.completed ?? [])
-  let currentNodeId: string | null = graph.entryNodeId
 
-  while (currentNodeId !== null) {
-    const node = getNode(graph, currentNodeId)
+  const queued = new Set<string>()
+  const ready: string[] = []
+  function enqueue(nodeId: string): void {
+    if (completed.has(nodeId) || queued.has(nodeId)) return
+    if (!isReady(graph, nodeId, completed)) return
+    queued.add(nodeId)
+    ready.push(nodeId)
+  }
 
-    // Skip re-yielding an already-completed node, but its output still feeds branching below.
-    if (!completed.has(node.id)) {
-      const input = resolveInput(graph, node, completed, options.triggerPayload)
-      const result = yield { nodeId: node.id, nodeType: node.type, input }
+  // A full scan, not just forward from entryNodeId, so a resumed execution with multiple
+  // in-flight branches (some done, some not) recomputes readiness everywhere in the graph, not
+  // just along the one path the old single-cursor walker used to assume existed.
+  for (const node of graph.nodes) {
+    enqueue(node.id)
+  }
 
-      if ("error" in result) {
-        return {
-          status: "failed",
-          nodeId: node.id,
-          error: result.error.message,
-        }
+  while (ready.length > 0) {
+    const nodeId = ready.shift()
+    if (nodeId === undefined) continue
+    queued.delete(nodeId)
+    if (completed.has(nodeId)) continue
+
+    const node = getNode(graph, nodeId)
+    const input = resolveInput(graph, node, completed, options.triggerPayload)
+    const result = yield { nodeId: node.id, nodeType: node.type, input }
+
+    if ("error" in result) {
+      return {
+        status: "failed",
+        nodeId: node.id,
+        error: result.error.message,
       }
-      completed.set(node.id, result.output)
     }
+    completed.set(node.id, result.output)
 
-    currentNodeId = nextNodeId(graph, node, completed.get(node.id))
+    for (const nextId of nextNodeIds(graph, node, result.output)) {
+      enqueue(nextId)
+    }
   }
 
   return { status: "completed" }

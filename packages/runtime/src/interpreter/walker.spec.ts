@@ -141,3 +141,80 @@ describe("walk", () => {
     expect(result).toEqual({ status: "completed" })
   })
 })
+
+// Fans out unconditionally from one node to two parallel paths, then joins them at a merge node.
+const mergingGraph: WorkflowGraph = {
+  version: 1,
+  trigger: { type: "manual" },
+  entryNodeId: "start",
+  nodes: [
+    { id: "start", type: "http", config: {} },
+    { id: "left", type: "transform", config: {} },
+    { id: "right", type: "transform", config: {} },
+    { id: "joined", type: "merge", config: {} },
+  ],
+  edges: [
+    { from: "start", to: "left" },
+    { from: "start", to: "right" },
+    { from: "left", to: "joined" },
+    { from: "right", to: "joined" },
+  ],
+}
+
+const mergeOutputs: Record<string, unknown> = {
+  start: { status: 200, headers: {}, body: "ok" },
+  left: { output: "left-value" },
+  right: { output: "right-value" },
+  joined: { result: ["left-value", "right-value"] },
+}
+
+function mergeStubExecutor(step: StepToExecute): StepResult {
+  return { nodeId: step.nodeId, output: mergeOutputs[step.nodeId] }
+}
+
+describe("walk with fan-out/fan-in", () => {
+  it("visits both parallel paths and only reaches the merge node once both have completed", () => {
+    const { steps, result } = driveWalk(mergingGraph, mergeStubExecutor)
+
+    expect(steps.map((s) => s.nodeId)).toEqual([
+      "start",
+      "left",
+      "right",
+      "joined",
+    ])
+    expect(result).toEqual({ status: "completed" })
+  })
+
+  it("resolves the merge node's input as both predecessors' outputs, in edge-declaration order", () => {
+    const { steps } = driveWalk(mergingGraph, mergeStubExecutor)
+    const joined = steps.find((s) => s.nodeId === "joined")
+    expect(joined?.input).toEqual([mergeOutputs.left, mergeOutputs.right])
+  })
+
+  it("resuming with one predecessor already completed only runs the other, then the merge node", () => {
+    const completed = new Map<string, unknown>([
+      ["start", mergeOutputs.start],
+      ["left", mergeOutputs.left],
+    ])
+
+    const { steps, result } = driveWalk(mergingGraph, mergeStubExecutor, {
+      completed,
+    })
+
+    expect(steps.map((s) => s.nodeId)).toEqual(["right", "joined"])
+    expect(result).toEqual({ status: "completed" })
+  })
+
+  it("resuming after every step has already completed does no work", () => {
+    const completed = new Map(
+      mergingGraph.nodes.map((n) => [n.id, mergeOutputs[n.id]])
+    )
+
+    const { steps, result } = driveWalk(mergingGraph, mergeStubExecutor, {
+      completed,
+    })
+
+    expect(steps).toEqual([])
+    expect(result).toEqual({ status: "completed" })
+  })
+})

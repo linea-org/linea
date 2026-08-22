@@ -1,5 +1,6 @@
 import { z } from "zod"
 import type { NodeDefinition } from "../node-definition.js"
+import { retryPolicySchema } from "../retry-policy.js"
 
 const aiToolSchema = z.object({
   name: z.string(),
@@ -23,6 +24,8 @@ const aiInputSchema = z.object({
   // Empty/omitted keeps today's exact behavior — no memory lookup at all.
   memorySubjectPath: z.string().optional(),
   memoryNamespace: z.string().optional(),
+  // Interpreter-owned; omitted means no retry. Completions are not idempotent.
+  retryPolicy: retryPolicySchema.optional(),
 })
 
 const aiOutputSchema = z.object({
@@ -100,6 +103,13 @@ export const aiNode: NodeDefinition<
         widget: "text",
         description:
           "Leave empty to isolate memory to this workflow. Set the same value as a Memory node writing to it to read what it wrote.",
+      },
+      {
+        key: "retryPolicy",
+        label: "Retry policy",
+        widget: "code",
+        description:
+          'Retry a failed completion. Warning: no supported provider has an idempotency mechanism for completions, so a retry after a slow/dropped response can bill twice. JSON: {"maxAttempts": 3, "backoff": {"type": "exponential", "delayMs": 500}, "timeoutMs": 30000}. Leave empty for no retry.',
       },
     ],
     summaryField: "model",

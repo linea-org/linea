@@ -338,6 +338,10 @@ export class ExecutionsService {
     steps: ExecutionStep[]
     nodeConfigs: Record<string, Record<string, unknown>>
     replayable: boolean
+    // The node a paused execution is currently waiting on — undefined once resolved (it becomes a
+    // real checkpointed step instead) or if the execution isn't paused. Neither Approval nor Wait
+    // checkpoints before pausing, so there's no other way to know which node it stopped at.
+    pausedAtNode?: { nodeId: string; type: string }
   }> {
     const result = await repositories.execution.getExecutionWithSteps(db, id)
     if (!result || result.execution.workspaceId !== workspaceId) {
@@ -349,10 +353,12 @@ export class ExecutionsService {
       result.execution.workflowVersionId,
     )
     const nodeConfigs: Record<string, Record<string, unknown>> = {}
+    const nodeTypes: Record<string, string> = {}
     if (version) {
       const graph = workflowGraphSchema.parse(version.graph)
       for (const node of graph.nodes) {
         nodeConfigs[node.id] = node.config
+        nodeTypes[node.id] = node.type
       }
     }
 
@@ -360,7 +366,19 @@ export class ExecutionsService {
       result.execution.origin === 'native' &&
       repositories.execution.terminalStatuses.includes(result.execution.status)
 
-    return { ...result, nodeConfigs, replayable }
+    let pausedAtNode: { nodeId: string; type: string } | undefined
+    if (result.execution.status === 'paused') {
+      const [pendingApproval, pendingWaitTimer] = await Promise.all([
+        repositories.approval.getPendingApprovalForExecution(db, id),
+        repositories.waitTimer.getPendingWaitTimerForExecution(db, id),
+      ])
+      const nodeId = pendingApproval?.nodeId ?? pendingWaitTimer?.nodeId
+      if (nodeId && nodeTypes[nodeId]) {
+        pausedAtNode = { nodeId, type: nodeTypes[nodeId] }
+      }
+    }
+
+    return { ...result, nodeConfigs, replayable, pausedAtNode }
   }
 
   async replayStep(

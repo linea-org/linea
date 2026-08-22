@@ -127,11 +127,12 @@ export class RunsService {
         )
       }
 
-      // A response can resolve the approval before this loop marks the execution "paused" below,
-      // so claimPauseForPendingApproval re-checks and pauses atomically (locking the approval row
-      // first) instead of racing a separate check-then-pause. If already resolved, loop back
-      // immediately — safe because an approval node never checkpoints before pausing, so re-running
-      // just re-enters it and this time returns its real output.
+      // A response/timer can resolve the pause before this loop marks the execution "paused"
+      // below, so claimPauseForPendingApproval/claimPauseForPendingWait re-check and pause
+      // atomically (locking the approval/timer row first) instead of racing a separate
+      // check-then-pause. If already resolved, loop back immediately — safe because neither an
+      // approval nor a wait node checkpoints before pausing, so re-running just re-enters it and
+      // this time returns its real output.
       let outcome: RunOutcome
       let paused = false
       for (;;) {
@@ -150,13 +151,25 @@ export class RunsService {
           signal: abortController.signal,
         })
         if (!outcome.pausedAt) break
-        const claim = await repositories.approval.claimPauseForPendingApproval(
-          db,
-          execution.workspaceId,
-          executionId,
-          outcome.pausedAt,
-          attemptId
+        const pausedNode = graph.nodes.find(
+          (node) => node.id === outcome.pausedAt
         )
+        const claim =
+          pausedNode?.type === "wait"
+            ? await repositories.waitTimer.claimPauseForPendingWait(
+                db,
+                execution.workspaceId,
+                executionId,
+                outcome.pausedAt,
+                attemptId
+              )
+            : await repositories.approval.claimPauseForPendingApproval(
+                db,
+                execution.workspaceId,
+                executionId,
+                outcome.pausedAt,
+                attemptId
+              )
         if (claim.outcome === "paused") {
           paused = true
           break
