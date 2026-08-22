@@ -34,5 +34,7 @@ export function resolveNamespace(
     return namespace
   }
   if (workflowId) return workflowId
-  throw new Error(`${errorPrefix} has no namespace and no workflowId in context`)
+  throw new Error(
+    `${errorPrefix} has no namespace and no workflowId in context`
+  )
 }

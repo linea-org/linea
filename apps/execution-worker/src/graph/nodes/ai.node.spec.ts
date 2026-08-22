@@ -1422,7 +1422,11 @@ describe("AiNode", () => {
     })
 
     it("does not look up memory when memorySubjectPath isn't configured", async () => {
-      complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+      complete.mockResolvedValue({
+        text: "hi",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
 
       await new AiNode().execute(
         { prompt: "static prompt", model: "claude-sonnet-5" },
@@ -1438,7 +1442,11 @@ describe("AiNode", () => {
     })
 
     it("injects a <memories> block into the system prompt when rows are found", async () => {
-      complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+      complete.mockResolvedValue({
+        text: "hi",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
       listMemories.mockResolvedValue([
         { key: "favorite", value: "pizza" },
         { key: "profile", value: { plan: "pro" } },
@@ -1468,14 +1476,18 @@ describe("AiNode", () => {
         "secret",
         expect.objectContaining({
           systemPrompt: expect.stringContaining(
-            "<memories>\n- favorite: pizza\n- profile: {\"plan\":\"pro\"}\n</memories>"
+            '<memories>\n- favorite: pizza\n- profile: {"plan":"pro"}\n</memories>'
           ) as unknown,
         })
       )
     })
 
     it("defaults the namespace to context.workflowId when memoryNamespace isn't configured", async () => {
-      complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+      complete.mockResolvedValue({
+        text: "hi",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
       listMemories.mockResolvedValue([{ key: "a", value: "1" }])
 
       await new AiNode().execute(
@@ -1495,7 +1507,11 @@ describe("AiNode", () => {
     })
 
     it("logs a warning and proceeds without the memory block when the subjectPath doesn't resolve", async () => {
-      complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+      complete.mockResolvedValue({
+        text: "hi",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
 
       await expect(
         new AiNode().execute(
@@ -1524,10 +1540,18 @@ describe("AiNode", () => {
           tokensInput: 1,
           tokensOutput: 1,
           toolCalls: [
-            { id: "call_1", name: "get_weather", arguments: { city: "Berlin" } },
+            {
+              id: "call_1",
+              name: "get_weather",
+              arguments: { city: "Berlin" },
+            },
           ],
         })
-        .mockResolvedValueOnce({ text: "done", tokensInput: 1, tokensOutput: 1 })
+        .mockResolvedValueOnce({
+          text: "done",
+          tokensInput: 1,
+          tokensOutput: 1,
+        })
       mockFetch()
 
       await new AiNode().execute(
@@ -1550,10 +1574,16 @@ describe("AiNode", () => {
 
       expect(listMemories).toHaveBeenCalledTimes(1)
       expect(complete).toHaveBeenCalledTimes(2)
-      const firstSystemPrompt = complete.mock.calls[0][1].systemPrompt
-      const secondSystemPrompt = complete.mock.calls[1][1].systemPrompt
-      expect(firstSystemPrompt).toContain("<memories>")
-      expect(secondSystemPrompt).toBe(firstSystemPrompt)
+      const [, firstCall] = complete.mock.calls[0] as [
+        string,
+        { systemPrompt?: string },
+      ]
+      const [, secondCall] = complete.mock.calls[1] as [
+        string,
+        { systemPrompt?: string },
+      ]
+      expect(firstCall.systemPrompt).toContain("<memories>")
+      expect(secondCall.systemPrompt).toBe(firstCall.systemPrompt)
     })
   })
 })

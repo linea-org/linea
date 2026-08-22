@@ -25,7 +25,9 @@ const MEMORY_BLOCK_CHAR_BUDGET = 2000
 
 // A row cap alone doesn't bound tokens — arbitrary-length fact values could still blow up the
 // prompt even at 10 rows, so the assembled block itself is also capped.
-function formatMemoriesForPrompt(rows: Pick<Memory, "key" | "value">[]): string {
+function formatMemoriesForPrompt(
+  rows: Pick<Memory, "key" | "value">[]
+): string {
   const lines = rows.map((row) => {
     const value =
       typeof row.value === "string" ? row.value : JSON.stringify(row.value)
