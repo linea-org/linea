@@ -54,6 +54,30 @@ export function resetPasswordEmailHtml(
   })
 }
 
+export function existingAccountEmailHtml(
+  input: {
+    name?: string | null
+    signInMethod: string
+    signInUrl: string
+  } & EmailTemplateOptions
+) {
+  const greeting = input.name ? `Hi ${escapeHtml(input.name)},` : "Hi,"
+
+  return renderEmailLayout({
+    logo: input.logo ?? "linea",
+    logoUrl: input.logoUrl,
+    preview: "Someone tried to create a new Linea account with your email.",
+    title: "You already have a Linea account",
+    bodyHtml: `
+      <p style="margin:0 0 14px;">${greeting}</p>
+      <p style="margin:0 0 14px;">Someone just tried to sign up for Linea using this email address, but you already have an account.</p>
+      <p style="margin:0;">${escapeHtml(input.signInMethod)}. If this wasn’t you, no action is needed — your account is safe.</p>
+    `,
+    ctaLabel: "Sign in",
+    ctaUrl: input.signInUrl,
+  })
+}
+
 export function organizationInviteEmailHtml(
   input: {
     inviterName: string
