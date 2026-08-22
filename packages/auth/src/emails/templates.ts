@@ -54,6 +54,28 @@ export function resetPasswordEmailHtml(
   })
 }
 
+export function magicLinkEmailHtml(
+  input: {
+    url: string
+  } & EmailTemplateOptions
+) {
+  return renderEmailLayout({
+    logo: input.logo ?? "linea",
+    logoUrl: input.logoUrl,
+    preview: "Sign in to Linea with this link.",
+    title: "Sign in to Linea",
+    bodyHtml: `
+      <p style="margin:0 0 14px;">Hi,</p>
+      <p style="margin:0 0 14px;">Use the button below to sign in to your Linea account. This also proves you own this email address.</p>
+      <p style="margin:0;">This link expires soon and can only be used once. If you didn’t ask for it, you can ignore this email.</p>
+    `,
+    ctaLabel: "Sign in",
+    ctaUrl: input.url,
+    footerNote:
+      "For security, this sign-in link works only once and expires after a short time.",
+  })
+}
+
 export function existingAccountEmailHtml(
   input: {
     name?: string | null
@@ -62,7 +84,6 @@ export function existingAccountEmailHtml(
   } & EmailTemplateOptions
 ) {
   const greeting = input.name ? `Hi ${escapeHtml(input.name)},` : "Hi,"
-
   return renderEmailLayout({
     logo: input.logo ?? "linea",
     logoUrl: input.logoUrl,

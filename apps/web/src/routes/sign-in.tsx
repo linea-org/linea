@@ -12,7 +12,12 @@ import {
 } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
 
-import { AuthShell, OAuthButtons } from "../components/auth"
+import {
+  AuthShell,
+  MagicLinkForm,
+  OAuthButtons,
+  magicLinkVerifyErrorMessage,
+} from "../components/auth"
 import { authClient } from "../lib/auth-client"
 import {
   authErrorMessage,
@@ -29,6 +34,7 @@ export const Route = createFileRoute("/sign-in")({
   validateSearch: z.object({
     invitationId: z.string().optional(),
     email: z.string().optional(),
+    error: z.string().optional(),
   }),
   beforeLoad: async () => {
     await requireGuest()
@@ -38,11 +44,17 @@ export const Route = createFileRoute("/sign-in")({
 
 function SignInPage() {
   const navigate = useNavigate()
-  const { invitationId, email: emailFromInvite } = Route.useSearch()
+  const {
+    invitationId,
+    email: emailFromInvite,
+    error: errorFromLink,
+  } = Route.useSearch()
   const [email, setEmail] = useState(emailFromInvite ?? "")
   const [password, setPassword] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(
+    errorFromLink ? magicLinkVerifyErrorMessage(errorFromLink) : null
+  )
   const [pending, setPending] = useState(false)
 
   async function onSubmit(event: React.FormEvent) {
@@ -157,6 +169,11 @@ function SignInPage() {
             {pending ? "Signing in…" : "Sign in"}
           </Button>
         </form>
+        <MagicLinkForm
+          invitationId={invitationId}
+          defaultEmail={emailFromInvite}
+          onError={(message) => setError(message)}
+        />
       </div>
     </AuthShell>
   )

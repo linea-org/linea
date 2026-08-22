@@ -1,5 +1,10 @@
 import { useState } from "react"
-import { Link, createFileRoute, redirect } from "@tanstack/react-router"
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router"
 import { z } from "zod"
 
 import { Alert, AlertDescription } from "@linea/ui/components/alert"
@@ -16,6 +21,8 @@ import {
 export const Route = createFileRoute("/verify-email")({
   validateSearch: z.object({
     email: z.string().optional(),
+    token: z.string().optional(),
+    invitationId: z.string().optional(),
   }),
   beforeLoad: async () => {
     const session = await fetchSession()
@@ -27,7 +34,8 @@ export const Route = createFileRoute("/verify-email")({
 })
 
 function VerifyEmailPage() {
-  const { email: emailFromSearch } = Route.useSearch()
+  const navigate = useNavigate()
+  const { email: emailFromSearch, token, invitationId } = Route.useSearch()
   const { data: session } = authClient.useSession()
   const email = session?.user.email ?? emailFromSearch
   const [message, setMessage] = useState<string | null>(null)
@@ -53,14 +61,37 @@ function VerifyEmailPage() {
     }
     setMessage("Verification email sent. Check your inbox.")
   }
+  async function activate() {
+    if (!token) return
+    setPending(true)
+    setError(null)
+    const { error: verifyError } = await authClient.verifyEmail({
+      query: { token },
+    })
+    if (verifyError) {
+      setPending(false)
+      setError(authErrorMessage(verifyError, "Could not verify email"))
+      return
+    }
+    if (invitationId) {
+      await navigate({
+        to: "/accept-invitation/$invitationId",
+        params: { invitationId },
+      })
+      return
+    }
+    await navigate({ to: await resolvePostAuthPath() })
+  }
 
   return (
     <AuthShell
-      title="Check your email"
+      title={token ? "Confirm your email" : "Check your email"}
       description={
-        email
-          ? `We sent a verification link to ${email}. Open it to activate your account.`
-          : "We sent a verification link to your inbox. Open it to activate your account."
+        token
+          ? "Confirm this verification link from your email to activate your account."
+          : email
+            ? `We sent a verification link to ${email}. Open it to activate your account.`
+            : "We sent a verification link to your inbox. Open it to activate your account."
       }
       footer={
         <>
@@ -88,17 +119,31 @@ function VerifyEmailPage() {
             <AlertDescription>{message}</AlertDescription>
           </Alert>
         ) : null}
-        <Button
-          type="button"
-          className="w-full"
-          size="lg"
-          disabled={pending || !email}
-          onClick={() => {
-            void resend()
-          }}
-        >
-          {pending ? "Sending…" : "Resend verification email"}
-        </Button>
+        {token ? (
+          <Button
+            type="button"
+            className="w-full"
+            size="lg"
+            disabled={pending}
+            onClick={() => {
+              void activate()
+            }}
+          >
+            {pending ? "Verifying…" : "Confirm email"}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            className="w-full"
+            size="lg"
+            disabled={pending || !email}
+            onClick={() => {
+              void resend()
+            }}
+          >
+            {pending ? "Sending…" : "Resend verification email"}
+          </Button>
+        )}
         <p className="text-center text-xs text-muted-foreground">
           After verifying, you’ll continue to workspace setup automatically.
         </p>
