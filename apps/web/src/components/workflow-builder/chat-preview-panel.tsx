@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   HistoryIcon,
   MessageCircleIcon,
+  PlusIcon,
   SendIcon,
   SquarePenIcon,
   XIcon,
@@ -25,6 +26,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@linea/ui/components/empty"
+import { Input } from "@linea/ui/components/input"
 import {
   InputGroup,
   InputGroupAddon,
@@ -68,6 +70,10 @@ export function ChatPreviewPanel({
     null
   )
   const [input, setInput] = useState("")
+  // "Test as" knob for memory-scoped nodes — editable only before a conversation's first message,
+  // then locked (mirrors conversationId itself already being fixed for the conversation's lifetime).
+  const [externalSubjectId, setExternalSubjectId] = useState("")
+  const [contextOpen, setContextOpen] = useState(false)
   const { data: messages = [] } = useQuery(
     chatMessagesQueryOptions(slug, workflowId, conversationId)
   )
@@ -109,6 +115,7 @@ export function ChatPreviewPanel({
           graph,
           message,
           conversationId: conversationId ?? undefined,
+          externalSubjectId: externalSubjectId.trim() || undefined,
         },
       }),
     onSuccess: (result) => {
@@ -129,6 +136,8 @@ export function ChatPreviewPanel({
   function selectConversation(conversation: ConversationSummary | null) {
     setConversationId(conversation?.conversationId ?? null)
     setPendingExecutionId(null)
+    setExternalSubjectId(conversation?.externalSubjectId ?? "")
+    setContextOpen(false)
   }
   function handleSend() {
     const trimmed = input.trim()
@@ -141,6 +150,8 @@ export function ChatPreviewPanel({
     setConversationId(null)
     setPendingExecutionId(null)
     setInput("")
+    setExternalSubjectId("")
+    setContextOpen(false)
   }
   const isWaiting = pendingExecutionId !== null
   const failed = pendingExecution?.execution.status === "failed"
@@ -149,13 +160,19 @@ export function ChatPreviewPanel({
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
           Chat preview
+          {conversationId !== null && externalSubjectId ? (
+            <span className="font-normal text-muted-foreground">
+              {" "}
+              · Testing as: {externalSubjectId}
+            </span>
+          ) : null}
         </p>
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={startNewChat}
-          disabled={!conversationId && messages.length === 0}
+          disabled={(!conversationId && messages.length === 0) || isWaiting}
         >
           <SquarePenIcon />
           New chat
@@ -170,6 +187,41 @@ export function ChatPreviewPanel({
           <XIcon />
         </Button>
       </div>
+      {conversationId === null ? (
+        <div className="border-b border-border px-3 py-2">
+          {contextOpen ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={externalSubjectId}
+                onChange={(event) => setExternalSubjectId(event.target.value)}
+                placeholder="External subject ID (optional)"
+                className="h-7 text-xs"
+                disabled={isWaiting}
+                autoFocus
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setContextOpen(false)}
+                aria-label="Hide test context"
+              >
+                <XIcon />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setContextOpen(true)}
+            >
+              <PlusIcon />
+              Test context
+            </Button>
+          )}
+        </div>
+      ) : null}
       {conversations.length > 0 && (
         <div className="border-b border-border p-2">
           <Combobox
@@ -179,7 +231,12 @@ export function ChatPreviewPanel({
             itemToStringLabel={(item) => item.preview}
             isItemEqualToValue={(a, b) => a.conversationId === b.conversationId}
           >
-            <ComboboxInput placeholder="Search past conversations…" showClear />
+            <ComboboxInput
+              placeholder="Search past conversations…"
+              showClear
+              className="cursor-pointer"
+              disabled={isWaiting}
+            />
             <ComboboxContent>
               <ComboboxEmpty>No matching conversations.</ComboboxEmpty>
               <ComboboxList>

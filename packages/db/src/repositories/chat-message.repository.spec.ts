@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   createChatMessage,
   deleteOrphanedChatMessages,
+  getEstablishedExternalSubjectId,
   listChatMessages,
   listConversations,
 } from "./chat-message.repository.js"
@@ -507,6 +508,72 @@ describe("chat-message.repository", () => {
           conversationId
         )
         expect(remaining).toHaveLength(1)
+      })
+    })
+  })
+
+  describe("getEstablishedExternalSubjectId", () => {
+    it("reports not found for a conversation with no turns yet", async () => {
+      await withRollback(async (tx) => {
+        const { organization, workflow } = await createTestFixtures(tx)
+
+        const result = await getEstablishedExternalSubjectId(
+          tx,
+          organization.id,
+          workflow.id,
+          randomUUID()
+        )
+        expect(result).toEqual({ found: false, externalSubjectId: null })
+      })
+    })
+
+    it("returns the subject established by the first turn", async () => {
+      await withRollback(async (tx) => {
+        const { organization, workflow } = await createTestFixtures(tx)
+        const conversationId = randomUUID()
+
+        await createChatMessage(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "user",
+          content: "hello",
+          externalSubjectId: "customer-42",
+        })
+
+        const result = await getEstablishedExternalSubjectId(
+          tx,
+          organization.id,
+          workflow.id,
+          conversationId
+        )
+        expect(result).toEqual({
+          found: true,
+          externalSubjectId: "customer-42",
+        })
+      })
+    })
+
+    it("reports found with a null subject for a conversation whose turns never set one", async () => {
+      await withRollback(async (tx) => {
+        const { organization, workflow } = await createTestFixtures(tx)
+        const conversationId = randomUUID()
+
+        await createChatMessage(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "user",
+          content: "hello",
+        })
+
+        const result = await getEstablishedExternalSubjectId(
+          tx,
+          organization.id,
+          workflow.id,
+          conversationId
+        )
+        expect(result).toEqual({ found: true, externalSubjectId: null })
       })
     })
   })

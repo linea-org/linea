@@ -24,6 +24,7 @@ export type ConversationSummary = {
   preview: string
   lastMessageAt: string
   messageCount: number
+  externalSubjectId: string | null
 }
 
 async function parseErrorMessage(
@@ -43,6 +44,7 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
       graph: Record<string, JsonValue>
       conversationId?: string
       message: string
+      externalSubjectId?: string
     }) => data
   )
   .handler(async ({ data }): Promise<SendChatMessageResult> => {
@@ -53,6 +55,7 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
         graph: data.graph,
         conversationId: data.conversationId,
         message: data.message,
+        externalSubjectId: data.externalSubjectId,
       }),
     })
     if (!res.ok) {

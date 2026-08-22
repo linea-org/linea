@@ -31,6 +31,9 @@ export const chatMessages = snakeCase.table(
 
     role: chatMessageRole().notNull(),
     content: text().notNull(),
+    // Chat Preview's "test as" knob — same value repeated on every message in a conversation, so a
+    // memory-scoped node's subjectPath can resolve it from any turn's own triggerPayload, not just the first.
+    externalSubjectId: text(),
 
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },

@@ -199,12 +199,36 @@ export class ExecutionsService {
 
     // Created in one transaction so a trigger failure rolls back the message too, not an orphaned turn.
     const { chatMessage, execution } = await db.transaction(async (tx) => {
+      // A conversation's subject is pinned by its first turn — a later turn's own request value
+      // is never allowed to override it, or memory-scoped nodes could silently read/write a
+      // different subject's partition mid-conversation depending on what a given request
+      // happened to send. The lock serializes two concurrent first turns for the same
+      // conversationId: without it, both could read "not found" here and each insert with a
+      // different subject, and the DB has no unique constraint on conversationId to catch that.
+      await repositories.chatMessage.acquireConversationLock(
+        tx,
+        workspaceId,
+        workflowId,
+        conversationId,
+      )
+      const established =
+        await repositories.chatMessage.getEstablishedExternalSubjectId(
+          tx,
+          workspaceId,
+          workflowId,
+          conversationId,
+        )
+      const externalSubjectId = established.found
+        ? (established.externalSubjectId ?? undefined)
+        : input.externalSubjectId
+
       const chatMessage = await repositories.chatMessage.createChatMessage(tx, {
         workspaceId,
         workflowId,
         conversationId,
         role: 'user',
         content: input.message,
+        externalSubjectId,
       })
 
       const result =
@@ -215,7 +239,11 @@ export class ExecutionsService {
           version.id,
           {
             trigger: 'manual',
-            triggerPayload: { conversationId, chatMessageId: chatMessage.id },
+            triggerPayload: {
+              conversationId,
+              chatMessageId: chatMessage.id,
+              ...(externalSubjectId ? { externalSubjectId } : {}),
+            },
           },
         )
       switch (result.outcome) {
