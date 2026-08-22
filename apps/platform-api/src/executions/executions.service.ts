@@ -72,7 +72,11 @@ export class ExecutionsService {
       db,
       workspaceId,
       { by: 'id', value: workflowId },
-      { trigger: 'manual', triggerPayload: input.triggerPayload },
+      {
+        trigger: 'manual',
+        triggerPayload: input.triggerPayload,
+        environment: input.environment ?? 'dev',
+      },
     )
     switch (result.outcome) {
       case 'not_found':
@@ -138,7 +142,7 @@ export class ExecutionsService {
         workspaceId,
         workflowId,
         version.id,
-        { trigger: 'manual' },
+        { trigger: 'manual', environment: 'draft' },
       )
     switch (result.outcome) {
       case 'not_found':
@@ -235,6 +239,7 @@ export class ExecutionsService {
               chatMessageId: chatMessage.id,
               ...(externalSubjectId ? { externalSubjectId } : {}),
             },
+            environment: 'draft',
           },
         )
       switch (result.outcome) {

@@ -1,0 +1,2 @@
+CREATE TYPE "execution_environment" AS ENUM('draft', 'dev', 'production');--> statement-breakpoint
+ALTER TABLE "executions" ADD COLUMN "environment" "execution_environment" DEFAULT 'dev'::"execution_environment" NOT NULL;

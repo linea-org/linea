@@ -13,11 +13,14 @@ export type ExecutionStatus =
 
 export type ExecutionTrigger = "manual" | "schedule" | "webhook" | "api"
 
+export type ExecutionEnvironment = "draft" | "dev" | "production"
+
 export type ExecutionSummary = {
   id: string
   workflowId: string
   status: ExecutionStatus
   trigger: ExecutionTrigger
+  environment: ExecutionEnvironment
   costMicros: string
   // True: costMicros is a known-partial lower bound. False: fully priced. Null: this execution predates cost-unpriced tracking, not the same as false.
   costUnpriced: boolean | null

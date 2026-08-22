@@ -151,6 +151,16 @@ describe('ExecutionsService', () => {
       })
       expect(execution.status).toBe('queued')
       expect(execution.trigger).toBe('manual')
+      expect(execution.environment).toBe('dev')
+
+      const prodExecution = await service.trigger(
+        organization.id,
+        workflow.id,
+        {
+          environment: 'production',
+        },
+      )
+      expect(prodExecution.environment).toBe('production')
 
       const list = await service.list(organization.id, workflow.id)
       expect(list.map((e) => e.id)).toContain(execution.id)
@@ -324,6 +334,7 @@ describe('ExecutionsService', () => {
           graph,
         })
         expect(execution.status).toBe('queued')
+        expect(execution.environment).toBe('draft')
 
         const versions = await pool.query(
           'SELECT id FROM workflow_versions WHERE workflow_id = $1',
@@ -442,6 +453,7 @@ describe('ExecutionsService', () => {
           conversationId: first.conversationId,
           chatMessageId: messagesAfterFirst[0].id,
         })
+        expect(first.execution.environment).toBe('draft')
 
         const second = await service.sendChatMessage(
           organization.id,

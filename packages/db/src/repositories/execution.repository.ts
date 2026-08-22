@@ -48,6 +48,7 @@ export async function triggerWorkflowExecution(
   input: {
     trigger: Execution["trigger"]
     triggerPayload?: Record<string, unknown>
+    environment?: Execution["environment"]
   }
 ): Promise<TriggerWorkflowResult> {
   return db.transaction(async (tx) => {
@@ -76,6 +77,7 @@ export async function triggerWorkflowExecution(
         workflowVersionId: workflow.publishedVersionId,
         trigger: input.trigger,
         triggerPayload: input.triggerPayload,
+        ...(input.environment ? { environment: input.environment } : {}),
       })
       .returning()
 
@@ -92,6 +94,7 @@ export async function triggerWorkflowExecutionForVersion(
   input: {
     trigger: Execution["trigger"]
     triggerPayload?: Record<string, unknown>
+    environment?: Execution["environment"]
   }
 ): Promise<TriggerWorkflowForVersionResult> {
   return db.transaction(async (tx) => {
@@ -117,6 +120,7 @@ export async function triggerWorkflowExecutionForVersion(
         workflowVersionId: versionId,
         trigger: input.trigger,
         triggerPayload: input.triggerPayload,
+        ...(input.environment ? { environment: input.environment } : {}),
       })
       .returning()
 
