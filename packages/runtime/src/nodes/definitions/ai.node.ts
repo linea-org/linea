@@ -21,6 +21,9 @@ const aiInputSchema = z.object({
   tools: z.array(aiToolSchema).optional(),
   // Not yet UI-exposed — caps the tool-calling loop; defaulted by the execution-worker handler.
   maxIterations: z.number().int().positive().optional(),
+  // Empty/omitted keeps today's exact behavior — no memory lookup at all.
+  memorySubjectPath: z.string().optional(),
+  memoryNamespace: z.string().optional(),
   // Interpreter-owned; omitted means no retry. Completions are not idempotent.
   retryPolicy: retryPolicySchema.optional(),
 })
@@ -86,6 +89,20 @@ export const aiNode: NodeDefinition<
         widget: "code",
         description:
           "Optional HTTP tools the model can call: JSON array of {name, description, parameters (JSON Schema), url, method}. Leave empty for a single-shot completion.",
+      },
+      {
+        key: "memorySubjectPath",
+        label: "Memory subject path",
+        widget: "text",
+        description:
+          "Dot-path into this node's input identifying whose memory to recall (e.g. your app's own user id) — not a Linea user. Leave empty to skip memory entirely.",
+      },
+      {
+        key: "memoryNamespace",
+        label: "Memory namespace",
+        widget: "text",
+        description:
+          "Leave empty to isolate memory to this workflow. Set the same value as a Memory node writing to it to read what it wrote.",
       },
       {
         key: "retryPolicy",
