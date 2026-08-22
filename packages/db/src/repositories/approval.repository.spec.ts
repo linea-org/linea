@@ -40,6 +40,20 @@ async function addMember(db: DbClient, organizationId: string, email: string) {
   return member
 }
 
+// claimAndResolveTimedOutApproval claims one arbitrary due approval across the whole database by
+// design (it's a background sweep's "process the next one" step, not scoped to a workspace) — so
+// a real leftover pending-and-overdue approval anywhere in this shared local dev Postgres (from
+// unrelated manual testing, say) can get claimed ahead of the row a test just created, or make an
+// "expect nothing due" test see something due after all. Draining first, inside this test's own
+// rolled-back transaction, clears that backlog for the rest of this test without touching anything
+// outside it — the drain's own updates roll back along with everything else once the test ends.
+async function drainDueApprovals(tx: Transaction): Promise<void> {
+  let result = await claimAndResolveTimedOutApproval(tx)
+  while (result.outcome === "resolved") {
+    result = await claimAndResolveTimedOutApproval(tx)
+  }
+}
+
 describe("approval.repository", () => {
   it("creates an approval, is idempotent on (executionId, nodeId), and is retrievable via getApproval", async () => {
     await withRollback(async (tx) => {
@@ -333,6 +347,7 @@ describe("approval.repository", () => {
   describe("claimAndResolveTimedOutApproval", () => {
     it("resolves a past-due approval per its timeoutAction and resumes the paused execution", async () => {
       await withRollback(async (tx) => {
+        await drainDueApprovals(tx)
         const { organization, execution } = await insertExecution(tx)
         await tx
           .update(executions)
@@ -365,6 +380,7 @@ describe("approval.repository", () => {
 
     it("applies auto_approve", async () => {
       await withRollback(async (tx) => {
+        await drainDueApprovals(tx)
         const { organization, execution } = await insertExecution(tx)
         await createApproval(tx, {
           workspaceId: organization.id,
@@ -387,6 +403,7 @@ describe("approval.repository", () => {
 
     it("does not claim approvals with no timeout or a future timeout", async () => {
       await withRollback(async (tx) => {
+        await drainDueApprovals(tx)
         const { organization, execution } = await insertExecution(tx)
         await createApproval(tx, {
           workspaceId: organization.id,

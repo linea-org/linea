@@ -1,3 +1,4 @@
+import { retryPolicySchema } from "../nodes/retry-policy.js"
 import type { WorkflowGraph } from "./schema.js"
 
 export class WorkflowGraphError extends Error {}
@@ -50,10 +51,26 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
           `Entry node "${node.id}" cannot have incoming edges`
         )
       }
-    } else if (count !== 1) {
-      throw new WorkflowGraphError(
-        `Node "${node.id}" must have exactly one incoming edge, has ${count}`
-      )
+    } else {
+      // Only a merge node fans in — every other node still takes exactly one predecessor.
+      const expected = node.type === "merge" ? 2 : 1
+      if (count !== expected) {
+        throw new WorkflowGraphError(
+          `Node "${node.id}" must have exactly ${expected} incoming edge${expected === 1 ? "" : "s"}, has ${count}`
+        )
+      }
+      // Two edges from the same source isn't two real inputs — the walker would resolve the
+      // merge's input by reading that one predecessor's output twice, not combining two values.
+      if (node.type === "merge") {
+        const sources = graph.edges
+          .filter((edge) => edge.to === node.id)
+          .map((edge) => edge.from)
+        if (new Set(sources).size !== sources.length) {
+          throw new WorkflowGraphError(
+            `Merge node "${node.id}" has two incoming edges from the same source "${sources[0]}"`
+          )
+        }
+      }
     }
     if (
       node.type === "end" &&
@@ -61,6 +78,34 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
     ) {
       throw new WorkflowGraphError(
         `End node "${node.id}" cannot have outgoing edges`
+      )
+    }
+  }
+
+  // A condition on a non-branch node's edge would be silently ignored by the walker (it isn't
+  // matched against anything) — reject it here rather than let it quietly do nothing.
+  for (const node of graph.nodes) {
+    if (node.type === "branch") continue
+    const stray = graph.edges.find(
+      (edge) => edge.from === node.id && edge.condition !== undefined
+    )
+    if (stray) {
+      throw new WorkflowGraphError(
+        `Node "${node.id}" is not a branch node but has a conditioned outgoing edge to "${stray.to}"`
+      )
+    }
+  }
+
+  // Runs here (not just in the builder's config panel) so a graph that was saved before this
+  // field existed, or edited outside the UI, is rejected on every path that reaches the
+  // interpreter — publish, trigger/test-run, and the worker's own pre-execution check — instead
+  // of silently having its retries disabled deep inside interpreter.service.ts.
+  for (const node of graph.nodes) {
+    if (node.config.retryPolicy === undefined) continue
+    const result = retryPolicySchema.safeParse(node.config.retryPolicy)
+    if (!result.success) {
+      throw new WorkflowGraphError(
+        `Node "${node.id}" has an invalid retryPolicy: ${result.error.message}`
       )
     }
   }
@@ -107,5 +152,67 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
         `Node "${node.id}" is not reachable from the entry node`
       )
     }
+  }
+
+  // A merge whose two predecessors trace back through opposite arms of the same branch can never
+  // fire — the walker only activates a branch's taken edge, so the untaken arm's node never
+  // completes and the merge waits forever, silently skipping it and everything downstream while
+  // still reporting the execution as succeeded. Detectable here because every node but merge has
+  // exactly one predecessor (checked above), so "which branch conditions does reaching this node
+  // require" is well-defined by walking backward, recombining at each merge along the way.
+  type BranchChoices = Map<string, string>
+  const choicesCache = new Map<string, BranchChoices>()
+  const withEdge = (
+    choices: BranchChoices,
+    edge: WorkflowGraph["edges"][number]
+  ): BranchChoices => {
+    const fromNode = graph.nodes.find((n) => n.id === edge.from)
+    if (fromNode?.type !== "branch" || edge.condition === undefined) {
+      return choices
+    }
+    const next = new Map(choices)
+    next.set(edge.from, edge.condition)
+    return next
+  }
+  const combineChoices = (
+    a: BranchChoices,
+    b: BranchChoices,
+    mergeNodeId: string
+  ): BranchChoices => {
+    const combined = new Map(a)
+    for (const [branchId, condition] of b) {
+      const existing = combined.get(branchId)
+      if (existing !== undefined && existing !== condition) {
+        throw new WorkflowGraphError(
+          `Merge node "${mergeNodeId}" combines two inputs that can never both occur in the same execution — one requires branch "${branchId}" to take "${existing}", the other requires "${condition}"`
+        )
+      }
+      combined.set(branchId, condition)
+    }
+    return combined
+  }
+  const requiredChoices = (nodeId: string): BranchChoices => {
+    const cached = choicesCache.get(nodeId)
+    if (cached) return cached
+    let result: BranchChoices
+    if (nodeId === graph.entryNodeId) {
+      result = new Map()
+    } else {
+      const incoming = graph.edges.filter((edge) => edge.to === nodeId)
+      const [first, second] = incoming
+      result =
+        second === undefined
+          ? withEdge(requiredChoices(first.from), first)
+          : combineChoices(
+              withEdge(requiredChoices(first.from), first),
+              withEdge(requiredChoices(second.from), second),
+              nodeId
+            )
+    }
+    choicesCache.set(nodeId, result)
+    return result
+  }
+  for (const node of graph.nodes) {
+    requiredChoices(node.id)
   }
 }

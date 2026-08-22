@@ -71,6 +71,10 @@ export class MemoryNode implements NodeHandler {
     }
     const expiresAt = resolveExpiresAt(config.ttlSeconds)
 
+    // No content restriction on `value` here — it's stored as whatever this workflow wrote,
+    // including free-form text. If an Agent node later recalls it (see ai.node.ts's memory-recall
+    // block), that string reaches a model call as plain text; see the trust-boundary comment there
+    // for why that's a documented, unresolved limitation rather than something to guard against here.
     await repositories.memory.writeMemory(db, {
       ...scope,
       key,

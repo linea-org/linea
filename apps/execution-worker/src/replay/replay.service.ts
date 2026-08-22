@@ -102,6 +102,31 @@ export class ReplayService {
         `Replay ${job.replayStepId}: reclaimed a stale claim, this is attempt ${claimed.step.attempt}`
       )
     }
+    // Wait looks up its resumedAt by (executionId, nodeId), keyed to the original execution so the
+    // node-context guard has an id to check — but that means it always finds the original, already-
+    // fired timer and returns its old resumedAt, silently ignoring any duration/timestamp override
+    // in this replay. There's no sound way to give a one-shot synchronous replay its own isolated
+    // timer (that would mean actually pausing it, which replay can't do), so reject outright rather
+    // than return a result that looks like it honored the override but didn't.
+    if (mergedNode.type === "wait") {
+      await repositories.executionStep.completeReplayStep(
+        db,
+        job.replayStepId,
+        claimed.claimToken,
+        {
+          endedAt: new Date(),
+          status: "failed",
+          error: {
+            message:
+              "Wait nodes can't be replayed: their result is a timer that already fired for the original execution, so a replay would return that old outcome instead of honoring any override.",
+          },
+          costMicros: 0n,
+          tokensInput: 0,
+          tokensOutput: 0,
+        }
+      )
+      return
+    }
     // Renewed for as long as executeNode runs, so a slow AI/HTTP call isn't mistaken for abandoned; completeReplayStep's own fencing is the real backstop if renewal ever loses the claim.
     let claimToken = claimed.claimToken
     // Skips a tick if a renewal is already in flight, and completion always awaits it before reading claimToken — otherwise a late-resolving renewal could leave claimToken stale and completeReplayStep would wrongly fence out a real result.
@@ -155,7 +180,11 @@ export class ReplayService {
         originalStep.input,
         execution.workspaceId,
         job.replayStepId,
-        abortController.signal
+        abortController.signal,
+        // Wait (and any future node type keyed by executionId) needs its originating execution's
+        // id to look itself up — omitting it isn't "no context," it's a context guard tripping,
+        // since a node like Wait can't tell "no execution" apart from "id genuinely absent."
+        execution.id
       )
       const isAiCall =
         mergedNode.type === "ai" &&

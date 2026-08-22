@@ -14,6 +14,20 @@ afterAll(async () => {
   await pool.end()
 })
 
+// claimAndResolveDueWaitTimer claims one arbitrary due wait timer across the whole database by
+// design (it backs the background poller's "fire the next one" step, not scoped to a workspace)
+// — so a real leftover due timer anywhere in this shared local dev Postgres could get claimed
+// ahead of the one this test just created, leaving the test's own timer still unfired. Draining
+// first clears that backlog (a real, if benign, side effect here — this test isn't wrapped in a
+// rolled-back transaction — but every drained timer really was due, so firing it early is exactly
+// what the real poller would have done anyway).
+async function drainDueWaitTimers(now?: Date): Promise<void> {
+  let result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db, now)
+  while (result.outcome === 'fired') {
+    result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db, now)
+  }
+}
+
 describe('deleteChatMessageWithRetry', () => {
   it('does not retry once the delete succeeds', async () => {
     const deleteFn = jest.fn().mockResolvedValue(undefined)
@@ -183,6 +197,81 @@ describe('ExecutionsService', () => {
       await pool.query('DELETE FROM organizations WHERE id IN ($1, $2)', [
         organization.id,
         otherOrg.id,
+      ])
+    }
+  })
+
+  it('reports pausedAtNode for an execution paused on a wait timer, and omits it once resolved', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        ExecutionsService,
+        WorkflowQueueService,
+        StepReplayQueueService,
+      ],
+    }).compile()
+    const service = moduleRef.get(ExecutionsService)
+
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: 'Executions PausedAtNode Test Org',
+        slug: `executions-paused-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      await drainDueWaitTimers()
+
+      const waitGraph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: 'manual' },
+        entryNodeId: 'wait-1',
+        nodes: [{ id: 'wait-1', type: 'wait', config: {} }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: 'Paused Workflow',
+        slug: `paused-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph: waitGraph,
+        contentHash: 'paused-test-hash',
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: 'manual',
+      })
+      await pool.query(
+        "UPDATE executions SET status = 'paused', leased_by = NULL, lease_expires_at = NULL WHERE id = $1",
+        [execution.id],
+      )
+      await repositories.waitTimer.createWaitTimer(db, {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: 'wait-1',
+        resumeAt: new Date(Date.now() + 60_000),
+      })
+
+      const paused = await service.get(organization.id, execution.id)
+      expect(paused.pausedAtNode).toEqual({ nodeId: 'wait-1', type: 'wait' })
+
+      // Resolved (fired) — no longer paused, so pausedAtNode should disappear.
+      await repositories.waitTimer.claimAndResolveDueWaitTimer(
+        db,
+        new Date(Date.now() + 120_000),
+      )
+      const resolved = await service.get(organization.id, execution.id)
+      expect(resolved.pausedAtNode).toBeUndefined()
+    } finally {
+      await moduleRef.close()
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        organization.id,
       ])
     }
   })
