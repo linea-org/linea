@@ -430,7 +430,7 @@ describe("ReplayService.replay", () => {
     }
   })
 
-  it("succeeds replaying a completed Wait step, instead of failing on a missing executionId in context", async () => {
+  it("rejects replaying a completed Wait step, rather than silently returning the original fired timer's stale resumedAt", async () => {
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -525,10 +525,12 @@ describe("ReplayService.replay", () => {
       const replay = new ReplayService(interpreter)
 
       const replayStepId = randomUUID()
+      // An override that would produce a different resumedAt if it were honored — proves the
+      // rejection isn't a coincidence of the fixed-config case.
       await replay.replay({
         replayStepId,
         originalStepId: originalStep.id,
-        overrideConfig: {},
+        overrideConfig: { amount: 5 },
       })
 
       const result = await repositories.execution.getExecutionWithSteps(
@@ -536,8 +538,9 @@ describe("ReplayService.replay", () => {
         execution.id
       )
       const replayRow = result?.steps.find((s) => s.id === replayStepId)
-      expect(replayRow?.status).toBe("succeeded")
-      expect(replayRow?.output).toEqual({ resumedAt: firedAt.toISOString() })
+      expect(replayRow?.status).toBe("failed")
+      expect(replayRow?.error?.message).toMatch(/can't be replayed/)
+      expect(replayRow?.output).toBeNull()
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
