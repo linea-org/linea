@@ -155,7 +155,11 @@ export class ReplayService {
         originalStep.input,
         execution.workspaceId,
         job.replayStepId,
-        abortController.signal
+        abortController.signal,
+        // Wait (and any future node type keyed by executionId) needs its originating execution's
+        // id to look itself up — omitting it isn't "no context," it's a context guard tripping,
+        // since a node like Wait can't tell "no execution" apart from "id genuinely absent."
+        execution.id
       )
       const isAiCall =
         mergedNode.type === "ai" &&
