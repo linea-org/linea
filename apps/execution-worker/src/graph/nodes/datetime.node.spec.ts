@@ -49,6 +49,22 @@ describe("DatetimeNode", () => {
     ).toThrow('missing "amount"')
   })
 
+  it("treats a whitespace-only string amount as missing, not as zero", () => {
+    const node = new DatetimeNode()
+
+    expect(() =>
+      node.execute(
+        {
+          operation: "add",
+          date: "2026-01-01T00:00:00.000Z",
+          unit: "days",
+          amount: "   ",
+        },
+        undefined
+      )
+    ).toThrow('missing "amount"')
+  })
+
   it("subtracts a duration from a date", async () => {
     const node = new DatetimeNode()
 

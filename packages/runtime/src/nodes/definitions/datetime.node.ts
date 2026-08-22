@@ -27,7 +27,13 @@ const datetimePartSchema = z.enum([
 // z.coerce'd: an empty string must still read as "missing" (surfaced as the handler's own clear
 // "Datetime node is missing amount" error), not silently coerce to 0 the way Number("") would.
 const amountSchema = z.preprocess((value) => {
-  if (value === undefined || value === null || value === "") return undefined
+  if (
+    value === undefined ||
+    value === null ||
+    (typeof value === "string" && value.trim() === "")
+  ) {
+    return undefined
+  }
   if (typeof value !== "string") return value
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : value
