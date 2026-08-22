@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
-import { organizations } from "../schema/index.js"
+import { memories, organizations } from "../schema/index.js"
 import { listMemories, readMemory, writeMemory } from "./memory.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 
@@ -181,6 +181,30 @@ describe("memory.repository", () => {
 
         const rows = await listMemories(tx, { ...scope, limit: 10 })
         expect(rows.map((r) => r.key)).toEqual(["a", "b"])
+      })
+    })
+
+    it("breaks an updatedAt tie deterministically by id, instead of an arbitrary/unstable order", async () => {
+      await withRollback(async (tx) => {
+        const { organization } = await createTestFixtures(tx)
+        const scope = {
+          workspaceId: organization.id,
+          externalSubjectId: "user-1",
+          namespace: "wf-1",
+        }
+
+        await writeMemory(tx, { ...scope, key: "a", value: "1" })
+        await writeMemory(tx, { ...scope, key: "b", value: "2" })
+        // Force a real tie — writeMemory's own timestamps are never guaranteed to collide.
+        const tiedAt = new Date()
+        await tx
+          .update(memories)
+          .set({ updatedAt: tiedAt })
+          .where(eq(memories.namespace, "wf-1"))
+
+        const first = await listMemories(tx, { ...scope, limit: 10 })
+        const second = await listMemories(tx, { ...scope, limit: 10 })
+        expect(first.map((r) => r.key)).toEqual(second.map((r) => r.key))
       })
     })
 

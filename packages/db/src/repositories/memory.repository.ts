@@ -77,17 +77,21 @@ export async function listMemories(
   input: ListMemoriesInput,
   now: Date = new Date()
 ) {
-  return db
-    .select()
-    .from(memories)
-    .where(
-      and(
-        eq(memories.workspaceId, input.workspaceId),
-        eq(memories.externalSubjectId, input.externalSubjectId),
-        eq(memories.namespace, input.namespace),
-        or(isNull(memories.expiresAt), gt(memories.expiresAt, now))
+  return (
+    db
+      .select()
+      .from(memories)
+      .where(
+        and(
+          eq(memories.workspaceId, input.workspaceId),
+          eq(memories.externalSubjectId, input.externalSubjectId),
+          eq(memories.namespace, input.namespace),
+          or(isNull(memories.expiresAt), gt(memories.expiresAt, now))
+        )
       )
-    )
-    .orderBy(desc(memories.updatedAt))
-    .limit(input.limit)
+      // id as a tie-breaker: updatedAt alone isn't unique, so without it the cutoff row when more
+      // matches than the limit share a timestamp would be picked nondeterministically per query.
+      .orderBy(desc(memories.updatedAt), desc(memories.id))
+      .limit(input.limit)
+  )
 }
