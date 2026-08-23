@@ -756,12 +756,11 @@ function WorkflowBuilderCanvasInner({
                   </>
                 )}
               </ResizablePanelGroup>
-              {activeRunExecutionId && (
-                <RunPanelStatusBar
-                  open={runPanelOpen}
-                  onToggle={() => setRunPanelOpen((current) => !current)}
-                />
-              )}
+              <RunPanelStatusBar
+                open={runPanelOpen}
+                hasRun={activeRunExecutionId !== null}
+                onToggle={() => setRunPanelOpen((current) => !current)}
+              />
             </div>
           </ResizablePanel>
           {rightPanel === "config" && selectedNode && (

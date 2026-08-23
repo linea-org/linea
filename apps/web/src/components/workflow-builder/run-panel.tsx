@@ -50,8 +50,8 @@ export function RunPanel({
   })
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden border-t border-border bg-card">
-      <div className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-1.5">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-t-lg border-t border-border bg-card">
+      <div className="flex shrink-0 items-center gap-3 rounded-t-lg border-b border-border px-3 py-1.5">
         {data ? (
           <>
             <ExecutionStatusBadge status={data.execution.status} />
@@ -122,32 +122,44 @@ export function RunPanel({
   )
 }
 
-/** The persistent trigger for the run panel — always visible once there's a run to show,
+/** The persistent trigger for the run panel — always visible, even before the first Test run,
  * sitting as a thin strip under the canvas rather than a button in the top toolbar, the same
- * "always-there tab" pattern a code editor's terminal bar uses. Toggling never moves the palette
- * or the config/chat side panel — only the canvas column above it resizes. */
+ * "always-there tab" pattern a code editor's terminal bar uses. Always visible is the point:
+ * a trigger that only appears after its own target exists isn't discoverable as a trigger.
+ * Toggling never moves the palette or the config/chat side panel — only the canvas column above
+ * it resizes. Always carries the card's own bottom rounding, since it's always the last element
+ * in the canvas column regardless of whether the run panel above it is open. */
 export function RunPanelStatusBar({
   open,
+  hasRun,
   onToggle,
 }: {
   open: boolean
+  hasRun: boolean
   onToggle: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onToggle}
+      disabled={!hasRun}
       aria-pressed={open}
       className={cn(
-        "flex shrink-0 items-center gap-1.5 border-t border-border bg-card px-3 py-1 text-[11px] text-muted-foreground hover:text-foreground",
+        "flex shrink-0 items-center gap-1.5 rounded-b-lg border-t border-border bg-card px-3 py-1 text-[11px] text-muted-foreground",
+        hasRun && "hover:text-foreground",
+        !hasRun && "cursor-default opacity-60",
         open && "text-foreground"
       )}
     >
       <TerminalIcon className="size-3.5" />
       Run
-      <ChevronDownIcon
-        className={cn("size-3 transition-transform", !open && "-rotate-90")}
-      />
+      {hasRun ? (
+        <ChevronDownIcon
+          className={cn("size-3 transition-transform", !open && "-rotate-90")}
+        />
+      ) : (
+        <span className="text-muted-foreground">— test run to see it here</span>
+      )}
     </button>
   )
 }
