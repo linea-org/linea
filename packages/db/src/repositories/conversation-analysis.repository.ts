@@ -4,6 +4,7 @@ import {
   conversationAnalysisClaims,
   conversationFindings,
   type ConversationAnalysis,
+  type ConversationFinding,
   type NewConversationAnalysis,
   type NewConversationFinding,
 } from "../schema/index.js"
@@ -107,6 +108,28 @@ export async function createConversationAnalysis(
     .values(input)
     .returning()
   return analysis
+}
+
+export async function getConversationAnalysisById(
+  db: DbClient,
+  analysisId: string
+): Promise<ConversationAnalysis | undefined> {
+  const [analysis] = await db
+    .select()
+    .from(conversationAnalyses)
+    .where(eq(conversationAnalyses.id, analysisId))
+  return analysis
+}
+
+export async function getConversationFindingById(
+  db: DbClient,
+  findingId: string
+): Promise<ConversationFinding | undefined> {
+  const [finding] = await db
+    .select()
+    .from(conversationFindings)
+    .where(eq(conversationFindings.id, findingId))
+  return finding
 }
 
 export type NewFindingInput = Omit<NewConversationFinding, "analysisId">
