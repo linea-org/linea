@@ -82,7 +82,6 @@ export function MagicLinkForm({
   }
   return (
     <div className="space-y-4">
-     
       {sentTo ? (
         <Alert>
           <AlertDescription>

@@ -12,7 +12,6 @@ import {
 } from "../components/auth"
 import { requireGuest } from "../lib/auth-redirect"
 
-
 export const Route = createFileRoute("/sign-in")({
   validateSearch: z.object({
     invitationId: z.string().optional(),
@@ -34,7 +33,6 @@ function SignInPage() {
   const [error, setError] = useState<string | null>(
     errorFromLink ? magicLinkVerifyErrorMessage(errorFromLink) : null
   )
-  
   return (
     <AuthShell
       title="Welcome back"
@@ -44,7 +42,11 @@ function SignInPage() {
           Don’t have an account?{" "}
           <Link
             to="/sign-up"
-            search={invitationId ? { invitationId, email: emailFromInvite } :undefined}
+            search={
+              invitationId
+                ? { invitationId, email: emailFromInvite }
+                : undefined
+            }
             className="font-medium text-primary underline-offset-4 hover:underline"
           >
             Sign up
@@ -62,7 +64,6 @@ function SignInPage() {
           invitationId={invitationId}
           onError={(message) => setError(message)}
         />
-        
         <MagicLinkForm
           invitationId={invitationId}
           defaultEmail={emailFromInvite}
