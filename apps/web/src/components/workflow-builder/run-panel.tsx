@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { ChevronDownIcon, TerminalIcon } from "lucide-react"
+import { ChevronUpIcon, TerminalIcon, XIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
 import {
@@ -67,7 +67,7 @@ export function RunPanel({
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-t-lg border-t border-border bg-card">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden border-t border-border bg-card">
       <div className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-1.5">
         {data ? (
           <>
@@ -129,7 +129,7 @@ export function RunPanel({
             aria-label="Close run panel"
             title="Close run panel"
           >
-            <ChevronDownIcon />
+            <XIcon />
           </Button>
         </div>
       </div>
@@ -153,14 +153,15 @@ export function RunPanel({
   )
 }
 
-/** The persistent trigger for the run panel — always visible, even before the first Test run,
- * sitting as a thin strip under the canvas rather than a button in the top toolbar, the same
- * "always-there tab" pattern a code editor's terminal bar uses. Always visible is the point:
- * a trigger that only appears after its own target exists isn't discoverable as a trigger.
- * Toggling never moves the palette or the config/chat side panel — only the canvas column above
- * it resizes. Always carries the card's own bottom rounding, since it's always the last element
- * in the canvas column regardless of whether the run panel above it is open. */
-export function RunPanelStatusBar({
+/** The persistent trigger for the run panel — always visible, even before the first Test run
+ * (disabled until then, same reasoning as before: a trigger that only appears after its own
+ * target exists isn't discoverable), attached right to the canvas/run-panel seam rather than
+ * a full-width bar or a button in the top toolbar. Mirrors WorkflowPalette's own collapse
+ * button exactly (`palette.tsx`'s `absolute ... left-full -translate-x-1/2` pattern, rotated
+ * 90°) — a small pill straddling the boundary it controls, not a separate strip of UI. Only
+ * rendered for the closed state: once open, RunPanel's own header close button already covers
+ * the same job, so a second control here would be redundant. */
+export function RunPanelTrigger({
   open,
   hasRun,
   onToggle,
@@ -169,28 +170,23 @@ export function RunPanelStatusBar({
   hasRun: boolean
   onToggle: () => void
 }) {
+  if (open) return null
   return (
     <button
       type="button"
       onClick={onToggle}
       disabled={!hasRun}
-      aria-pressed={open}
+      aria-label={hasRun ? "Open run panel" : "Test run to see it here"}
+      title={hasRun ? "Open run panel" : "Test run to see it here"}
       className={cn(
-        "flex shrink-0 items-center gap-1.5 rounded-b-lg border-t border-border bg-card px-3 py-1 text-[11px] text-muted-foreground",
+        "absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 translate-y-1/2 items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm",
         hasRun && "hover:text-foreground",
-        !hasRun && "cursor-default opacity-60",
-        open && "text-foreground"
+        !hasRun && "cursor-default opacity-60"
       )}
     >
-      <TerminalIcon className="size-3.5" />
+      <TerminalIcon className="size-3" />
       Run
-      {hasRun ? (
-        <ChevronDownIcon
-          className={cn("size-3 transition-transform", !open && "-rotate-90")}
-        />
-      ) : (
-        <span className="text-muted-foreground">— test run to see it here</span>
-      )}
+      {hasRun && <ChevronUpIcon className="size-3" />}
     </button>
   )
 }
