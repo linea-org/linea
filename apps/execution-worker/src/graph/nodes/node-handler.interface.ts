@@ -15,6 +15,11 @@ export type NodeExecutionContext = {
   workflowId?: string
   /** The specific chat message row (set by sendChatMessage in triggerPayload) that this execution is answering — lets AiNode identify its own turn instead of assuming "whichever message is latest," which breaks if a second turn is submitted before this execution's AI node runs. */
   chatMessageId?: string
+  /** Eval-only: a conversation-type eval case's frozen turn snapshot — when set, AiNode replays this directly instead of looking up conversationId from chat_messages, since there's no live conversation backing an eval run. */
+  evalConversation?: {
+    turns: { role: "user" | "assistant"; content: string }[]
+    finalPrompt: string
+  }
 }
 
 export interface NodeHandler {

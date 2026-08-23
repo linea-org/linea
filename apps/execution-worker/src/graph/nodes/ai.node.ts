@@ -280,7 +280,13 @@ export class AiNode implements NodeHandler {
       // Chat mode ignores the authored prompt — the turn's real content comes from chatMessageId, since there's no upstream-output templating yet.
       let prompt = parsed.prompt
       let history: ConversationTurn[] | undefined
-      if (parsed.conversationId) {
+      if (context.evalConversation) {
+        // A conversation-type eval case replaying its own frozen snapshot — takes priority over
+        // conversationId (which it never sets alongside this) since there's no live chat_messages
+        // row backing it; the snapshot IS the history, not a pointer to look one up.
+        history = context.evalConversation.turns
+        prompt = context.evalConversation.finalPrompt
+      } else if (parsed.conversationId) {
         if (!context.workflowId) {
           throw new Error(
             `Chat execution for conversation ${parsed.conversationId} is missing workflowId`
