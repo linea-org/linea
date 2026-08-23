@@ -21,6 +21,7 @@
     "test:cov": "jest --coverage"
   },
   "dependencies": {
+    "@linea/ai": "workspace:*",
     "@linea/config": "workspace:*",
     "@linea/db": "workspace:*",
     "@linea/queue": "workspace:*",

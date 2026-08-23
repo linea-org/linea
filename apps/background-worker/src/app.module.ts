@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common"
 import { ApprovalsModule } from "./approvals/approvals.module"
+import { BehaviourModule } from "./behaviour/behaviour.module"
 import { ChatModule } from "./chat/chat.module"
 import { ExecutionsModule } from "./executions/executions.module"
 import { FlaggersModule } from "./flaggers/flaggers.module"
@@ -18,6 +19,7 @@ import { WaitsModule } from "./waits/waits.module"
     ApprovalsModule,
     ChatModule,
     WaitsModule,
+    BehaviourModule,
   ],
 })
 export class AppModule {}
