@@ -1,14 +1,18 @@
 const complete = jest.fn()
 const resolveProvider = jest.fn(() => ({ complete }))
-const resolveKeyName = jest.fn(() => "anthropic")
+const resolveKeyName = jest.fn(() => "ANTHROPIC_API_KEY")
 const resolveApiKey = jest.fn(() => Promise.resolve({ apiKey: "secret" }))
 const calculateCostMicros = jest.fn(() => 42n)
+const providers = [
+  { id: "anthropic", label: "Anthropic", keyName: "ANTHROPIC_API_KEY" },
+]
 
 jest.mock("@linea/ai", () => ({
   resolveProvider,
   resolveKeyName,
   resolveApiKey,
   calculateCostMicros,
+  providers,
 }))
 
 import "@linea/config/env"
@@ -131,13 +135,62 @@ describe("ConversationAnalyzerService", () => {
       expect(findings[0].category).toBe("frustrated")
       expect(findings[0].evidenceMessageId).toBe(message.id)
 
+      const [flag] = await getFlagsFor(organization.id)
+      expect(flag).toBeDefined()
+      expect(flag.flagType).toBe("user_frustration")
+      expect(flag.model).toBe("claude-haiku-4-5-20251001")
+      expect(flag.provider).toBe("anthropic")
+      expect(flag.dedupeKey).toBe(`user_frustration:${conversationId}`)
+
       await service.poll()
       expect(complete).toHaveBeenCalledTimes(1)
+      expect(await getFlagsFor(organization.id)).toHaveLength(1)
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
       void workflow
+    }
+  })
+
+  it("does not raise a flag for a finding category outside the curated set", async () => {
+    const { organization, conversationId } = await setUpConversation({
+      name: "Behaviour Uncurated Category Test Org",
+      enabled: true,
+    })
+    complete.mockResolvedValue({
+      text: "",
+      tokensInput: 10,
+      tokensOutput: 10,
+      toolCalls: [
+        {
+          id: "call-1",
+          name: "report_findings",
+          arguments: {
+            findings: [
+              {
+                axis: "user_experience",
+                category: "confused",
+                confidence: 0.6,
+              },
+            ],
+          },
+        },
+      ],
+    })
+
+    try {
+      const service = new ConversationAnalyzerService()
+      await service.poll()
+
+      const [analysis] = await getAnalysisFor(conversationId)
+      const findings = await getFindingsFor(analysis.id)
+      expect(findings).toHaveLength(1)
+      expect(await getFlagsFor(organization.id)).toHaveLength(0)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
     }
   })
 
@@ -414,4 +467,9 @@ async function getAnalysisFor(conversationId: string) {
 async function getFindingsFor(analysisId: string) {
   const rows = await db.select().from(schema.conversationFindings)
   return rows.filter((row) => row.analysisId === analysisId)
+}
+
+async function getFlagsFor(workspaceId: string) {
+  const rows = await db.select().from(schema.flags)
+  return rows.filter((row) => row.workspaceId === workspaceId)
 }

@@ -6,12 +6,13 @@ import {
 } from "@nestjs/common"
 import {
   calculateCostMicros,
+  providers,
   resolveApiKey,
   resolveKeyName,
   resolveProvider,
   type ToolDefinition,
 } from "@linea/ai"
-import { db, repositories, type ChatMessage } from "@linea/db"
+import { db, repositories, type ChatMessage, type Flag } from "@linea/db"
 
 type ConversationDueForAnalysis =
   repositories.conversationAnalysis.ConversationDueForAnalysis
@@ -37,6 +38,21 @@ const PROVIDER_CALL_TIMEOUT_MS = Math.floor(
 // Distinguishes "we looked and chose not to analyze" (sample rate) from a real run, without a
 // schema change — analyzerVersion is free text.
 const SAMPLED_OUT_VERSION = "sampled-out"
+
+// Only these categories raise a flags row — everything else stays in conversation_findings for
+// analytics/Dimensions without adding alert noise. Deliberately a small, named subset rather
+// than every category in the taxonomy hint.
+const FLAGGABLE_CATEGORIES: Record<string, Flag["flagType"]> = {
+  frustrated: "user_frustration",
+  hallucination_suspected: "hallucination_suspected",
+  repetition_loop: "repetition_loop",
+  inappropriate_refusal: "inappropriate_refusal",
+}
+
+function resolveProviderId(model: string): string | undefined {
+  const keyName = resolveKeyName(model)
+  return providers.find((p) => p.keyName === keyName)?.id
+}
 
 const TAXONOMY_HINT = `Suggested categories (use one of these when it fits; propose a short, clear new one when nothing here fits — the taxonomy is meant to grow):
 - axis "user_experience": satisfied, neutral, confused, frustrated, abandoned, escalation_requested
@@ -326,9 +342,12 @@ export class ConversationAnalyzerService
     }
 
     // One transaction — reaffirming ownership, advancing the watermark (via the analysis row),
-    // and persisting the findings it's the watermark for must all commit together or not at all.
-    // The ownership check has to be inside this same transaction: checking it separately just
+    // and persisting the findings/flags it's the watermark for must all commit together or not at
+    // all. The ownership check has to be inside this same transaction: checking it separately just
     // before would leave an identical (if smaller) race between the check and the write.
+    // createFlagIfNew opens its own nested transaction internally — passing tx through here makes
+    // that a savepoint within this one, not a second independent commit.
+    const providerId = resolveProviderId(model)
     let claimStillOwned = true
     await db.transaction(async (tx) => {
       claimStillOwned =
@@ -340,21 +359,45 @@ export class ConversationAnalyzerService
       if (!claimStillOwned) return
 
       const analysis =
-        await repositories.conversationAnalysis.createConversationAnalysis(tx, {
-          workspaceId,
-          workflowId,
-          conversationId,
-          externalSubjectId,
-          analyzedThroughSequence: maxSequence,
-          analyzerVersion: ANALYZER_VERSION,
-          model,
-          costMicros: costMicros ?? 0n,
-        })
+        await repositories.conversationAnalysis.createConversationAnalysis(
+          tx,
+          {
+            workspaceId,
+            workflowId,
+            conversationId,
+            externalSubjectId,
+            analyzedThroughSequence: maxSequence,
+            analyzerVersion: ANALYZER_VERSION,
+            model,
+            costMicros: costMicros ?? 0n,
+          }
+        )
       await repositories.conversationAnalysis.insertConversationFindings(
         tx,
         analysis.id,
         findings.map((finding) => ({ workspaceId, ...finding }))
       )
+
+      for (const finding of findings) {
+        const flagType = FLAGGABLE_CATEGORIES[finding.category]
+        if (!flagType) continue
+        await repositories.flag.createFlagIfNew(tx, {
+          workspaceId,
+          workflowId,
+          flagType,
+          externalSubjectId,
+          model,
+          provider: providerId,
+          detail: {
+            conversationId,
+            category: finding.category,
+            confidence: finding.confidence,
+            evidenceMessageId: finding.evidenceMessageId,
+            rationale: finding.rationale,
+          },
+          dedupeKey: `${flagType}:${conversationId}`,
+        })
+      }
     })
     if (!claimStillOwned) {
       this.logger.warn(
