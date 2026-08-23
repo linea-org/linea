@@ -12,7 +12,6 @@ import {
   FieldLabel,
 } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
-import { Separator } from "@linea/ui/components/separator"
 
 import { authClient } from "@/lib/auth-client"
 import { authErrorMessage } from "@/lib/auth-redirect"
@@ -83,13 +82,7 @@ export function MagicLinkForm({
   }
   return (
     <div className="space-y-4">
-      <div className="relative flex items-center gap-3">
-        <Separator className="flex-1" />
-        <span className="shrink-0 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          or
-        </span>
-        <Separator className="flex-1" />
-      </div>
+     
       {sentTo ? (
         <Alert>
           <AlertDescription>
