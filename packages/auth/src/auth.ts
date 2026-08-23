@@ -102,6 +102,9 @@ async function describeSignInMethod(userId: string): Promise<string> {
   return "Sign in to your account"
 }
 
+// Lets tsup name Better Auth's inferred `auth` type (Zod `$strip`).
+export type { $strip } from "zod/v4/core"
+
 export const auth = betterAuth({
   appName: "Linea",
   baseURL: baseUrl,
