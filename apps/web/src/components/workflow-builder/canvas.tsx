@@ -26,7 +26,7 @@ import {
   type NodeTypes,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { useMutation } from "@tanstack/react-query"
 import { useTheme } from "next-themes"
 import { nodeRegistry, type NodeTypeId } from "@linea/runtime/browser"
@@ -74,6 +74,7 @@ import {
 import { WorkflowPalette, PALETTE_DRAG_MIME } from "./palette"
 import { NodeConfigPanel } from "./node-config-panel"
 import { NodeShell } from "./node-shell"
+import { RunPanel, RunPanelStatusBar } from "./run-panel"
 import { useUndoHistory } from "./use-undo-history"
 import {
   useWorkflowRealtime,
@@ -206,6 +207,15 @@ function WorkflowBuilderCanvasInner({
   const nodeTypeById = new Map(
     nodes.map((n) => [n.id, n.data.nodeType] as const)
   )
+  // Chat preview only makes sense for a graph with something conversational to preview — a pure
+  // data-pipeline workflow (no Agent node) has nothing for it to exercise, and showing it anyway
+  // just makes "which button actually runs this" ambiguous next to Test run.
+  const hasAgentNode = nodes.some((n) => n.data.nodeType === "ai")
+  // Closes the chat panel if it was open and the last Agent node just got deleted — its trigger
+  // button has already disappeared at that point, so leaving the panel open would orphan it.
+  useEffect(() => {
+    if (!hasAgentNode && rightPanel === "chat") setRightPanel(null)
+  }, [hasAgentNode, rightPanel])
   function buildGraph(currentEntryNodeId: string): Record<string, JsonValue> {
     const startNode = nodes.find((n) => n.data.nodeType === "start")
     return {
@@ -311,17 +321,20 @@ function WorkflowBuilderCanvasInner({
     applyRemoteGraph(event)
   })
   const otherViewers = viewers.filter((v) => v.userId !== currentUserId)
-  const navigate = useNavigate()
+  // The run panel shows this execution, and stays open across runs — a second "Test run" click
+  // just swaps which execution it points at, rather than closing and reopening.
+  const [activeRunExecutionId, setActiveRunExecutionId] = useState<
+    string | null
+  >(null)
+  const [runPanelOpen, setRunPanelOpen] = useState(false)
   const testRun = useMutation({
     mutationFn: () =>
       testRunFn({
         data: { workflowId, graph: buildGraph(entryNodeId) },
       }),
     onSuccess: (execution) => {
-      void navigate({
-        to: "/w/$slug/workflows/$workflowId/executions/$executionId",
-        params: { slug, workflowId, executionId: execution.id },
-      })
+      setActiveRunExecutionId(execution.id)
+      setRunPanelOpen(true)
     },
   })
   const [paletteCollapsed, setPaletteCollapsed] = useState(false)
@@ -546,18 +559,20 @@ function WorkflowBuilderCanvasInner({
               Saved
             </span>
           )}
-          <Button
-            type="button"
-            variant={rightPanel === "chat" ? "secondary" : "outline"}
-            size="xs"
-            onClick={() =>
-              setRightPanel((current) => (current === "chat" ? null : "chat"))
-            }
-            aria-pressed={rightPanel === "chat"}
-          >
-            <MessageCircleIcon />
-            Chat preview
-          </Button>
+          {hasAgentNode && (
+            <Button
+              type="button"
+              variant={rightPanel === "chat" ? "secondary" : "outline"}
+              size="xs"
+              onClick={() =>
+                setRightPanel((current) => (current === "chat" ? null : "chat"))
+              }
+              aria-pressed={rightPanel === "chat"}
+            >
+              <MessageCircleIcon />
+              Chat preview
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -634,78 +649,119 @@ function WorkflowBuilderCanvasInner({
           )}
         >
           <ResizablePanel id="builder-canvas" minSize={280} className="min-h-0">
-            <div
-              className="h-full min-h-0 overflow-hidden rounded-lg bg-surface-canvas"
-              style={FLOW_THEME_VARS}
-              onDrop={onDrop}
-              onDragOver={(e) => e.preventDefault()}
-            >
-              <ReactFlow
-                className="h-full [&_.react-flow__node]:overflow-visible [&_.react-flow__node]:rounded-lg [&_.react-flow__node]:bg-transparent [&_.react-flow__node]:p-0 [&_.react-flow__node]:shadow-none"
-                nodes={nodes}
-                edges={displayEdges}
-                nodeTypes={nodeTypes}
-                onNodesChange={handleNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onNodeDragStop={() => pushHistory(nodes, edges)}
-                // A direct click always means "show this node's config" — unlike
-                // onSelectionChange below, it isn't re-fired by React Flow on unrelated
-                // updates while a node merely stays selected, so it can't fight the chat
-                // panel for a slot it didn't just get clicked into.
-                onNodeClick={() => setRightPanel("config")}
-                onSelectionChange={({ nodes: selected }) => {
-                  setSelectedNodeId(selected[0]?.id ?? null)
-                }}
-                isValidConnection={(connection) =>
-                  isValidConnection(
-                    connection,
-                    edges,
-                    nodeTypeById,
-                    entryNodeId
-                  )
-                }
-                connectionMode={ConnectionMode.Loose}
-                connectOnClick
-                connectionLineType={ConnectionLineType.Bezier}
-                connectionLineComponent={CategoryConnectionLine}
-                defaultEdgeOptions={{
-                  type: "default",
-                  style: { strokeWidth: 2 },
-                }}
-                colorMode={resolvedTheme === "dark" ? "dark" : "light"}
-                minZoom={0.25}
-                maxZoom={1.5}
-                fitView
-                fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
-                proOptions={{ hideAttribution: true }}
-                onInit={(instance) => {
-                  void instance.fitView({ padding: 0.2, maxZoom: 1 })
-                }}
+            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-surface-canvas">
+              <ResizablePanelGroup
+                orientation="vertical"
+                className="min-h-0 flex-1"
               >
-                <Background gap={16} size={1} />
-                <Controls
-                  showInteractive={false}
-                  className="overflow-hidden rounded-lg shadow-none"
+                <ResizablePanel
+                  id="builder-canvas-flow"
+                  minSize={150}
+                  className="min-h-0"
+                >
+                  <div
+                    className="h-full min-h-0"
+                    style={FLOW_THEME_VARS}
+                    onDrop={onDrop}
+                    onDragOver={(e) => e.preventDefault()}
+                  >
+                    <ReactFlow
+                      className="h-full [&_.react-flow__node]:overflow-visible [&_.react-flow__node]:rounded-lg [&_.react-flow__node]:bg-transparent [&_.react-flow__node]:p-0 [&_.react-flow__node]:shadow-none"
+                      nodes={nodes}
+                      edges={displayEdges}
+                      nodeTypes={nodeTypes}
+                      onNodesChange={handleNodesChange}
+                      onEdgesChange={onEdgesChange}
+                      onConnect={onConnect}
+                      onNodeDragStop={() => pushHistory(nodes, edges)}
+                      // A direct click always means "show this node's config" — unlike
+                      // onSelectionChange below, it isn't re-fired by React Flow on unrelated
+                      // updates while a node merely stays selected, so it can't fight the chat
+                      // panel for a slot it didn't just get clicked into.
+                      onNodeClick={() => setRightPanel("config")}
+                      onSelectionChange={({ nodes: selected }) => {
+                        setSelectedNodeId(selected[0]?.id ?? null)
+                      }}
+                      isValidConnection={(connection) =>
+                        isValidConnection(
+                          connection,
+                          edges,
+                          nodeTypeById,
+                          entryNodeId
+                        )
+                      }
+                      connectionMode={ConnectionMode.Loose}
+                      connectOnClick
+                      connectionLineType={ConnectionLineType.Bezier}
+                      connectionLineComponent={CategoryConnectionLine}
+                      defaultEdgeOptions={{
+                        type: "default",
+                        style: { strokeWidth: 2 },
+                      }}
+                      colorMode={resolvedTheme === "dark" ? "dark" : "light"}
+                      minZoom={0.25}
+                      maxZoom={1.5}
+                      fitView
+                      fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+                      proOptions={{ hideAttribution: true }}
+                      onInit={(instance) => {
+                        void instance.fitView({ padding: 0.2, maxZoom: 1 })
+                      }}
+                    >
+                      <Background gap={16} size={1} />
+                      <Controls
+                        showInteractive={false}
+                        className="overflow-hidden rounded-lg shadow-none"
+                      />
+                      <MiniMap
+                        pannable
+                        zoomable
+                        nodeBorderRadius={8}
+                        nodeStrokeColor="transparent"
+                        nodeColor={(node) => {
+                          const data = node.data
+                          const nodeType =
+                            data &&
+                            typeof data === "object" &&
+                            "nodeType" in data
+                              ? data.nodeType
+                              : undefined
+                          return categoryStroke(
+                            typeof nodeType === "string" ? nodeType : undefined
+                          )
+                        }}
+                        className="overflow-hidden rounded-lg"
+                      />
+                    </ReactFlow>
+                  </div>
+                </ResizablePanel>
+                {runPanelOpen && activeRunExecutionId && (
+                  <>
+                    <ResizableHandle withHandle />
+                    <ResizablePanel
+                      id="builder-run"
+                      defaultSize={260}
+                      minSize={140}
+                      maxSize={560}
+                      groupResizeBehavior="preserve-pixel-size"
+                      className="min-h-0"
+                    >
+                      <RunPanel
+                        slug={slug}
+                        workflowId={workflowId}
+                        executionId={activeRunExecutionId}
+                        onClose={() => setRunPanelOpen(false)}
+                      />
+                    </ResizablePanel>
+                  </>
+                )}
+              </ResizablePanelGroup>
+              {activeRunExecutionId && (
+                <RunPanelStatusBar
+                  open={runPanelOpen}
+                  onToggle={() => setRunPanelOpen((current) => !current)}
                 />
-                <MiniMap
-                  pannable
-                  zoomable
-                  nodeBorderRadius={8}
-                  nodeStrokeColor="transparent"
-                  nodeColor={(node) => {
-                    const data = node.data
-                    const nodeType =
-                      data && typeof data === "object" && "nodeType" in data
-                        ? data.nodeType
-                        : undefined
-                    return categoryStroke(
-                      typeof nodeType === "string" ? nodeType : undefined
-                    )
-                  }}
-                  className="overflow-hidden rounded-lg"
-                />
-              </ReactFlow>
+              )}
             </div>
           </ResizablePanel>
           {rightPanel === "config" && selectedNode && (

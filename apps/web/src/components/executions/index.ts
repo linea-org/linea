@@ -1,4 +1,5 @@
 export { ExecutionList, formatCost } from "./execution-list"
+export { ExecutionGanttChart } from "./execution-gantt-chart"
 export {
   ExecutionStatusBadge,
   executionStatusLabel,
