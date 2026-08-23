@@ -1,8 +1,7 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { ChevronUpIcon, TerminalIcon, XIcon } from "lucide-react"
+import { ChevronsDownIcon, ChevronsUpIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
 import {
   Select,
   SelectContent,
@@ -40,13 +39,11 @@ export function RunPanel({
   slug,
   workflowId,
   executionId,
-  onClose,
   onSelectExecution,
 }: {
   slug: string
   workflowId: string
   executionId: string
-  onClose: () => void
   onSelectExecution: (executionId: string) => void
 }) {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
@@ -121,16 +118,6 @@ export function RunPanel({
               </SelectContent>
             </Select>
           )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            onClick={onClose}
-            aria-label="Close run panel"
-            title="Close run panel"
-          >
-            <XIcon />
-          </Button>
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-2 py-2">
@@ -153,14 +140,14 @@ export function RunPanel({
   )
 }
 
-/** The persistent trigger for the run panel — always visible, even before the first Test run
- * (disabled until then, same reasoning as before: a trigger that only appears after its own
- * target exists isn't discoverable), attached right to the canvas/run-panel seam rather than
- * a full-width bar or a button in the top toolbar. Mirrors WorkflowPalette's own collapse
- * button exactly (`palette.tsx`'s `absolute ... left-full -translate-x-1/2` pattern, rotated
- * 90°) — a small pill straddling the boundary it controls, not a separate strip of UI. Only
- * rendered for the closed state: once open, RunPanel's own header close button already covers
- * the same job, so a second control here would be redundant. */
+/** The persistent trigger for the run panel — always visible in both states, even before the
+ * first Test run (disabled until then: a trigger that only appears after its own target exists
+ * isn't discoverable). Mirrors WorkflowPalette's own collapse button exactly (`palette.tsx`'s
+ * `absolute ... left-full -translate-x-1/2` pattern, rotated 90°, same one-button-flips-icon
+ * behavior) rather than a full-width bar, a toolbar button, or a second close control inside
+ * the panel itself. Deliberately kept just inside the edge (no translate poking outside it) —
+ * react-resizable-panels' own Panel wrapper clips its own overflow, so anything positioned
+ * outside that box is invisible/unclickable no matter its z-index. */
 export function RunPanelTrigger({
   open,
   hasRun,
@@ -170,23 +157,32 @@ export function RunPanelTrigger({
   hasRun: boolean
   onToggle: () => void
 }) {
-  if (open) return null
   return (
     <button
       type="button"
       onClick={onToggle}
       disabled={!hasRun}
-      aria-label={hasRun ? "Open run panel" : "Test run to see it here"}
-      title={hasRun ? "Open run panel" : "Test run to see it here"}
+      aria-label={
+        hasRun
+          ? open
+            ? "Close run panel"
+            : "Open run panel"
+          : "Test run to see it here"
+      }
+      title={
+        hasRun
+          ? open
+            ? "Close run panel"
+            : "Open run panel"
+          : "Test run to see it here"
+      }
       className={cn(
-        "absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 translate-y-1/2 items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm",
+        "absolute bottom-1 left-1/2 z-10 flex size-5 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-card p-0 text-muted-foreground shadow-sm [&_svg]:size-3",
         hasRun && "hover:text-foreground",
         !hasRun && "cursor-default opacity-60"
       )}
     >
-      <TerminalIcon className="size-3" />
-      Run
-      {hasRun && <ChevronUpIcon className="size-3" />}
+      {open ? <ChevronsDownIcon /> : <ChevronsUpIcon />}
     </button>
   )
 }

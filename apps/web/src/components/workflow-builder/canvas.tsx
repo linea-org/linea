@@ -753,7 +753,6 @@ function WorkflowBuilderCanvasInner({
                           slug={slug}
                           workflowId={workflowId}
                           executionId={activeRunExecutionId}
-                          onClose={() => setRunPanelOpen(false)}
                           onSelectExecution={setActiveRunExecutionId}
                         />
                       </ResizablePanel>
