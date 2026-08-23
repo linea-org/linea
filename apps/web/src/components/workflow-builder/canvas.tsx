@@ -737,7 +737,7 @@ function WorkflowBuilderCanvasInner({
                 </ResizablePanel>
                 {runPanelOpen && activeRunExecutionId && (
                   <>
-                    <ResizableHandle withHandle />
+                    <ResizableHandle className="h-0 bg-transparent" />
                     <ResizablePanel
                       id="builder-run"
                       defaultSize={260}
@@ -751,6 +751,7 @@ function WorkflowBuilderCanvasInner({
                         workflowId={workflowId}
                         executionId={activeRunExecutionId}
                         onClose={() => setRunPanelOpen(false)}
+                        onSelectExecution={setActiveRunExecutionId}
                       />
                     </ResizablePanel>
                   </>

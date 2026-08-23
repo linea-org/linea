@@ -1,16 +1,25 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
-import { ChevronDownIcon, ExternalLinkIcon, TerminalIcon } from "lucide-react"
+import { ChevronDownIcon, TerminalIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@linea/ui/components/select"
 import { cn } from "@linea/ui/lib/utils"
 import {
   ExecutionGanttChart,
   ExecutionStatusBadge,
   formatCost,
 } from "../executions"
-import { executionQueryOptions } from "@/lib/executions-api"
+import {
+  executionQueryOptions,
+  executionsQueryOptions,
+} from "@/lib/executions-api"
 
 const activeStatuses = new Set(["queued", "running", "paused"])
 
@@ -32,11 +41,13 @@ export function RunPanel({
   workflowId,
   executionId,
   onClose,
+  onSelectExecution,
 }: {
   slug: string
   workflowId: string
   executionId: string
   onClose: () => void
+  onSelectExecution: (executionId: string) => void
 }) {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
   const { data, isLoading } = useQuery({
@@ -48,10 +59,16 @@ export function RunPanel({
       return status && activeStatuses.has(status) ? 1500 : false
     },
   })
+  // Recent runs for this workflow, so switching between them doesn't require leaving the canvas —
+  // this is what replaced the old "open full execution view" link, which only ever showed the one
+  // run just triggered with no way to look back at history from here.
+  const { data: recentExecutions } = useQuery(
+    executionsQueryOptions(slug, workflowId)
+  )
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-t-lg border-t border-border bg-card">
-      <div className="flex shrink-0 items-center gap-3 rounded-t-lg border-b border-border px-3 py-1.5">
+      <div className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-1.5">
         {data ? (
           <>
             <ExecutionStatusBadge status={data.execution.status} />
@@ -75,21 +92,35 @@ export function RunPanel({
           <span className="text-xs text-muted-foreground">Loading run…</span>
         )}
         <div className="ml-auto flex items-center gap-1">
-          <Button
-            nativeButton={false}
-            variant="ghost"
-            size="icon-xs"
-            aria-label="Open full execution view"
-            title="Open full execution view"
-            render={
-              <Link
-                to="/w/$slug/workflows/$workflowId/executions/$executionId"
-                params={{ slug, workflowId, executionId }}
-              />
-            }
-          >
-            <ExternalLinkIcon />
-          </Button>
+          {recentExecutions && recentExecutions.length > 1 && (
+            <Select
+              value={executionId}
+              onValueChange={(value) => {
+                if (value) onSelectExecution(value)
+              }}
+            >
+              <SelectTrigger size="sm" className="h-6 text-[11px]">
+                <SelectValue placeholder="Select a run">
+                  {(value: string) => {
+                    const execution = recentExecutions.find(
+                      (e) => e.id === value
+                    )
+                    return execution
+                      ? `${execution.id.slice(0, 8)} · ${new Date(execution.createdAt).toLocaleTimeString()}`
+                      : value
+                  }}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {recentExecutions.map((execution) => (
+                  <SelectItem key={execution.id} value={execution.id}>
+                    {execution.id.slice(0, 8)} ·{" "}
+                    {new Date(execution.createdAt).toLocaleTimeString()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Button
             type="button"
             variant="ghost"
