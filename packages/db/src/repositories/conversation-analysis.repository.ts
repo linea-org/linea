@@ -176,7 +176,10 @@ export async function findConversationsDueForAnalysis(
     workspace_id: string
     workflow_id: string
     conversation_id: string
-    max_sequence: number
+    // node-postgres returns a bigint SQL result as a string (no global type-parser override in
+    // this codebase), to avoid silently losing precision past 2^53 — parsed explicitly below,
+    // not cast down to ::int here, which would overflow this global sequence around 2.1 billion.
+    max_sequence: string
     external_subject_id: string | null
     behaviour_sample_rate: number
     behaviour_model: string | null
@@ -184,7 +187,7 @@ export async function findConversationsDueForAnalysis(
     WITH conversation_stats AS (
       SELECT
         workspace_id, workflow_id, conversation_id,
-        max(sequence)::int AS max_sequence,
+        max(sequence) AS max_sequence,
         max(created_at) AS last_message_at,
         (array_agg(external_subject_id) FILTER (WHERE external_subject_id IS NOT NULL))[1]
           AS external_subject_id
@@ -226,7 +229,9 @@ export async function findConversationsDueForAnalysis(
     workspaceId: row.workspace_id,
     workflowId: row.workflow_id,
     conversationId: row.conversation_id,
-    maxSequence: row.max_sequence,
+    // Safe up to Number.MAX_SAFE_INTEGER (2^53-1) — the same ceiling chat_messages.sequence's own
+    // bigint({ mode: "number" }) column already relies on elsewhere in this codebase.
+    maxSequence: Number(row.max_sequence),
     externalSubjectId: row.external_subject_id,
     behaviourSampleRate: row.behaviour_sample_rate,
     behaviourModel: row.behaviour_model,

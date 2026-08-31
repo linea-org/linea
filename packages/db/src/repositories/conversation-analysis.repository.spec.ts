@@ -240,6 +240,32 @@ describe("findConversationsDueForAnalysis", () => {
     })
   })
 
+  it("does not overflow on a sequence value beyond int32, which max(sequence)::int used to truncate", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      await updateWorkspaceSettings(tx, organization.id, {
+        behaviourAnalysisEnabled: true,
+      })
+      const conversationId = randomUUID()
+      // Postgres int32 tops out at 2,147,483,647 — chat_messages.sequence is a shared bigserial
+      // across every conversation in the database, so a busy deployment reaches this eventually.
+      const beyondInt32 = 3_000_000_000
+      await tx.insert(chatMessages).values({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "hello",
+        createdAt: new Date(Date.now() - 20 * 60_000),
+        sequence: beyondInt32,
+      })
+
+      const due = await findConversationsDueForAnalysis(tx, new Date())
+      const match = due.find((d) => d.conversationId === conversationId)
+      expect(match?.maxSequence).toBe(beyondInt32)
+    })
+  })
+
   it("excludes a workspace that has never enabled behaviour analysis", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
