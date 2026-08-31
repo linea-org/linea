@@ -6,7 +6,12 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query"
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
-import { PencilIcon, PencilRulerIcon, PlayIcon } from "lucide-react"
+import {
+  FlaskConicalIcon,
+  PencilIcon,
+  PencilRulerIcon,
+  PlayIcon,
+} from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
 import {
@@ -16,6 +21,7 @@ import {
   TabsTrigger,
 } from "@linea/ui/components/tabs"
 
+import { EvalCaseList, EvalRunList } from "@/components/evals"
 import { ExecutionList } from "@/components/executions"
 import {
   SignalFlagTypeBreakdown,
@@ -24,6 +30,14 @@ import {
   SignalTrendChart,
 } from "@/components/signals"
 import { WorkflowFormDialog, WorkflowStatusBadge } from "@/components/workflows"
+import {
+  archiveEvalCaseFn,
+  workflowEvalCasesQueryOptions,
+} from "@/lib/eval-cases-api"
+import {
+  triggerEvalRunFn,
+  workflowEvalRunsQueryOptions,
+} from "@/lib/eval-runs-api"
 import {
   executionsQueryOptions,
   listExecutionsFn,
@@ -83,6 +97,28 @@ function WorkflowDetailPage() {
   const { data: signalsTrend } = useQuery(
     signalsTrendQueryOptions(slug, workflowId)
   )
+  const [evalRunTriggeredAt, setEvalRunTriggeredAt] = useState<string | null>(
+    null
+  )
+  const {
+    data: evalRuns,
+    isPending: evalRunsPending,
+    isError: evalRunsErrored,
+  } = useQuery({
+    ...workflowEvalRunsQueryOptions(slug, workflowId),
+    // Only while a just-triggered run's row hasn't shown up yet — stops on its own once it appears.
+    refetchInterval: (query) => {
+      if (!evalRunTriggeredAt) return false
+      const data = query.state.data
+      if (!data) return 2000
+      return data.some((r) => r.startedAt > evalRunTriggeredAt) ? false : 2000
+    },
+  })
+  const {
+    data: evalCases,
+    isPending: evalCasesPending,
+    isError: evalCasesErrored,
+  } = useQuery(workflowEvalCasesQueryOptions(slug, workflowId))
 
   const run = useMutation({
     mutationFn: () => triggerExecutionFn({ data: { workflowId } }),
@@ -93,6 +129,20 @@ function WorkflowDetailPage() {
       void navigate({
         to: "/w/$slug/workflows/$workflowId/executions/$executionId",
         params: { slug, workflowId, executionId: execution.id },
+      })
+    },
+  })
+
+  const runEvals = useMutation({
+    mutationFn: () => triggerEvalRunFn({ data: { workflowId } }),
+    onSuccess: () => setEvalRunTriggeredAt(new Date().toISOString()),
+  })
+
+  const archiveCase = useMutation({
+    mutationFn: (id: string) => archiveEvalCaseFn({ data: { workflowId, id } }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: workflowEvalCasesQueryOptions(slug, workflowId).queryKey,
       })
     },
   })
@@ -167,6 +217,7 @@ function WorkflowDetailPage() {
         <TabsList>
           <TabsTrigger value="executions">Executions</TabsTrigger>
           <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+          <TabsTrigger value="evals">Evals</TabsTrigger>
         </TabsList>
         <TabsContent value="executions">
           {executionsErrored ? (
@@ -226,6 +277,72 @@ function WorkflowDetailPage() {
               />
             </div>
           )}
+        </TabsContent>
+        <TabsContent value="evals">
+          <div className="mt-4 flex flex-col gap-6">
+            <div>
+              <div className="flex items-center justify-between gap-3 pl-1">
+                <p className="text-sm font-medium text-foreground">Runs</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => runEvals.mutate()}
+                  disabled={runEvals.isPending || !workflow.publishedVersionId}
+                  title={
+                    workflow.publishedVersionId
+                      ? undefined
+                      : "Publish a version before running evals"
+                  }
+                >
+                  <FlaskConicalIcon />
+                  {runEvals.isPending ? "Queuing…" : "Run now"}
+                </Button>
+              </div>
+              {runEvals.isError && (
+                <p className="mt-2 text-xs text-destructive">
+                  {runEvals.error.message}
+                </p>
+              )}
+              {evalRunsErrored ? (
+                <p className="mt-4 text-xs text-destructive">
+                  Could not load eval runs.
+                </p>
+              ) : evalRunsPending ? (
+                <p className="mt-4 text-xs text-muted-foreground">
+                  Loading eval runs…
+                </p>
+              ) : (
+                <EvalRunList
+                  runs={evalRuns}
+                  slug={slug}
+                  workflowId={workflowId}
+                />
+              )}
+            </div>
+            <div>
+              <p className="pl-1 text-sm font-medium text-foreground">Cases</p>
+              {archiveCase.isError && (
+                <p className="mt-2 text-xs text-destructive">
+                  {archiveCase.error.message}
+                </p>
+              )}
+              {evalCasesErrored ? (
+                <p className="mt-4 text-xs text-destructive">
+                  Could not load eval cases.
+                </p>
+              ) : evalCasesPending ? (
+                <p className="mt-4 text-xs text-muted-foreground">
+                  Loading eval cases…
+                </p>
+              ) : (
+                <EvalCaseList
+                  cases={evalCases}
+                  onArchive={(evalCase) => archiveCase.mutate(evalCase.id)}
+                />
+              )}
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 

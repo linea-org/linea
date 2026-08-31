@@ -147,6 +147,7 @@ export function ExecutionDetailView({
           ) : (
             <ExecutionStepTimeline
               executionId={executionId}
+              workflowId={execution.workflowId}
               steps={steps}
               nodeConfigs={nodeConfigs}
               replayable={execution.replayable}

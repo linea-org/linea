@@ -237,14 +237,12 @@ export async function createEvalCaseFromFlag(
   const flag = await getFlagById(db, input.workspaceId, input.flagId)
   if (!flag || !flag.workflowId) return undefined
 
-  const detail = flag.detail as
-    | {
-        conversationId?: string
-        category?: string
-        rationale?: string
-        evidenceMessageId?: string
-      }
-    | null
+  const detail = flag.detail as {
+    conversationId?: string
+    category?: string
+    rationale?: string
+    evidenceMessageId?: string
+  } | null
   if (!detail?.conversationId || !detail.category) return undefined
 
   return buildConversationEvalCase(

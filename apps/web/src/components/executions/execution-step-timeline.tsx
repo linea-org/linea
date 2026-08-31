@@ -12,6 +12,7 @@ import { Badge } from "@linea/ui/components/badge"
 import { Button } from "@linea/ui/components/button"
 import { Textarea } from "@linea/ui/components/textarea"
 
+import { createEvalCaseFromStepFn } from "@/lib/eval-cases-api"
 import {
   replayStepFn,
   type ExecutionStepSummary,
@@ -219,8 +220,45 @@ function ReplayAction({
   )
 }
 
+function AddToEvalsAction({
+  workflowId,
+  stepId,
+}: {
+  workflowId: string
+  stepId: string
+}) {
+  const mutation = useMutation({
+    mutationFn: () =>
+      createEvalCaseFromStepFn({ data: { workflowId, stepId } }),
+  })
+
+  if (mutation.isSuccess) {
+    return <p className="mt-3 text-xs text-muted-foreground">Added to evals</p>
+  }
+
+  return (
+    <div className="mt-3">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={mutation.isPending}
+        onClick={() => mutation.mutate()}
+      >
+        {mutation.isPending ? "Adding…" : "Add to evals"}
+      </Button>
+      {mutation.isError ? (
+        <p className="mt-1.5 text-xs text-destructive">
+          {mutation.error.message}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 export function ExecutionStepTimeline({
   executionId,
+  workflowId,
   steps,
   nodeConfigs,
   replayable,
@@ -228,6 +266,7 @@ export function ExecutionStepTimeline({
   onReplayTriggered,
 }: {
   executionId: string
+  workflowId: string
   steps: ExecutionStepSummary[]
   nodeConfigs: Record<string, Record<string, JsonValue>>
   replayable: boolean
@@ -342,14 +381,17 @@ export function ExecutionStepTimeline({
               ) : null}
               <JsonBlock label="Input" value={step.input} />
               <JsonBlock label="Output" value={step.output} />
-              {replayable && !step.replayedFromStepId ? (
-                <ReplayAction
-                  executionId={executionId}
-                  step={step}
-                  nodeConfig={nodeConfigs[step.nodeId]}
-                  onReplayTriggered={onReplayTriggered}
-                />
-              ) : null}
+              <div className="flex flex-wrap items-start gap-2">
+                {replayable && !step.replayedFromStepId ? (
+                  <ReplayAction
+                    executionId={executionId}
+                    step={step}
+                    nodeConfig={nodeConfigs[step.nodeId]}
+                    onReplayTriggered={onReplayTriggered}
+                  />
+                ) : null}
+                <AddToEvalsAction workflowId={workflowId} stepId={step.id} />
+              </div>
             </AccordionContent>
           </AccordionItem>
         )

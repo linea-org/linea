@@ -33,7 +33,15 @@ describe('EvalRunsService', () => {
   it('lists and gets runs with their results, scoped to the workflow', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [EvalRunsService, EvalRunQueueService],
-    }).compile()
+    })
+      // Doesn't call trigger() below, so this never enqueues — mocked anyway so this suite never
+      // depends on a real Redis connection, and never risks it (see the other test's own note).
+      .overrideProvider(EvalRunQueueService)
+      .useValue({
+        enqueue: jest.fn(),
+        onModuleDestroy: () => Promise.resolve(),
+      })
+      .compile()
     const service = moduleRef.get(EvalRunsService)
 
     try {
@@ -95,9 +103,17 @@ describe('EvalRunsService', () => {
   })
 
   it('rejects triggering a run with no published version, and enqueues one once published', async () => {
+    const enqueue = jest.fn().mockResolvedValue(undefined)
     const moduleRef = await Test.createTestingModule({
       providers: [EvalRunsService, EvalRunQueueService],
-    }).compile()
+    })
+      // The real EvalRunQueueService would enqueue a real BullMQ job on the shared dev Redis —
+      // a live execution-worker elsewhere would then pick it up and fail once this test's own
+      // Postgres cleanup below deletes the workflow/version it referenced. Mocked so trigger()
+      // is verified without touching real infrastructure at all.
+      .overrideProvider(EvalRunQueueService)
+      .useValue({ enqueue, onModuleDestroy: () => Promise.resolve() })
+      .compile()
     const service = moduleRef.get(EvalRunsService)
 
     try {
@@ -126,6 +142,12 @@ describe('EvalRunsService', () => {
 
         const result = await service.trigger(workspaceId, workflow.id, {})
         expect(result).toEqual({ queued: true })
+        expect(enqueue).toHaveBeenCalledWith({
+          workspaceId,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: 'manual',
+        })
       })
     } finally {
       await moduleRef.close()
