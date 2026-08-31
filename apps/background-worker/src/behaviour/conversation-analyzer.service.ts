@@ -86,6 +86,15 @@ export type ParsedFinding = {
   rationale?: string
 }
 
+function conversationKey(
+  conversation: Pick<
+    ConversationDueForAnalysis,
+    "workspaceId" | "workflowId" | "conversationId"
+  >
+): string {
+  return `${conversation.workspaceId}:${conversation.workflowId}:${conversation.conversationId}`
+}
+
 function formatTranscript(messages: ChatMessage[]): string {
   return messages
     .map((message) => `[id:${message.id}] ${message.role}: ${message.content}`)
@@ -152,6 +161,12 @@ export class ConversationAnalyzerService
     this.polling = true
     try {
       const idleBefore = new Date(Date.now() - IDLE_THRESHOLD_MS)
+      // A conversation that fails before writing its own analysis row never advances its
+      // watermark, so it would otherwise be re-selected by the very next requery below — a
+      // persistent failure (bad model config, missing key) would then spin this loop forever on
+      // the same item and starve every other due conversation behind it. Excluded from retry
+      // within this same poll() call; still picked up again on the next tick's fresh due-query.
+      const failedThisPoll = new Set<string>()
       let due =
         await repositories.conversationAnalysis.findConversationsDueForAnalysis(
           db,
@@ -168,14 +183,16 @@ export class ConversationAnalyzerService
             this.logger.error(
               `Conversation analysis failed for ${conversation.conversationId}: ${message}`
             )
+            failedThisPoll.add(conversationKey(conversation))
           }
         }
-        due =
+        const next =
           await repositories.conversationAnalysis.findConversationsDueForAnalysis(
             db,
             idleBefore,
             BATCH_LIMIT
           )
+        due = next.filter((c) => !failedThisPoll.has(conversationKey(c)))
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -248,21 +265,27 @@ export class ConversationAnalyzerService
       )
     }
 
-    const analysis =
-      await repositories.conversationAnalysis.createConversationAnalysis(db, {
-        workspaceId,
-        workflowId,
-        conversationId,
-        externalSubjectId,
-        analyzedThroughSequence: maxSequence,
-        analyzerVersion: ANALYZER_VERSION,
-        model,
-        costMicros: costMicros ?? 0n,
-      })
-    await repositories.conversationAnalysis.insertConversationFindings(
-      db,
-      analysis.id,
-      findings.map((finding) => ({ workspaceId, ...finding }))
-    )
+    // One transaction — advancing the watermark (via the analysis row) must never commit
+    // separately from the findings it's the watermark for. A failure between the two would
+    // otherwise permanently lose the findings: the watermark already covers this sequence, so
+    // the due-query never re-selects the conversation to retry them.
+    await db.transaction(async (tx) => {
+      const analysis =
+        await repositories.conversationAnalysis.createConversationAnalysis(tx, {
+          workspaceId,
+          workflowId,
+          conversationId,
+          externalSubjectId,
+          analyzedThroughSequence: maxSequence,
+          analyzerVersion: ANALYZER_VERSION,
+          model,
+          costMicros: costMicros ?? 0n,
+        })
+      await repositories.conversationAnalysis.insertConversationFindings(
+        tx,
+        analysis.id,
+        findings.map((finding) => ({ workspaceId, ...finding }))
+      )
+    })
   }
 }

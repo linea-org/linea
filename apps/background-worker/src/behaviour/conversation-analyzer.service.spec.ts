@@ -179,6 +179,34 @@ describe("ConversationAnalyzerService", () => {
     }
   })
 
+  it("does not loop forever on a persistently-failing conversation, and retries it on the next poll instead", async () => {
+    const { organization, conversationId } = await setUpConversation({
+      name: "Behaviour Persistent Failure Test Org",
+      enabled: true,
+    })
+    complete.mockRejectedValue(new Error("provider is down"))
+
+    try {
+      const service = new ConversationAnalyzerService()
+      // Would hang forever pre-fix: the failing conversation's watermark never advances, so the
+      // drain loop's own requery kept re-selecting it inside the same poll() call.
+      await service.poll()
+      expect(complete).toHaveBeenCalledTimes(1)
+
+      const rows = await getAnalysisFor(conversationId)
+      expect(rows).toHaveLength(0)
+
+      // Not retried within the same poll — but still due, so a later poll (the next 60s tick,
+      // called directly here) picks it back up rather than skipping it forever.
+      await service.poll()
+      expect(complete).toHaveBeenCalledTimes(2)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
   it("records a zero-finding analysis rather than throwing when the model never calls report_findings", async () => {
     const { organization, conversationId } = await setUpConversation({
       name: "Behaviour No Tool Call Test Org",
