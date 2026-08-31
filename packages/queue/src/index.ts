@@ -13,3 +13,10 @@ export {
   enqueueWorkflowStepReplay,
   type WorkflowStepReplayJob,
 } from "./queues/workflow-step-replay.js"
+export {
+  WORKFLOW_EVAL_RUN_QUEUE,
+  createWorkflowEvalRunQueue,
+  createWorkflowEvalRunWorker,
+  enqueueWorkflowEvalRun,
+  type WorkflowEvalRunJob,
+} from "./queues/workflow-eval-run.js"
