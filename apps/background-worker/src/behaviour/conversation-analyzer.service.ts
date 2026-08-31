@@ -359,19 +359,16 @@ export class ConversationAnalyzerService
       if (!claimStillOwned) return
 
       const analysis =
-        await repositories.conversationAnalysis.createConversationAnalysis(
-          tx,
-          {
-            workspaceId,
-            workflowId,
-            conversationId,
-            externalSubjectId,
-            analyzedThroughSequence: maxSequence,
-            analyzerVersion: ANALYZER_VERSION,
-            model,
-            costMicros: costMicros ?? 0n,
-          }
-        )
+        await repositories.conversationAnalysis.createConversationAnalysis(tx, {
+          workspaceId,
+          workflowId,
+          conversationId,
+          externalSubjectId,
+          analyzedThroughSequence: maxSequence,
+          analyzerVersion: ANALYZER_VERSION,
+          model,
+          costMicros: costMicros ?? 0n,
+        })
       await repositories.conversationAnalysis.insertConversationFindings(
         tx,
         analysis.id,
