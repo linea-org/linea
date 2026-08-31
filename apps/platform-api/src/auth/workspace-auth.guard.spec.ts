@@ -105,6 +105,48 @@ describe('WorkspaceAuthGuard', () => {
     }
   })
 
+  it('clears a stale session before falling back to a valid API key, so the session user is never attributed downstream', async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: 'Workspace Guard Mixed Credential Test Org',
+        slug: `workspace-guard-mixed-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const { rawKey, hashedKey, keyPrefix } = generateApiKey()
+      await repositories.apiKey.createApiKey(db, {
+        workspaceId: organization.id,
+        name: 'CI key',
+        hashedKey,
+        keyPrefix,
+      })
+
+      const request = {
+        headers: { authorization: `Bearer ${rawKey}` },
+        // A stale session for a user who is not a member of this org — must not survive past
+        // the API key actually authorizing this request, or OptionalUserId downstream would
+        // still attribute the action to this session's user.
+        session: {
+          session: { activeOrganizationId: organization.id },
+          user: { id: randomUUID() },
+        },
+      } as Partial<AuthenticatedRequest>
+
+      const allowed = await guard.canActivate(contextWithRequest(request))
+      expect(allowed).toBe(true)
+      expect(request.workspaceId).toBe(organization.id)
+      expect(request.session).toBeNull()
+    } finally {
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        organization.id,
+      ])
+    }
+  })
+
   it('resolves the workspace from a valid API key when there is no session', async () => {
     const suffix = randomUUID()
     const [organization] = await db
