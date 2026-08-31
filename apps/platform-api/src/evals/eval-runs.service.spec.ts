@@ -78,7 +78,7 @@ describe('EvalRunsService', () => {
             costMicros: 10n,
           },
         ])
-        await repositories.evalRun.completeEvalRun(db, run.id, {
+        await repositories.evalRun.completeEvalRun(db, workspaceId, run.id, {
           passed: 1,
           failed: 0,
           total: 1,
@@ -151,6 +151,71 @@ describe('EvalRunsService', () => {
       })
     } finally {
       await moduleRef.close()
+    }
+  })
+
+  it('rejects an explicit workflowVersionId override that does not belong to this workflow, without enqueueing it', async () => {
+    const enqueue = jest.fn().mockResolvedValue(undefined)
+    const moduleRef = await Test.createTestingModule({
+      providers: [EvalRunsService, EvalRunQueueService],
+    })
+      .overrideProvider(EvalRunQueueService)
+      .useValue({ enqueue, onModuleDestroy: () => Promise.resolve() })
+      .compile()
+    const service = moduleRef.get(EvalRunsService)
+
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: 'Eval Runs Bad Version Test Org',
+        slug: `eval-runs-bad-version-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    const [otherOrganization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: 'Eval Runs Bad Version Test Other Org',
+        slug: `eval-runs-bad-version-other-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: 'Eval Runs Bad Version Test Workflow',
+        slug: `eval-runs-bad-version-test-${suffix}`,
+      })
+      const otherWorkflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: otherOrganization.id,
+        name: 'Eval Runs Bad Version Test Other Workflow',
+        slug: `eval-runs-bad-version-test-other-${suffix}`,
+      })
+      const otherVersion = await repositories.workflow.createWorkflowVersion(
+        db,
+        {
+          workflowId: otherWorkflow.id,
+          graph: { nodes: [], edges: [] },
+          contentHash: `eval-runs-bad-version-test-hash-${suffix}`,
+        },
+      )
+
+      await expect(
+        service.trigger(organization.id, workflow.id, {
+          workflowVersionId: otherVersion.id,
+        }),
+      ).rejects.toThrow()
+      expect(enqueue).not.toHaveBeenCalled()
+    } finally {
+      await moduleRef.close()
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        organization.id,
+      ])
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        otherOrganization.id,
+      ])
     }
   })
 })

@@ -51,6 +51,9 @@ export function EvalRunDetailView({
   const { data: run } = useSuspenseQuery({
     ...evalRunQueryOptions(slug, workflowId, runId),
     initialData,
+    // Opened directly (not via the workflow list's own polling) while the run is still in
+    // progress — polls until it finishes instead of staying stuck on partial/empty results.
+    refetchInterval: (query) => (query.state.data?.completedAt ? false : 2000),
   })
 
   return (

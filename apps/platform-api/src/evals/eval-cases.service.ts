@@ -41,6 +41,7 @@ export class EvalCasesService {
     }
 
     const evalCase = await repositories.evalCase.createEvalCaseFromStep(db, {
+      workspaceId,
       stepId: body.stepId,
     })
     if (!evalCase) {

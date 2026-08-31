@@ -106,12 +106,16 @@ function WorkflowDetailPage() {
     isError: evalRunsErrored,
   } = useQuery({
     ...workflowEvalRunsQueryOptions(slug, workflowId),
-    // Only while a just-triggered run's row hasn't shown up yet — stops on its own once it appears.
+    // Runs while a just-triggered run's row hasn't shown up yet, and keeps running once it has
+    // until that run actually finishes — otherwise the list (and a detail page opened mid-run)
+    // would be stuck showing stale "running" totals until a manual reload.
     refetchInterval: (query) => {
       if (!evalRunTriggeredAt) return false
       const data = query.state.data
       if (!data) return 2000
-      return data.some((r) => r.startedAt > evalRunTriggeredAt) ? false : 2000
+      const triggered = data.find((r) => r.startedAt > evalRunTriggeredAt)
+      if (!triggered) return 2000
+      return triggered.completedAt ? false : 2000
     },
   })
   const {
