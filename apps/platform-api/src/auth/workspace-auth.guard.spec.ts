@@ -20,18 +20,89 @@ function contextWithRequest(request: Partial<AuthenticatedRequest>) {
   } as unknown as ExecutionContext
 }
 
+async function createOrgWithMember(suffix: string) {
+  const [organization] = await db
+    .insert(schema.organizations)
+    .values({
+      name: 'Workspace Guard Test Org',
+      slug: `workspace-guard-${suffix}`,
+      createdAt: new Date(),
+    })
+    .returning()
+  const [user] = await db
+    .insert(schema.users)
+    .values({
+      name: 'Workspace Guard Test User',
+      email: `workspace-guard-${suffix}@example.com`,
+      emailVerified: true,
+    })
+    .returning()
+  await db.insert(schema.members).values({
+    organizationId: organization.id,
+    userId: user.id,
+    role: 'member',
+    createdAt: new Date(),
+  })
+  return { organization, user }
+}
+
 describe('WorkspaceAuthGuard', () => {
   const guard = new WorkspaceAuthGuard()
 
-  it('resolves the workspace from an active session, without touching the Authorization header', async () => {
-    const request = {
-      headers: {},
-      session: { session: { activeOrganizationId: 'org-from-session' } },
-    } as Partial<AuthenticatedRequest>
+  it('resolves the workspace from an active session, for a user who is still a live member', async () => {
+    const suffix = randomUUID()
+    const { organization, user } = await createOrgWithMember(suffix)
 
-    const allowed = await guard.canActivate(contextWithRequest(request))
-    expect(allowed).toBe(true)
-    expect(request.workspaceId).toBe('org-from-session')
+    try {
+      const request = {
+        headers: {},
+        session: {
+          session: { activeOrganizationId: organization.id },
+          user: { id: user.id },
+        },
+      } as Partial<AuthenticatedRequest>
+
+      const allowed = await guard.canActivate(contextWithRequest(request))
+      expect(allowed).toBe(true)
+      expect(request.workspaceId).toBe(organization.id)
+    } finally {
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        organization.id,
+      ])
+      await pool.query('DELETE FROM users WHERE id = $1', [user.id])
+    }
+  })
+
+  it('rejects a session whose activeOrganizationId the user is no longer a member of, even with no API key fallback', async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: 'Workspace Guard Stale Session Org',
+        slug: `workspace-guard-stale-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const request = {
+        headers: {},
+        // A session whose activeOrganizationId points at a real org, but the session's own user
+        // was never (or is no longer) a member of it — e.g. removed after the session was issued.
+        session: {
+          session: { activeOrganizationId: organization.id },
+          user: { id: randomUUID() },
+        },
+      } as Partial<AuthenticatedRequest>
+
+      await expect(
+        guard.canActivate(contextWithRequest(request)),
+      ).rejects.toThrow(UnauthorizedException)
+    } finally {
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        organization.id,
+      ])
+    }
   })
 
   it('resolves the workspace from a valid API key when there is no session', async () => {

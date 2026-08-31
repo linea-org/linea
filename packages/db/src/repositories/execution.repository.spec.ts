@@ -1092,6 +1092,24 @@ describe("triggerWorkflowExecution", () => {
     })
   })
 
+  it("normalizes an empty-string externalSubjectId to undefined, instead of storing it while skipping the roster upsert", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      await publishWorkflowVersion(tx, workflow.id, version.id)
+
+      const result = await triggerWorkflowExecution(
+        tx,
+        organization.id,
+        { by: "id", value: workflow.id },
+        { trigger: "manual", externalSubjectId: "" }
+      )
+      expect(result.outcome).toBe("created")
+      if (result.outcome === "created") {
+        expect(result.execution.externalSubjectId).toBeNull()
+      }
+    })
+  })
+
   it("returns unpublished for a workflow with no published version", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)

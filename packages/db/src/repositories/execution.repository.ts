@@ -24,13 +24,19 @@ export async function createExecution(
   db: DbClient,
   input: CreateExecutionInput
 ): Promise<Execution> {
-  if (input.externalSubjectId) {
+  // "" is not a meaningful external subject id — normalized to undefined so the end_subjects
+  // roster and the execution's own column never disagree about whether one was actually provided.
+  const externalSubjectId = input.externalSubjectId || undefined
+  if (externalSubjectId) {
     await upsertEndSubject(db, {
       workspaceId: input.workspaceId,
-      externalId: input.externalSubjectId,
+      externalId: externalSubjectId,
     })
   }
-  const [execution] = await db.insert(executions).values(input).returning()
+  const [execution] = await db
+    .insert(executions)
+    .values({ ...input, externalSubjectId })
+    .returning()
   return execution
 }
 
@@ -80,10 +86,13 @@ export async function triggerWorkflowExecution(
     if (workflow.archivedAt) return { outcome: "archived" }
     if (!workflow.publishedVersionId) return { outcome: "unpublished" }
 
-    if (input.externalSubjectId) {
+    // "" is not a meaningful external subject id — normalized to undefined so the end_subjects
+    // roster and the execution's own column never disagree about whether one was actually provided.
+    const externalSubjectId = input.externalSubjectId || undefined
+    if (externalSubjectId) {
       await upsertEndSubject(tx, {
         workspaceId,
-        externalId: input.externalSubjectId,
+        externalId: externalSubjectId,
       })
     }
 
@@ -96,7 +105,7 @@ export async function triggerWorkflowExecution(
         trigger: input.trigger,
         triggerPayload: input.triggerPayload,
         triggeredByUserId: input.triggeredByUserId,
-        externalSubjectId: input.externalSubjectId,
+        externalSubjectId,
         ...(input.environment ? { environment: input.environment } : {}),
       })
       .returning()
@@ -134,10 +143,13 @@ export async function triggerWorkflowExecutionForVersion(
     if (!workflow) return { outcome: "not_found" }
     if (workflow.archivedAt) return { outcome: "archived" }
 
-    if (input.externalSubjectId) {
+    // "" is not a meaningful external subject id — normalized to undefined so the end_subjects
+    // roster and the execution's own column never disagree about whether one was actually provided.
+    const externalSubjectId = input.externalSubjectId || undefined
+    if (externalSubjectId) {
       await upsertEndSubject(tx, {
         workspaceId,
-        externalId: input.externalSubjectId,
+        externalId: externalSubjectId,
       })
     }
 
@@ -150,7 +162,7 @@ export async function triggerWorkflowExecutionForVersion(
         trigger: input.trigger,
         triggerPayload: input.triggerPayload,
         triggeredByUserId: input.triggeredByUserId,
-        externalSubjectId: input.externalSubjectId,
+        externalSubjectId,
         ...(input.environment ? { environment: input.environment } : {}),
       })
       .returning()
