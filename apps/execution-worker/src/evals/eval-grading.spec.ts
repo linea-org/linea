@@ -62,6 +62,32 @@ describe("evaluateAssertion", () => {
     expect(malformed.passed).toBe(false)
   })
 
+  it("a target that doesn't resolve fails the assertion instead of throwing", async () => {
+    const contains = await evaluateAssertion(
+      "ws1",
+      { text: "hello world" },
+      { type: "contains", config: { target: "missing.path", value: "hello" } }
+    )
+    expect(contains.passed).toBe(false)
+
+    const notContains = await evaluateAssertion(
+      "ws1",
+      { text: "hello world" },
+      {
+        type: "not_contains",
+        config: { target: "missing.path", value: "hello" },
+      }
+    )
+    expect(notContains.passed).toBe(true)
+
+    const regex = await evaluateAssertion(
+      "ws1",
+      { text: "hello world" },
+      { type: "regex", config: { target: "missing.path", pattern: "." } }
+    )
+    expect(regex.passed).toBe(false)
+  })
+
   it("with no target, stringifies the whole output", async () => {
     const result = await evaluateAssertion(
       "ws1",

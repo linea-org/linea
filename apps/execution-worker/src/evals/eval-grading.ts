@@ -8,9 +8,12 @@ import {
 import { db } from "@linea/db"
 import { getPath } from "../graph/nodes/dot-path.js"
 
-// Cheapest priced model in the registry — a grading judge, not the flagship agent call, same
-// reasoning as the behaviour analyzer's own default model choice.
-const DEFAULT_JUDGE_MODEL = "claude-haiku-4-5-20251001"
+// Cheapest priced, tool-calling-capable model in the registry — a grading judge, not the
+// flagship agent call. A Groq model rather than Anthropic's own cheapest (unlike the behaviour
+// analyzer's default) since BYOK setup in practice skews toward whichever provider a workspace's
+// own agents already use, and requiring a second provider's key just to grade is an unnecessary
+// extra setup step.
+const DEFAULT_JUDGE_MODEL = "openai/gpt-oss-20b"
 
 export type Assertion = { type: string; config: Record<string, unknown> }
 
@@ -33,6 +36,10 @@ function stringTarget(
 ): string {
   const target = typeof config.target === "string" ? config.target : undefined
   const value = target ? getPath(output, target) : output
+  // A target that doesn't resolve (JSON.stringify(undefined) is the JS value undefined, not a
+  // string) must not throw out of includes/test below — an unresolved target reads as empty
+  // content, so the case gets a normal failed assertion instead of an errored one.
+  if (value === undefined) return ""
   return typeof value === "string" ? value : JSON.stringify(value)
 }
 

@@ -102,7 +102,11 @@ describe("EvalExecutionService.runEvalsForVersion", () => {
       expect(run.failed).toBe(0)
       expect(run.completedAt).toBeInstanceOf(Date)
 
-      const results = await repositories.evalRun.listEvalResults(db, run.id)
+      const results = await repositories.evalRun.listEvalResults(
+        db,
+        organization.id,
+        run.id
+      )
       expect(results).toHaveLength(1)
       expect(results[0].status).toBe("passed")
       expect(results[0].output).toEqual({ output: "hello world" })
@@ -146,7 +150,11 @@ describe("EvalExecutionService.runEvalsForVersion", () => {
       expect(run.passed).toBe(0)
       expect(run.failed).toBe(1)
 
-      const results = await repositories.evalRun.listEvalResults(db, run.id)
+      const results = await repositories.evalRun.listEvalResults(
+        db,
+        organization.id,
+        run.id
+      )
       expect(results[0].status).toBe("errored")
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
@@ -214,7 +222,11 @@ describe("EvalExecutionService.runEvalsForVersion", () => {
         })
       )
 
-      const results = await repositories.evalRun.listEvalResults(db, run.id)
+      const results = await repositories.evalRun.listEvalResults(
+        db,
+        organization.id,
+        run.id
+      )
       expect(results[0].output).toEqual([
         { role: "user", content: "What's your refund policy?" },
         { role: "user", content: "What about after 30 days?" },
@@ -256,7 +268,11 @@ describe("EvalExecutionService.runEvalsForVersion", () => {
         "manual"
       )
       expect(run.failed).toBe(1)
-      const results = await repositories.evalRun.listEvalResults(db, run.id)
+      const results = await repositories.evalRun.listEvalResults(
+        db,
+        organization.id,
+        run.id
+      )
       expect(results[0].status).toBe("errored")
       expect(execute).not.toHaveBeenCalled()
     } finally {

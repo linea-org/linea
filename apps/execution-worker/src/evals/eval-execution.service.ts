@@ -250,7 +250,7 @@ export class EvalExecutionService {
       results
     )
     return (
-      (await repositories.evalRun.completeEvalRun(db, run.id, {
+      (await repositories.evalRun.completeEvalRun(db, workspaceId, run.id, {
         passed,
         failed,
         total: cases.length,
