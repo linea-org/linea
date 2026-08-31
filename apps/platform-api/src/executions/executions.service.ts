@@ -67,6 +67,7 @@ export class ExecutionsService {
     workspaceId: string,
     workflowId: string,
     input: TriggerExecutionDto,
+    triggeredByUserId?: string,
   ): Promise<Execution> {
     const result = await repositories.execution.triggerWorkflowExecution(
       db,
@@ -76,6 +77,8 @@ export class ExecutionsService {
         trigger: 'manual',
         triggerPayload: input.triggerPayload,
         environment: input.environment ?? 'dev',
+        triggeredByUserId,
+        externalSubjectId: input.externalSubjectId,
       },
     )
     switch (result.outcome) {
@@ -109,6 +112,7 @@ export class ExecutionsService {
     workspaceId: string,
     workflowId: string,
     input: TestRunDto,
+    triggeredByUserId?: string,
   ): Promise<Execution> {
     // Confirms the workflow belongs to this workspace before any write — ensureVersionForGraph below is not itself workspace-scoped.
     const workflow = await repositories.workflow.getWorkflowById(
@@ -142,7 +146,7 @@ export class ExecutionsService {
         workspaceId,
         workflowId,
         version.id,
-        { trigger: 'manual', environment: 'draft' },
+        { trigger: 'manual', environment: 'draft', triggeredByUserId },
       )
     switch (result.outcome) {
       case 'not_found':
@@ -173,6 +177,7 @@ export class ExecutionsService {
     workspaceId: string,
     workflowId: string,
     input: SendChatMessageDto,
+    triggeredByUserId?: string,
   ): Promise<{ execution: Execution; conversationId: string }> {
     const workflow = await repositories.workflow.getWorkflowById(
       db,
@@ -249,6 +254,8 @@ export class ExecutionsService {
               ...(externalSubjectId ? { externalSubjectId } : {}),
             },
             environment: 'draft',
+            triggeredByUserId,
+            externalSubjectId,
           },
         )
       switch (result.outcome) {

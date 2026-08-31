@@ -23,9 +23,20 @@ export class WorkspaceAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>()
 
     const activeOrganizationId = request.session?.session?.activeOrganizationId
-    if (activeOrganizationId) {
-      request.workspaceId = activeOrganizationId
-      return true
+    const sessionUserId = request.session?.user?.id
+    if (activeOrganizationId && sessionUserId) {
+      // A session's activeOrganizationId can outlive the user's actual membership (removed from
+      // the org after the session was issued) — verified live here, at the trust boundary every
+      // route relies on, rather than in each caller that reads request.workspaceId downstream.
+      const role = await repositories.organization.getMemberRole(
+        db,
+        activeOrganizationId,
+        sessionUserId,
+      )
+      if (role) {
+        request.workspaceId = activeOrganizationId
+        return true
+      }
     }
 
     const authorization = request.headers.authorization

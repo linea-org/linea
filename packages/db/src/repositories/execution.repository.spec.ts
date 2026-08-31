@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
-import { executions } from "../schema/index.js"
+import { endSubjects, executions } from "../schema/index.js"
 import {
   completeExecution,
   countNewWorkspaceExecutions,
@@ -1059,6 +1059,54 @@ describe("triggerWorkflowExecution", () => {
         { trigger: "manual" }
       )
       expect(result.outcome).toBe("not_found")
+    })
+  })
+
+  it("stamps triggeredByUserId and externalSubjectId on the created execution, and upserts an end_subjects row for the latter", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      await publishWorkflowVersion(tx, workflow.id, version.id)
+
+      const result = await triggerWorkflowExecution(
+        tx,
+        organization.id,
+        { by: "id", value: workflow.id },
+        { trigger: "manual", externalSubjectId: "customer-user-1" }
+      )
+      expect(result.outcome).toBe("created")
+      if (result.outcome === "created") {
+        expect(result.execution.externalSubjectId).toBe("customer-user-1")
+      }
+
+      const [endSubject] = await tx
+        .select()
+        .from(endSubjects)
+        .where(
+          and(
+            eq(endSubjects.workspaceId, organization.id),
+            eq(endSubjects.externalId, "customer-user-1")
+          )
+        )
+      expect(endSubject).toBeDefined()
+      expect(endSubject.deletedAt).toBeNull()
+    })
+  })
+
+  it("normalizes an empty-string externalSubjectId to undefined, instead of storing it while skipping the roster upsert", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      await publishWorkflowVersion(tx, workflow.id, version.id)
+
+      const result = await triggerWorkflowExecution(
+        tx,
+        organization.id,
+        { by: "id", value: workflow.id },
+        { trigger: "manual", externalSubjectId: "" }
+      )
+      expect(result.outcome).toBe("created")
+      if (result.outcome === "created") {
+        expect(result.execution.externalSubjectId).toBeNull()
+      }
     })
   })
 

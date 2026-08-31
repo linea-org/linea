@@ -148,6 +148,13 @@ describe('ExecutionsService', () => {
         createdAt: new Date(),
       })
       .returning()
+    const [member] = await db
+      .insert(schema.users)
+      .values({
+        name: 'Executions Trigger Test User',
+        email: `executions-trigger-test-${suffix}@test.dev`,
+      })
+      .returning()
 
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
@@ -172,6 +179,7 @@ describe('ExecutionsService', () => {
       expect(execution.status).toBe('queued')
       expect(execution.trigger).toBe('manual')
       expect(execution.environment).toBe('dev')
+      expect(execution.triggeredByUserId).toBeNull()
 
       const prodExecution = await service.trigger(
         organization.id,
@@ -181,6 +189,15 @@ describe('ExecutionsService', () => {
         },
       )
       expect(prodExecution.environment).toBe('production')
+
+      const attributed = await service.trigger(
+        organization.id,
+        workflow.id,
+        { externalSubjectId: 'customer-user-1' },
+        member.id,
+      )
+      expect(attributed.triggeredByUserId).toBe(member.id)
+      expect(attributed.externalSubjectId).toBe('customer-user-1')
 
       const list = await service.list(organization.id, workflow.id)
       expect(list.map((e) => e.id)).toContain(execution.id)
@@ -214,6 +231,7 @@ describe('ExecutionsService', () => {
         organization.id,
         otherOrg.id,
       ])
+      await pool.query('DELETE FROM users WHERE id = $1', [member.id])
     }
   })
 

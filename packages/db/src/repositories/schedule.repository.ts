@@ -80,7 +80,11 @@ export async function claimAndFireDueSchedule(
       tx,
       schedule.workspaceId,
       { by: "id", value: schedule.workflowId },
-      { trigger: "schedule" }
+      {
+        trigger: "schedule",
+        triggerPayload: schedule.triggerPayload ?? undefined,
+        externalSubjectId: schedule.externalSubjectId ?? undefined,
+      }
     )
 
     if (result.outcome !== "created") {

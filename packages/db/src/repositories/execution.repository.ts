@@ -6,6 +6,7 @@ import {
   type Execution,
   type ExecutionStep,
 } from "../schema/index.js"
+import { upsertEndSubject } from "./end-subject.repository.js"
 import type { DbClient } from "./types.js"
 
 export type CreateExecutionInput = {
@@ -15,13 +16,27 @@ export type CreateExecutionInput = {
   trigger: Execution["trigger"]
   triggerPayload?: Record<string, unknown>
   origin?: Execution["origin"]
+  triggeredByUserId?: string
+  externalSubjectId?: string
 }
 
 export async function createExecution(
   db: DbClient,
   input: CreateExecutionInput
 ): Promise<Execution> {
-  const [execution] = await db.insert(executions).values(input).returning()
+  // "" is not a meaningful external subject id — normalized to undefined so the end_subjects
+  // roster and the execution's own column never disagree about whether one was actually provided.
+  const externalSubjectId = input.externalSubjectId || undefined
+  if (externalSubjectId) {
+    await upsertEndSubject(db, {
+      workspaceId: input.workspaceId,
+      externalId: externalSubjectId,
+    })
+  }
+  const [execution] = await db
+    .insert(executions)
+    .values({ ...input, externalSubjectId })
+    .returning()
   return execution
 }
 
@@ -49,6 +64,8 @@ export async function triggerWorkflowExecution(
     trigger: Execution["trigger"]
     triggerPayload?: Record<string, unknown>
     environment?: Execution["environment"]
+    triggeredByUserId?: string
+    externalSubjectId?: string
   }
 ): Promise<TriggerWorkflowResult> {
   return db.transaction(async (tx) => {
@@ -69,6 +86,16 @@ export async function triggerWorkflowExecution(
     if (workflow.archivedAt) return { outcome: "archived" }
     if (!workflow.publishedVersionId) return { outcome: "unpublished" }
 
+    // "" is not a meaningful external subject id — normalized to undefined so the end_subjects
+    // roster and the execution's own column never disagree about whether one was actually provided.
+    const externalSubjectId = input.externalSubjectId || undefined
+    if (externalSubjectId) {
+      await upsertEndSubject(tx, {
+        workspaceId,
+        externalId: externalSubjectId,
+      })
+    }
+
     const [execution] = await tx
       .insert(executions)
       .values({
@@ -77,6 +104,8 @@ export async function triggerWorkflowExecution(
         workflowVersionId: workflow.publishedVersionId,
         trigger: input.trigger,
         triggerPayload: input.triggerPayload,
+        triggeredByUserId: input.triggeredByUserId,
+        externalSubjectId,
         ...(input.environment ? { environment: input.environment } : {}),
       })
       .returning()
@@ -95,6 +124,8 @@ export async function triggerWorkflowExecutionForVersion(
     trigger: Execution["trigger"]
     triggerPayload?: Record<string, unknown>
     environment?: Execution["environment"]
+    triggeredByUserId?: string
+    externalSubjectId?: string
   }
 ): Promise<TriggerWorkflowForVersionResult> {
   return db.transaction(async (tx) => {
@@ -112,6 +143,16 @@ export async function triggerWorkflowExecutionForVersion(
     if (!workflow) return { outcome: "not_found" }
     if (workflow.archivedAt) return { outcome: "archived" }
 
+    // "" is not a meaningful external subject id — normalized to undefined so the end_subjects
+    // roster and the execution's own column never disagree about whether one was actually provided.
+    const externalSubjectId = input.externalSubjectId || undefined
+    if (externalSubjectId) {
+      await upsertEndSubject(tx, {
+        workspaceId,
+        externalId: externalSubjectId,
+      })
+    }
+
     const [execution] = await tx
       .insert(executions)
       .values({
@@ -120,6 +161,8 @@ export async function triggerWorkflowExecutionForVersion(
         workflowVersionId: versionId,
         trigger: input.trigger,
         triggerPayload: input.triggerPayload,
+        triggeredByUserId: input.triggeredByUserId,
+        externalSubjectId,
         ...(input.environment ? { environment: input.environment } : {}),
       })
       .returning()

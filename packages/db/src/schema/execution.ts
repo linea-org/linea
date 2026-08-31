@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 import { organizations } from "./organisation.js"
+import { users } from "./user.js"
 import { workflows, workflowVersions } from "./workflow.js"
 
 export const executionStatus = pgEnum("execution_status", [
@@ -73,6 +74,16 @@ export const executions = snakeCase.table(
     triggerPayload: jsonb().$type<Record<string, unknown>>(),
     environment: executionEnvironment().notNull().default("dev"),
 
+    // Set when a workspace member ran this themselves (dashboard trigger, test run, chat preview) —
+    // null for schedule/webhook/API-key-only calls. `set null` on user delete: attribution is lost
+    // but the execution row and its history stay intact.
+    triggeredByUserId: uuid().references(() => users.id, {
+      onDelete: "set null",
+    }),
+    // The customer's own end user this execution ran on behalf of, if any — caller-supplied,
+    // lazily upserted into end_subjects, no DB-level FK (see end-subject.ts).
+    externalSubjectId: text(),
+
     leasedBy: text(),
     leaseExpiresAt: timestamp({ withTimezone: true }),
 
@@ -96,6 +107,11 @@ export const executions = snakeCase.table(
     ),
     index("executions_workspace_created_idx").on(
       table.workspaceId,
+      table.createdAt
+    ),
+    index("executions_workspace_subject_created_idx").on(
+      table.workspaceId,
+      table.externalSubjectId,
       table.createdAt
     ),
     index("executions_lease_claim_idx")
