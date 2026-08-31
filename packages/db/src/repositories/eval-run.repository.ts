@@ -29,13 +29,14 @@ export type CompleteEvalRunInput = {
 
 export async function completeEvalRun(
   db: DbClient,
+  workspaceId: string,
   runId: string,
   input: CompleteEvalRunInput
 ): Promise<EvalRun | undefined> {
   const [run] = await db
     .update(evalRuns)
     .set({ ...input, completedAt: new Date() })
-    .where(eq(evalRuns.id, runId))
+    .where(and(eq(evalRuns.id, runId), eq(evalRuns.workspaceId, workspaceId)))
     .returning()
   return run
 }
@@ -75,7 +76,16 @@ export async function insertEvalResults(
 
 export async function listEvalResults(
   db: DbClient,
+  workspaceId: string,
   runId: string
 ): Promise<EvalResult[]> {
-  return db.select().from(evalResults).where(eq(evalResults.runId, runId))
+  return db
+    .select()
+    .from(evalResults)
+    .where(
+      and(
+        eq(evalResults.runId, runId),
+        eq(evalResults.workspaceId, workspaceId)
+      )
+    )
 }

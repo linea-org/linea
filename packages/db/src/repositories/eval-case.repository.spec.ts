@@ -75,6 +75,7 @@ describe("createEvalCaseFromStep", () => {
 
       const sourceSignalId = randomUUID()
       const evalCase = await createEvalCaseFromStep(tx, {
+        workspaceId: organization.id,
         stepId,
         sourceSignalId,
       })
@@ -88,12 +89,24 @@ describe("createEvalCaseFromStep", () => {
       expect(evalCase?.sourceStepId).toBe(stepId)
       expect(evalCase?.sourceSignalId).toBe(sourceSignalId)
       expect(evalCase?.workflowId).toBe(workflow.id)
+
+      // Not visible from another workspace, even with the right stepId.
+      const { organization: otherOrg } = await createTestFixtures(tx)
+      const fromOtherWorkspace = await createEvalCaseFromStep(tx, {
+        workspaceId: otherOrg.id,
+        stepId,
+      })
+      expect(fromOtherWorkspace).toBeUndefined()
     })
   })
 
   it("returns undefined for a step that doesn't exist", async () => {
     await withRollback(async (tx) => {
-      const result = await createEvalCaseFromStep(tx, { stepId: randomUUID() })
+      const { organization } = await createTestFixtures(tx)
+      const result = await createEvalCaseFromStep(tx, {
+        workspaceId: organization.id,
+        stepId: randomUUID(),
+      })
       expect(result).toBeUndefined()
     })
   })
@@ -171,6 +184,7 @@ describe("createEvalCaseFromFinding", () => {
         .where(eq(conversationFindings.analysisId, analysis.id))
 
       const evalCase = await createEvalCaseFromFinding(tx, {
+        workspaceId: organization.id,
         findingId: finding.id,
       })
 
@@ -197,12 +211,22 @@ describe("createEvalCaseFromFinding", () => {
           },
         },
       ])
+
+      // Not visible from another workspace, even with the right findingId.
+      const { organization: otherOrg } = await createTestFixtures(tx)
+      const fromOtherWorkspace = await createEvalCaseFromFinding(tx, {
+        workspaceId: otherOrg.id,
+        findingId: finding.id,
+      })
+      expect(fromOtherWorkspace).toBeUndefined()
     })
   })
 
   it("returns undefined for a finding that doesn't exist", async () => {
     await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
       const result = await createEvalCaseFromFinding(tx, {
+        workspaceId: organization.id,
         findingId: randomUUID(),
       })
       expect(result).toBeUndefined()

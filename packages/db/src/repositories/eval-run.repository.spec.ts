@@ -25,7 +25,7 @@ describe("createEvalRun / completeEvalRun", () => {
       expect(run.total).toBe(0)
       expect(run.completedAt).toBeNull()
 
-      const completed = await completeEvalRun(tx, run.id, {
+      const completed = await completeEvalRun(tx, organization.id, run.id, {
         passed: 3,
         failed: 1,
         total: 4,
@@ -36,6 +36,21 @@ describe("createEvalRun / completeEvalRun", () => {
       expect(completed?.total).toBe(4)
       expect(completed?.costMicros).toBe(500n)
       expect(completed?.completedAt).toBeInstanceOf(Date)
+
+      // Not completable from another workspace, even with the right runId.
+      const { organization: otherOrg } = await createTestFixtures(tx)
+      const fromOtherWorkspace = await completeEvalRun(
+        tx,
+        otherOrg.id,
+        run.id,
+        {
+          passed: 0,
+          failed: 0,
+          total: 0,
+          costMicros: 0n,
+        }
+      )
+      expect(fromOtherWorkspace).toBeUndefined()
     })
   })
 })
@@ -69,11 +84,15 @@ describe("insertEvalResults / listEvalResults", () => {
         },
       ])
 
-      const results = await listEvalResults(tx, run.id)
+      const results = await listEvalResults(tx, organization.id, run.id)
       expect(results).toHaveLength(2)
       expect(results.every((r) => r.runId === run.id)).toBe(true)
       expect(results.every((r) => r.workspaceId === organization.id)).toBe(true)
       expect(results.map((r) => r.status).sort()).toEqual(["failed", "passed"])
+
+      // Not visible from another workspace, even with the right runId.
+      const { organization: otherOrg } = await createTestFixtures(tx)
+      expect(await listEvalResults(tx, otherOrg.id, run.id)).toEqual([])
     })
   })
 
@@ -91,7 +110,7 @@ describe("insertEvalResults / listEvalResults", () => {
       await expect(
         insertEvalResults(tx, run.id, organization.id, [])
       ).resolves.toBeUndefined()
-      expect(await listEvalResults(tx, run.id)).toHaveLength(0)
+      expect(await listEvalResults(tx, organization.id, run.id)).toHaveLength(0)
     })
   })
 })

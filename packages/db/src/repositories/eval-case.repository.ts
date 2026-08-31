@@ -65,20 +65,25 @@ export async function archiveEvalCase(
 type EvalAssertion = { type: string; config: Record<string, unknown> }
 
 export type CreateEvalCaseFromStepInput = {
+  workspaceId: string
   stepId: string
   sourceSignalId?: string
   assertions?: EvalAssertion[]
 }
 
-/** A node-level case: snapshots one step's own input, so it keeps working after the step itself is retention-deleted. sourceSignalId is optional provenance alongside sourceStepId — a signal groups many occurrences, this case is built from one concrete instance of it. */
+/** A node-level case: snapshots one step's own input, so it keeps working after the step itself is retention-deleted. sourceSignalId is optional provenance alongside sourceStepId — a signal groups many occurrences, this case is built from one concrete instance of it.
+ *
+ * workspaceId is required and checked against both the step and its execution — getExecutionStepById/getExecutionById aren't workspace-scoped by param, so without this check a caller could snapshot another workspace's step input into a case visible in their own. */
 export async function createEvalCaseFromStep(
   db: DbClient,
   input: CreateEvalCaseFromStepInput
 ): Promise<EvalCase | undefined> {
   const step = await getExecutionStepById(db, input.stepId)
-  if (!step) return undefined
+  if (!step || step.workspaceId !== input.workspaceId) return undefined
   const execution = await getExecutionById(db, step.executionId)
-  if (!execution) return undefined
+  if (!execution || execution.workspaceId !== input.workspaceId) {
+    return undefined
+  }
 
   return createEvalCase(db, {
     workspaceId: step.workspaceId,
@@ -93,6 +98,7 @@ export async function createEvalCaseFromStep(
 }
 
 export type CreateEvalCaseFromFindingInput = {
+  workspaceId: string
   findingId: string
   assertions?: EvalAssertion[]
 }
@@ -103,15 +109,20 @@ export type CreateEvalCaseFromFindingInput = {
  * respondsToMessageId to the user turn that produced it; falls back to the conversation's last
  * user turn when there's no usable evidence pointer. Defaults the assertion to an llm_judge
  * built from the finding's own rationale, so the case starts out testing the thing that was
- * actually observed rather than an empty shell. */
+ * actually observed rather than an empty shell.
+ *
+ * workspaceId is required and checked against both the finding and its analysis — without it, a
+ * caller could copy another workspace's conversation transcript into their own eval case. */
 export async function createEvalCaseFromFinding(
   db: DbClient,
   input: CreateEvalCaseFromFindingInput
 ): Promise<EvalCase | undefined> {
   const finding = await getConversationFindingById(db, input.findingId)
-  if (!finding) return undefined
+  if (!finding || finding.workspaceId !== input.workspaceId) return undefined
   const analysis = await getConversationAnalysisById(db, finding.analysisId)
-  if (!analysis) return undefined
+  if (!analysis || analysis.workspaceId !== input.workspaceId) {
+    return undefined
+  }
 
   const messages = await listChatMessages(
     db,
