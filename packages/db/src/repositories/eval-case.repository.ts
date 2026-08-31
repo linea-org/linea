@@ -168,6 +168,11 @@ export async function createEvalCaseFromFinding(
     input: {
       turns: turnsBefore.map((m) => ({ role: m.role, content: m.content })),
       finalPrompt: boundary.content,
+      // Carried through so replaying this case can still exercise memory recall for an agent
+      // configured with memorySubjectPath — there's no live triggerPayload for it to resolve
+      // against otherwise, only this frozen snapshot. Undefined when the source conversation
+      // never had one (e.g. a workspace member's own test chat), same as the original.
+      externalSubjectId: analysis.externalSubjectId ?? undefined,
     },
     assertions,
     sourceFindingId: finding.id,

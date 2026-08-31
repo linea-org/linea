@@ -183,6 +183,7 @@ describe("EvalExecutionService.runEvalsForVersion", () => {
         input: {
           turns: [{ role: "user", content: "What's your refund policy?" }],
           finalPrompt: "What about after 30 days?",
+          externalSubjectId: "customer-user-1",
         },
         assertions: [
           {
@@ -206,6 +207,9 @@ describe("EvalExecutionService.runEvalsForVersion", () => {
           evalConversation: {
             turns: [{ role: "user", content: "What's your refund policy?" }],
             finalPrompt: "What about after 30 days?",
+            // Carried through so a memorySubjectPath-configured agent still gets memory recall
+            // during eval — there's no real input object for it to resolve a dot-path against.
+            externalSubjectId: "customer-user-1",
           },
         })
       )

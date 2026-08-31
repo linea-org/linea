@@ -16,6 +16,7 @@ type CaseOutcome = {
 type ConversationInput = {
   turns: { role: "user" | "assistant"; content: string }[]
   finalPrompt: string
+  externalSubjectId?: string
 }
 
 @Injectable()
@@ -119,6 +120,7 @@ export class EvalExecutionService {
           evalConversation: {
             turns: input.turns,
             finalPrompt: input.finalPrompt,
+            externalSubjectId: input.externalSubjectId,
           },
         }
       )

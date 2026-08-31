@@ -385,11 +385,14 @@ export class AiNode implements NodeHandler {
       parsed.memorySubjectPath.trim() !== ""
     ) {
       try {
-        const externalSubjectId = resolveSubjectId(
-          input,
-          parsed.memorySubjectPath,
-          "Agent node memory"
-        )
+        // A conversation-type eval case has no real input object to resolve memorySubjectPath
+        // against (its "input" is {}, since the whole point is replaying a frozen turn snapshot
+        // rather than a live triggerPayload) — carrying the subject straight through from the
+        // case's own snapshot is the only way memory recall can work at all during eval, rather
+        // than silently testing a memory-less version of an agent that actually uses it.
+        const externalSubjectId =
+          context.evalConversation?.externalSubjectId ??
+          resolveSubjectId(input, parsed.memorySubjectPath, "Agent node memory")
         const namespace = resolveNamespace(
           parsed.memoryNamespace,
           context.workflowId,
