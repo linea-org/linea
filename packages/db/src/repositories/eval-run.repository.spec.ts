@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   completeEvalRun,
   createEvalRun,
+  getEvalRunById,
   insertEvalResults,
   listEvalResults,
   listEvalRuns,
@@ -111,6 +112,37 @@ describe("insertEvalResults / listEvalResults", () => {
         insertEvalResults(tx, run.id, organization.id, [])
       ).resolves.toBeUndefined()
       expect(await listEvalResults(tx, organization.id, run.id)).toHaveLength(0)
+    })
+  })
+})
+
+describe("getEvalRunById", () => {
+  it("finds a run scoped to its own workspace, not another one", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      await publishWorkflowVersion(tx, workflow.id, version.id)
+      const { organization: otherOrg } = await createTestFixtures(tx)
+
+      const run = await createEvalRun(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const found = await getEvalRunById(tx, organization.id, run.id)
+      expect(found?.id).toBe(run.id)
+
+      const notFound = await getEvalRunById(tx, otherOrg.id, run.id)
+      expect(notFound).toBeUndefined()
+    })
+  })
+
+  it("returns undefined for a nonexistent id", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const found = await getEvalRunById(tx, organization.id, randomUUID())
+      expect(found).toBeUndefined()
     })
   })
 })
