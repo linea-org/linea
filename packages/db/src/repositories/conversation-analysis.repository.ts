@@ -72,10 +72,13 @@ export async function findConversationsDueForAnalysis(
       GROUP BY workspace_id, workflow_id, conversation_id
     ),
     latest_analysis AS (
+      -- Tied created_at (same-millisecond concurrent runs) falls through to the highest
+      -- analyzed_through_sequence — the invariant that actually matters is never regressing the
+      -- watermark, not just picking a tied row deterministically.
       SELECT DISTINCT ON (workspace_id, workflow_id, conversation_id)
         workspace_id, workflow_id, conversation_id, analyzed_through_sequence
       FROM conversation_analyses
-      ORDER BY workspace_id, workflow_id, conversation_id, created_at DESC
+      ORDER BY workspace_id, workflow_id, conversation_id, created_at DESC, analyzed_through_sequence DESC
     )
     SELECT
       cs.workspace_id, cs.workflow_id, cs.conversation_id, cs.max_sequence, cs.external_subject_id,

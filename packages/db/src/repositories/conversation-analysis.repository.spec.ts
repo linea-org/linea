@@ -160,4 +160,51 @@ describe("findConversationsDueForAnalysis", () => {
       expect(match!.maxSequence).toBeGreaterThan(firstPass.maxSequence)
     })
   })
+
+  it("breaks a created_at tie between two analysis rows by picking the higher watermark, not an arbitrary one", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      await updateWorkspaceSettings(tx, organization.id, {
+        behaviourAnalysisEnabled: true,
+      })
+      const conversationId = randomUUID()
+      await insertMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        createdAt: new Date(Date.now() - 20 * 60_000),
+      })
+      const [due] = await findConversationsDueForAnalysis(tx, new Date())
+
+      // Two analysis rows sharing the exact same created_at — as if two concurrent runs both
+      // wrote one. Inserted lower-watermark-first so a plain DISTINCT ON with no tiebreaker
+      // could arbitrarily keep either row.
+      const tiedTimestamp = new Date()
+      await createConversationAnalysis(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        analyzedThroughSequence: 1,
+        analyzerVersion: "v1",
+        createdAt: tiedTimestamp,
+      })
+      await createConversationAnalysis(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        analyzedThroughSequence: due.maxSequence,
+        analyzerVersion: "v1",
+        createdAt: tiedTimestamp,
+      })
+
+      // If the tie picked the watermark=1 row, this conversation would incorrectly still be due.
+      const afterAnalysis = await findConversationsDueForAnalysis(
+        tx,
+        new Date()
+      )
+      expect(afterAnalysis.map((d) => d.conversationId)).not.toContain(
+        conversationId
+      )
+    })
+  })
 })

@@ -42,4 +42,22 @@ describe("updateWorkspaceSettings", () => {
       expect(modelSet.behaviourModel).toBe("claude-sonnet-5")
     })
   })
+
+  it("rejects a behaviourSampleRate outside [0, 1]", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+
+      await expect(
+        updateWorkspaceSettings(tx, organization.id, {
+          behaviourSampleRate: 1.5,
+        })
+      ).rejects.toThrow("behaviourSampleRate must be between 0 and 1")
+
+      await expect(
+        updateWorkspaceSettings(tx, organization.id, {
+          behaviourSampleRate: -0.1,
+        })
+      ).rejects.toThrow("behaviourSampleRate must be between 0 and 1")
+    })
+  })
 })

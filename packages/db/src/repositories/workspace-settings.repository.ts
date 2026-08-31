@@ -45,6 +45,14 @@ export async function updateWorkspaceSettings(
   workspaceId: string,
   input: UpdateWorkspaceSettingsInput
 ): Promise<WorkspaceSettings> {
+  if (
+    input.behaviourSampleRate !== undefined &&
+    (input.behaviourSampleRate < 0 || input.behaviourSampleRate > 1)
+  ) {
+    throw new Error(
+      `behaviourSampleRate must be between 0 and 1, got ${input.behaviourSampleRate}`
+    )
+  }
   const [updated] = await db
     .insert(workspaceSettings)
     .values({ workspaceId, ...input })
