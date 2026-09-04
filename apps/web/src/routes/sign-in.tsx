@@ -82,9 +82,17 @@ function SignInPage() {
     }
 
     setPending(true)
+    // A successful sign-in is handled by the manual navigate() below, not this callbackURL — it
+    // only matters when the account isn't verified yet: Better Auth then sends a fresh
+    // verification email built from it, same as sign-up.tsx's own invitation-aware callback, so
+    // an unverified invited user who tries password sign-in still lands back in the invitation.
+    const callbackURL = invitationId
+      ? `${window.location.origin}/accept-invitation/${invitationId}`
+      : `${window.location.origin}/onboarding/workspace`
     const { error: signInError } = await authClient.signIn.email({
       email: parsed.data.email,
       password: parsed.data.password,
+      callbackURL,
     })
     setPending(false)
 
@@ -182,8 +190,8 @@ function SignInPage() {
           </Button>
         </form>
         <MagicLinkForm
+          email={email}
           invitationId={invitationId}
-          defaultEmail={emailFromInvite}
           onError={(message) => setError(message)}
         />
       </div>

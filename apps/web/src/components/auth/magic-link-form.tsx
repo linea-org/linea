@@ -1,17 +1,8 @@
 import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 
 import { Alert, AlertDescription } from "@linea/ui/components/alert"
 import { Button } from "@linea/ui/components/button"
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
 
 import { authClient } from "@/lib/auth-client"
 import { authErrorMessage } from "@/lib/auth-redirect"
@@ -19,7 +10,6 @@ import { authErrorMessage } from "@/lib/auth-redirect"
 const schema = z.object({
   email: z.email("Enter a valid email"),
 })
-type FormValues = z.infer<typeof schema>
 
 const MAGIC_LINK_VERIFY_ERRORS: Record<string, string> = {
   INVALID_TOKEN:
@@ -37,27 +27,31 @@ export function magicLinkVerifyErrorMessage(code: string) {
 }
 
 type MagicLinkFormProps = {
+  // Shares the sign-in page's single email field rather than owning its own — sign-in offers two
+  // ways to use one email (a password or a link), not two separate forms each asking for it.
+  email: string
   invitationId?: string
-  defaultEmail?: string
   onError?: (message: string | null) => void
 }
 
 export function MagicLinkForm({
+  email,
   invitationId,
-  defaultEmail,
   onError,
 }: MagicLinkFormProps) {
   const [sentTo, setSentTo] = useState<string | null>(null)
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { email: defaultEmail ?? "" },
-  })
-  async function onSubmit(values: FormValues) {
+  const [fieldError, setFieldError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  async function onSubmit() {
     onError?.(null)
+    setFieldError(null)
+    const parsed = schema.safeParse({ email })
+    if (!parsed.success) {
+      setFieldError(parsed.error.issues[0]?.message ?? "Enter a valid email")
+      return
+    }
+    setIsSubmitting(true)
     const origin = window.location.origin
     const callbackURL = invitationId
       ? `${origin}/accept-invitation/${invitationId}`
@@ -72,57 +66,47 @@ export function MagicLinkForm({
       ? `${origin}/sign-in?invitationId=${encodeURIComponent(invitationId)}&magicLink=1`
       : `${origin}/sign-in?magicLink=1`
     const { error } = await authClient.signIn.magicLink({
-      email: values.email,
+      email: parsed.data.email,
       callbackURL,
       newUserCallbackURL,
       errorCallbackURL,
     })
+    setIsSubmitting(false)
     if (error) {
       onError?.(authErrorMessage(error, "Could not send sign-in link"))
       return
     }
-    setSentTo(values.email)
+    setSentTo(parsed.data.email)
   }
+
+  if (sentTo) {
+    return (
+      <Alert>
+        <AlertDescription>
+          We sent a sign-in link to {sentTo}. Open it to continue — it expires
+          in a few minutes.
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
   return (
-    <div className="space-y-4">
-      {sentTo ? (
-        <Alert>
-          <AlertDescription>
-            We sent a sign-in link to {sentTo}. Open it to continue — it expires
-            in a few minutes.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <form
-          onSubmit={(event) => {
-            void handleSubmit(onSubmit)(event)
-          }}
-          className="space-y-5"
-        >
-          <FieldGroup>
-            <Field data-invalid={!!errors.email || undefined}>
-              <FieldLabel htmlFor="magic-link-email">Email</FieldLabel>
-              <Input
-                id="magic-link-email"
-                type="email"
-                autoComplete="email"
-                disabled={isSubmitting}
-                {...register("email")}
-              />
-              <FieldError>{errors.email?.message}</FieldError>
-            </Field>
-          </FieldGroup>
-          <Button
-            type="submit"
-            variant="outline"
-            className="w-full"
-            disabled={isSubmitting}
-            size="lg"
-          >
-            {isSubmitting ? "Sending…" : "Email me a sign-in link"}
-          </Button>
-        </form>
-      )}
+    <div className="space-y-2">
+      {fieldError ? (
+        <p className="text-xs text-destructive">{fieldError}</p>
+      ) : null}
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        disabled={isSubmitting}
+        size="lg"
+        onClick={() => {
+          void onSubmit()
+        }}
+      >
+        {isSubmitting ? "Sending…" : "Email me a sign-in link"}
+      </Button>
     </div>
   )
 }
