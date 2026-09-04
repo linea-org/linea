@@ -247,14 +247,34 @@ export class ConversationAnalyzerService
     }
 
     if (Math.random() >= behaviourSampleRate) {
-      await repositories.conversationAnalysis.createConversationAnalysis(db, {
-        workspaceId,
-        workflowId,
-        conversationId,
-        externalSubjectId,
-        analyzedThroughSequence: maxSequence,
-        analyzerVersion: SAMPLED_OUT_VERSION,
+      // No LLM call on this path, so there's no realistic way to outlive the lease — but the write
+      // still goes through the same fencing check, atomically in the same transaction, as the real
+      // analysis path below, so nothing here depends on "this write is always fast enough" staying
+      // true as the code evolves.
+      let sampledOutClaimStillOwned = true
+      await db.transaction(async (tx) => {
+        sampledOutClaimStillOwned =
+          await repositories.conversationAnalysis.renewClaimIfOwned(
+            tx,
+            { workspaceId, workflowId, conversationId },
+            claim.claimedAt
+          )
+        if (!sampledOutClaimStillOwned) return
+        await repositories.conversationAnalysis.createConversationAnalysis(tx, {
+          workspaceId,
+          workflowId,
+          conversationId,
+          externalSubjectId,
+          analyzedThroughSequence: maxSequence,
+          analyzerVersion: SAMPLED_OUT_VERSION,
+        })
       })
+      if (!sampledOutClaimStillOwned) {
+        this.logger.warn(
+          `Conversation ${conversationId}: claim lost to another worker before the sampled-out write, discarding this result`
+        )
+        return { outcome: "claim-lost" }
+      }
       return { outcome: "processed" }
     }
 
