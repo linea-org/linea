@@ -263,8 +263,29 @@ describe("listEvalCases / archiveEvalCase", () => {
       expect(all.map((c) => c.id).sort()).toEqual([kept.id, archived.id].sort())
 
       expect(
-        (await getEvalCaseById(tx, archived.id))?.archivedAt
+        (await getEvalCaseById(tx, organization.id, archived.id))?.archivedAt
       ).not.toBeNull()
+    })
+  })
+
+  it("does not return a case belonging to another workspace", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      const evalCase = await createEvalCase(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        caseType: "node",
+        nodeId: "n1",
+        input: { nodeInput: {} },
+      })
+
+      const { organization: otherOrg } = await createTestFixtures(tx)
+      expect(
+        await getEvalCaseById(tx, otherOrg.id, evalCase.id)
+      ).toBeUndefined()
+      expect(
+        await getEvalCaseById(tx, organization.id, evalCase.id)
+      ).toBeDefined()
     })
   })
 })

@@ -19,12 +19,15 @@ export async function createEvalCase(
 
 export async function getEvalCaseById(
   db: DbClient,
+  workspaceId: string,
   evalCaseId: string
 ): Promise<EvalCase | undefined> {
   const [evalCase] = await db
     .select()
     .from(evalCases)
-    .where(eq(evalCases.id, evalCaseId))
+    .where(
+      and(eq(evalCases.id, evalCaseId), eq(evalCases.workspaceId, workspaceId))
+    )
   return evalCase
 }
 
