@@ -1,12 +1,66 @@
 import { sql } from "drizzle-orm"
 import {
   conversationAnalyses,
+  conversationAnalysisClaims,
   conversationFindings,
   type ConversationAnalysis,
   type NewConversationAnalysis,
   type NewConversationFinding,
 } from "../schema/index.js"
 import type { DbClient } from "./types.js"
+
+// Shared between the claim function and the due-query's own exclusion/ordering — both must agree
+// on what "still actively claimed" means, or a claim could expire from one's perspective but not
+// the other's.
+const DEFAULT_CLAIM_LEASE_MS = 5 * 60_000
+
+export type ClaimConversationForAnalysisResult =
+  | { outcome: "claimed"; attemptCount: number }
+  | { outcome: "already-claimed" }
+
+/** Atomically claims a conversation for analysis — succeeds only if it's never been claimed
+ * before, or its previous claim has gone stale (older than leaseMs: either a worker that crashed
+ * mid-analysis, or simply due for its next retry). Must be called immediately before the
+ * (billable) LLM call, so the window a stuck claim can block a real retry stays as short as
+ * possible. Does not need an explicit release on success — the conversation stops being "due" at
+ * all once analysis completes, so its claim row is simply never looked at again until it's due
+ * once more, at which point a fresh claim naturally supersedes it. */
+export async function claimConversationForAnalysis(
+  db: DbClient,
+  input: { workspaceId: string; workflowId: string; conversationId: string },
+  leaseMs = DEFAULT_CLAIM_LEASE_MS
+): Promise<ClaimConversationForAnalysisResult> {
+  const [row] = await db
+    .insert(conversationAnalysisClaims)
+    .values({
+      workspaceId: input.workspaceId,
+      workflowId: input.workflowId,
+      conversationId: input.conversationId,
+      claimedAt: new Date(),
+      attemptCount: 1,
+    })
+    .onConflictDoUpdate({
+      target: [
+        conversationAnalysisClaims.workspaceId,
+        conversationAnalysisClaims.workflowId,
+        conversationAnalysisClaims.conversationId,
+      ],
+      set: {
+        claimedAt: new Date(),
+        attemptCount: sql`${conversationAnalysisClaims.attemptCount} + 1`,
+      },
+      // Only actually claimable if the existing claim has gone stale — otherwise this row is
+      // left untouched and .returning() reports no row, meaning "someone else already has this."
+      // clock_timestamp(), not now() — now() is frozen to transaction-start for the whole
+      // enclosing transaction, which would never register a lease as expired within one.
+      setWhere: sql`${conversationAnalysisClaims.claimedAt} < clock_timestamp() - (${leaseMs}::text || ' milliseconds')::interval`,
+    })
+    .returning({ attemptCount: conversationAnalysisClaims.attemptCount })
+
+  return row
+    ? { outcome: "claimed", attemptCount: row.attemptCount }
+    : { outcome: "already-claimed" }
+}
 
 export async function createConversationAnalysis(
   db: DbClient,
@@ -46,11 +100,18 @@ export type ConversationDueForAnalysis = {
  * is never analyzed mid-flight) and whose watermark is behind their latest turn — either never
  * analyzed, or grown since the last run. Scoped to workspaces that have opted in via
  * workspace_settings (an inner join, so a workspace that never touched settings — meaning no row
- * exists — is correctly excluded, matching that table's "missing row reads as off" convention). */
+ * exists — is correctly excluded, matching that table's "missing row reads as off" convention).
+ *
+ * Excludes a conversation with an active claim (see claimConversationForAnalysis) — another
+ * worker has it in flight, or it failed recently and is backing off. Orders by claimed_at
+ * ascending, nulls first: a never-claimed conversation goes first, and among claimed ones the
+ * longest-untouched goes first — so a conversation that keeps failing and getting reclaimed sinks
+ * toward the back of the LIMIT window instead of permanently occupying the front of it. */
 export async function findConversationsDueForAnalysis(
   db: DbClient,
   idleBefore: Date,
-  limit = 20
+  limit = 20,
+  claimLeaseMs = DEFAULT_CLAIM_LEASE_MS
 ): Promise<ConversationDueForAnalysis[]> {
   const result = await db.execute<{
     workspace_id: string
@@ -89,8 +150,16 @@ export async function findConversationsDueForAnalysis(
     LEFT JOIN latest_analysis la
       ON la.workspace_id = cs.workspace_id AND la.workflow_id = cs.workflow_id
       AND la.conversation_id = cs.conversation_id
+    LEFT JOIN conversation_analysis_claims cac
+      ON cac.workspace_id = cs.workspace_id AND cac.workflow_id = cs.workflow_id
+      AND cac.conversation_id = cs.conversation_id
     WHERE cs.last_message_at < ${idleBefore}
       AND cs.max_sequence > coalesce(la.analyzed_through_sequence, 0)
+      AND (
+        cac.claimed_at IS NULL
+        OR cac.claimed_at < clock_timestamp() - (${claimLeaseMs}::text || ' milliseconds')::interval
+      )
+    ORDER BY cac.claimed_at ASC NULLS FIRST
     LIMIT ${limit}
   `)
 

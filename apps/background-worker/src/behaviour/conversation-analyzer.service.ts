@@ -166,7 +166,11 @@ export class ConversationAnalyzerService
       // persistent failure (bad model config, missing key) would then spin this loop forever on
       // the same item and starve every other due conversation behind it. Excluded from retry
       // within this same poll() call; still picked up again on the next tick's fresh due-query.
-      const failedThisPoll = new Set<string>()
+      // Covers two distinct reasons a conversation shouldn't be retried within this same poll()
+      // call: it actually errored, or another worker (or this same worker's own prior batch) has
+      // an active claim on it. Either way, retrying it again this tick just repeats the same
+      // outcome — it gets a real retry on the next tick's fresh due-query instead.
+      const excludedThisPoll = new Set<string>()
       let due =
         await repositories.conversationAnalysis.findConversationsDueForAnalysis(
           db,
@@ -176,14 +180,17 @@ export class ConversationAnalyzerService
       while (due.length > 0) {
         for (const conversation of due) {
           try {
-            await this.analyzeOne(conversation)
+            const result = await this.analyzeOne(conversation)
+            if (result.outcome === "already-claimed") {
+              excludedThisPoll.add(conversationKey(conversation))
+            }
           } catch (error) {
             const message =
               error instanceof Error ? error.message : String(error)
             this.logger.error(
               `Conversation analysis failed for ${conversation.conversationId}: ${message}`
             )
-            failedThisPoll.add(conversationKey(conversation))
+            excludedThisPoll.add(conversationKey(conversation))
           }
         }
         const next =
@@ -192,7 +199,7 @@ export class ConversationAnalyzerService
             idleBefore,
             BATCH_LIMIT
           )
-        due = next.filter((c) => !failedThisPoll.has(conversationKey(c)))
+        due = next.filter((c) => !excludedThisPoll.has(conversationKey(c)))
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -204,7 +211,7 @@ export class ConversationAnalyzerService
 
   private async analyzeOne(
     conversation: ConversationDueForAnalysis
-  ): Promise<void> {
+  ): Promise<{ outcome: "processed" | "already-claimed" }> {
     const {
       workspaceId,
       workflowId,
@@ -215,6 +222,20 @@ export class ConversationAnalyzerService
       behaviourModel,
     } = conversation
 
+    // Claimed before anything else — including the sample-rate coin flip — so two workers can
+    // never both process (billable or not) the same conversation concurrently. Not needed for
+    // fairness within this call: findConversationsDueForAnalysis already excludes/orders by
+    // active claims, so a duplicate select here would only happen under real concurrency.
+    const claim =
+      await repositories.conversationAnalysis.claimConversationForAnalysis(db, {
+        workspaceId,
+        workflowId,
+        conversationId,
+      })
+    if (claim.outcome === "already-claimed") {
+      return { outcome: "already-claimed" }
+    }
+
     if (Math.random() >= behaviourSampleRate) {
       await repositories.conversationAnalysis.createConversationAnalysis(db, {
         workspaceId,
@@ -224,7 +245,7 @@ export class ConversationAnalyzerService
         analyzedThroughSequence: maxSequence,
         analyzerVersion: SAMPLED_OUT_VERSION,
       })
-      return
+      return { outcome: "processed" }
     }
 
     const messages = await repositories.chatMessage.listChatMessages(
@@ -287,5 +308,6 @@ export class ConversationAnalyzerService
         findings.map((finding) => ({ workspaceId, ...finding }))
       )
     })
+    return { outcome: "processed" }
   }
 }

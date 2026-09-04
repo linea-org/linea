@@ -179,7 +179,7 @@ describe("ConversationAnalyzerService", () => {
     }
   })
 
-  it("does not loop forever on a persistently-failing conversation, and retries it on the next poll instead", async () => {
+  it("does not loop forever on a persistently-failing conversation within one poll, and retries it once its claim lease expires", async () => {
     const { organization, conversationId } = await setUpConversation({
       name: "Behaviour Persistent Failure Test Org",
       enabled: true,
@@ -196,10 +196,58 @@ describe("ConversationAnalyzerService", () => {
       const rows = await getAnalysisFor(conversationId)
       expect(rows).toHaveLength(0)
 
-      // Not retried within the same poll — but still due, so a later poll (the next 60s tick,
-      // called directly here) picks it back up rather than skipping it forever.
+      // Still holds its claim (a failed attempt backs off for the claim's lease duration, not
+      // just until the next tick — a real crash-recovery lease has to be long enough to survive
+      // a genuinely slow provider call, not just "one 60s poll interval") — an immediate second
+      // poll must not retry it yet.
+      await service.poll()
+      expect(complete).toHaveBeenCalledTimes(1)
+
+      // Once the claim goes stale (simulated here rather than a real multi-minute wait), the next
+      // poll picks it back up rather than skipping it forever.
+      await pool.query(
+        "UPDATE conversation_analysis_claims SET claimed_at = $1 WHERE conversation_id = $2",
+        [new Date(Date.now() - 60 * 60_000), conversationId]
+      )
       await service.poll()
       expect(complete).toHaveBeenCalledTimes(2)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("skips a conversation another worker already has an active claim on, without calling the LLM", async () => {
+    const { organization, workflow, conversationId } = await setUpConversation({
+      name: "Behaviour Already Claimed Test Org",
+      enabled: true,
+    })
+    complete.mockResolvedValue({
+      text: "",
+      tokensInput: 1,
+      tokensOutput: 1,
+      toolCalls: [{ id: "call-1", name: "report_findings", arguments: {} }],
+    })
+
+    try {
+      // Simulates another worker instance already mid-analysis of this exact conversation.
+      const claim =
+        await repositories.conversationAnalysis.claimConversationForAnalysis(
+          db,
+          {
+            workspaceId: organization.id,
+            workflowId: workflow.id,
+            conversationId,
+          }
+        )
+      expect(claim.outcome).toBe("claimed")
+
+      const service = new ConversationAnalyzerService()
+      await service.poll()
+
+      expect(complete).not.toHaveBeenCalled()
+      expect(await getAnalysisFor(conversationId)).toHaveLength(0)
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
