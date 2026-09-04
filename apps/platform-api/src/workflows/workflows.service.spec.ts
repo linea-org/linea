@@ -3,11 +3,17 @@ import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import { db, pool, schema } from '@linea/db'
 import type { WorkflowGraph } from '@linea/runtime'
+import { EvalRunQueueService } from '../queue/eval-run-queue.service'
 import { RealtimeTokenService } from '../realtime/realtime-token.service'
 import { WorkflowsGateway } from '../realtime/workflows.gateway'
 import { WorkflowsService } from './workflows.service'
 
-const providers = [WorkflowsService, RealtimeTokenService, WorkflowsGateway]
+const providers = [
+  WorkflowsService,
+  RealtimeTokenService,
+  WorkflowsGateway,
+  EvalRunQueueService,
+]
 
 afterAll(async () => {
   await pool.end()
@@ -74,6 +80,7 @@ describe('WorkflowsService', () => {
         ).rejects.toThrow()
       })
     })
+    await moduleRef.close()
   })
 
   it('rejects a structurally invalid graph before it ever reaches the database', async () => {
@@ -106,6 +113,7 @@ describe('WorkflowsService', () => {
         }),
       ).rejects.toThrow()
     })
+    await moduleRef.close()
   })
 
   it('rejects a graph that uses the reserved resume-event node id', async () => {
@@ -127,6 +135,7 @@ describe('WorkflowsService', () => {
         }),
       ).rejects.toThrow()
     })
+    await moduleRef.close()
   })
 
   it('creates and publishes a version, scoped to the owning workflow', async () => {
@@ -179,6 +188,45 @@ describe('WorkflowsService', () => {
         ).rejects.toThrow()
       })
     })
+    await moduleRef.close()
+  })
+
+  it('enqueues an eval run for the published version, without letting a queue failure fail the publish itself', async () => {
+    const enqueue = jest.fn().mockRejectedValue(new Error('redis unreachable'))
+    const moduleRef = await Test.createTestingModule({
+      providers,
+    })
+      .overrideProvider(EvalRunQueueService)
+      .useValue({ enqueue, onModuleDestroy: () => Promise.resolve() })
+      .compile()
+    const service = moduleRef.get(WorkflowsService)
+
+    await withOrg(async (workspaceId) => {
+      const suffix = randomUUID()
+      const workflow = await service.create(workspaceId, {
+        name: 'Eval Enqueue Workflow',
+        slug: `eval-enqueue-${suffix}`,
+      })
+      const version = await service.createVersion(workspaceId, workflow.id, {
+        graph: validGraph(),
+      })
+
+      // enqueue rejects above — publishVersion must still resolve normally.
+      const published = await service.publishVersion(
+        workspaceId,
+        workflow.id,
+        version.id,
+      )
+      expect(published.publishedVersionId).toBe(version.id)
+
+      expect(enqueue).toHaveBeenCalledWith({
+        workspaceId,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: 'publish',
+      })
+    })
+    await moduleRef.close()
   })
 
   it('saves a draft without validating its structure, scoped to the workspace', async () => {
@@ -214,6 +262,7 @@ describe('WorkflowsService', () => {
         ).rejects.toThrow()
       })
     })
+    await moduleRef.close()
   })
 
   it('broadcasts a draft save to the workflow room only when a saver is given', async () => {
@@ -254,6 +303,7 @@ describe('WorkflowsService', () => {
     })
 
     broadcast.mockRestore()
+    await moduleRef.close()
   })
 
   it('mints a realtime token only for a signed-in session on a workflow in the right workspace', async () => {
@@ -289,5 +339,6 @@ describe('WorkflowsService', () => {
         ).rejects.toThrow()
       })
     })
+    await moduleRef.close()
   })
 })

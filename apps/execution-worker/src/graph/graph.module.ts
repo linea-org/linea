@@ -27,6 +27,6 @@ import { WaitNode } from "./nodes/wait.node"
     FilterNode,
     MergeNode,
   ],
-  exports: [InterpreterService],
+  exports: [InterpreterService, AiNode],
 })
 export class GraphModule {}

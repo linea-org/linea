@@ -1573,6 +1573,49 @@ describe("AiNode", () => {
       )
     })
 
+    it("uses evalConversation.externalSubjectId directly, bypassing memorySubjectPath resolution, since an eval case has no real input object to resolve it against", async () => {
+      complete.mockResolvedValue({
+        text: "hi",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+      listMemories.mockResolvedValue([{ key: "favorite", value: "pizza" }])
+
+      await new AiNode().execute(
+        {
+          prompt: "static prompt",
+          model: "claude-sonnet-5",
+          memorySubjectPath: "conversationId",
+        },
+        {},
+        {
+          ...context,
+          evalConversation: {
+            turns: [],
+            finalPrompt: "What about after 30 days?",
+            externalSubjectId: "customer-user-1",
+          },
+        }
+      )
+
+      // Input is {} — "conversationId" would never resolve against it — yet recall still ran,
+      // using the eval case's own carried-through subject instead.
+      expect(listMemories).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({
+          workspaceId: "ws1",
+          externalSubjectId: "customer-user-1",
+          namespace: "wf1",
+        })
+      )
+      expect(complete).toHaveBeenCalledWith(
+        "secret",
+        expect.objectContaining({
+          prompt: expect.stringContaining("- favorite: pizza") as unknown,
+        })
+      )
+    })
+
     it("logs a warning and proceeds without the memory block when resuming, since a resume has no fresh user turn to attach it to", async () => {
       // A resumed run's nextPrompt is always undefined (the fresh turn, if any, was already sent
       // before the crash) — proves memory recall doesn't fall back to systemPrompt when there's

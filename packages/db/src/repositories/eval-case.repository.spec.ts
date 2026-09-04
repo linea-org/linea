@@ -165,6 +165,7 @@ describe("createEvalCaseFromFinding", () => {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
+        externalSubjectId: "customer-user-1",
         analyzedThroughSequence: turn4.sequence,
         analyzerVersion: "v1",
       })
@@ -194,6 +195,7 @@ describe("createEvalCaseFromFinding", () => {
       const input = evalCase?.input as {
         turns: { role: string; content: string }[]
         finalPrompt: string
+        externalSubjectId?: string
       }
       // Boundary is turn3 (the user message that produced the hallucinated reply) — history is
       // everything before it (turn1, turn2), not the hallucinated reply itself.
@@ -202,6 +204,9 @@ describe("createEvalCaseFromFinding", () => {
         "What's your refund policy?",
         "We offer refunds within 30 days.",
       ])
+      // Carried through from the source analysis so replaying this case can still exercise
+      // memory recall for a memorySubjectPath-configured agent.
+      expect(input.externalSubjectId).toBe("customer-user-1")
       expect(evalCase?.assertions).toEqual([
         {
           type: "llm_judge",
