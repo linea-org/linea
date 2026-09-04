@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest"
 import { chatMessages } from "../schema/index.js"
 import type { Transaction } from "./types.js"
 import {
+  claimConversationForAnalysis,
   createConversationAnalysis,
   findConversationsDueForAnalysis,
   insertConversationFindings,
+  renewClaimIfOwned,
 } from "./conversation-analysis.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import { updateWorkspaceSettings } from "./workspace-settings.repository.js"
@@ -31,7 +33,213 @@ async function insertMessage(
   })
 }
 
+describe("claimConversationForAnalysis", () => {
+  it("claims once, then reports already-claimed for a second attempt within the lease window", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      const conversationId = randomUUID()
+      const input = {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+      }
+
+      const first = await claimConversationForAnalysis(tx, input, 60_000)
+      if (first.outcome !== "claimed") throw new Error("expected claimed")
+      expect(first.attemptCount).toBe(1)
+      expect(first.claimedAt).toBeInstanceOf(Date)
+
+      const second = await claimConversationForAnalysis(tx, input, 60_000)
+      expect(second).toEqual({ outcome: "already-claimed" })
+    })
+  })
+
+  it("re-claims once the previous claim's lease has expired, incrementing attemptCount", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      const conversationId = randomUUID()
+      const input = {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+      }
+
+      // A lease of 0ms is immediately stale, standing in for "the previous claim expired" without
+      // an actual sleep.
+      const first = await claimConversationForAnalysis(tx, input, 0)
+      if (first.outcome !== "claimed") throw new Error("expected claimed")
+      expect(first.attemptCount).toBe(1)
+
+      const second = await claimConversationForAnalysis(tx, input, 0)
+      if (second.outcome !== "claimed") throw new Error("expected claimed")
+      expect(second.attemptCount).toBe(2)
+    })
+  })
+
+  it("claims for different conversations independently", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+
+      const a = await claimConversationForAnalysis(
+        tx,
+        {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId: randomUUID(),
+        },
+        60_000
+      )
+      const b = await claimConversationForAnalysis(
+        tx,
+        {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId: randomUUID(),
+        },
+        60_000
+      )
+      if (a.outcome !== "claimed") throw new Error("expected claimed")
+      if (b.outcome !== "claimed") throw new Error("expected claimed")
+      expect(a.attemptCount).toBe(1)
+      expect(b.attemptCount).toBe(1)
+    })
+  })
+})
+
+describe("renewClaimIfOwned", () => {
+  it("returns true and refreshes claimed_at when the fencing token still matches", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      const input = {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId: randomUUID(),
+      }
+      const claim = await claimConversationForAnalysis(tx, input, 60_000)
+      if (claim.outcome !== "claimed") throw new Error("expected claimed")
+
+      const owned = await renewClaimIfOwned(tx, input, claim.claimedAt)
+      expect(owned).toBe(true)
+    })
+  })
+
+  it("returns false when another worker has reclaimed since, without touching that reclaim", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      const input = {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId: randomUUID(),
+      }
+      const first = await claimConversationForAnalysis(tx, input, 0)
+      if (first.outcome !== "claimed") throw new Error("expected claimed")
+
+      // Lease of 0 makes it immediately stale, standing in for the first worker's claim expiring
+      // while its (unbounded) provider call was still in flight.
+      const second = await claimConversationForAnalysis(tx, input, 0)
+      if (second.outcome !== "claimed") throw new Error("expected reclaimed")
+      expect(second.claimedAt).not.toEqual(first.claimedAt)
+
+      // The first worker's provider call finally returns and tries to write — using the stale
+      // token it captured at its own claim time, not the second worker's.
+      const owned = await renewClaimIfOwned(tx, input, first.claimedAt)
+      expect(owned).toBe(false)
+    })
+  })
+})
+
 describe("findConversationsDueForAnalysis", () => {
+  it("excludes a conversation with an active claim, and includes it again once the claim lease expires", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      await updateWorkspaceSettings(tx, organization.id, {
+        behaviourAnalysisEnabled: true,
+      })
+      const conversationId = randomUUID()
+      await insertMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        createdAt: new Date(Date.now() - 20 * 60_000),
+      })
+
+      const claimed = await claimConversationForAnalysis(
+        tx,
+        {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+        },
+        60_000
+      )
+      expect(claimed.outcome).toBe("claimed")
+
+      const dueWhileClaimed = await findConversationsDueForAnalysis(
+        tx,
+        new Date(),
+        20,
+        60_000
+      )
+      expect(dueWhileClaimed.map((d) => d.conversationId)).not.toContain(
+        conversationId
+      )
+
+      // A claimLeaseMs of 0 treats even a just-made claim as stale.
+      const dueWithExpiredLease = await findConversationsDueForAnalysis(
+        tx,
+        new Date(),
+        20,
+        0
+      )
+      expect(dueWithExpiredLease.map((d) => d.conversationId)).toContain(
+        conversationId
+      )
+    })
+  })
+
+  it("orders a never-claimed conversation ahead of one that keeps getting reclaimed", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      await updateWorkspaceSettings(tx, organization.id, {
+        behaviourAnalysisEnabled: true,
+      })
+      const idleSince = new Date(Date.now() - 20 * 60_000)
+      const repeatedlyFailingId = randomUUID()
+      const neverTriedId = randomUUID()
+      await insertMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId: repeatedlyFailingId,
+        createdAt: idleSince,
+      })
+      await insertMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId: neverTriedId,
+        createdAt: idleSince,
+      })
+
+      // Claimed and immediately expired (lease 0), simulating a conversation that's already
+      // failed once — its claimed_at is more recent than the never-tried conversation's (which
+      // has none at all), so it should sort behind, not in front.
+      await claimConversationForAnalysis(
+        tx,
+        {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId: repeatedlyFailingId,
+        },
+        0
+      )
+
+      const due = await findConversationsDueForAnalysis(tx, new Date(), 20, 0)
+      const ids = due.map((d) => d.conversationId)
+      expect(ids.indexOf(neverTriedId)).toBeLessThan(
+        ids.indexOf(repeatedlyFailingId)
+      )
+    })
+  })
+
   it("excludes a workspace that has never enabled behaviour analysis", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
