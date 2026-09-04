@@ -86,7 +86,11 @@ export class EvalCasesService {
     workflowId: string,
     id: string,
   ): Promise<EvalCase> {
-    const existing = await repositories.evalCase.getEvalCaseById(db, id)
+    const existing = await repositories.evalCase.getEvalCaseById(
+      db,
+      workspaceId,
+      id,
+    )
     if (
       !existing ||
       existing.workspaceId !== workspaceId ||
