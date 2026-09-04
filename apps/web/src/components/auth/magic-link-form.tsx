@@ -65,9 +65,12 @@ export function MagicLinkForm({
     const newUserCallbackURL = invitationId
       ? callbackURL
       : `${origin}/onboarding/workspace`
+    // magicLink=1 lets the sign-in page tell this flow's error codes (INVALID_TOKEN, etc.) apart
+    // from an OAuth failure landing on the same page via its own errorCallbackURL — both share the
+    // `error` query param, but the two flows have entirely different error vocabularies.
     const errorCallbackURL = invitationId
-      ? `${origin}/sign-in?invitationId=${encodeURIComponent(invitationId)}`
-      : `${origin}/sign-in`
+      ? `${origin}/sign-in?invitationId=${encodeURIComponent(invitationId)}&magicLink=1`
+      : `${origin}/sign-in?magicLink=1`
     const { error } = await authClient.signIn.magicLink({
       email: values.email,
       callbackURL,

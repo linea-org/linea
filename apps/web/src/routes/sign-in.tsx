@@ -17,6 +17,9 @@ export const Route = createFileRoute("/sign-in")({
     invitationId: z.string().optional(),
     email: z.string().optional(),
     error: z.string().optional(),
+    // Set only on the magic-link flow's own errorCallbackURL — distinguishes its error codes from
+    // an OAuth failure that lands on this same page via a different errorCallbackURL.
+    magicLink: z.string().optional(),
   }),
   beforeLoad: async () => {
     await requireGuest()
@@ -29,9 +32,14 @@ function SignInPage() {
     invitationId,
     email: emailFromInvite,
     error: errorFromLink,
+    magicLink,
   } = Route.useSearch()
   const [error, setError] = useState<string | null>(
-    errorFromLink ? magicLinkVerifyErrorMessage(errorFromLink) : null
+    errorFromLink
+      ? magicLink
+        ? magicLinkVerifyErrorMessage(errorFromLink)
+        : "Something went wrong signing in. Try again."
+      : null
   )
   return (
     <AuthShell

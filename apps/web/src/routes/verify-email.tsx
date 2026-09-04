@@ -50,9 +50,16 @@ function VerifyEmailPage() {
     setPending(true)
     setError(null)
     setMessage(null)
+    // Mirrors activate()'s own invitation branch below — appEmailLink (packages/auth/src/auth.ts)
+    // reads invitationId back out of this callbackURL's /accept-invitation/<id> shape to embed it
+    // in the emailed link, so a resend must build the same shape or the new link loses the
+    // invitation context activate() would otherwise continue into.
+    const callbackURL = invitationId
+      ? `${window.location.origin}/accept-invitation/${invitationId}`
+      : `${window.location.origin}/onboarding/workspace`
     const { error: resendError } = await authClient.sendVerificationEmail({
       email,
-      callbackURL: `${window.location.origin}/onboarding/workspace`,
+      callbackURL,
     })
     setPending(false)
     if (resendError) {
