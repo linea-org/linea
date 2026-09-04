@@ -48,7 +48,7 @@ export function RunPanel({
   onSelectExecution: (executionId: string) => void
 }) {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isError, refetch } = useQuery({
     ...executionQueryOptions(slug, executionId),
     // Only while the run is still active — a terminal execution never changes again, so polling
     // it forever would just be wasted requests.
@@ -126,7 +126,18 @@ export function RunPanel({
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-2 py-2">
-        {isError ? (
+        {data ? (
+          // A background refetch (active-run polling) failing must not blank out an already-
+          // rendered timeline — data alone decides whether to render it, same precedence the
+          // header above already uses, so one flaky poll doesn't hide otherwise-valid results.
+          <ExecutionGanttChart
+            steps={data.steps}
+            executionStartedAt={data.execution.startedAt}
+            executionCompletedAt={data.execution.completedAt}
+            selectedStepId={selectedStepId}
+            onStepSelect={setSelectedStepId}
+          />
+        ) : isError ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-xs text-destructive">
             <span>Couldn't load this run.</span>
             <Button
@@ -138,15 +149,7 @@ export function RunPanel({
               Retry
             </Button>
           </div>
-        ) : isLoading || !data ? null : (
-          <ExecutionGanttChart
-            steps={data.steps}
-            executionStartedAt={data.execution.startedAt}
-            executionCompletedAt={data.execution.completedAt}
-            selectedStepId={selectedStepId}
-            onStepSelect={setSelectedStepId}
-          />
-        )}
+        ) : null}
       </div>
       {data?.execution.error ? (
         <p className="shrink-0 border-t border-border bg-destructive/10 px-3 py-2 text-xs text-destructive">
