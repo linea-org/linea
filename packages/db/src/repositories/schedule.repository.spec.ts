@@ -133,6 +133,31 @@ describe("claimAndFireDueSchedule", () => {
     })
   })
 
+  it("carries externalSubjectId and triggerPayload from the schedule onto the execution it fires", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      await publishWorkflowVersion(tx, workflow.id, version.id)
+      const now = new Date()
+
+      await tx.insert(schedules).values({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        cronExpression: "* * * * *",
+        nextRunAt: new Date(now.getTime() - 1_000),
+        externalSubjectId: "customer-user-1",
+        triggerPayload: { source: "schedule-test" },
+      })
+
+      const result = await claimAndFireDueSchedule(tx, now)
+      expect(result.outcome).toBe("fired")
+      if (result.outcome !== "fired") return
+      expect(result.execution.externalSubjectId).toBe("customer-user-1")
+      expect(result.execution.triggerPayload).toEqual({
+        source: "schedule-test",
+      })
+    })
+  })
+
   it("computes the next run from the cron expression and timezone", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)

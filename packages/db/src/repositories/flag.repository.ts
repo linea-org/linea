@@ -35,6 +35,18 @@ async function notifySignalRegressed(
   })
 }
 
+export async function getFlagById(
+  db: DbClient,
+  workspaceId: string,
+  flagId: string
+): Promise<Flag | undefined> {
+  const [flag] = await db
+    .select()
+    .from(flags)
+    .where(and(eq(flags.id, flagId), eq(flags.workspaceId, workspaceId)))
+  return flag
+}
+
 // Insert and signal linkage share a transaction — a flag that exists must always have already reached its signal, since a crash in between would otherwise leave a permanently unlinked row: dedupeKey suppresses reinsertion on the next sweep, so there is no retry path outside this atomicity.
 export async function createFlagIfNew(
   db: DbClient,

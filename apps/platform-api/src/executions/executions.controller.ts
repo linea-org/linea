@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
+import { OptionalUserId } from '../auth/optional-user-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
@@ -40,30 +41,48 @@ export class ExecutionsController {
   @Post('workflows/:workflowId/executions')
   trigger(
     @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() triggeredByUserId: string | undefined,
     @Param('workflowId') workflowId: string,
     @Body(new ZodValidationPipe(triggerExecutionSchema))
     body: TriggerExecutionDto,
   ) {
-    return this.executions.trigger(workspaceId, workflowId, body)
+    return this.executions.trigger(
+      workspaceId,
+      workflowId,
+      body,
+      triggeredByUserId,
+    )
   }
 
   @Post('workflows/:workflowId/test-run')
   testRun(
     @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() triggeredByUserId: string | undefined,
     @Param('workflowId') workflowId: string,
     @Body(new ZodValidationPipe(testRunSchema)) body: TestRunDto,
   ) {
-    return this.executions.testRun(workspaceId, workflowId, body)
+    return this.executions.testRun(
+      workspaceId,
+      workflowId,
+      body,
+      triggeredByUserId,
+    )
   }
 
   @Post('workflows/:workflowId/chat-preview')
   sendChatMessage(
     @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() triggeredByUserId: string | undefined,
     @Param('workflowId') workflowId: string,
     @Body(new ZodValidationPipe(sendChatMessageSchema))
     body: SendChatMessageDto,
   ) {
-    return this.executions.sendChatMessage(workspaceId, workflowId, body)
+    return this.executions.sendChatMessage(
+      workspaceId,
+      workflowId,
+      body,
+      triggeredByUserId,
+    )
   }
 
   @Get('workflows/:workflowId/chat-preview/conversations')

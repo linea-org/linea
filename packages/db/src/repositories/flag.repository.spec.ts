@@ -12,6 +12,7 @@ import {
   detectRepeatedReplay,
   detectRetryStorm,
   detectToolErrors,
+  getFlagById,
   getObservedBranchValues,
   getWorkflowIdsWithBranchSteps,
 } from "./flag.repository.js"
@@ -551,6 +552,35 @@ describe("detectRepeatedReplay", () => {
 
       const results = await detectRepeatedReplay(tx, 3)
       expect(ownRows(results, execution.id)).toEqual([])
+    })
+  })
+})
+
+describe("getFlagById", () => {
+  it("finds a flag scoped to its own workspace, not another one", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const other = await createTestFixtures(tx)
+
+      const flag = await createFlagIfNew(tx, {
+        workspaceId: organization.id,
+        flagType: "retry_storm",
+        dedupeKey: `test:${randomUUID()}`,
+      })
+
+      const found = await getFlagById(tx, organization.id, flag!.id)
+      expect(found?.id).toBe(flag!.id)
+
+      const notFound = await getFlagById(tx, other.organization.id, flag!.id)
+      expect(notFound).toBeUndefined()
+    })
+  })
+
+  it("returns undefined for a nonexistent id", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const found = await getFlagById(tx, organization.id, randomUUID())
+      expect(found).toBeUndefined()
     })
   })
 })

@@ -280,7 +280,13 @@ export class AiNode implements NodeHandler {
       // Chat mode ignores the authored prompt — the turn's real content comes from chatMessageId, since there's no upstream-output templating yet.
       let prompt = parsed.prompt
       let history: ConversationTurn[] | undefined
-      if (parsed.conversationId) {
+      if (context.evalConversation) {
+        // A conversation-type eval case replaying its own frozen snapshot — takes priority over
+        // conversationId (which it never sets alongside this) since there's no live chat_messages
+        // row backing it; the snapshot IS the history, not a pointer to look one up.
+        history = context.evalConversation.turns
+        prompt = context.evalConversation.finalPrompt
+      } else if (parsed.conversationId) {
         if (!context.workflowId) {
           throw new Error(
             `Chat execution for conversation ${parsed.conversationId} is missing workflowId`
@@ -379,11 +385,14 @@ export class AiNode implements NodeHandler {
       parsed.memorySubjectPath.trim() !== ""
     ) {
       try {
-        const externalSubjectId = resolveSubjectId(
-          input,
-          parsed.memorySubjectPath,
-          "Agent node memory"
-        )
+        // A conversation-type eval case has no real input object to resolve memorySubjectPath
+        // against (its "input" is {}, since the whole point is replaying a frozen turn snapshot
+        // rather than a live triggerPayload) — carrying the subject straight through from the
+        // case's own snapshot is the only way memory recall can work at all during eval, rather
+        // than silently testing a memory-less version of an agent that actually uses it.
+        const externalSubjectId =
+          context.evalConversation?.externalSubjectId ??
+          resolveSubjectId(input, parsed.memorySubjectPath, "Agent node memory")
         const namespace = resolveNamespace(
           parsed.memoryNamespace,
           context.workflowId,

@@ -34,6 +34,9 @@ importers:
 
   apps/background-worker:
     dependencies:
+      '@linea/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@linea/config':
         specifier: workspace:*
         version: link:../../packages/config

@@ -8,10 +8,12 @@ import { ArrowLeftIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
 
+import { createEvalCaseFromFlagFn } from "@/lib/eval-cases-api"
 import {
   getSignalFn,
   resolveSignalFn,
   signalQueryOptions,
+  type FlagSummary,
   type SignalDetail as SignalDetailResponse,
 } from "@/lib/signals-api"
 import { flagTypeLabel } from "./flag-type-label"
@@ -27,6 +29,49 @@ export async function loadSignalDetail(
     throw new Error("Signal not found")
   }
   return detail
+}
+
+function hasConversation(flag: FlagSummary): boolean {
+  return typeof flag.detail?.conversationId === "string"
+}
+
+function rationaleOf(flag: FlagSummary): string | null {
+  const rationale = flag.detail?.rationale
+  return typeof rationale === "string" ? rationale : null
+}
+
+function CreateEvalCaseAction({
+  workflowId,
+  flagId,
+}: {
+  workflowId: string
+  flagId: string
+}) {
+  const mutation = useMutation({
+    mutationFn: () =>
+      createEvalCaseFromFlagFn({ data: { workflowId, flagId } }),
+  })
+
+  if (mutation.isSuccess) {
+    return <span className="text-muted-foreground">Added to evals</span>
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={mutation.isPending}
+      onClick={() => mutation.mutate()}
+      title={mutation.isError ? mutation.error.message : undefined}
+    >
+      {mutation.isPending
+        ? "Adding…"
+        : mutation.isError
+          ? "Try again"
+          : "Create eval case"}
+    </Button>
+  )
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -151,27 +196,39 @@ export function SignalDetailView({
           ) : (
             <ul className="divide-y divide-border">
               {occurrences.map((flag) => (
-                <li
-                  key={flag.id}
-                  className="flex items-center justify-between px-4 py-3 text-xs"
-                >
-                  <span className="text-muted-foreground">
-                    {new Date(flag.createdAt).toLocaleString()}
-                  </span>
-                  {flag.executionId ? (
-                    <Link
-                      to="/w/$slug/workflows/$workflowId/executions/$executionId"
-                      params={{
-                        slug,
-                        workflowId,
-                        executionId: flag.executionId,
-                      }}
-                      className="font-mono text-xs text-foreground hover:underline"
-                    >
-                      {flag.executionId}
-                    </Link>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
+                <li key={flag.id} className="px-4 py-3 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">
+                      {new Date(flag.createdAt).toLocaleString()}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      {flag.executionId ? (
+                        <Link
+                          to="/w/$slug/workflows/$workflowId/executions/$executionId"
+                          params={{
+                            slug,
+                            workflowId,
+                            executionId: flag.executionId,
+                          }}
+                          className="font-mono text-xs text-foreground hover:underline"
+                        >
+                          {flag.executionId}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                      {hasConversation(flag) ? (
+                        <CreateEvalCaseAction
+                          workflowId={workflowId}
+                          flagId={flag.id}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                  {rationaleOf(flag) && (
+                    <p className="mt-1.5 text-xs text-foreground">
+                      {rationaleOf(flag)}
+                    </p>
                   )}
                 </li>
               ))}
