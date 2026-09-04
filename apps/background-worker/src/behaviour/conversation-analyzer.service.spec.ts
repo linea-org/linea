@@ -255,6 +255,42 @@ describe("ConversationAnalyzerService", () => {
     }
   })
 
+  it("discards its result instead of writing a duplicate analysis when its claim is lost mid-flight to another worker", async () => {
+    const { organization, workflow, conversationId } = await setUpConversation({
+      name: "Behaviour Lost Claim Test Org",
+      enabled: true,
+    })
+    // Simulates the provider call outliving this worker's own claim lease: by the time it
+    // resolves, another worker has already reclaimed (and, in reality, likely already analyzed)
+    // this exact conversation.
+    complete.mockImplementation(async () => {
+      await pool.query(
+        "UPDATE conversation_analysis_claims SET claimed_at = $1, attempt_count = attempt_count + 1 WHERE conversation_id = $2",
+        [new Date(), conversationId]
+      )
+      return {
+        text: "",
+        tokensInput: 1,
+        tokensOutput: 1,
+        toolCalls: [{ id: "call-1", name: "report_findings", arguments: {} }],
+      }
+    })
+
+    try {
+      const service = new ConversationAnalyzerService()
+      await service.poll()
+
+      expect(complete).toHaveBeenCalledTimes(1)
+      // No analysis was persisted for the losing worker's now-stale result.
+      expect(await getAnalysisFor(conversationId)).toHaveLength(0)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+      void workflow
+    }
+  })
+
   it("records a zero-finding analysis rather than throwing when the model never calls report_findings", async () => {
     const { organization, conversationId } = await setUpConversation({
       name: "Behaviour No Tool Call Test Org",

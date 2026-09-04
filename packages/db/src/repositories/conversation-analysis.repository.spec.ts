@@ -7,6 +7,7 @@ import {
   createConversationAnalysis,
   findConversationsDueForAnalysis,
   insertConversationFindings,
+  renewClaimIfOwned,
 } from "./conversation-analysis.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import { updateWorkspaceSettings } from "./workspace-settings.repository.js"
@@ -44,7 +45,9 @@ describe("claimConversationForAnalysis", () => {
       }
 
       const first = await claimConversationForAnalysis(tx, input, 60_000)
-      expect(first).toEqual({ outcome: "claimed", attemptCount: 1 })
+      if (first.outcome !== "claimed") throw new Error("expected claimed")
+      expect(first.attemptCount).toBe(1)
+      expect(first.claimedAt).toBeInstanceOf(Date)
 
       const second = await claimConversationForAnalysis(tx, input, 60_000)
       expect(second).toEqual({ outcome: "already-claimed" })
@@ -64,10 +67,12 @@ describe("claimConversationForAnalysis", () => {
       // A lease of 0ms is immediately stale, standing in for "the previous claim expired" without
       // an actual sleep.
       const first = await claimConversationForAnalysis(tx, input, 0)
-      expect(first).toEqual({ outcome: "claimed", attemptCount: 1 })
+      if (first.outcome !== "claimed") throw new Error("expected claimed")
+      expect(first.attemptCount).toBe(1)
 
       const second = await claimConversationForAnalysis(tx, input, 0)
-      expect(second).toEqual({ outcome: "claimed", attemptCount: 2 })
+      if (second.outcome !== "claimed") throw new Error("expected claimed")
+      expect(second.attemptCount).toBe(2)
     })
   })
 
@@ -93,8 +98,52 @@ describe("claimConversationForAnalysis", () => {
         },
         60_000
       )
-      expect(a).toEqual({ outcome: "claimed", attemptCount: 1 })
-      expect(b).toEqual({ outcome: "claimed", attemptCount: 1 })
+      if (a.outcome !== "claimed") throw new Error("expected claimed")
+      if (b.outcome !== "claimed") throw new Error("expected claimed")
+      expect(a.attemptCount).toBe(1)
+      expect(b.attemptCount).toBe(1)
+    })
+  })
+})
+
+describe("renewClaimIfOwned", () => {
+  it("returns true and refreshes claimed_at when the fencing token still matches", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      const input = {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId: randomUUID(),
+      }
+      const claim = await claimConversationForAnalysis(tx, input, 60_000)
+      if (claim.outcome !== "claimed") throw new Error("expected claimed")
+
+      const owned = await renewClaimIfOwned(tx, input, claim.claimedAt)
+      expect(owned).toBe(true)
+    })
+  })
+
+  it("returns false when another worker has reclaimed since, without touching that reclaim", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      const input = {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId: randomUUID(),
+      }
+      const first = await claimConversationForAnalysis(tx, input, 0)
+      if (first.outcome !== "claimed") throw new Error("expected claimed")
+
+      // Lease of 0 makes it immediately stale, standing in for the first worker's claim expiring
+      // while its (unbounded) provider call was still in flight.
+      const second = await claimConversationForAnalysis(tx, input, 0)
+      if (second.outcome !== "claimed") throw new Error("expected reclaimed")
+      expect(second.claimedAt).not.toEqual(first.claimedAt)
+
+      // The first worker's provider call finally returns and tries to write — using the stale
+      // token it captured at its own claim time, not the second worker's.
+      const owned = await renewClaimIfOwned(tx, input, first.claimedAt)
+      expect(owned).toBe(false)
     })
   })
 })

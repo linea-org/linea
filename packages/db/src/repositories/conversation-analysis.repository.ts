@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import {
   conversationAnalyses,
   conversationAnalysisClaims,
@@ -15,7 +15,7 @@ import type { DbClient } from "./types.js"
 const DEFAULT_CLAIM_LEASE_MS = 5 * 60_000
 
 export type ClaimConversationForAnalysisResult =
-  | { outcome: "claimed"; attemptCount: number }
+  | { outcome: "claimed"; attemptCount: number; claimedAt: Date }
   | { outcome: "already-claimed" }
 
 /** Atomically claims a conversation for analysis — succeeds only if it's never been claimed
@@ -55,11 +55,46 @@ export async function claimConversationForAnalysis(
       // enclosing transaction, which would never register a lease as expired within one.
       setWhere: sql`${conversationAnalysisClaims.claimedAt} < clock_timestamp() - (${leaseMs}::text || ' milliseconds')::interval`,
     })
-    .returning({ attemptCount: conversationAnalysisClaims.attemptCount })
+    .returning({
+      attemptCount: conversationAnalysisClaims.attemptCount,
+      claimedAt: conversationAnalysisClaims.claimedAt,
+    })
 
   return row
-    ? { outcome: "claimed", attemptCount: row.attemptCount }
+    ? {
+        outcome: "claimed",
+        attemptCount: row.attemptCount,
+        claimedAt: row.claimedAt,
+      }
     : { outcome: "already-claimed" }
+}
+
+/** Re-affirms that the caller still owns this claim, right before writing the (expensive,
+ * hard-to-undo) analysis it did the work for. Guards against a call that outlives its own lease:
+ * the provider request isn't bounded or renewed, so a worker whose call runs past
+ * DEFAULT_CLAIM_LEASE_MS can finish after a second worker has already reclaimed and is (or has
+ * already) persisted its own analysis for the same conversation. Passing `expectedClaimedAt` (the
+ * fencing token returned by the original claim) makes the check atomic against a reclaim that
+ * happened in between — if the row's claimed_at no longer matches, ownership moved on and this
+ * result must be discarded rather than written. */
+export async function renewClaimIfOwned(
+  db: DbClient,
+  input: { workspaceId: string; workflowId: string; conversationId: string },
+  expectedClaimedAt: Date
+): Promise<boolean> {
+  const [row] = await db
+    .update(conversationAnalysisClaims)
+    .set({ claimedAt: new Date() })
+    .where(
+      and(
+        eq(conversationAnalysisClaims.workspaceId, input.workspaceId),
+        eq(conversationAnalysisClaims.workflowId, input.workflowId),
+        eq(conversationAnalysisClaims.conversationId, input.conversationId),
+        eq(conversationAnalysisClaims.claimedAt, expectedClaimedAt)
+      )
+    )
+    .returning({ id: conversationAnalysisClaims.id })
+  return row !== undefined
 }
 
 export async function createConversationAnalysis(

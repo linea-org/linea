@@ -181,7 +181,10 @@ export class ConversationAnalyzerService
         for (const conversation of due) {
           try {
             const result = await this.analyzeOne(conversation)
-            if (result.outcome === "already-claimed") {
+            if (
+              result.outcome === "already-claimed" ||
+              result.outcome === "claim-lost"
+            ) {
               excludedThisPoll.add(conversationKey(conversation))
             }
           } catch (error) {
@@ -211,7 +214,7 @@ export class ConversationAnalyzerService
 
   private async analyzeOne(
     conversation: ConversationDueForAnalysis
-  ): Promise<{ outcome: "processed" | "already-claimed" }> {
+  ): Promise<{ outcome: "processed" | "already-claimed" | "claim-lost" }> {
     const {
       workspaceId,
       workflowId,
@@ -247,6 +250,14 @@ export class ConversationAnalyzerService
       })
       return { outcome: "processed" }
     }
+
+    // The claim just taken above is the only thing standing between two workers both paying for
+    // this conversation's analysis — but the lease it's held under is timestamp-only, with nothing
+    // renewing it while the (unbounded) provider call below is in flight. If that call outlives
+    // the lease, another worker can validly reclaim and analyze the same conversation before this
+    // one returns. `claim.claimedAt` is re-checked as a fencing token immediately before the write
+    // below closes that window: whichever worker's claim is still current wins the write, and the
+    // other's now-redundant result is discarded rather than persisted as a duplicate.
 
     const messages = await repositories.chatMessage.listChatMessages(
       db,
@@ -286,11 +297,20 @@ export class ConversationAnalyzerService
       )
     }
 
-    // One transaction — advancing the watermark (via the analysis row) must never commit
-    // separately from the findings it's the watermark for. A failure between the two would
-    // otherwise permanently lose the findings: the watermark already covers this sequence, so
-    // the due-query never re-selects the conversation to retry them.
+    // One transaction — reaffirming ownership, advancing the watermark (via the analysis row),
+    // and persisting the findings it's the watermark for must all commit together or not at all.
+    // The ownership check has to be inside this same transaction: checking it separately just
+    // before would leave an identical (if smaller) race between the check and the write.
+    let claimStillOwned = true
     await db.transaction(async (tx) => {
+      claimStillOwned =
+        await repositories.conversationAnalysis.renewClaimIfOwned(
+          tx,
+          { workspaceId, workflowId, conversationId },
+          claim.claimedAt
+        )
+      if (!claimStillOwned) return
+
       const analysis =
         await repositories.conversationAnalysis.createConversationAnalysis(tx, {
           workspaceId,
@@ -308,6 +328,12 @@ export class ConversationAnalyzerService
         findings.map((finding) => ({ workspaceId, ...finding }))
       )
     })
+    if (!claimStillOwned) {
+      this.logger.warn(
+        `Conversation ${conversationId}: claim lost to another worker mid-analysis, discarding this result`
+      )
+      return { outcome: "claim-lost" }
+    }
     return { outcome: "processed" }
   }
 }
