@@ -110,12 +110,15 @@ function WorkflowDetailPage() {
     // until that run actually finishes — otherwise the list (and a detail page opened mid-run)
     // would be stuck showing stale "running" totals until a manual reload.
     refetchInterval: (query) => {
-      if (!evalRunTriggeredAt) return false
       const data = query.state.data
-      if (!data) return 2000
-      const triggered = data.find((r) => r.startedAt > evalRunTriggeredAt)
-      if (!triggered) return 2000
-      return triggered.completedAt ? false : 2000
+      // Checked first and independent of evalRunTriggeredAt: that flag is this component
+      // instance's own memory of "I clicked run," which resets to null on remount — navigating to
+      // a run's detail page and back must still resume polling for a run that's still in flight,
+      // not just for the mount that happened to trigger it.
+      if (data?.some((r) => !r.completedAt)) return 2000
+      if (!evalRunTriggeredAt) return false
+      const triggered = data?.find((r) => r.startedAt > evalRunTriggeredAt)
+      return triggered ? false : 2000
     },
   })
   const {
