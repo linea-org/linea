@@ -116,6 +116,11 @@ describe("ConversationAnalyzerService", () => {
         "secret",
         expect.objectContaining({ model: "claude-haiku-4-5-20251001" })
       )
+      // Bounded well under the claim lease, so a genuinely-running call can never outlive it.
+      const call = complete.mock.calls[0] as unknown[]
+      const request = call[1] as { signal?: AbortSignal }
+      expect(request.signal).toBeInstanceOf(AbortSignal)
+      expect(request.signal?.aborted).toBe(false)
 
       const [analysis] = await getAnalysisFor(conversationId)
       expect(analysis.analyzerVersion).toBe("v1")

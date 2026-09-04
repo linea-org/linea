@@ -27,6 +27,13 @@ const DEFAULT_BEHAVIOUR_MODEL = "claude-haiku-4-5-20251001"
 // Bump when the rubric/prompt changes meaningfully, so a re-analysis under a new version is
 // never confused with one run under the old rubric.
 const ANALYZER_VERSION = "v1"
+// Comfortably under the claim lease (see conversation-analysis.repository.ts), so a call that's
+// still legitimately in flight can never outlive its own claim — only a genuine process crash
+// (not a slow-but-alive call) can leave a stale claim for another worker to pick up. The margin
+// below the lease covers the DB round trips (renew + persist) after the call returns.
+const PROVIDER_CALL_TIMEOUT_MS = Math.floor(
+  repositories.conversationAnalysis.DEFAULT_CLAIM_LEASE_MS * 0.6
+)
 // Distinguishes "we looked and chose not to analyze" (sample rate) from a real run, without a
 // schema change — analyzerVersion is free text.
 const SAMPLED_OUT_VERSION = "sampled-out"
@@ -252,12 +259,12 @@ export class ConversationAnalyzerService
     }
 
     // The claim just taken above is the only thing standing between two workers both paying for
-    // this conversation's analysis — but the lease it's held under is timestamp-only, with nothing
-    // renewing it while the (unbounded) provider call below is in flight. If that call outlives
-    // the lease, another worker can validly reclaim and analyze the same conversation before this
-    // one returns. `claim.claimedAt` is re-checked as a fencing token immediately before the write
-    // below closes that window: whichever worker's claim is still current wins the write, and the
-    // other's now-redundant result is discarded rather than persisted as a duplicate.
+    // this conversation's analysis. Two layers close that window: the provider call below is
+    // bounded well under the claim's own lease, so a call that's still genuinely running can never
+    // outlive it — only a real crash (not a slow-but-alive worker) can leave a stale claim behind.
+    // `claim.claimedAt` is then re-checked as a fencing token immediately before the write, as a
+    // second, cheap backstop against that crash case: if some other worker's claim has since
+    // superseded this one, this result is discarded rather than persisted as a duplicate.
 
     const messages = await repositories.chatMessage.listChatMessages(
       db,
@@ -276,6 +283,7 @@ export class ConversationAnalyzerService
       systemPrompt: SYSTEM_PROMPT,
       prompt: formatTranscript(messages),
       tools: [REPORT_FINDINGS_TOOL],
+      signal: AbortSignal.timeout(PROVIDER_CALL_TIMEOUT_MS),
     })
 
     const validMessageIds = new Set(messages.map((message) => message.id))

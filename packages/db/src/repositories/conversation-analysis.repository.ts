@@ -11,8 +11,9 @@ import type { DbClient } from "./types.js"
 
 // Shared between the claim function and the due-query's own exclusion/ordering — both must agree
 // on what "still actively claimed" means, or a claim could expire from one's perspective but not
-// the other's.
-const DEFAULT_CLAIM_LEASE_MS = 5 * 60_000
+// the other's. Exported so the analyzer can bound its own provider call comfortably under this —
+// a call that's still legitimately running should never be able to outlive its own claim's lease.
+export const DEFAULT_CLAIM_LEASE_MS = 5 * 60_000
 
 export type ClaimConversationForAnalysisResult =
   | { outcome: "claimed"; attemptCount: number; claimedAt: Date }
