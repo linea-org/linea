@@ -57,6 +57,11 @@ export class WorkspaceAuthGuard implements CanActivate {
 
     await repositories.apiKey.touchApiKeyLastUsed(db, apiKey.id)
     request.workspaceId = apiKey.workspaceId
+    // A request can carry both a stale session (e.g. a removed member whose session cookie
+    // still resolves to this org) and a valid API key — the API key is what actually authorized
+    // this request, so the stale session must not linger for OptionalUserId to read downstream
+    // and misattribute the action to a user who isn't a member of the workspace the key granted.
+    request.session = null
     return true
   }
 }
