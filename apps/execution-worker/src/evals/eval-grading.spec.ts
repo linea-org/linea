@@ -88,6 +88,19 @@ describe("evaluateAssertion", () => {
       { type: "regex", config: { target: "missing.path", pattern: "." } }
     )
     expect(regex.passed).toBe(false)
+
+    // Never even calls the judge model — content that doesn't exist can't be trusted to have
+    // genuinely satisfied its rubric just because the model saw an empty string.
+    const llmJudge = await evaluateAssertion(
+      "ws1",
+      { text: "hello world" },
+      {
+        type: "llm_judge",
+        config: { target: "missing.path", rubric: "anything" },
+      }
+    )
+    expect(llmJudge.passed).toBe(false)
+    expect(complete).not.toHaveBeenCalled()
   })
 
   it("with no target, stringifies the whole output", async () => {

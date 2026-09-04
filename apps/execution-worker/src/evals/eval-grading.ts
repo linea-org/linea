@@ -145,8 +145,21 @@ export async function evaluateAssertion(
   output: unknown,
   assertion: Assertion
 ): Promise<AssertionResult> {
+  const { text, resolved } = stringTarget(output, assertion.config)
+  if (!resolved) {
+    // Applies to every assertion type, llm_judge included — handing an unresolved target to the
+    // judge as an empty string risks it judging that emptiness as satisfying a loosely-worded
+    // rubric, the exact same false-pass shape as not_contains got below.
+    return {
+      type: assertion.type,
+      passed: false,
+      score: 0,
+      detail: "Target did not resolve to any value",
+      costMicros: 0n,
+    }
+  }
+
   if (assertion.type === "llm_judge") {
-    const { text } = stringTarget(output, assertion.config)
     const judged = await evaluateLlmJudge(workspaceId, text, assertion.config)
     return {
       type: assertion.type,
@@ -157,16 +170,6 @@ export async function evaluateAssertion(
     }
   }
 
-  const { text, resolved } = stringTarget(output, assertion.config)
-  if (!resolved) {
-    return {
-      type: assertion.type,
-      passed: false,
-      score: 0,
-      detail: "Target did not resolve to any value",
-      costMicros: 0n,
-    }
-  }
   let passed: boolean
   switch (assertion.type) {
     case "contains":
