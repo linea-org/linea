@@ -1,7 +1,22 @@
 const complete = jest.fn()
 const resolveProvider = jest.fn(() => ({ complete }))
-const resolveKeyName = jest.fn(() => "ANTHROPIC_API_KEY")
-const resolveApiKey = jest.fn(() => Promise.resolve({ apiKey: "secret" }))
+// Mirrors the real registry closely enough for these tests: each candidate model maps to its
+// provider's key name, so a per-model resolveApiKey mock can simulate "this workspace only has
+// provider X configured" without needing the real @linea/ai registry.
+const keyNameByModel: Record<string, string> = {
+  "claude-haiku-4-5-20251001": "ANTHROPIC_API_KEY",
+  "gpt-5-mini": "OPENAI_API_KEY",
+  "openai/gpt-oss-20b": "GROQ_API_KEY",
+  "grok-4.5": "XAI_API_KEY",
+}
+const resolveKeyName = jest.fn((model: string) => keyNameByModel[model])
+// Typed via the annotation rather than named params so the base mock doesn't need to declare (and
+// then never use) db/workspaceId/keyName — every test's actual behavior comes from
+// mockResolvedValue/mockImplementation below, not from this declaration.
+const resolveApiKey = jest.fn() as jest.Mock<
+  Promise<{ apiKey: string }>,
+  [unknown, string, string]
+>
 const calculateCostMicros = jest.fn(() => 7n)
 
 jest.mock("@linea/ai", () => ({
@@ -16,6 +31,8 @@ import { evaluateAssertion, gradeOutput } from "./eval-grading"
 
 beforeEach(() => {
   complete.mockReset()
+  resolveApiKey.mockReset()
+  resolveApiKey.mockResolvedValue({ apiKey: "secret" })
 })
 
 describe("evaluateAssertion", () => {
@@ -168,6 +185,74 @@ describe("evaluateAssertion", () => {
     )
     expect(result.passed).toBe(false)
     expect(result.score).toBe(0)
+  })
+
+  it("llm_judge falls through to the next default candidate when an earlier provider's key isn't configured", async () => {
+    // Simulates a workspace with only Groq configured, not Anthropic (the first candidate) or
+    // OpenAI (the second) — the same "no single default fits every BYOK setup" scenario Greptile
+    // flagged, now handled by trying candidates instead of assuming one provider.
+    resolveApiKey.mockImplementation(
+      (_db: unknown, _ws: string, keyName: string) =>
+        keyName === "GROQ_API_KEY"
+          ? Promise.resolve({ apiKey: "groq-secret" })
+          : Promise.reject(new Error(`No key configured for ${keyName}`))
+    )
+    complete.mockResolvedValue({
+      text: "",
+      tokensInput: 10,
+      tokensOutput: 5,
+      toolCalls: [
+        {
+          id: "call-1",
+          name: "report_judgment",
+          arguments: { passed: true, score: 1, rationale: "fine" },
+        },
+      ],
+    })
+
+    const result = await evaluateAssertion(
+      "ws1",
+      { text: "content" },
+      { type: "llm_judge", config: { rubric: "anything" } }
+    )
+
+    expect(result.passed).toBe(true)
+    const [apiKeyArg, requestArg] = complete.mock.calls[0] as [
+      string,
+      { model?: string },
+    ]
+    expect(apiKeyArg).toBe("groq-secret")
+    expect(requestArg.model).toBe("openai/gpt-oss-20b")
+  })
+
+  it("llm_judge fails gracefully with a clear detail, without throwing, when no default candidate's key is configured", async () => {
+    resolveApiKey.mockRejectedValue(new Error("No key configured"))
+
+    const result = await evaluateAssertion(
+      "ws1",
+      { text: "content" },
+      { type: "llm_judge", config: { rubric: "anything" } }
+    )
+
+    expect(result.passed).toBe(false)
+    expect(result.detail).toContain("No usable judge model")
+    expect(complete).not.toHaveBeenCalled()
+  })
+
+  it("gradeOutput still grades every other assertion when one llm_judge assertion has no usable key", async () => {
+    resolveApiKey.mockRejectedValue(new Error("No key configured"))
+
+    const result = await gradeOutput("ws1", { text: "hello world" }, [
+      { type: "contains", config: { target: "text", value: "hello" } },
+      { type: "llm_judge", config: { rubric: "anything" } },
+    ])
+
+    // Promise.all across assertions must not be poisoned by the one that threw internally —
+    // the contains assertion still graded and passed, only the judge one failed.
+    expect(result.status).toBe("failed")
+    expect(result.details).toHaveLength(2)
+    expect(result.details[0].passed).toBe(true)
+    expect(result.details[1].passed).toBe(false)
   })
 })
 

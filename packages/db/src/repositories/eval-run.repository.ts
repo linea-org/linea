@@ -20,6 +20,18 @@ export async function createEvalRun(
   return run
 }
 
+export async function getEvalRunById(
+  db: DbClient,
+  workspaceId: string,
+  runId: string
+): Promise<EvalRun | undefined> {
+  const [run] = await db
+    .select()
+    .from(evalRuns)
+    .where(and(eq(evalRuns.id, runId), eq(evalRuns.workspaceId, workspaceId)))
+  return run
+}
+
 export type CompleteEvalRunInput = {
   passed: number
   failed: number

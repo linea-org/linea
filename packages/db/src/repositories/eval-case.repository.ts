@@ -7,6 +7,7 @@ import {
 import { listChatMessages } from "./chat-message.repository.js"
 import { getExecutionById } from "./execution.repository.js"
 import { getExecutionStepById } from "./execution-step.repository.js"
+import { getFlagById } from "./flag.repository.js"
 import type { DbClient } from "./types.js"
 
 export async function createEvalCase(
@@ -100,43 +101,46 @@ export async function createEvalCaseFromStep(
   })
 }
 
-export type CreateEvalCaseFromFindingInput = {
+type ConversationSnapshotSource = {
   workspaceId: string
-  findingId: string
-  assertions?: EvalAssertion[]
+  workflowId: string
+  conversationId: string
+  evidenceMessageId?: string
+  category: string
+  rationale?: string
+  externalSubjectId?: string
 }
 
-/** A conversation-level case: snapshots every turn up to and including whichever user turn
- * actually triggered the problematic behaviour, so replaying it reproduces the exact lead-up —
- * not just the evidence turn in isolation. If the evidence is an assistant turn, walks back via
+type ConversationSnapshotProvenance = {
+  sourceFindingId?: string
+  sourceSignalId?: string
+}
+
+/** Shared by createEvalCaseFromFinding and createEvalCaseFromFlag — both ultimately have the
+ * same raw ingredients (a conversation, an evidence turn, a category/rationale), just sourced
+ * from different tables. Snapshots every turn up to and including whichever user turn actually
+ * triggered the problematic behaviour, so replaying it reproduces the exact lead-up — not just
+ * the evidence turn in isolation. If the evidence is an assistant turn, walks back via
  * respondsToMessageId to the user turn that produced it; falls back to the conversation's last
  * user turn when there's no usable evidence pointer. Defaults the assertion to an llm_judge
- * built from the finding's own rationale, so the case starts out testing the thing that was
- * actually observed rather than an empty shell.
- *
- * workspaceId is required and checked against both the finding and its analysis — without it, a
- * caller could copy another workspace's conversation transcript into their own eval case. */
-export async function createEvalCaseFromFinding(
+ * built from the source's own rationale, so the case starts out testing the thing that was
+ * actually observed rather than an empty shell. */
+async function buildConversationEvalCase(
   db: DbClient,
-  input: CreateEvalCaseFromFindingInput
+  source: ConversationSnapshotSource,
+  provenance: ConversationSnapshotProvenance,
+  assertionsOverride?: EvalAssertion[]
 ): Promise<EvalCase | undefined> {
-  const finding = await getConversationFindingById(db, input.findingId)
-  if (!finding || finding.workspaceId !== input.workspaceId) return undefined
-  const analysis = await getConversationAnalysisById(db, finding.analysisId)
-  if (!analysis || analysis.workspaceId !== input.workspaceId) {
-    return undefined
-  }
-
   const messages = await listChatMessages(
     db,
-    analysis.workspaceId,
-    analysis.workflowId,
-    analysis.conversationId
+    source.workspaceId,
+    source.workflowId,
+    source.conversationId
   )
   if (messages.length === 0) return undefined
 
-  const evidence = finding.evidenceMessageId
-    ? messages.find((m) => m.id === finding.evidenceMessageId)
+  const evidence = source.evidenceMessageId
+    ? messages.find((m) => m.id === source.evidenceMessageId)
     : undefined
   const boundary =
     (evidence?.role === "user"
@@ -149,21 +153,21 @@ export async function createEvalCaseFromFinding(
   const turnsBefore = messages.slice(0, boundaryIndex)
 
   const assertions =
-    input.assertions ??
-    (finding.rationale
+    assertionsOverride ??
+    (source.rationale
       ? [
           {
             type: "llm_judge",
             config: {
-              rubric: `Check whether the replayed conversation still exhibits "${finding.category}": ${finding.rationale}`,
+              rubric: `Check whether the replayed conversation still exhibits "${source.category}": ${source.rationale}`,
             },
           },
         ]
       : [])
 
   return createEvalCase(db, {
-    workspaceId: analysis.workspaceId,
-    workflowId: analysis.workflowId,
+    workspaceId: source.workspaceId,
+    workflowId: source.workflowId,
     caseType: "conversation",
     input: {
       turns: turnsBefore.map((m) => ({ role: m.role, content: m.content })),
@@ -172,9 +176,87 @@ export async function createEvalCaseFromFinding(
       // configured with memorySubjectPath — there's no live triggerPayload for it to resolve
       // against otherwise, only this frozen snapshot. Undefined when the source conversation
       // never had one (e.g. a workspace member's own test chat), same as the original.
-      externalSubjectId: analysis.externalSubjectId ?? undefined,
+      externalSubjectId: source.externalSubjectId,
     },
     assertions,
-    sourceFindingId: finding.id,
+    ...provenance,
   })
+}
+
+export type CreateEvalCaseFromFindingInput = {
+  workspaceId: string
+  findingId: string
+  assertions?: EvalAssertion[]
+}
+
+/** workspaceId is required and checked against both the finding and its analysis — without it, a
+ * caller could copy another workspace's conversation transcript into their own eval case. */
+export async function createEvalCaseFromFinding(
+  db: DbClient,
+  input: CreateEvalCaseFromFindingInput
+): Promise<EvalCase | undefined> {
+  const finding = await getConversationFindingById(db, input.findingId)
+  if (!finding || finding.workspaceId !== input.workspaceId) return undefined
+  const analysis = await getConversationAnalysisById(db, finding.analysisId)
+  if (!analysis || analysis.workspaceId !== input.workspaceId) {
+    return undefined
+  }
+
+  return buildConversationEvalCase(
+    db,
+    {
+      workspaceId: analysis.workspaceId,
+      workflowId: analysis.workflowId,
+      conversationId: analysis.conversationId,
+      evidenceMessageId: finding.evidenceMessageId ?? undefined,
+      category: finding.category,
+      rationale: finding.rationale ?? undefined,
+      externalSubjectId: analysis.externalSubjectId ?? undefined,
+    },
+    { sourceFindingId: finding.id },
+    input.assertions
+  )
+}
+
+export type CreateEvalCaseFromFlagInput = {
+  workspaceId: string
+  flagId: string
+  assertions?: EvalAssertion[]
+}
+
+/** A flag's own `detail` JSON (set by the behaviour-to-flag bridge in apps/background-worker)
+ * already carries everything buildConversationEvalCase needs — conversationId, category,
+ * rationale, evidenceMessageId — so this reaches the same shared snapshot logic without a
+ * conversation_findings lookup. A flag type with no behavioural detail at all (e.g. retry_storm)
+ * has no conversationId/category to find, which just means "can't become a conversation-type
+ * case", not an error — returns undefined the same as a missing flag. */
+export async function createEvalCaseFromFlag(
+  db: DbClient,
+  input: CreateEvalCaseFromFlagInput
+): Promise<EvalCase | undefined> {
+  const flag = await getFlagById(db, input.workspaceId, input.flagId)
+  if (!flag || !flag.workflowId) return undefined
+
+  const detail = flag.detail as {
+    conversationId?: string
+    category?: string
+    rationale?: string
+    evidenceMessageId?: string
+  } | null
+  if (!detail?.conversationId || !detail.category) return undefined
+
+  return buildConversationEvalCase(
+    db,
+    {
+      workspaceId: flag.workspaceId,
+      workflowId: flag.workflowId,
+      conversationId: detail.conversationId,
+      evidenceMessageId: detail.evidenceMessageId,
+      category: detail.category,
+      rationale: detail.rationale,
+      externalSubjectId: flag.externalSubjectId ?? undefined,
+    },
+    { sourceSignalId: flag.signalId ?? undefined },
+    input.assertions
+  )
 }

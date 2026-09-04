@@ -8,12 +8,15 @@ import {
 import { db } from "@linea/db"
 import { getPath } from "../graph/nodes/dot-path.js"
 
-// Cheapest priced, tool-calling-capable model in the registry — a grading judge, not the
-// flagship agent call. A Groq model rather than Anthropic's own cheapest (unlike the behaviour
-// analyzer's default) since BYOK setup in practice skews toward whichever provider a workspace's
-// own agents already use, and requiring a second provider's key just to grade is an unnecessary
-// extra setup step.
-const DEFAULT_JUDGE_MODEL = "openai/gpt-oss-20b"
+// No single hardcoded default works for every workspace's BYOK setup — tried in order, first one
+// whose key is actually configured wins. Each is the cheapest, tool-calling-capable model on its
+// provider; a grading judge, not the flagship agent call.
+const DEFAULT_JUDGE_MODEL_CANDIDATES = [
+  "claude-haiku-4-5-20251001",
+  "gpt-5-mini",
+  "openai/gpt-oss-20b",
+  "grok-4.5",
+]
 
 export type Assertion = { type: string; config: Record<string, unknown> }
 
@@ -85,6 +88,35 @@ const JUDGE_TOOL: ToolDefinition = {
   },
 }
 
+// An explicit config.model is a real requirement, not a preference — it's the only candidate,
+// and its own missing-key error should surface as-is rather than being masked by a fallback. With
+// no explicit model, tries each default candidate in turn and uses the first whose key is
+// actually configured for this workspace (or the platform), instead of assuming any one provider.
+async function resolveJudgeModelAndKey(
+  workspaceId: string,
+  config: Record<string, unknown>
+): Promise<{ model: string; apiKey: string }> {
+  const explicitModel =
+    typeof config.model === "string" ? config.model : undefined
+  const candidates = explicitModel
+    ? [explicitModel]
+    : DEFAULT_JUDGE_MODEL_CANDIDATES
+
+  const errors: string[] = []
+  for (const model of candidates) {
+    try {
+      const keyName = resolveKeyName(model)
+      const { apiKey } = await resolveApiKey(db, workspaceId, keyName)
+      return { model, apiKey }
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error))
+    }
+  }
+  throw new Error(
+    `No usable judge model — tried ${candidates.join(", ")}: ${errors.join("; ")}`
+  )
+}
+
 async function evaluateLlmJudge(
   workspaceId: string,
   content: string,
@@ -99,11 +131,8 @@ async function evaluateLlmJudge(
     typeof config.rubric === "string"
       ? config.rubric
       : "Judge whether the content is acceptable."
-  const model =
-    typeof config.model === "string" ? config.model : DEFAULT_JUDGE_MODEL
+  const { model, apiKey } = await resolveJudgeModelAndKey(workspaceId, config)
   const provider = resolveProvider(model)
-  const keyName = resolveKeyName(model)
-  const { apiKey } = await resolveApiKey(db, workspaceId, keyName)
 
   const result = await provider.complete(apiKey, {
     model,
@@ -160,7 +189,22 @@ export async function evaluateAssertion(
   }
 
   if (assertion.type === "llm_judge") {
-    const judged = await evaluateLlmJudge(workspaceId, text, assertion.config)
+    // gradeOutput runs every assertion for a case through Promise.all — an uncaught throw here
+    // (no key for any candidate provider, a provider outage, a malformed response) would reject
+    // the whole case's grading, not just this one assertion. Reported as a normal failed result
+    // instead, with the real cause in detail, so the rest of the case's assertions still grade.
+    let judged: Awaited<ReturnType<typeof evaluateLlmJudge>>
+    try {
+      judged = await evaluateLlmJudge(workspaceId, text, assertion.config)
+    } catch (error) {
+      return {
+        type: assertion.type,
+        passed: false,
+        score: 0,
+        detail: error instanceof Error ? error.message : String(error),
+        costMicros: 0n,
+      }
+    }
     return {
       type: assertion.type,
       passed: judged.passed,

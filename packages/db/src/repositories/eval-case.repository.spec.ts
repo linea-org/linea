@@ -15,10 +15,12 @@ import {
   archiveEvalCase,
   createEvalCase,
   createEvalCaseFromFinding,
+  createEvalCaseFromFlag,
   createEvalCaseFromStep,
   getEvalCaseById,
   listEvalCases,
 } from "./eval-case.repository.js"
+import { createFlagIfNew, getFlagById } from "./flag.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import { publishWorkflowVersion } from "./workflow.repository.js"
 import type { Transaction } from "./types.js"
@@ -233,6 +235,135 @@ describe("createEvalCaseFromFinding", () => {
       const result = await createEvalCaseFromFinding(tx, {
         workspaceId: organization.id,
         findingId: randomUUID(),
+      })
+      expect(result).toBeUndefined()
+    })
+  })
+})
+
+describe("createEvalCaseFromFlag", () => {
+  it("snapshots the conversation from a flag's own detail JSON, no finding lookup needed", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      const conversationId = randomUUID()
+
+      const [turn1] = await tx
+        .insert(chatMessages)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "user",
+          content: "What's your refund policy?",
+        })
+        .returning()
+      await tx
+        .insert(chatMessages)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "assistant",
+          content: "We offer refunds within 30 days.",
+          respondsToMessageId: turn1.id,
+        })
+        .returning()
+      const [turn3] = await tx
+        .insert(chatMessages)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "user",
+          content: "What about after 30 days?",
+        })
+        .returning()
+      const [turn4] = await tx
+        .insert(chatMessages)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "assistant",
+          content: "Sure, I can process that refund for you right now.",
+          respondsToMessageId: turn3.id,
+        })
+        .returning()
+
+      const flag = await createFlagIfNew(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        flagType: "hallucination_suspected",
+        externalSubjectId: "customer-user-1",
+        dedupeKey: `hallucination_suspected:${conversationId}`,
+        detail: {
+          conversationId,
+          category: "hallucination_suspected",
+          confidence: 0.8,
+          evidenceMessageId: turn4.id,
+          rationale: "Contradicts its own earlier stated policy",
+        },
+      })
+
+      const evalCase = await createEvalCaseFromFlag(tx, {
+        workspaceId: organization.id,
+        flagId: flag!.id,
+      })
+
+      // createFlagIfNew's own return value predates recordSignalOccurrence linking signalId onto
+      // the row — re-read it to see what createEvalCaseFromFlag itself actually saw.
+      const linkedFlag = await getFlagById(tx, organization.id, flag!.id)
+
+      expect(evalCase).toBeDefined()
+      expect(evalCase?.caseType).toBe("conversation")
+      expect(evalCase?.sourceSignalId).toBe(linkedFlag?.signalId)
+      expect(evalCase?.sourceSignalId).not.toBeNull()
+      const input = evalCase?.input as {
+        turns: { role: string; content: string }[]
+        finalPrompt: string
+        externalSubjectId?: string
+      }
+      expect(input.finalPrompt).toBe("What about after 30 days?")
+      expect(input.turns.map((t) => t.content)).toEqual([
+        "What's your refund policy?",
+        "We offer refunds within 30 days.",
+      ])
+      expect(input.externalSubjectId).toBe("customer-user-1")
+      expect(evalCase?.assertions).toEqual([
+        {
+          type: "llm_judge",
+          config: {
+            rubric:
+              'Check whether the replayed conversation still exhibits "hallucination_suspected": Contradicts its own earlier stated policy',
+          },
+        },
+      ])
+    })
+  })
+
+  it("returns undefined for a flag with no behavioural detail, like retry_storm", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const flag = await createFlagIfNew(tx, {
+        workspaceId: organization.id,
+        flagType: "retry_storm",
+        dedupeKey: `retry_storm:${randomUUID()}`,
+      })
+
+      const result = await createEvalCaseFromFlag(tx, {
+        workspaceId: organization.id,
+        flagId: flag!.id,
+      })
+      expect(result).toBeUndefined()
+    })
+  })
+
+  it("returns undefined for a flag that doesn't exist", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const result = await createEvalCaseFromFlag(tx, {
+        workspaceId: organization.id,
+        flagId: randomUUID(),
       })
       expect(result).toBeUndefined()
     })
