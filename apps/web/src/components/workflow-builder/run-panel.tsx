@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { ChevronsDownIcon, ChevronsUpIcon } from "lucide-react"
 
+import { Button } from "@linea/ui/components/button"
 import {
   Select,
   SelectContent,
@@ -47,7 +48,7 @@ export function RunPanel({
   onSelectExecution: (executionId: string) => void
 }) {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     ...executionQueryOptions(slug, executionId),
     // Only while the run is still active — a terminal execution never changes again, so polling
     // it forever would just be wasted requests.
@@ -85,6 +86,10 @@ export function RunPanel({
               )}
             </span>
           </>
+        ) : isError ? (
+          <span className="text-xs text-destructive">
+            Couldn't load this run
+          </span>
         ) : (
           <span className="text-xs text-muted-foreground">Loading run…</span>
         )}
@@ -121,7 +126,19 @@ export function RunPanel({
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-2 py-2">
-        {isLoading || !data ? null : (
+        {isError ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-xs text-destructive">
+            <span>Couldn't load this run.</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void refetch()}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : isLoading || !data ? null : (
           <ExecutionGanttChart
             steps={data.steps}
             executionStartedAt={data.execution.startedAt}
