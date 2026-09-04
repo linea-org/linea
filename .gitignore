@@ -5,6 +5,7 @@ dist-ssr
 *.local
 .env*
 !.env.example
+docker-compose.override.yml
 .tanstack
 .wrangler
 .output

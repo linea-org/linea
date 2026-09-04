@@ -79,7 +79,12 @@ function SignUpPage() {
 
     await navigate({
       to: "/verify-email",
-      search: { email: parsed.data.email },
+      // Without invitationId here, verify-email's own resend() has nothing to read — the
+      // invitation-aware callbackURL built above only covers the first, automatic verification
+      // email, not one the user resends from that page.
+      search: invitationId
+        ? { email: parsed.data.email, invitationId }
+        : { email: parsed.data.email },
     })
   }
 

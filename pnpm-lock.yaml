@@ -476,6 +476,9 @@ importers:
       resend:
         specifier: ^6.18.1
         version: 6.18.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@linea/config':
         specifier: workspace:*

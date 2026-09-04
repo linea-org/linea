@@ -12,7 +12,12 @@ import {
 } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
 
-import { AuthShell, OAuthButtons } from "../components/auth"
+import {
+  AuthShell,
+  MagicLinkForm,
+  OAuthButtons,
+  magicLinkVerifyErrorMessage,
+} from "../components/auth"
 import { authClient } from "../lib/auth-client"
 import {
   authErrorMessage,
@@ -29,6 +34,10 @@ export const Route = createFileRoute("/sign-in")({
   validateSearch: z.object({
     invitationId: z.string().optional(),
     email: z.string().optional(),
+    error: z.string().optional(),
+    // Set only on the magic-link flow's own errorCallbackURL — distinguishes its error codes from
+    // an OAuth failure that lands on this same page via a different errorCallbackURL.
+    magicLink: z.string().optional(),
   }),
   beforeLoad: async () => {
     await requireGuest()
@@ -38,11 +47,22 @@ export const Route = createFileRoute("/sign-in")({
 
 function SignInPage() {
   const navigate = useNavigate()
-  const { invitationId, email: emailFromInvite } = Route.useSearch()
+  const {
+    invitationId,
+    email: emailFromInvite,
+    error: errorFromLink,
+    magicLink,
+  } = Route.useSearch()
   const [email, setEmail] = useState(emailFromInvite ?? "")
   const [password, setPassword] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(
+    errorFromLink
+      ? magicLink
+        ? magicLinkVerifyErrorMessage(errorFromLink)
+        : "Something went wrong signing in. Try again."
+      : null
+  )
   const [pending, setPending] = useState(false)
 
   async function onSubmit(event: React.FormEvent) {
@@ -62,9 +82,17 @@ function SignInPage() {
     }
 
     setPending(true)
+    // A successful sign-in is handled by the manual navigate() below, not this callbackURL — it
+    // only matters when the account isn't verified yet: Better Auth then sends a fresh
+    // verification email built from it, same as sign-up.tsx's own invitation-aware callback, so
+    // an unverified invited user who tries password sign-in still lands back in the invitation.
+    const callbackURL = invitationId
+      ? `${window.location.origin}/accept-invitation/${invitationId}`
+      : `${window.location.origin}/onboarding/workspace`
     const { error: signInError } = await authClient.signIn.email({
       email: parsed.data.email,
       password: parsed.data.password,
+      callbackURL,
     })
     setPending(false)
 
@@ -93,7 +121,11 @@ function SignInPage() {
           Don’t have an account?{" "}
           <Link
             to="/sign-up"
-            search={invitationId ? { invitationId, email } : undefined}
+            search={
+              invitationId
+                ? { invitationId, email: emailFromInvite }
+                : undefined
+            }
             className="font-medium text-primary underline-offset-4 hover:underline"
           >
             Sign up
@@ -157,6 +189,11 @@ function SignInPage() {
             {pending ? "Signing in…" : "Sign in"}
           </Button>
         </form>
+        <MagicLinkForm
+          email={email}
+          invitationId={invitationId}
+          onError={(message) => setError(message)}
+        />
       </div>
     </AuthShell>
   )

@@ -14,6 +14,7 @@ import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as MagicLinkRouteImport } from './routes/magic-link'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AccountRouteImport } from './routes/account'
@@ -61,6 +62,11 @@ const SignInRoute = SignInRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MagicLinkRoute = MagicLinkRouteImport.update({
+  id: '/magic-link',
+  path: '/magic-link',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/account': typeof AccountRoute
   '/app': typeof AppRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/magic-link': typeof MagicLinkRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
@@ -222,6 +229,7 @@ export interface FileRoutesByTo {
   '/account': typeof AccountRoute
   '/app': typeof AppRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/magic-link': typeof MagicLinkRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
@@ -251,6 +259,7 @@ export interface FileRoutesById {
   '/account': typeof AccountRoute
   '/app': typeof AppRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/magic-link': typeof MagicLinkRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
@@ -283,6 +292,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/app'
     | '/forgot-password'
+    | '/magic-link'
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
@@ -313,6 +323,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/app'
     | '/forgot-password'
+    | '/magic-link'
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
@@ -341,6 +352,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/app'
     | '/forgot-password'
+    | '/magic-link'
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
@@ -372,6 +384,7 @@ export interface RootRouteChildren {
   AccountRoute: typeof AccountRoute
   AppRoute: typeof AppRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  MagicLinkRoute: typeof MagicLinkRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
@@ -418,6 +431,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/magic-link': {
+      id: '/magic-link'
+      path: '/magic-link'
+      fullPath: '/magic-link'
+      preLoaderRoute: typeof MagicLinkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -642,6 +662,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountRoute: AccountRoute,
   AppRoute: AppRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  MagicLinkRoute: MagicLinkRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
