@@ -30,17 +30,22 @@ export type AssertionResult = {
 // omitted target hands llm_judge the whole transcript (needed for a cross-turn pattern like
 // repetition_loop); contains/regex assertions that only care about the final reply should set
 // an explicit target.
+//
+// `resolved: false` (target doesn't resolve to any value) is distinct from a genuinely empty
+// string — the caller must fail the assertion outright on it rather than evaluate against "",
+// which would silently invert a not_contains into a false pass (checking a target that isn't
+// there for the absence of something reads as trivially true otherwise).
 function stringTarget(
   output: unknown,
   config: Record<string, unknown>
-): string {
+): { text: string; resolved: boolean } {
   const target = typeof config.target === "string" ? config.target : undefined
   const value = target ? getPath(output, target) : output
-  // A target that doesn't resolve (JSON.stringify(undefined) is the JS value undefined, not a
-  // string) must not throw out of includes/test below — an unresolved target reads as empty
-  // content, so the case gets a normal failed assertion instead of an errored one.
-  if (value === undefined) return ""
-  return typeof value === "string" ? value : JSON.stringify(value)
+  if (value === undefined) return { text: "", resolved: false }
+  return {
+    text: typeof value === "string" ? value : JSON.stringify(value),
+    resolved: true,
+  }
 }
 
 function evaluateContains(
@@ -141,7 +146,7 @@ export async function evaluateAssertion(
   assertion: Assertion
 ): Promise<AssertionResult> {
   if (assertion.type === "llm_judge") {
-    const text = stringTarget(output, assertion.config)
+    const { text } = stringTarget(output, assertion.config)
     const judged = await evaluateLlmJudge(workspaceId, text, assertion.config)
     return {
       type: assertion.type,
@@ -152,7 +157,16 @@ export async function evaluateAssertion(
     }
   }
 
-  const text = stringTarget(output, assertion.config)
+  const { text, resolved } = stringTarget(output, assertion.config)
+  if (!resolved) {
+    return {
+      type: assertion.type,
+      passed: false,
+      score: 0,
+      detail: "Target did not resolve to any value",
+      costMicros: 0n,
+    }
+  }
   let passed: boolean
   switch (assertion.type) {
     case "contains":

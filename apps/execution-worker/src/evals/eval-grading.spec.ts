@@ -62,7 +62,7 @@ describe("evaluateAssertion", () => {
     expect(malformed.passed).toBe(false)
   })
 
-  it("a target that doesn't resolve fails the assertion instead of throwing", async () => {
+  it("a target that doesn't resolve fails every assertion type instead of throwing or silently passing", async () => {
     const contains = await evaluateAssertion(
       "ws1",
       { text: "hello world" },
@@ -70,6 +70,8 @@ describe("evaluateAssertion", () => {
     )
     expect(contains.passed).toBe(false)
 
+    // Checking a missing target for the absence of something must still fail, not pass — an
+    // unresolved target can't be trusted to genuinely lack the value, it was never checked at all.
     const notContains = await evaluateAssertion(
       "ws1",
       { text: "hello world" },
@@ -78,7 +80,7 @@ describe("evaluateAssertion", () => {
         config: { target: "missing.path", value: "hello" },
       }
     )
-    expect(notContains.passed).toBe(true)
+    expect(notContains.passed).toBe(false)
 
     const regex = await evaluateAssertion(
       "ws1",
