@@ -74,6 +74,15 @@ export const executionSteps = snakeCase.table(
       table.sequence
     ),
     index("execution_steps_trace_idx").on(table.traceId),
+    // Matches signal-dimensions' access pattern exactly (node + step name + status, then an
+    // endedAt range scan) — without it, every signal-detail read was a full table scan of this,
+    // the largest table in the schema.
+    index("execution_steps_node_name_status_ended_idx").on(
+      table.nodeId,
+      table.name,
+      table.status,
+      table.endedAt
+    ),
     uniqueIndex("execution_steps_idempotency_uidx")
       .on(table.executionId, table.idempotencyKey)
       .where(sql`${table.idempotencyKey} is not null`),
