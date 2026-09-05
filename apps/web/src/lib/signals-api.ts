@@ -5,6 +5,7 @@ import { apiFetch } from "./api-fetch"
 import type { JsonValue } from "./executions-api"
 
 export type SignalStatus = "open" | "resolved" | "regressed"
+export type SignalEnvironment = "production" | "dev" | "draft"
 
 export type SignalSummary = {
   id: string
@@ -37,10 +38,29 @@ export type FlagSummary = {
 
 export type SignalTrendPoint = { day: string; count: number }
 
+export type SignalDimension = {
+  model: string
+  provider: string | null
+  occurrences: number
+  totalRuns: number
+  rate: number
+  baselineOccurrences: number
+  baselineRuns: number
+  baselineRate: number | null
+  lift: number | null
+  comparison: "available" | "only-model-observed" | "no-baseline-occurrences"
+  sampleStatus: "sufficient" | "limited"
+}
+
 export type SignalDetail = SignalSummary & {
   flags: FlagSummary[]
   affectedExecutions: number
   trend: SignalTrendPoint[]
+  dimensionsApplicable: boolean
+  attributedRuns: number
+  totalRuns: number
+  dimensions: SignalDimension[]
+  dimensionScope: { environment: SignalEnvironment; windowDays: number }
 }
 
 export const listSignalsFn = createServerFn({ method: "GET" })
@@ -70,9 +90,12 @@ export const getSignalsTrendFn = createServerFn({ method: "GET" })
   })
 
 export const getSignalFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { id: string }) => data)
+  .inputValidator(
+    (data: { id: string; environment: SignalEnvironment }) => data
+  )
   .handler(async ({ data }): Promise<SignalDetail> => {
-    const res = await apiFetch(`/signals/${data.id}`)
+    const params = new URLSearchParams({ environment: data.environment })
+    const res = await apiFetch(`/signals/${data.id}?${params}`)
     if (!res.ok) {
       throw new Error("Signal not found")
     }
@@ -111,9 +134,13 @@ export function signalsTrendQueryOptions(
   })
 }
 
-export function signalQueryOptions(workspaceSlug: string, id: string) {
+export function signalQueryOptions(
+  workspaceSlug: string,
+  id: string,
+  environment: SignalEnvironment
+) {
   return queryOptions({
-    queryKey: ["signal", workspaceSlug, id],
-    queryFn: () => getSignalFn({ data: { id } }),
+    queryKey: ["signal", workspaceSlug, id, environment],
+    queryFn: () => getSignalFn({ data: { id, environment } }),
   })
 }

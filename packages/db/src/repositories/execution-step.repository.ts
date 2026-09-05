@@ -67,6 +67,8 @@ export type ClaimReplayStepInput = {
   input: Record<string, unknown> | null
   replayedFromStepId: string
   startedAt: Date
+  model?: string
+  provider?: string
 }
 
 export type ReplayClaim = {
@@ -103,6 +105,8 @@ export async function claimReplayStep(
       sequence: input.sequence,
       input: input.input,
       replayedFromStepId: input.replayedFromStepId,
+      model: input.model,
+      provider: input.provider,
       idempotencyKey: null,
     })
     .onConflictDoNothing({ target: executionSteps.id })

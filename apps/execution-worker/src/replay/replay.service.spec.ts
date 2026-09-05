@@ -282,7 +282,7 @@ describe("ReplayService.replay", () => {
       await replay.replay({
         replayStepId,
         originalStepId: originalStep.id,
-        overrideConfig: {},
+        overrideConfig: { model: "groq/compound-mini" },
       })
 
       const result = await repositories.execution.getExecutionWithSteps(
@@ -293,6 +293,8 @@ describe("ReplayService.replay", () => {
       expect(replayRow?.status).toBe("succeeded")
       expect(replayRow?.costMicros).toBe(0n)
       expect(replayRow?.attributes).toEqual({ costUnpriced: true })
+      expect(replayRow?.model).toBe("groq/compound-mini")
+      expect(replayRow?.provider).toBe("groq")
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

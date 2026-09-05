@@ -138,7 +138,11 @@ describe("renewClaimIfOwned", () => {
       // while its (unbounded) provider call was still in flight.
       const second = await claimConversationForAnalysis(tx, input, 0)
       if (second.outcome !== "claimed") throw new Error("expected reclaimed")
-      expect(second.claimedAt).not.toEqual(first.claimedAt)
+      // Proves a real reclaim happened via attemptCount, not claimedAt — two claims issued back
+      // to back in a test (no real lease-length delay between them) can land in the same
+      // millisecond, since claimedAt comes from JS's Date (millisecond resolution); attemptCount
+      // is a DB-side increment, immune to that and unambiguous regardless of timing.
+      expect(second.attemptCount).toBe(first.attemptCount + 1)
 
       // The first worker's provider call finally returns and tries to write — using the stale
       // token it captured at its own claim time, not the second worker's.

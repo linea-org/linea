@@ -63,6 +63,9 @@ export const flags = snakeCase.table(
       table.externalSubjectId,
       table.createdAt
     ),
+    // Every signal-detail read (occurrenceCount, trend, the recent-flags page, and now
+    // signal-dimensions' per-stepId lookup) filters by signalId — there was no index for it at all.
+    index("flags_signal_id_idx").on(table.signalId),
   ]
 )
 

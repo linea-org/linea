@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common"
-import { calculateCostMicros } from "@linea/ai"
+import { calculateCostMicros, resolveProviderId } from "@linea/ai"
 import { retryPolicySchema, walk, type RetryPolicy } from "@linea/runtime"
 import type {
   StepResult,
@@ -247,6 +247,11 @@ export class InterpreterService {
       const startedAt = new Date()
       let stepResult: StepResult
       let attemptsMade = 1
+      const model =
+        node.type === "ai" && typeof node.config.model === "string"
+          ? node.config.model
+          : undefined
+      const provider = model ? resolveProviderId(model) : undefined
 
       try {
         await this.checkpoints.assertOwnsLease(
@@ -312,11 +317,8 @@ export class InterpreterService {
           totalTokensInput += tokensInput
           totalTokensOutput += tokensOutput
           if (node.type === "ai") {
-            costMicros = calculateCostMicros(
-              node.config.model as string,
-              tokensInput,
-              tokensOutput
-            )
+            if (!model) throw new Error("AI node model must be a string")
+            costMicros = calculateCostMicros(model, tokensInput, tokensOutput)
             stepCostUnpriced = costMicros === undefined
             if (costMicros !== undefined) {
               totalCostMicros += costMicros
@@ -348,6 +350,8 @@ export class InterpreterService {
           endedAt: new Date(),
           tokensInput,
           tokensOutput,
+          model,
+          provider,
           costMicros,
           costUnpriced: stepCostUnpriced,
           retryAttempts: attemptsMade > 1 ? attemptsMade : undefined,
@@ -391,6 +395,8 @@ export class InterpreterService {
           startedAt,
           endedAt: new Date(),
           retryAttempts: attemptsMade > 1 ? attemptsMade : undefined,
+          model,
+          provider,
           completed,
           variables: variablesState,
         })

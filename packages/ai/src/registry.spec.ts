@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { registry, resolveKeyName, resolveProvider } from "./registry.js"
+import {
+  registry,
+  resolveKeyName,
+  resolveProvider,
+  resolveProviderId,
+} from "./registry.js"
 
 describe("resolveProvider", () => {
   it("resolves every registered model to a provider", () => {
@@ -26,5 +31,15 @@ describe("resolveKeyName", () => {
     expect(() => resolveKeyName("definitely-not-a-real-model")).toThrow(
       /No key name registered/
     )
+  })
+})
+
+describe("resolveProviderId", () => {
+  it("returns the provider id for a registered model", () => {
+    expect(resolveProviderId("gpt-5")).toBe("openai")
+  })
+
+  it("returns undefined for an unknown model", () => {
+    expect(resolveProviderId("definitely-not-a-real-model")).toBeUndefined()
   })
 })

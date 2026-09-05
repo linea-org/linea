@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { ArrowLeftIcon } from "lucide-react"
+import { useState } from "react"
 
 import { Button } from "@linea/ui/components/button"
 
@@ -14,17 +15,21 @@ import {
   resolveSignalFn,
   signalQueryOptions,
   type FlagSummary,
+  type SignalEnvironment,
   type SignalDetail as SignalDetailResponse,
 } from "@/lib/signals-api"
 import { flagTypeLabel } from "./flag-type-label"
 import { SignalStatusBadge } from "./signal-status-badge"
+import { SignalDimensions } from "./signal-dimensions"
 import { SignalTrendChart } from "./signal-trend-chart"
 
 export async function loadSignalDetail(
   signalId: string,
   workflowId?: string
 ): Promise<SignalDetailResponse> {
-  const detail = await getSignalFn({ data: { id: signalId } })
+  const detail = await getSignalFn({
+    data: { id: signalId, environment: "production" },
+  })
   if (workflowId && detail.workflowId !== workflowId) {
     throw new Error("Signal not found")
   }
@@ -95,15 +100,17 @@ export function SignalDetailView({
   initialData: SignalDetailResponse
 }) {
   const queryClient = useQueryClient()
+  const [environment, setEnvironment] =
+    useState<SignalEnvironment>("production")
   const { data: signal } = useSuspenseQuery({
-    ...signalQueryOptions(slug, signalId),
-    initialData,
+    ...signalQueryOptions(slug, signalId, environment),
+    ...(environment === "production" ? { initialData } : {}),
   })
   const resolve = useMutation({
     mutationFn: () => resolveSignalFn({ data: { id: signalId } }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: signalQueryOptions(slug, signalId).queryKey,
+        queryKey: ["signal", slug, signalId],
       })
       void queryClient.invalidateQueries({ queryKey: ["signals", slug] })
     },
@@ -177,6 +184,12 @@ export function SignalDetailView({
           </div>
         </div>
       </div>
+
+      <SignalDimensions
+        signal={signal}
+        environment={environment}
+        onEnvironmentChange={setEnvironment}
+      />
 
       <div className="mt-4 flex flex-col gap-2">
         <p className="pl-1 text-sm font-medium text-foreground">

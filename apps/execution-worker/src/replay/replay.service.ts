@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common"
-import { calculateCostMicros } from "@linea/ai"
+import { calculateCostMicros, resolveProviderId } from "@linea/ai"
 import { db, repositories } from "@linea/db"
 import { workflowGraphSchema } from "@linea/runtime"
 import type { WorkflowStepReplayJob } from "@linea/queue"
@@ -67,6 +67,11 @@ export class ReplayService {
       ...node,
       config: { ...node.config, ...job.overrideConfig },
     }
+    const model =
+      mergedNode.type === "ai" && typeof mergedNode.config.model === "string"
+        ? mergedNode.config.model
+        : undefined
+    const provider = model ? resolveProviderId(model) : undefined
     const sequence = await repositories.executionStep.getNextStepSequence(
       db,
       execution.id
@@ -84,6 +89,8 @@ export class ReplayService {
       input: originalStep.input,
       replayedFromStepId: originalStep.id,
       startedAt,
+      model,
+      provider,
     })
     if (claimResult.outcome === "finalized") {
       this.logger.log(
@@ -241,15 +248,15 @@ export class ReplayService {
       )
       const isAiCall =
         mergedNode.type === "ai" &&
+        model !== undefined &&
         result.tokensInput !== undefined &&
         result.tokensOutput !== undefined
-      const costMicros = isAiCall
-        ? calculateCostMicros(
-            mergedNode.config.model as string,
-            result.tokensInput as number,
-            result.tokensOutput as number
-          )
-        : undefined
+      const costMicros =
+        model !== undefined &&
+        result.tokensInput !== undefined &&
+        result.tokensOutput !== undefined
+          ? calculateCostMicros(model, result.tokensInput, result.tokensOutput)
+          : undefined
       if (isAiCall && costMicros === undefined) {
         this.logger.warn(
           `Replay ${job.replayStepId}: costMicros 0 is unpriced, not free — model has no verified rate`

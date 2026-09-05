@@ -75,3 +75,8 @@ export const providers: AiProviderInfo[] = [
   { id: "groq", label: "Groq", keyName: "GROQ_API_KEY" },
   { id: "xai", label: "xAI", keyName: "XAI_API_KEY" },
 ]
+
+export function resolveProviderId(model: string): string | undefined {
+  const keyName = keyNameByModel[model]
+  return providers.find((provider) => provider.keyName === keyName)?.id
+}

@@ -1,0 +1,2 @@
+CREATE INDEX "execution_steps_node_name_status_ended_idx" ON "execution_steps" ("node_id","name","status","ended_at");--> statement-breakpoint
+CREATE INDEX "flags_signal_id_idx" ON "flags" ("signal_id");
