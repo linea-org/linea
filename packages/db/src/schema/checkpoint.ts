@@ -20,6 +20,11 @@ export const checkpoints = snakeCase.table(
     sequence: integer().notNull(),
     completedStepIds: jsonb().$type<string[]>().notNull(),
     context: jsonb().$type<Record<string, unknown>>().notNull(),
+    // Workflow-scoped state a "variables" node writes, readable by any downstream node via a Get
+    // — distinct from `context`, which is keyed by node id (one entry per completed step's own
+    // output), not by variable name. Persisted every checkpoint alongside it so a crash/resume
+    // survives with the same guarantee as everything else here.
+    variables: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },

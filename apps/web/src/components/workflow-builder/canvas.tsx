@@ -93,6 +93,17 @@ import {
 
 const nodeTypes: NodeTypes = { [WORKFLOW_NODE_TYPE]: NodeShell }
 
+function defaultNodeConfig(nodeType: NodeTypeId): Record<string, unknown> {
+  const config: Record<string, unknown> = {}
+  for (const field of nodeRegistry[nodeType].ui.fields) {
+    if (field.widget !== "select" || field.showIf || !field.options?.[0]) {
+      continue
+    }
+    config[field.key] = field.options[0].value
+  }
+  return config
+}
+
 const DRAFT_SAVE_DEBOUNCE_MS = 1200
 
 // @xyflow/react ships its own light-mode colors via these CSS variables — remap them to our tokens so Controls/MiniMap/edges follow dark mode.
@@ -441,7 +452,7 @@ function WorkflowBuilderCanvasInner({
         type: WORKFLOW_NODE_TYPE,
         position,
         selected: true,
-        data: { nodeType, config: {} },
+        data: { nodeType, config: defaultNodeConfig(nodeType) },
       }
       const nextNodes = [
         ...nodes.map((n) => ({ ...n, selected: false })),

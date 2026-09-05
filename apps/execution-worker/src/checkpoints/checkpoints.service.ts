@@ -39,6 +39,9 @@ export type RecordStepInput = {
   retryAttempts?: number
   // Includes this step if it just succeeded — a failed step is never added, matching the walker's own map.
   completed: Map<string, unknown>
+  // Workflow-scoped variables state as of this step — distinct from `completed` (keyed by node
+  // id), this is keyed by variable name and only ever changes on a "variables"/set step.
+  variables: Record<string, unknown>
 }
 
 function buildStepAttributes(
@@ -106,6 +109,7 @@ export class CheckpointsService {
         sequence,
         completedStepIds: [...input.completed.keys()],
         context: Object.fromEntries(input.completed),
+        variables: input.variables,
       },
     })
 
@@ -139,6 +143,20 @@ export class CheckpointsService {
         checkpoint.context[nodeId],
       ])
     )
+  }
+
+  /** Reconstructs workflow variables state from the latest checkpoint — empty for a fresh
+   * execution. A sibling to getResumeState rather than folded into it: that method has several
+   * call sites already destructuring a bare `Map<string, unknown>`, and this is only read once
+   * per resume, not once per step, so a second small query costs nothing extra in practice. */
+  async getResumeVariables(
+    executionId: string
+  ): Promise<Record<string, unknown>> {
+    const checkpoint = await repositories.checkpoint.getLatestCheckpoint(
+      db,
+      executionId
+    )
+    return checkpoint?.variables ?? {}
   }
 
   /** Marks a genuine resume on the timeline — call only when getResumeState returned non-empty state. Throws `LeaseLostError` if `leasedBy` no longer owns the execution, matching recordStep. */

@@ -11,6 +11,7 @@ import { FilterNode } from "../graph/nodes/filter.node"
 import type { HttpNode } from "../graph/nodes/http.node"
 import { MemoryNode } from "../graph/nodes/memory.node"
 import { MergeNode } from "../graph/nodes/merge.node"
+import { VariablesNode } from "../graph/nodes/variables.node"
 import { TransformNode } from "../graph/nodes/transform.node"
 import { WaitNode } from "../graph/nodes/wait.node"
 import type { AiNode } from "../graph/nodes/ai.node"
@@ -32,7 +33,8 @@ function buildInterpreter(aiNode: AiNode) {
     new WaitNode(),
     new DatetimeNode(),
     new FilterNode(),
-    new MergeNode()
+    new MergeNode(),
+    new VariablesNode()
   )
 }
 

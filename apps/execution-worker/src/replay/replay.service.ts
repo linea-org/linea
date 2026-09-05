@@ -153,6 +153,33 @@ export class ReplayService {
       )
       return
     }
+    // Variables state is accumulated across the whole run by the interpreter's own loop (see
+    // RunInput.initialVariables / RunOutcome), not looked up per-node the way Wait/Approval look
+    // themselves up by id — a replay calls executeNode for one isolated node, so context.variables
+    // is never populated here at all. A replayed Get would report every key missing; a replayed Set
+    // would merge against an empty object, discarding every previously accumulated key. Even
+    // reconstructing prior state from earlier steps' recorded outputs wouldn't make the override
+    // meaningful, since nothing downstream re-runs to observe it — so reject outright rather than
+    // return a result that looks real but isn't.
+    if (mergedNode.type === "variables") {
+      await repositories.executionStep.completeReplayStep(
+        db,
+        job.replayStepId,
+        claimed.claimToken,
+        {
+          endedAt: new Date(),
+          status: "failed",
+          error: {
+            message:
+              "Variables nodes can't be replayed: their state is accumulated across the whole run, not looked up per-node, so a replay would read or write against empty state instead of the run's real variables.",
+          },
+          costMicros: 0n,
+          tokensInput: 0,
+          tokensOutput: 0,
+        }
+      )
+      return
+    }
     // Renewed for as long as executeNode runs, so a slow AI/HTTP call isn't mistaken for abandoned; completeReplayStep's own fencing is the real backstop if renewal ever loses the claim.
     let claimToken = claimed.claimToken
     // Skips a tick if a renewal is already in flight, and completion always awaits it before reading claimToken — otherwise a late-resolving renewal could leave claimToken stale and completeReplayStep would wrongly fence out a real result.

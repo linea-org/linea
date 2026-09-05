@@ -84,6 +84,7 @@ describe("RunsService failure accounting", () => {
         tokensInput: 100,
         tokensOutput: 50,
         completed: new Map([["n1", {}]]),
+        variables: {},
       })
       // Now it's abandoned — heartbeat stops, lease ages out.
       await pool.query(
@@ -277,6 +278,7 @@ describe("RunsService failure accounting", () => {
             costMicros: undefined,
             costUnpriced: true,
             completed: new Map([["n1", {}]]),
+            variables: {},
           })
           throw new Error("simulated crash right after checkpointing")
         },
@@ -359,6 +361,7 @@ describe("RunsService failure accounting", () => {
         tokensInput: 100,
         tokensOutput: 50,
         completed: new Map([["n1", {}]]),
+        variables: {},
       })
       // Now it's abandoned — heartbeat stops, lease ages out.
       await pool.query(

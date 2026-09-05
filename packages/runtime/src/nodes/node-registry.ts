@@ -9,6 +9,7 @@ import { memoryNode } from "./definitions/memory.node.js"
 import { mergeNode } from "./definitions/merge.node.js"
 import { startNode } from "./definitions/start.node.js"
 import { transformNode } from "./definitions/transform.node.js"
+import { variablesNode } from "./definitions/variables.node.js"
 import { waitNode } from "./definitions/wait.node.js"
 import type { NodeDefinition } from "./node-definition.js"
 
@@ -25,6 +26,7 @@ export const nodeRegistry = {
   datetime: datetimeNode,
   filter: filterNode,
   merge: mergeNode,
+  variables: variablesNode,
 } satisfies Record<string, NodeDefinition>
 
 export type NodeTypeId = keyof typeof nodeRegistry

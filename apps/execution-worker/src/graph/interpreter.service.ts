@@ -25,6 +25,7 @@ import type { NodeHandler } from "./nodes/node-handler.interface"
 import { NonRetryableError } from "./nodes/non-retryable-error"
 import { StartNode } from "./nodes/start.node"
 import { TransformNode } from "./nodes/transform.node"
+import { VariablesNode } from "./nodes/variables.node"
 import { WaitNode } from "./nodes/wait.node"
 
 function sleep(ms: number): Promise<void> {
@@ -83,6 +84,8 @@ export type RunInput = {
   initialCostUnpriced?: boolean | null
   // Aborted by the caller (RunsService) when the execution lease is lost mid-step, so the in-flight node handler's own request is cancelled instead of just racing the checkpoint.
   signal?: AbortSignal
+  // Seeded from the latest checkpoint's variables on resume — empty for a fresh execution.
+  initialVariables?: Record<string, unknown>
 }
 
 export type RunOutcome = {
@@ -155,7 +158,8 @@ export class InterpreterService {
     waitNode: WaitNode,
     datetimeNode: DatetimeNode,
     filterNode: FilterNode,
-    mergeNode: MergeNode
+    mergeNode: MergeNode,
+    variablesNode: VariablesNode
   ) {
     this.handlers = {
       http: httpNode,
@@ -168,6 +172,7 @@ export class InterpreterService {
       datetime: datetimeNode,
       filter: filterNode,
       merge: mergeNode,
+      variables: variablesNode,
       start: new StartNode(),
       end: new EndNode(),
     }
@@ -184,7 +189,8 @@ export class InterpreterService {
     conversationId?: string,
     workflowId?: string,
     chatMessageId?: string,
-    leasedBy?: string
+    leasedBy?: string,
+    variables?: Record<string, unknown>
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -204,6 +210,7 @@ export class InterpreterService {
       workflowId,
       chatMessageId,
       leasedBy,
+      variables,
     })
     const usage = extractTokenUsage(output)
     return {
@@ -227,6 +234,7 @@ export class InterpreterService {
       input.initialCostUnpriced === undefined
         ? false
         : input.initialCostUnpriced
+    let variablesState = input.initialVariables ?? {}
 
     let next = generator.next()
     while (!next.done) {
@@ -266,7 +274,8 @@ export class InterpreterService {
               extractConversationId(input.triggerPayload),
               input.workflowId,
               extractChatMessageId(input.triggerPayload),
-              input.leasedBy
+              input.leasedBy,
+              variablesState
             )
             break
           } catch (attemptError) {
@@ -319,6 +328,14 @@ export class InterpreterService {
         // Update before checkpointing, so a crash right after the write doesn't leave a resume replaying this step.
         completed.set(step.nodeId, output)
 
+        // The handler already merged its own view of the state (context.variables, as of the
+        // start of this step) with whatever it was configured to set — adopted at face value, the
+        // same way totals above are taken from what the step produced rather than recomputed here.
+        if (node.type === "variables" && node.config.operation === "set") {
+          variablesState = (output as { variables: Record<string, unknown> })
+            .variables
+        }
+
         await this.checkpoints.recordStep({
           executionId: input.executionId,
           workspaceId: input.workspaceId,
@@ -335,6 +352,7 @@ export class InterpreterService {
           costUnpriced: stepCostUnpriced,
           retryAttempts: attemptsMade > 1 ? attemptsMade : undefined,
           completed,
+          variables: variablesState,
         })
 
         stepResult = { nodeId: step.nodeId, output }
@@ -374,6 +392,7 @@ export class InterpreterService {
           endedAt: new Date(),
           retryAttempts: attemptsMade > 1 ? attemptsMade : undefined,
           completed,
+          variables: variablesState,
         })
 
         stepResult = { nodeId: step.nodeId, error: { message } }
