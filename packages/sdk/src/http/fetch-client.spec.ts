@@ -156,4 +156,59 @@ describe("request", () => {
       request({ ...baseConfig, method: "GET", path: "/signals" })
     ).rejects.toBeInstanceOf(LineaNetworkError)
   })
+
+  it("throws LineaNetworkError, not a raw TypeError, when the request body can't be serialized", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+
+    await expect(
+      request({
+        ...baseConfig,
+        method: "POST",
+        path: "/triggers/my-slug",
+        body: circular,
+      })
+    ).rejects.toBeInstanceOf(LineaNetworkError)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it("throws LineaNetworkError, not a raw stream error, when reading the response body fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: () => Promise.reject(new TypeError("terminated")),
+      } as unknown as Response)
+    )
+
+    await expect(
+      request({ ...baseConfig, method: "GET", path: "/signals" })
+    ).rejects.toBeInstanceOf(LineaNetworkError)
+  })
+
+  it("throws LineaApiError, not a raw SyntaxError, when a 2xx response body isn't valid JSON", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve(
+        new Response("not json", {
+          status: 200,
+          statusText: "OK",
+          headers: { "content-type": "application/json" },
+        })
+      )
+    )
+
+    let error: unknown
+    try {
+      await request({ ...baseConfig, method: "GET", path: "/signals" })
+    } catch (e) {
+      error = e
+    }
+
+    expect(error).toBeInstanceOf(LineaApiError)
+    expect((error as LineaApiError).status).toBe(200)
+    expect((error as LineaApiError).body).toEqual({ raw: "not json" })
+  })
 })

@@ -66,17 +66,25 @@ export async function request<T>(config: RequestConfig): Promise<T> {
   const init: RequestInit = { method: config.method, headers }
   if (config.body !== undefined) {
     headers["Content-Type"] = "application/json"
-    init.body = JSON.stringify(config.body)
+    try {
+      init.body = JSON.stringify(config.body)
+    } catch (cause) {
+      throw new LineaNetworkError({ endpoint: config.path, cause })
+    }
   }
 
+  // fetch() and reading the body are treated as one unit — a stream failure while reading
+  // the response is just as much a "never got a usable response" case as fetch() itself
+  // rejecting, and callers should only ever see LineaNetworkError/LineaApiError, never a raw
+  // fetch/stream error.
   let response: Response
+  let text: string
   try {
     response = await fetch(url, init)
+    text = await response.text()
   } catch (cause) {
     throw new LineaNetworkError({ endpoint: config.path, cause })
   }
-
-  const text = await response.text()
 
   if (!response.ok) {
     let parsedBody: unknown
@@ -105,5 +113,14 @@ export async function request<T>(config: RequestConfig): Promise<T> {
     })
   }
 
-  return JSON.parse(text) as T
+  try {
+    return JSON.parse(text) as T
+  } catch (cause) {
+    throw new LineaApiError({
+      status: response.status,
+      endpoint: config.path,
+      body: { raw: text },
+      message: `Received a 2xx response with a body that isn't valid JSON: ${String(cause)}`,
+    })
+  }
 }
