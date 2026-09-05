@@ -5,11 +5,10 @@ import {
   type NodeTypeId,
 } from "@linea/runtime/browser"
 import type { NodeUIField } from "@linea/runtime/browser"
-import { XIcon } from "lucide-react"
+import { InfoIcon, XIcon } from "lucide-react"
 import { Button } from "@linea/ui/components/button"
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -23,6 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@linea/ui/components/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@linea/ui/components/tooltip"
 import { KeyValueEditor } from "./key-value-editor"
 
 type NodeConfigPanelProps = {
@@ -144,87 +149,108 @@ export function NodeConfigPanel({
         </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <FieldGroup className="p-4">
-          {definition.ui.fields.map((field) => {
-            if (field.showIf) {
-              const current =
-                draft[field.showIf.key] ||
-                definition.ui.fields.find((f) => f.key === field.showIf?.key)
-                  ?.options?.[0]?.value
-              const expected = field.showIf.equals
-              const matches = Array.isArray(expected)
-                ? expected.includes(current ?? "")
-                : current === expected
-              if (!matches) return null
-            }
-            const invalid = Boolean(jsonErrors[field.key])
-            return (
-              <Field key={field.key} data-invalid={invalid || undefined}>
-                <FieldLabel htmlFor={`node-field-${field.key}`}>
-                  {field.label}
-                </FieldLabel>
-                {field.description && (
-                  <FieldDescription>{field.description}</FieldDescription>
-                )}
-                {field.widget === "select" ? (
-                  <Select
-                    items={field.options}
-                    value={draft[field.key] || null}
-                    onValueChange={(value) => {
-                      if (typeof value === "string") setField(field, value)
-                    }}
-                    modal={false}
-                  >
-                    <SelectTrigger
-                      id={`node-field-${field.key}`}
-                      className="w-full"
+        <TooltipProvider>
+          <FieldGroup className="p-4">
+            {definition.ui.fields.map((field) => {
+              if (field.showIf) {
+                const current =
+                  draft[field.showIf.key] ||
+                  definition.ui.fields.find((f) => f.key === field.showIf?.key)
+                    ?.options?.[0]?.value
+                const expected = field.showIf.equals
+                const matches = Array.isArray(expected)
+                  ? expected.includes(current ?? "")
+                  : current === expected
+                if (!matches) return null
+              }
+              const invalid = Boolean(jsonErrors[field.key])
+              return (
+                <Field key={field.key} data-invalid={invalid || undefined}>
+                  <div className="flex items-center gap-1">
+                    <FieldLabel htmlFor={`node-field-${field.key}`}>
+                      {field.label}
+                    </FieldLabel>
+                    {field.description && (
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <button
+                              type="button"
+                              aria-label={`About ${field.label}`}
+                              className="text-muted-foreground hover:text-foreground"
+                            />
+                          }
+                        >
+                          <InfoIcon className="size-3.5" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-64 text-pretty">
+                          {field.description}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                  {field.widget === "select" ? (
+                    <Select
+                      items={field.options}
+                      value={draft[field.key] || null}
+                      onValueChange={(value) => {
+                        if (typeof value === "string") setField(field, value)
+                      }}
+                      modal={false}
                     >
-                      <SelectValue placeholder={field.label} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {field.options?.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : field.widget === "key-value" ? (
-                  <KeyValueEditor
-                    id={`node-field-${field.key}`}
-                    value={config[field.key]}
-                    typed={nodeType === "variables"}
-                    onChange={(value) =>
-                      onChange({ ...config, [field.key]: value })
-                    }
-                  />
-                ) : field.widget === "textarea" || field.widget === "code" ? (
-                  <Textarea
-                    id={`node-field-${field.key}`}
-                    value={draft[field.key] ?? ""}
-                    onChange={(e) => setField(field, e.target.value)}
-                    rows={field.widget === "textarea" ? 4 : 6}
-                    aria-invalid={invalid || undefined}
-                    className={
-                      isJsonWidget(field.widget)
-                        ? "field-sizing-fixed font-mono text-xs"
-                        : undefined
-                    }
-                    placeholder={isJsonWidget(field.widget) ? "{}" : undefined}
-                  />
-                ) : (
-                  <Input
-                    id={`node-field-${field.key}`}
-                    value={draft[field.key] ?? ""}
-                    onChange={(e) => setField(field, e.target.value)}
-                    aria-invalid={invalid || undefined}
-                  />
-                )}
-                <FieldError>{jsonErrors[field.key]}</FieldError>
-              </Field>
-            )
-          })}
-        </FieldGroup>
+                      <SelectTrigger
+                        id={`node-field-${field.key}`}
+                        className="w-full"
+                      >
+                        <SelectValue placeholder={field.label} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {field.options?.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : field.widget === "key-value" ? (
+                    <KeyValueEditor
+                      id={`node-field-${field.key}`}
+                      value={config[field.key]}
+                      typed={nodeType === "variables"}
+                      onChange={(value) =>
+                        onChange({ ...config, [field.key]: value })
+                      }
+                    />
+                  ) : field.widget === "textarea" || field.widget === "code" ? (
+                    <Textarea
+                      id={`node-field-${field.key}`}
+                      value={draft[field.key] ?? ""}
+                      onChange={(e) => setField(field, e.target.value)}
+                      rows={field.widget === "textarea" ? 4 : 6}
+                      aria-invalid={invalid || undefined}
+                      className={
+                        isJsonWidget(field.widget)
+                          ? "field-sizing-fixed font-mono text-xs"
+                          : undefined
+                      }
+                      placeholder={
+                        isJsonWidget(field.widget) ? "{}" : undefined
+                      }
+                    />
+                  ) : (
+                    <Input
+                      id={`node-field-${field.key}`}
+                      value={draft[field.key] ?? ""}
+                      onChange={(e) => setField(field, e.target.value)}
+                      aria-invalid={invalid || undefined}
+                    />
+                  )}
+                  <FieldError>{jsonErrors[field.key]}</FieldError>
+                </Field>
+              )
+            })}
+          </FieldGroup>
+        </TooltipProvider>
       </div>
     </aside>
   )
