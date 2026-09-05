@@ -8,6 +8,7 @@ import {
   Play,
   Sparkles,
   Square,
+  Variable,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -21,6 +22,7 @@ const ICONS: Record<string, LucideIcon> = {
   "circle-stop": CircleStop,
   brain: Brain,
   clock: Clock,
+  variable: Variable,
 }
 
 export function NodeIcon({

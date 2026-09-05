@@ -13,6 +13,7 @@ export const nodeTypeSchema = z.enum([
   "datetime",
   "filter",
   "merge",
+  "variables",
 ])
 export type NodeType = z.infer<typeof nodeTypeSchema>
 

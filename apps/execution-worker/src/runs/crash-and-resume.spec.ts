@@ -13,6 +13,7 @@ import { DatetimeNode } from "../graph/nodes/datetime.node"
 import { FilterNode } from "../graph/nodes/filter.node"
 import { HttpNode } from "../graph/nodes/http.node"
 import { MergeNode } from "../graph/nodes/merge.node"
+import { VariablesNode } from "../graph/nodes/variables.node"
 import { TransformNode } from "../graph/nodes/transform.node"
 import { RunLeaseService } from "./run-lease.service"
 import { RunsService } from "./runs.service"
@@ -100,6 +101,7 @@ describe("crash-and-resume", () => {
           startedAt,
           endedAt: new Date(),
           completed: completedBeforeCrash,
+          variables: {},
         })
         currentInput = output
       }
@@ -122,7 +124,8 @@ describe("crash-and-resume", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
       const runs = new RunsService(
         checkpoints,

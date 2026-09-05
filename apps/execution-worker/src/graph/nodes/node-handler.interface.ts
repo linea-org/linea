@@ -21,6 +21,12 @@ export type NodeExecutionContext = {
     finalPrompt: string
     externalSubjectId?: string
   }
+  /** Workflow-scoped state as of this step, written by "variables"/set steps and readable by
+   * every handler regardless of graph position — the one channel that reaches beyond a node's own
+   * immediate predecessor. Only the variables node's own handler is expected to derive a new state
+   * from this (returned as its output, then adopted by the interpreter); other handlers get it
+   * read-only for their own internal use, not as something they write back into. */
+  variables?: Record<string, unknown>
 }
 
 export interface NodeHandler {

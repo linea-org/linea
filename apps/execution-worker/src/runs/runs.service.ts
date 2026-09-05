@@ -119,6 +119,8 @@ export class RunsService {
       validateGraphStructure(graph)
 
       const resumeFrom = await this.checkpoints.getResumeState(executionId)
+      const resumeVariables =
+        await this.checkpoints.getResumeVariables(executionId)
       if (resumeFrom.size > 0) {
         await this.checkpoints.recordResumeEvent(
           executionId,
@@ -148,6 +150,7 @@ export class RunsService {
           initialTokensOutput: resumeTokens.tokensOutput,
           initialCostMicros: resumeTokens.costMicros,
           initialCostUnpriced: resumeTokens.costUnpriced,
+          initialVariables: resumeVariables,
           signal: abortController.signal,
         })
         if (!outcome.pausedAt) break

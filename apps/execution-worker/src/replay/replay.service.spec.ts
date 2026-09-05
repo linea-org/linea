@@ -12,6 +12,7 @@ import { DatetimeNode } from "../graph/nodes/datetime.node"
 import { FilterNode } from "../graph/nodes/filter.node"
 import type { HttpNode } from "../graph/nodes/http.node"
 import { MergeNode } from "../graph/nodes/merge.node"
+import { VariablesNode } from "../graph/nodes/variables.node"
 import { TransformNode } from "../graph/nodes/transform.node"
 import { InterpreterService } from "../graph/interpreter.service"
 import { ReplayService } from "./replay.service"
@@ -97,7 +98,8 @@ async function setUpExecutionWithStep(
     new WaitNode(),
     new DatetimeNode(),
     new FilterNode(),
-    new MergeNode()
+    new MergeNode(),
+    new VariablesNode()
   )
   const replay = new ReplayService(interpreter)
 
@@ -271,7 +273,8 @@ describe("ReplayService.replay", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
       const replay = new ReplayService(interpreter)
 
@@ -536,7 +539,8 @@ describe("ReplayService.replay", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
       const replay = new ReplayService(interpreter)
 
@@ -663,7 +667,8 @@ describe("ReplayService.replay", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
       const replay = new ReplayService(interpreter)
 

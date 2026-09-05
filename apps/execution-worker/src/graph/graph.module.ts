@@ -10,6 +10,7 @@ import { HttpNode } from "./nodes/http.node"
 import { MemoryNode } from "./nodes/memory.node"
 import { MergeNode } from "./nodes/merge.node"
 import { TransformNode } from "./nodes/transform.node"
+import { VariablesNode } from "./nodes/variables.node"
 import { WaitNode } from "./nodes/wait.node"
 
 @Module({
@@ -26,6 +27,7 @@ import { WaitNode } from "./nodes/wait.node"
     DatetimeNode,
     FilterNode,
     MergeNode,
+    VariablesNode,
   ],
   exports: [InterpreterService, AiNode],
 })

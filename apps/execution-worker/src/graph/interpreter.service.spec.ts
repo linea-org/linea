@@ -17,6 +17,7 @@ import { HttpNode } from "./nodes/http.node"
 import { MergeNode } from "./nodes/merge.node"
 import { NonRetryableError } from "./nodes/non-retryable-error"
 import { TransformNode } from "./nodes/transform.node"
+import { VariablesNode } from "./nodes/variables.node"
 import { InterpreterService } from "./interpreter.service"
 
 // A stand-in for a token-producing node handler (e.g. AI), swapped in for HttpNode so the test doesn't need real fetch/provider calls.
@@ -46,7 +47,8 @@ describe("InterpreterService.executeNode", () => {
       new WaitNode(),
       new DatetimeNode(),
       new FilterNode(),
-      new MergeNode()
+      new MergeNode(),
+      new VariablesNode()
     )
 
     const result = await interpreter.executeNode(
@@ -75,7 +77,8 @@ describe("InterpreterService.executeNode", () => {
       new WaitNode(),
       new DatetimeNode(),
       new FilterNode(),
-      new MergeNode()
+      new MergeNode(),
+      new VariablesNode()
     )
 
     await expect(
@@ -101,7 +104,8 @@ describe("InterpreterService.executeNode", () => {
       new WaitNode(),
       new DatetimeNode(),
       new FilterNode(),
-      new MergeNode()
+      new MergeNode(),
+      new VariablesNode()
     )
 
     await interpreter.executeNode(
@@ -136,7 +140,8 @@ describe("InterpreterService.executeNode", () => {
       new WaitNode(),
       new DatetimeNode(),
       new FilterNode(),
-      new MergeNode()
+      new MergeNode(),
+      new VariablesNode()
     )
 
     await expect(
@@ -209,7 +214,8 @@ describe("InterpreterService.run idempotency key", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       await interpreter.run({
@@ -291,7 +297,8 @@ describe("InterpreterService resume", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       // First run: executes n1, checkpoints its usage, then "crashes" (never completes).
@@ -385,7 +392,8 @@ describe("InterpreterService resume", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       // First run: executes n1 (unpriced), checkpoints it, then "crashes".
@@ -518,7 +526,8 @@ describe("InterpreterService resume", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       // n2 runs fresh and is fully priced, but the legacy gap on n1 must still win.
@@ -605,7 +614,8 @@ describe("InterpreterService resume", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       const outcome = await interpreter.run({
@@ -687,7 +697,8 @@ describe("InterpreterService resume", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       const outcome = await interpreter.run({
@@ -779,7 +790,8 @@ describe("InterpreterService resume", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       await expect(
@@ -873,7 +885,8 @@ describe("InterpreterService resume", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       await expect(
@@ -958,7 +971,8 @@ describe("InterpreterService resume", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       await expect(
@@ -1058,7 +1072,8 @@ describe("InterpreterService retry policy", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       const outcome = await interpreter.run({
@@ -1130,7 +1145,8 @@ describe("InterpreterService retry policy", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       const outcome = await interpreter.run({
@@ -1202,7 +1218,8 @@ describe("InterpreterService retry policy", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       const outcome = await interpreter.run({
@@ -1290,7 +1307,8 @@ describe("InterpreterService retry policy", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       const outcome = await interpreter.run({
@@ -1361,7 +1379,8 @@ describe("InterpreterService retry policy", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       await expect(
@@ -1436,7 +1455,8 @@ describe("InterpreterService retry policy", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       await expect(
@@ -1489,7 +1509,8 @@ describe("InterpreterService retry policy", () => {
         new WaitNode(),
         new DatetimeNode(),
         new FilterNode(),
-        new MergeNode()
+        new MergeNode(),
+        new VariablesNode()
       )
 
       const outcome = await interpreter.run({
@@ -1509,6 +1530,221 @@ describe("InterpreterService retry policy", () => {
         execution.id
       )
       expect(steps[0]?.attributes?.retryAttempts).toBeUndefined()
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+})
+
+describe("InterpreterService variables", () => {
+  it("a get node sees a value set by a set node earlier in the same run", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Interpreter Variables Test Org",
+        slug: `interpreter-variables-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "set-1",
+        nodes: [
+          {
+            id: "set-1",
+            type: "variables",
+            config: { operation: "set", entries: { foo: "bar" } },
+          },
+          {
+            id: "get-1",
+            type: "variables",
+            config: { operation: "get", key: "foo" },
+          },
+        ],
+        edges: [{ from: "set-1", to: "get-1" }],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Interpreter Variables Test Workflow",
+        slug: `interpreter-variables-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "interpreter-variables-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const checkpoints = new CheckpointsService()
+      const interpreter = new InterpreterService(
+        checkpoints,
+        new HttpNode(),
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new ApprovalNode(),
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode(),
+        new VariablesNode()
+      )
+
+      const outcome = await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom: new Map(),
+      })
+
+      expect(outcome.result?.status).toBe("completed")
+      expect(outcome.completed.get("set-1")).toEqual({
+        variables: { foo: "bar" },
+      })
+      expect(outcome.completed.get("get-1")).toEqual({
+        found: true,
+        value: "bar",
+      })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("carries checkpointed variables into a resumed run via initialVariables", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Interpreter Variables Resume Test Org",
+        slug: `interpreter-variables-resume-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "set-1",
+        nodes: [
+          {
+            id: "set-1",
+            type: "variables",
+            config: { operation: "set", entries: { foo: "bar" } },
+          },
+          {
+            id: "get-1",
+            type: "variables",
+            config: { operation: "get", key: "foo" },
+          },
+        ],
+        edges: [{ from: "set-1", to: "get-1" }],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Interpreter Variables Resume Test Workflow",
+        slug: `interpreter-variables-resume-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "interpreter-variables-resume-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const checkpoints = new CheckpointsService()
+
+      // Simulates a worker that already completed set-1 and checkpointed its
+      // resulting variables state, then crashed before reaching get-1.
+      await checkpoints.recordStep({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        nodeId: "set-1",
+        nodeType: "variables",
+        input: {},
+        output: { variables: { foo: "bar" } },
+        startedAt: new Date(),
+        endedAt: new Date(),
+        completed: new Map([["set-1", { variables: { foo: "bar" } }]]),
+        variables: { foo: "bar" },
+      })
+
+      const interpreter = new InterpreterService(
+        checkpoints,
+        new HttpNode(),
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new ApprovalNode(),
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode(),
+        new VariablesNode()
+      )
+
+      const resumeFrom = await checkpoints.getResumeState(execution.id)
+      const initialVariables = await checkpoints.getResumeVariables(
+        execution.id
+      )
+      expect(initialVariables).toEqual({ foo: "bar" })
+
+      const outcome = await interpreter.run({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        graph,
+        triggerPayload: {},
+        resumeFrom,
+        initialVariables,
+      })
+
+      // set-1 was already checkpointed (carried over via resumeFrom, not re-executed)
+      // — only get-1 actually runs this time.
+      expect(outcome.completed.get("set-1")).toEqual({
+        variables: { foo: "bar" },
+      })
+      expect(outcome.completed.get("get-1")).toEqual({
+        found: true,
+        value: "bar",
+      })
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

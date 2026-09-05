@@ -71,11 +71,128 @@ describe("CheckpointsService.getResumeState", () => {
           startedAt: new Date(),
           endedAt: new Date(),
           completed,
+          variables: {},
         })
       }
 
       const resumed = await checkpoints.getResumeState(execution.id)
       expect([...resumed.keys()]).toEqual(["10", "2", "1"])
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+})
+
+describe("CheckpointsService.getResumeVariables", () => {
+  it("returns an empty object for a fresh execution with no checkpoint", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Resume Variables Fresh Test Org",
+        slug: `resume-variables-fresh-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Resume Variables Fresh Test Workflow",
+        slug: `resume-variables-fresh-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "resume-variables-fresh-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+
+      const checkpoints = new CheckpointsService()
+      const variables = await checkpoints.getResumeVariables(execution.id)
+      expect(variables).toEqual({})
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("returns the latest checkpoint's variables", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Resume Variables Test Org",
+        slug: `resume-variables-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Resume Variables Test Workflow",
+        slug: `resume-variables-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "resume-variables-hash",
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "worker-1",
+        new Date(Date.now() + 60_000)
+      )
+
+      const checkpoints = new CheckpointsService()
+      await checkpoints.recordStep({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        nodeId: "1",
+        nodeType: "variables",
+        input: {},
+        output: { variables: { a: 1 } },
+        startedAt: new Date(),
+        endedAt: new Date(),
+        completed: new Map([["1", { variables: { a: 1 } }]]),
+        variables: { a: 1 },
+      })
+      await checkpoints.recordStep({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        leasedBy: "worker-1",
+        nodeId: "2",
+        nodeType: "variables",
+        input: {},
+        output: { variables: { a: 1, b: 2 } },
+        startedAt: new Date(),
+        endedAt: new Date(),
+        completed: new Map([
+          ["1", { variables: { a: 1 } }],
+          ["2", { variables: { a: 1, b: 2 } }],
+        ]),
+        variables: { a: 1, b: 2 },
+      })
+
+      const variables = await checkpoints.getResumeVariables(execution.id)
+      expect(variables).toEqual({ a: 1, b: 2 })
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
@@ -134,6 +251,7 @@ describe("CheckpointsService.recordStep attributes", () => {
         costUnpriced: true,
         retryAttempts: 3,
         completed: new Map([["1", { value: "1" }]]),
+        variables: {},
       })
 
       const [step] = await repositories.checkpoint.getStepsForExecution(
@@ -198,6 +316,7 @@ describe("CheckpointsService.recordStep attributes", () => {
         startedAt: new Date(),
         endedAt: new Date(),
         completed: new Map([["1", { value: "1" }]]),
+        variables: {},
       })
 
       const [step] = await repositories.checkpoint.getStepsForExecution(
