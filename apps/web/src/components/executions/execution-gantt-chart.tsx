@@ -1,12 +1,24 @@
-import { nodeRegistry, type NodeTypeId } from "@linea/runtime/browser"
+import {
+  nodeRegistry,
+  type NodeTypeId,
+  type NodeUICategory,
+} from "@linea/runtime/browser"
 import { cn } from "@linea/ui/lib/utils"
 
 import type { ExecutionStepSummary } from "@/lib/executions-api"
+import { NODE_CATEGORY_COLORS } from "../workflow-builder/node-category-colors"
 import { NodeIcon } from "../workflow-builder/node-icon"
 
-// A near-instant step would otherwise render as a sliver too thin to see or click.
 const MIN_BAR_WIDTH_PCT = 1.5
 const TICK_COUNT = 4
+
+const CATEGORY_BAR: Record<NodeUICategory, string> = {
+  ai: "bg-primary",
+  integration: "bg-node-integration",
+  logic: "bg-node-logic",
+  data: "bg-node-data",
+  trigger: "bg-node-trigger",
+}
 
 function isNodeTypeId(value: string): value is NodeTypeId {
   return value in nodeRegistry
@@ -26,11 +38,26 @@ function formatElapsed(ms: number): string {
   return `${minutes}m${seconds.toString().padStart(2, "0")}s`
 }
 
-const barColorByStatus: Record<ExecutionStepSummary["status"], string> = {
-  running: "bg-primary",
-  succeeded: "bg-emerald-500 dark:bg-emerald-400",
-  failed: "bg-destructive",
-  skipped: "bg-muted-foreground/25",
+function barClass(
+  status: ExecutionStepSummary["status"],
+  name: string
+): string {
+  switch (status) {
+    case "failed":
+      return "bg-destructive"
+    case "running":
+      return "bg-primary"
+    case "skipped":
+      return "bg-muted-foreground/30"
+    case "succeeded":
+      return isNodeTypeId(name)
+        ? CATEGORY_BAR[nodeRegistry[name].ui.category]
+        : "bg-muted-foreground"
+    default: {
+      const _exhaustive: never = status
+      return _exhaustive
+    }
+  }
 }
 
 export function ExecutionGanttChart({
@@ -46,8 +73,6 @@ export function ExecutionGanttChart({
   selectedStepId?: string | null
   onStepSelect?: (stepId: string) => void
 }) {
-  // Resume markers have no duration of their own — folded into the step they unblocked
-  // elsewhere in the UI (the accordion), not shown as their own row here.
   const rows = steps
     .filter((step) => !step.isSystemEvent)
     .slice()
@@ -55,7 +80,6 @@ export function ExecutionGanttChart({
       (a, b) =>
         new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
     )
-
   if (rows.length === 0) {
     return (
       <p className="px-3 py-6 text-center text-xs text-muted-foreground">
@@ -63,7 +87,6 @@ export function ExecutionGanttChart({
       </p>
     )
   }
-
   const now = Date.now()
   const rangeStartMs = executionStartedAt
     ? new Date(executionStartedAt).getTime()
@@ -72,24 +95,20 @@ export function ExecutionGanttChart({
     executionCompletedAt ? new Date(executionCompletedAt).getTime() : now,
     ...rows.map((s) => (s.endedAt ? new Date(s.endedAt).getTime() : now))
   )
-  // Guards against a zero-width range (a single near-instant step) so every bar still gets a
-  // sane, non-infinite percentage.
   const rangeMs = Math.max(rangeEndMs - rangeStartMs, 1000)
-
   const ticks = Array.from({ length: TICK_COUNT + 1 }, (_, i) => {
     const fraction = i / TICK_COUNT
     return { fraction, label: formatElapsed(fraction * rangeMs) }
   })
-
   return (
     <div className="flex flex-col text-xs">
-      <div className="flex border-b border-border pb-1.5">
-        <div className="w-36 shrink-0" />
-        <div className="relative min-w-0 flex-1">
+      <div className="sticky top-0 z-10 flex bg-card pb-2">
+        <div className="w-40 shrink-0" />
+        <div className="relative h-4 min-w-0 flex-1">
           {ticks.map((tick) => (
             <span
               key={tick.fraction}
-              className="absolute -translate-x-1/2 text-[10px] text-muted-foreground first:translate-x-0 last:-translate-x-full"
+              className="absolute -translate-x-1/2 font-mono text-[10px] text-muted-foreground first:translate-x-0 last:-translate-x-full"
               style={{ left: `${tick.fraction * 100}%` }}
             >
               {tick.label}
@@ -97,7 +116,7 @@ export function ExecutionGanttChart({
           ))}
         </div>
       </div>
-      <div className="flex flex-col">
+      <div className="flex flex-col gap-0.5">
         {rows.map((step) => {
           const startMs = new Date(step.startedAt).getTime()
           const endMs = step.endedAt ? new Date(step.endedAt).getTime() : now
@@ -109,6 +128,9 @@ export function ExecutionGanttChart({
           const label = step.replayedFromStepId
             ? `Replay of ${stepTitle(step.name)}`
             : stepTitle(step.name)
+          const colors = isNodeTypeId(step.name)
+            ? NODE_CATEGORY_COLORS[nodeRegistry[step.name].ui.category]
+            : null
           return (
             <button
               key={step.id}
@@ -116,27 +138,44 @@ export function ExecutionGanttChart({
               onClick={() => onStepSelect?.(step.id)}
               title={`${label} · ${formatElapsed(endMs - startMs)}`}
               className={cn(
-                "flex w-full items-center gap-2 border-b border-border/60 py-1.5 pr-2 text-left last:border-b-0 hover:bg-muted/40",
-                selectedStepId === step.id && "bg-muted/60"
+                "flex w-full items-center gap-2 rounded-md py-1 pr-1 text-left hover:bg-muted/50",
+                selectedStepId === step.id && "bg-muted"
               )}
             >
-              <div className="flex w-36 shrink-0 items-center gap-1.5 pl-1">
-                {isNodeTypeId(step.name) ? (
-                  <NodeIcon
-                    icon={nodeRegistry[step.name].ui.icon}
-                    className="size-3.5 shrink-0 text-muted-foreground"
-                  />
-                ) : null}
-                <span className="min-w-0 truncate text-foreground">
+              <div className="flex w-40 shrink-0 items-center gap-2 pl-1">
+                <span
+                  className={cn(
+                    "inline-flex size-5 shrink-0 items-center justify-center rounded-md",
+                    colors?.bg ?? "bg-muted"
+                  )}
+                >
+                  {isNodeTypeId(step.name) ? (
+                    <NodeIcon
+                      icon={nodeRegistry[step.name].ui.icon}
+                      className={cn("size-2.5", colors?.icon)}
+                    />
+                  ) : null}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-foreground">
                   {label}
+                </span>
+                <span className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums">
+                  {formatElapsed(endMs - startMs)}
                 </span>
               </div>
               <div className="relative min-w-0 flex-1 py-1.5">
-                <div className="h-3.5 w-full rounded-sm bg-muted/30" />
+                {ticks.map((tick) => (
+                  <span
+                    key={tick.fraction}
+                    className="absolute inset-y-0 w-px bg-border/70 first:hidden last:hidden"
+                    style={{ left: `${tick.fraction * 100}%` }}
+                  />
+                ))}
+                <div className="h-2 w-full rounded-full bg-muted/60" />
                 <div
                   className={cn(
-                    "absolute inset-y-0 top-1.5 h-3.5 rounded-sm",
-                    barColorByStatus[step.status],
+                    "absolute top-1/2 h-2 -translate-y-1/2 rounded-full",
+                    barClass(step.status, step.name),
                     step.status === "running" && "animate-pulse"
                   )}
                   style={{ left: `${leftPct}%`, width: `${widthPct}%` }}

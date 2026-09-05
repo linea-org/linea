@@ -160,14 +160,7 @@ export function RunPanel({
   )
 }
 
-/** The persistent trigger for the run panel — always visible in both states, even before the
- * first Test run (disabled until then: a trigger that only appears after its own target exists
- * isn't discoverable). Mirrors WorkflowPalette's own collapse button exactly (`palette.tsx`'s
- * `absolute ... left-full -translate-x-1/2` pattern, rotated 90°, same one-button-flips-icon
- * behavior) rather than a full-width bar, a toolbar button, or a second close control inside
- * the panel itself. Deliberately kept just inside the edge (no translate poking outside it) —
- * react-resizable-panels' own Panel wrapper clips its own overflow, so anything positioned
- * outside that box is invisible/unclickable no matter its z-index. */
+/** Overlaps the run-panel seam the same way the palette button overlaps its right edge. */
 export function RunPanelTrigger({
   open,
   hasRun,
@@ -178,31 +171,26 @@ export function RunPanelTrigger({
   onToggle: () => void
 }) {
   return (
-    <button
+    <Button
       type="button"
-      onClick={onToggle}
+      variant="outline"
+      size="icon-xs"
       disabled={!hasRun}
+      className={cn(
+        "absolute top-0 left-1/2 z-10 size-5 -translate-x-1/2 border-border bg-card p-0 shadow-none transition-transform duration-500 ease-in hover:bg-secondary dark:bg-card dark:hover:bg-secondary [&_svg:not([class*='size-'])]:size-2.5",
+        open ? "-translate-y-1/2" : "-translate-y-full"
+      )}
+      onClick={onToggle}
       aria-label={
         hasRun
           ? open
             ? "Close run panel"
             : "Open run panel"
-          : "Test run to see it here"
+          : "Run the workflow to see it here"
       }
-      title={
-        hasRun
-          ? open
-            ? "Close run panel"
-            : "Open run panel"
-          : "Test run to see it here"
-      }
-      className={cn(
-        "absolute bottom-1 left-1/2 z-10 flex size-5 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-card p-0 text-muted-foreground shadow-sm [&_svg]:size-3",
-        hasRun && "hover:text-foreground",
-        !hasRun && "cursor-default opacity-60"
-      )}
+      aria-expanded={open}
     >
       {open ? <ChevronsDownIcon /> : <ChevronsUpIcon />}
-    </button>
+    </Button>
   )
 }

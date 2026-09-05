@@ -58,11 +58,13 @@ export function ChatPreviewPanel({
   workflowId,
   graph,
   onClose,
+  onExecutionStarted,
 }: {
   slug: string
   workflowId: string
   graph: Record<string, JsonValue>
   onClose: () => void
+  onExecutionStarted: (executionId: string) => void
 }) {
   const queryClient = useQueryClient()
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -121,6 +123,7 @@ export function ChatPreviewPanel({
     onSuccess: (result) => {
       setConversationId(result.conversationId)
       setPendingExecutionId(result.execution.id)
+      onExecutionStarted(result.execution.id)
       void queryClient.invalidateQueries({
         queryKey: chatMessagesQueryOptions(
           slug,
