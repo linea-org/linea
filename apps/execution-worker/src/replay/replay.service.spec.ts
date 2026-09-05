@@ -695,4 +695,122 @@ describe("ReplayService.replay", () => {
       ])
     }
   })
+
+  it("rejects replaying a Variables step, rather than silently reading or writing against empty state", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Variables Test Org",
+        slug: `replay-variables-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [
+          {
+            id: "n1",
+            type: "variables",
+            config: { operation: "get", key: "foo" },
+          },
+        ],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        workspaceId: organization.id,
+        name: "Replay Variables Test Workflow",
+        slug: `replay-variables-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: `replay-variables-hash-${suffix}`,
+      })
+      const execution = await repositories.execution.createExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+        triggerPayload: {},
+      })
+      await repositories.execution.startExecution(
+        db,
+        execution.id,
+        "setup-worker",
+        new Date(Date.now() + 60_000)
+      )
+      await repositories.execution.completeExecution(
+        db,
+        execution.id,
+        "setup-worker",
+        {
+          status: "succeeded",
+          costMicros: 0n,
+          costUnpriced: false,
+          tokensInput: 0,
+          tokensOutput: 0,
+        }
+      )
+      const [originalStep] = await db
+        .insert(schema.executionSteps)
+        .values({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: execution.id,
+          spanId: "original-span",
+          name: "variables",
+          startedAt: new Date(),
+          endedAt: new Date(),
+          status: "succeeded",
+          nodeId: "n1",
+          sequence: 1,
+          input: {},
+          output: { found: true, value: "bar" },
+        })
+        .returning()
+
+      const interpreter = new InterpreterService(
+        new CheckpointsService(),
+        {} as HttpNode,
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new ApprovalNode(),
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode(),
+        new VariablesNode()
+      )
+      const replay = new ReplayService(interpreter)
+
+      const replayStepId = randomUUID()
+      // An override that would produce a different result if it were honored — proves the
+      // rejection isn't a coincidence of the fixed-config case.
+      await replay.replay({
+        replayStepId,
+        originalStepId: originalStep.id,
+        overrideConfig: { key: "" },
+      })
+
+      const result = await repositories.execution.getExecutionWithSteps(
+        db,
+        execution.id
+      )
+      const replayRow = result?.steps.find((s) => s.id === replayStepId)
+      expect(replayRow?.status).toBe("failed")
+      expect(replayRow?.error?.message).toMatch(/can't be replayed/)
+      expect(replayRow?.output).toBeNull()
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
 })

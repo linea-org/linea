@@ -15,8 +15,8 @@ export class VariablesNode implements NodeHandler {
     const current = context.variables ?? {}
 
     if (config.operation === "get") {
-      const key = typeof config.key === "string" ? config.key.trim() : ""
-      if (!key) {
+      const key = typeof config.key === "string" ? config.key : ""
+      if (!key.trim()) {
         return Promise.resolve(
           nodeRegistry.variables.outputSchema.parse({
             found: true,

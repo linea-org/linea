@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from "react"
+import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import { PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@linea/ui/components/button"
 import { Input } from "@linea/ui/components/input"
@@ -62,7 +62,9 @@ function stringifyLiteral(value: unknown): string {
 
 function textFromValue(value: unknown, kind: ValueKind): string {
   if (kind === "json") {
-    return typeof value === "string" ? value : JSON.stringify(value, null, 2)
+    if (typeof value === "string") return value
+    // JSON.stringify returns undefined (not a string) for undefined/functions/symbols.
+    return JSON.stringify(value, null, 2) ?? ""
   }
   if (kind === "boolean") return value === true ? "true" : "false"
   return stringifyLiteral(value)
@@ -108,20 +110,24 @@ function coerceKind(kind: ValueKind, current: unknown): unknown {
   return {}
 }
 
-function toRows(value: unknown): Row[] {
+// `typed` off (e.g. HTTP headers) forces every row to plain text, regardless of what's actually
+// stored — headers must stay strings, so a pre-existing non-string value (from before this editor
+// existed, or restored via undo) is coerced to its string form rather than surfacing a hidden
+// number/boolean/JSON kind that later edits would keep silently re-parsing into.
+function toRows(value: unknown, typed: boolean): Row[] {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return [emptyRow()]
   }
   const entries = Object.entries(value as Record<string, unknown>)
   if (entries.length === 0) return [emptyRow()]
   return entries.map(([key, v]) => {
-    const kind = kindFromValue(v)
+    const kind = typed ? kindFromValue(v) : "text"
     return {
       id: crypto.randomUUID(),
       key,
       kind,
-      value: v,
-      valueText: textFromValue(v, kind),
+      value: typed ? v : stringifyLiteral(v),
+      valueText: typed ? textFromValue(v, kind) : stringifyLiteral(v),
     }
   })
 }
@@ -178,10 +184,23 @@ export function KeyValueEditor({
   onChange: (value: Record<string, unknown>) => void
   typed?: boolean
 }) {
-  const [rows, setRows] = useState<Row[]>(() => toRows(value))
+  const [rows, setRows] = useState<Row[]>(() => toRows(value, typed))
+  // Tracks the object shape we ourselves last emitted, so the effect below can tell "the parent
+  // echoed our own edit back down" (skip — resyncing would reset every row's id mid-keystroke and
+  // steal input focus) apart from "something else changed this node's config" — undo/redo, a
+  // collaborative update, or switching operation and back — which the mounted editor otherwise has
+  // no way to notice, since useState's initializer only runs once at mount.
+  const lastEmitted = useRef(value)
+  useEffect(() => {
+    if (JSON.stringify(value) === JSON.stringify(lastEmitted.current)) return
+    lastEmitted.current = value
+    setRows(toRows(value, typed))
+  }, [value, typed])
   function commit(next: Row[]) {
+    const obj = toObject(next)
+    lastEmitted.current = obj
     setRows(next)
-    onChange(toObject(next))
+    onChange(obj)
   }
   function updateRow(rowId: string, patch: Partial<Row>) {
     commit(rows.map((row) => (row.id === rowId ? { ...row, ...patch } : row)))
@@ -195,7 +214,8 @@ export function KeyValueEditor({
     })
   }
   function setValueText(row: Row, valueText: string) {
-    updateRow(row.id, { valueText, value: parseKind(row.kind, valueText) })
+    const nextValue = typed ? parseKind(row.kind, valueText) : valueText
+    updateRow(row.id, { valueText, value: nextValue })
   }
   function addRow() {
     setRows((prev) => [...prev, emptyRow()])

@@ -78,4 +78,33 @@ describe("VariablesNode", () => {
 
     expect(output).toEqual({ found: true, value: { a: 1, b: 2 } })
   })
+
+  it("get with a whitespace-only key returns the whole variables object", async () => {
+    const node = new VariablesNode()
+
+    const output = await node.execute(
+      { operation: "get", key: "   " },
+      undefined,
+      { workspaceId: "ws-1", variables: { a: 1 } }
+    )
+
+    expect(output).toEqual({ found: true, value: { a: 1 } })
+  })
+
+  it("get looks up a key exactly as given, matching set's exact-key storage", async () => {
+    const node = new VariablesNode()
+
+    // Set stores keys exactly as given, with no trimming — Get must use the same exact key for
+    // lookup, or a key like " customer " that Set stored literally would never be found.
+    const output = await node.execute(
+      { operation: "get", key: " customer " },
+      undefined,
+      {
+        workspaceId: "ws-1",
+        variables: { " customer ": "ada", customer: "grace" },
+      }
+    )
+
+    expect(output).toEqual({ found: true, value: "ada" })
+  })
 })
