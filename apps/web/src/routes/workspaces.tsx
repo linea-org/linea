@@ -171,8 +171,8 @@ function WorkspacesPage() {
           </Button>
         </div>
 
-        <div className="mt-5 animate-in delay-200 duration-500 fade-in-0 fill-mode-both">
-          <div className="mb-3 h-px bg-border/80" />
+        <div className="animate-in delay-200 duration-500 fade-in-0 fill-mode-both">
+          <div className="mb-1 h-px bg-border/80" />
           <UserMenu showDetails align="start" className="w-full" />
         </div>
       </main>

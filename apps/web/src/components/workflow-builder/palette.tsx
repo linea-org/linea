@@ -116,7 +116,7 @@ export function WorkflowPalette({
       >
         <aside className="flex h-full min-h-0 w-52 flex-col overflow-hidden bg-card">
           <div className="shrink-0 px-2 pt-2 pb-1.5">
-            <InputGroup className="h-8 rounded-md border-input/30 bg-input/30 shadow-none">
+            <InputGroup className="h-8 rounded-md border-0 bg-input/30 shadow-none">
               <InputGroupAddon>
                 <SearchIcon className="size-4 shrink-0 opacity-50" />
               </InputGroupAddon>
@@ -206,7 +206,7 @@ export function WorkflowPalette({
         variant="outline"
         size="icon-xs"
         className={cn(
-          "absolute top-4 left-full z-10 size-5 border-border bg-card p-0 shadow-none transition-transform duration-500 ease-in dark:bg-card dark:hover:bg-secondary [&_svg:not([class*='size-'])]:size-2.5",
+          "absolute top-4 left-full z-10 size-5 border-border bg-card p-0 shadow-none transition-transform duration-500 ease-in hover:bg-secondary [&_svg:not([class*='size-'])]:size-2.5",
           !collapsed && "-translate-x-1/2"
         )}
         onClick={() => onCollapsedChange(!collapsed)}

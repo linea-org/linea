@@ -226,7 +226,7 @@ export function WorkspaceShell({
         </SidebarGroup>
       </SidebarContent>
       <SidebarSeparator className="group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:data-horizontal:w-5" />
-      <SidebarFooter className="px-1 pt-2 pb-2 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:pt-2 group-data-[collapsible=icon]:pb-2">
+      <SidebarFooter className="p-1">
         <UserMenu showDetails align="start" className="w-full" />
       </SidebarFooter>
     </>
@@ -235,14 +235,10 @@ export function WorkspaceShell({
     <SidebarProvider
       open={open}
       onOpenChange={handleOpenChange}
-      className="relative h-svh max-h-svh overflow-hidden bg-background has-data-[variant=inset]:bg-background"
+      className="relative h-svh max-h-svh overflow-hidden bg-sidebar has-data-[variant=inset]:bg-sidebar"
     >
       {!isBuilder && (
-        <Sidebar
-          variant="inset"
-          collapsible="icon"
-          className="z-10 [&_[data-slot=sidebar-inner]]:bg-transparent"
-        >
+        <Sidebar variant="inset" collapsible="icon" className="z-20">
           {navigation}
         </Sidebar>
       )}
@@ -256,8 +252,8 @@ export function WorkspaceShell({
       >
         <SidebarInset
           className={cn(
-            "relative z-10 min-h-0 overflow-hidden bg-card md:peer-data-[variant=inset]:rounded-lg",
-            isBuilder && "m-2 rounded-lg shadow-sm"
+            "relative z-10 min-h-0 overflow-hidden bg-card md:peer-data-[variant=inset]:rounded-lg md:peer-data-[variant=inset]:shadow-none md:peer-data-[variant=inset]:ring-1 md:peer-data-[variant=inset]:ring-border",
+            isBuilder && "m-2 rounded-lg"
           )}
         >
           {!isBuilder && <InsetCollapseEdge />}
@@ -276,7 +272,7 @@ export function WorkspaceShell({
               </div>
             </div>
           )}
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-auto">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-auto bg-card">
             {children}
             {isBuilder && open && (
               <button
