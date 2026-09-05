@@ -3,6 +3,7 @@ import { approvalNode } from "./definitions/approval.node.js"
 import { branchNode } from "./definitions/branch.node.js"
 import { datetimeNode } from "./definitions/datetime.node.js"
 import { endNode } from "./definitions/end.node.js"
+import { evaluatorNode } from "./definitions/evaluator.node.js"
 import { extractNode } from "./definitions/extract.node.js"
 import { filterNode } from "./definitions/filter.node.js"
 import { httpNode } from "./definitions/http.node.js"
@@ -17,6 +18,7 @@ import type { NodeDefinition } from "./node-definition.js"
 export const nodeRegistry = {
   start: startNode,
   end: endNode,
+  evaluator: evaluatorNode,
   http: httpNode,
   transform: transformNode,
   branch: branchNode,

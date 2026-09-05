@@ -58,7 +58,7 @@ function configToDraft(
     const raw = fieldToInputValue(config[field.key], field.widget)
     draft[field.key] =
       raw ||
-      (field.widget === "select" && !field.showIf
+      (field.widget === "select" && !field.showIf && !field.optional
         ? (field.options?.[0]?.value ?? "")
         : raw)
   }
@@ -71,7 +71,7 @@ function selectDefaults(
 ): Record<string, unknown> | null {
   const next: Record<string, unknown> = {}
   for (const field of fields) {
-    if (field.widget !== "select" || field.showIf) continue
+    if (field.widget !== "select" || field.showIf || field.optional) continue
     if (config[field.key] !== undefined && config[field.key] !== "") continue
     const first = field.options?.[0]?.value
     if (first) next[field.key] = first

@@ -1,13 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common"
 import { calculateCostMicros } from "@linea/ai"
 import { db, repositories, type EvalCase, type EvalRun } from "@linea/db"
-import {
-  workflowGraphSchema,
-  type WorkflowGraph,
-  type WorkflowNode,
-} from "@linea/runtime"
+import { workflowGraphSchema, type WorkflowGraph } from "@linea/runtime"
 import { InterpreterService } from "../graph/interpreter.service"
+import { resolveNodeModel } from "../graph/resolve-node-model"
 import { AiNode } from "../graph/nodes/ai.node"
+import { getErrorTokenUsage } from "../graph/nodes/usage-error"
 import { gradeOutput } from "./eval-grading"
 
 type CaseOutcome = {
@@ -23,11 +21,6 @@ type ConversationInput = {
   externalSubjectId?: string
 }
 
-function resolveNodeModel(node: WorkflowNode): string | undefined {
-  if (node.type !== "ai" && node.type !== "extract") return undefined
-  return typeof node.config.model === "string" ? node.config.model : undefined
-}
-
 @Injectable()
 export class EvalExecutionService {
   private readonly logger = new Logger(EvalExecutionService.name)
@@ -39,7 +32,8 @@ export class EvalExecutionService {
 
   private async executeNodeCase(
     evalCase: EvalCase,
-    graph: WorkflowGraph
+    graph: WorkflowGraph,
+    workflowVersionId: string
   ): Promise<CaseOutcome> {
     const node = graph.nodes.find((n) => n.id === evalCase.nodeId)
     if (!node) {
@@ -58,15 +52,34 @@ export class EvalExecutionService {
       result = await this.interpreter.executeNode(
         node,
         input,
-        evalCase.workspaceId
+        evalCase.workspaceId,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        workflowVersionId
       )
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      const usage = getErrorTokenUsage(error)
+      const model = resolveNodeModel(node)
+      const costMicros =
+        usage && model
+          ? (calculateCostMicros(
+              model,
+              usage.tokensInput,
+              usage.tokensOutput
+            ) ?? 0n)
+          : 0n
       return {
         status: "errored",
         output: { error: message },
         score: null,
-        costMicros: 0n,
+        costMicros,
       }
     }
     const model = resolveNodeModel(node)
@@ -182,10 +195,11 @@ export class EvalExecutionService {
 
   private executeCase(
     evalCase: EvalCase,
-    graph: WorkflowGraph
+    graph: WorkflowGraph,
+    workflowVersionId: string
   ): Promise<CaseOutcome> {
     return evalCase.caseType === "node"
-      ? this.executeNodeCase(evalCase, graph)
+      ? this.executeNodeCase(evalCase, graph, workflowVersionId)
       : this.executeConversationCase(evalCase, graph)
   }
 
@@ -225,7 +239,7 @@ export class EvalExecutionService {
     for (const evalCase of cases) {
       let outcome: CaseOutcome
       try {
-        outcome = await this.executeCase(evalCase, graph)
+        outcome = await this.executeCase(evalCase, graph, workflowVersionId)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         this.logger.error(

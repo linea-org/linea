@@ -153,6 +153,47 @@ describe("InterpreterService.executeNode", () => {
       )
     ).rejects.toThrow('No handler for node type "not-a-real-type"')
   })
+
+  it("executes an Evaluator node through the registered handler", async () => {
+    const interpreter = new InterpreterService(
+      new CheckpointsService(),
+      tokenNode,
+      new TransformNode(),
+      new BranchNode(),
+      new AiNode(),
+      new ApprovalNode(),
+      new MemoryNode(),
+      new WaitNode(),
+      new DatetimeNode(),
+      new FilterNode(),
+      new MergeNode(),
+      new VariablesNode()
+    )
+    const result = await interpreter.executeNode(
+      {
+        id: "evaluate-1",
+        type: "evaluator",
+        config: {
+          sample: { actualOutputPath: "text" },
+          metrics: [
+            {
+              id: "contains-answer",
+              name: "Contains answer",
+              type: "contains",
+              value: "answer",
+            },
+          ],
+        },
+      },
+      { text: "the answer" },
+      "workspace-1"
+    )
+    expect(result.output).toEqual(
+      expect.objectContaining({ passed: true, score: 1 })
+    )
+    expect(result.tokensInput).toBe(0)
+    expect(result.tokensOutput).toBe(0)
+  })
 })
 
 describe("InterpreterService.run idempotency key", () => {

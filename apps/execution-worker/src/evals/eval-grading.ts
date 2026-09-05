@@ -6,6 +6,10 @@ import {
   type ToolDefinition,
 } from "@linea/ai"
 import { db } from "@linea/db"
+import {
+  evaluateRuleMetric,
+  type EvaluationSample,
+} from "../evaluation/evaluation-engine.js"
 import { getPath } from "../graph/nodes/dot-path.js"
 
 // No single hardcoded default works for every workspace's BYOK setup — tried in order, first one
@@ -56,16 +60,32 @@ function evaluateContains(
   config: Record<string, unknown>,
   negate: boolean
 ): boolean {
-  const value = typeof config.value === "string" ? config.value : ""
-  const found = text.includes(value)
-  return negate ? !found : found
+  const type = negate ? "not_contains" : "contains"
+  const sample: EvaluationSample = { actualOutput: text }
+  return evaluateRuleMetric(sample, {
+    id: type,
+    revision: 1,
+    name: type,
+    type,
+    value: typeof config.value === "string" ? config.value : "",
+  }).passed
 }
 
 function evaluateRegex(text: string, config: Record<string, unknown>): boolean {
   const pattern = typeof config.pattern === "string" ? config.pattern : ""
   const flags = typeof config.flags === "string" ? config.flags : undefined
   try {
-    return new RegExp(pattern, flags).test(text)
+    return evaluateRuleMetric(
+      { actualOutput: text },
+      {
+        id: "regex",
+        revision: 1,
+        name: "regex",
+        type: "regex",
+        pattern,
+        flags,
+      }
+    ).passed
   } catch {
     // A malformed pattern is a case-authoring bug, not a passing result — never let it look like
     // the content simply didn't match.

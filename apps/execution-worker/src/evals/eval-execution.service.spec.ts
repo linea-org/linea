@@ -120,6 +120,67 @@ describe("EvalExecutionService.runEvalsForVersion", () => {
     }
   })
 
+  it("runs an Evaluator node as a regression case", async () => {
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "evaluator-1",
+      nodes: [
+        {
+          id: "evaluator-1",
+          type: "evaluator",
+          config: {
+            sample: { actualOutputPath: "text" },
+            metrics: [
+              {
+                id: "contains-answer",
+                name: "Contains answer",
+                type: "contains",
+                value: "answer",
+              },
+            ],
+          },
+        },
+      ],
+      edges: [],
+    }
+    const { organization, workflow, version } = await setUpWorkflow(graph)
+    const aiNode = { execute: jest.fn() } as unknown as AiNode
+    const service = new EvalExecutionService(buildInterpreter(aiNode), aiNode)
+    try {
+      await repositories.evalCase.createEvalCase(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        caseType: "node",
+        nodeId: "evaluator-1",
+        input: { nodeInput: { text: "the answer" } },
+        assertions: [
+          { type: "contains", config: { target: "passed", value: "true" } },
+        ],
+      })
+      const run = await service.runEvalsForVersion(
+        organization.id,
+        workflow.id,
+        version.id,
+        "manual"
+      )
+      const results = await repositories.evalRun.listEvalResults(
+        db,
+        organization.id,
+        run.id
+      )
+      expect(results[0]).toMatchObject({
+        status: "passed",
+        score: 1,
+        output: { passed: true, score: 1 },
+      })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
   it("errors a node-type case whose nodeId no longer exists in this workflow version", async () => {
     const graph: WorkflowGraph = {
       version: 1,

@@ -121,6 +121,16 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
     }
   }
 
+  for (const node of graph.nodes) {
+    if (node.type !== "evaluator") continue
+    const result = nodeRegistry.evaluator.inputSchema.safeParse(node.config)
+    if (!result.success) {
+      throw new WorkflowGraphError(
+        `Evaluator node "${node.id}" has invalid configuration: ${result.error.message}`
+      )
+    }
+  }
+
   // The walker matches on condition, so a missing or duplicate one is unreachable code.
   for (const node of graph.nodes) {
     if (node.type !== "branch") continue

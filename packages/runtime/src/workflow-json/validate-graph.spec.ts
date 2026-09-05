@@ -116,6 +116,76 @@ describe("validateGraphStructure", () => {
     ).not.toThrow()
   })
 
+  it("rejects an Evaluator node with invalid configuration", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            {
+              id: "a",
+              type: "evaluator",
+              config: { metrics: [] },
+            },
+            { id: "b", type: "transform", config: {} },
+          ],
+        })
+      )
+    ).toThrow('Evaluator node "a" has invalid configuration')
+  })
+
+  it("accepts an Evaluator node with valid rule metrics", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            {
+              id: "a",
+              type: "evaluator",
+              config: {
+                sample: { actualOutputPath: "text" },
+                metrics: [
+                  {
+                    id: "contains-answer",
+                    name: "Contains answer",
+                    type: "contains",
+                    value: "answer",
+                  },
+                ],
+              },
+            },
+            { id: "b", type: "transform", config: {} },
+          ],
+        })
+      )
+    ).not.toThrow()
+  })
+
+  it("rejects a G-Eval metric without a judge model", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            {
+              id: "a",
+              type: "evaluator",
+              config: {
+                metrics: [
+                  {
+                    id: "correctness",
+                    name: "Correctness",
+                    type: "g_eval",
+                    criteria: "Determine whether the answer is correct.",
+                  },
+                ],
+              },
+            },
+            { id: "b", type: "transform", config: {} },
+          ],
+        })
+      )
+    ).toThrow('Evaluator node "a" has invalid configuration')
+  })
+
   it("rejects an edge referencing an unknown node", () => {
     expect(() =>
       validateGraphStructure(graph({ edges: [{ from: "a", to: "c" }] }))
