@@ -586,7 +586,7 @@ function WorkflowBuilderCanvasInner({
               Saved
             </span>
           )}
-          {hasAgentNode ? (
+          {hasAgentNode && (
             <Button
               type="button"
               variant={rightPanel === "chat" ? "secondary" : "outline"}
@@ -599,18 +599,17 @@ function WorkflowBuilderCanvasInner({
               <MessageCircleIcon />
               Chat preview
             </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="xs"
-              onClick={() => testRun.mutate()}
-              disabled={testRun.isPending}
-            >
-              <PlayIcon />
-              {testRun.isPending ? "Running…" : "Test run"}
-            </Button>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            onClick={() => testRun.mutate()}
+            disabled={testRun.isPending}
+          >
+            <PlayIcon />
+            {testRun.isPending ? "Running…" : "Test run"}
+          </Button>
           <Button
             type="button"
             variant="outline"
