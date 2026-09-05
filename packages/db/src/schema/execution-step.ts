@@ -56,6 +56,8 @@ export const executionSteps = snakeCase.table(
     costMicros: bigint({ mode: "bigint" }).notNull().default(0n),
     tokensInput: integer().notNull().default(0),
     tokensOutput: integer().notNull().default(0),
+    model: text(),
+    provider: text(),
 
     // Unused until Phase 1 replay — history can't be backfilled onto a new column.
     replayedFromStepId: uuid().references((): AnyPgColumn => executionSteps.id),

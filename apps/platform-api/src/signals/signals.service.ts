@@ -11,7 +11,11 @@ export class SignalsService {
     return repositories.signal.getSignalsTrend(db, workspaceId, options)
   }
 
-  async get(workspaceId: string, id: string) {
+  async get(
+    workspaceId: string,
+    id: string,
+    options: { environment: 'production' | 'dev' | 'draft' },
+  ) {
     const detail = await repositories.signal.getSignalDetail(
       db,
       workspaceId,
@@ -20,7 +24,20 @@ export class SignalsService {
     if (!detail) {
       throw new NotFoundException('Signal not found')
     }
-    return detail
+    const dimensionData =
+      await repositories.signalDimensions.getSignalDimensions(
+        db,
+        detail,
+        options.environment,
+      )
+    return {
+      ...detail,
+      ...dimensionData,
+      dimensionScope: {
+        environment: options.environment,
+        windowDays: repositories.signalDimensions.SIGNAL_DIMENSIONS_WINDOW_DAYS,
+      },
+    }
   }
 
   async resolve(workspaceId: string, id: string): Promise<Signal> {

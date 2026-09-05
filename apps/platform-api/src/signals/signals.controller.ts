@@ -5,6 +5,10 @@ import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import { listSignalsSchema, type ListSignalsDto } from './dto/list-signals.dto'
 import {
+  signalDimensionsSchema,
+  type SignalDimensionsDto,
+} from './dto/signal-dimensions.dto'
+import {
   signalsTrendSchema,
   type SignalsTrendDto,
 } from './dto/signals-trend.dto'
@@ -34,8 +38,13 @@ export class SignalsController {
   }
 
   @Get(':id')
-  get(@CurrentWorkspaceId() workspaceId: string, @Param('id') id: string) {
-    return this.signals.get(workspaceId, id)
+  get(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('id') id: string,
+    @Query(new ZodValidationPipe(signalDimensionsSchema))
+    query: SignalDimensionsDto,
+  ) {
+    return this.signals.get(workspaceId, id, query)
   }
 
   @Post(':id/resolve')

@@ -7,6 +7,7 @@ export {
   providers,
   resolveKeyName,
   resolveProvider,
+  resolveProviderId,
   type AiProviderInfo,
 } from "./registry.js"
 export type {

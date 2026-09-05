@@ -78,11 +78,17 @@ describe('SignalsService', () => {
       expect(signals).toHaveLength(1)
       expect(signals[0]).toMatchObject({ status: 'open', occurrenceCount: 2 })
 
-      const detail = await service.get(organization.id, signals[0].id)
+      const detail = await service.get(organization.id, signals[0].id, {
+        environment: 'production',
+      })
       expect(detail.flags).toHaveLength(2)
 
       // Not visible from another workspace.
-      await expect(service.get(otherOrg.id, signals[0].id)).rejects.toThrow()
+      await expect(
+        service.get(otherOrg.id, signals[0].id, {
+          environment: 'production',
+        }),
+      ).rejects.toThrow()
 
       const resolved = await service.resolve(organization.id, signals[0].id)
       expect(resolved.resolvedAt).not.toBeNull()

@@ -635,6 +635,8 @@ describe("InterpreterService resume", () => {
         execution.id
       )
       expect(steps[0]?.costMicros).toBe(350n)
+      expect(steps[0]?.model).toBe("claude-haiku-4-5-20251001")
+      expect(steps[0]?.provider).toBe("anthropic")
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
@@ -1034,8 +1036,9 @@ describe("InterpreterService retry policy", () => {
       nodes: [
         {
           id: "n1",
-          type: "http",
+          type: "ai",
           config: {
+            model: "gpt-5",
             retryPolicy: {
               maxAttempts: 3,
               backoff: { type: "fixed", delayMs: 10 },
@@ -1060,13 +1063,13 @@ describe("InterpreterService retry policy", () => {
         if (calls < 3) return Promise.reject(new Error("flaky"))
         return Promise.resolve({ tokensInput: 0, tokensOutput: 0 })
       })
-      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const spyNode = { execute: executeSpy } as unknown as AiNode
       const interpreter = new InterpreterService(
         new CheckpointsService(),
-        spyNode,
+        new HttpNode(),
         new TransformNode(),
         new BranchNode(),
-        new AiNode(),
+        spyNode,
         new ApprovalNode(),
         new MemoryNode(),
         new WaitNode(),
@@ -1094,6 +1097,8 @@ describe("InterpreterService retry policy", () => {
       )
       expect(steps[0]?.status).toBe("succeeded")
       expect(steps[0]?.attributes?.retryAttempts).toBe(3)
+      expect(steps[0]?.model).toBe("gpt-5")
+      expect(steps[0]?.provider).toBe("openai")
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
@@ -1110,8 +1115,9 @@ describe("InterpreterService retry policy", () => {
       nodes: [
         {
           id: "n1",
-          type: "http",
+          type: "ai",
           config: {
+            model: "gpt-5",
             retryPolicy: {
               maxAttempts: 2,
               backoff: { type: "fixed", delayMs: 10 },
@@ -1133,13 +1139,13 @@ describe("InterpreterService retry policy", () => {
       const executeSpy = jest.fn(() =>
         Promise.reject(new Error("always fails"))
       )
-      const spyNode = { execute: executeSpy } as unknown as HttpNode
+      const spyNode = { execute: executeSpy } as unknown as AiNode
       const interpreter = new InterpreterService(
         new CheckpointsService(),
-        spyNode,
+        new HttpNode(),
         new TransformNode(),
         new BranchNode(),
-        new AiNode(),
+        spyNode,
         new ApprovalNode(),
         new MemoryNode(),
         new WaitNode(),
@@ -1167,6 +1173,8 @@ describe("InterpreterService retry policy", () => {
       )
       expect(steps[0]?.status).toBe("failed")
       expect(steps[0]?.attributes?.retryAttempts).toBe(2)
+      expect(steps[0]?.model).toBe("gpt-5")
+      expect(steps[0]?.provider).toBe("openai")
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

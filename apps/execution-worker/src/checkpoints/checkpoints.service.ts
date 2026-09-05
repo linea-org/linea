@@ -35,6 +35,8 @@ export type RecordStepInput = {
   costUnpriced?: boolean
   tokensInput?: number
   tokensOutput?: number
+  model?: string
+  provider?: string
   // Omitted when attemptsMade is 1 so "never retried" is distinguishable from "retried once."
   retryAttempts?: number
   // Includes this step if it just succeeded — a failed step is never added, matching the walker's own map.
@@ -104,6 +106,8 @@ export class CheckpointsService {
         attributes: buildStepAttributes(input),
         tokensInput: input.tokensInput ?? 0,
         tokensOutput: input.tokensOutput ?? 0,
+        model: input.model,
+        provider: input.provider,
       },
       checkpoint: {
         sequence,
