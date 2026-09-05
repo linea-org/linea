@@ -1,0 +1,15 @@
+export const modelOptions = [
+  { label: "Claude Opus 5", value: "claude-opus-5" },
+  { label: "Claude Sonnet 5", value: "claude-sonnet-5" },
+  { label: "Claude Fable 5", value: "claude-fable-5" },
+  { label: "Claude Haiku 4.5", value: "claude-haiku-4-5-20251001" },
+  { label: "GPT-5", value: "gpt-5" },
+  { label: "GPT-5 mini", value: "gpt-5-mini" },
+  { label: "GPT-4.1", value: "gpt-4.1" },
+  { label: "GPT-4o", value: "gpt-4o" },
+  { label: "GPT-OSS 120B (Groq)", value: "openai/gpt-oss-120b" },
+  { label: "GPT-OSS 20B (Groq)", value: "openai/gpt-oss-20b" },
+  { label: "Compound (Groq)", value: "groq/compound" },
+  { label: "Compound mini (Groq)", value: "groq/compound-mini" },
+  { label: "Grok 4.5", value: "grok-4.5" },
+]

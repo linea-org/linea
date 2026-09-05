@@ -142,6 +142,7 @@ export class RunsService {
           executionId,
           workspaceId: execution.workspaceId,
           workflowId: execution.workflowId,
+          workflowVersionId: execution.workflowVersionId,
           leasedBy: attemptId,
           graph,
           triggerPayload: execution.triggerPayload,

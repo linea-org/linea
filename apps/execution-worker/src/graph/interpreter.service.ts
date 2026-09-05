@@ -17,6 +17,7 @@ import { ApprovalNode } from "./nodes/approval.node"
 import { BranchNode } from "./nodes/branch.node"
 import { DatetimeNode } from "./nodes/datetime.node"
 import { EndNode } from "./nodes/end.node"
+import { EvaluatorNode } from "./nodes/evaluator.node"
 import { ExtractNode } from "./nodes/extract.node"
 import { FilterNode } from "./nodes/filter.node"
 import { HttpNode } from "./nodes/http.node"
@@ -24,11 +25,12 @@ import { MemoryNode } from "./nodes/memory.node"
 import { MergeNode } from "./nodes/merge.node"
 import type { NodeHandler } from "./nodes/node-handler.interface"
 import { NonRetryableError } from "./nodes/non-retryable-error"
-import { UsageError } from "./nodes/usage-error"
+import { getErrorTokenUsage } from "./nodes/usage-error"
 import { StartNode } from "./nodes/start.node"
 import { TransformNode } from "./nodes/transform.node"
 import { VariablesNode } from "./nodes/variables.node"
 import { WaitNode } from "./nodes/wait.node"
+import { resolveNodeModel } from "./resolve-node-model"
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -75,6 +77,7 @@ export type RunInput = {
   workspaceId: string
   // Optional so replay/tests without a conversation don't have to supply it.
   workflowId?: string
+  workflowVersionId?: string
   leasedBy: string
   graph: WorkflowGraph
   triggerPayload: unknown
@@ -145,11 +148,6 @@ function extractTokenUsage(
   return undefined
 }
 
-function resolveNodeModel(node: WorkflowNode): string | undefined {
-  if (node.type !== "ai" && node.type !== "extract") return undefined
-  return typeof node.config.model === "string" ? node.config.model : undefined
-}
-
 @Injectable()
 export class InterpreterService {
   private readonly handlers: Record<string, NodeHandler>
@@ -174,6 +172,7 @@ export class InterpreterService {
       branch: branchNode,
       ai: aiNode,
       extract: new ExtractNode(),
+      evaluator: new EvaluatorNode(),
       approval: approvalNode,
       memory: memoryNode,
       wait: waitNode,
@@ -198,7 +197,8 @@ export class InterpreterService {
     workflowId?: string,
     chatMessageId?: string,
     leasedBy?: string,
-    variables?: Record<string, unknown>
+    variables?: Record<string, unknown>,
+    workflowVersionId?: string
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -216,6 +216,7 @@ export class InterpreterService {
       nodeId: node.id,
       conversationId,
       workflowId,
+      workflowVersionId,
       chatMessageId,
       leasedBy,
       variables,
@@ -285,7 +286,8 @@ export class InterpreterService {
               input.workflowId,
               extractChatMessageId(input.triggerPayload),
               input.leasedBy,
-              variablesState
+              variablesState,
+              input.workflowVersionId
             )
             break
           } catch (attemptError) {
@@ -387,13 +389,7 @@ export class InterpreterService {
 
         const message = error instanceof Error ? error.message : String(error)
         const stack = error instanceof Error ? error.stack : undefined
-        const usage =
-          error instanceof UsageError
-            ? {
-                tokensInput: error.tokensInput,
-                tokensOutput: error.tokensOutput,
-              }
-            : undefined
+        const usage = getErrorTokenUsage(error)
         let costMicros: bigint | undefined
         let stepCostUnpriced: boolean | undefined
         if (usage && model) {

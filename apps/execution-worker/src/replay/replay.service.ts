@@ -1,10 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common"
 import { calculateCostMicros, resolveProviderId } from "@linea/ai"
 import { db, repositories } from "@linea/db"
-import { workflowGraphSchema, type WorkflowNode } from "@linea/runtime"
+import { workflowGraphSchema } from "@linea/runtime"
 import type { WorkflowStepReplayJob } from "@linea/queue"
 import { InterpreterService } from "../graph/interpreter.service"
-import { UsageError } from "../graph/nodes/usage-error"
+import { resolveNodeModel } from "../graph/resolve-node-model"
+import { getErrorTokenUsage } from "../graph/nodes/usage-error"
 
 // Sized to bound how long this worker can keep running after another worker reclaims its stale claim, not to safely undercut REPLAY_CLAIM_STALE_MS — cancellation below is best-effort, so a tight interval limits the overlap.
 const REPLAY_HEARTBEAT_INTERVAL_MS = 30_000
@@ -17,11 +18,6 @@ class ReplayClaimPendingError extends Error {
     )
     this.name = "ReplayClaimPendingError"
   }
-}
-
-function resolveNodeModel(node: WorkflowNode): string | undefined {
-  if (node.type !== "ai" && node.type !== "extract") return undefined
-  return typeof node.config.model === "string" ? node.config.model : undefined
 }
 
 @Injectable()
@@ -75,6 +71,10 @@ export class ReplayService {
     }
     const model = resolveNodeModel(mergedNode)
     const provider = model ? resolveProviderId(model) : undefined
+    const cacheableWorkflowVersionId =
+      Object.keys(job.overrideConfig).length === 0
+        ? execution.workflowVersionId
+        : undefined
     const sequence = await repositories.executionStep.getNextStepSequence(
       db,
       execution.id
@@ -247,7 +247,13 @@ export class ReplayService {
         // Wait (and any future node type keyed by executionId) needs its originating execution's
         // id to look itself up — omitting it isn't "no context," it's a context guard tripping,
         // since a node like Wait can't tell "no execution" apart from "id genuinely absent."
-        execution.id
+        execution.id,
+        undefined,
+        execution.workflowId,
+        undefined,
+        undefined,
+        undefined,
+        cacheableWorkflowVersionId
       )
       const isModelCall =
         model !== undefined &&
@@ -275,13 +281,7 @@ export class ReplayService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       const stack = error instanceof Error ? error.stack : undefined
-      const usage =
-        error instanceof UsageError
-          ? {
-              tokensInput: error.tokensInput,
-              tokensOutput: error.tokensOutput,
-            }
-          : undefined
+      const usage = getErrorTokenUsage(error)
       const costMicros =
         usage && model
           ? calculateCostMicros(model, usage.tokensInput, usage.tokensOutput)

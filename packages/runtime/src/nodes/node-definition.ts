@@ -13,6 +13,7 @@ export type NodeUIField = {
   widget: NodeUIFieldWidget
   options?: { label: string; value: string }[]
   description?: string
+  optional?: boolean
   // Field only shows when another field in the same config currently equals this value (or one of these values).
   showIf?: { key: string; equals: string | string[] }
 }

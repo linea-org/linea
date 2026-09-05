@@ -143,6 +143,7 @@ describe("ReplayService.replay", () => {
           workspaceId: string
           idempotencyKey?: string
           signal?: AbortSignal
+          workflowVersionId?: string
         },
       ]
       expect(config).toEqual({ url: "https://overridden.example.com" })
@@ -150,6 +151,7 @@ describe("ReplayService.replay", () => {
       expect(context.workspaceId).toBe(organization.id)
       expect(context.idempotencyKey).toBe(replayStepId)
       expect(context.signal).toBeInstanceOf(AbortSignal)
+      expect(context.workflowVersionId).toBeUndefined()
 
       const result = await repositories.execution.getExecutionWithSteps(
         db,
