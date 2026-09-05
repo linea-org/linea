@@ -17,6 +17,14 @@ describe("workflowGraphSchema", () => {
     expect(result.entryNodeId).toBe("start")
   })
 
+  it("accepts an Extract node", () => {
+    const result = workflowGraphSchema.parse({
+      ...validGraph,
+      nodes: [{ id: "extract", type: "extract", config: {} }],
+    })
+    expect(result.nodes[0].type).toBe("extract")
+  })
+
   it("defaults a node's config to an empty object", () => {
     const result = workflowGraphSchema.parse({
       ...validGraph,

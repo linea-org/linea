@@ -70,6 +70,52 @@ describe("validateGraphStructure", () => {
     ).toThrow(WorkflowGraphError)
   })
 
+  it("rejects an Extract node with invalid configuration", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            {
+              id: "a",
+              type: "extract",
+              config: {
+                model: "gpt-5",
+                instructions: "Extract the customer name.",
+                schema: { type: "string" },
+              },
+            },
+            { id: "b", type: "transform", config: {} },
+          ],
+        })
+      )
+    ).toThrow('Extract node "a" has invalid configuration')
+  })
+
+  it("accepts an Extract node with valid configuration", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            {
+              id: "a",
+              type: "extract",
+              config: {
+                model: "gpt-5",
+                instructions: "Extract the customer name.",
+                schema: {
+                  type: "object",
+                  properties: { customerName: { type: "string" } },
+                  required: ["customerName"],
+                },
+              },
+            },
+            { id: "b", type: "transform", config: {} },
+          ],
+        })
+      )
+    ).not.toThrow()
+  })
+
   it("rejects an edge referencing an unknown node", () => {
     expect(() =>
       validateGraphStructure(graph({ edges: [{ from: "a", to: "c" }] }))

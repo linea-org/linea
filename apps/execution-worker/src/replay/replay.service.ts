@@ -1,9 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common"
 import { calculateCostMicros, resolveProviderId } from "@linea/ai"
 import { db, repositories } from "@linea/db"
-import { workflowGraphSchema } from "@linea/runtime"
+import { workflowGraphSchema, type WorkflowNode } from "@linea/runtime"
 import type { WorkflowStepReplayJob } from "@linea/queue"
 import { InterpreterService } from "../graph/interpreter.service"
+import { UsageError } from "../graph/nodes/usage-error"
 
 // Sized to bound how long this worker can keep running after another worker reclaims its stale claim, not to safely undercut REPLAY_CLAIM_STALE_MS — cancellation below is best-effort, so a tight interval limits the overlap.
 const REPLAY_HEARTBEAT_INTERVAL_MS = 30_000
@@ -16,6 +17,11 @@ class ReplayClaimPendingError extends Error {
     )
     this.name = "ReplayClaimPendingError"
   }
+}
+
+function resolveNodeModel(node: WorkflowNode): string | undefined {
+  if (node.type !== "ai" && node.type !== "extract") return undefined
+  return typeof node.config.model === "string" ? node.config.model : undefined
 }
 
 @Injectable()
@@ -67,10 +73,7 @@ export class ReplayService {
       ...node,
       config: { ...node.config, ...job.overrideConfig },
     }
-    const model =
-      mergedNode.type === "ai" && typeof mergedNode.config.model === "string"
-        ? mergedNode.config.model
-        : undefined
+    const model = resolveNodeModel(mergedNode)
     const provider = model ? resolveProviderId(model) : undefined
     const sequence = await repositories.executionStep.getNextStepSequence(
       db,
@@ -246,8 +249,7 @@ export class ReplayService {
         // since a node like Wait can't tell "no execution" apart from "id genuinely absent."
         execution.id
       )
-      const isAiCall =
-        mergedNode.type === "ai" &&
+      const isModelCall =
         model !== undefined &&
         result.tokensInput !== undefined &&
         result.tokensOutput !== undefined
@@ -257,7 +259,7 @@ export class ReplayService {
         result.tokensOutput !== undefined
           ? calculateCostMicros(model, result.tokensInput, result.tokensOutput)
           : undefined
-      if (isAiCall && costMicros === undefined) {
+      if (isModelCall && costMicros === undefined) {
         this.logger.warn(
           `Replay ${job.replayStepId}: costMicros 0 is unpriced, not free — model has no verified rate`
         )
@@ -268,18 +270,29 @@ export class ReplayService {
         tokensInput: result.tokensInput ?? 0,
         tokensOutput: result.tokensOutput ?? 0,
         costMicros: costMicros ?? 0n,
-        costUnpriced: isAiCall ? costMicros === undefined : undefined,
+        costUnpriced: isModelCall ? costMicros === undefined : undefined,
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       const stack = error instanceof Error ? error.stack : undefined
+      const usage =
+        error instanceof UsageError
+          ? {
+              tokensInput: error.tokensInput,
+              tokensOutput: error.tokensOutput,
+            }
+          : undefined
+      const costMicros =
+        usage && model
+          ? calculateCostMicros(model, usage.tokensInput, usage.tokensOutput)
+          : undefined
       outcome = {
         status: "failed",
         error: { message, stack },
-        tokensInput: 0,
-        tokensOutput: 0,
-        costMicros: 0n,
-        costUnpriced: undefined,
+        tokensInput: usage?.tokensInput ?? 0,
+        tokensOutput: usage?.tokensOutput ?? 0,
+        costMicros: costMicros ?? 0n,
+        costUnpriced: usage && model ? costMicros === undefined : undefined,
       }
     } finally {
       // clearInterval stops new ticks, but one already in flight may not have updated claimToken yet — wait for it so completion reads the token that matches the DB.

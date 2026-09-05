@@ -1,7 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common"
 import { calculateCostMicros } from "@linea/ai"
 import { db, repositories, type EvalCase, type EvalRun } from "@linea/db"
-import { workflowGraphSchema, type WorkflowGraph } from "@linea/runtime"
+import {
+  workflowGraphSchema,
+  type WorkflowGraph,
+  type WorkflowNode,
+} from "@linea/runtime"
 import { InterpreterService } from "../graph/interpreter.service"
 import { AiNode } from "../graph/nodes/ai.node"
 import { gradeOutput } from "./eval-grading"
@@ -17,6 +21,11 @@ type ConversationInput = {
   turns: { role: "user" | "assistant"; content: string }[]
   finalPrompt: string
   externalSubjectId?: string
+}
+
+function resolveNodeModel(node: WorkflowNode): string | undefined {
+  if (node.type !== "ai" && node.type !== "extract") return undefined
+  return typeof node.config.model === "string" ? node.config.model : undefined
 }
 
 @Injectable()
@@ -60,12 +69,13 @@ export class EvalExecutionService {
         costMicros: 0n,
       }
     }
+    const model = resolveNodeModel(node)
     const runCostMicros =
-      node.type === "ai" &&
+      model !== undefined &&
       result.tokensInput !== undefined &&
       result.tokensOutput !== undefined
         ? (calculateCostMicros(
-            node.config.model as string,
+            model,
             result.tokensInput,
             result.tokensOutput
           ) ?? 0n)

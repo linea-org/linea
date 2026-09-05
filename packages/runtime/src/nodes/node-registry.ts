@@ -3,6 +3,7 @@ import { approvalNode } from "./definitions/approval.node.js"
 import { branchNode } from "./definitions/branch.node.js"
 import { datetimeNode } from "./definitions/datetime.node.js"
 import { endNode } from "./definitions/end.node.js"
+import { extractNode } from "./definitions/extract.node.js"
 import { filterNode } from "./definitions/filter.node.js"
 import { httpNode } from "./definitions/http.node.js"
 import { memoryNode } from "./definitions/memory.node.js"
@@ -20,6 +21,7 @@ export const nodeRegistry = {
   transform: transformNode,
   branch: branchNode,
   ai: aiNode,
+  extract: extractNode,
   approval: approvalNode,
   memory: memoryNode,
   wait: waitNode,
