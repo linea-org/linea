@@ -1,28 +1,111 @@
-import { useState } from "react"
+import { useState, type KeyboardEvent } from "react"
 import { PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@linea/ui/components/button"
 import { Input } from "@linea/ui/components/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@linea/ui/components/select"
+import { Textarea } from "@linea/ui/components/textarea"
 
-// `value` is the actual JS value that gets saved; `valueText` is only what's rendered in the
-// input. They're kept separate (rather than deriving one object from every row's displayed text
-// on each keystroke) so editing one row's key, or adding/removing a row, never touches another
-// row's value — a nested object/array would otherwise get flattened into its JSON-stringified
-// display text the moment any other row changed.
-type Row = { id: string; key: string; value: unknown; valueText: string }
+type ValueKind = "text" | "number" | "boolean" | "json"
 
-function emptyRow(): Row {
-  return { id: crypto.randomUUID(), key: "", value: "", valueText: "" }
+// `value` is what gets saved; `valueText` is only the editor contents, kept separate so
+// editing one row never re-stringifies another row's nested object.
+type Row = {
+  id: string
+  key: string
+  kind: ValueKind
+  value: unknown
+  valueText: string
 }
 
-// A value typed as valid JSON (numbers, booleans, null, quoted strings, or nested
-// objects/arrays) is saved as that type; anything else — including plain unquoted text like
-// `bar`, which isn't valid JSON — is saved as a literal string.
-function parseLiteral(text: string): unknown {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return text
+const KIND_OPTIONS: { label: string; value: ValueKind }[] = [
+  { label: "Text", value: "text" },
+  { label: "Number", value: "number" },
+  { label: "Boolean", value: "boolean" },
+  { label: "JSON", value: "json" },
+]
+
+const PAIRS: Record<string, string> = { "{": "}", "[": "]", '"': '"' }
+
+function emptyRow(): Row {
+  return {
+    id: crypto.randomUUID(),
+    key: "",
+    kind: "text",
+    value: "",
+    valueText: "",
   }
+}
+
+function kindFromValue(value: unknown): ValueKind {
+  if (typeof value === "number") return "number"
+  if (typeof value === "boolean") return "boolean"
+  if (value === null || Array.isArray(value)) return "json"
+  if (typeof value === "object") return "json"
+  return "text"
+}
+
+// Plain String(x) on an unknown value risks "[object Object]" for anything non-primitive.
+function stringifyLiteral(value: unknown): string {
+  if (typeof value === "string") return value
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value)
+  }
+  if (value === undefined || value === null) return ""
+  return JSON.stringify(value)
+}
+
+function textFromValue(value: unknown, kind: ValueKind): string {
+  if (kind === "json") {
+    return typeof value === "string" ? value : JSON.stringify(value, null, 2)
+  }
+  if (kind === "boolean") return value === true ? "true" : "false"
+  return stringifyLiteral(value)
+}
+
+function parseKind(kind: ValueKind, text: string): unknown {
+  if (kind === "number") {
+    const trimmed = text.trim()
+    if (trimmed === "") return ""
+    const parsed = Number(trimmed)
+    return Number.isFinite(parsed) ? parsed : text
+  }
+  if (kind === "boolean") return text === "true"
+  if (kind === "json") {
+    if (text.trim() === "") return {}
+    try {
+      return JSON.parse(text)
+    } catch {
+      return text
+    }
+  }
+  return text
+}
+
+function coerceKind(kind: ValueKind, current: unknown): unknown {
+  if (kind === "text") {
+    return stringifyLiteral(current)
+  }
+  if (kind === "number") {
+    if (typeof current === "number" && Number.isFinite(current)) return current
+    const parsed = Number(current)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  if (kind === "boolean") return current === true || current === "true"
+  if (typeof current === "object" && current !== null) return current
+  if (typeof current === "string" && current.trim() !== "") {
+    try {
+      return JSON.parse(current)
+    } catch {
+      return {}
+    }
+  }
+  return {}
 }
 
 function toRows(value: unknown): Row[] {
@@ -31,12 +114,16 @@ function toRows(value: unknown): Row[] {
   }
   const entries = Object.entries(value as Record<string, unknown>)
   if (entries.length === 0) return [emptyRow()]
-  return entries.map(([key, v]) => ({
-    id: crypto.randomUUID(),
-    key,
-    value: v,
-    valueText: typeof v === "string" ? v : JSON.stringify(v),
-  }))
+  return entries.map(([key, v]) => {
+    const kind = kindFromValue(v)
+    return {
+      id: crypto.randomUUID(),
+      key,
+      kind,
+      value: v,
+      valueText: textFromValue(v, kind),
+    }
+  })
 }
 
 function toObject(rows: Row[]): Record<string, unknown> {
@@ -48,55 +135,197 @@ function toObject(rows: Row[]): Record<string, unknown> {
   return result
 }
 
+function applyPair(
+  text: string,
+  start: number,
+  end: number,
+  open: string
+): { next: string; cursor: number } | null {
+  const close = PAIRS[open]
+  if (!close) return null
+  if (start === end && text[start] === close && open === close) {
+    return { next: text, cursor: start + 1 }
+  }
+  const selected = text.slice(start, end)
+  return {
+    next: text.slice(0, start) + open + selected + close + text.slice(end),
+    cursor: start + open.length + selected.length,
+  }
+}
+
+function applyBackspacePair(
+  text: string,
+  start: number,
+  end: number
+): { next: string; cursor: number } | null {
+  if (start !== end || start === 0) return null
+  const close = PAIRS[text[start - 1] ?? ""]
+  if (!close || text[start] !== close) return null
+  return {
+    next: text.slice(0, start - 1) + text.slice(start + 1),
+    cursor: start - 1,
+  }
+}
+
 export function KeyValueEditor({
   id,
   value,
   onChange,
+  typed = false,
 }: {
   id: string
   value: unknown
   onChange: (value: Record<string, unknown>) => void
+  typed?: boolean
 }) {
   const [rows, setRows] = useState<Row[]>(() => toRows(value))
-
-  function updateRow(rowId: string, patch: Partial<Row>) {
-    const next = rows.map((row) =>
-      row.id === rowId ? { ...row, ...patch } : row
-    )
+  function commit(next: Row[]) {
     setRows(next)
     onChange(toObject(next))
   }
-
+  function updateRow(rowId: string, patch: Partial<Row>) {
+    commit(rows.map((row) => (row.id === rowId ? { ...row, ...patch } : row)))
+  }
+  function setKind(row: Row, kind: ValueKind) {
+    const nextValue = coerceKind(kind, row.value)
+    updateRow(row.id, {
+      kind,
+      value: nextValue,
+      valueText: textFromValue(nextValue, kind),
+    })
+  }
+  function setValueText(row: Row, valueText: string) {
+    updateRow(row.id, { valueText, value: parseKind(row.kind, valueText) })
+  }
+  function addRow() {
+    setRows((prev) => [...prev, emptyRow()])
+  }
   function removeRow(rowId: string) {
     const next = rows.filter((row) => row.id !== rowId)
-    const withFallback = next.length > 0 ? next : [emptyRow()]
-    setRows(withFallback)
-    onChange(toObject(withFallback))
+    commit(next.length > 0 ? next : [emptyRow()])
   }
-
+  function handleEditorKey(
+    event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+    row: Row
+  ) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault()
+      if (row.key.trim()) addRow()
+      return
+    }
+    if (!typed || row.kind !== "json") return
+    const target = event.currentTarget
+    const start = target.selectionStart ?? 0
+    const end = target.selectionEnd ?? 0
+    if (event.key === "Backspace") {
+      const paired = applyBackspacePair(row.valueText, start, end)
+      if (!paired) return
+      event.preventDefault()
+      setValueText(row, paired.next)
+      queueMicrotask(() => {
+        target.selectionStart = target.selectionEnd = paired.cursor
+      })
+      return
+    }
+    const paired = applyPair(row.valueText, start, end, event.key)
+    if (!paired) return
+    event.preventDefault()
+    setValueText(row, paired.next)
+    queueMicrotask(() => {
+      target.selectionStart = target.selectionEnd = paired.cursor
+    })
+  }
   return (
     <div className="flex flex-col gap-2">
       {rows.map((row, index) => (
-        <div key={row.id} className="flex items-center gap-2">
+        <div key={row.id} className="flex items-start gap-2">
           <Input
             id={index === 0 ? id : undefined}
             placeholder="Key"
             value={row.key}
+            className="h-8 w-24 shrink-0"
             onChange={(e) => updateRow(row.id, { key: e.target.value })}
+            onKeyDown={(e) => handleEditorKey(e, row)}
           />
-          <Input
-            placeholder="Value"
-            value={row.valueText}
-            onChange={(e) => {
-              const valueText = e.target.value
-              updateRow(row.id, { valueText, value: parseLiteral(valueText) })
-            }}
-          />
+          {typed ? (
+            <Select
+              items={KIND_OPTIONS}
+              value={row.kind}
+              onValueChange={(next) => {
+                if (
+                  next === "text" ||
+                  next === "number" ||
+                  next === "boolean" ||
+                  next === "json"
+                ) {
+                  setKind(row, next)
+                }
+              }}
+              modal={false}
+            >
+              <SelectTrigger
+                size="sm"
+                className="h-8 w-[5.75rem] shrink-0"
+                aria-label="Value type"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {KIND_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+          <div className="min-w-0 flex-1">
+            {typed && row.kind === "boolean" ? (
+              <Select
+                items={[
+                  { label: "true", value: "true" },
+                  { label: "false", value: "false" },
+                ]}
+                value={row.valueText || "false"}
+                onValueChange={(next) => {
+                  if (typeof next === "string") setValueText(row, next)
+                }}
+                modal={false}
+              >
+                <SelectTrigger size="sm" className="h-8 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">true</SelectItem>
+                  <SelectItem value="false">false</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : typed && row.kind === "json" ? (
+              <Textarea
+                placeholder="{}"
+                value={row.valueText}
+                rows={9}
+                className="field-sizing-fixed min-h-40 resize-y overflow-auto py-1.5 font-mono text-xs"
+                onChange={(e) => setValueText(row, e.target.value)}
+                onKeyDown={(e) => handleEditorKey(e, row)}
+              />
+            ) : (
+              <Input
+                type={typed && row.kind === "number" ? "number" : "text"}
+                placeholder="Value"
+                value={row.valueText}
+                className="h-8 font-mono text-xs"
+                onChange={(e) => setValueText(row, e.target.value)}
+                onKeyDown={(e) => handleEditorKey(e, row)}
+              />
+            )}
+          </div>
           <Button
             type="button"
             variant="ghost"
             size="icon-xs"
             aria-label="Remove row"
+            className="mt-0.5 shrink-0"
             onClick={() => removeRow(row.id)}
           >
             <XIcon />
@@ -108,7 +337,7 @@ export function KeyValueEditor({
         variant="outline"
         size="sm"
         className="self-start"
-        onClick={() => setRows((prev) => [...prev, emptyRow()])}
+        onClick={addRow}
       >
         <PlusIcon />
         Add

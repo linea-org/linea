@@ -1,13 +1,17 @@
 import {
   Brain,
   Braces,
+  CalendarClock,
   CircleStop,
   Clock,
   GitBranch,
   Globe,
+  ListFilter,
+  Merge,
   Play,
   Sparkles,
   Square,
+  UserCheck,
   Variable,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
@@ -23,6 +27,10 @@ const ICONS: Record<string, LucideIcon> = {
   brain: Brain,
   clock: Clock,
   variable: Variable,
+  filter: ListFilter,
+  merge: Merge,
+  "calendar-clock": CalendarClock,
+  "user-check": UserCheck,
 }
 
 export function NodeIcon({

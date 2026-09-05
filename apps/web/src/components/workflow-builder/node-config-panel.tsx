@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   nodeRegistry,
   retryPolicySchema,
@@ -50,9 +50,28 @@ function configToDraft(
 ): Record<string, string> {
   const draft: Record<string, string> = {}
   for (const field of fields) {
-    draft[field.key] = fieldToInputValue(config[field.key], field.widget)
+    const raw = fieldToInputValue(config[field.key], field.widget)
+    draft[field.key] =
+      raw ||
+      (field.widget === "select" && !field.showIf
+        ? (field.options?.[0]?.value ?? "")
+        : raw)
   }
   return draft
+}
+
+function selectDefaults(
+  config: Record<string, unknown>,
+  fields: NodeUIField[]
+): Record<string, unknown> | null {
+  const next: Record<string, unknown> = {}
+  for (const field of fields) {
+    if (field.widget !== "select" || field.showIf) continue
+    if (config[field.key] !== undefined && config[field.key] !== "") continue
+    const first = field.options?.[0]?.value
+    if (first) next[field.key] = first
+  }
+  return Object.keys(next).length > 0 ? next : null
 }
 
 export function NodeConfigPanel({
@@ -70,6 +89,10 @@ export function NodeConfigPanel({
     configToDraft(config, definition.ui.fields)
   )
   const [jsonErrors, setJsonErrors] = useState<Record<string, string>>({})
+  useEffect(() => {
+    const defaults = selectDefaults(config, definition.ui.fields)
+    if (defaults) onChange({ ...config, ...defaults })
+  }, [config, definition.ui.fields, onChange])
   function setField(field: NodeUIField, rawValue: string) {
     setDraft((prev) => ({ ...prev, [field.key]: rawValue }))
     if (isJsonWidget(field.widget)) {
@@ -124,10 +147,14 @@ export function NodeConfigPanel({
         <FieldGroup className="p-4">
           {definition.ui.fields.map((field) => {
             if (field.showIf) {
+              const current =
+                draft[field.showIf.key] ||
+                definition.ui.fields.find((f) => f.key === field.showIf?.key)
+                  ?.options?.[0]?.value
               const expected = field.showIf.equals
               const matches = Array.isArray(expected)
-                ? expected.includes(draft[field.showIf.key])
-                : draft[field.showIf.key] === expected
+                ? expected.includes(current ?? "")
+                : current === expected
               if (!matches) return null
             }
             const invalid = Boolean(jsonErrors[field.key])
@@ -166,6 +193,7 @@ export function NodeConfigPanel({
                   <KeyValueEditor
                     id={`node-field-${field.key}`}
                     value={config[field.key]}
+                    typed={nodeType === "variables"}
                     onChange={(value) =>
                       onChange({ ...config, [field.key]: value })
                     }
