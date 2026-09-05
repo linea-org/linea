@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@linea/ui/components/select"
+import { KeyValueEditor } from "./key-value-editor"
 
 type NodeConfigPanelProps = {
   nodeType: NodeTypeId
@@ -32,7 +33,7 @@ type NodeConfigPanelProps = {
 }
 
 function isJsonWidget(widget: NodeUIField["widget"]) {
-  return widget === "code" || widget === "key-value"
+  return widget === "code"
 }
 
 function fieldToInputValue(value: unknown, widget: NodeUIField["widget"]) {
@@ -161,9 +162,15 @@ export function NodeConfigPanel({
                       ))}
                     </SelectContent>
                   </Select>
-                ) : field.widget === "textarea" ||
-                  field.widget === "code" ||
-                  field.widget === "key-value" ? (
+                ) : field.widget === "key-value" ? (
+                  <KeyValueEditor
+                    id={`node-field-${field.key}`}
+                    value={config[field.key]}
+                    onChange={(value) =>
+                      onChange({ ...config, [field.key]: value })
+                    }
+                  />
+                ) : field.widget === "textarea" || field.widget === "code" ? (
                   <Textarea
                     id={`node-field-${field.key}`}
                     value={draft[field.key] ?? ""}
