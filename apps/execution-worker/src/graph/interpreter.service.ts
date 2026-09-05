@@ -17,12 +17,14 @@ import { ApprovalNode } from "./nodes/approval.node"
 import { BranchNode } from "./nodes/branch.node"
 import { DatetimeNode } from "./nodes/datetime.node"
 import { EndNode } from "./nodes/end.node"
+import { ExtractNode } from "./nodes/extract.node"
 import { FilterNode } from "./nodes/filter.node"
 import { HttpNode } from "./nodes/http.node"
 import { MemoryNode } from "./nodes/memory.node"
 import { MergeNode } from "./nodes/merge.node"
 import type { NodeHandler } from "./nodes/node-handler.interface"
 import { NonRetryableError } from "./nodes/non-retryable-error"
+import { UsageError } from "./nodes/usage-error"
 import { StartNode } from "./nodes/start.node"
 import { TransformNode } from "./nodes/transform.node"
 import { VariablesNode } from "./nodes/variables.node"
@@ -143,6 +145,11 @@ function extractTokenUsage(
   return undefined
 }
 
+function resolveNodeModel(node: WorkflowNode): string | undefined {
+  if (node.type !== "ai" && node.type !== "extract") return undefined
+  return typeof node.config.model === "string" ? node.config.model : undefined
+}
+
 @Injectable()
 export class InterpreterService {
   private readonly handlers: Record<string, NodeHandler>
@@ -166,6 +173,7 @@ export class InterpreterService {
       transform: transformNode,
       branch: branchNode,
       ai: aiNode,
+      extract: new ExtractNode(),
       approval: approvalNode,
       memory: memoryNode,
       wait: waitNode,
@@ -247,10 +255,7 @@ export class InterpreterService {
       const startedAt = new Date()
       let stepResult: StepResult
       let attemptsMade = 1
-      const model =
-        node.type === "ai" && typeof node.config.model === "string"
-          ? node.config.model
-          : undefined
+      const model = resolveNodeModel(node)
       const provider = model ? resolveProviderId(model) : undefined
 
       try {
@@ -316,8 +321,7 @@ export class InterpreterService {
         if (tokensInput !== undefined && tokensOutput !== undefined) {
           totalTokensInput += tokensInput
           totalTokensOutput += tokensOutput
-          if (node.type === "ai") {
-            if (!model) throw new Error("AI node model must be a string")
+          if (model) {
             costMicros = calculateCostMicros(model, tokensInput, tokensOutput)
             stepCostUnpriced = costMicros === undefined
             if (costMicros !== undefined) {
@@ -383,6 +387,27 @@ export class InterpreterService {
 
         const message = error instanceof Error ? error.message : String(error)
         const stack = error instanceof Error ? error.stack : undefined
+        const usage =
+          error instanceof UsageError
+            ? {
+                tokensInput: error.tokensInput,
+                tokensOutput: error.tokensOutput,
+              }
+            : undefined
+        let costMicros: bigint | undefined
+        let stepCostUnpriced: boolean | undefined
+        if (usage && model) {
+          totalTokensInput += usage.tokensInput
+          totalTokensOutput += usage.tokensOutput
+          costMicros = calculateCostMicros(
+            model,
+            usage.tokensInput,
+            usage.tokensOutput
+          )
+          stepCostUnpriced = costMicros === undefined
+          if (costMicros !== undefined) totalCostMicros += costMicros
+          costUnpriced = mergeCostUnpriced(costUnpriced, stepCostUnpriced)
+        }
 
         await this.checkpoints.recordStep({
           executionId: input.executionId,
@@ -394,6 +419,10 @@ export class InterpreterService {
           error: { message, stack },
           startedAt,
           endedAt: new Date(),
+          tokensInput: usage?.tokensInput,
+          tokensOutput: usage?.tokensOutput,
+          costMicros,
+          costUnpriced: stepCostUnpriced,
           retryAttempts: attemptsMade > 1 ? attemptsMade : undefined,
           model,
           provider,

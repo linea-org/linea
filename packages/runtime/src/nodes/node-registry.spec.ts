@@ -9,6 +9,7 @@ describe("nodeRegistry", () => {
       "branch",
       "datetime",
       "end",
+      "extract",
       "filter",
       "http",
       "memory",

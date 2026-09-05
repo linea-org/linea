@@ -1,3 +1,4 @@
+import { nodeRegistry } from "../nodes/node-registry.js"
 import { retryPolicySchema } from "../nodes/retry-policy.js"
 import type { WorkflowGraph } from "./schema.js"
 
@@ -106,6 +107,16 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
     if (!result.success) {
       throw new WorkflowGraphError(
         `Node "${node.id}" has an invalid retryPolicy: ${result.error.message}`
+      )
+    }
+  }
+
+  for (const node of graph.nodes) {
+    if (node.type !== "extract") continue
+    const result = nodeRegistry.extract.inputSchema.safeParse(node.config)
+    if (!result.success) {
+      throw new WorkflowGraphError(
+        `Extract node "${node.id}" has invalid configuration: ${result.error.message}`
       )
     }
   }
