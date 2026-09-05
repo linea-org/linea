@@ -14,13 +14,16 @@ import { Textarea } from "@linea/ui/components/textarea"
 type ValueKind = "text" | "number" | "boolean" | "json"
 
 // `value` is what gets saved; `valueText` is only the editor contents, kept separate so
-// editing one row never re-stringifies another row's nested object.
+// editing one row never re-stringifies another row's nested object. `error` is set when
+// valueText doesn't parse as its declared kind — value then keeps its last valid parse rather
+// than falling back to raw text, so the saved runtime type never disagrees with the kind shown.
 type Row = {
   id: string
   key: string
   kind: ValueKind
   value: unknown
   valueText: string
+  error?: string
 }
 
 const KIND_OPTIONS: { label: string; value: ValueKind }[] = [
@@ -70,23 +73,30 @@ function textFromValue(value: unknown, kind: ValueKind): string {
   return stringifyLiteral(value)
 }
 
-function parseKind(kind: ValueKind, text: string): unknown {
+type ParseResult = { ok: true; value: unknown } | { ok: false; error: string }
+
+// Returns `ok: false` instead of silently falling back to raw text — the caller keeps the row's
+// last valid value in that case, so an invalid Number/JSON draft never gets saved as a plain
+// string that disagrees with the kind the editor still shows for that row.
+function parseKind(kind: ValueKind, text: string): ParseResult {
   if (kind === "number") {
     const trimmed = text.trim()
-    if (trimmed === "") return ""
+    if (trimmed === "") return { ok: true, value: "" }
     const parsed = Number(trimmed)
-    return Number.isFinite(parsed) ? parsed : text
+    return Number.isFinite(parsed)
+      ? { ok: true, value: parsed }
+      : { ok: false, error: "Not a valid number" }
   }
-  if (kind === "boolean") return text === "true"
+  if (kind === "boolean") return { ok: true, value: text === "true" }
   if (kind === "json") {
-    if (text.trim() === "") return {}
+    if (text.trim() === "") return { ok: true, value: {} }
     try {
-      return JSON.parse(text)
+      return { ok: true, value: JSON.parse(text) }
     } catch {
-      return text
+      return { ok: false, error: "Invalid JSON" }
     }
   }
-  return text
+  return { ok: true, value: text }
 }
 
 function coerceKind(kind: ValueKind, current: unknown): unknown {
@@ -211,11 +221,22 @@ export function KeyValueEditor({
       kind,
       value: nextValue,
       valueText: textFromValue(nextValue, kind),
+      error: undefined,
     })
   }
   function setValueText(row: Row, valueText: string) {
-    const nextValue = typed ? parseKind(row.kind, valueText) : valueText
-    updateRow(row.id, { valueText, value: nextValue })
+    if (!typed) {
+      updateRow(row.id, { valueText, value: valueText, error: undefined })
+      return
+    }
+    const result = parseKind(row.kind, valueText)
+    if (result.ok) {
+      updateRow(row.id, { valueText, value: result.value, error: undefined })
+    } else {
+      // Keeps row.value at its last valid parse — commit() below still fires so the key/other
+      // rows' edits aren't blocked, but this row's own saved value doesn't change until it's valid.
+      updateRow(row.id, { valueText, error: result.error })
+    }
   }
   function addRow() {
     setRows((prev) => [...prev, emptyRow()])
@@ -325,6 +346,7 @@ export function KeyValueEditor({
                 placeholder="{}"
                 value={row.valueText}
                 rows={9}
+                aria-invalid={Boolean(row.error)}
                 className="field-sizing-fixed min-h-40 resize-y overflow-auto py-1.5 font-mono text-xs"
                 onChange={(e) => setValueText(row, e.target.value)}
                 onKeyDown={(e) => handleEditorKey(e, row)}
@@ -334,10 +356,14 @@ export function KeyValueEditor({
                 type={typed && row.kind === "number" ? "number" : "text"}
                 placeholder="Value"
                 value={row.valueText}
+                aria-invalid={Boolean(row.error)}
                 className="h-8 font-mono text-xs"
                 onChange={(e) => setValueText(row, e.target.value)}
                 onKeyDown={(e) => handleEditorKey(e, row)}
               />
+            )}
+            {row.error && (
+              <p className="mt-1 text-[11px] text-destructive">{row.error}</p>
             )}
           </div>
           <Button
