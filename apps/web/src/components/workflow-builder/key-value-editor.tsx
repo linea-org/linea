@@ -3,15 +3,28 @@ import { PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@linea/ui/components/button"
 import { Input } from "@linea/ui/components/input"
 
-type Row = { id: string; key: string; value: string }
+// `value` is the actual JS value that gets saved; `valueText` is only what's rendered in the
+// input. They're kept separate (rather than deriving one object from every row's displayed text
+// on each keystroke) so editing one row's key, or adding/removing a row, never touches another
+// row's value — a nested object/array would otherwise get flattened into its JSON-stringified
+// display text the moment any other row changed.
+type Row = { id: string; key: string; value: unknown; valueText: string }
 
 function emptyRow(): Row {
-  return { id: crypto.randomUUID(), key: "", value: "" }
+  return { id: crypto.randomUUID(), key: "", value: "", valueText: "" }
 }
 
-// Non-string existing values (a header or variable set before this editor existed, or written by
-// an API/import) are shown JSON-stringified so they remain visible and round-trip through editing
-// without silently discarding the value's original shape.
+// A value typed as valid JSON (numbers, booleans, null, quoted strings, or nested
+// objects/arrays) is saved as that type; anything else — including plain unquoted text like
+// `bar`, which isn't valid JSON — is saved as a literal string.
+function parseLiteral(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
 function toRows(value: unknown): Row[] {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return [emptyRow()]
@@ -21,12 +34,13 @@ function toRows(value: unknown): Row[] {
   return entries.map(([key, v]) => ({
     id: crypto.randomUUID(),
     key,
-    value: typeof v === "string" ? v : JSON.stringify(v),
+    value: v,
+    valueText: typeof v === "string" ? v : JSON.stringify(v),
   }))
 }
 
-function toObject(rows: Row[]): Record<string, string> {
-  const result: Record<string, string> = {}
+function toObject(rows: Row[]): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
   for (const row of rows) {
     const key = row.key.trim()
     if (key) result[key] = row.value
@@ -41,7 +55,7 @@ export function KeyValueEditor({
 }: {
   id: string
   value: unknown
-  onChange: (value: Record<string, string>) => void
+  onChange: (value: Record<string, unknown>) => void
 }) {
   const [rows, setRows] = useState<Row[]>(() => toRows(value))
 
@@ -72,8 +86,11 @@ export function KeyValueEditor({
           />
           <Input
             placeholder="Value"
-            value={row.value}
-            onChange={(e) => updateRow(row.id, { value: e.target.value })}
+            value={row.valueText}
+            onChange={(e) => {
+              const valueText = e.target.value
+              updateRow(row.id, { valueText, value: parseLiteral(valueText) })
+            }}
           />
           <Button
             type="button"
