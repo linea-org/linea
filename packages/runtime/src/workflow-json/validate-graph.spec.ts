@@ -160,6 +160,32 @@ describe("validateGraphStructure", () => {
     ).not.toThrow()
   })
 
+  it("rejects an Evaluator regex with catastrophic backtracking risk", () => {
+    expect(() =>
+      validateGraphStructure(
+        graph({
+          nodes: [
+            {
+              id: "a",
+              type: "evaluator",
+              config: {
+                metrics: [
+                  {
+                    id: "unsafe",
+                    name: "Unsafe regex",
+                    type: "regex",
+                    pattern: "(a+)+$",
+                  },
+                ],
+              },
+            },
+            { id: "b", type: "transform", config: {} },
+          ],
+        })
+      )
+    ).toThrow('Evaluator node "a" has invalid configuration')
+  })
+
   it("rejects a G-Eval metric without a judge model", () => {
     expect(() =>
       validateGraphStructure(

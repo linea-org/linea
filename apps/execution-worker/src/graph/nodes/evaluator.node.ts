@@ -234,7 +234,14 @@ export class EvaluatorNode implements NodeHandler {
         }
         continue
       }
-      metrics.push(evaluateRuleMetric(sample, metric))
+      try {
+        metrics.push(evaluateRuleMetric(sample, metric))
+      } catch (error) {
+        throw new NonRetryableError(
+          `Evaluator node metric "${metric.name}" failed: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error }
+        )
+      }
     }
     return nodeRegistry.evaluator.outputSchema.parse({
       input,

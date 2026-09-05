@@ -140,6 +140,25 @@ describe("EvaluatorNode", () => {
     ).rejects.toBeInstanceOf(NonRetryableError)
   })
 
+  it("rejects oversized regex input without retrying", async () => {
+    await expect(
+      new EvaluatorNode().execute(
+        {
+          metrics: [
+            {
+              id: "bounded",
+              name: "Bounded regex",
+              type: "regex",
+              pattern: "a+$",
+            },
+          ],
+        },
+        "a".repeat(100_001),
+        { workspaceId: "ws-1" }
+      )
+    ).rejects.toBeInstanceOf(NonRetryableError)
+  })
+
   it("generates G-Eval steps and scores the configured sample parameters", async () => {
     complete
       .mockResolvedValueOnce({

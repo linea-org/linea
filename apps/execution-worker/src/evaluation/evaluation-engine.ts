@@ -1,8 +1,9 @@
-import type {
-  EvaluationMetric,
-  EvaluationMetricResult,
-  EvaluationParameter,
-  EvaluationSampleBindings,
+import {
+  isSafeEvaluationRegex,
+  type EvaluationMetric,
+  type EvaluationMetricResult,
+  type EvaluationParameter,
+  type EvaluationSampleBindings,
 } from "@linea/runtime"
 import type { AiProvider, ToolDefinition } from "@linea/ai"
 import { getPath } from "../graph/nodes/dot-path"
@@ -17,6 +18,7 @@ export type EvaluationSample = {
 
 type RuleMetric = Exclude<EvaluationMetric, { type: "g_eval" }>
 type GEvalMetric = Extract<EvaluationMetric, { type: "g_eval" }>
+const MAX_REGEX_INPUT_LENGTH = 100_000
 
 const STEPS_TOOL: ToolDefinition = {
   name: "report_evaluation_steps",
@@ -120,6 +122,14 @@ export function evaluateRuleMetric(
   metric: RuleMetric
 ): EvaluationMetricResult {
   const text = textValue(sample.actualOutput)
+  if (metric.type === "regex" && !isSafeEvaluationRegex(metric.pattern)) {
+    throw new Error("Evaluator regex is unsafe")
+  }
+  if (metric.type === "regex" && text.length > MAX_REGEX_INPUT_LENGTH) {
+    throw new Error(
+      `Evaluator regex input exceeds ${MAX_REGEX_INPUT_LENGTH} characters`
+    )
+  }
   const matched =
     metric.type === "contains"
       ? text.includes(metric.value)

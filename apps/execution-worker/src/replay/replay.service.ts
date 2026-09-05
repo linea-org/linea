@@ -71,6 +71,10 @@ export class ReplayService {
     }
     const model = resolveNodeModel(mergedNode)
     const provider = model ? resolveProviderId(model) : undefined
+    const cacheableWorkflowVersionId =
+      Object.keys(job.overrideConfig).length === 0
+        ? execution.workflowVersionId
+        : undefined
     const sequence = await repositories.executionStep.getNextStepSequence(
       db,
       execution.id
@@ -249,7 +253,7 @@ export class ReplayService {
         undefined,
         undefined,
         undefined,
-        execution.workflowVersionId
+        cacheableWorkflowVersionId
       )
       const isModelCall =
         model !== undefined &&

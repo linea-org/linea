@@ -1,4 +1,5 @@
 import { z } from "zod"
+import safeRegex from "safe-regex2"
 import type { NodeDefinition } from "../node-definition.js"
 import { modelOptions } from "../model-options.js"
 import { retryPolicySchema } from "../retry-policy.js"
@@ -112,6 +113,13 @@ const evaluatorInputSchema = z
       if (metric.type !== "regex") continue
       try {
         new RegExp(metric.pattern, metric.flags)
+        if (!isSafeEvaluationRegex(metric.pattern)) {
+          context.addIssue({
+            code: "custom",
+            message: "Regex has catastrophic backtracking risk",
+            path: ["metrics", index, "pattern"],
+          })
+        }
       } catch (error) {
         context.addIssue({
           code: "custom",
@@ -121,6 +129,10 @@ const evaluatorInputSchema = z
       }
     }
   })
+
+export function isSafeEvaluationRegex(pattern: string): boolean {
+  return safeRegex(pattern)
+}
 
 export const evaluationMetricResultSchema = z.object({
   id: z.string(),
