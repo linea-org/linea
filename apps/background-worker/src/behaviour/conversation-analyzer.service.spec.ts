@@ -162,7 +162,10 @@ describe("ConversationAnalyzerService", () => {
       expect(complete).toHaveBeenCalledTimes(1)
       expect(complete).toHaveBeenCalledWith(
         "secret",
-        expect.objectContaining({ model: "claude-haiku-4-5-20251001" })
+        expect.objectContaining({
+          model: "claude-haiku-4-5-20251001",
+          temperature: 0,
+        })
       )
       // Bounded well under the claim lease, so a genuinely-running call can never outlive it.
       const request = complete.mock.calls[0][1]

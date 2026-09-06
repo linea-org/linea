@@ -34,7 +34,14 @@ type ValidationFlag = Pick<
   "flagType" | "detail" | "model" | "provider" | "signalId"
 >
 
-const DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+const DEFAULT_MODEL = "openai/gpt-oss-20b"
+
+const flagTypeByFindingCategory = new Map<string, Flag["flagType"]>([
+  ["frustrated", "user_frustration"],
+  ["hallucination_suspected", "hallucination_suspected"],
+  ["repetition_loop", "repetition_loop"],
+  ["inappropriate_refusal", "inappropriate_refusal"],
+])
 
 const scenarios: ValidationScenario[] = [
   {
@@ -258,11 +265,13 @@ function verifyFlagDetails(
   findings: ValidationFinding[],
   flags: ValidationFlag[]
 ): boolean {
-  return flags.every((flag) => {
+  const flagsMatchFindings = flags.every((flag) => {
     const detail = flag.detail
     if (!detail) return false
     const finding = findings.find(
-      (candidate) => candidate.category === detail.category
+      (candidate) =>
+        candidate.category === detail.category &&
+        flagTypeByFindingCategory.get(candidate.category) === flag.flagType
     )
     if (!finding) return false
     return (
@@ -271,6 +280,19 @@ function verifyFlagDetails(
       (detail.rationale ?? null) === finding.rationale
     )
   })
+  const findingsHaveFlags = findings.every((finding) => {
+    const flagType = flagTypeByFindingCategory.get(finding.category)
+    if (!flagType) return true
+    return flags.some(
+      (flag) =>
+        flag.flagType === flagType &&
+        flag.detail?.category === finding.category &&
+        flag.detail.confidence === finding.confidence &&
+        (flag.detail.evidenceMessageId ?? null) === finding.evidenceMessageId &&
+        (flag.detail.rationale ?? null) === finding.rationale
+    )
+  })
+  return flagsMatchFindings && findingsHaveFlags
 }
 
 async function analyzeScenario(
@@ -380,6 +402,30 @@ async function analyzeScenario(
   }
 }
 
+async function cleanupValidationWorkspace(workspaceId: string): Promise<void> {
+  const client = await pool.connect()
+  try {
+    await client.query("begin")
+    await client.query("delete from flags where workspace_id = $1", [
+      workspaceId,
+    ])
+    await client.query("delete from chat_messages where workspace_id = $1", [
+      workspaceId,
+    ])
+    await client.query(
+      "delete from conversation_analysis_claims where workspace_id = $1",
+      [workspaceId]
+    )
+    await client.query("delete from organizations where id = $1", [workspaceId])
+    await client.query("commit")
+  } catch (error) {
+    await client.query("rollback")
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
 async function runValidation(): Promise<void> {
   const model = process.env.BEHAVIOUR_VALIDATION_MODEL ?? DEFAULT_MODEL
   const keyName = resolveKeyName(model)
@@ -442,7 +488,7 @@ async function runValidation(): Promise<void> {
       )
     }
   } finally {
-    await pool.query("delete from organizations where id = $1", [workspace.id])
+    await cleanupValidationWorkspace(workspace.id)
   }
 }
 

@@ -27,6 +27,7 @@ export type CompletionRequest = {
   // Omitted mid tool-calling loop, when history already ends with the turns to respond to and there's no new user message to append.
   prompt?: string
   maxTokens?: number
+  temperature?: number
   tools?: ToolDefinition[]
   signal?: AbortSignal
 }

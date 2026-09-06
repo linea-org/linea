@@ -48,6 +48,7 @@ export function createOpenAiCompatibleProvider(baseURL?: string): AiProvider {
           model: request.model,
           // Not max_completion_tokens — that's OpenAI's own o-series-specific rename; Groq/xAI likely don't honor it.
           max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+          temperature: request.temperature,
           messages: [
             ...(request.systemPrompt
               ? [{ role: "system" as const, content: request.systemPrompt }]
