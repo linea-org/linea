@@ -1,4 +1,9 @@
-const complete = jest.fn()
+import type { CompletionRequest, CompletionResult } from "@linea/ai"
+
+const complete = jest.fn<
+  Promise<CompletionResult>,
+  [string, CompletionRequest]
+>()
 const resolveProvider = jest.fn(() => ({ complete }))
 const resolveKeyName = jest.fn(() => "ANTHROPIC_API_KEY")
 const resolveApiKey = jest.fn(() => Promise.resolve({ apiKey: "secret" }))
@@ -82,6 +87,45 @@ async function setUpConversation(options: {
 }
 
 describe("ConversationAnalyzerService", () => {
+  it("returns persisted usage metadata for an explicitly selected conversation", async () => {
+    const { organization, workflow, conversationId, message } =
+      await setUpConversation({
+        name: "Behaviour Explicit Validation Test Org",
+        enabled: true,
+      })
+    complete.mockResolvedValue({
+      text: "",
+      tokensInput: 100,
+      tokensOutput: 20,
+      toolCalls: [
+        { id: "call-1", name: "report_findings", arguments: { findings: [] } },
+      ],
+    })
+    try {
+      const service = new ConversationAnalyzerService()
+      const outcome = await service.analyzeConversation({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        maxSequence: message.sequence,
+        externalSubjectId: null,
+        behaviourSampleRate: 1,
+        behaviourModel: null,
+      })
+      expect(outcome.outcome).toBe("processed")
+      if (outcome.outcome !== "processed") throw new Error("Expected analysis")
+      expect(outcome.analysisId).toMatch(/^[0-9a-f-]{36}$/)
+      expect(outcome.model).toBe("claude-haiku-4-5-20251001")
+      expect(outcome.tokensInput).toBe(100)
+      expect(outcome.tokensOutput).toBe(20)
+      expect(outcome.costMicros).toBe(42n)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
   it("analyzes an idle, enabled conversation, persists findings, and does not re-pick it up on a second poll", async () => {
     const { organization, workflow, conversationId, message } =
       await setUpConversation({
@@ -102,7 +146,7 @@ describe("ConversationAnalyzerService", () => {
                 axis: "user_experience",
                 category: "frustrated",
                 confidence: 0.85,
-                evidenceMessageId: message.id,
+                evidenceMessageId: "m1",
                 rationale: "Explicitly says they've been stuck for an hour",
               },
             ],
@@ -118,16 +162,29 @@ describe("ConversationAnalyzerService", () => {
       expect(complete).toHaveBeenCalledTimes(1)
       expect(complete).toHaveBeenCalledWith(
         "secret",
-        expect.objectContaining({ model: "claude-haiku-4-5-20251001" })
+        expect.objectContaining({
+          model: "claude-haiku-4-5-20251001",
+          temperature: 0,
+        })
       )
       // Bounded well under the claim lease, so a genuinely-running call can never outlive it.
-      const call = complete.mock.calls[0] as unknown[]
-      const request = call[1] as { signal?: AbortSignal }
+      const request = complete.mock.calls[0][1]
+      expect(request.tools?.[0].parameters).toMatchObject({
+        properties: {
+          findings: {
+            items: {
+              properties: {
+                evidenceMessageId: { type: "string", enum: ["m1"] },
+              },
+            },
+          },
+        },
+      })
       expect(request.signal).toBeInstanceOf(AbortSignal)
       expect(request.signal?.aborted).toBe(false)
 
       const [analysis] = await getAnalysisFor(conversationId)
-      expect(analysis.analyzerVersion).toBe("v1")
+      expect(analysis.analyzerVersion).toBe("v2")
       expect(analysis.costMicros).toBe(42n)
 
       const findings = await getFindingsFor(analysis.id)
@@ -172,6 +229,8 @@ describe("ConversationAnalyzerService", () => {
                 axis: "user_experience",
                 category: "confused",
                 confidence: 0.6,
+                evidenceMessageId: "m1",
+                rationale: "The user does not understand the response.",
               },
             ],
           },
@@ -377,6 +436,64 @@ describe("ConversationAnalyzerService", () => {
 })
 
 describe("parseFindings", () => {
+  it("maps a short evidence label to the persisted message id", () => {
+    const result = parseFindings(
+      [
+        {
+          name: "report_findings",
+          arguments: {
+            findings: [
+              {
+                axis: "agent_behaviour",
+                category: "inappropriate_refusal",
+                confidence: 0.9,
+                evidenceMessageId: "m1",
+                rationale: "The assistant refused a harmless request.",
+              },
+            ],
+          },
+        },
+      ],
+      new Map([["m1", "real-message-id"]])
+    )
+    expect(result[0].evidenceMessageId).toBe("real-message-id")
+  })
+
+  it("drops a finding without valid evidence and rationale", () => {
+    const result = parseFindings(
+      [
+        {
+          name: "report_findings",
+          arguments: {
+            findings: [
+              {
+                axis: "agent_behaviour",
+                category: "instruction_ignored",
+                confidence: 0.9,
+                rationale: "The response ignored the requested format.",
+              },
+              {
+                axis: "agent_behaviour",
+                category: "instruction_ignored",
+                confidence: 0.9,
+                evidenceMessageId: "real-id",
+              },
+              {
+                axis: "agent_behaviour",
+                category: "instruction_ignored",
+                confidence: 0.9,
+                evidenceMessageId: "other-id",
+                rationale: "The response ignored the requested format.",
+              },
+            ],
+          },
+        },
+      ],
+      new Map([["real-id", "real-id"]])
+    )
+    expect(result).toEqual([])
+  })
+
   it("keeps a well-formed finding and clamps confidence into [0, 1]", () => {
     const result = parseFindings(
       [
@@ -388,20 +505,22 @@ describe("parseFindings", () => {
                 axis: "agent_behaviour",
                 category: "hallucination_suspected",
                 confidence: 1.5,
+                evidenceMessageId: "real-id",
+                rationale: "The assistant made an unsupported claim.",
               },
             ],
           },
         },
       ],
-      new Set()
+      new Map([["real-id", "real-id"]])
     )
     expect(result).toEqual([
       {
         axis: "agent_behaviour",
         category: "hallucination_suspected",
         confidence: 1,
-        evidenceMessageId: undefined,
-        rationale: undefined,
+        evidenceMessageId: "real-id",
+        rationale: "The assistant made an unsupported claim.",
       },
     ])
   })
@@ -424,12 +543,12 @@ describe("parseFindings", () => {
           },
         },
       ],
-      new Set()
+      new Map()
     )
     expect(result).toHaveLength(0)
   })
 
-  it("drops an evidenceMessageId that doesn't match a real message in this conversation", () => {
+  it("drops a finding whose evidence doesn't belong to the conversation", () => {
     const result = parseFindings(
       [
         {
@@ -441,20 +560,21 @@ describe("parseFindings", () => {
                 category: "satisfied",
                 confidence: 0.7,
                 evidenceMessageId: "not-a-real-id",
+                rationale: "The user confirmed the answer helped.",
               },
             ],
           },
         },
       ],
-      new Set(["real-id"])
+      new Map([["real-id", "real-id"]])
     )
-    expect(result[0].evidenceMessageId).toBeUndefined()
+    expect(result).toEqual([])
   })
 
   it("returns an empty array when report_findings was never called", () => {
-    expect(parseFindings(undefined, new Set())).toEqual([])
+    expect(parseFindings(undefined, new Map())).toEqual([])
     expect(
-      parseFindings([{ name: "other_tool", arguments: {} }], new Set())
+      parseFindings([{ name: "other_tool", arguments: {} }], new Map())
     ).toEqual([])
   })
 })

@@ -112,6 +112,22 @@ describe("anthropicProvider", () => {
     )
   })
 
+  it("passes the requested temperature through", async () => {
+    create.mockResolvedValue({
+      content: [{ type: "text", text: "hi" }],
+      usage: { input_tokens: 1, output_tokens: 1 },
+    })
+    await anthropicProvider.complete("key", {
+      model: "claude-sonnet-5",
+      prompt: "hello",
+      temperature: 0,
+    })
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ temperature: 0 }),
+      { signal: undefined }
+    )
+  })
+
   it("maps tool definitions to Anthropic's input_schema shape", async () => {
     create.mockResolvedValue({
       content: [{ type: "text", text: "hi" }],

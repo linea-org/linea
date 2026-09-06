@@ -46,6 +46,7 @@ export const anthropicProvider: AiProvider = {
         model: request.model,
         system: request.systemPrompt,
         max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+        temperature: request.temperature,
         messages: [
           ...(request.history ?? []).map(toAnthropicMessage),
           ...(request.prompt !== undefined

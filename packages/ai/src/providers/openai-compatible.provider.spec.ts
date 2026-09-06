@@ -158,6 +158,23 @@ describe("createOpenAiCompatibleProvider", () => {
     )
   })
 
+  it("passes the requested temperature through", async () => {
+    create.mockResolvedValue({
+      choices: [{ message: { content: "hi" } }],
+      usage: { prompt_tokens: 1, completion_tokens: 1 },
+    })
+    const provider = createOpenAiCompatibleProvider()
+    await provider.complete("key", {
+      model: "gpt-5",
+      prompt: "hello",
+      temperature: 0,
+    })
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ temperature: 0 }),
+      { signal: undefined }
+    )
+  })
+
   it("maps tool definitions to OpenAI's function-tool shape", async () => {
     create.mockResolvedValue({
       choices: [{ message: { content: "hi" } }],
