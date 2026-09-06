@@ -21,7 +21,7 @@ import {
   TabsTrigger,
 } from "@linea/ui/components/tabs"
 
-import { EvalCaseList, EvalRunList } from "@/components/evals"
+import { RegressionCaseList, RegressionRunList } from "@/components/regressions"
 import { ExecutionList } from "@/components/executions"
 import {
   SignalFlagTypeBreakdown,
@@ -31,13 +31,13 @@ import {
 } from "@/components/signals"
 import { WorkflowFormDialog, WorkflowStatusBadge } from "@/components/workflows"
 import {
-  archiveEvalCaseFn,
-  workflowEvalCasesQueryOptions,
-} from "@/lib/eval-cases-api"
+  archiveRegressionCaseFn,
+  workflowRegressionCasesQueryOptions,
+} from "@/lib/regression-cases-api"
 import {
-  triggerEvalRunFn,
-  workflowEvalRunsQueryOptions,
-} from "@/lib/eval-runs-api"
+  triggerRegressionRunFn,
+  workflowRegressionRunsQueryOptions,
+} from "@/lib/regression-runs-api"
 import {
   executionsQueryOptions,
   listExecutionsFn,
@@ -97,35 +97,32 @@ function WorkflowDetailPage() {
   const { data: signalsTrend } = useQuery(
     signalsTrendQueryOptions(slug, workflowId)
   )
-  const [evalRunTriggeredAt, setEvalRunTriggeredAt] = useState<string | null>(
-    null
-  )
+  const [regressionRunTriggeredAt, setRegressionRunTriggeredAt] = useState<
+    string | null
+  >(null)
   const {
-    data: evalRuns,
-    isPending: evalRunsPending,
-    isError: evalRunsErrored,
+    data: regressionRuns,
+    isPending: regressionRunsPending,
+    isError: regressionRunsErrored,
   } = useQuery({
-    ...workflowEvalRunsQueryOptions(slug, workflowId),
-    // Runs while a just-triggered run's row hasn't shown up yet, and keeps running once it has
-    // until that run actually finishes — otherwise the list (and a detail page opened mid-run)
-    // would be stuck showing stale "running" totals until a manual reload.
+    ...workflowRegressionRunsQueryOptions(slug, workflowId),
+    // Poll until a triggered run appears and completes so its summary cannot remain stale.
     refetchInterval: (query) => {
       const data = query.state.data
-      // Checked first and independent of evalRunTriggeredAt: that flag is this component
-      // instance's own memory of "I clicked run," which resets to null on remount — navigating to
-      // a run's detail page and back must still resume polling for a run that's still in flight,
-      // not just for the mount that happened to trigger it.
+      // In-flight server state must resume polling after this component remounts.
       if (data?.some((r) => !r.completedAt)) return 2000
-      if (!evalRunTriggeredAt) return false
-      const triggered = data?.find((r) => r.startedAt > evalRunTriggeredAt)
+      if (!regressionRunTriggeredAt) return false
+      const triggered = data?.find(
+        (r) => r.startedAt > regressionRunTriggeredAt
+      )
       return triggered ? false : 2000
     },
   })
   const {
-    data: evalCases,
-    isPending: evalCasesPending,
-    isError: evalCasesErrored,
-  } = useQuery(workflowEvalCasesQueryOptions(slug, workflowId))
+    data: regressionCases,
+    isPending: regressionCasesPending,
+    isError: regressionCasesErrored,
+  } = useQuery(workflowRegressionCasesQueryOptions(slug, workflowId))
 
   const run = useMutation({
     mutationFn: () => triggerExecutionFn({ data: { workflowId } }),
@@ -140,16 +137,18 @@ function WorkflowDetailPage() {
     },
   })
 
-  const runEvals = useMutation({
-    mutationFn: () => triggerEvalRunFn({ data: { workflowId } }),
-    onSuccess: () => setEvalRunTriggeredAt(new Date().toISOString()),
+  const runRegression = useMutation({
+    mutationFn: () => triggerRegressionRunFn({ data: { workflowId } }),
+    onSuccess: () => setRegressionRunTriggeredAt(new Date().toISOString()),
   })
 
   const archiveCase = useMutation({
-    mutationFn: (id: string) => archiveEvalCaseFn({ data: { workflowId, id } }),
+    mutationFn: (id: string) =>
+      archiveRegressionCaseFn({ data: { workflowId, id } }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: workflowEvalCasesQueryOptions(slug, workflowId).queryKey,
+        queryKey: workflowRegressionCasesQueryOptions(slug, workflowId)
+          .queryKey,
       })
     },
   })
@@ -224,7 +223,7 @@ function WorkflowDetailPage() {
         <TabsList>
           <TabsTrigger value="executions">Executions</TabsTrigger>
           <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
-          <TabsTrigger value="evals">Evals</TabsTrigger>
+          <TabsTrigger value="regression">Regression</TabsTrigger>
         </TabsList>
         <TabsContent value="executions">
           {executionsErrored ? (
@@ -285,7 +284,7 @@ function WorkflowDetailPage() {
             </div>
           )}
         </TabsContent>
-        <TabsContent value="evals">
+        <TabsContent value="regression">
           <div className="mt-4 flex flex-col gap-6">
             <div>
               <div className="flex items-center justify-between gap-3 pl-1">
@@ -294,34 +293,36 @@ function WorkflowDetailPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => runEvals.mutate()}
-                  disabled={runEvals.isPending || !workflow.publishedVersionId}
+                  onClick={() => runRegression.mutate()}
+                  disabled={
+                    runRegression.isPending || !workflow.publishedVersionId
+                  }
                   title={
                     workflow.publishedVersionId
                       ? undefined
-                      : "Publish a version before running evals"
+                      : "Publish a version before running the regression suite"
                   }
                 >
                   <FlaskConicalIcon />
-                  {runEvals.isPending ? "Queuing…" : "Run now"}
+                  {runRegression.isPending ? "Queuing…" : "Run now"}
                 </Button>
               </div>
-              {runEvals.isError && (
+              {runRegression.isError && (
                 <p className="mt-2 text-xs text-destructive">
-                  {runEvals.error.message}
+                  {runRegression.error.message}
                 </p>
               )}
-              {evalRunsErrored ? (
+              {regressionRunsErrored ? (
                 <p className="mt-4 text-xs text-destructive">
-                  Could not load eval runs.
+                  Could not load regression runs.
                 </p>
-              ) : evalRunsPending ? (
+              ) : regressionRunsPending ? (
                 <p className="mt-4 text-xs text-muted-foreground">
-                  Loading eval runs…
+                  Loading regression runs…
                 </p>
               ) : (
-                <EvalRunList
-                  runs={evalRuns}
+                <RegressionRunList
+                  runs={regressionRuns}
                   slug={slug}
                   workflowId={workflowId}
                 />
@@ -334,18 +335,20 @@ function WorkflowDetailPage() {
                   {archiveCase.error.message}
                 </p>
               )}
-              {evalCasesErrored ? (
+              {regressionCasesErrored ? (
                 <p className="mt-4 text-xs text-destructive">
-                  Could not load eval cases.
+                  Could not load regression cases.
                 </p>
-              ) : evalCasesPending ? (
+              ) : regressionCasesPending ? (
                 <p className="mt-4 text-xs text-muted-foreground">
-                  Loading eval cases…
+                  Loading regression cases…
                 </p>
               ) : (
-                <EvalCaseList
-                  cases={evalCases}
-                  onArchive={(evalCase) => archiveCase.mutate(evalCase.id)}
+                <RegressionCaseList
+                  cases={regressionCases}
+                  onArchive={(regressionCase) =>
+                    archiveCase.mutate(regressionCase.id)
+                  }
                 />
               )}
             </div>

@@ -17,8 +17,8 @@ export type NodeExecutionContext = {
   workflowVersionId?: string
   /** The specific chat message row (set by sendChatMessage in triggerPayload) that this execution is answering — lets AiNode identify its own turn instead of assuming "whichever message is latest," which breaks if a second turn is submitted before this execution's AI node runs. */
   chatMessageId?: string
-  /** Eval-only: a conversation-type eval case's frozen turn snapshot — when set, AiNode replays this directly instead of looking up conversationId from chat_messages, since there's no live conversation backing an eval run. externalSubjectId (from the source finding's own conversation, if it had one) lets memory recall work during eval too — there's no real input object for memorySubjectPath to resolve against otherwise. */
-  evalConversation?: {
+  /** Regression replays use a frozen conversation because no live chat messages back the run. */
+  regressionConversation?: {
     turns: { role: "user" | "assistant"; content: string }[]
     finalPrompt: string
     externalSubjectId?: string

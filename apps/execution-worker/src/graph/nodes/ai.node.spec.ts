@@ -1573,7 +1573,7 @@ describe("AiNode", () => {
       )
     })
 
-    it("uses evalConversation.externalSubjectId directly, bypassing memorySubjectPath resolution, since an eval case has no real input object to resolve it against", async () => {
+    it("uses regressionConversation.externalSubjectId directly, bypassing memorySubjectPath resolution, since a regression case has no real input object to resolve it against", async () => {
       complete.mockResolvedValue({
         text: "hi",
         tokensInput: 1,
@@ -1590,7 +1590,7 @@ describe("AiNode", () => {
         {},
         {
           ...context,
-          evalConversation: {
+          regressionConversation: {
             turns: [],
             finalPrompt: "What about after 30 days?",
             externalSubjectId: "customer-user-1",
@@ -1599,7 +1599,7 @@ describe("AiNode", () => {
       )
 
       // Input is {} — "conversationId" would never resolve against it — yet recall still ran,
-      // using the eval case's own carried-through subject instead.
+      // using the regression case's own carried-through subject instead.
       expect(listMemories).toHaveBeenCalledWith(
         {},
         expect.objectContaining({

@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common"
 import { CheckpointsModule } from "./checkpoints/checkpoints.module"
-import { EvalsModule } from "./evals/evals.module"
+import { RegressionsModule } from "./regressions/regressions.module"
 import { GraphModule } from "./graph/graph.module"
 import { ReplayModule } from "./replay/replay.module"
 import { RunsModule } from "./runs/runs.module"
@@ -11,7 +11,7 @@ import { RunsModule } from "./runs/runs.module"
     GraphModule,
     RunsModule,
     ReplayModule,
-    EvalsModule,
+    RegressionsModule,
   ],
 })
 export class AppModule {}

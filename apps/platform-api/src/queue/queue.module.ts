@@ -1,5 +1,5 @@
 import { Global, Module } from '@nestjs/common'
-import { EvalRunQueueService } from './eval-run-queue.service'
+import { RegressionRunQueueService } from './regression-run-queue.service'
 import { StepReplayQueueService } from './step-replay-queue.service'
 import { WorkflowQueueService } from './workflow-queue.service'
 
@@ -8,8 +8,12 @@ import { WorkflowQueueService } from './workflow-queue.service'
   providers: [
     WorkflowQueueService,
     StepReplayQueueService,
-    EvalRunQueueService,
+    RegressionRunQueueService,
   ],
-  exports: [WorkflowQueueService, StepReplayQueueService, EvalRunQueueService],
+  exports: [
+    WorkflowQueueService,
+    StepReplayQueueService,
+    RegressionRunQueueService,
+  ],
 })
 export class QueueModule {}
