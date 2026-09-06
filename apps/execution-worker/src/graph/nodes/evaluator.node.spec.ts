@@ -159,7 +159,7 @@ describe("EvaluatorNode", () => {
     ).rejects.toBeInstanceOf(NonRetryableError)
   })
 
-  it("generates G-Regression steps and scores the configured sample parameters", async () => {
+  it("generates G-Eval steps and scores the configured sample parameters", async () => {
     complete
       .mockResolvedValueOnce({
         text: "",
