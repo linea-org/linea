@@ -18,7 +18,7 @@ import {
 } from '@linea/runtime'
 import type { UserSession } from '@thallesp/nestjs-better-auth'
 import type { auth } from '@linea/auth'
-import { EvalRunQueueService } from '../queue/eval-run-queue.service'
+import { RegressionRunQueueService } from '../queue/regression-run-queue.service'
 import { RealtimeTokenService } from '../realtime/realtime-token.service'
 import { WorkflowsGateway } from '../realtime/workflows.gateway'
 import type { CreateWorkflowDto } from './dto/create-workflow.dto'
@@ -31,7 +31,7 @@ export class WorkflowsService {
   constructor(
     private readonly realtimeTokens: RealtimeTokenService,
     private readonly gateway: WorkflowsGateway,
-    private readonly evalRunQueue: EvalRunQueueService,
+    private readonly regressionRunQueue: RegressionRunQueueService,
   ) {}
 
   async create(
@@ -197,10 +197,8 @@ export class WorkflowsService {
       workflowId,
       versionId,
     )
-    // Fire-and-forget: never awaited by the caller. The queue service's own contract is to never
-    // reject, but this call site doesn't lean on that alone — a defensive .catch keeps a publish
-    // safe even if that contract is ever broken, rather than risking an unhandled rejection.
-    void this.evalRunQueue
+    // Defensive handling preserves publication even if the queue service breaks its non-rejection contract.
+    void this.regressionRunQueue
       .enqueue({
         workspaceId,
         workflowId,

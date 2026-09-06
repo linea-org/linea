@@ -12,7 +12,7 @@ import { Badge } from "@linea/ui/components/badge"
 import { Button } from "@linea/ui/components/button"
 import { Textarea } from "@linea/ui/components/textarea"
 
-import { createEvalCaseFromStepFn } from "@/lib/eval-cases-api"
+import { createRegressionCaseFromStepFn } from "@/lib/regression-cases-api"
 import {
   replayStepFn,
   type ExecutionStepSummary,
@@ -220,7 +220,7 @@ function ReplayAction({
   )
 }
 
-function AddToEvalsAction({
+function AddToRegressionAction({
   workflowId,
   stepId,
 }: {
@@ -229,11 +229,15 @@ function AddToEvalsAction({
 }) {
   const mutation = useMutation({
     mutationFn: () =>
-      createEvalCaseFromStepFn({ data: { workflowId, stepId } }),
+      createRegressionCaseFromStepFn({ data: { workflowId, stepId } }),
   })
 
   if (mutation.isSuccess) {
-    return <p className="mt-3 text-xs text-muted-foreground">Added to evals</p>
+    return (
+      <p className="mt-3 text-xs text-muted-foreground">
+        Added to regression suite
+      </p>
+    )
   }
 
   return (
@@ -245,7 +249,7 @@ function AddToEvalsAction({
         disabled={mutation.isPending}
         onClick={() => mutation.mutate()}
       >
-        {mutation.isPending ? "Adding…" : "Add to evals"}
+        {mutation.isPending ? "Adding…" : "Add to regression suite"}
       </Button>
       {mutation.isError ? (
         <p className="mt-1.5 text-xs text-destructive">
@@ -390,7 +394,10 @@ export function ExecutionStepTimeline({
                     onReplayTriggered={onReplayTriggered}
                   />
                 ) : null}
-                <AddToEvalsAction workflowId={workflowId} stepId={step.id} />
+                <AddToRegressionAction
+                  workflowId={workflowId}
+                  stepId={step.id}
+                />
               </div>
             </AccordionContent>
           </AccordionItem>

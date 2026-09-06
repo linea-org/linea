@@ -14,9 +14,9 @@ export {
   type WorkflowStepReplayJob,
 } from "./queues/workflow-step-replay.js"
 export {
-  WORKFLOW_EVAL_RUN_QUEUE,
-  createWorkflowEvalRunQueue,
-  createWorkflowEvalRunWorker,
-  enqueueWorkflowEvalRun,
-  type WorkflowEvalRunJob,
-} from "./queues/workflow-eval-run.js"
+  WORKFLOW_REGRESSION_RUN_QUEUE,
+  createWorkflowRegressionRunQueue,
+  createWorkflowRegressionRunWorker,
+  enqueueWorkflowRegressionRun,
+  type WorkflowRegressionRunJob,
+} from "./queues/workflow-regression-run.js"

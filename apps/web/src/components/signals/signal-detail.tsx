@@ -9,7 +9,7 @@ import { useState } from "react"
 
 import { Button } from "@linea/ui/components/button"
 
-import { createEvalCaseFromFlagFn } from "@/lib/eval-cases-api"
+import { createRegressionCaseFromFlagFn } from "@/lib/regression-cases-api"
 import {
   getSignalFn,
   resolveSignalFn,
@@ -45,7 +45,7 @@ function rationaleOf(flag: FlagSummary): string | null {
   return typeof rationale === "string" ? rationale : null
 }
 
-function CreateEvalCaseAction({
+function CreateRegressionCaseAction({
   workflowId,
   flagId,
 }: {
@@ -54,11 +54,13 @@ function CreateEvalCaseAction({
 }) {
   const mutation = useMutation({
     mutationFn: () =>
-      createEvalCaseFromFlagFn({ data: { workflowId, flagId } }),
+      createRegressionCaseFromFlagFn({ data: { workflowId, flagId } }),
   })
 
   if (mutation.isSuccess) {
-    return <span className="text-muted-foreground">Added to evals</span>
+    return (
+      <span className="text-muted-foreground">Added to regression suite</span>
+    )
   }
 
   return (
@@ -74,7 +76,7 @@ function CreateEvalCaseAction({
         ? "Adding…"
         : mutation.isError
           ? "Try again"
-          : "Create eval case"}
+          : "Add to regression suite"}
     </Button>
   )
 }
@@ -231,7 +233,7 @@ export function SignalDetailView({
                         <span className="text-muted-foreground">—</span>
                       )}
                       {hasConversation(flag) ? (
-                        <CreateEvalCaseAction
+                        <CreateRegressionCaseAction
                           workflowId={workflowId}
                           flagId={flag.id}
                         />

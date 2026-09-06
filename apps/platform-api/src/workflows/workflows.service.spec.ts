@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import { db, pool, schema } from '@linea/db'
 import type { WorkflowGraph } from '@linea/runtime'
-import { EvalRunQueueService } from '../queue/eval-run-queue.service'
+import { RegressionRunQueueService } from '../queue/regression-run-queue.service'
 import { RealtimeTokenService } from '../realtime/realtime-token.service'
 import { WorkflowsGateway } from '../realtime/workflows.gateway'
 import { WorkflowsService } from './workflows.service'
@@ -12,7 +12,7 @@ const providers = [
   WorkflowsService,
   RealtimeTokenService,
   WorkflowsGateway,
-  EvalRunQueueService,
+  RegressionRunQueueService,
 ]
 
 afterAll(async () => {
@@ -191,12 +191,12 @@ describe('WorkflowsService', () => {
     await moduleRef.close()
   })
 
-  it('enqueues an eval run for the published version, without letting a queue failure fail the publish itself', async () => {
+  it('enqueues a regression run for the published version, without letting a queue failure fail the publish itself', async () => {
     const enqueue = jest.fn().mockRejectedValue(new Error('redis unreachable'))
     const moduleRef = await Test.createTestingModule({
       providers,
     })
-      .overrideProvider(EvalRunQueueService)
+      .overrideProvider(RegressionRunQueueService)
       .useValue({ enqueue, onModuleDestroy: () => Promise.resolve() })
       .compile()
     const service = moduleRef.get(WorkflowsService)
@@ -204,8 +204,8 @@ describe('WorkflowsService', () => {
     await withOrg(async (workspaceId) => {
       const suffix = randomUUID()
       const workflow = await service.create(workspaceId, {
-        name: 'Eval Enqueue Workflow',
-        slug: `eval-enqueue-${suffix}`,
+        name: 'Regression Enqueue Workflow',
+        slug: `regression-enqueue-${suffix}`,
       })
       const version = await service.createVersion(workspaceId, workflow.id, {
         graph: validGraph(),
