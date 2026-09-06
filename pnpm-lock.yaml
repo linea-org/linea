@@ -627,7 +627,26 @@ importers:
 
   packages/sandbox-provider: {}
 
-  packages/sdk: {}
+  packages/sdk:
+    devDependencies:
+      '@linea/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: '22'
+        version: 22.19.19
+      eslint:
+        specifier: ^9
+        version: 9.39.4(jiti@2.7.0)
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.21.0)(typescript@6.0.3)
+      typescript:
+        specifier: ^6
+        version: 6.0.3
+      vitest:
+        specifier: ^3
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.0)(tsx@4.21.0)
 
   packages/sdk-react: {}
 
@@ -4492,6 +4511,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
