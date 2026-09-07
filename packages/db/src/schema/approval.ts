@@ -23,6 +23,11 @@ export const approvalTimeoutAction = pgEnum("approval_timeout_action", [
   "auto_approve",
 ])
 
+export const approvalAudience = pgEnum("approval_audience", [
+  "workspace",
+  "external_subject",
+])
+
 export const approvals = snakeCase.table(
   "approvals",
   {
@@ -33,16 +38,19 @@ export const approvals = snakeCase.table(
     nodeId: text().notNull(),
 
     status: approvalStatus().notNull().default("pending"),
+    audience: approvalAudience().notNull().default("workspace"),
 
     message: text(),
     // Empty/null means any workspace member may respond.
     approverEmails: jsonb().$type<string[]>(),
+    externalSubjectId: text(),
 
     timeoutAt: timestamp({ withTimezone: true }),
     // Required if timeoutAt is set — what the background-worker poller does when the deadline passes.
     timeoutAction: approvalTimeoutAction(),
 
     respondedBy: uuid(),
+    respondedByExternalSubjectId: text(),
     comment: text(),
     respondedAt: timestamp({ withTimezone: true }),
     // Set true only when the background-worker timeout poller resolved this, never by a human response — distinguishes "auto-approved on timeout" from a real approval.

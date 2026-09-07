@@ -65,7 +65,12 @@ describe("approval.repository", () => {
         nodeId: "approval-1",
         message: "Ship it?",
       })
-      expect(created?.status).toBe("pending")
+      expect(created).toMatchObject({
+        status: "pending",
+        audience: "workspace",
+        externalSubjectId: null,
+        respondedByExternalSubjectId: null,
+      })
 
       // A retry (e.g. after a crash before checkpointing) must not create a second row.
       const duplicate = await createApproval(tx, {
@@ -165,6 +170,37 @@ describe("approval.repository", () => {
         expect(
           await listPendingApprovals(tx, organization.id, "reviewer@test.dev")
         ).toHaveLength(1)
+      })
+    })
+
+    it("excludes external-subject approvals from workspace member flows", async () => {
+      await withRollback(async (tx) => {
+        const { organization, execution } = await insertExecution(tx)
+        await addMember(tx, organization.id, "anyone@test.dev")
+        const approval = await createApproval(tx, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          nodeId: "approval-1",
+          audience: "external_subject",
+          externalSubjectId: "customer-42",
+        })
+        expect(
+          await listPendingApprovals(tx, organization.id, "anyone@test.dev")
+        ).toHaveLength(0)
+        const resolved = await resolveApproval(
+          tx,
+          organization.id,
+          approval!.id,
+          {
+            status: "approved",
+            respondedBy: null,
+            respondedByEmail: "anyone@test.dev",
+          }
+        )
+        expect(resolved).toBeUndefined()
+        expect(
+          await getApproval(tx, organization.id, execution.id, "approval-1")
+        ).toMatchObject({ status: "pending" })
       })
     })
   })
