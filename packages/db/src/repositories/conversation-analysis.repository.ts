@@ -72,18 +72,11 @@ export async function claimConversationForAnalysis(
     : { outcome: "already-claimed" }
 }
 
-/** Re-affirms that the caller still owns this claim, right before writing the (expensive,
- * hard-to-undo) analysis it did the work for. Guards against a call that outlives its own lease:
- * the provider request isn't bounded or renewed, so a worker whose call runs past
- * DEFAULT_CLAIM_LEASE_MS can finish after a second worker has already reclaimed and is (or has
- * already) persisted its own analysis for the same conversation. Passing `expectedClaimedAt` (the
- * fencing token returned by the original claim) makes the check atomic against a reclaim that
- * happened in between — if the row's claimed_at no longer matches, ownership moved on and this
- * result must be discarded rather than written. */
+/** Reaffirms ownership using the monotonic attempt number as the fencing token. */
 export async function renewClaimIfOwned(
   db: DbClient,
   input: { workspaceId: string; workflowId: string; conversationId: string },
-  expectedClaimedAt: Date
+  expectedAttemptCount: number
 ): Promise<boolean> {
   const [row] = await db
     .update(conversationAnalysisClaims)
@@ -93,7 +86,7 @@ export async function renewClaimIfOwned(
         eq(conversationAnalysisClaims.workspaceId, input.workspaceId),
         eq(conversationAnalysisClaims.workflowId, input.workflowId),
         eq(conversationAnalysisClaims.conversationId, input.conversationId),
-        eq(conversationAnalysisClaims.claimedAt, expectedClaimedAt)
+        eq(conversationAnalysisClaims.attemptCount, expectedAttemptCount)
       )
     )
     .returning({ id: conversationAnalysisClaims.id })

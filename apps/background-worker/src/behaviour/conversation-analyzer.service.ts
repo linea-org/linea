@@ -306,7 +306,7 @@ export class ConversationAnalyzerService
           await repositories.conversationAnalysis.renewClaimIfOwned(
             tx,
             { workspaceId, workflowId, conversationId },
-            claim.claimedAt
+            claim.attemptCount
           )
         if (!sampledOutClaimStillOwned) return
         const analysis =
@@ -348,7 +348,7 @@ export class ConversationAnalyzerService
     // this conversation's analysis. Two layers close that window: the provider call below is
     // bounded well under the claim's own lease, so a call that's still genuinely running can never
     // outlive it — only a real crash (not a slow-but-alive worker) can leave a stale claim behind.
-    // `claim.claimedAt` is then re-checked as a fencing token immediately before the write, as a
+    // `claim.attemptCount` is then re-checked as a fencing token immediately before the write, as a
     // second, cheap backstop against that crash case: if some other worker's claim has since
     // superseded this one, this result is discarded rather than persisted as a duplicate.
 
@@ -407,7 +407,7 @@ export class ConversationAnalyzerService
         await repositories.conversationAnalysis.renewClaimIfOwned(
           tx,
           { workspaceId, workflowId, conversationId },
-          claim.claimedAt
+          claim.attemptCount
         )
       if (!claimStillOwned) return
 
