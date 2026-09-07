@@ -170,7 +170,7 @@ describe('Conversation analyses API (e2e)', () => {
     }
   })
 
-  it('returns pending when the conversation has not been analyzed yet', async () => {
+  it('distinguishes disabled analysis from an enabled analysis that is pending', async () => {
     const suffix = randomUUID()
     const conversationId = randomUUID()
     const generatedKey = generateApiKey()
@@ -203,6 +203,22 @@ describe('Conversation analyses API (e2e)', () => {
         content: 'Can you help me?',
         externalSubjectId: 'customer-43',
       })
+      const disabledResponse = await request(app.getHttpServer())
+        .get(
+          `/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
+        )
+        .set('Authorization', `Bearer ${generatedKey.rawKey}`)
+        .expect(200)
+      expect(disabledResponse.body).toMatchObject({
+        status: 'disabled',
+        analysis: null,
+        findings: [],
+      })
+      await repositories.workspaceSettings.updateWorkspaceSettings(
+        db,
+        organization.id,
+        { behaviourAnalysisEnabled: true },
+      )
       const response = await request(app.getHttpServer())
         .get(
           `/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
@@ -358,6 +374,11 @@ describe('Conversation analyses API (e2e)', () => {
         hashedKey: generatedKey.hashedKey,
         keyPrefix: generatedKey.keyPrefix,
       })
+      await repositories.workspaceSettings.updateWorkspaceSettings(
+        db,
+        organization.id,
+        { behaviourAnalysisEnabled: true },
+      )
       await repositories.chatMessage.createChatMessage(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,

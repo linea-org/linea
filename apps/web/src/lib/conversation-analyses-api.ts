@@ -70,11 +70,16 @@ type UnavailableConversationAnalysis = MissingConversationAnalysis & {
   status: "unavailable"
 }
 
+type DisabledConversationAnalysis = MissingConversationAnalysis & {
+  status: "disabled"
+}
+
 export type ConversationAnalysisResponse =
   | CompletedConversationAnalysis
   | SampledOutConversationAnalysis
   | PendingConversationAnalysis
   | UnavailableConversationAnalysis
+  | DisabledConversationAnalysis
 
 export const getConversationAnalysisFn = createServerFn({ method: "GET" })
   .validator((data: { workflowId: string; conversationId: string }) => data)

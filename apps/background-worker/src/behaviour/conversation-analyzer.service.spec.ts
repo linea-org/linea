@@ -266,6 +266,84 @@ describe("ConversationAnalyzerService", () => {
     }
   })
 
+  it("moves a deduplicated signal occurrence to the latest finding after reanalysis", async () => {
+    const { organization, workflow, conversationId, message } =
+      await setUpConversation({
+        name: "Behaviour Reanalysis Link Test Org",
+        enabled: true,
+      })
+    complete.mockResolvedValue({
+      text: "",
+      tokensInput: 10,
+      tokensOutput: 10,
+      toolCalls: [
+        {
+          id: "call-1",
+          name: "report_findings",
+          arguments: {
+            findings: [
+              {
+                axis: "user_experience",
+                category: "frustrated",
+                confidence: 0.85,
+                evidenceMessageId: "m1",
+                rationale: "The user remains frustrated.",
+              },
+            ],
+          },
+        },
+      ],
+    })
+    try {
+      const service = new ConversationAnalyzerService()
+      await service.analyzeConversation({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        maxSequence: message.sequence,
+        externalSubjectId: null,
+        behaviourSampleRate: 1,
+        behaviourModel: null,
+      })
+      const followUp = await repositories.chatMessage.createChatMessage(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "assistant",
+        content: "I still cannot resolve this.",
+      })
+      await pool.query(
+        "UPDATE conversation_analysis_claims SET claimed_at = $1 WHERE workspace_id = $2 AND conversation_id = $3",
+        [new Date(Date.now() - 10 * 60_000), organization.id, conversationId]
+      )
+      await service.analyzeConversation({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        maxSequence: followUp.sequence,
+        externalSubjectId: null,
+        behaviourSampleRate: 1,
+        behaviourModel: null,
+      })
+      const latest =
+        await repositories.conversationAnalysis.getLatestConversationAnalysis(
+          db,
+          organization.id,
+          workflow.id,
+          conversationId
+        )
+      if (!latest) throw new Error("Expected latest analysis")
+      const [latestFinding] = await getFindingsFor(latest.id)
+      const flags = await getFlagsFor(organization.id)
+      expect(flags).toHaveLength(1)
+      expect(flags[0].conversationFindingId).toBe(latestFinding.id)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
   it("skips the LLM call and records a sampled-out analysis when sampleRate is 0", async () => {
     const { organization, conversationId } = await setUpConversation({
       name: "Behaviour Sample Test Org",

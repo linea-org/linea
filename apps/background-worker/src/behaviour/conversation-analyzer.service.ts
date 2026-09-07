@@ -436,7 +436,15 @@ export class ConversationAnalyzerService
       for (const finding of persistedFindings) {
         const flagType = FLAGGABLE_CATEGORIES[finding.category]
         if (!flagType) continue
-        await repositories.flag.createFlagIfNew(tx, {
+        const dedupeKey = `${flagType}:${conversationId}`
+        const detail = {
+          conversationId,
+          category: finding.category,
+          confidence: finding.confidence,
+          evidenceMessageId: finding.evidenceMessageId,
+          rationale: finding.rationale,
+        }
+        const flag = await repositories.flag.createFlagIfNew(tx, {
           workspaceId,
           workflowId,
           flagType,
@@ -444,15 +452,20 @@ export class ConversationAnalyzerService
           externalSubjectId,
           model,
           provider: providerId,
-          detail: {
-            conversationId,
-            category: finding.category,
-            confidence: finding.confidence,
-            evidenceMessageId: finding.evidenceMessageId,
-            rationale: finding.rationale,
-          },
-          dedupeKey: `${flagType}:${conversationId}`,
+          detail,
+          dedupeKey,
         })
+        if (!flag) {
+          await repositories.flag.updateConversationFindingFlag(
+            tx,
+            workspaceId,
+            dedupeKey,
+            finding.id,
+            detail,
+            model,
+            providerId ?? null
+          )
+        }
       }
     })
     if (!claimStillOwned) {

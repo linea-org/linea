@@ -38,6 +38,7 @@ export type Flag = {
   detail: Record<string, unknown> | null
   dedupeKey: string
   signalId: string | null
+  conversationFindingId: string | null
   externalSubjectId: string | null
   /** The behaviour analyzer's own judge model/provider that produced this flag, if it's an
    * LLM-derived flag type — null for every execution/step-derived flag type. This is NOT the

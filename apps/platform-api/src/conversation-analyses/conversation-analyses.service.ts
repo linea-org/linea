@@ -35,6 +35,20 @@ export class ConversationAnalysesService {
         conversationId,
       )
     if (!analysis) {
+      const enabled =
+        await repositories.workspaceSettings.isBehaviourAnalysisEnabled(
+          db,
+          workspaceId,
+        )
+      if (!enabled) {
+        return {
+          status: 'disabled',
+          conversation,
+          analysis: null,
+          findings: [],
+          attempt: null,
+        }
+      }
       const claim =
         await repositories.conversationAnalysis.getConversationAnalysisClaim(
           db,

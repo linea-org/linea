@@ -136,6 +136,22 @@ describe("ConversationAnalysisView", () => {
     expect(html).toContain("You have repeated the same answer three times.")
   })
 
+  it("does not promise future analysis when the feature is disabled", () => {
+    const html = renderToStaticMarkup(
+      <ConversationAnalysisView
+        analysis={{
+          status: "disabled",
+          conversation: completeAnalysis.conversation,
+          analysis: null,
+          findings: [],
+          attempt: null,
+        }}
+      />
+    )
+    expect(html).toContain("Analysis disabled")
+    expect(html).toContain("not enabled for this workspace")
+  })
+
   it("surfaces an unavailable analysis without hiding the conversation", () => {
     const html = renderToStaticMarkup(
       <ConversationAnalysisView

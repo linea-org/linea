@@ -126,6 +126,19 @@ export function ConversationAnalysisView({
       </div>
     )
   }
+  if (analysis.status === "disabled") {
+    return (
+      <div className="flex flex-col gap-4">
+        <AnalysisState
+          label="Analysis disabled"
+          title="Conversation analysis is not enabled for this workspace"
+          description="Enable behavior analysis in workspace settings to analyze eligible conversations."
+          destructive={false}
+        />
+        <ConversationTranscript messages={analysis.conversation.messages} />
+      </div>
+    )
+  }
   if (analysis.status === "unavailable") {
     const attemptSummary = analysis.attempt
       ? ` ${analysis.attempt.attemptCount} attempts recorded; last attempt ${new Date(analysis.attempt.lastAttemptAt).toLocaleString()}.`

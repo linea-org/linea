@@ -47,6 +47,27 @@ export async function getFlagById(
   return flag
 }
 
+export async function updateConversationFindingFlag(
+  db: DbClient,
+  workspaceId: string,
+  dedupeKey: string,
+  conversationFindingId: string,
+  detail: Record<string, unknown>,
+  model: string,
+  provider: string | null
+): Promise<void> {
+  const [updated] = await db
+    .update(flags)
+    .set({ conversationFindingId, detail, model, provider })
+    .where(
+      and(eq(flags.workspaceId, workspaceId), eq(flags.dedupeKey, dedupeKey))
+    )
+    .returning({ id: flags.id })
+  if (!updated) {
+    throw new Error(`Flag ${dedupeKey} disappeared during finding refresh`)
+  }
+}
+
 // Insert and signal linkage share a transaction — a flag that exists must always have already reached its signal, since a crash in between would otherwise leave a permanently unlinked row: dedupeKey suppresses reinsertion on the next sweep, so there is no retry path outside this atomicity.
 export async function createFlagIfNew(
   db: DbClient,

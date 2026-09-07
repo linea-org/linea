@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest"
 import {
   getOrCreateWorkspaceSettings,
+  isBehaviourAnalysisEnabled,
   updateWorkspaceSettings,
 } from "./workspace-settings.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 
 describe("getOrCreateWorkspaceSettings", () => {
+  it("treats a missing settings row as disabled", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      expect(await isBehaviourAnalysisEnabled(tx, organization.id)).toBe(false)
+    })
+  })
+
   it("materializes a default (off) row on first read, and returns the same row on a later read", async () => {
     await withRollback(async (tx) => {
       const { organization } = await createTestFixtures(tx)

@@ -15,6 +15,7 @@ import {
   getFlagById,
   getObservedBranchValues,
   getWorkflowIdsWithBranchSteps,
+  updateConversationFindingFlag,
 } from "./flag.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import type { Transaction } from "./types.js"
@@ -604,6 +605,38 @@ describe("createFlagIfNew", () => {
         dedupeKey,
       })
       expect(second).toBeUndefined()
+    })
+  })
+
+  it("relinks a deduplicated flag to a newer conversation finding", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const dedupeKey = `user_frustration:${randomUUID()}`
+      const firstFindingId = randomUUID()
+      const latestFindingId = randomUUID()
+      const flag = await createFlagIfNew(tx, {
+        workspaceId: organization.id,
+        flagType: "user_frustration",
+        dedupeKey,
+        conversationFindingId: firstFindingId,
+      })
+      if (!flag) throw new Error("Expected flag")
+      await updateConversationFindingFlag(
+        tx,
+        organization.id,
+        dedupeKey,
+        latestFindingId,
+        { rationale: "latest rationale" },
+        "latest-model",
+        "latest-provider"
+      )
+      const updated = await getFlagById(tx, organization.id, flag.id)
+      expect(updated).toMatchObject({
+        conversationFindingId: latestFindingId,
+        detail: { rationale: "latest rationale" },
+        model: "latest-model",
+        provider: "latest-provider",
+      })
     })
   })
 })
