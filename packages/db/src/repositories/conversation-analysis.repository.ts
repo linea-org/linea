@@ -1,9 +1,10 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, desc, eq, sql } from "drizzle-orm"
 import {
   conversationAnalyses,
   conversationAnalysisClaims,
   conversationFindings,
   type ConversationAnalysis,
+  type ConversationAnalysisClaim,
   type ConversationFinding,
   type NewConversationAnalysis,
   type NewConversationFinding,
@@ -71,18 +72,11 @@ export async function claimConversationForAnalysis(
     : { outcome: "already-claimed" }
 }
 
-/** Re-affirms that the caller still owns this claim, right before writing the (expensive,
- * hard-to-undo) analysis it did the work for. Guards against a call that outlives its own lease:
- * the provider request isn't bounded or renewed, so a worker whose call runs past
- * DEFAULT_CLAIM_LEASE_MS can finish after a second worker has already reclaimed and is (or has
- * already) persisted its own analysis for the same conversation. Passing `expectedClaimedAt` (the
- * fencing token returned by the original claim) makes the check atomic against a reclaim that
- * happened in between — if the row's claimed_at no longer matches, ownership moved on and this
- * result must be discarded rather than written. */
+/** Reaffirms ownership using the monotonic attempt number as the fencing token. */
 export async function renewClaimIfOwned(
   db: DbClient,
   input: { workspaceId: string; workflowId: string; conversationId: string },
-  expectedClaimedAt: Date
+  expectedAttemptCount: number
 ): Promise<boolean> {
   const [row] = await db
     .update(conversationAnalysisClaims)
@@ -92,7 +86,7 @@ export async function renewClaimIfOwned(
         eq(conversationAnalysisClaims.workspaceId, input.workspaceId),
         eq(conversationAnalysisClaims.workflowId, input.workflowId),
         eq(conversationAnalysisClaims.conversationId, input.conversationId),
-        eq(conversationAnalysisClaims.claimedAt, expectedClaimedAt)
+        eq(conversationAnalysisClaims.attemptCount, expectedAttemptCount)
       )
     )
     .returning({ id: conversationAnalysisClaims.id })
@@ -132,17 +126,104 @@ export async function getConversationFindingById(
   return finding
 }
 
+export async function getLatestConversationAnalysis(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string,
+  conversationId: string
+): Promise<ConversationAnalysis | undefined> {
+  const [analysis] = await db
+    .select()
+    .from(conversationAnalyses)
+    .where(
+      and(
+        eq(conversationAnalyses.workspaceId, workspaceId),
+        eq(conversationAnalyses.workflowId, workflowId),
+        eq(conversationAnalyses.conversationId, conversationId)
+      )
+    )
+    .orderBy(
+      desc(conversationAnalyses.createdAt),
+      desc(conversationAnalyses.analyzedThroughSequence)
+    )
+    .limit(1)
+  return analysis
+}
+
+export async function getConversationAnalysisForFinding(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string,
+  conversationId: string,
+  findingId: string
+): Promise<ConversationAnalysis | undefined> {
+  const [row] = await db
+    .select({ analysis: conversationAnalyses })
+    .from(conversationFindings)
+    .innerJoin(
+      conversationAnalyses,
+      eq(conversationFindings.analysisId, conversationAnalyses.id)
+    )
+    .where(
+      and(
+        eq(conversationFindings.id, findingId),
+        eq(conversationFindings.workspaceId, workspaceId),
+        eq(conversationAnalyses.workspaceId, workspaceId),
+        eq(conversationAnalyses.workflowId, workflowId),
+        eq(conversationAnalyses.conversationId, conversationId)
+      )
+    )
+  return row?.analysis
+}
+
+export async function getConversationAnalysisClaim(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string,
+  conversationId: string
+): Promise<ConversationAnalysisClaim | undefined> {
+  const [claim] = await db
+    .select()
+    .from(conversationAnalysisClaims)
+    .where(
+      and(
+        eq(conversationAnalysisClaims.workspaceId, workspaceId),
+        eq(conversationAnalysisClaims.workflowId, workflowId),
+        eq(conversationAnalysisClaims.conversationId, conversationId)
+      )
+    )
+  return claim
+}
+
+export async function listConversationFindings(
+  db: DbClient,
+  workspaceId: string,
+  analysisId: string
+): Promise<ConversationFinding[]> {
+  return db
+    .select()
+    .from(conversationFindings)
+    .where(
+      and(
+        eq(conversationFindings.workspaceId, workspaceId),
+        eq(conversationFindings.analysisId, analysisId)
+      )
+    )
+    .orderBy(conversationFindings.createdAt)
+}
+
 export type NewFindingInput = Omit<NewConversationFinding, "analysisId">
 
 export async function insertConversationFindings(
   db: DbClient,
   analysisId: string,
   findings: NewFindingInput[]
-): Promise<void> {
-  if (findings.length === 0) return
-  await db
+): Promise<ConversationFinding[]> {
+  if (findings.length === 0) return []
+  return db
     .insert(conversationFindings)
     .values(findings.map((finding) => ({ ...finding, analysisId })))
+    .returning()
 }
 
 export type ConversationDueForAnalysis = {

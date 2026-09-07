@@ -119,6 +119,18 @@ describe("ConversationAnalyzerService", () => {
       expect(outcome.tokensInput).toBe(100)
       expect(outcome.tokensOutput).toBe(20)
       expect(outcome.costMicros).toBe(42n)
+      const persisted =
+        await repositories.conversationAnalysis.getLatestConversationAnalysis(
+          db,
+          organization.id,
+          workflow.id,
+          conversationId
+        )
+      expect(persisted).toMatchObject({
+        provider: "anthropic",
+        tokensInput: 100,
+        tokensOutput: 20,
+      })
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
@@ -197,7 +209,10 @@ describe("ConversationAnalyzerService", () => {
       expect(flag.flagType).toBe("user_frustration")
       expect(flag.model).toBe("claude-haiku-4-5-20251001")
       expect(flag.provider).toBe("anthropic")
-      expect(flag.dedupeKey).toBe(`user_frustration:${conversationId}`)
+      expect(flag.conversationFindingId).toBe(findings[0].id)
+      expect(flag.dedupeKey).toBe(
+        `user_frustration:${conversationId}:${findings[0].id}`
+      )
 
       await service.poll()
       expect(complete).toHaveBeenCalledTimes(1)
@@ -246,6 +261,107 @@ describe("ConversationAnalyzerService", () => {
       const findings = await getFindingsFor(analysis.id)
       expect(findings).toHaveLength(1)
       expect(await getFlagsFor(organization.id)).toHaveLength(0)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("records reanalysis as a new occurrence and regresses a resolved signal", async () => {
+    const { organization, workflow, conversationId, message } =
+      await setUpConversation({
+        name: "Behaviour Reanalysis Link Test Org",
+        enabled: true,
+      })
+    complete.mockResolvedValue({
+      text: "",
+      tokensInput: 10,
+      tokensOutput: 10,
+      toolCalls: [
+        {
+          id: "call-1",
+          name: "report_findings",
+          arguments: {
+            findings: [
+              {
+                axis: "user_experience",
+                category: "frustrated",
+                confidence: 0.85,
+                evidenceMessageId: "m1",
+                rationale: "The user remains frustrated.",
+              },
+            ],
+          },
+        },
+      ],
+    })
+    try {
+      const service = new ConversationAnalyzerService()
+      await service.analyzeConversation({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        maxSequence: message.sequence,
+        externalSubjectId: null,
+        behaviourSampleRate: 1,
+        behaviourModel: null,
+      })
+      const [firstFlag] = await getFlagsFor(organization.id)
+      if (!firstFlag.signalId) throw new Error("Expected linked signal")
+      await repositories.signal.resolveSignal(
+        db,
+        organization.id,
+        firstFlag.signalId
+      )
+      const followUp = await repositories.chatMessage.createChatMessage(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "assistant",
+        content: "I still cannot resolve this.",
+      })
+      await pool.query(
+        "UPDATE conversation_analysis_claims SET claimed_at = $1 WHERE workspace_id = $2 AND conversation_id = $3",
+        [new Date(Date.now() - 10 * 60_000), organization.id, conversationId]
+      )
+      await service.analyzeConversation({
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        maxSequence: followUp.sequence,
+        externalSubjectId: null,
+        behaviourSampleRate: 1,
+        behaviourModel: null,
+      })
+      const latest =
+        await repositories.conversationAnalysis.getLatestConversationAnalysis(
+          db,
+          organization.id,
+          workflow.id,
+          conversationId
+        )
+      if (!latest) throw new Error("Expected latest analysis")
+      const [latestFinding] = await getFindingsFor(latest.id)
+      const flags = await getFlagsFor(organization.id)
+      expect(flags).toHaveLength(2)
+      expect(flags.map((flag) => flag.signalId)).toEqual([
+        firstFlag.signalId,
+        firstFlag.signalId,
+      ])
+      expect(flags.map((flag) => flag.conversationFindingId)).toContain(
+        latestFinding.id
+      )
+      const signal = await repositories.signal.getSignalDetail(
+        db,
+        organization.id,
+        firstFlag.signalId
+      )
+      expect(signal).toMatchObject({
+        status: "regressed",
+        occurrenceCount: 2,
+        resolvedAt: null,
+      })
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

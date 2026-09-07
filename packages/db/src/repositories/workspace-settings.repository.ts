@@ -2,6 +2,17 @@ import { eq } from "drizzle-orm"
 import { workspaceSettings, type WorkspaceSettings } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
+export async function isBehaviourAnalysisEnabled(
+  db: DbClient,
+  workspaceId: string
+): Promise<boolean> {
+  const [settings] = await db
+    .select({ enabled: workspaceSettings.behaviourAnalysisEnabled })
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
+  return settings?.enabled ?? false
+}
+
 // Lazily materializes the row on first read — every column already defaults to "off"/unset, so
 // a caller never needs to distinguish "no row yet" from "row with defaults."
 export async function getOrCreateWorkspaceSettings(

@@ -38,6 +38,7 @@ import { Route as WSlugWorkflowsWorkflowIdBuilderRouteImport } from './routes/w/
 import { Route as WSlugWorkflowsWorkflowIdSignalsSignalIdRouteImport } from './routes/w/$slug/workflows/$workflowId/signals/$signalId'
 import { Route as WSlugWorkflowsWorkflowIdRegressionRunsRunIdRouteImport } from './routes/w/$slug/workflows/$workflowId/regression-runs/$runId'
 import { Route as WSlugWorkflowsWorkflowIdExecutionsExecutionIdRouteImport } from './routes/w/$slug/workflows/$workflowId/executions/$executionId'
+import { Route as WSlugWorkflowsWorkflowIdConversationsConversationIdRouteImport } from './routes/w/$slug/workflows/$workflowId/conversations/$conversationId'
 
 const WorkspacesRoute = WorkspacesRouteImport.update({
   id: '/workspaces',
@@ -192,6 +193,12 @@ const WSlugWorkflowsWorkflowIdExecutionsExecutionIdRoute =
     path: '/executions/$executionId',
     getParentRoute: () => WSlugWorkflowsWorkflowIdRoute,
   } as any)
+const WSlugWorkflowsWorkflowIdConversationsConversationIdRoute =
+  WSlugWorkflowsWorkflowIdConversationsConversationIdRouteImport.update({
+    id: '/conversations/$conversationId',
+    path: '/conversations/$conversationId',
+    getParentRoute: () => WSlugWorkflowsWorkflowIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -220,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug/workflows/': typeof WSlugWorkflowsIndexRoute
   '/w/$slug/workflows/$workflowId/builder': typeof WSlugWorkflowsWorkflowIdBuilderRoute
   '/w/$slug/workflows/$workflowId/': typeof WSlugWorkflowsWorkflowIdIndexRoute
+  '/w/$slug/workflows/$workflowId/conversations/$conversationId': typeof WSlugWorkflowsWorkflowIdConversationsConversationIdRoute
   '/w/$slug/workflows/$workflowId/executions/$executionId': typeof WSlugWorkflowsWorkflowIdExecutionsExecutionIdRoute
   '/w/$slug/workflows/$workflowId/regression-runs/$runId': typeof WSlugWorkflowsWorkflowIdRegressionRunsRunIdRoute
   '/w/$slug/workflows/$workflowId/signals/$signalId': typeof WSlugWorkflowsWorkflowIdSignalsSignalIdRoute
@@ -249,6 +257,7 @@ export interface FileRoutesByTo {
   '/w/$slug/workflows': typeof WSlugWorkflowsIndexRoute
   '/w/$slug/workflows/$workflowId/builder': typeof WSlugWorkflowsWorkflowIdBuilderRoute
   '/w/$slug/workflows/$workflowId': typeof WSlugWorkflowsWorkflowIdIndexRoute
+  '/w/$slug/workflows/$workflowId/conversations/$conversationId': typeof WSlugWorkflowsWorkflowIdConversationsConversationIdRoute
   '/w/$slug/workflows/$workflowId/executions/$executionId': typeof WSlugWorkflowsWorkflowIdExecutionsExecutionIdRoute
   '/w/$slug/workflows/$workflowId/regression-runs/$runId': typeof WSlugWorkflowsWorkflowIdRegressionRunsRunIdRoute
   '/w/$slug/workflows/$workflowId/signals/$signalId': typeof WSlugWorkflowsWorkflowIdSignalsSignalIdRoute
@@ -281,6 +290,7 @@ export interface FileRoutesById {
   '/w/$slug/workflows/': typeof WSlugWorkflowsIndexRoute
   '/w/$slug/workflows/$workflowId/builder': typeof WSlugWorkflowsWorkflowIdBuilderRoute
   '/w/$slug/workflows/$workflowId/': typeof WSlugWorkflowsWorkflowIdIndexRoute
+  '/w/$slug/workflows/$workflowId/conversations/$conversationId': typeof WSlugWorkflowsWorkflowIdConversationsConversationIdRoute
   '/w/$slug/workflows/$workflowId/executions/$executionId': typeof WSlugWorkflowsWorkflowIdExecutionsExecutionIdRoute
   '/w/$slug/workflows/$workflowId/regression-runs/$runId': typeof WSlugWorkflowsWorkflowIdRegressionRunsRunIdRoute
   '/w/$slug/workflows/$workflowId/signals/$signalId': typeof WSlugWorkflowsWorkflowIdSignalsSignalIdRoute
@@ -314,6 +324,7 @@ export interface FileRouteTypes {
     | '/w/$slug/workflows/'
     | '/w/$slug/workflows/$workflowId/builder'
     | '/w/$slug/workflows/$workflowId/'
+    | '/w/$slug/workflows/$workflowId/conversations/$conversationId'
     | '/w/$slug/workflows/$workflowId/executions/$executionId'
     | '/w/$slug/workflows/$workflowId/regression-runs/$runId'
     | '/w/$slug/workflows/$workflowId/signals/$signalId'
@@ -343,6 +354,7 @@ export interface FileRouteTypes {
     | '/w/$slug/workflows'
     | '/w/$slug/workflows/$workflowId/builder'
     | '/w/$slug/workflows/$workflowId'
+    | '/w/$slug/workflows/$workflowId/conversations/$conversationId'
     | '/w/$slug/workflows/$workflowId/executions/$executionId'
     | '/w/$slug/workflows/$workflowId/regression-runs/$runId'
     | '/w/$slug/workflows/$workflowId/signals/$signalId'
@@ -374,6 +386,7 @@ export interface FileRouteTypes {
     | '/w/$slug/workflows/'
     | '/w/$slug/workflows/$workflowId/builder'
     | '/w/$slug/workflows/$workflowId/'
+    | '/w/$slug/workflows/$workflowId/conversations/$conversationId'
     | '/w/$slug/workflows/$workflowId/executions/$executionId'
     | '/w/$slug/workflows/$workflowId/regression-runs/$runId'
     | '/w/$slug/workflows/$workflowId/signals/$signalId'
@@ -601,12 +614,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugWorkflowsWorkflowIdExecutionsExecutionIdRouteImport
       parentRoute: typeof WSlugWorkflowsWorkflowIdRoute
     }
+    '/w/$slug/workflows/$workflowId/conversations/$conversationId': {
+      id: '/w/$slug/workflows/$workflowId/conversations/$conversationId'
+      path: '/conversations/$conversationId'
+      fullPath: '/w/$slug/workflows/$workflowId/conversations/$conversationId'
+      preLoaderRoute: typeof WSlugWorkflowsWorkflowIdConversationsConversationIdRouteImport
+      parentRoute: typeof WSlugWorkflowsWorkflowIdRoute
+    }
   }
 }
 
 interface WSlugWorkflowsWorkflowIdRouteChildren {
   WSlugWorkflowsWorkflowIdBuilderRoute: typeof WSlugWorkflowsWorkflowIdBuilderRoute
   WSlugWorkflowsWorkflowIdIndexRoute: typeof WSlugWorkflowsWorkflowIdIndexRoute
+  WSlugWorkflowsWorkflowIdConversationsConversationIdRoute: typeof WSlugWorkflowsWorkflowIdConversationsConversationIdRoute
   WSlugWorkflowsWorkflowIdExecutionsExecutionIdRoute: typeof WSlugWorkflowsWorkflowIdExecutionsExecutionIdRoute
   WSlugWorkflowsWorkflowIdRegressionRunsRunIdRoute: typeof WSlugWorkflowsWorkflowIdRegressionRunsRunIdRoute
   WSlugWorkflowsWorkflowIdSignalsSignalIdRoute: typeof WSlugWorkflowsWorkflowIdSignalsSignalIdRoute
@@ -616,6 +637,8 @@ const WSlugWorkflowsWorkflowIdRouteChildren: WSlugWorkflowsWorkflowIdRouteChildr
   {
     WSlugWorkflowsWorkflowIdBuilderRoute: WSlugWorkflowsWorkflowIdBuilderRoute,
     WSlugWorkflowsWorkflowIdIndexRoute: WSlugWorkflowsWorkflowIdIndexRoute,
+    WSlugWorkflowsWorkflowIdConversationsConversationIdRoute:
+      WSlugWorkflowsWorkflowIdConversationsConversationIdRoute,
     WSlugWorkflowsWorkflowIdExecutionsExecutionIdRoute:
       WSlugWorkflowsWorkflowIdExecutionsExecutionIdRoute,
     WSlugWorkflowsWorkflowIdRegressionRunsRunIdRoute:

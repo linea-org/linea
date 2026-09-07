@@ -33,6 +33,7 @@ export type FlagSummary = {
   detail: Record<string, JsonValue> | null
   dedupeKey: string
   signalId: string | null
+  conversationFindingId: string | null
   createdAt: string
 }
 

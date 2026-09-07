@@ -44,6 +44,7 @@ export const flags = snakeCase.table(
 
     // Set after insert once the flag's signal has been resolved/upserted — not a DB-level FK, matching this table's existing convention.
     signalId: uuid(),
+    conversationFindingId: uuid(),
 
     // Set by behaviour-derived flags (conversation-level, no single executionId to carry these) —
     // null for every execution/step-derived flag type above. No DB-level FK, same convention as

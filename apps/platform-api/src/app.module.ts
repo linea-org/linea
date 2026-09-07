@@ -6,6 +6,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { ApprovalsModule } from './approvals/approvals.module'
+import { ConversationAnalysesModule } from './conversation-analyses/conversation-analyses.module'
 import { RegressionsModule } from './regressions/regressions.module'
 import { ExecutionsModule } from './executions/executions.module'
 import { HealthController } from './health/health.controller'
@@ -32,6 +33,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     SecretsModule,
     NotificationsModule,
     ApprovalsModule,
+    ConversationAnalysesModule,
     RegressionsModule,
   ],
   controllers: [AppController, HealthController, MeController],
