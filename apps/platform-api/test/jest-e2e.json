@@ -17,6 +17,7 @@
   },
   "transformIgnorePatterns": [],
   "moduleNameMapper": {
+    "^@thallesp/nestjs-better-auth$": "<rootDir>/../src/__mocks__/nestjs-better-auth.ts",
     "^(\\.{1,2}/.*)\\.js$": "$1"
   }
 }

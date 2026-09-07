@@ -1,6 +1,7 @@
 import {
   bigint,
   index,
+  integer,
   snakeCase,
   text,
   timestamp,
@@ -31,6 +32,9 @@ export const conversationAnalyses = snakeCase.table(
     // So a later re-analysis with a changed prompt/rubric is comparable to, not confused with, this one.
     analyzerVersion: text().notNull(),
     model: text(),
+    provider: text(),
+    tokensInput: integer().notNull().default(0),
+    tokensOutput: integer().notNull().default(0),
     costMicros: bigint({ mode: "bigint" }).notNull().default(0n),
 
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

@@ -119,6 +119,18 @@ describe("ConversationAnalyzerService", () => {
       expect(outcome.tokensInput).toBe(100)
       expect(outcome.tokensOutput).toBe(20)
       expect(outcome.costMicros).toBe(42n)
+      const persisted =
+        await repositories.conversationAnalysis.getLatestConversationAnalysis(
+          db,
+          organization.id,
+          workflow.id,
+          conversationId
+        )
+      expect(persisted).toMatchObject({
+        provider: "anthropic",
+        tokensInput: 100,
+        tokensOutput: 20,
+      })
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
@@ -197,6 +209,7 @@ describe("ConversationAnalyzerService", () => {
       expect(flag.flagType).toBe("user_frustration")
       expect(flag.model).toBe("claude-haiku-4-5-20251001")
       expect(flag.provider).toBe("anthropic")
+      expect(flag.conversationFindingId).toBe(findings[0].id)
       expect(flag.dedupeKey).toBe(`user_frustration:${conversationId}`)
 
       await service.poll()

@@ -420,22 +420,27 @@ export class ConversationAnalyzerService
           analyzedThroughSequence: maxSequence,
           analyzerVersion: ANALYZER_VERSION,
           model,
+          provider: providerId,
+          tokensInput: result.tokensInput,
+          tokensOutput: result.tokensOutput,
           costMicros: costMicros ?? 0n,
         })
       analysisId = analysis.id
-      await repositories.conversationAnalysis.insertConversationFindings(
-        tx,
-        analysis.id,
-        findings.map((finding) => ({ workspaceId, ...finding }))
-      )
+      const persistedFindings =
+        await repositories.conversationAnalysis.insertConversationFindings(
+          tx,
+          analysis.id,
+          findings.map((finding) => ({ workspaceId, ...finding }))
+        )
 
-      for (const finding of findings) {
+      for (const finding of persistedFindings) {
         const flagType = FLAGGABLE_CATEGORIES[finding.category]
         if (!flagType) continue
         await repositories.flag.createFlagIfNew(tx, {
           workspaceId,
           workflowId,
           flagType,
+          conversationFindingId: finding.id,
           externalSubjectId,
           model,
           provider: providerId,

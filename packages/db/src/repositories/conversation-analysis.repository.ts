@@ -1,9 +1,10 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, desc, eq, sql } from "drizzle-orm"
 import {
   conversationAnalyses,
   conversationAnalysisClaims,
   conversationFindings,
   type ConversationAnalysis,
+  type ConversationAnalysisClaim,
   type ConversationFinding,
   type NewConversationAnalysis,
   type NewConversationFinding,
@@ -132,17 +133,78 @@ export async function getConversationFindingById(
   return finding
 }
 
+export async function getLatestConversationAnalysis(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string,
+  conversationId: string
+): Promise<ConversationAnalysis | undefined> {
+  const [analysis] = await db
+    .select()
+    .from(conversationAnalyses)
+    .where(
+      and(
+        eq(conversationAnalyses.workspaceId, workspaceId),
+        eq(conversationAnalyses.workflowId, workflowId),
+        eq(conversationAnalyses.conversationId, conversationId)
+      )
+    )
+    .orderBy(
+      desc(conversationAnalyses.createdAt),
+      desc(conversationAnalyses.analyzedThroughSequence)
+    )
+    .limit(1)
+  return analysis
+}
+
+export async function getConversationAnalysisClaim(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string,
+  conversationId: string
+): Promise<ConversationAnalysisClaim | undefined> {
+  const [claim] = await db
+    .select()
+    .from(conversationAnalysisClaims)
+    .where(
+      and(
+        eq(conversationAnalysisClaims.workspaceId, workspaceId),
+        eq(conversationAnalysisClaims.workflowId, workflowId),
+        eq(conversationAnalysisClaims.conversationId, conversationId)
+      )
+    )
+  return claim
+}
+
+export async function listConversationFindings(
+  db: DbClient,
+  workspaceId: string,
+  analysisId: string
+): Promise<ConversationFinding[]> {
+  return db
+    .select()
+    .from(conversationFindings)
+    .where(
+      and(
+        eq(conversationFindings.workspaceId, workspaceId),
+        eq(conversationFindings.analysisId, analysisId)
+      )
+    )
+    .orderBy(conversationFindings.createdAt)
+}
+
 export type NewFindingInput = Omit<NewConversationFinding, "analysisId">
 
 export async function insertConversationFindings(
   db: DbClient,
   analysisId: string,
   findings: NewFindingInput[]
-): Promise<void> {
-  if (findings.length === 0) return
-  await db
+): Promise<ConversationFinding[]> {
+  if (findings.length === 0) return []
+  return db
     .insert(conversationFindings)
     .values(findings.map((finding) => ({ ...finding, analysisId })))
+    .returning()
 }
 
 export type ConversationDueForAnalysis = {

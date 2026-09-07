@@ -45,6 +45,31 @@ function rationaleOf(flag: FlagSummary): string | null {
   return typeof rationale === "string" ? rationale : null
 }
 
+function ConversationFindingLink({
+  flag,
+  slug,
+  workflowId,
+}: {
+  flag: FlagSummary
+  slug: string
+  workflowId: string
+}) {
+  const conversationId = flag.detail?.conversationId
+  if (typeof conversationId !== "string" || !flag.conversationFindingId) {
+    return null
+  }
+  return (
+    <Link
+      to="/w/$slug/workflows/$workflowId/conversations/$conversationId"
+      params={{ slug, workflowId, conversationId }}
+      hash={`finding-${flag.conversationFindingId}`}
+      className="text-xs text-foreground hover:underline"
+    >
+      View finding
+    </Link>
+  )
+}
+
 function CreateRegressionCaseAction({
   workflowId,
   flagId,
@@ -217,6 +242,11 @@ export function SignalDetailView({
                       {new Date(flag.createdAt).toLocaleString()}
                     </span>
                     <div className="flex items-center gap-3">
+                      <ConversationFindingLink
+                        flag={flag}
+                        slug={slug}
+                        workflowId={workflowId}
+                      />
                       {flag.executionId ? (
                         <Link
                           to="/w/$slug/workflows/$workflowId/executions/$executionId"
