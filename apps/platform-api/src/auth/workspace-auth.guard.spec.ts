@@ -65,6 +65,7 @@ describe('WorkspaceAuthGuard', () => {
       const allowed = await guard.canActivate(contextWithRequest(request))
       expect(allowed).toBe(true)
       expect(request.workspaceId).toBe(organization.id)
+      expect(request.apiKeyPurpose).toBeUndefined()
     } finally {
       await pool.query('DELETE FROM organizations WHERE id = $1', [
         organization.id,
@@ -139,6 +140,7 @@ describe('WorkspaceAuthGuard', () => {
       const allowed = await guard.canActivate(contextWithRequest(request))
       expect(allowed).toBe(true)
       expect(request.workspaceId).toBe(organization.id)
+      expect(request.apiKeyPurpose).toBe('platform')
       expect(request.session).toBeNull()
     } finally {
       await pool.query('DELETE FROM organizations WHERE id = $1', [
@@ -175,6 +177,7 @@ describe('WorkspaceAuthGuard', () => {
       const allowed = await guard.canActivate(contextWithRequest(request))
       expect(allowed).toBe(true)
       expect(request.workspaceId).toBe(organization.id)
+      expect(request.apiKeyPurpose).toBe('platform')
     } finally {
       await pool.query('DELETE FROM organizations WHERE id = $1', [
         organization.id,
