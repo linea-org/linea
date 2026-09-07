@@ -7,6 +7,17 @@ import type {
   NodeExecutionContext,
   NodeHandler,
 } from "./node-handler.interface"
+import { resolveSubjectId } from "./memory-scope"
+
+type ApprovalAudience = "workspace" | "external_subject"
+
+function parseAudience(raw: unknown): ApprovalAudience {
+  if (raw === undefined || raw === "workspace") return "workspace"
+  if (raw === "external_subject") return raw
+  throw new Error(
+    'Approval node audience must be "workspace" or "external_subject"'
+  )
+}
 
 // Lowercased so a workflow author's casing can't diverge from a designated approver's own stored email (see eligibleForUser).
 function parseApproverEmails(raw: unknown): string[] | undefined {
@@ -40,7 +51,7 @@ export class ApprovalNode implements NodeHandler {
 
   async execute(
     config: Record<string, unknown>,
-    _input: unknown,
+    input: unknown,
     context: NodeExecutionContext
   ): Promise<unknown> {
     const { executionId, nodeId } = context
@@ -58,6 +69,7 @@ export class ApprovalNode implements NodeHandler {
     )
 
     if (!approval) {
+      const audience = parseAudience(config.audience)
       const timeoutAt = parseTimeoutAt(config.timeoutMinutes)
       const created = await repositories.approval.createApproval(db, {
         workspaceId: context.workspaceId,
@@ -65,7 +77,15 @@ export class ApprovalNode implements NodeHandler {
         nodeId,
         message:
           typeof config.message === "string" ? config.message : undefined,
-        approverEmails: parseApproverEmails(config.approverEmails),
+        audience,
+        approverEmails:
+          audience === "workspace"
+            ? parseApproverEmails(config.approverEmails)
+            : undefined,
+        externalSubjectId:
+          audience === "external_subject"
+            ? resolveSubjectId(input, config.subjectPath, "Approval node")
+            : undefined,
         timeoutAt,
         timeoutAction: timeoutAt
           ? config.timeoutAction === "auto_approve"
@@ -76,7 +96,9 @@ export class ApprovalNode implements NodeHandler {
       if (created) {
         approval = created
         // Only the worker that actually won the insert notifies — a concurrent re-fetch below (a lease reclaim racing this same visit) must not double-notify.
-        await this.notifyApprovers(created)
+        if (created.audience === "workspace") {
+          await this.notifyApprovers(created)
+        }
       } else {
         // A concurrent worker already inserted it — re-fetch rather than trust a possibly-undefined onConflictDoNothing result.
         approval = await repositories.approval.getApproval(

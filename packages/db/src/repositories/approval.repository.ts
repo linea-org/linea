@@ -48,6 +48,7 @@ export async function getApproval(
 /** Empty/null approverEmails means any workspace member may respond. Case-insensitive: approverEmails is stored lowercased (see parseApproverEmails), so the comparison side is lowercased to match. Re-checks live workspace membership here (not just approverEmails) so a caller whose membership was revoked between the controller's guard check and this query can't still resolve the approval — a guard-only check leaves that window open. */
 function eligibleForUser(workspaceId: string, userEmail: string) {
   return and(
+    eq(approvals.audience, "workspace"),
     sql`exists (
       select 1 from ${members}
       inner join ${users} on ${users.id} = ${members.userId}

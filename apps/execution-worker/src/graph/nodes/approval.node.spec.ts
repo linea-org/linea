@@ -54,6 +54,83 @@ async function setup() {
 }
 
 describe("ApprovalNode", () => {
+  it("creates an external-subject approval from its input and pauses without notifying workspace members", async () => {
+    const { organization, execution, approverEmail } = await setup()
+    try {
+      const node = new ApprovalNode()
+      const context = {
+        workspaceId: organization.id,
+        executionId: execution.id,
+        nodeId: "approval-1",
+      }
+      await expect(
+        node.execute(
+          {
+            audience: "external_subject",
+            subjectPath: "customer.id",
+            message: "Send this email?",
+          },
+          { customer: { id: "customer-42" } },
+          context
+        )
+      ).rejects.toThrow("Execution paused at node approval-1")
+      const approval = await repositories.approval.getApproval(
+        db,
+        organization.id,
+        execution.id,
+        "approval-1"
+      )
+      expect(approval).toMatchObject({
+        status: "pending",
+        audience: "external_subject",
+        externalSubjectId: "customer-42",
+        approverEmails: null,
+      })
+      const notifications = await db.select().from(schema.notifications)
+      expect(
+        notifications.filter(
+          (notification) => notification.workspaceId === organization.id
+        )
+      ).toHaveLength(0)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+      await pool.query("DELETE FROM users WHERE email = $1", [approverEmail])
+    }
+  })
+
+  it("rejects an external-subject approval whose subject path does not resolve", async () => {
+    const { organization, execution, approverEmail } = await setup()
+    try {
+      const node = new ApprovalNode()
+      await expect(
+        node.execute(
+          { audience: "external_subject", subjectPath: "customer.id" },
+          { customer: {} },
+          {
+            workspaceId: organization.id,
+            executionId: execution.id,
+            nodeId: "approval-1",
+          }
+        )
+      ).rejects.toThrow('no value found at subjectPath "customer.id"')
+      expect(
+        await repositories.approval.getApproval(
+          db,
+          organization.id,
+          execution.id,
+          "approval-1"
+        )
+      ).toBeUndefined()
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+      await pool.query("DELETE FROM users WHERE email = $1", [approverEmail])
+    }
+  })
+
   it("creates a pending approval and pauses on first visit, then pauses again while still pending", async () => {
     const { organization, execution, approverEmail } = await setup()
     try {
