@@ -157,6 +157,32 @@ export async function getLatestConversationAnalysis(
   return analysis
 }
 
+export async function getConversationAnalysisForFinding(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string,
+  conversationId: string,
+  findingId: string
+): Promise<ConversationAnalysis | undefined> {
+  const [row] = await db
+    .select({ analysis: conversationAnalyses })
+    .from(conversationFindings)
+    .innerJoin(
+      conversationAnalyses,
+      eq(conversationFindings.analysisId, conversationAnalyses.id)
+    )
+    .where(
+      and(
+        eq(conversationFindings.id, findingId),
+        eq(conversationFindings.workspaceId, workspaceId),
+        eq(conversationAnalyses.workspaceId, workspaceId),
+        eq(conversationAnalyses.workflowId, workflowId),
+        eq(conversationAnalyses.conversationId, conversationId)
+      )
+    )
+  return row?.analysis
+}
+
 export async function getConversationAnalysisClaim(
   db: DbClient,
   workspaceId: string,

@@ -210,7 +210,9 @@ describe("ConversationAnalyzerService", () => {
       expect(flag.model).toBe("claude-haiku-4-5-20251001")
       expect(flag.provider).toBe("anthropic")
       expect(flag.conversationFindingId).toBe(findings[0].id)
-      expect(flag.dedupeKey).toBe(`user_frustration:${conversationId}`)
+      expect(flag.dedupeKey).toBe(
+        `user_frustration:${conversationId}:${findings[0].id}`
+      )
 
       await service.poll()
       expect(complete).toHaveBeenCalledTimes(1)
@@ -266,7 +268,7 @@ describe("ConversationAnalyzerService", () => {
     }
   })
 
-  it("moves a deduplicated signal occurrence to the latest finding after reanalysis", async () => {
+  it("records reanalysis as a new occurrence and regresses a resolved signal", async () => {
     const { organization, workflow, conversationId, message } =
       await setUpConversation({
         name: "Behaviour Reanalysis Link Test Org",
@@ -305,6 +307,13 @@ describe("ConversationAnalyzerService", () => {
         behaviourSampleRate: 1,
         behaviourModel: null,
       })
+      const [firstFlag] = await getFlagsFor(organization.id)
+      if (!firstFlag.signalId) throw new Error("Expected linked signal")
+      await repositories.signal.resolveSignal(
+        db,
+        organization.id,
+        firstFlag.signalId
+      )
       const followUp = await repositories.chatMessage.createChatMessage(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -335,8 +344,24 @@ describe("ConversationAnalyzerService", () => {
       if (!latest) throw new Error("Expected latest analysis")
       const [latestFinding] = await getFindingsFor(latest.id)
       const flags = await getFlagsFor(organization.id)
-      expect(flags).toHaveLength(1)
-      expect(flags[0].conversationFindingId).toBe(latestFinding.id)
+      expect(flags).toHaveLength(2)
+      expect(flags.map((flag) => flag.signalId)).toEqual([
+        firstFlag.signalId,
+        firstFlag.signalId,
+      ])
+      expect(flags.map((flag) => flag.conversationFindingId)).toContain(
+        latestFinding.id
+      )
+      const signal = await repositories.signal.getSignalDetail(
+        db,
+        organization.id,
+        firstFlag.signalId
+      )
+      expect(signal).toMatchObject({
+        status: "regressed",
+        occurrenceCount: 2,
+        resolvedAt: null,
+      })
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

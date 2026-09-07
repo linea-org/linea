@@ -3,7 +3,12 @@ import { db, repositories } from '@linea/db'
 
 @Injectable()
 export class ConversationAnalysesService {
-  async get(workspaceId: string, workflowId: string, conversationId: string) {
+  async get(
+    workspaceId: string,
+    workflowId: string,
+    conversationId: string,
+    findingId: string | undefined,
+  ) {
     const messages = await repositories.chatMessage.listChatMessages(
       db,
       workspaceId,
@@ -27,13 +32,23 @@ export class ConversationAnalysesService {
         createdAt: message.createdAt,
       })),
     }
-    const analysis =
-      await repositories.conversationAnalysis.getLatestConversationAnalysis(
-        db,
-        workspaceId,
-        workflowId,
-        conversationId,
-      )
+    const analysis = findingId
+      ? await repositories.conversationAnalysis.getConversationAnalysisForFinding(
+          db,
+          workspaceId,
+          workflowId,
+          conversationId,
+          findingId,
+        )
+      : await repositories.conversationAnalysis.getLatestConversationAnalysis(
+          db,
+          workspaceId,
+          workflowId,
+          conversationId,
+        )
+    if (findingId && !analysis) {
+      throw new NotFoundException('Conversation finding not found')
+    }
     if (!analysis) {
       const enabled =
         await repositories.workspaceSettings.isBehaviourAnalysisEnabled(

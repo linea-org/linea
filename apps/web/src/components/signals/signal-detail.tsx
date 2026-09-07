@@ -62,6 +62,7 @@ function ConversationFindingLink({
     <Link
       to="/w/$slug/workflows/$workflowId/conversations/$conversationId"
       params={{ slug, workflowId, conversationId }}
+      search={{ findingId: flag.conversationFindingId }}
       hash={`finding-${flag.conversationFindingId}`}
       className="text-xs text-foreground hover:underline"
     >

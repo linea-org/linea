@@ -9,11 +9,17 @@ import { getConversationAnalysisFn } from "@/lib/conversation-analyses-api"
 export const Route = createFileRoute(
   "/w/$slug/workflows/$workflowId/conversations/$conversationId"
 )({
-  loader: ({ params }) =>
+  validateSearch: (search: Record<string, unknown>) => ({
+    findingId:
+      typeof search.findingId === "string" ? search.findingId : undefined,
+  }),
+  loaderDeps: ({ search }) => search,
+  loader: ({ params, deps }) =>
     getConversationAnalysisFn({
       data: {
         workflowId: params.workflowId,
         conversationId: params.conversationId,
+        findingId: deps.findingId,
       },
     }),
   errorComponent: ConversationAnalysisError,

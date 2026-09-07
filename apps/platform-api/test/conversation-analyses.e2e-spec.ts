@@ -77,16 +77,32 @@ describe('Conversation analyses API (e2e)', () => {
           respondsToMessageId: userMessage.id,
         },
       )
-      await repositories.conversationAnalysis.createConversationAnalysis(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        conversationId,
-        externalSubjectId: 'customer-42',
-        analyzedThroughSequence: userMessage.sequence,
-        analyzerVersion: 'v1',
-        model: 'older-model',
-        createdAt: new Date('2026-01-01T00:00:00.000Z'),
-      })
+      const olderAnalysis =
+        await repositories.conversationAnalysis.createConversationAnalysis(db, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          externalSubjectId: 'customer-42',
+          analyzedThroughSequence: userMessage.sequence,
+          analyzerVersion: 'v1',
+          model: 'older-model',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        })
+      const [olderFinding] =
+        await repositories.conversationAnalysis.insertConversationFindings(
+          db,
+          olderAnalysis.id,
+          [
+            {
+              workspaceId: organization.id,
+              axis: 'user_experience',
+              category: 'frustrated',
+              confidence: 0.81,
+              evidenceMessageId: userMessage.id,
+              rationale: 'The first analysis detected frustration.',
+            },
+          ],
+        )
       const analysis =
         await repositories.conversationAnalysis.createConversationAnalysis(db, {
           workspaceId: organization.id,
@@ -157,6 +173,27 @@ describe('Conversation analyses API (e2e)', () => {
             confidence: 0.94,
             evidenceMessageId: userMessage.id,
             rationale: 'The user explicitly reports repeated failed advice.',
+          },
+        ],
+      })
+      const historicalResponse = await request(app.getHttpServer())
+        .get(
+          `/workflows/${workflow.id}/conversations/${conversationId}/analysis?findingId=${olderFinding.id}`,
+        )
+        .set('Authorization', `Bearer ${generatedKey.rawKey}`)
+        .expect(200)
+      expect(historicalResponse.body).toMatchObject({
+        status: 'complete',
+        analysis: {
+          id: olderAnalysis.id,
+          analyzerVersion: 'v1',
+          model: 'older-model',
+        },
+        findings: [
+          {
+            id: olderFinding.id,
+            category: 'frustrated',
+            rationale: 'The first analysis detected frustration.',
           },
         ],
       })

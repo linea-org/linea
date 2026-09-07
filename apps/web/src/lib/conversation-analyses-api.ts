@@ -82,10 +82,19 @@ export type ConversationAnalysisResponse =
   | DisabledConversationAnalysis
 
 export const getConversationAnalysisFn = createServerFn({ method: "GET" })
-  .validator((data: { workflowId: string; conversationId: string }) => data)
+  .validator(
+    (data: {
+      workflowId: string
+      conversationId: string
+      findingId: string | undefined
+    }) => data
+  )
   .handler(async ({ data }): Promise<ConversationAnalysisResponse> => {
+    const query = data.findingId
+      ? `?findingId=${encodeURIComponent(data.findingId)}`
+      : ""
     const res = await apiFetch(
-      `/workflows/${data.workflowId}/conversations/${data.conversationId}/analysis`
+      `/workflows/${data.workflowId}/conversations/${data.conversationId}/analysis${query}`
     )
     if (res.status === 401 || res.status === 403) {
       throw new Error("You do not have access to this conversation analysis")
