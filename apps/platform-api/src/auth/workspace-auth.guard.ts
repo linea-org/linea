@@ -4,12 +4,13 @@ import {
   type CanActivate,
   type ExecutionContext,
 } from '@nestjs/common'
-import { db, repositories } from '@linea/db'
+import { db, repositories, type ApiKey } from '@linea/db'
 import type { Request } from 'express'
 import { hashApiKey } from './api-key.util'
 
 export type AuthenticatedRequest = Request & {
   workspaceId: string
+  apiKeyPurpose?: ApiKey['purpose']
   session?: {
     session?: { activeOrganizationId?: string }
     user?: { id: string }
@@ -35,6 +36,7 @@ export class WorkspaceAuthGuard implements CanActivate {
       )
       if (role) {
         request.workspaceId = activeOrganizationId
+        request.apiKeyPurpose = undefined
         return true
       }
     }
@@ -57,6 +59,7 @@ export class WorkspaceAuthGuard implements CanActivate {
 
     await repositories.apiKey.touchApiKeyLastUsed(db, apiKey.id)
     request.workspaceId = apiKey.workspaceId
+    request.apiKeyPurpose = apiKey.purpose
     // A request can carry both a stale session (e.g. a removed member whose session cookie
     // still resolves to this org) and a valid API key — the API key is what actually authorized
     // this request, so the stale session must not linger for OptionalUserId to read downstream

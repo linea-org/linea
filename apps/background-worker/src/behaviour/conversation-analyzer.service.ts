@@ -13,6 +13,7 @@ import {
   type ToolDefinition,
 } from "@linea/ai"
 import { db, repositories, type ChatMessage, type Flag } from "@linea/db"
+import { CONVERSATION_IDLE_THRESHOLD_MS } from "@linea/runtime"
 
 export type ConversationDueForAnalysis =
   repositories.conversationAnalysis.ConversationDueForAnalysis
@@ -21,7 +22,6 @@ const POLL_INTERVAL_MS = 60_000
 // A conversation is only analyzed once it looks finished, not mid-flight — this is a guess at
 // "the other side probably isn't coming back," not a hard session boundary the product defines
 // anywhere else yet.
-const IDLE_THRESHOLD_MS = 30 * 60_000
 const BATCH_LIMIT = 20
 // Cheapest priced model in the registry — a background classifier, not the flagship agent call.
 const DEFAULT_BEHAVIOUR_MODEL = "claude-haiku-4-5-20251001"
@@ -215,7 +215,7 @@ export class ConversationAnalyzerService
     if (this.polling) return
     this.polling = true
     try {
-      const idleBefore = new Date(Date.now() - IDLE_THRESHOLD_MS)
+      const idleBefore = new Date(Date.now() - CONVERSATION_IDLE_THRESHOLD_MS)
       // A conversation that fails before writing its own analysis row never advances its
       // watermark, so it would otherwise be re-selected by the very next requery below — a
       // persistent failure (bad model config, missing key) would then spin this loop forever on
