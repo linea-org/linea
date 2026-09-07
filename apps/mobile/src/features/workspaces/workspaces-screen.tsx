@@ -10,12 +10,9 @@ import {
 import { useMobileAuth, type Workspace } from "../../auth/mobile-auth"
 import { authErrorMessage } from "../../lib/auth-error"
 import { colors } from "../../theme/colors"
+import { CreateWorkspaceForm } from "./create-workspace-form"
 
-type WorkspacesScreenProps = {
-  onCreateWorkspace: () => Promise<void>
-}
-
-export function WorkspacesScreen({ onCreateWorkspace }: WorkspacesScreenProps) {
+export function WorkspacesScreen() {
   const auth = useMobileAuth()
   const { data: session } = auth.useSession()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
@@ -58,17 +55,33 @@ export function WorkspacesScreen({ onCreateWorkspace }: WorkspacesScreenProps) {
       active = false
     }
   }, [auth, loadAttempt])
-  async function createWorkspace() {
+  async function createWorkspace(input: { name: string; slug: string }) {
     setError(undefined)
     try {
-      await onCreateWorkspace()
+      const creation = await auth.createWorkspace(input)
+      if (creation.error) {
+        setError(authErrorMessage(creation.error, "Could not create workspace"))
+        return
+      }
+      if (!creation.data) {
+        setError("Could not create workspace")
+        return
+      }
+      setWorkspaces([creation.data])
+      setPendingId(creation.data.id)
+      const activation = await auth.setActiveWorkspace(creation.data.id)
+      setPendingId(undefined)
+      if (activation.error) {
+        setError(
+          authErrorMessage(activation.error, "Could not activate workspace")
+        )
+        return
+      }
+      setActiveId(creation.data.id)
     } catch (creationError) {
-      setError(
-        authErrorMessage(creationError, "Could not open workspace onboarding")
-      )
-      return
+      setPendingId(undefined)
+      setError(authErrorMessage(creationError, "Could not create workspace"))
     }
-    setLoadAttempt((attempt) => attempt + 1)
   }
   async function selectWorkspace(workspace: Workspace) {
     if (workspace.id === activeId || pendingId) return
@@ -121,10 +134,7 @@ export function WorkspacesScreen({ onCreateWorkspace }: WorkspacesScreenProps) {
               <Text style={styles.description}>
                 You do not belong to a workspace yet.
               </Text>
-              <ActionButton
-                label="Create workspace"
-                onPress={() => void createWorkspace()}
-              />
+              <CreateWorkspaceForm onSubmit={createWorkspace} />
             </View>
           }
           renderItem={({ item }) => {

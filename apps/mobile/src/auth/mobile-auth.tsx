@@ -18,6 +18,10 @@ export type MobileAuthClient = {
   requestMagicLink: (email: string) => AuthResult<unknown>
   verifyMagicLink: (token: string) => AuthResult<unknown>
   listWorkspaces: () => AuthResult<Workspace[] | null>
+  createWorkspace: (input: {
+    name: string
+    slug: string
+  }) => AuthResult<Workspace | null>
   setActiveWorkspace: (workspaceId: string) => AuthResult<unknown>
 }
 

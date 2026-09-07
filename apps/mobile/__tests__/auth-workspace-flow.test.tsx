@@ -10,9 +10,9 @@ import { WorkspacesScreen } from "../src/features/workspaces/workspaces-screen"
 const requestMagicLink = jest.fn()
 const verifyMagicLink = jest.fn()
 const listWorkspaces = jest.fn()
+const createWorkspace = jest.fn()
 const setActiveWorkspace = jest.fn()
 const onVerified = jest.fn()
-const onCreateWorkspace = jest.fn()
 
 const authClient: MobileAuthClient = {
   useSession: () => ({
@@ -25,6 +25,7 @@ const authClient: MobileAuthClient = {
   requestMagicLink,
   verifyMagicLink,
   listWorkspaces,
+  createWorkspace,
   setActiveWorkspace,
 }
 
@@ -41,6 +42,14 @@ beforeEach(() => {
       { id: "workspace-1", name: "Support", slug: "support" },
       { id: "workspace-2", name: "Operations", slug: "operations" },
     ],
+    error: null,
+  })
+  createWorkspace.mockResolvedValue({
+    data: {
+      id: "workspace-3",
+      name: "Customer Success",
+      slug: "customer-success",
+    },
     error: null,
   })
   setActiveWorkspace.mockResolvedValue({ data: {}, error: null })
@@ -70,9 +79,7 @@ it("verifies a token received by deep link and enters the app", async () => {
 })
 
 it("shows every membership and switches the active workspace", async () => {
-  const screen = await render(
-    withAuth(<WorkspacesScreen onCreateWorkspace={onCreateWorkspace} />)
-  )
+  const screen = await render(withAuth(<WorkspacesScreen />))
   expect(await screen.findByText("Support")).toBeTruthy()
   expect(screen.getByText("Operations")).toBeTruthy()
   await fireEvent.press(screen.getByText("Operations"))
@@ -82,16 +89,31 @@ it("shows every membership and switches the active workspace", async () => {
   })
 })
 
-it("opens workspace onboarding when the operator has no memberships", async () => {
+it("creates and activates a workspace with the mobile session", async () => {
   listWorkspaces.mockResolvedValueOnce({ data: [], error: null })
-  const screen = await render(
-    withAuth(<WorkspacesScreen onCreateWorkspace={onCreateWorkspace} />)
-  )
+  const screen = await render(withAuth(<WorkspacesScreen />))
   expect(
     await screen.findByText("You do not belong to a workspace yet.")
   ).toBeTruthy()
+  await fireEvent.changeText(
+    screen.getByLabelText("Workspace name"),
+    "Customer Success"
+  )
+  await fireEvent.changeText(
+    screen.getByLabelText("Workspace slug"),
+    "customer-success"
+  )
   await fireEvent.press(screen.getByText("Create workspace"))
-  expect(onCreateWorkspace).toHaveBeenCalledTimes(1)
+  await waitFor(() => {
+    expect(createWorkspace).toHaveBeenCalledWith({
+      name: "Customer Success",
+      slug: "customer-success",
+    })
+    expect(setActiveWorkspace).toHaveBeenCalledWith("workspace-3")
+  })
+  expect(
+    await screen.findByText("Current workspace: Customer Success")
+  ).toBeTruthy()
 })
 
 it("retries workspace loading after a transient failure", async () => {
@@ -99,9 +121,7 @@ it("retries workspace loading after a transient failure", async () => {
     data: null,
     error: new Error("Network unavailable"),
   })
-  const screen = await render(
-    withAuth(<WorkspacesScreen onCreateWorkspace={onCreateWorkspace} />)
-  )
+  const screen = await render(withAuth(<WorkspacesScreen />))
   expect(await screen.findByText("Network unavailable")).toBeTruthy()
   await fireEvent.press(screen.getByText("Try again"))
   expect(await screen.findByText("Support")).toBeTruthy()

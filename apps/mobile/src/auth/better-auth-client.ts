@@ -34,6 +34,7 @@ export const mobileAuthClient: MobileAuthClient = {
     }),
   verifyMagicLink: (token) => authClient.magicLink.verify({ query: { token } }),
   listWorkspaces: () => authClient.organization.list(),
+  createWorkspace: (input) => authClient.organization.create(input),
   setActiveWorkspace: (organizationId) =>
     authClient.organization.setActive({ organizationId }),
 }
