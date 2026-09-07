@@ -41,6 +41,7 @@
     "@types/node": "^22.10.7",
     "eslint": "^9.18.0",
     "jest": "^30.0.0",
+    "jest-environment-node": "^30.0.0",
     "prettier": "^3.4.2",
     "source-map-support": "^0.5.21",
     "ts-jest": "^29.2.5",
