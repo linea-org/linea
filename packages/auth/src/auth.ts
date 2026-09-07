@@ -1,9 +1,11 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter"
+import { expo } from "@better-auth/expo"
 import { magicLink, organization } from "better-auth/plugins"
 import { eq } from "drizzle-orm"
 import { db, repositories, schema } from "@linea/db"
 import { sendEmail } from "./email.js"
+import { createMagicLinkEmailUrl } from "./magic-link-email-url.js"
 import {
   existingAccountEmailHtml,
   magicLinkEmailHtml,
@@ -14,11 +16,6 @@ import {
 
 const baseUrl = process.env.BETTER_AUTH_URL
 const secret = process.env.BETTER_AUTH_SECRET
-const appUrl = process.env.APP_URL ?? baseUrl
-const trustedOrigins = (process.env.TRUSTED_ORIGINS ?? appUrl ?? "")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean)
 
 if (!baseUrl) {
   throw new Error("BETTER_AUTH_URL is required to initialize @linea/auth")
@@ -27,6 +24,13 @@ if (!baseUrl) {
 if (!secret) {
   throw new Error("BETTER_AUTH_SECRET is required to initialize @linea/auth")
 }
+
+const appUrl = process.env.APP_URL ?? baseUrl
+const trustedOrigins = (process.env.TRUSTED_ORIGINS ?? appUrl)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+trustedOrigins.push("linea://", "linea://*")
 
 function appEmailLink(
   path: string,
@@ -197,10 +201,11 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    expo(),
     magicLink({
       storeToken: "hashed",
       sendMagicLink: async ({ email, url }) => {
-        const link = appEmailLink("/magic-link", url)
+        const link = createMagicLinkEmailUrl(url, appUrl)
         await sendEmail({
           to: email,
           subject: "Sign in to Linea",

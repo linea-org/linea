@@ -10,6 +10,7 @@ export default defineConfig({
   target: "es2022",
   external: [
     "better-auth",
+    "@better-auth/expo",
     "@better-auth/drizzle-adapter",
     "resend",
     "@linea/db",

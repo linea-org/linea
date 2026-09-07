@@ -7,10 +7,12 @@
     "build": "tsup",
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.25",
+    "@better-auth/expo": "1.6.25",
     "@linea/db": "workspace:*",
     "better-auth": "^1.6.25",
     "drizzle-orm": "1.0.0-rc.4",
@@ -22,7 +24,8 @@
     "@types/node": "22",
     "eslint": "9",
     "tsup": "^8.5.0",
-    "typescript": "6"
+    "typescript": "6",
+    "vitest": "^3.2.7"
   },
   "exports": {
     ".": {
