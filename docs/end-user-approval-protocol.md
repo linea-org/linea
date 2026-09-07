@@ -428,12 +428,12 @@ POST /v1/user/conversations/{conversationId}/messages
 GET  /v1/user/conversations/{conversationId}/messages
 ```
 
-An Application allowlist determines which published workflows an End-User Session may start. End-user traffic is always `production`; `draft` remains exclusive to Linea builder surfaces and `dev` remains explicit test traffic.
+An Application allowlist determines which published workflows an End-User Session may start. An End-User start inherits its Application's pinned environment: a `dev` Application creates a `dev` Execution and a `production` Application creates a `production` Execution. The caller cannot select or override the environment, and `draft` remains exclusive to Linea builder surfaces.
 
 Both planes may start work:
 
 - an End-User Session may start only a Workflow exposed by its Application;
-- an Operator backend may start an Execution or Conversation only for an External Subject already established through verified identity;
+- an Operator backend may start an Execution or Conversation for a provisioned or verified External Subject in its Application;
 - a backend-started Approval Request becomes visible to that subject's current or future End-User Sessions in the same Application;
 - starting work never grants the Operator backend authority to submit the resulting Decision.
 
