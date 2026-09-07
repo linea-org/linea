@@ -11,46 +11,83 @@ import { useMobileAuth, type Workspace } from "../../auth/mobile-auth"
 import { authErrorMessage } from "../../lib/auth-error"
 import { colors } from "../../theme/colors"
 
-export function WorkspacesScreen() {
+type WorkspacesScreenProps = {
+  onCreateWorkspace: () => Promise<void>
+}
+
+export function WorkspacesScreen({ onCreateWorkspace }: WorkspacesScreenProps) {
   const auth = useMobileAuth()
   const { data: session } = auth.useSession()
-  const [workspaces, setWorkspaces] = useState<Workspace[]>()
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [activeId, setActiveId] = useState<string | null>(
     session?.session.activeOrganizationId ?? null
   )
   const [pendingId, setPendingId] = useState<string>()
   const [error, setError] = useState<string>()
+  const [loading, setLoading] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   useEffect(() => {
     let active = true
     async function load() {
-      const result = await auth.listWorkspaces()
-      if (!active) return
-      if (result.error) {
-        setError(
-          authErrorMessage(result.error, "Could not load your workspaces")
-        )
-        return
+      setLoading(true)
+      setLoadFailed(false)
+      setError(undefined)
+      try {
+        const result = await auth.listWorkspaces()
+        if (!active) return
+        if (result.error) {
+          setError(
+            authErrorMessage(result.error, "Could not load your workspaces")
+          )
+          setLoadFailed(true)
+          setLoading(false)
+          return
+        }
+        setWorkspaces(result.data ?? [])
+        setLoading(false)
+      } catch (loadError) {
+        if (!active) return
+        setError(authErrorMessage(loadError, "Could not load your workspaces"))
+        setLoadFailed(true)
+        setLoading(false)
       }
-      setWorkspaces(result.data ?? [])
     }
     void load()
     return () => {
       active = false
     }
-  }, [auth])
+  }, [auth, loadAttempt])
+  async function createWorkspace() {
+    setError(undefined)
+    try {
+      await onCreateWorkspace()
+    } catch (creationError) {
+      setError(
+        authErrorMessage(creationError, "Could not open workspace onboarding")
+      )
+      return
+    }
+    setLoadAttempt((attempt) => attempt + 1)
+  }
   async function selectWorkspace(workspace: Workspace) {
     if (workspace.id === activeId || pendingId) return
     setError(undefined)
     setPendingId(workspace.id)
-    const result = await auth.setActiveWorkspace(workspace.id)
-    setPendingId(undefined)
-    if (result.error) {
-      setError(authErrorMessage(result.error, "Could not switch workspace"))
-      return
+    try {
+      const result = await auth.setActiveWorkspace(workspace.id)
+      setPendingId(undefined)
+      if (result.error) {
+        setError(authErrorMessage(result.error, "Could not switch workspace"))
+        return
+      }
+      setActiveId(workspace.id)
+    } catch (switchError) {
+      setPendingId(undefined)
+      setError(authErrorMessage(switchError, "Could not switch workspace"))
     }
-    setActiveId(workspace.id)
   }
-  const activeWorkspace = workspaces?.find(
+  const activeWorkspace = workspaces.find(
     (workspace) => workspace.id === activeId
   )
   return (
@@ -67,15 +104,28 @@ export function WorkspacesScreen() {
           {error}
         </Text>
       ) : null}
-      {!workspaces ? (
+      {loading ? (
         <ActivityIndicator color={colors.accent} size="large" />
+      ) : loadFailed ? (
+        <ActionButton
+          label="Try again"
+          onPress={() => setLoadAttempt((attempt) => attempt + 1)}
+        />
       ) : (
         <FlatList
           contentContainerStyle={styles.list}
           data={workspaces}
           keyExtractor={(workspace) => workspace.id}
           ListEmptyComponent={
-            <Text style={styles.description}>No workspaces found.</Text>
+            <View style={styles.empty}>
+              <Text style={styles.description}>
+                You do not belong to a workspace yet.
+              </Text>
+              <ActionButton
+                label="Create workspace"
+                onPress={() => void createWorkspace()}
+              />
+            </View>
           }
           renderItem={({ item }) => {
             const selected = item.id === activeId
@@ -116,7 +166,38 @@ export function WorkspacesScreen() {
   )
 }
 
+function ActionButton({
+  label,
+  onPress,
+}: {
+  label: string
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.action,
+        pressed && styles.workspacePressed,
+      ]}
+    >
+      <Text style={styles.actionText}>{label}</Text>
+    </Pressable>
+  )
+}
+
 const styles = StyleSheet.create({
+  action: {
+    alignItems: "center",
+    borderColor: colors.accent,
+    borderRadius: 14,
+    borderWidth: 1,
+    minHeight: 48,
+    justifyContent: "center",
+    paddingHorizontal: 18,
+  },
+  actionText: { color: colors.accent, fontSize: 15, fontWeight: "600" },
   container: {
     backgroundColor: colors.canvas,
     flex: 1,
@@ -132,6 +213,7 @@ const styles = StyleSheet.create({
   },
   description: { color: colors.muted, fontSize: 15, lineHeight: 22 },
   error: { color: colors.danger, fontSize: 14 },
+  empty: { gap: 16, paddingTop: 12 },
   eyebrow: {
     color: colors.accent,
     fontSize: 11,

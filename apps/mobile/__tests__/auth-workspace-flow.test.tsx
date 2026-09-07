@@ -12,6 +12,7 @@ const verifyMagicLink = jest.fn()
 const listWorkspaces = jest.fn()
 const setActiveWorkspace = jest.fn()
 const onVerified = jest.fn()
+const onCreateWorkspace = jest.fn()
 
 const authClient: MobileAuthClient = {
   useSession: () => ({
@@ -69,7 +70,9 @@ it("verifies a token received by deep link and enters the app", async () => {
 })
 
 it("shows every membership and switches the active workspace", async () => {
-  const screen = await render(withAuth(<WorkspacesScreen />))
+  const screen = await render(
+    withAuth(<WorkspacesScreen onCreateWorkspace={onCreateWorkspace} />)
+  )
   expect(await screen.findByText("Support")).toBeTruthy()
   expect(screen.getByText("Operations")).toBeTruthy()
   await fireEvent.press(screen.getByText("Operations"))
@@ -77,4 +80,30 @@ it("shows every membership and switches the active workspace", async () => {
     expect(setActiveWorkspace).toHaveBeenCalledWith("workspace-2")
     expect(screen.getByText("Current workspace: Operations")).toBeTruthy()
   })
+})
+
+it("opens workspace onboarding when the operator has no memberships", async () => {
+  listWorkspaces.mockResolvedValueOnce({ data: [], error: null })
+  const screen = await render(
+    withAuth(<WorkspacesScreen onCreateWorkspace={onCreateWorkspace} />)
+  )
+  expect(
+    await screen.findByText("You do not belong to a workspace yet.")
+  ).toBeTruthy()
+  await fireEvent.press(screen.getByText("Create workspace"))
+  expect(onCreateWorkspace).toHaveBeenCalledTimes(1)
+})
+
+it("retries workspace loading after a transient failure", async () => {
+  listWorkspaces.mockResolvedValueOnce({
+    data: null,
+    error: new Error("Network unavailable"),
+  })
+  const screen = await render(
+    withAuth(<WorkspacesScreen onCreateWorkspace={onCreateWorkspace} />)
+  )
+  expect(await screen.findByText("Network unavailable")).toBeTruthy()
+  await fireEvent.press(screen.getByText("Try again"))
+  expect(await screen.findByText("Support")).toBeTruthy()
+  expect(listWorkspaces).toHaveBeenCalledTimes(2)
 })

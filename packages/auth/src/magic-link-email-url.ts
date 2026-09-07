@@ -6,10 +6,7 @@ export function createMagicLinkEmailUrl(
   const token = incoming.searchParams.get("token")
   if (!token) throw new Error("Auth email link is missing a token")
   const callbackURL = incoming.searchParams.get("callbackURL") ?? ""
-  const landing = new URL(
-    callbackURL.startsWith("linea://") ? "linea://magic-link" : "/magic-link",
-    webAppUrl
-  )
+  const landing = new URL("/magic-link", webAppUrl)
   landing.searchParams.set("token", token)
   const invitation = /\/accept-invitation\/([^/?#]+)/.exec(callbackURL)?.[1]
   if (invitation) landing.searchParams.set("invitationId", invitation)

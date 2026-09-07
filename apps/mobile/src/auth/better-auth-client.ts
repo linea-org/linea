@@ -6,6 +6,9 @@ import type { MobileAuthClient } from "./mobile-auth"
 
 const baseURL = process.env.EXPO_PUBLIC_API_URL
 if (!baseURL) throw new Error("EXPO_PUBLIC_API_URL is required")
+const appURL = process.env.EXPO_PUBLIC_APP_URL
+if (!appURL) throw new Error("EXPO_PUBLIC_APP_URL is required")
+const magicLinkURL = new URL("/magic-link", appURL).toString()
 
 const authClient = createAuthClient({
   baseURL,
@@ -25,9 +28,9 @@ export const mobileAuthClient: MobileAuthClient = {
   requestMagicLink: (email) =>
     authClient.signIn.magicLink({
       email,
-      callbackURL: "/workspaces",
-      newUserCallbackURL: "/workspaces",
-      errorCallbackURL: "/sign-in",
+      callbackURL: magicLinkURL,
+      newUserCallbackURL: magicLinkURL,
+      errorCallbackURL: magicLinkURL,
     }),
   verifyMagicLink: (token) => authClient.magicLink.verify({ query: { token } }),
   listWorkspaces: () => authClient.organization.list(),

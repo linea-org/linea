@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest"
 import { createMagicLinkEmailUrl } from "./magic-link-email-url.js"
 
 describe("createMagicLinkEmailUrl", () => {
-  it("turns a native callback into a deep link that carries the verification token", () => {
+  it("keeps a native request token on the verified web origin for universal linking", () => {
     const authUrl = new URL(
       "http://localhost:3000/api/auth/magic-link/verify?token=secret-token"
     )
     authUrl.searchParams.set("callbackURL", "linea://workspaces")
     expect(
       createMagicLinkEmailUrl(authUrl.toString(), "http://localhost:3001")
-    ).toBe("linea://magic-link?token=secret-token")
+    ).toBe("http://localhost:3001/magic-link?token=secret-token")
   })
 
   it("keeps web sign-in links on the web app and preserves invitations", () => {
