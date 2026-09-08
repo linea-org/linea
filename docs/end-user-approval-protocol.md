@@ -36,7 +36,7 @@ This document replaces the external-subject approval architecture in issue #84. 
 - Workflow Approval and connector-enforced Action Consent are separate controls that share the Approval Request and Decision protocol.
 - Headless external-subject approvals ship before Connections and Action Consent, but the first milestone preserves the Action Intent linkage needed by the second.
 - CopilotKit is an adapter over the headless end-user interface and React hooks, not their foundation.
-- Issues #84-#89 will be rewritten in place after this design tree is settled. Issue #84 will record that its original conversation-bearer-token design was superseded during security review.
+- Issue #84 remains the parent initiative. Closed historical issues retain their shipped meaning, open superseded issues close with replacement links, and new protocol work receives new GitHub-assigned issue numbers.
 - The first release requires client-side OIDC Authorization Code with PKCE; Operator-backend identity assertions are deferred as a weaker mode.
 - One Application represents one deployed security boundary and pins exactly one `dev` or `production` environment.
 - End-user live events use SSE, backed by an authoritative list endpoint and polling fallback.
@@ -76,7 +76,7 @@ This document replaces the external-subject approval architecture in issue #84. 
 - End Users see only Execution identity, status, Conversation identity, contract-validated public output, safe errors, and their Approval Requests.
 - Application-bound and workspace-bound server credentials have separate clients and authority; an Application key can never cross its Application even when it has the same named scope as a workspace key.
 - Public Execution starts are asynchronous and idempotent, Application backends may cancel their own Executions, and End Users cannot cancel Executions in the first release.
-- Issues #84-#89 are replaced in place by the accepted dependency graph, while mobile issues #90-#93 remain a separate chain and are relinked to the generalized Approval Request work.
+- The accepted dependency graph uses named workstreams rather than reassigning historical issue numbers. Mobile issues #91-#93 remain a separate chain and are relinked to the new Approval Request work.
 
 ## Current System
 
@@ -790,74 +790,60 @@ Workspace behavior-analysis configuration remains workspace scoped, while end-us
 
 The current conversation analyzer does not filter by environment, and the current message model cannot reliably establish a Conversation's environment. First-class production Conversations solve this by pinning environment at creation.
 
-## Remediation of Issues #84-#93
+## Delivery Workstreams and Historical Issue Mapping
 
-### #84
+### Historical issues
 
-Rewrite as the parent for the headless End-User Protocol and external-subject approvals. Record that the original backend-minted conversation bearer token was superseded by the OIDC, DPoP, and revocable End-User Session design. Keep Connections and Action Consent as a later child initiative rather than a launch dependency.
+- #84 remains the parent for the end-user protocol and external-subject approvals. Its original backend-minted bearer-token mechanism is superseded by this design.
+- #85 closed with PR #100 and remains the historical record for the caller-asserted `external_subject` Approval prototype.
+- #86 closed with PR #101 and remains the historical record for the unversioned conversation endpoint and backend-minted `lcs_` token prototype.
+- #87-#89 retain their original bodies and close as superseded, with links to newly created replacement workstreams.
+- #90 closed with PR #102 and remains the historical record for the mobile scaffold. Any release-hardening gaps become follow-up work.
+- #91-#93 keep their existing mobile scopes and may be amended in place with the acceptance-criteria corrections below.
 
-### #85
+GitHub issues and pull requests share one number sequence, so future workstream numbers are never predicted in scratchpads or documentation.
 
-Own the shared `packages/protocol` wire schemas, stable errors, event envelopes, idempotency contract, and generated OpenAPI inputs used by the API and SDKs.
+### Superseded prototype cleanup
 
-### #86
+PRs #100 and #101 landed before this security design was accepted. The current code can expose an external-subject Approval that has no secure Decision path and can mint a self-contained bearer conversation token from an Operator-authorized, workspace-scoped endpoint using a caller-asserted subject. No production code currently uses that token to decide an Approval Request, so this is an incomplete prototype rather than an active approval bypass.
 
-Add Applications, immutable Workflow Contracts, Application-Workflow bindings, and Application-bound keys. Enforce `allowBackendStart`, `allowEndUserStart`, published-version compatibility, environment pinning, and the trust-configuration restrictions in this document.
+Because there are no deployed customers requiring compatibility, remove or disable the unsupported external-subject surface and bearer-token contract before building the accepted replacement. Preserve existing workspace-audience approvals and unrelated conversation-analysis behavior.
 
-### #87
+### Mobile issue corrections
 
-Add External Subjects, OIDC Authorization Code with PKCE exchange, DPoP-bound opaque End-User Sessions, pre-provisioning, revocation, disablement, erasure, and identity-migration controls.
-
-### #88
-
-Add first-class Conversations and the asynchronous End-User Execution API. Pin Application, External Subject, Workflow, and environment; isolate threads; enforce public Workflow Contracts; provide safe Execution projections; and implement start/read/cancel authority and idempotency.
-
-### #89
-
-Generalize persistence and runtime behavior to Approval Requests and immutable Decisions. Add the `workspace` and `external_subject` audiences, safe display snapshots, exact subject authorization, human and timeout actors, atomic races, cancellation, untrusted comments, audit records, and the existing replay prohibition.
-
-### #90
-
-- Keep as an independent starting ticket.
-- Explicitly require iOS and Android configuration.
-- Define secure session storage and deep-link callback behavior.
-
-### #91
-
-- Add foreground polling/focus-refresh behavior to acceptance criteria.
-- Confirm whether workflow filtering is client-side or added to the workspace execution endpoint.
-- Keep the surface read only.
-
-### #92
-
-- Depend on the generalized Approval Request issue, which becomes #89 after the rewrite.
-- Use only workspace-audience requests.
-- Replace vague "full context" with the safe display snapshot.
-- Disable mutation retry and offline queuing.
-
-### #93
-
-- Add device-token schema and authenticated register/unregister endpoints.
-- Define Expo receipt handling, invalid-token cleanup, retry, and fan-out.
-- Replace undefined "Signal crosses threshold" language with a concrete Signal event or create a separate threshold feature.
+- #91 adds foreground polling and focus refresh, decides whether Workflow filtering is client-side or server-side, and remains read only.
+- #92 depends on the new Approval Request and Decision workstream, uses only workspace-audience requests, displays the safe snapshot, and never retries or queues a Decision offline.
+- #93 owns authenticated device registration, Expo receipt handling, invalid-token cleanup, retry and fan-out, and uses a concrete existing Signal lifecycle event rather than an undefined threshold.
 
 ## Accepted Delivery Order
 
-1. Rewrite #84 as the parent initiative.
-2. Deliver #85, shared protocol schemas, errors, events, and idempotency.
-3. Deliver #86, Applications, Workflow Contracts, bindings, and Application keys.
-4. Deliver #87, External Subjects, OIDC PKCE, DPoP sessions, and revocation.
-5. Deliver #88, first-class Conversations and asynchronous End-User Executions.
-6. Deliver #89, Approval Requests, Decisions, runtime pausing, and timeout races.
-7. Create a child issue for the transactional outbox and deterministic BullMQ dispatch.
-8. Create a child issue for SSE reconciliation and signed webhooks.
-9. Create a child issue for `LineaApplicationClient`, `LineaWorkspaceClient`, `@linea/sdk/user`, and the generated OpenAPI contract.
-10. Create a child issue for React hooks, optional UI, examples, and the first-launch integration suite.
-11. Create a later CopilotKit-adapter issue after the headless React interface is stable.
-12. Create a later Connections and Action Consent parent, split by provider connection, immutable Action Intent, connector enforcement, and user history.
-13. Keep mobile #90-#93 as a separate parent chain, and relink #92 to #89.
+Create new GitHub issues in this order and replace workstream names with their assigned links only after creation:
 
-Dependencies follow this order unless two adjacent infrastructure issues can prove they consume only an already-merged contract. Each issue stays on its own branch and receives a PR before work begins on the next dependent issue.
+1. Remove or disable the superseded external-subject Approval and bearer conversation-token prototypes.
+2. Establish shared `packages/protocol` primitives, operation registry, stable errors, events, and idempotency.
+3. Add Applications and protected identity configuration.
+4. Add immutable Workflow Contracts and Application-Workflow bindings.
+5. Add Application keys and explicit scopes.
+6. Add External Subjects and pre-provisioning.
+7. Add client-direct OIDC Authorization Code with PKCE exchange.
+8. Add DPoP-bound End-User Sessions, proof replay protection, and revocation.
+9. Add first-class Conversation persistence and migrate message ownership.
+10. Add asynchronous server and End-User Execution and Conversation interfaces.
+11. Add Approval Request and immutable Decision persistence.
+12. Add Decision, timeout, cancellation, and resume race handling.
+13. Add end-user Approval Request and Decision interfaces.
+14. Add the transactional outbox and deterministic BullMQ dispatch.
+15. Add End-User SSE and authoritative-list reconciliation.
+16. Add signed webhooks and delivery inspection.
+17. Add server SDK clients.
+18. Add the browser/native End-User SDK and DPoP handling.
+19. Add webhook verification, generated OpenAPI, and route-reference coverage.
+20. Add headless React hooks and optional presentation.
+21. Add the first-launch end-to-end integration suite.
+22. Add the CopilotKit adapter after the headless React interface is stable.
+23. Create a later Connections and Action Consent parent, split by provider Connection, immutable Action Intent, connector enforcement, and End User history.
+
+Dependencies follow this order unless two adjacent workstreams prove they consume only an already-merged contract. Each implementation issue stays on its own branch and receives a PR before work begins on the next dependent issue.
 
 ## First Approval Launch Gate
 

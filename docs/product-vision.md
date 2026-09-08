@@ -34,6 +34,14 @@ The honest limit on both: they only apply to workflows already running on Linea,
 
 **The code node is an escape hatch, not the default.** Integrations, transforms, AI calls, KB/memory nodes cover the common cases. This is also why sandboxing only needs to exist for that one node type — the product decision and the infra decision reinforce each other.
 
+## Behavior analysis: shipped capability, not the wedge
+
+Identity attribution, a dual-axis conversation judge (`user_experience` and `agent_behaviour`, independently scored with confidence and evidence), and a Regression suite that reruns automatically on every Workflow publish are all shipped. Competitive research found no funded product offering that specific three-part combination together — each piece alone is matched somewhere, the combination isn't.
+
+The analyzer has now been exercised against six real-provider scenarios, and complete Findings, evidence, and analysis metadata are available through the authenticated API and product UI. The curated Finding categories also produce distinct Flag labels. That establishes a usable capability; it does not establish that customers will choose Linea for it. With no customer demand evidence, the combination should not be positioned as the current or next wedge. The checkpoint-backed fix loop remains the concrete mechanism Linea leads with.
+
+Behavior analysis should be preserved for a future agentic-graph capabilities workstream covering dynamic runtime decisions such as tool selection, loops, parallel branches, subworkflows, and MCP tools. A graph making its own decisions is where attribution and behavior judging become most valuable. That workstream is not roadmap Phase 2, which remains the Code escape hatch and OTel ingest. See `docs/adr/0001-wedge-scoped-to-agentic-graph-behavior-analysis.md` for the full decision.
+
 ## Why this compounds
 
 1. **Hosted convenience.** Self-hosting the ops layer is exactly the toil the product removes, so most teams capable of DIY-ing it still won't bother.
