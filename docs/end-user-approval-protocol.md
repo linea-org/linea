@@ -68,7 +68,7 @@ This document replaces the external-subject approval architecture in issue #84. 
 - Operator backends may pre-provision an issuer subject and start work for it, but only direct OIDC exchange verifies the subject and grants Decision authority.
 - The schema moves forward without runtime compatibility: existing development Conversations and Approval Decisions are backfilled, while inconsistent local data fails loudly and may be reset.
 - Postgres outbox rows are authoritative for committed resume and event work; deterministic BullMQ jobs accelerate idempotent delivery.
-- Only the public developer interface is versioned under `/v1`; internal dashboard routes remain unversioned.
+- Every platform API route is versioned under `/v1`; registry membership, not the path prefix, distinguishes supported public operations from first-party routes.
 - External-subject approvals do not launch until the accepted real-identity, isolation, race, recovery, event, webhook, and SDK gates pass.
 - Public server keys use explicit scopes and can never alter Application identity/security configuration, create keys, change their own authority, or decide external-subject Approval Requests.
 - Each Application exposes published Workflows through explicit bindings that independently allow backend and End-User starts.
@@ -336,7 +336,7 @@ There is no runtime compatibility layer. Because the product has not been deploy
 
 The exact paths are provisional, but the resource model and authorization split are not.
 
-All developer-facing endpoints live under `/v1`. Internal dashboard endpoints remain unversioned and are not compatibility contracts. The server SDK, user SDK, webhooks, generated OpenAPI description, and third-party Applications consume only the versioned interface.
+Every platform API endpoint lives under `/v1`. Only operations in the public registry are compatibility contracts; first-party dashboard endpoints share the versioned namespace without becoming public. The server SDK, user SDK, webhooks, generated OpenAPI description, and third-party Applications consume only registered public operations.
 
 ### Server endpoints
 

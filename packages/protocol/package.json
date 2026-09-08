@@ -1,0 +1,66 @@
+{
+  "name": "@linea/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint",
+    "format": "prettier --write \"**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@linea/config": "workspace:*",
+    "esbuild": "0.28.1",
+    "eslint": "^9",
+    "tsup": "^8.5.0",
+    "typescript": "^6",
+    "vitest": "^3"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "import": "./dist/errors.js",
+      "require": "./dist/errors.cjs"
+    },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "import": "./dist/events.js",
+      "require": "./dist/events.cjs"
+    },
+    "./operations": {
+      "types": "./dist/operations.d.ts",
+      "import": "./dist/operations.js",
+      "require": "./dist/operations.cjs"
+    },
+    "./resources": {
+      "types": "./dist/resources.d.ts",
+      "import": "./dist/resources.js",
+      "require": "./dist/resources.cjs"
+    },
+    "./shared": {
+      "types": "./dist/shared.d.ts",
+      "import": "./dist/shared.js",
+      "require": "./dist/shared.cjs"
+    },
+    "./webhooks": {
+      "types": "./dist/webhooks.d.ts",
+      "import": "./dist/webhooks.js",
+      "require": "./dist/webhooks.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
+}

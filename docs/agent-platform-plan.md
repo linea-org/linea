@@ -1054,7 +1054,7 @@ These operations are planned, not currently implemented.
 
 `@linea/sdk/webhooks` owns verification of outbound webhook envelopes rather than an inbound Linea route.
 
-Only the public developer interface uses `/v1`. Internal dashboard routes remain unversioned and may evolve with first-party applications.
+Every platform API route uses `/v1`. Only operations in the public registry are supported developer contracts; first-party routes share the namespace but may evolve with their applications.
 
 ## Conversation and prospect isolation
 
@@ -1131,7 +1131,7 @@ Package movement must not create a flag day.
 - Move wire types to `@linea/protocol` internally, then re-export compatible public names.
 - Add deprecation notices only after replacement methods exist and migration examples compile.
 - Require at least one release cycle before removing a public export once customers exist.
-- Treat `/v1` as a new explicit public contract; do not accidentally promise current dashboard routes as stable public routes.
+- Move every platform API route under `/v1`, while treating only registry entries as explicit public contracts rather than promising dashboard routes as supported developer APIs.
 - Do not rename durable Redis queues or database objects as part of package restructuring.
 - Separate structural changes from product features so each PR has one reviewable concern.
 
