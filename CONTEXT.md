@@ -19,7 +19,7 @@ _Avoid_: Flag, Signal
 
 ## Flag
 
-An alertable issue on one Execution, raised by a curated Finding category or a rule-based detector.
+An alertable issue, raised by a curated Finding category or a rule-based detector, that may apply to one Execution or a Conversation.
 _Avoid_: Finding, Signal
 
 ## Signal

@@ -1,58 +1,52 @@
-# Scope the next wedge candidate to agentic-graph behavior analysis, and don't claim it yet
+# Treat behavior analysis as an agentic-graph capability, not the wedge
 
 Identity attribution (`triggeredByUserId`/`externalSubjectId` on executions and schedules), a dual-axis
 conversation judge (`user_experience` and `agent_behaviour`, independently scored with confidence and
-evidence), and an eval suite that reruns automatically on every workflow publish are all shipped
-(PRs #67–#74). Competitive research checked this specific three-part combination against Langfuse,
-LangSmith, Braintrust, Maxim, Galileo, Latitude, HoneyHive, Arize, Helicone, Traceloop, W&B Weave, and
-PromptLayer: identity attribution alone is commodity, multi-axis conversation judging is common as a
-configurable single-purpose evaluator but not as a fixed two-axis taxonomy, and publish-triggered
-automatic regression (versus CI-wired or continuous-monitoring approximations) is the least-matched
-piece. No competitor offers the combination.
+evidence), and a Regression suite that reruns automatically on every Workflow publish are shipped.
+PR #98 validated the analyzer against six real-provider scenarios. PR #99 exposed complete Findings,
+evidence, and analysis metadata through an authenticated API and the product, with distinct labels for
+the curated Flag categories.
 
-**Decision:** treat this combination as the sharpest current wedge candidate, but do not claim it yet,
-and scope it specifically to Phase 2's agentic-graph work (the Agent tool-calling loop, Loop/Parallel/
-Subworkflow, MCP tool node) rather than to static workflows in general.
+Competitive research found that identity attribution is commodity, multi-axis conversation judging is
+common as a configurable evaluator, and publish-triggered automatic regression is the least-matched
+piece. The combination remains interesting, but the absence of an exact competitor is not evidence
+that customers will choose Linea for it.
 
-**Why:** none of the judge's output reaches the product today — only four curated categories
-(`user_frustration`, `hallucination_suspected`, `repetition_loop`, `inappropriate_refusal`) leak into a
-generic flag label indistinguishable from any other flag type; the rest of the finding (axis, category,
-confidence, rationale, evidence) is invisible outside Postgres. The judge has also never been run
-against a real conversation with a real model call and checked by a human — it's covered by unit tests
-against mocked responses, which prove the concurrency/claim-leasing/sampling logic doesn't race or
-double-bill, and prove nothing about whether its judgments are actually good. A capability that exists
-but isn't visible and isn't validated is infrastructure, not a pitch.
+**Decision:** retain behavior analysis as a supporting platform capability, not a current or next wedge.
+Its strongest expected application is to a future agentic-graph capabilities workstream containing
+dynamic runtime decisions such as tool selection, loops, parallel branches, subworkflows, and MCP tools.
+That workstream is not roadmap Phase 2, which is the Code escape hatch and OTel ingest.
 
-The Phase 2 scoping is deliberate, not a hedge. A human-authored, static DAG is predictable enough that
-attribution and behavior-judging add comparatively little. A graph that's making its own runtime
-decisions (which tool to call, whether to loop, when to hand off to a subworkflow) is exactly where
-hallucination, repetition, and instruction-drift findings matter, and exactly where knowing who ran it
-matters for making sense of a pattern. The wedge claim rides on Phase 2 existing, not on the ops-loop
-existing in the abstract.
+**Why:** real-provider validation and a complete product surface establish that the capability works and
+is usable. They do not establish demand. Linea has no customers yet, and the broader strategy review
+found that architecture-derived wedge candidates repeatedly lacked demand evidence. The current pitch
+therefore remains the hosted execution and checkpoint-backed fix loop described in `docs/strategy.md`.
+
+A human-authored static graph is comparatively predictable. Behavior analysis becomes more valuable
+when a graph chooses tools, loops, branches, or delegates at runtime, because those decisions create
+more opportunity for hallucination, repetition, instruction drift, and hard-to-attribute failures. That
+is a reason to preserve the capability and design future agentic execution around it, not a reason to
+market it before users demonstrate the need.
 
 ## Considered and rejected
 
-- **Claim it now.** Rejected: no product surface exists for any of it beyond a generic flag label, and
-  it's unvalidated against a real model call.
+- **Claim it now.** Rejected: technical validation is complete, but there is no customer demand evidence.
 - **Lead with a single sharpest piece** (replay, or the judge alone, or attribution alone) instead of
   the combination. Rejected: each individual piece is independently matched by some competitor per the
-  research above; only the specific three-part combination, attributed to a real identity, is
-  undefended.
+  research above, and combining matched pieces does not itself prove a wedge.
 - **Promote cost/reliability enforcement instead.** Rejected: no such capability exists. Claim-leasing
   and cost-sampling in the conversation analyzer are internal safeguards against Linea double-billing
   itself, not a customer-facing spend cap or kill-switch. Nothing here changed the actual gap.
-- **Claim the ops-loop generically, independent of graph shape.** Rejected: the value concentrates
-  specifically where the graph is agentic and dynamic (Phase 2), not on a static DAG a human already
-  fully specified.
+- **Remove behavior analysis because it is not the wedge.** Rejected: it is a shipped part of the
+  operations layer and becomes more useful as execution grows more agentic.
+- **Bind the agentic-graph work to Phase 2.** Rejected: Phase 2 already means the Code escape hatch and
+  OTel ingest in `docs/roadmap.md`. The agentic-graph workstream needs its own roadmap placement when it
+  is scheduled.
 
 ## Consequences
 
-- Phase 2 now carries strategic weight beyond its engineering scope: it's the substrate the wedge claim
-  depends on, not just "the escape hatch and OTel ingest phase."
-- Before any external or customer-facing claim: (1) one real validation run of the conversation analyzer
-  against an actual model call on a realistic conversation, checked by a human, and (2) only after that
-  passes, a UI surface for findings. The validation run is cheap and comes first; building a screen for
-  an unproven judge is the expensive way to find out it isn't good.
-- Validation is dev-first: Linea's own technical-builder users are the ones who exercise this in real
-  workflows before it's ever pitched to their own end-customers, matching the existing "technical
-  builders first" sequencing in `product-vision.md`.
+- Product positioning continues to lead with the fix-loop mechanism, not behavior-analysis uniqueness.
+- Future agentic nodes must preserve identity, step evidence, and execution provenance so the existing
+  analyzer and Findings surface can explain their runtime decisions.
+- No additional behavior-analysis scope is justified solely by competitive whitespace. Real client use
+  should determine the next categories, controls, and agentic integrations.

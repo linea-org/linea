@@ -6,9 +6,9 @@ been tested and found false. Written 2026-09-06.
 This is the document to read before pitching, planning a quarter, or
 deciding whether a new capability is worth building. `product-vision.md`
 covers scope and audience in more depth; `roadmap.md` covers sequencing;
-`validation.md` covers how the central claim gets tested. Where this
-document and the "next candidate sharp edge" section of `product-vision.md`
-disagree, this one is newer.
+`validation.md` covers how the central claim gets tested. The positioning in
+this document is authoritative when another planning document has not yet
+been reconciled with it.
 
 Market claims below are sourced. They were gathered on 2026-09-06 and this
 landscape moves quickly, so re-check before repeating any of them
@@ -340,7 +340,7 @@ slice is needed rather than building it speculatively.
 
 ### ADR numbering
 
-ADR 0001 records the agentic-graph behavior-analysis wedge decision. ADRs 0002 through 0017 record the accepted end-user protocol decisions. The next ADR is 0018.
+ADR 0001 records why agentic-graph behavior analysis is a supporting capability rather than the wedge. ADRs 0002 through 0017 record the accepted end-user protocol decisions. The next ADR is 0018.
 
 ## Sources
 
