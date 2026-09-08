@@ -805,9 +805,9 @@ GitHub issues and pull requests share one number sequence, so future workstream 
 
 ### Superseded prototype cleanup
 
-PRs #100 and #101 landed before this security design was accepted. The current code can expose an external-subject Approval that has no secure Decision path and can mint a self-contained bearer conversation token from an Operator-authorized, workspace-scoped endpoint using a caller-asserted subject. No production code currently uses that token to decide an Approval Request, so this is an incomplete prototype rather than an active approval bypass.
+PRs #100 and #101 landed before this security design was accepted. They introduced an external-subject Approval with no secure Decision path and a self-contained bearer conversation token minted from an Operator-authorized, workspace-scoped endpoint using a caller-asserted subject. No production code used that token to decide an Approval Request, so this was an incomplete prototype rather than an active approval bypass.
 
-Because there are no deployed customers requiring compatibility, remove or disable the unsupported external-subject surface and bearer-token contract before building the accepted replacement. Preserve existing workspace-audience approvals and unrelated conversation-analysis behavior.
+Issue #105 removes the unsupported node, worker, API, and bearer-token surfaces before the accepted replacement is built. The legacy Approval persistence fields remain inert until #115 deliberately replaces that model. Existing workspace-audience approvals and unrelated conversation-analysis behavior are preserved.
 
 ### Mobile issue corrections
 
@@ -819,7 +819,7 @@ Because there are no deployed customers requiring compatibility, remove or disab
 
 Create new GitHub issues in this order and replace workstream names with their assigned links only after creation:
 
-1. Remove or disable the superseded external-subject Approval and bearer conversation-token prototypes.
+1. Remove the superseded external-subject Approval and bearer conversation-token prototypes (#105).
 2. Establish shared `packages/protocol` primitives, operation registry, stable errors, events, and idempotency.
 3. Add Applications and protected identity configuration.
 4. Add immutable Workflow Contracts and Application-Workflow bindings.

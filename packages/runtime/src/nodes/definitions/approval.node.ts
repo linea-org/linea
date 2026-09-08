@@ -27,15 +27,6 @@ export const approvalNode: NodeDefinition<
     icon: "user-check",
     fields: [
       {
-        key: "audience",
-        label: "Audience",
-        widget: "select",
-        options: [
-          { label: "Workspace members", value: "workspace" },
-          { label: "External subject", value: "external_subject" },
-        ],
-      },
-      {
         key: "message",
         label: "Message",
         widget: "textarea",
@@ -47,15 +38,6 @@ export const approvalNode: NodeDefinition<
         widget: "text",
         description:
           "Comma-separated workspace member emails. Leave empty to let any workspace member respond.",
-        showIf: { key: "audience", equals: "workspace" },
-      },
-      {
-        key: "subjectPath",
-        label: "Subject path",
-        widget: "text",
-        description:
-          "Dot-path into this node's input identifying the external subject who must respond.",
-        showIf: { key: "audience", equals: "external_subject" },
       },
       {
         key: "timeoutMinutes",
