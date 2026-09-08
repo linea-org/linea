@@ -34,6 +34,14 @@ The honest limit on both: they only apply to workflows already running on Linea,
 
 **The code node is an escape hatch, not the default.** Integrations, transforms, AI calls, KB/memory nodes cover the common cases. This is also why sandboxing only needs to exist for that one node type — the product decision and the infra decision reinforce each other.
 
+## The next candidate sharp edge, not yet claimable
+
+Identity attribution, a dual-axis conversation judge (`user_experience` and `agent_behaviour`, independently scored with confidence and evidence), and an eval suite that reruns automatically on every workflow publish are all shipped. Competitive research found no funded product offering that specific three-part combination together — each piece alone is matched somewhere, the combination isn't.
+
+Two things stand between this and an actual claim: none of the judge's output reaches the product today (a handful of categories leak into a generic flag label, the rest is invisible), and it has never been run against a real conversation with a real model and checked by a human. Until both close, this is infrastructure, not a pitch.
+
+It's also deliberately scoped to Phase 2's agentic-graph work (the Agent tool-calling loop, Loop/Parallel/Subworkflow, MCP tool node), not to static workflows generally. A human-authored DAG is predictable enough that attribution and behavior-judging add comparatively little. A graph making its own runtime decisions is exactly where they earn their keep. See `docs/adr/0001-wedge-scoped-to-agentic-graph-behavior-analysis.md` for the full reasoning and the rejected alternatives.
+
 ## Why this compounds
 
 1. **Hosted convenience.** Self-hosting the ops layer is exactly the toil the product removes, so most teams capable of DIY-ing it still won't bother.

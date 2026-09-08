@@ -12,6 +12,21 @@ A workflow node that measures an input while the workflow is running.
 
 A measurement emitted by an Evaluator node during a workflow execution.
 
+## Finding
+
+A conversation-analysis judgment about user experience or agent behavior, with confidence and optional evidence.
+_Avoid_: Flag, Signal
+
+## Flag
+
+An alertable issue on one Execution, raised by a curated Finding category or a rule-based detector.
+_Avoid_: Finding, Signal
+
+## Signal
+
+A recurring pattern that groups related Flags over time and tracks whether the problem is active, resolved, or regressed.
+_Avoid_: Finding, Flag
+
 ## Regression
 
 The saved-case system that replays known inputs against a workflow version to detect behavior changes.
