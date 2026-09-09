@@ -52,12 +52,31 @@ export const relations = defineRelations(schema, (r) => ({
     secrets: r.many.secrets(),
     apiKeys: r.many.apiKeys(),
     applications: r.many.applications(),
+    workflowContractRevisions: r.many.workflowContractRevisions(),
+    applicationWorkflowBindings: r.many.applicationWorkflowBindings(),
   },
 
   applications: {
     workspace: r.one.organizations({
       from: r.applications.workspaceId,
       to: r.organizations.id,
+    }),
+    workflowBindings: r.many.applicationWorkflowBindings(),
+    executions: r.many.executions(),
+  },
+
+  applicationWorkflowBindings: {
+    application: r.one.applications({
+      from: r.applicationWorkflowBindings.applicationId,
+      to: r.applications.id,
+    }),
+    workflow: r.one.workflows({
+      from: r.applicationWorkflowBindings.workflowId,
+      to: r.workflows.id,
+    }),
+    contractRevision: r.one.workflowContractRevisions({
+      from: r.applicationWorkflowBindings.workflowContractRevisionId,
+      to: r.workflowContractRevisions.id,
     }),
   },
 
@@ -68,6 +87,8 @@ export const relations = defineRelations(schema, (r) => ({
     }),
 
     versions: r.many.workflowVersions(),
+    contractRevisions: r.many.workflowContractRevisions(),
+    applicationBindings: r.many.applicationWorkflowBindings(),
 
     publishedVersion: r.one.workflowVersions({
       from: r.workflows.publishedVersionId,
@@ -83,7 +104,25 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.workflowVersions.workflowId,
       to: r.workflows.id,
     }),
+    contractRevision: r.one.workflowContractRevisions({
+      from: r.workflowVersions.workflowContractRevisionId,
+      to: r.workflowContractRevisions.id,
+    }),
 
+    executions: r.many.executions(),
+  },
+
+  workflowContractRevisions: {
+    workspace: r.one.organizations({
+      from: r.workflowContractRevisions.workspaceId,
+      to: r.organizations.id,
+    }),
+    workflow: r.one.workflows({
+      from: r.workflowContractRevisions.workflowId,
+      to: r.workflows.id,
+    }),
+    workflowVersions: r.many.workflowVersions(),
+    applicationBindings: r.many.applicationWorkflowBindings(),
     executions: r.many.executions(),
   },
 
@@ -101,6 +140,14 @@ export const relations = defineRelations(schema, (r) => ({
     workflowVersion: r.one.workflowVersions({
       from: r.executions.workflowVersionId,
       to: r.workflowVersions.id,
+    }),
+    application: r.one.applications({
+      from: r.executions.applicationId,
+      to: r.applications.id,
+    }),
+    workflowContractRevision: r.one.workflowContractRevisions({
+      from: r.executions.workflowContractRevisionId,
+      to: r.workflowContractRevisions.id,
     }),
 
     steps: r.many.executionSteps(),
