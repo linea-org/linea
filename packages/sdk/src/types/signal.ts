@@ -78,7 +78,7 @@ export type SignalDimension = {
 }
 
 /**
- * Full response of `GET /signals/:id` — a `SignalSummary` merged with occurrence detail and a
+ * Full response of `GET /v1/signals/:id` — a `SignalSummary` merged with occurrence detail and a
  * per-model/provider dimension breakdown. `dimensionsApplicable` is `false` (with an empty
  * `dimensions` array) unless the signal has both a `workflowId` and `nodeId` and its `flagType` is
  * currently one of the supported dimension types ("empty_response" | "refusal") — check this

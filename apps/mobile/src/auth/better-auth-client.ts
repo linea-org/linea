@@ -12,6 +12,7 @@ const magicLinkURL = new URL("/magic-link", appURL).toString()
 
 const authClient = createAuthClient({
   baseURL,
+  basePath: "/v1/auth",
   plugins: [
     expoClient({
       scheme: "linea",

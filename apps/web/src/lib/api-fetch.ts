@@ -7,7 +7,7 @@ function internalApiUrl() {
 export async function apiFetch(path: string, init?: RequestInit) {
   const headers = getRequestHeaders()
   const cookie = headers.get("cookie") ?? ""
-  const res = await fetch(`${internalApiUrl()}${path}`, {
+  const res = await fetch(`${internalApiUrl()}/v1${path}`, {
     ...init,
     headers: {
       ...(init?.headers ?? {}),

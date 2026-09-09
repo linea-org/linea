@@ -16,8 +16,7 @@ export type LineaClientOptions = {
   /** A workspace API key, created via the dashboard's Settings → API Keys page. Formatted
    * `lin_...`; see the README for how to obtain one. */
   apiKey: string
-  /** Defaults to `http://localhost:3000`, matching the platform's own local-dev convention. Pass
-   * explicitly for any non-local deployment. */
+  /** API origin without `/v1`. Defaults to `http://localhost:3000`. */
   baseUrl?: string
 }
 

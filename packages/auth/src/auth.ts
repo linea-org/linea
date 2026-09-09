@@ -112,6 +112,7 @@ export type { $strip } from "zod/v4/core"
 export const auth = betterAuth({
   appName: "Linea",
   baseURL: baseUrl,
+  basePath: "/v1/auth",
   secret,
   trustedOrigins,
   database: drizzleAdapter(db, {

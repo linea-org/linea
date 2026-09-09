@@ -53,12 +53,12 @@ function extractErrorMessage(body: unknown, statusText: string): string {
 /**
  * The one place every `LineaClient` method routes through. Deliberately has no retry/backoff —
  * the platform API has no server-side rate limiting to protect against, but retrying a
- * non-idempotent call like `POST /triggers/:slug` on a transient 5xx risks a duplicate execution,
+ * non-idempotent call like `POST /v1/triggers/:slug` on a transient 5xx risks a duplicate execution,
  * which is a bigger decision than a v0 client should make silently. Callers who want retries
  * should add their own, scoped to the calls that are actually safe to repeat.
  */
 export async function request<T>(config: RequestConfig): Promise<T> {
-  const url = `${config.baseUrl.replace(/\/$/, "")}${config.path}${buildQueryString(config.query)}`
+  const url = `${config.baseUrl.replace(/\/$/, "")}/v1${config.path}${buildQueryString(config.query)}`
   const headers: Record<string, string> = {
     Authorization: `Bearer ${config.apiKey}`,
     Accept: "application/json",
@@ -102,7 +102,7 @@ export async function request<T>(config: RequestConfig): Promise<T> {
   }
 
   // Every endpoint this SDK wraps always returns a real JSON payload (including the bare-number
-  // response from GET /executions/new-count) — an empty 2xx body means something is wrong
+  // response from GET /v1/executions/new-count) — an empty 2xx body means something is wrong
   // upstream, not a legitimate "no content" case to swallow as `undefined`.
   if (!text) {
     throw new LineaApiError({

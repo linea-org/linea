@@ -2,7 +2,7 @@
 
 A minimal Node client for the Linea platform API: trigger a workflow, read
 back its execution, and read signals. This is a v0 — it wraps today's
-existing REST endpoints exactly as they are, nothing more.
+existing `/v1` REST endpoints exactly as they are, nothing more.
 
 ## ⚠️ Server-side only — never use this in a browser
 
@@ -40,7 +40,7 @@ import { LineaClient } from "@linea/sdk"
 
 const client = new LineaClient({
   apiKey: process.env.LINEA_API_KEY!,
-  baseUrl: "http://localhost:3000", // omit for the local-dev default
+  baseUrl: "http://localhost:3000", // API origin; the SDK adds /v1
 })
 ```
 

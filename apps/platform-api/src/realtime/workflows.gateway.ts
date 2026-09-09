@@ -18,7 +18,8 @@ function roomFor(workflowId: string): string {
 }
 
 @WebSocketGateway({
-  namespace: 'workflows',
+  namespace: 'v1/workflows',
+  path: '/v1/socket.io',
   cors: {
     origin: (
       origin: string | undefined,

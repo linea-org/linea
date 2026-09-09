@@ -6,6 +6,7 @@ const baseURL =
 
 export const authClient = createAuthClient({
   baseURL,
+  basePath: "/v1/auth",
   plugins: [organizationClient(), magicLinkClient()],
 })
 

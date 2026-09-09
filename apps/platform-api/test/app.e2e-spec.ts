@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common'
 import request from 'supertest'
 import { App } from 'supertest/types'
 import { AppModule } from './../src/app.module'
+import { API_PREFIX } from './../src/common/api-prefix'
 
 describe('Platform API (e2e)', () => {
   let app: INestApplication<App>
@@ -16,6 +17,7 @@ describe('Platform API (e2e)', () => {
     app = moduleFixture.createNestApplication({
       bodyParser: false,
     })
+    app.setGlobalPrefix(API_PREFIX)
     await app.init()
   })
 
@@ -23,16 +25,20 @@ describe('Platform API (e2e)', () => {
     await app.close()
   })
 
-  it('/health (GET)', () => {
+  it('/v1/health (GET)', () => {
     return request(app.getHttpServer())
-      .get('/health')
+      .get('/v1/health')
       .expect(200)
       .expect((res) => {
         expect((res.body as { status: string }).status).toBe('ok')
       })
   })
 
-  it('/me (GET) requires auth', () => {
-    return request(app.getHttpServer()).get('/me').expect(401)
+  it('/v1/me (GET) requires auth', () => {
+    return request(app.getHttpServer()).get('/v1/me').expect(401)
+  })
+
+  it('does not serve unversioned application routes', () => {
+    return request(app.getHttpServer()).get('/health').expect(404)
   })
 })

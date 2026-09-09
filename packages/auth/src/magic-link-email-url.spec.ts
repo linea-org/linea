@@ -4,7 +4,7 @@ import { createMagicLinkEmailUrl } from "./magic-link-email-url.js"
 describe("createMagicLinkEmailUrl", () => {
   it("keeps a native request token on the verified web origin for universal linking", () => {
     const authUrl = new URL(
-      "http://localhost:3000/api/auth/magic-link/verify?token=secret-token"
+      "http://localhost:3000/v1/auth/magic-link/verify?token=secret-token"
     )
     authUrl.searchParams.set("callbackURL", "linea://workspaces")
     expect(
@@ -14,7 +14,7 @@ describe("createMagicLinkEmailUrl", () => {
 
   it("keeps web sign-in links on the web app and preserves invitations", () => {
     const authUrl = new URL(
-      "http://localhost:3000/api/auth/magic-link/verify?token=secret-token"
+      "http://localhost:3000/v1/auth/magic-link/verify?token=secret-token"
     )
     authUrl.searchParams.set(
       "callbackURL",
@@ -30,7 +30,7 @@ describe("createMagicLinkEmailUrl", () => {
   it("rejects a generated auth URL without a token", () => {
     expect(() =>
       createMagicLinkEmailUrl(
-        "http://localhost:3000/api/auth/magic-link/verify",
+        "http://localhost:3000/v1/auth/magic-link/verify",
         "http://localhost:3001"
       )
     ).toThrow("Auth email link is missing a token")
