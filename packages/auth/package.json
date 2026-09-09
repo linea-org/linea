@@ -43,6 +43,11 @@
       "import": "./dist/email.js",
       "require": "./dist/email.cjs"
     },
+    "./session-policy": {
+      "types": "./dist/session-policy.d.ts",
+      "import": "./dist/session-policy.js",
+      "require": "./dist/session-policy.cjs"
+    },
     "./emails": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",

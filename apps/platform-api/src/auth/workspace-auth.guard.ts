@@ -12,7 +12,7 @@ export type AuthenticatedRequest = Request & {
   workspaceId: string
   apiKeyPurpose?: ApiKey['purpose']
   session?: {
-    session?: { activeOrganizationId?: string }
+    session?: { activeOrganizationId?: string; createdAt?: Date }
     user?: { id: string }
   } | null
 }
