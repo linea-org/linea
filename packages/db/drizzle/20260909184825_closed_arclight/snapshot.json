@@ -7733,18 +7733,20 @@
       "table": "workflow_contract_revisions"
     },
     {
-      "nameExplicit": false,
+      "nameExplicit": true,
       "columns": [
-        "workflow_id"
+        "workflow_id",
+        "workspace_id"
       ],
       "schemaTo": "public",
       "tableTo": "workflows",
       "columnsTo": [
-        "id"
+        "id",
+        "workspace_id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "workflow_contract_revisions_workflow_id_workflows_id_fkey",
+      "name": "workflow_contract_revisions_workflow_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "workflow_contract_revisions"
@@ -7916,13 +7918,15 @@
       "nameExplicit": true,
       "columns": [
         "workflow_id",
-        "workflow_contract_revision_id"
+        "workflow_contract_revision_id",
+        "workspace_id"
       ],
       "schemaTo": "public",
       "tableTo": "workflow_contract_revisions",
       "columnsTo": [
         "workflow_id",
-        "id"
+        "id",
+        "workspace_id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",

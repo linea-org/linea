@@ -143,10 +143,15 @@ export const executions = snakeCase.table(
     }),
     foreignKey({
       name: "executions_contract_revision_fkey",
-      columns: [table.workflowId, table.workflowContractRevisionId],
+      columns: [
+        table.workflowId,
+        table.workflowContractRevisionId,
+        table.workspaceId,
+      ],
       foreignColumns: [
         workflowContractRevisions.workflowId,
         workflowContractRevisions.id,
+        workflowContractRevisions.workspaceId,
       ],
     }),
   ]

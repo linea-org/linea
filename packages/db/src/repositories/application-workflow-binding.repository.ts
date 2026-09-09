@@ -1,4 +1,5 @@
 import { and, desc, eq, isNotNull } from "drizzle-orm"
+import Ajv2020 from "ajv/dist/2020.js"
 import {
   applications,
   applicationWorkflowBindings,
@@ -10,6 +11,8 @@ import {
   type Execution,
 } from "../schema/index.js"
 import type { DbClient } from "./types.js"
+
+const jsonSchemaValidator = new Ajv2020({ strict: true, addUsedSchema: false })
 
 export type PutApplicationWorkflowBindingInput = {
   workflowContractRevisionId: string
@@ -104,6 +107,7 @@ export type StartApplicationWorkflowResult =
   | { outcome: "workflow_binding_disabled" }
   | { outcome: "workflow_start_not_allowed" }
   | { outcome: "workflow_binding_incompatible" }
+  | { outcome: "validation_failed" }
 
 export async function startApplicationWorkflow(
   db: DbClient,
@@ -156,8 +160,21 @@ export async function startApplicationWorkflow(
       return { outcome: "workflow_binding_disabled" }
     }
     const [version] = await tx
-      .select({ id: workflowVersions.id })
+      .select({
+        id: workflowVersions.id,
+        inputSchema: workflowContractRevisions.inputSchema,
+      })
       .from(workflowVersions)
+      .innerJoin(
+        workflowContractRevisions,
+        and(
+          eq(
+            workflowContractRevisions.id,
+            workflowVersions.workflowContractRevisionId
+          ),
+          eq(workflowContractRevisions.workflowId, workflowVersions.workflowId)
+        )
+      )
       .where(
         and(
           eq(workflowVersions.workflowId, workflowId),
@@ -171,6 +188,9 @@ export async function startApplicationWorkflow(
       .orderBy(desc(workflowVersions.version))
       .limit(1)
     if (!version) return { outcome: "workflow_binding_incompatible" }
+    if (!jsonSchemaValidator.compile(version.inputSchema)(triggerPayload)) {
+      return { outcome: "validation_failed" }
+    }
     const [execution] = await tx
       .insert(executions)
       .values({

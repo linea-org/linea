@@ -56,6 +56,11 @@ export const workflows = snakeCase.table(
   ]
 )
 
+const workflowScopeColumns: [AnyPgColumn, AnyPgColumn] = [
+  workflows.id,
+  workflows.workspaceId,
+]
+
 export const workflowContractRevisions = snakeCase.table(
   "workflow_contract_revisions",
   {
@@ -63,9 +68,7 @@ export const workflowContractRevisions = snakeCase.table(
     workspaceId: uuid()
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    workflowId: uuid()
-      .notNull()
-      .references((): AnyPgColumn => workflows.id, { onDelete: "cascade" }),
+    workflowId: uuid().notNull(),
     revision: integer().notNull(),
     inputSchema: jsonb().$type<Record<string, unknown>>().notNull(),
     outputSchema: jsonb().$type<Record<string, unknown>>().notNull(),
@@ -86,6 +89,11 @@ export const workflowContractRevisions = snakeCase.table(
       table.workspaceId
     ),
     index("workflow_contract_revisions_workspace_idx").on(table.workspaceId),
+    foreignKey({
+      name: "workflow_contract_revisions_workflow_fkey",
+      columns: [table.workflowId, table.workspaceId],
+      foreignColumns: workflowScopeColumns,
+    }).onDelete("cascade"),
   ]
 )
 

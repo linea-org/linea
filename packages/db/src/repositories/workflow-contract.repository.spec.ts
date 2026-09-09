@@ -71,6 +71,11 @@ describe("workflow Contract repository", () => {
           [{ type: "number" }, result.revision.id]
         )
       ).rejects.toThrow(/immutable/i)
+      await expect(
+        pool.query("DELETE FROM workflow_contract_revisions WHERE id = $1", [
+          result.revision.id,
+        ])
+      ).rejects.toThrow(/immutable/i)
       expect(
         await getWorkflowContractRevision(
           db,
@@ -79,6 +84,15 @@ describe("workflow Contract repository", () => {
           result.revision.id
         )
       ).toMatchObject({ inputSchema })
+      const next = await createWorkflowContractRevision(
+        db,
+        organization.id,
+        workflow.id,
+        { inputSchema, outputSchema }
+      )
+      expect(next.outcome).toBe("created")
+      if (next.outcome !== "created") return
+      expect(next.revision.revision).toBe(2)
       const version = await createWorkflowVersion(db, {
         workflowId: workflow.id,
         graph: { nodes: [], edges: [] },
@@ -130,5 +144,29 @@ describe("workflow Contract repository", () => {
         )
       ).toEqual({ outcome: "not_found" })
     })
+  })
+
+  it("rejects cross-workspace Contract rows at the database boundary", async () => {
+    const { organization, workflow } = await db.transaction((tx) =>
+      createTestFixtures(tx)
+    )
+    const { organization: otherWorkspace } = await db.transaction((tx) =>
+      createTestFixtures(tx)
+    )
+    try {
+      await expect(
+        pool.query(
+          "INSERT INTO workflow_contract_revisions (workspace_id, workflow_id, revision, input_schema, output_schema) VALUES ($1, $2, 1, $3, $4)",
+          [otherWorkspace.id, workflow.id, inputSchema, outputSchema]
+        )
+      ).rejects.toThrow(/workflow_contract_revisions_workflow_fkey/)
+    } finally {
+      await db
+        .delete(organizations)
+        .where(eq(organizations.id, organization.id))
+      await db
+        .delete(organizations)
+        .where(eq(organizations.id, otherWorkspace.id))
+    }
   })
 })

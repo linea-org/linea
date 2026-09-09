@@ -50,7 +50,14 @@ async function createContractRevision(
     tx,
     workspaceId,
     workflowId,
-    { inputSchema: { type: "object" }, outputSchema: { type: "object" } }
+    {
+      inputSchema: {
+        type: "object",
+        properties: { prompt: { type: "string" } },
+        required: ["prompt"],
+      },
+      outputSchema: { type: "object" },
+    }
   )
   if (result.outcome !== "created") throw new Error("Contract creation failed")
   return result.revision
@@ -109,6 +116,16 @@ describe("Application Workflow binding repository", () => {
           {}
         )
       ).toEqual({ outcome: "workflow_start_not_allowed" })
+      expect(
+        await startApplicationWorkflow(
+          tx,
+          organization.id,
+          application.id,
+          workflow.id,
+          "backend",
+          {}
+        )
+      ).toEqual({ outcome: "validation_failed" })
       const result = await startApplicationWorkflow(
         tx,
         organization.id,
@@ -175,7 +192,7 @@ describe("Application Workflow binding repository", () => {
         application.id,
         workflow.id,
         "backend",
-        {}
+        { prompt: "hello" }
       )
       expect(result.outcome).toBe("created")
       if (result.outcome !== "created") return

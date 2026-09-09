@@ -66,6 +66,10 @@ export const relations = defineRelations(schema, (r) => ({
   },
 
   applicationWorkflowBindings: {
+    workspace: r.one.organizations({
+      from: r.applicationWorkflowBindings.workspaceId,
+      to: r.organizations.id,
+    }),
     application: r.one.applications({
       from: r.applicationWorkflowBindings.applicationId,
       to: r.applications.id,
