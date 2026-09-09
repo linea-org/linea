@@ -7,6 +7,7 @@ import {
   publicErrorCodes,
   publicErrorResponseSchema,
   resourceReferenceSchema,
+  workflowContractRevisionSchema,
 } from "../src"
 
 describe("public protocol schemas", () => {
@@ -44,6 +45,16 @@ describe("public protocol schemas", () => {
         },
       })
     ).toMatchObject({ error: { code: "conversation_identity_conflict" } })
+    expect(
+      workflowContractRevisionSchema.parse({
+        id: "contract_123",
+        workflowId: "workflow_123",
+        revision: 1,
+        inputSchema: { type: "object" },
+        outputSchema: { type: "string" },
+        createdAt: "2026-09-09T12:00:00Z",
+      })
+    ).toMatchObject({ revision: 1, inputSchema: { type: "object" } })
   })
 
   it("rejects malformed and unknown wire values", () => {
@@ -87,6 +98,10 @@ describe("public protocol schemas", () => {
       "conversation_identity_conflict",
       "event_cursor_expired",
       "execution_not_cancellable",
+      "workflow_binding_not_found",
+      "workflow_binding_disabled",
+      "workflow_start_not_allowed",
+      "workflow_binding_incompatible",
       "action_intent_stale",
       "rate_limited",
     ])

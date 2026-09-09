@@ -40,6 +40,7 @@ export type CreateWorkflowVersionInput = {
   graph: Record<string, unknown>
   contentHash: string
   message?: string
+  workflowContractRevisionId?: string
 }
 
 /** Locks the workflow row first, so two concurrent calls serialize instead of both computing the same next version. */

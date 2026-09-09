@@ -15,7 +15,12 @@ import {
 import { sql } from "drizzle-orm"
 import { organizations } from "./organisation.js"
 import { users } from "./user.js"
-import { workflows, workflowVersions } from "./workflow.js"
+import { applications } from "./application.js"
+import {
+  workflowContractRevisions,
+  workflows,
+  workflowVersions,
+} from "./workflow.js"
 
 export const executionStatus = pgEnum("execution_status", [
   "queued",
@@ -67,6 +72,8 @@ export const executions = snakeCase.table(
     // Composite FKs below also enforce the workflow/version actually match.
     workflowId: uuid().notNull(),
     workflowVersionId: uuid().notNull(),
+    applicationId: uuid(),
+    workflowContractRevisionId: uuid(),
 
     status: executionStatus().notNull().default("queued"),
     origin: executionOrigin().notNull().default("native"),
@@ -128,6 +135,24 @@ export const executions = snakeCase.table(
       name: "executions_workflow_version_fkey",
       columns: [table.workflowId, table.workflowVersionId],
       foreignColumns: [workflowVersions.workflowId, workflowVersions.id],
+    }),
+    foreignKey({
+      name: "executions_application_fkey",
+      columns: [table.applicationId, table.workspaceId],
+      foreignColumns: [applications.id, applications.workspaceId],
+    }),
+    foreignKey({
+      name: "executions_contract_revision_fkey",
+      columns: [
+        table.workflowId,
+        table.workflowContractRevisionId,
+        table.workspaceId,
+      ],
+      foreignColumns: [
+        workflowContractRevisions.workflowId,
+        workflowContractRevisions.id,
+        workflowContractRevisions.workspaceId,
+      ],
     }),
   ]
 )

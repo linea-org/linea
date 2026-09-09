@@ -56,6 +56,47 @@ export const workflows = snakeCase.table(
   ]
 )
 
+const workflowScopeColumns: [AnyPgColumn, AnyPgColumn] = [
+  workflows.id,
+  workflows.workspaceId,
+]
+
+export const workflowContractRevisions = snakeCase.table(
+  "workflow_contract_revisions",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    workspaceId: uuid()
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    workflowId: uuid().notNull(),
+    revision: integer().notNull(),
+    inputSchema: jsonb().$type<Record<string, unknown>>().notNull(),
+    outputSchema: jsonb().$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("workflow_contract_revisions_workflow_revision_uidx").on(
+      table.workflowId,
+      table.revision
+    ),
+    uniqueIndex("workflow_contract_revisions_workflow_id_uidx").on(
+      table.workflowId,
+      table.id
+    ),
+    uniqueIndex("workflow_contract_revisions_scope_uidx").on(
+      table.workflowId,
+      table.id,
+      table.workspaceId
+    ),
+    index("workflow_contract_revisions_workspace_idx").on(table.workspaceId),
+    foreignKey({
+      name: "workflow_contract_revisions_workflow_fkey",
+      columns: [table.workflowId, table.workspaceId],
+      foreignColumns: workflowScopeColumns,
+    }).onDelete("cascade"),
+  ]
+)
+
 export const workflowVersions = snakeCase.table(
   "workflow_versions",
   {
@@ -68,6 +109,7 @@ export const workflowVersions = snakeCase.table(
     version: integer().notNull(),
     graph: jsonb().$type<Record<string, unknown>>().notNull(),
     contentHash: text().notNull(),
+    workflowContractRevisionId: uuid(),
     // Optional commit message describing what changed in this checkpoint.
     message: text(),
 
@@ -84,6 +126,14 @@ export const workflowVersions = snakeCase.table(
       table.workflowId,
       table.id
     ),
+    foreignKey({
+      name: "workflow_versions_contract_revision_fkey",
+      columns: [table.workflowId, table.workflowContractRevisionId],
+      foreignColumns: [
+        workflowContractRevisions.workflowId,
+        workflowContractRevisions.id,
+      ],
+    }),
   ]
 )
 
@@ -91,3 +141,7 @@ export type Workflow = typeof workflows.$inferSelect
 export type NewWorkflow = typeof workflows.$inferInsert
 export type WorkflowVersion = typeof workflowVersions.$inferSelect
 export type NewWorkflowVersion = typeof workflowVersions.$inferInsert
+export type WorkflowContractRevision =
+  typeof workflowContractRevisions.$inferSelect
+export type NewWorkflowContractRevision =
+  typeof workflowContractRevisions.$inferInsert

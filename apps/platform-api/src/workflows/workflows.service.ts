@@ -142,6 +142,19 @@ export class WorkflowsService {
     // Confirms the workflow belongs to this workspace before touching its versions.
     await this.get(workspaceId, workflowId)
 
+    if (input.workflowContractRevisionId) {
+      const revision =
+        await repositories.workflowContract.getWorkflowContractRevision(
+          db,
+          workspaceId,
+          workflowId,
+          input.workflowContractRevisionId,
+        )
+      if (!revision) {
+        throw new NotFoundException('Workflow Contract not found')
+      }
+    }
+
     try {
       validateGraphStructure(input.graph)
       assertNoReservedNodeIds(input.graph)
@@ -157,6 +170,7 @@ export class WorkflowsService {
       graph: input.graph,
       contentHash: hashWorkflowGraph(input.graph),
       message: input.message,
+      workflowContractRevisionId: input.workflowContractRevisionId,
     })
   }
 

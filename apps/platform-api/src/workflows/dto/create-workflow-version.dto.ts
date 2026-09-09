@@ -4,6 +4,7 @@ import { workflowGraphSchema } from '@linea/runtime'
 export const createWorkflowVersionSchema = z.object({
   graph: workflowGraphSchema,
   message: z.string().max(500).optional(),
+  workflowContractRevisionId: z.uuid().optional(),
 })
 
 export type CreateWorkflowVersionDto = z.infer<
