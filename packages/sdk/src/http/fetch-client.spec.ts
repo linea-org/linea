@@ -67,7 +67,7 @@ describe("request", () => {
     })
 
     const [url] = fetchSpy.mock.calls[0] as [string]
-    expect(url).toBe("http://localhost:3000/signals")
+    expect(url).toBe("http://localhost:3000/v1/signals")
   })
 
   it("throws LineaApiError with the parsed body and message for a standard Nest error", async () => {

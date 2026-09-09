@@ -7,6 +7,7 @@ import request from 'supertest'
 import type { App } from 'supertest/types'
 import { generateApiKey } from '../src/auth/api-key.util'
 import { WorkspaceAuthGuard } from '../src/auth/workspace-auth.guard'
+import { API_PREFIX } from '../src/common/api-prefix'
 import { bigIntJsonReplacer } from '../src/common/bigint-json-replacer'
 import { ConversationAnalysesController } from '../src/conversation-analyses/conversation-analyses.controller'
 import { ConversationAnalysesService } from '../src/conversation-analyses/conversation-analyses.service'
@@ -24,6 +25,7 @@ describe('Conversation analyses API (e2e)', () => {
       set: (key: string, value: unknown) => void
     }
     expressApp.set('json replacer', bigIntJsonReplacer)
+    app.setGlobalPrefix(API_PREFIX)
     await app.init()
   })
 
@@ -134,7 +136,7 @@ describe('Conversation analyses API (e2e)', () => {
       )
       const response = await request(app.getHttpServer())
         .get(
-          `/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
+          `/v1/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
         )
         .set('Authorization', `Bearer ${generatedKey.rawKey}`)
         .expect(200)
@@ -178,7 +180,7 @@ describe('Conversation analyses API (e2e)', () => {
       })
       const historicalResponse = await request(app.getHttpServer())
         .get(
-          `/workflows/${workflow.id}/conversations/${conversationId}/analysis?findingId=${olderFinding.id}`,
+          `/v1/workflows/${workflow.id}/conversations/${conversationId}/analysis?findingId=${olderFinding.id}`,
         )
         .set('Authorization', `Bearer ${generatedKey.rawKey}`)
         .expect(200)
@@ -242,7 +244,7 @@ describe('Conversation analyses API (e2e)', () => {
       })
       const disabledResponse = await request(app.getHttpServer())
         .get(
-          `/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
+          `/v1/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
         )
         .set('Authorization', `Bearer ${generatedKey.rawKey}`)
         .expect(200)
@@ -258,7 +260,7 @@ describe('Conversation analyses API (e2e)', () => {
       )
       const response = await request(app.getHttpServer())
         .get(
-          `/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
+          `/v1/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
         )
         .set('Authorization', `Bearer ${generatedKey.rawKey}`)
         .expect(200)
@@ -348,7 +350,7 @@ describe('Conversation analyses API (e2e)', () => {
       })
       const sampledResponse = await request(app.getHttpServer())
         .get(
-          `/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
+          `/v1/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
         )
         .set('Authorization', `Bearer ${generatedKey.rawKey}`)
         .expect(200)
@@ -363,7 +365,7 @@ describe('Conversation analyses API (e2e)', () => {
       })
       const analyzedResponse = await request(app.getHttpServer())
         .get(
-          `/workflows/${workflow.id}/conversations/${analyzedConversationId}/analysis`,
+          `/v1/workflows/${workflow.id}/conversations/${analyzedConversationId}/analysis`,
         )
         .set('Authorization', `Bearer ${generatedKey.rawKey}`)
         .expect(200)
@@ -432,7 +434,7 @@ describe('Conversation analyses API (e2e)', () => {
       })
       const response = await request(app.getHttpServer())
         .get(
-          `/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
+          `/v1/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
         )
         .set('Authorization', `Bearer ${generatedKey.rawKey}`)
         .expect(200)
@@ -500,7 +502,7 @@ describe('Conversation analyses API (e2e)', () => {
       })
       await request(app.getHttpServer())
         .get(
-          `/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
+          `/v1/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
         )
         .set('Authorization', `Bearer ${generatedKey.rawKey}`)
         .expect(404)

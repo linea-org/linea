@@ -5,7 +5,7 @@ import { apiFetch } from "./api-fetch"
 
 export const fetchSessionFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<SessionData | null> => {
-    const res = await apiFetch("/api/auth/get-session")
+    const res = await apiFetch("/auth/get-session")
     if (!res.ok) return null
     const data = (await res.json()) as SessionData | null
     if (!data?.user || !data?.session) return null
@@ -21,7 +21,7 @@ export type OrganizationSummary = {
 
 export const listOrganizationsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<OrganizationSummary[]> => {
-    const res = await apiFetch("/api/auth/organization/list")
+    const res = await apiFetch("/auth/organization/list")
     if (!res.ok) return []
     const data = (await res.json()) as OrganizationSummary[] | null
     return data ?? []
@@ -31,7 +31,7 @@ export const listOrganizationsFn = createServerFn({ method: "GET" }).handler(
 export const setActiveOrganizationFn = createServerFn({ method: "POST" })
   .inputValidator((data: { organizationId: string }) => data)
   .handler(async ({ data }) => {
-    const res = await apiFetch("/api/auth/organization/set-active", {
+    const res = await apiFetch("/auth/organization/set-active", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ organizationId: data.organizationId }),

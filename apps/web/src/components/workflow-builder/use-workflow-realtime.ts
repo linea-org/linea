@@ -29,7 +29,8 @@ export function useWorkflowRealtime(
   onDraftUpdatedRef.current = onDraftUpdated
 
   useEffect(() => {
-    const socket: Socket = io(`${API_URL}/workflows`, {
+    const socket: Socket = io(`${API_URL}/v1/workflows`, {
+      path: "/v1/socket.io",
       withCredentials: true,
       transports: ["websocket"],
       // Re-evaluated on every connection attempt, including automatic reconnects, so an expired token doesn't strand the socket disconnected.

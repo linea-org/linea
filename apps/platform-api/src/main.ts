@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core'
 import { IoAdapter } from '@nestjs/platform-socket.io'
 import { enabledSocialProviders } from '@linea/auth'
 import { AppModule } from './app.module'
+import { API_PREFIX } from './common/api-prefix'
 import { bigIntJsonReplacer } from './common/bigint-json-replacer'
 import { getTrustedOrigins, isTrustedOrigin } from './common/trusted-origin'
 
@@ -18,6 +19,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
   })
+  app.setGlobalPrefix(API_PREFIX)
 
   const expressApp = app.getHttpAdapter().getInstance() as {
     set: (key: string, value: unknown) => void

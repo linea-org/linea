@@ -76,11 +76,11 @@ Postgres.
 pnpm dev
 ```
 
-| App                  | URL                          |
-| -------------------- | ---------------------------- |
-| Web (TanStack Start) | http://localhost:3001        |
-| API (NestJS)         | http://localhost:3000        |
-| API health check     | http://localhost:3000/health |
+| App                  | URL                             |
+| -------------------- | ------------------------------- |
+| Web (TanStack Start) | http://localhost:3001           |
+| API (NestJS)         | http://localhost:3000           |
+| API health check     | http://localhost:3000/v1/health |
 
 ## Project structure
 

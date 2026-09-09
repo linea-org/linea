@@ -57,7 +57,7 @@ describe("LineaClient", () => {
   })
 
   describe("triggerWorkflow", () => {
-    it("POSTs to /triggers/:slug with the payload and returns the Execution", async () => {
+    it("POSTs to /v1/triggers/:slug with the payload and returns the Execution", async () => {
       const fixture = fixtureExecution()
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
@@ -68,7 +68,7 @@ describe("LineaClient", () => {
       expect(result).toEqual(fixture)
       expect(result.costMicros).toBe("1500")
       const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
-      expect(url).toBe("http://localhost:3000/triggers/my-slug")
+      expect(url).toBe("http://localhost:3000/v1/triggers/my-slug")
       expect(init.method).toBe("POST")
       expect(init.body).toBe(JSON.stringify({ foo: "bar" }))
     })
@@ -85,7 +85,7 @@ describe("LineaClient", () => {
   })
 
   describe("getExecution", () => {
-    it("GETs /executions/:id and returns the full detail", async () => {
+    it("GETs /v1/executions/:id and returns the full detail", async () => {
       const detail: ExecutionDetail = {
         execution: fixtureExecution({ status: "paused" }),
         steps: [],
@@ -101,7 +101,7 @@ describe("LineaClient", () => {
 
       expect(result).toEqual(detail)
       const [url] = fetchSpy.mock.calls[0] as [string]
-      expect(url).toBe("http://localhost:3000/executions/exec-1")
+      expect(url).toBe("http://localhost:3000/v1/executions/exec-1")
     })
 
     it("throws LineaApiError with status 404 when not found", async () => {
@@ -116,7 +116,7 @@ describe("LineaClient", () => {
   })
 
   describe("listWorkflowExecutions", () => {
-    it("GETs /workflows/:id/executions and returns the array", async () => {
+    it("GETs /v1/workflows/:id/executions and returns the array", async () => {
       const fixtures = [
         fixtureExecution({ id: "e1" }),
         fixtureExecution({ id: "e2" }),
@@ -129,7 +129,7 @@ describe("LineaClient", () => {
 
       expect(result).toEqual(fixtures)
       const [url] = fetchSpy.mock.calls[0] as [string]
-      expect(url).toBe("http://localhost:3000/workflows/wf-1/executions")
+      expect(url).toBe("http://localhost:3000/v1/workflows/wf-1/executions")
     })
 
     it("throws LineaApiError with status 404 for an unknown workflow", async () => {
@@ -251,17 +251,19 @@ describe("LineaClient", () => {
   })
 
   describe("listSignals", () => {
-    it("GETs /signals with and without a workflowId filter", async () => {
+    it("GETs /v1/signals with and without a workflowId filter", async () => {
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
         .mockImplementation(() => Promise.resolve(jsonResponse([])))
 
       await client().listSignals()
-      expect(fetchSpy.mock.calls[0]?.[0]).toBe("http://localhost:3000/signals")
+      expect(fetchSpy.mock.calls[0]?.[0]).toBe(
+        "http://localhost:3000/v1/signals"
+      )
 
       await client().listSignals({ workflowId: "wf-1" })
       expect(fetchSpy.mock.calls[1]?.[0]).toBe(
-        "http://localhost:3000/signals?workflowId=wf-1"
+        "http://localhost:3000/v1/signals?workflowId=wf-1"
       )
     })
 
@@ -349,7 +351,7 @@ describe("LineaClient", () => {
   })
 
   describe("resolveSignal", () => {
-    it("POSTs to /signals/:id/resolve with no body and returns the updated Signal", async () => {
+    it("POSTs to /v1/signals/:id/resolve with no body and returns the updated Signal", async () => {
       const signal = {
         id: "sig-1",
         workspaceId: "ws-1",
@@ -369,7 +371,7 @@ describe("LineaClient", () => {
 
       expect(result).toEqual(signal)
       const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
-      expect(url).toBe("http://localhost:3000/signals/sig-1/resolve")
+      expect(url).toBe("http://localhost:3000/v1/signals/sig-1/resolve")
       expect(init.method).toBe("POST")
       expect(init.body).toBeUndefined()
     })

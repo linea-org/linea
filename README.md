@@ -39,7 +39,7 @@ pnpm dev
 ```
 
 Web runs at http://localhost:3001, the API at http://localhost:3000
-(health check at `/health`).
+(health check at `/v1/health`).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full setup guide, project
 layout, and environment variable reference.
