@@ -51,6 +51,14 @@ export const relations = defineRelations(schema, (r) => ({
     schedules: r.many.schedules(),
     secrets: r.many.secrets(),
     apiKeys: r.many.apiKeys(),
+    applications: r.many.applications(),
+  },
+
+  applications: {
+    workspace: r.one.organizations({
+      from: r.applications.workspaceId,
+      to: r.organizations.id,
+    }),
   },
 
   workflows: {

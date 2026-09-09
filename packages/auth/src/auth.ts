@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm"
 import { db, repositories, schema } from "@linea/db"
 import { sendEmail } from "./email.js"
 import { createMagicLinkEmailUrl } from "./magic-link-email-url.js"
+import { RECENT_AUTHENTICATION_WINDOW_SECONDS } from "./session-policy.js"
 import {
   existingAccountEmailHtml,
   magicLinkEmailHtml,
@@ -145,6 +146,9 @@ export const auth = betterAuth({
     enabled: true,
     window: 60,
     max: 100,
+  },
+  session: {
+    freshAge: RECENT_AUTHENTICATION_WINDOW_SECONDS,
   },
   socialProviders: {
     ...(googleCredentials

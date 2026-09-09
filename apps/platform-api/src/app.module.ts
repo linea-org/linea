@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common'
 import { AuthModule } from '@thallesp/nestjs-better-auth'
 import { auth } from '@linea/auth'
 import { ApiKeysModule } from './api-keys/api-keys.module'
+import { ApplicationsModule } from './applications/applications.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { ApprovalsModule } from './approvals/approvals.module'
@@ -26,6 +27,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     }),
     QueueModule,
     ApiKeysModule,
+    ApplicationsModule,
     WorkflowsModule,
     ExecutionsModule,
     TriggersModule,

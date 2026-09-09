@@ -17,6 +17,11 @@ export const auditAction = pgEnum("audit_action", [
   "workspace.deleted",
   "workspace.transferred",
 
+  "application.created",
+  "application.updated",
+  "application.trust_configuration_updated",
+  "application.disabled",
+
   // Members
   "member.invited",
   "member.invitation_revoked",
@@ -74,6 +79,7 @@ export const auditAction = pgEnum("audit_action", [
 
 export const auditResource = pgEnum("audit_resource", [
   "workspace",
+  "application",
   "member",
   "workflow",
   "execution",
