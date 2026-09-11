@@ -236,6 +236,20 @@ describe("Application key repository", () => {
         .set({ enabled: false })
         .where(eq(applications.id, application.id))
       expect(
+        await createApplicationKey(
+          tx,
+          {
+            workspaceId: organization.id,
+            applicationId: application.id,
+            name: "Dead key",
+            scopes: ["webhooks:read"],
+            hashedKey: "disabled-application-key-hash",
+            keyPrefix: "lin_app_dis1",
+          },
+          { userId: actor.id }
+        )
+      ).toEqual({ outcome: "application_disabled" })
+      expect(
         await authenticateApplicationKey(tx, "revocable-application-key-hash")
       ).toBeUndefined()
       await tx

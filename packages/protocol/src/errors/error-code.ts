@@ -2,6 +2,7 @@ import { z } from "zod"
 
 export const publicErrorCodes = [
   "validation_failed",
+  "service_unavailable",
   "authentication_failed",
   "scope_denied",
   "resource_not_found",
@@ -31,6 +32,7 @@ export type PublicErrorCode = z.infer<typeof publicErrorCodeSchema>
 
 export const publicErrorStatuses = {
   validation_failed: 400,
+  service_unavailable: 503,
   authentication_failed: 401,
   scope_denied: 403,
   resource_not_found: 404,

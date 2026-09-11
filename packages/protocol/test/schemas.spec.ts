@@ -94,6 +94,7 @@ describe("public protocol schemas", () => {
   it("publishes every accepted stable failure category", () => {
     expect(publicErrorCodes).toEqual([
       "validation_failed",
+      "service_unavailable",
       "authentication_failed",
       "scope_denied",
       "resource_not_found",

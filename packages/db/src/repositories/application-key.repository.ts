@@ -22,6 +22,7 @@ export type CreateApplicationKeyInput = {
 export type CreateApplicationKeyResult =
   | { outcome: "created"; applicationKey: ApplicationKey }
   | { outcome: "application_not_found" }
+  | { outcome: "application_disabled" }
 
 type ApplicationKeyActivityAction = Extract<
   NewAuditLog["action"],
@@ -62,9 +63,9 @@ export async function createApplicationKey(
   input: CreateApplicationKeyInput,
   actor: ApplicationKeyActor
 ): Promise<CreateApplicationKeyResult> {
-  return db.transaction(async (tx) => {
+  return db.transaction(async (tx): Promise<CreateApplicationKeyResult> => {
     const [application] = await tx
-      .select({ id: applications.id })
+      .select({ id: applications.id, enabled: applications.enabled })
       .from(applications)
       .where(
         and(
@@ -74,6 +75,7 @@ export async function createApplicationKey(
       )
       .for("share")
     if (!application) return { outcome: "application_not_found" }
+    if (!application.enabled) return { outcome: "application_disabled" }
     const [applicationKey] = await tx
       .insert(applicationKeys)
       .values(input)
@@ -117,6 +119,17 @@ export async function revokeApplicationKey(
   actor: ApplicationKeyActor
 ): Promise<ApplicationKey | undefined> {
   return db.transaction(async (tx) => {
+    const [application] = await tx
+      .select({ enabled: applications.enabled })
+      .from(applications)
+      .where(
+        and(
+          eq(applications.workspaceId, workspaceId),
+          eq(applications.id, applicationId)
+        )
+      )
+      .for("share")
+    if (!application?.enabled) return undefined
     const [existing] = await tx
       .select()
       .from(applicationKeys)

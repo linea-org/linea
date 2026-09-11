@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
 import { db, repositories, type ApplicationKey } from '@linea/db'
 import { generateApplicationKey } from '../auth/api-key.util'
 import type { CreateApplicationKeyDto } from './dto/create-application-key.dto'
@@ -44,6 +48,9 @@ export class ApplicationKeysService {
     )
     if (result.outcome === 'application_not_found') {
       throw new NotFoundException('Application not found')
+    }
+    if (result.outcome === 'application_disabled') {
+      throw new ConflictException('Application is disabled')
     }
     return { ...toPublicApplicationKey(result.applicationKey), rawKey }
   }
