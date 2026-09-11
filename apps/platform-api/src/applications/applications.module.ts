@@ -9,6 +9,9 @@ import { ApplicationRuntimeController } from './application-runtime.controller'
 import { ApplicationRuntimeService } from './application-runtime.service'
 import { ApplicationKeyGuard } from '../auth/application-key.guard'
 import { ApplicationScopeGuard } from '../auth/application-scope.guard'
+import { ApplicationExternalSubjectsController } from './application-external-subjects.controller'
+import { ExternalSubjectsController } from './external-subjects.controller'
+import { ExternalSubjectsService } from './external-subjects.service'
 
 @Module({
   controllers: [
@@ -16,6 +19,8 @@ import { ApplicationScopeGuard } from '../auth/application-scope.guard'
     ApplicationWorkflowBindingsController,
     ApplicationKeysController,
     ApplicationRuntimeController,
+    ApplicationExternalSubjectsController,
+    ExternalSubjectsController,
   ],
   providers: [
     ApplicationsService,
@@ -24,6 +29,7 @@ import { ApplicationScopeGuard } from '../auth/application-scope.guard'
     ApplicationRuntimeService,
     ApplicationKeyGuard,
     ApplicationScopeGuard,
+    ExternalSubjectsService,
   ],
 })
 export class ApplicationsModule {}

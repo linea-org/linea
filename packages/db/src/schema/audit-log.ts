@@ -30,6 +30,10 @@ export const auditAction = pgEnum("audit_action", [
   "application_key.scope_denied",
   "application_key.cross_application_access_denied",
 
+  "external_subject.provisioned",
+  "external_subject.disabled",
+  "external_subject.erased",
+
   // Members
   "member.invited",
   "member.invitation_revoked",
@@ -89,6 +93,7 @@ export const auditResource = pgEnum("audit_resource", [
   "workspace",
   "application",
   "application_key",
+  "external_subject",
   "member",
   "workflow",
   "execution",
