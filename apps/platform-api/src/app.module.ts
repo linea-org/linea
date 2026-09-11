@@ -10,6 +10,7 @@ import { ApprovalsModule } from './approvals/approvals.module'
 import { ConversationAnalysesModule } from './conversation-analyses/conversation-analyses.module'
 import { RegressionsModule } from './regressions/regressions.module'
 import { ExecutionsModule } from './executions/executions.module'
+import { EndUserAuthorizationModule } from './end-user-authorization/end-user-authorization.module'
 import { HealthController } from './health/health.controller'
 import { MeController } from './me/me.controller'
 import { NotificationsModule } from './notifications/notifications.module'
@@ -28,6 +29,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     QueueModule,
     ApiKeysModule,
     ApplicationsModule,
+    EndUserAuthorizationModule,
     WorkflowsModule,
     ExecutionsModule,
     TriggersModule,

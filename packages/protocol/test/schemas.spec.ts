@@ -3,6 +3,7 @@ import {
   applicationKeyScopeSchema,
   applicationKeyScopes,
   externalSubjectSchema,
+  exchangeEndUserAuthorizationSchema,
   eventEnvelopeSchema,
   idempotencyHeadersSchema,
   paginatedResponseSchema,
@@ -10,6 +11,7 @@ import {
   publicErrorCodes,
   publicErrorResponseSchema,
   provisionExternalSubjectSchema,
+  startEndUserAuthorizationSchema,
   resourceReferenceSchema,
   workflowContractRevisionSchema,
 } from "../src"
@@ -81,6 +83,22 @@ describe("public protocol schemas", () => {
         updatedAt: "2026-09-11T12:00:00Z",
       })
     ).toMatchObject({ id: "subject_123", status: "provisioned" })
+    expect(
+      startEndUserAuthorizationSchema.parse({
+        applicationId: "application_123",
+        redirectUri: "https://app.example.com/auth/callback",
+        codeChallenge: "a".repeat(43),
+      })
+    ).toMatchObject({ codeChallenge: "a".repeat(43) })
+    expect(
+      exchangeEndUserAuthorizationSchema.parse({
+        applicationId: "application_123",
+        redirectUri: "https://app.example.com/auth/callback",
+        code: "authorization-code-123",
+        state: "s".repeat(43),
+        codeVerifier: "v".repeat(43),
+      })
+    ).toMatchObject({ state: "s".repeat(43) })
   })
 
   it("rejects malformed and unknown wire values", () => {
@@ -126,6 +144,8 @@ describe("public protocol schemas", () => {
       "scope_denied",
       "resource_not_found",
       "external_subject_disabled",
+      "identity_exchange_failed",
+      "identity_provider_unavailable",
       "session_expired",
       "session_revoked",
       "proof_invalid",

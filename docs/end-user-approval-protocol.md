@@ -175,13 +175,12 @@ The proposed `confirmations` API-key purpose also conflicts with the stated rule
 ### Recommended strong mode
 
 1. The Operator registers an OIDC issuer, client identifier, audience, JWKS URL, subject claim, redirect origins, and allowed browser origins on an Application.
-2. The End User's browser or native client signs in through the Operator's identity provider using Authorization Code with PKCE.
-3. The End User's client sends the resulting identity token directly to Linea; the authorization code, PKCE verifier, and token never transit the Operator backend.
-4. Linea verifies issuer, audience, signature, expiry, and subject.
-5. The client generates a non-extractable key and registers its public-key thumbprint during session exchange.
-6. Linea derives the External Subject from the verified issuer and subject claim.
-7. Linea issues an access token bound to the client key thumbprint and a revocable server-side session record.
-8. Each protected request carries a standard DPoP proof bound to method, URL, access token, timestamp, server nonce, and unique proof identifier.
+2. The End User's browser or native client starts Linea's Authorization Code with PKCE exchange and follows the returned identity-provider URL.
+3. The identity provider redirects the authorization response to the End User's client, which sends the code and PKCE verifier directly to Linea; neither transits the Operator backend.
+4. Linea exchanges the code, validates the identity token against the Application's protected identity configuration, derives the External Subject, and returns a short-lived single-use identity exchange.
+5. The client generates a non-extractable key and sends the identity exchange plus its public-key thumbprint during session creation.
+6. Linea consumes the exchange and issues an access token bound to the client key thumbprint and a revocable server-side session record.
+7. Each protected request carries a standard DPoP proof bound to method, URL, access token, timestamp, server nonce, and unique proof identifier.
 
 This prevents an Operator backend from copying a Linea bearer token and replaying it from the server. The guarantee depends on the identity token and PKCE verifier remaining client-side. It does not protect against an Operator that compromises its identity issuer or deliberately serves malicious frontend code. Defending against the Operator-controlled UI requires a Linea-hosted confirmation surface or a user-presence mechanism such as WebAuthn.
 
@@ -391,33 +390,47 @@ An Application binding pins a contract revision, not an implementation version. 
 
 The public protocol validates incoming payloads and outgoing public results against the bound contract. Internal node data is never used as an implicit public result.
 
-### Session exchange
+### End-user authorization and identity exchange
 
 ```http
+POST /v1/user-sessions/authorization
 POST /v1/user-sessions/exchange
 ```
 
-Input:
+The browser or native client first generates a PKCE verifier and S256 challenge. It sends the challenge with its exact callback URI to the authorization endpoint:
 
 ```json
 {
   "applicationId": "app_123",
-  "identityToken": "operator-issued JWT",
-  "proofKey": "public JWK"
+  "redirectUri": "https://app.example.com/auth/callback",
+  "codeChallenge": "base64url-sha256-of-verifier"
 }
 ```
 
-Output:
+Linea returns the configured identity provider's authorization URL. The identity provider redirects the authorization response to the client's registered callback, never to the operator's backend. The client then sends the code, state, and original verifier directly to Linea:
 
 ```json
 {
-  "sessionToken": "short-lived token",
-  "expiresAt": "2026-09-06T12:00:00Z",
-  "subject": { "id": "subject_123" }
+  "applicationId": "app_123",
+  "redirectUri": "https://app.example.com/auth/callback",
+  "code": "provider-authorization-code",
+  "state": "linea-issued-state",
+  "codeVerifier": "client-generated-pkce-verifier"
 }
 ```
 
-The raw issuer subject should not become a globally meaningful identifier. Linea resolves it within the workspace and issuer namespace.
+After Linea verifies the code through the configured provider and validates the ID token issuer, Application audiences, signature, expiry, nonce, and configured subject claim, it returns a short-lived, single-use identity exchange:
+
+```json
+{
+  "applicationId": "app_123",
+  "externalSubjectId": "subject_123",
+  "exchangeToken": "lnx_single-use-token",
+  "expiresAt": "2026-09-06T12:00:00Z"
+}
+```
+
+The next protocol step exchanges this artifact for a proof-of-possession End-User Session. Raw authorization codes, PKCE verifiers, nonces, ID tokens, and provider subjects are never placed in logs, audit metadata, webhooks, or Workflow input. The raw issuer subject is resolved only within its workspace and issuer namespace.
 
 ### End-user workflow and conversation endpoints
 

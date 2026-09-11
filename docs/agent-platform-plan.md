@@ -1045,7 +1045,9 @@ These operations are implemented incrementally in dependency order.
 | `POST /v1/executions/{executionId}/cancel`                      | `@linea/sdk/server`                                                                |
 | `GET /v1/applications/{applicationId}/events`                   | `@linea/sdk/server`                                                                |
 | `GET /v1/applications/{applicationId}/webhook-deliveries`       | `@linea/sdk/server`                                                                |
+| `POST /v1/user-sessions/authorization`                          | `@linea/sdk/user`                                                                  |
 | `POST /v1/user-sessions/exchange`                               | `@linea/sdk/user`                                                                  |
+| `POST /v1/user-sessions`                                        | `@linea/sdk/user`                                                                  |
 | `POST /v1/user/executions`                                      | `@linea/sdk/user`                                                                  |
 | `POST /v1/user/conversations`                                   | `@linea/sdk/user`                                                                  |
 | `POST /v1/user/conversations/{conversationId}/messages`         | `@linea/sdk/user`                                                                  |

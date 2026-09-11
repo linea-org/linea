@@ -31,6 +31,7 @@ export const auditAction = pgEnum("audit_action", [
   "application_key.cross_application_access_denied",
 
   "external_subject.provisioned",
+  "external_subject.verified",
   "external_subject.disabled",
   "external_subject.erased",
 
