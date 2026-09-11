@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core"
 import { users } from "./user.js"
 import { organizations } from "./organisation.js"
+import { applicationKeys } from "./application-key.js"
 
 export const auditAction = pgEnum("audit_action", [
   // Workspace
@@ -21,6 +22,13 @@ export const auditAction = pgEnum("audit_action", [
   "application.updated",
   "application.trust_configuration_updated",
   "application.disabled",
+
+  "application_key.created",
+  "application_key.rotated",
+  "application_key.revoked",
+  "application_key.used",
+  "application_key.scope_denied",
+  "application_key.cross_application_access_denied",
 
   // Members
   "member.invited",
@@ -80,6 +88,7 @@ export const auditAction = pgEnum("audit_action", [
 export const auditResource = pgEnum("audit_resource", [
   "workspace",
   "application",
+  "application_key",
   "member",
   "workflow",
   "execution",
@@ -99,6 +108,10 @@ export const auditLogs = snakeCase.table(
       .notNull(),
 
     actorUserId: uuid().references(() => users.id, {
+      onDelete: "set null",
+    }),
+
+    actorApplicationKeyId: uuid().references(() => applicationKeys.id, {
       onDelete: "set null",
     }),
 

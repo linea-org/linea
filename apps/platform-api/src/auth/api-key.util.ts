@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 
 const KEY_PREFIX = 'lin_'
+const APPLICATION_KEY_PREFIX = 'lin_app_'
 const PREFIX_DISPLAY_LENGTH = 12
 
 export type GeneratedApiKey = {
@@ -12,6 +13,15 @@ export type GeneratedApiKey = {
 /** The raw key is only ever available here — callers must show it once and store only the hash. */
 export function generateApiKey(): GeneratedApiKey {
   const rawKey = `${KEY_PREFIX}${randomBytes(24).toString('base64url')}`
+  return {
+    rawKey,
+    hashedKey: hashApiKey(rawKey),
+    keyPrefix: rawKey.slice(0, PREFIX_DISPLAY_LENGTH),
+  }
+}
+
+export function generateApplicationKey(): GeneratedApiKey {
+  const rawKey = `${APPLICATION_KEY_PREFIX}${randomBytes(24).toString('base64url')}`
   return {
     rawKey,
     hashedKey: hashApiKey(rawKey),
