@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest"
 import {
   applicationKeyScopeSchema,
   applicationKeyScopes,
+  externalSubjectSchema,
   eventEnvelopeSchema,
   idempotencyHeadersSchema,
   paginatedResponseSchema,
   paginationQuerySchema,
   publicErrorCodes,
   publicErrorResponseSchema,
+  provisionExternalSubjectSchema,
   resourceReferenceSchema,
   workflowContractRevisionSchema,
 } from "../src"
@@ -60,6 +62,25 @@ describe("public protocol schemas", () => {
     expect(applicationKeyScopeSchema.parse("executions:start")).toBe(
       "executions:start"
     )
+    expect(
+      provisionExternalSubjectSchema.parse({
+        issuerSubject: "customer-123",
+        metadata: { prospect: "lead-1", priority: 2 },
+      })
+    ).toEqual({
+      issuerSubject: "customer-123",
+      metadata: { prospect: "lead-1", priority: 2 },
+    })
+    expect(
+      externalSubjectSchema.parse({
+        id: "subject_123",
+        issuerSubject: "customer-123",
+        status: "provisioned",
+        metadata: {},
+        createdAt: "2026-09-11T12:00:00Z",
+        updatedAt: "2026-09-11T12:00:00Z",
+      })
+    ).toMatchObject({ id: "subject_123", status: "provisioned" })
   })
 
   it("rejects malformed and unknown wire values", () => {
@@ -89,6 +110,12 @@ describe("public protocol schemas", () => {
     expect(
       applicationKeyScopeSchema.safeParse("applications:admin").success
     ).toBe(false)
+    expect(
+      provisionExternalSubjectSchema.safeParse({
+        issuerSubject: "subject",
+        metadata: { nested: { secret: true } },
+      }).success
+    ).toBe(false)
   })
 
   it("publishes every accepted stable failure category", () => {
@@ -98,6 +125,7 @@ describe("public protocol schemas", () => {
       "authentication_failed",
       "scope_denied",
       "resource_not_found",
+      "external_subject_disabled",
       "session_expired",
       "session_revoked",
       "proof_invalid",

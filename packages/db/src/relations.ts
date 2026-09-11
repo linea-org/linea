@@ -55,6 +55,8 @@ export const relations = defineRelations(schema, (r) => ({
     workflowContractRevisions: r.many.workflowContractRevisions(),
     applicationWorkflowBindings: r.many.applicationWorkflowBindings(),
     applicationKeys: r.many.applicationKeys(),
+    externalSubjects: r.many.externalSubjects(),
+    externalSubjectApplications: r.many.externalSubjectApplications(),
   },
 
   applications: {
@@ -65,6 +67,30 @@ export const relations = defineRelations(schema, (r) => ({
     workflowBindings: r.many.applicationWorkflowBindings(),
     keys: r.many.applicationKeys(),
     executions: r.many.executions(),
+    externalSubjects: r.many.externalSubjectApplications(),
+  },
+
+  externalSubjects: {
+    workspace: r.one.organizations({
+      from: r.externalSubjects.workspaceId,
+      to: r.organizations.id,
+    }),
+    applications: r.many.externalSubjectApplications(),
+  },
+
+  externalSubjectApplications: {
+    workspace: r.one.organizations({
+      from: r.externalSubjectApplications.workspaceId,
+      to: r.organizations.id,
+    }),
+    application: r.one.applications({
+      from: r.externalSubjectApplications.applicationId,
+      to: r.applications.id,
+    }),
+    externalSubject: r.one.externalSubjects({
+      from: r.externalSubjectApplications.externalSubjectId,
+      to: r.externalSubjects.id,
+    }),
   },
 
   applicationKeys: {
