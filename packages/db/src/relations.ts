@@ -54,6 +54,7 @@ export const relations = defineRelations(schema, (r) => ({
     applications: r.many.applications(),
     workflowContractRevisions: r.many.workflowContractRevisions(),
     applicationWorkflowBindings: r.many.applicationWorkflowBindings(),
+    applicationKeys: r.many.applicationKeys(),
   },
 
   applications: {
@@ -62,7 +63,22 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.organizations.id,
     }),
     workflowBindings: r.many.applicationWorkflowBindings(),
+    keys: r.many.applicationKeys(),
     executions: r.many.executions(),
+  },
+
+  applicationKeys: {
+    workspace: r.one.organizations({
+      from: r.applicationKeys.workspaceId,
+      to: r.organizations.id,
+    }),
+    application: r.one.applications({
+      from: r.applicationKeys.applicationId,
+      to: r.applications.id,
+    }),
+    auditLogs: r.many.auditLogs({
+      alias: "audit_application_key_actor",
+    }),
   },
 
   applicationWorkflowBindings: {
@@ -217,6 +233,12 @@ export const relations = defineRelations(schema, (r) => ({
     actor: r.one.users({
       from: r.auditLogs.actorUserId,
       to: r.users.id,
+    }),
+
+    applicationKeyActor: r.one.applicationKeys({
+      alias: "audit_application_key_actor",
+      from: r.auditLogs.actorApplicationKeyId,
+      to: r.applicationKeys.id,
     }),
 
     targetUser: r.one.users({

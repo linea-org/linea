@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
+  applicationKeyScopeSchema,
+  applicationKeyScopes,
   eventEnvelopeSchema,
   idempotencyHeadersSchema,
   paginatedResponseSchema,
@@ -55,6 +57,9 @@ describe("public protocol schemas", () => {
         createdAt: "2026-09-09T12:00:00Z",
       })
     ).toMatchObject({ revision: 1, inputSchema: { type: "object" } })
+    expect(applicationKeyScopeSchema.parse("executions:start")).toBe(
+      "executions:start"
+    )
   })
 
   it("rejects malformed and unknown wire values", () => {
@@ -81,11 +86,18 @@ describe("public protocol schemas", () => {
         error: { code: "database_failed", message: "internal detail" },
       }).success
     ).toBe(false)
+    expect(
+      applicationKeyScopeSchema.safeParse("applications:admin").success
+    ).toBe(false)
   })
 
   it("publishes every accepted stable failure category", () => {
     expect(publicErrorCodes).toEqual([
       "validation_failed",
+      "service_unavailable",
+      "authentication_failed",
+      "scope_denied",
+      "resource_not_found",
       "session_expired",
       "session_revoked",
       "proof_invalid",
@@ -105,5 +117,6 @@ describe("public protocol schemas", () => {
       "action_intent_stale",
       "rate_limited",
     ])
+    expect(applicationKeyScopes).toHaveLength(8)
   })
 })

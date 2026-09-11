@@ -15,6 +15,7 @@ import {
 import type { auth } from '@linea/auth'
 import { RequireRole } from '../auth/require-role.decorator'
 import { WorkspaceRoleGuard } from '../auth/workspace-role.guard'
+import { RecentAuthenticationGuard } from '../auth/recent-authentication.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import { ApiKeysService } from './api-keys.service'
 import {
@@ -35,6 +36,7 @@ export class ApiKeysController {
   }
 
   @Post()
+  @UseGuards(RecentAuthenticationGuard)
   create(
     @Session() session: UserSession<typeof auth>,
     @Body(new ZodValidationPipe(createApiKeySchema)) body: CreateApiKeyDto,
@@ -48,6 +50,7 @@ export class ApiKeysController {
   }
 
   @Delete(':id')
+  @UseGuards(RecentAuthenticationGuard)
   revoke(
     @Session() session: UserSession<typeof auth>,
     @Param('id') id: string,
