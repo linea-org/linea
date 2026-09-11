@@ -252,10 +252,6 @@ describe("Application key repository", () => {
       expect(
         await authenticateApplicationKey(tx, "revocable-application-key-hash")
       ).toBeUndefined()
-      await tx
-        .update(applications)
-        .set({ enabled: true })
-        .where(eq(applications.id, application.id))
       const first = await revokeApplicationKey(
         tx,
         organization.id,

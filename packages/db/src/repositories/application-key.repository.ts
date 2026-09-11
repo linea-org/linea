@@ -129,7 +129,7 @@ export async function revokeApplicationKey(
         )
       )
       .for("share")
-    if (!application?.enabled) return undefined
+    if (!application) return undefined
     const [existing] = await tx
       .select()
       .from(applicationKeys)
