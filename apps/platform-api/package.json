@@ -42,6 +42,7 @@
     "bullmq": "^5",
     "helmet": "8.3.0",
     "ioredis": "^5",
+    "jose-v5": "npm:jose@5.10.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.3",

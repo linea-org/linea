@@ -17,3 +17,10 @@ export function isTrustedOrigin(origin: string, allowlist: string[]): boolean {
 
   return false
 }
+
+export function usesApplicationOriginPolicy(path: string): boolean {
+  return (
+    path === '/v1/user-sessions/authorization' ||
+    path === '/v1/user-sessions/exchange'
+  )
+}

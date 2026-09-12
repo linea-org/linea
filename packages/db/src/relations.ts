@@ -57,6 +57,8 @@ export const relations = defineRelations(schema, (r) => ({
     applicationKeys: r.many.applicationKeys(),
     externalSubjects: r.many.externalSubjects(),
     externalSubjectApplications: r.many.externalSubjectApplications(),
+    endUserAuthorizationRequests: r.many.endUserAuthorizationRequests(),
+    endUserIdentityExchanges: r.many.endUserIdentityExchanges(),
   },
 
   applications: {
@@ -68,6 +70,8 @@ export const relations = defineRelations(schema, (r) => ({
     keys: r.many.applicationKeys(),
     executions: r.many.executions(),
     externalSubjects: r.many.externalSubjectApplications(),
+    endUserAuthorizationRequests: r.many.endUserAuthorizationRequests(),
+    endUserIdentityExchanges: r.many.endUserIdentityExchanges(),
   },
 
   externalSubjects: {
@@ -76,6 +80,8 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.organizations.id,
     }),
     applications: r.many.externalSubjectApplications(),
+    authorizationRequests: r.many.endUserAuthorizationRequests(),
+    identityExchanges: r.many.endUserIdentityExchanges(),
   },
 
   externalSubjectApplications: {
@@ -89,6 +95,36 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     externalSubject: r.one.externalSubjects({
       from: r.externalSubjectApplications.externalSubjectId,
+      to: r.externalSubjects.id,
+    }),
+  },
+
+  endUserAuthorizationRequests: {
+    workspace: r.one.organizations({
+      from: r.endUserAuthorizationRequests.workspaceId,
+      to: r.organizations.id,
+    }),
+    application: r.one.applications({
+      from: r.endUserAuthorizationRequests.applicationId,
+      to: r.applications.id,
+    }),
+    externalSubject: r.one.externalSubjects({
+      from: r.endUserAuthorizationRequests.externalSubjectId,
+      to: r.externalSubjects.id,
+    }),
+  },
+
+  endUserIdentityExchanges: {
+    workspace: r.one.organizations({
+      from: r.endUserIdentityExchanges.workspaceId,
+      to: r.organizations.id,
+    }),
+    application: r.one.applications({
+      from: r.endUserIdentityExchanges.applicationId,
+      to: r.applications.id,
+    }),
+    externalSubject: r.one.externalSubjects({
+      from: r.endUserIdentityExchanges.externalSubjectId,
       to: r.externalSubjects.id,
     }),
   },

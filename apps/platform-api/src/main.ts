@@ -7,7 +7,11 @@ import { enabledSocialProviders } from '@linea/auth'
 import { AppModule } from './app.module'
 import { API_PREFIX } from './common/api-prefix'
 import { bigIntJsonReplacer } from './common/bigint-json-replacer'
-import { getTrustedOrigins, isTrustedOrigin } from './common/trusted-origin'
+import {
+  getTrustedOrigins,
+  isTrustedOrigin,
+  usesApplicationOriginPolicy,
+} from './common/trusted-origin'
 
 function normalizeClientIp(raw: string | undefined) {
   if (!raw) return '127.0.0.1'
@@ -48,21 +52,27 @@ async function bootstrap() {
     }),
   )
 
-  app.enableCors({
-    origin: (
-      origin: string | undefined,
-      callback: (err: Error | null, allow?: boolean) => void,
+  app.enableCors(
+    (
+      request: Request,
+      callback: (error: Error | null, options: object) => void,
     ) => {
-      if (!origin || isTrustedOrigin(origin, trustedOrigins)) {
-        callback(null, true)
-        return
-      }
-      callback(new Error(`Origin ${origin} not allowed by CORS`), false)
+      const origin = request.headers.origin
+      const allowed =
+        !origin ||
+        usesApplicationOriginPolicy(request.path) ||
+        isTrustedOrigin(origin, trustedOrigins)
+      callback(
+        allowed ? null : new Error(`Origin ${origin} not allowed by CORS`),
+        {
+          origin: allowed,
+          credentials: true,
+          methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+          allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+        },
+      )
     },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  })
+  )
 
   await app.listen(process.env.PORT ?? 3000)
 

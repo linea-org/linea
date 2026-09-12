@@ -1,4 +1,8 @@
 import type { OperationDefinition } from "./operations/operation"
+import {
+  exchangeEndUserAuthorizationOperation,
+  startEndUserAuthorizationOperation,
+} from "./operations/user-sessions"
 
 function routeIdentity(operation: OperationDefinition): string {
   const path = operation.path.replace(/\{[^/{}]+\}/g, "{}")
@@ -36,4 +40,7 @@ export function createOperationRegistry<
   return Object.freeze(operations)
 }
 
-export const operationRegistry = createOperationRegistry([])
+export const operationRegistry = createOperationRegistry([
+  startEndUserAuthorizationOperation,
+  exchangeEndUserAuthorizationOperation,
+])

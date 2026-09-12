@@ -1045,7 +1045,9 @@ These operations are implemented incrementally in dependency order.
 | `POST /v1/executions/{executionId}/cancel`                      | `@linea/sdk/server`                                                                |
 | `GET /v1/applications/{applicationId}/events`                   | `@linea/sdk/server`                                                                |
 | `GET /v1/applications/{applicationId}/webhook-deliveries`       | `@linea/sdk/server`                                                                |
+| `POST /v1/user-sessions/authorization`                          | `@linea/sdk/user`                                                                  |
 | `POST /v1/user-sessions/exchange`                               | `@linea/sdk/user`                                                                  |
+| `POST /v1/user-sessions`                                        | `@linea/sdk/user`                                                                  |
 | `POST /v1/user/executions`                                      | `@linea/sdk/user`                                                                  |
 | `POST /v1/user/conversations`                                   | `@linea/sdk/user`                                                                  |
 | `POST /v1/user/conversations/{conversationId}/messages`         | `@linea/sdk/user`                                                                  |
@@ -1120,6 +1122,8 @@ The earlier bearer conversation-token proposal is superseded. The accepted stron
 5. The client registers a non-extractable proof key.
 6. Linea issues a short-lived opaque End-User Session bound to that key.
 7. Protected requests carry DPoP proofs bound to method, URL, access token, nonce, timestamp, and unique proof ID.
+
+The OIDC handoff is a retryable lease rather than an irreversible pre-consumption step. Only the same code and PKCE verifier may retry after a temporary provider outage. Public authorization and exchange routes enforce shared per-network and per-Application limits in Postgres, identity-provider transport is HTTPS except for loopback-only `dev`, and expired handoff artifacts are swept every five minutes.
 
 An Operator backend may pre-provision a subject and start work for a provisioned or verified subject in its own Application. That authority does not authenticate the End User, create an End-User Session, or resolve an external-subject Approval Request. Only a valid End-User Session for the exact Application and subject can submit the Decision.
 

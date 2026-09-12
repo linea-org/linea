@@ -2,6 +2,7 @@ import { z } from "zod"
 import { describe, expect, it } from "vitest"
 import type { OperationDefinition } from "../src/operations"
 import { createOperationRegistry } from "../src/operations"
+import { operationRegistry } from "../src/registry"
 
 const request = {
   path: z.strictObject({}),
@@ -30,6 +31,13 @@ function operation(
 }
 
 describe("operation registry", () => {
+  it("publishes the end-user authorization protocol", () => {
+    expect(operationRegistry.map(({ operationId }) => operationId)).toEqual([
+      "startEndUserAuthorization",
+      "exchangeEndUserAuthorization",
+    ])
+  })
+
   it("retains complete versioned operation definitions", () => {
     const registered = createOperationRegistry([
       operation("getExecution", "GET", "/v1/executions/{executionId}"),
