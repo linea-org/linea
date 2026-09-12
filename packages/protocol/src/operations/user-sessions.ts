@@ -96,6 +96,5 @@ export const revokeEndUserSessionOperation = {
     "session_expired",
     "session_revoked",
     "proof_invalid",
-    "rate_limited",
   ],
 } as const satisfies OperationDefinition

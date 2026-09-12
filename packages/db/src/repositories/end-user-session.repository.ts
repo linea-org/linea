@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lt, sql } from "drizzle-orm"
+import { and, eq, gt, isNotNull, isNull, lt, sql } from "drizzle-orm"
 import {
   applications,
   endUserIdentityExchanges,
@@ -37,6 +37,7 @@ export async function findIdentityExchange(
     .where(
       and(
         eq(endUserIdentityExchanges.tokenHash, tokenHash),
+        isNotNull(endUserIdentityExchanges.dpopNonceHash),
         isNull(endUserIdentityExchanges.consumedAt),
         gt(endUserIdentityExchanges.expiresAt, now),
         sql`EXISTS (

@@ -2,6 +2,8 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm"
 import {
   applications,
   auditLogs,
+  endUserAuthorizationRequests,
+  endUserIdentityExchanges,
   endUserSessions,
   type Application,
   type NewAuditLog,
@@ -160,6 +162,12 @@ export async function replaceApplicationTrustConfiguration(
           isNull(endUserSessions.revokedAt)
         )
       )
+    await tx
+      .delete(endUserIdentityExchanges)
+      .where(eq(endUserIdentityExchanges.applicationId, application.id))
+    await tx
+      .delete(endUserAuthorizationRequests)
+      .where(eq(endUserAuthorizationRequests.applicationId, application.id))
     await recordAudit(
       tx,
       application,

@@ -52,6 +52,7 @@ export class EndUserSessionService {
       now,
     )
     if (!result) this.throwIdentityExchangeFailed()
+    if (!result.exchange.dpopNonceHash) this.throwIdentityExchangeFailed()
     const normalizedOrigin = normalizeOrigin(browserOrigin)
     if (
       normalizedOrigin !== undefined &&

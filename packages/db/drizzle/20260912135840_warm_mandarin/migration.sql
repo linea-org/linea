@@ -21,7 +21,7 @@ CREATE TABLE "end_user_sessions" (
 	CONSTRAINT "end_user_sessions_last_used_check" CHECK ("last_used_at" IS NULL OR "last_used_at" >= "created_at")
 );
 --> statement-breakpoint
-ALTER TABLE "end_user_identity_exchanges" ADD COLUMN "dpop_nonce_hash" text NOT NULL;--> statement-breakpoint
+ALTER TABLE "end_user_identity_exchanges" ADD COLUMN "dpop_nonce_hash" text;--> statement-breakpoint
 CREATE INDEX "end_user_session_proofs_expiry_idx" ON "end_user_session_proofs" ("expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "end_user_sessions_token_hash_uidx" ON "end_user_sessions" ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "end_user_sessions_id_workspace_uidx" ON "end_user_sessions" ("id","workspace_id");--> statement-breakpoint
