@@ -62,6 +62,9 @@ export async function createEndUserSession(
   input: {
     exchangeId: string
     exchangeTokenHash: string
+    workspaceId: string
+    applicationId: string
+    externalSubjectId: string
     tokenHash: string
     proofJkt: string
     nonceHash: string
@@ -70,6 +73,30 @@ export async function createEndUserSession(
   }
 ): Promise<EndUserSession | undefined> {
   return db.transaction(async (tx) => {
+    const [application] = await tx
+      .select({ id: applications.id })
+      .from(applications)
+      .where(
+        and(
+          eq(applications.id, input.applicationId),
+          eq(applications.workspaceId, input.workspaceId),
+          eq(applications.enabled, true)
+        )
+      )
+      .for("share")
+    if (!application) return undefined
+    const [subject] = await tx
+      .select({ id: externalSubjects.id })
+      .from(externalSubjects)
+      .where(
+        and(
+          eq(externalSubjects.id, input.externalSubjectId),
+          eq(externalSubjects.workspaceId, input.workspaceId),
+          eq(externalSubjects.status, "verified")
+        )
+      )
+      .for("share")
+    if (!subject) return undefined
     const [exchange] = await tx
       .update(endUserIdentityExchanges)
       .set({ consumedAt: input.now })
@@ -77,6 +104,12 @@ export async function createEndUserSession(
         and(
           eq(endUserIdentityExchanges.id, input.exchangeId),
           eq(endUserIdentityExchanges.tokenHash, input.exchangeTokenHash),
+          eq(endUserIdentityExchanges.workspaceId, input.workspaceId),
+          eq(endUserIdentityExchanges.applicationId, input.applicationId),
+          eq(
+            endUserIdentityExchanges.externalSubjectId,
+            input.externalSubjectId
+          ),
           isNull(endUserIdentityExchanges.consumedAt),
           gt(endUserIdentityExchanges.expiresAt, input.now),
           sql`EXISTS (

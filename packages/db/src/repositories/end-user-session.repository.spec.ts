@@ -77,6 +77,9 @@ describe("end-user session repository", () => {
       const input = {
         exchangeId: exchange.id,
         exchangeTokenHash,
+        workspaceId: workspace.id,
+        applicationId: application.id,
+        externalSubjectId: subject.id,
         tokenHash: hash("access-token"),
         proofJkt: "proof-thumbprint",
         nonceHash: hash("session-nonce"),

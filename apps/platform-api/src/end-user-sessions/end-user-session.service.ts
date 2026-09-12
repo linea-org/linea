@@ -86,6 +86,9 @@ export class EndUserSessionService {
     const session = await repositories.endUserSession.createEndUserSession(db, {
       exchangeId: result.exchange.id,
       exchangeTokenHash: tokenHash,
+      workspaceId: result.exchange.workspaceId,
+      applicationId: result.exchange.applicationId,
+      externalSubjectId: result.exchange.externalSubjectId,
       tokenHash: hash(accessToken),
       proofJkt: verified.jkt,
       nonceHash: hash(dpopNonce),
