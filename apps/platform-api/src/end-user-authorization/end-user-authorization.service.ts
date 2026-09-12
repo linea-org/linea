@@ -172,12 +172,14 @@ export class EndUserAuthorizationService {
       this.throwProviderError(error)
     }
     const exchangeToken = `lnx_${opaqueValue()}`
+    const dpopNonce = opaqueValue()
     const expiresAt = new Date(Date.now() + IDENTITY_EXCHANGE_LIFETIME_MS)
     const completed =
       await repositories.endUserAuthorization.completeAuthorizationRequest(db, {
         authorizationRequestId: consumed.request.id,
         issuerSubject: identity.issuerSubject,
         exchangeTokenHash: hash(exchangeToken),
+        dpopNonceHash: hash(dpopNonce),
         exchangeExpiresAt: expiresAt,
         now: new Date(),
         claimedAt: now,
@@ -187,6 +189,7 @@ export class EndUserAuthorizationService {
       applicationId: completed.applicationId,
       externalSubjectId: completed.externalSubjectId,
       exchangeToken,
+      dpopNonce,
       expiresAt: completed.exchange.expiresAt.toISOString(),
     }
   }

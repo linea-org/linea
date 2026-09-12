@@ -68,6 +68,7 @@ export const endUserIdentityExchanges = snakeCase.table(
     applicationId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     tokenHash: text().notNull(),
+    dpopNonceHash: text(),
     expiresAt: timestamp({ withTimezone: true }).notNull(),
     consumedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

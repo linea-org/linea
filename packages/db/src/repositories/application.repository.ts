@@ -1,7 +1,10 @@
-import { and, desc, eq, sql } from "drizzle-orm"
+import { and, desc, eq, isNull, sql } from "drizzle-orm"
 import {
   applications,
   auditLogs,
+  endUserAuthorizationRequests,
+  endUserIdentityExchanges,
+  endUserSessions,
   type Application,
   type NewAuditLog,
 } from "../schema/index.js"
@@ -117,9 +120,10 @@ export async function updateApplicationProfile(
   actor: ApplicationActor
 ): Promise<Application | undefined> {
   return db.transaction(async (tx) => {
+    const now = new Date()
     const [application] = await tx
       .update(applications)
-      .set({ ...input, updatedAt: new Date() })
+      .set({ ...input, updatedAt: now })
       .where(
         and(eq(applications.workspaceId, workspaceId), eq(applications.id, id))
       )
@@ -140,14 +144,30 @@ export async function replaceApplicationTrustConfiguration(
   actor: ApplicationActor
 ): Promise<Application | undefined> {
   return db.transaction(async (tx) => {
+    const now = new Date()
     const [application] = await tx
       .update(applications)
-      .set({ ...input, updatedAt: new Date() })
+      .set({ ...input, updatedAt: now })
       .where(
         and(eq(applications.workspaceId, workspaceId), eq(applications.id, id))
       )
       .returning()
     if (!application) return undefined
+    await tx
+      .update(endUserSessions)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          eq(endUserSessions.applicationId, application.id),
+          isNull(endUserSessions.revokedAt)
+        )
+      )
+    await tx
+      .delete(endUserIdentityExchanges)
+      .where(eq(endUserIdentityExchanges.applicationId, application.id))
+    await tx
+      .delete(endUserAuthorizationRequests)
+      .where(eq(endUserAuthorizationRequests.applicationId, application.id))
     await recordAudit(
       tx,
       application,
@@ -184,11 +204,21 @@ export async function disableApplication(
       )
       .for("update")
     if (!existing || !existing.enabled) return existing
+    const now = new Date()
     const [application] = await tx
       .update(applications)
-      .set({ enabled: false, updatedAt: new Date() })
+      .set({ enabled: false, updatedAt: now })
       .where(eq(applications.id, existing.id))
       .returning()
+    await tx
+      .update(endUserSessions)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          eq(endUserSessions.applicationId, application.id),
+          isNull(endUserSessions.revokedAt)
+        )
+      )
     await recordAudit(tx, application, actor, "application.disabled", null)
     return application
   })

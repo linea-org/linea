@@ -29,11 +29,17 @@ export class EndUserAuthorizationSweepService
     if (this.sweeping) return
     this.sweeping = true
     try {
-      const deleted =
+      const authorizationArtifacts =
         await repositories.endUserAuthorization.deleteExpiredEndUserAuthorizationArtifacts(
           db,
           new Date()
         )
+      const sessions =
+        await repositories.endUserSession.deleteExpiredEndUserSessions(
+          db,
+          new Date()
+        )
+      const deleted = authorizationArtifacts + sessions
       if (deleted > 0) {
         this.logger.log(`Deleted ${deleted} expired authorization artifacts`)
       }

@@ -59,6 +59,7 @@ export const relations = defineRelations(schema, (r) => ({
     externalSubjectApplications: r.many.externalSubjectApplications(),
     endUserAuthorizationRequests: r.many.endUserAuthorizationRequests(),
     endUserIdentityExchanges: r.many.endUserIdentityExchanges(),
+    endUserSessions: r.many.endUserSessions(),
   },
 
   applications: {
@@ -72,6 +73,7 @@ export const relations = defineRelations(schema, (r) => ({
     externalSubjects: r.many.externalSubjectApplications(),
     endUserAuthorizationRequests: r.many.endUserAuthorizationRequests(),
     endUserIdentityExchanges: r.many.endUserIdentityExchanges(),
+    endUserSessions: r.many.endUserSessions(),
   },
 
   externalSubjects: {
@@ -82,6 +84,7 @@ export const relations = defineRelations(schema, (r) => ({
     applications: r.many.externalSubjectApplications(),
     authorizationRequests: r.many.endUserAuthorizationRequests(),
     identityExchanges: r.many.endUserIdentityExchanges(),
+    sessions: r.many.endUserSessions(),
   },
 
   externalSubjectApplications: {
@@ -96,6 +99,29 @@ export const relations = defineRelations(schema, (r) => ({
     externalSubject: r.one.externalSubjects({
       from: r.externalSubjectApplications.externalSubjectId,
       to: r.externalSubjects.id,
+    }),
+  },
+
+  endUserSessions: {
+    workspace: r.one.organizations({
+      from: r.endUserSessions.workspaceId,
+      to: r.organizations.id,
+    }),
+    application: r.one.applications({
+      from: r.endUserSessions.applicationId,
+      to: r.applications.id,
+    }),
+    externalSubject: r.one.externalSubjects({
+      from: r.endUserSessions.externalSubjectId,
+      to: r.externalSubjects.id,
+    }),
+    proofs: r.many.endUserSessionProofs(),
+  },
+
+  endUserSessionProofs: {
+    session: r.one.endUserSessions({
+      from: r.endUserSessionProofs.sessionId,
+      to: r.endUserSessions.id,
     }),
   },
 

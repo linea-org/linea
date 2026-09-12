@@ -11,6 +11,7 @@ import { ConversationAnalysesModule } from './conversation-analyses/conversation
 import { RegressionsModule } from './regressions/regressions.module'
 import { ExecutionsModule } from './executions/executions.module'
 import { EndUserAuthorizationModule } from './end-user-authorization/end-user-authorization.module'
+import { EndUserSessionsModule } from './end-user-sessions/end-user-sessions.module'
 import { HealthController } from './health/health.controller'
 import { MeController } from './me/me.controller'
 import { NotificationsModule } from './notifications/notifications.module'
@@ -30,6 +31,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     ApiKeysModule,
     ApplicationsModule,
     EndUserAuthorizationModule,
+    EndUserSessionsModule,
     WorkflowsModule,
     ExecutionsModule,
     TriggersModule,

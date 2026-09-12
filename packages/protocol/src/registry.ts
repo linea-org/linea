@@ -1,6 +1,8 @@
 import type { OperationDefinition } from "./operations/operation"
 import {
+  createEndUserSessionOperation,
   exchangeEndUserAuthorizationOperation,
+  revokeEndUserSessionOperation,
   startEndUserAuthorizationOperation,
 } from "./operations/user-sessions"
 
@@ -43,4 +45,6 @@ export function createOperationRegistry<
 export const operationRegistry = createOperationRegistry([
   startEndUserAuthorizationOperation,
   exchangeEndUserAuthorizationOperation,
+  createEndUserSessionOperation,
+  revokeEndUserSessionOperation,
 ])

@@ -68,7 +68,8 @@ async function bootstrap() {
           origin: allowed,
           credentials: true,
           methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-          allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+          allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'DPoP'],
+          exposedHeaders: ['DPoP-Nonce', 'Retry-After'],
         },
       )
     },
