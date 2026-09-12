@@ -1,4 +1,11 @@
 ALTER TYPE "audit_action" ADD VALUE 'external_subject.verified' BEFORE 'external_subject.disabled';--> statement-breakpoint
+CREATE TABLE "end_user_authorization_rate_limits" (
+	"key" text PRIMARY KEY,
+	"request_count" integer DEFAULT 1 NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "end_user_authorization_rate_limits_count_check" CHECK ("request_count" > 0)
+);
+--> statement-breakpoint
 CREATE TABLE "end_user_authorization_requests" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 	"workspace_id" uuid NOT NULL,
@@ -11,11 +18,11 @@ CREATE TABLE "end_user_authorization_requests" (
 	"code_verifier_hash" text,
 	"external_subject_id" uuid,
 	"expires_at" timestamp with time zone NOT NULL,
-	"consumed_at" timestamp with time zone,
+	"claimed_at" timestamp with time zone,
 	"completed_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "end_user_authorization_requests_consumed_state_check" CHECK (("consumed_at" IS NULL AND "authorization_code_hash" IS NULL AND "code_verifier_hash" IS NULL) OR ("consumed_at" IS NOT NULL AND "authorization_code_hash" IS NOT NULL AND "code_verifier_hash" IS NOT NULL)),
-	CONSTRAINT "end_user_authorization_requests_completed_state_check" CHECK (("completed_at" IS NULL AND "external_subject_id" IS NULL) OR ("completed_at" IS NOT NULL AND "external_subject_id" IS NOT NULL AND "consumed_at" IS NOT NULL))
+	CONSTRAINT "end_user_authorization_requests_exchange_state_check" CHECK (("authorization_code_hash" IS NULL AND "code_verifier_hash" IS NULL) OR ("authorization_code_hash" IS NOT NULL AND "code_verifier_hash" IS NOT NULL)),
+	CONSTRAINT "end_user_authorization_requests_completed_state_check" CHECK (("completed_at" IS NULL AND "external_subject_id" IS NULL) OR ("completed_at" IS NOT NULL AND "external_subject_id" IS NOT NULL AND "claimed_at" IS NOT NULL))
 );
 --> statement-breakpoint
 CREATE TABLE "end_user_identity_exchanges" (
@@ -29,6 +36,7 @@ CREATE TABLE "end_user_identity_exchanges" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE INDEX "end_user_authorization_rate_limits_expiry_idx" ON "end_user_authorization_rate_limits" ("expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "end_user_authorization_requests_state_hash_uidx" ON "end_user_authorization_requests" ("state_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "end_user_authorization_requests_code_hash_uidx" ON "end_user_authorization_requests" ("authorization_code_hash") WHERE "authorization_code_hash" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "end_user_authorization_requests_expiry_idx" ON "end_user_authorization_requests" ("expires_at");--> statement-breakpoint

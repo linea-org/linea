@@ -1,7 +1,8 @@
-import { and, eq, gt, isNull, sql } from "drizzle-orm"
+import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm"
 import {
   applications,
   auditLogs,
+  endUserAuthorizationRateLimits,
   endUserAuthorizationRequests,
   endUserIdentityExchanges,
   externalSubjectApplications,
@@ -102,6 +103,7 @@ export async function consumeAuthorizationRequest(
     authorizationCodeHash: string
     codeVerifierHash: string
     now: Date
+    claimExpiredBefore: Date
   }
 ): Promise<ConsumeAuthorizationRequestResult> {
   return db.transaction(
@@ -128,7 +130,7 @@ export async function consumeAuthorizationRequest(
         .set({
           authorizationCodeHash: input.authorizationCodeHash,
           codeVerifierHash: input.codeVerifierHash,
-          consumedAt: input.now,
+          claimedAt: input.now,
         })
         .where(
           and(
@@ -136,8 +138,32 @@ export async function consumeAuthorizationRequest(
             eq(endUserAuthorizationRequests.stateHash, input.stateHash),
             eq(endUserAuthorizationRequests.redirectUri, input.redirectUri),
             eq(endUserAuthorizationRequests.codeChallenge, input.codeChallenge),
-            isNull(endUserAuthorizationRequests.consumedAt),
-            gt(endUserAuthorizationRequests.expiresAt, input.now)
+            isNull(endUserAuthorizationRequests.completedAt),
+            gt(endUserAuthorizationRequests.expiresAt, input.now),
+            or(
+              and(
+                isNull(endUserAuthorizationRequests.authorizationCodeHash),
+                isNull(endUserAuthorizationRequests.codeVerifierHash),
+                isNull(endUserAuthorizationRequests.claimedAt)
+              ),
+              and(
+                eq(
+                  endUserAuthorizationRequests.authorizationCodeHash,
+                  input.authorizationCodeHash
+                ),
+                eq(
+                  endUserAuthorizationRequests.codeVerifierHash,
+                  input.codeVerifierHash
+                ),
+                or(
+                  isNull(endUserAuthorizationRequests.claimedAt),
+                  lt(
+                    endUserAuthorizationRequests.claimedAt,
+                    input.claimExpiredBefore
+                  )
+                )
+              )
+            )
           )
         )
         .returning()
@@ -145,6 +171,23 @@ export async function consumeAuthorizationRequest(
       return { outcome: "consumed", request, application }
     }
   )
+}
+
+export async function releaseAuthorizationRequestClaim(
+  db: DbClient,
+  authorizationRequestId: string,
+  claimedAt: Date
+): Promise<void> {
+  await db
+    .update(endUserAuthorizationRequests)
+    .set({ claimedAt: null })
+    .where(
+      and(
+        eq(endUserAuthorizationRequests.id, authorizationRequestId),
+        eq(endUserAuthorizationRequests.claimedAt, claimedAt),
+        isNull(endUserAuthorizationRequests.completedAt)
+      )
+    )
 }
 
 export type CompleteAuthorizationRequestResult =
@@ -165,6 +208,7 @@ export async function completeAuthorizationRequest(
     exchangeTokenHash: string
     exchangeExpiresAt: Date
     now: Date
+    claimedAt: Date
   }
 ): Promise<CompleteAuthorizationRequestResult> {
   return db.transaction(
@@ -176,7 +220,11 @@ export async function completeAuthorizationRequest(
           eq(endUserAuthorizationRequests.id, input.authorizationRequestId)
         )
         .for("update")
-      if (!request?.consumedAt || request.completedAt) {
+      if (
+        !request?.claimedAt ||
+        request.claimedAt.getTime() !== input.claimedAt.getTime() ||
+        request.completedAt
+      ) {
         return { outcome: "invalid" }
       }
       const [application] = await tx
@@ -311,4 +359,52 @@ export async function consumeIdentityExchange(
     )
     .returning()
   return exchange
+}
+
+export async function consumeAuthorizationRateLimits(
+  db: DbClient,
+  limits: { key: string; limit: number }[],
+  expiresAt: Date
+): Promise<boolean> {
+  const applied = await db
+    .insert(endUserAuthorizationRateLimits)
+    .values(limits.map(({ key }) => ({ key, expiresAt })))
+    .onConflictDoUpdate({
+      target: endUserAuthorizationRateLimits.key,
+      set: {
+        requestCount: sql`${endUserAuthorizationRateLimits.requestCount} + 1`,
+      },
+    })
+    .returning({
+      key: endUserAuthorizationRateLimits.key,
+      requestCount: endUserAuthorizationRateLimits.requestCount,
+    })
+  const limitsByKey = new Map(limits.map(({ key, limit }) => [key, limit]))
+  if (applied.length !== limits.length) {
+    throw new Error("Authorization rate limits were not applied atomically")
+  }
+  return applied.every(
+    ({ key, requestCount }) => requestCount <= (limitsByKey.get(key) ?? 0)
+  )
+}
+
+export async function deleteExpiredEndUserAuthorizationArtifacts(
+  db: DbClient,
+  before: Date
+): Promise<number> {
+  return db.transaction(async (tx) => {
+    const exchanges = await tx
+      .delete(endUserIdentityExchanges)
+      .where(lt(endUserIdentityExchanges.expiresAt, before))
+      .returning({ id: endUserIdentityExchanges.id })
+    const requests = await tx
+      .delete(endUserAuthorizationRequests)
+      .where(lt(endUserAuthorizationRequests.expiresAt, before))
+      .returning({ id: endUserAuthorizationRequests.id })
+    const rateLimits = await tx
+      .delete(endUserAuthorizationRateLimits)
+      .where(lt(endUserAuthorizationRateLimits.expiresAt, before))
+      .returning({ key: endUserAuthorizationRateLimits.key })
+    return exchanges.length + requests.length + rateLimits.length
+  })
 }

@@ -3,6 +3,7 @@ import {
   check,
   foreignKey,
   index,
+  integer,
   snakeCase,
   text,
   timestamp,
@@ -26,7 +27,7 @@ export const endUserAuthorizationRequests = snakeCase.table(
     codeVerifierHash: text(),
     externalSubjectId: uuid(),
     expiresAt: timestamp({ withTimezone: true }).notNull(),
-    consumedAt: timestamp({ withTimezone: true }),
+    claimedAt: timestamp({ withTimezone: true }),
     completedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
@@ -49,12 +50,12 @@ export const endUserAuthorizationRequests = snakeCase.table(
       foreignColumns: [externalSubjects.id, externalSubjects.workspaceId],
     }),
     check(
-      "end_user_authorization_requests_consumed_state_check",
-      sql`(${table.consumedAt} IS NULL AND ${table.authorizationCodeHash} IS NULL AND ${table.codeVerifierHash} IS NULL) OR (${table.consumedAt} IS NOT NULL AND ${table.authorizationCodeHash} IS NOT NULL AND ${table.codeVerifierHash} IS NOT NULL)`
+      "end_user_authorization_requests_exchange_state_check",
+      sql`(${table.authorizationCodeHash} IS NULL AND ${table.codeVerifierHash} IS NULL) OR (${table.authorizationCodeHash} IS NOT NULL AND ${table.codeVerifierHash} IS NOT NULL)`
     ),
     check(
       "end_user_authorization_requests_completed_state_check",
-      sql`(${table.completedAt} IS NULL AND ${table.externalSubjectId} IS NULL) OR (${table.completedAt} IS NOT NULL AND ${table.externalSubjectId} IS NOT NULL AND ${table.consumedAt} IS NOT NULL)`
+      sql`(${table.completedAt} IS NULL AND ${table.externalSubjectId} IS NULL) OR (${table.completedAt} IS NOT NULL AND ${table.externalSubjectId} IS NOT NULL AND ${table.claimedAt} IS NOT NULL)`
     ),
   ]
 )
@@ -86,6 +87,22 @@ export const endUserIdentityExchanges = snakeCase.table(
       columns: [table.externalSubjectId, table.workspaceId],
       foreignColumns: [externalSubjects.id, externalSubjects.workspaceId],
     }).onDelete("cascade"),
+  ]
+)
+
+export const endUserAuthorizationRateLimits = snakeCase.table(
+  "end_user_authorization_rate_limits",
+  {
+    key: text().primaryKey(),
+    requestCount: integer().default(1).notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("end_user_authorization_rate_limits_expiry_idx").on(table.expiresAt),
+    check(
+      "end_user_authorization_rate_limits_count_check",
+      sql`${table.requestCount} > 0`
+    ),
   ]
 )
 

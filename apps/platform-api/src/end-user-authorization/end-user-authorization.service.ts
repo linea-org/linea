@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
 import {
+  HttpException,
   Inject,
   Injectable,
   ServiceUnavailableException,
@@ -23,6 +24,12 @@ import {
 
 const AUTHORIZATION_LIFETIME_MS = 5 * 60 * 1000
 const IDENTITY_EXCHANGE_LIFETIME_MS = 2 * 60 * 1000
+const AUTHORIZATION_CLAIM_LIFETIME_MS = 30 * 1000
+const RATE_LIMIT_WINDOW_MS = 60 * 1000
+const RATE_LIMITS = {
+  authorization: { ip: 30, application: 300 },
+  exchange: { ip: 60, application: 600 },
+}
 
 function opaqueValue(): string {
   return randomBytes(32).toString('base64url')
@@ -75,7 +82,9 @@ export class EndUserAuthorizationService {
   async start(
     input: StartEndUserAuthorization,
     browserOrigin: string | undefined,
+    clientIp: string,
   ): Promise<EndUserAuthorizationResponse> {
+    await this.enforceRateLimit('authorization', input.applicationId, clientIp)
     const state = opaqueValue()
     const nonce = opaqueValue()
     const result =
@@ -110,7 +119,9 @@ export class EndUserAuthorizationService {
   async exchange(
     input: ExchangeEndUserAuthorization,
     browserOrigin: string | undefined,
+    clientIp: string,
   ): Promise<EndUserIdentityExchange> {
+    await this.enforceRateLimit('exchange', input.applicationId, clientIp)
     const now = new Date()
     let consumed: Awaited<
       ReturnType<
@@ -130,6 +141,9 @@ export class EndUserAuthorizationService {
             authorizationCodeHash: hash(input.code),
             codeVerifierHash: hash(input.codeVerifier),
             now,
+            claimExpiredBefore: new Date(
+              now.getTime() - AUTHORIZATION_CLAIM_LIFETIME_MS,
+            ),
           },
         )
     } catch {
@@ -148,6 +162,13 @@ export class EndUserAuthorizationService {
         },
       )
     } catch (error) {
+      if (error instanceof OidcProviderUnavailableError) {
+        await repositories.endUserAuthorization.releaseAuthorizationRequestClaim(
+          db,
+          consumed.request.id,
+          now,
+        )
+      }
       this.throwProviderError(error)
     }
     const exchangeToken = `lnx_${opaqueValue()}`
@@ -159,6 +180,7 @@ export class EndUserAuthorizationService {
         exchangeTokenHash: hash(exchangeToken),
         exchangeExpiresAt: expiresAt,
         now: new Date(),
+        claimedAt: now,
       })
     if (completed.outcome !== 'completed') this.throwInvalidExchange()
     return {
@@ -173,6 +195,36 @@ export class EndUserAuthorizationService {
     throw new UnauthorizedException(
       publicError('identity_exchange_failed', 'Identity exchange failed'),
     )
+  }
+
+  private async enforceRateLimit(
+    operation: keyof typeof RATE_LIMITS,
+    applicationId: string,
+    clientIp: string,
+  ): Promise<void> {
+    const bucket = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS)
+    const limits = RATE_LIMITS[operation]
+    const allowed =
+      await repositories.endUserAuthorization.consumeAuthorizationRateLimits(
+        db,
+        [
+          {
+            key: hash(`${operation}:ip:${clientIp}:${bucket}`),
+            limit: limits.ip,
+          },
+          {
+            key: hash(`${operation}:application:${applicationId}:${bucket}`),
+            limit: limits.application,
+          },
+        ],
+        new Date((bucket + 2) * RATE_LIMIT_WINDOW_MS),
+      )
+    if (!allowed) {
+      throw new HttpException(
+        publicError('rate_limited', 'Too many requests'),
+        429,
+      )
+    }
   }
 
   private throwProviderError(error: unknown): never {

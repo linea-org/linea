@@ -38,10 +38,22 @@ function hash(value: string): Buffer {
   return createHash('sha256').update(value).digest()
 }
 
-function assertHttps(configuration: OidcApplicationConfiguration, url: string) {
+function assertSafeTransport(
+  configuration: OidcApplicationConfiguration,
+  value: string,
+): void {
+  const url = new URL(value)
+  const isLoopback =
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1' ||
+    url.hostname === '[::1]'
   if (
-    configuration.environment === 'production' &&
-    new URL(url).protocol !== 'https:'
+    url.protocol !== 'https:' &&
+    !(
+      configuration.environment === 'dev' &&
+      url.protocol === 'http:' &&
+      isLoopback
+    )
   ) {
     throw new OidcProviderUnavailableError()
   }
@@ -194,6 +206,7 @@ export class RemoteOidcProvider implements OidcProvider {
   private async discover(
     configuration: OidcApplicationConfiguration,
   ): Promise<Discovery> {
+    assertSafeTransport(configuration, configuration.issuer)
     const cached = this.discoveryCache.get(configuration.issuer)
     if (cached && cached.expiresAt > Date.now()) {
       this.validateDiscovery(configuration, cached.value)
@@ -227,8 +240,8 @@ export class RemoteOidcProvider implements OidcProvider {
     ) {
       throw new OidcProviderUnavailableError()
     }
-    assertHttps(configuration, discovery.authorization_endpoint)
-    assertHttps(configuration, discovery.token_endpoint)
-    assertHttps(configuration, discovery.jwks_uri)
+    assertSafeTransport(configuration, discovery.authorization_endpoint)
+    assertSafeTransport(configuration, discovery.token_endpoint)
+    assertSafeTransport(configuration, discovery.jwks_uri)
   }
 }

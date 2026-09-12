@@ -9,6 +9,7 @@ import {
 } from 'jose-v5'
 import {
   OidcIdentityVerificationError,
+  OidcProviderUnavailableError,
   type OidcApplicationConfiguration,
 } from './oidc-provider'
 import { RemoteOidcProvider } from './remote-oidc-provider'
@@ -124,6 +125,24 @@ describe('RemoteOidcProvider', () => {
       code_challenge: 'challenge',
       code_challenge_method: 'S256',
     })
+  })
+
+  it('rejects cleartext non-loopback providers in development', async () => {
+    await expect(
+      new RemoteOidcProvider().createAuthorizationUrl(
+        {
+          ...configuration,
+          issuer: 'http://identity.example.test',
+          jwksUrl: 'http://identity.example.test/jwks.json',
+        },
+        {
+          redirectUri: 'https://app.example.com/callback',
+          codeChallenge: 'challenge',
+          state: 'state',
+          nonce,
+        },
+      ),
+    ).rejects.toBeInstanceOf(OidcProviderUnavailableError)
   })
 
   it('validates claims and refreshes configured JWKS after rotation', async () => {

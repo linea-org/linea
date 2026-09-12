@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest"
 import { applications, organizations } from "../schema/index.js"
 import {
   completeAuthorizationRequest,
+  consumeAuthorizationRateLimits,
   consumeAuthorizationRequest,
   consumeIdentityExchange,
   createAuthorizationRequest,
+  deleteExpiredEndUserAuthorizationArtifacts,
+  releaseAuthorizationRequestClaim,
 } from "./end-user-authorization.repository.js"
 import { withRollback } from "./test-utils.js"
 import type { DbClient } from "./types.js"
@@ -100,6 +103,7 @@ describe("end-user authorization repository", () => {
           authorizationCodeHash: hash("code-wrong-application"),
           codeVerifierHash: hash("verifier"),
           now: new Date(),
+          claimExpiredBefore: new Date(0),
         })
       ).toEqual({ outcome: "invalid" })
       expect(
@@ -112,6 +116,7 @@ describe("end-user authorization repository", () => {
           authorizationCodeHash: hash("code-wrong-verifier"),
           codeVerifierHash: hash("wrong-verifier"),
           now: new Date(),
+          claimExpiredBefore: new Date(0),
         })
       ).toEqual({ outcome: "invalid" })
       expect(
@@ -124,8 +129,10 @@ describe("end-user authorization repository", () => {
           authorizationCodeHash: hash("code-wrong-redirect"),
           codeVerifierHash: hash("verifier"),
           now: new Date(),
+          claimExpiredBefore: new Date(0),
         })
       ).toEqual({ outcome: "invalid" })
+      const claimedAt = new Date()
       const consumed = await consumeAuthorizationRequest(tx, {
         applicationId: application.id,
         redirectUri: "https://app.example.com/callback",
@@ -134,7 +141,8 @@ describe("end-user authorization repository", () => {
         codeChallenge: "challenge-valid",
         authorizationCodeHash: hash("authorization-code"),
         codeVerifierHash: hash("verifier"),
-        now: new Date(),
+        now: claimedAt,
+        claimExpiredBefore: new Date(0),
       })
       expect(consumed.outcome).toBe("consumed")
       expect(
@@ -147,8 +155,38 @@ describe("end-user authorization repository", () => {
           authorizationCodeHash: hash("replay-code"),
           codeVerifierHash: hash("verifier"),
           now: new Date(),
+          claimExpiredBefore: new Date(0),
         })
       ).toEqual({ outcome: "invalid" })
+      if (consumed.outcome !== "consumed")
+        throw new Error("Request not claimed")
+      await releaseAuthorizationRequestClaim(tx, consumed.request.id, claimedAt)
+      expect(
+        await consumeAuthorizationRequest(tx, {
+          applicationId: application.id,
+          redirectUri: "https://app.example.com/callback",
+          browserOrigin: "https://app.example.com",
+          stateHash: hash("state-valid"),
+          codeChallenge: "challenge-valid",
+          authorizationCodeHash: hash("authorization-code"),
+          codeVerifierHash: hash("other-verifier"),
+          now: new Date(),
+          claimExpiredBefore: new Date(0),
+        })
+      ).toEqual({ outcome: "invalid" })
+      expect(
+        await consumeAuthorizationRequest(tx, {
+          applicationId: application.id,
+          redirectUri: "https://app.example.com/callback",
+          browserOrigin: "https://app.example.com",
+          stateHash: hash("state-valid"),
+          codeChallenge: "challenge-valid",
+          authorizationCodeHash: hash("authorization-code"),
+          codeVerifierHash: hash("verifier"),
+          now: new Date(),
+          claimExpiredBefore: new Date(0),
+        })
+      ).toMatchObject({ outcome: "consumed" })
       const expired = authorizationInput(application.id, "expired")
       await createAuthorizationRequest(tx, {
         ...expired,
@@ -164,6 +202,7 @@ describe("end-user authorization repository", () => {
           authorizationCodeHash: hash("expired-code"),
           codeVerifierHash: hash("expired-verifier"),
           now: new Date(),
+          claimExpiredBefore: new Date(0),
         })
       ).toEqual({ outcome: "invalid" })
     })
@@ -193,6 +232,7 @@ describe("end-user authorization repository", () => {
         )
         if (created.outcome !== "created")
           throw new Error("Request not created")
+        const claimedAt = new Date()
         const consumed = await consumeAuthorizationRequest(tx, {
           applicationId: application.id,
           redirectUri: created.request.redirectUri,
@@ -201,7 +241,8 @@ describe("end-user authorization repository", () => {
           codeChallenge: created.request.codeChallenge,
           authorizationCodeHash: hash(`code-${suffix}`),
           codeVerifierHash: hash(`verifier-${suffix}`),
-          now: new Date(),
+          now: claimedAt,
+          claimExpiredBefore: new Date(0),
         })
         if (consumed.outcome !== "consumed")
           throw new Error("Request not consumed")
@@ -211,6 +252,7 @@ describe("end-user authorization repository", () => {
           exchangeTokenHash: hash(`exchange-${suffix}`),
           exchangeExpiresAt: new Date(Date.now() + 60_000),
           now: new Date(),
+          claimedAt,
         })
         if (completed.outcome !== "completed")
           throw new Error("Request not completed")
@@ -234,6 +276,31 @@ describe("end-user authorization repository", () => {
           new Date(Date.now() + 120_000)
         )
       ).toBeUndefined()
+    })
+  })
+
+  it("enforces shared rate limits and deletes expired artifacts", async () => {
+    await withRollback(async (tx) => {
+      const expiresAt = new Date(Date.now() + 60_000)
+      const limits = [
+        { key: `ip-${randomUUID()}`, limit: 2 },
+        { key: `application-${randomUUID()}`, limit: 2 },
+      ]
+      await expect(
+        consumeAuthorizationRateLimits(tx, limits, expiresAt)
+      ).resolves.toBe(true)
+      await expect(
+        consumeAuthorizationRateLimits(tx, limits, expiresAt)
+      ).resolves.toBe(true)
+      await expect(
+        consumeAuthorizationRateLimits(tx, limits, expiresAt)
+      ).resolves.toBe(false)
+      await expect(
+        deleteExpiredEndUserAuthorizationArtifacts(
+          tx,
+          new Date(expiresAt.getTime() + 1)
+        )
+      ).resolves.toBe(2)
     })
   })
 })

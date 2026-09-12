@@ -432,6 +432,8 @@ After Linea verifies the code through the configured provider and validates the 
 
 The next protocol step exchanges this artifact for a proof-of-possession End-User Session. Raw authorization codes, PKCE verifiers, nonces, ID tokens, and provider subjects are never placed in logs, audit metadata, webhooks, or Workflow input. The raw issuer subject is resolved only within its workspace and issuer namespace.
 
+Authorization requests use a 30-second processing lease. A temporary provider failure releases that lease, allowing the client to retry the same code, state, redirect URI, and verifier; different identity artifacts cannot take over the request. Invalid provider responses consume the attempt. Production identity-provider endpoints require HTTPS, while `dev` permits HTTP only for loopback providers. Requests and identity exchanges are deleted after their five-minute and two-minute expiries by a sweep that runs at startup and every five minutes.
+
 ### End-user workflow and conversation endpoints
 
 ```http
@@ -721,6 +723,8 @@ Webhook delivery logs remain available to Operators for 30 days. Event IDs are s
 
 The first protocol publishes conservative defaults:
 
+- 30 OIDC authorization starts per minute per network address and 300 per Application;
+- 60 OIDC identity exchanges per minute per network address and 600 per Application;
 - 10 session exchanges per minute per Application and network address;
 - 60 Messages per minute per End-User Session;
 - 10 new Executions per minute per External Subject;

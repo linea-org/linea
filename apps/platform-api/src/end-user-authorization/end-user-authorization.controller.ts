@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Post } from '@nestjs/common'
+import { Body, Controller, Headers, Ip, Post } from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import {
   exchangeEndUserAuthorizationSchema,
@@ -17,18 +17,20 @@ export class EndUserAuthorizationController {
   @Post('authorization')
   start(
     @Headers('origin') origin: string | undefined,
+    @Ip() clientIp: string,
     @Body(new ZodValidationPipe(startEndUserAuthorizationSchema))
     body: StartEndUserAuthorization,
   ) {
-    return this.authorization.start(body, origin)
+    return this.authorization.start(body, origin, clientIp)
   }
 
   @Post('exchange')
   exchange(
     @Headers('origin') origin: string | undefined,
+    @Ip() clientIp: string,
     @Body(new ZodValidationPipe(exchangeEndUserAuthorizationSchema))
     body: ExchangeEndUserAuthorization,
   ) {
-    return this.authorization.exchange(body, origin)
+    return this.authorization.exchange(body, origin, clientIp)
   }
 }

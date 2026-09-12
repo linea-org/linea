@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "1eb8b6e1-1f73-4a32-a9db-2084b8748d75",
+  "id": "bb27c988-d383-4a73-b034-744918a04155",
   "prevIds": [
     "ea126a95-e793-40a2-8e2d-6b6fd54dbe4c"
   ],
@@ -410,6 +410,12 @@
     {
       "isRlsEnabled": false,
       "name": "end_subjects",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "end_user_authorization_rate_limits",
       "entityType": "tables",
       "schema": "public"
     },
@@ -2708,6 +2714,45 @@
       "table": "end_subjects"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "key",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "end_user_authorization_rate_limits"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "name": "request_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "end_user_authorization_rate_limits"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "end_user_authorization_rate_limits"
+    },
+    {
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -2858,7 +2903,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "consumed_at",
+      "name": "claimed_at",
       "entityType": "columns",
       "schema": "public",
       "table": "end_user_authorization_requests"
@@ -7271,6 +7316,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "expires_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "end_user_authorization_rate_limits_expiry_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "end_user_authorization_rate_limits"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "state_hash",
           "isExpression": false,
           "asc": true,
@@ -9812,6 +9878,16 @@
     },
     {
       "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "name": "end_user_authorization_rate_limits_pkey",
+      "schema": "public",
+      "table": "end_user_authorization_rate_limits",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
         "id"
       ],
       "nameExplicit": false,
@@ -10135,14 +10211,21 @@
       "table": "external_subjects"
     },
     {
-      "value": "(\"consumed_at\" IS NULL AND \"authorization_code_hash\" IS NULL AND \"code_verifier_hash\" IS NULL) OR (\"consumed_at\" IS NOT NULL AND \"authorization_code_hash\" IS NOT NULL AND \"code_verifier_hash\" IS NOT NULL)",
-      "name": "end_user_authorization_requests_consumed_state_check",
+      "value": "\"request_count\" > 0",
+      "name": "end_user_authorization_rate_limits_count_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "end_user_authorization_rate_limits"
+    },
+    {
+      "value": "(\"authorization_code_hash\" IS NULL AND \"code_verifier_hash\" IS NULL) OR (\"authorization_code_hash\" IS NOT NULL AND \"code_verifier_hash\" IS NOT NULL)",
+      "name": "end_user_authorization_requests_exchange_state_check",
       "entityType": "checks",
       "schema": "public",
       "table": "end_user_authorization_requests"
     },
     {
-      "value": "(\"completed_at\" IS NULL AND \"external_subject_id\" IS NULL) OR (\"completed_at\" IS NOT NULL AND \"external_subject_id\" IS NOT NULL AND \"consumed_at\" IS NOT NULL)",
+      "value": "(\"completed_at\" IS NULL AND \"external_subject_id\" IS NULL) OR (\"completed_at\" IS NOT NULL AND \"external_subject_id\" IS NOT NULL AND \"claimed_at\" IS NOT NULL)",
       "name": "end_user_authorization_requests_completed_state_check",
       "entityType": "checks",
       "schema": "public",
