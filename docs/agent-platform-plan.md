@@ -1125,6 +1125,8 @@ The earlier bearer conversation-token proposal is superseded. The accepted stron
 
 The OIDC handoff is a retryable lease rather than an irreversible pre-consumption step. Only the same code and PKCE verifier may retry after a temporary provider outage. Public authorization and exchange routes enforce shared per-network and per-Application limits in Postgres, identity-provider transport is HTTPS except for loopback-only `dev`, and expired handoff artifacts are swept every five minutes.
 
+Session creation consumes the identity exchange once while binding an opaque, hashed `lnu_` token to the RFC 7638 thumbprint of a client-generated P-256 key. The API uses RFC 9449 `DPoP` proofs and `DPoP-Nonce` responses; replay identifiers live in shared Postgres state until the 15-minute session expires. No refresh-token path exists. Application disablement, identity-trust changes, External Subject disablement, and client logout revoke the affected server-side session state.
+
 An Operator backend may pre-provision a subject and start work for a provisioned or verified subject in its own Application. That authority does not authenticate the End User, create an End-User Session, or resolve an external-subject Approval Request. Only a valid End-User Session for the exact Application and subject can submit the Decision.
 
 This resists a backend copying a bearer token and approving without the live client. It does not defend against an Operator that compromises its own identity provider or deliberately serves malicious frontend code. Stronger user-presence guarantees would require a Linea-hosted surface or technology such as WebAuthn and are separate work.

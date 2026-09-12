@@ -35,6 +35,8 @@ describe("operation registry", () => {
     expect(operationRegistry.map(({ operationId }) => operationId)).toEqual([
       "startEndUserAuthorization",
       "exchangeEndUserAuthorization",
+      "createEndUserSession",
+      "revokeEndUserSession",
     ])
   })
 

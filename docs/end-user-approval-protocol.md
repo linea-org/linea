@@ -426,11 +426,29 @@ After Linea verifies the code through the configured provider and validates the 
   "applicationId": "app_123",
   "externalSubjectId": "subject_123",
   "exchangeToken": "lnx_single-use-token",
+  "dpopNonce": "server-generated-proof-nonce",
   "expiresAt": "2026-09-06T12:00:00Z"
 }
 ```
 
 The next protocol step exchanges this artifact for a proof-of-possession End-User Session. Raw authorization codes, PKCE verifiers, nonces, ID tokens, and provider subjects are never placed in logs, audit metadata, webhooks, or Workflow input. The raw issuer subject is resolved only within its workspace and issuer namespace.
+
+```http
+POST   /v1/user-sessions
+DELETE /v1/user-sessions/current
+```
+
+The identity-exchange response includes a `DPoP-Nonce` header and matching `dpopNonce` field. The client generates a non-extractable P-256 key and signs the session-creation request with an ES256 `DPoP` proof containing that nonce. The request body contains only the single-use exchange:
+
+```json
+{
+  "exchangeToken": "lnx_single-use-token"
+}
+```
+
+Linea consumes the exchange atomically and returns an opaque `lnu_` access token, its 15-minute absolute expiry, and the session's `DPoP-Nonce`. Protected requests use `Authorization: DPoP lnu_...` and a fresh `DPoP` proof. Linea validates the embedded public JWK and RFC 7638 thumbprint, signature, `htm`, normalized `htu`, `iat`, `nonce`, unique `jti`, and `ath` access-token hash according to [RFC 9449](https://www.rfc-editor.org/rfc/rfc9449.html). Proof identifiers are stored only as hashes and retained until the session expires; reuse is rejected atomically. Session renewal repeats OIDC exchange and session creation with a fresh key rather than using a refresh token.
+
+Disabling the Application or External Subject, changing the Application identity trust configuration, or calling the current-session delete route revokes affected sessions immediately. A session lookup also checks current Application and External Subject state, so authorization cannot survive a concurrent disablement transaction.
 
 Authorization requests use a 30-second processing lease. A temporary provider failure releases that lease, allowing the client to retry the same code, state, redirect URI, and verifier; different identity artifacts cannot take over the request. Invalid provider responses consume the attempt. Production identity-provider endpoints require HTTPS, while `dev` permits HTTP only for loopback providers. Requests and identity exchanges are deleted after their five-minute and two-minute expiries by a sweep that runs at startup and every five minutes.
 

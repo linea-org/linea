@@ -1,8 +1,9 @@
 import type { ExternalSubjectMetadata } from "@linea/protocol/resources"
-import { and, eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import {
   applications,
   auditLogs,
+  endUserSessions,
   externalSubjectApplications,
   externalSubjects,
   type ExternalSubject,
@@ -211,6 +212,15 @@ export async function disableExternalSubject(
       .set({ status: "disabled", disabledAt: now, updatedAt: now })
       .where(eq(externalSubjects.id, existing.id))
       .returning()
+    await tx
+      .update(endUserSessions)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          eq(endUserSessions.externalSubjectId, subject.id),
+          isNull(endUserSessions.revokedAt)
+        )
+      )
     await tx.insert(auditLogs).values({
       workspaceId,
       actorUserId,
@@ -253,6 +263,15 @@ export async function eraseExternalSubject(
       })
       .where(eq(externalSubjects.id, existing.id))
       .returning()
+    await tx
+      .update(endUserSessions)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          eq(endUserSessions.externalSubjectId, subject.id),
+          isNull(endUserSessions.revokedAt)
+        )
+      )
     await tx
       .update(externalSubjectApplications)
       .set({ metadata: {}, updatedAt: now })

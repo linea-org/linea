@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Ip, Post } from '@nestjs/common'
+import { Body, Controller, Headers, Ip, Post, Res } from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import {
   exchangeEndUserAuthorizationSchema,
@@ -6,6 +6,7 @@ import {
   type ExchangeEndUserAuthorization,
   type StartEndUserAuthorization,
 } from '@linea/protocol/resources'
+import type { Response } from 'express'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import { EndUserAuthorizationService } from './end-user-authorization.service'
 
@@ -25,12 +26,15 @@ export class EndUserAuthorizationController {
   }
 
   @Post('exchange')
-  exchange(
+  async exchange(
     @Headers('origin') origin: string | undefined,
     @Ip() clientIp: string,
+    @Res({ passthrough: true }) response: Response,
     @Body(new ZodValidationPipe(exchangeEndUserAuthorizationSchema))
     body: ExchangeEndUserAuthorization,
   ) {
-    return this.authorization.exchange(body, origin, clientIp)
+    const result = await this.authorization.exchange(body, origin, clientIp)
+    response.setHeader('DPoP-Nonce', result.dpopNonce)
+    return result
   }
 }

@@ -250,6 +250,7 @@ describe("end-user authorization repository", () => {
           authorizationRequestId: consumed.request.id,
           issuerSubject: "same-provider-subject",
           exchangeTokenHash: hash(`exchange-${suffix}`),
+          dpopNonceHash: hash(`nonce-${suffix}`),
           exchangeExpiresAt: new Date(Date.now() + 60_000),
           now: new Date(),
           claimedAt,

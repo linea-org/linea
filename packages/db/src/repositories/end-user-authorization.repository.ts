@@ -206,6 +206,7 @@ export async function completeAuthorizationRequest(
     authorizationRequestId: string
     issuerSubject: string
     exchangeTokenHash: string
+    dpopNonceHash: string
     exchangeExpiresAt: Date
     now: Date
     claimedAt: Date
@@ -301,6 +302,7 @@ export async function completeAuthorizationRequest(
           applicationId: application.id,
           externalSubjectId: subject.id,
           tokenHash: input.exchangeTokenHash,
+          dpopNonceHash: input.dpopNonceHash,
           expiresAt: input.exchangeExpiresAt,
         })
         .returning()

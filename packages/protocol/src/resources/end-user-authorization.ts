@@ -36,7 +36,30 @@ export const endUserIdentityExchangeSchema = z.strictObject({
   applicationId: identifierSchema,
   externalSubjectId: identifierSchema,
   exchangeToken: z.string().startsWith("lnx_"),
+  dpopNonce: z.string().min(32).max(256),
   expiresAt: timestampSchema,
+})
+
+export const createEndUserSessionSchema = z.strictObject({
+  exchangeToken: z.string().startsWith("lnx_").max(256),
+})
+
+export const endUserSessionCredentialSchema = z.strictObject({
+  accessToken: z.string().startsWith("lnu_"),
+  tokenType: z.literal("DPoP"),
+  dpopNonce: z.string().min(32).max(256),
+  expiresAt: timestampSchema,
+})
+
+export const endUserSessionHeadersSchema = z.strictObject({
+  authorization: z.string().startsWith("DPoP "),
+  dpop: z.string().min(1).max(8192),
+  origin: z.url().optional(),
+})
+
+export const createEndUserSessionHeadersSchema = z.strictObject({
+  dpop: z.string().min(1).max(8192),
+  origin: z.url().optional(),
 })
 
 export type StartEndUserAuthorization = z.infer<
@@ -50,4 +73,8 @@ export type EndUserAuthorizationResponse = z.infer<
 >
 export type EndUserIdentityExchange = z.infer<
   typeof endUserIdentityExchangeSchema
+>
+export type CreateEndUserSession = z.infer<typeof createEndUserSessionSchema>
+export type EndUserSessionCredential = z.infer<
+  typeof endUserSessionCredentialSchema
 >

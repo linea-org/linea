@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest"
 import {
   applicationKeyScopeSchema,
   applicationKeyScopes,
+  createEndUserSessionHeadersSchema,
+  createEndUserSessionSchema,
+  endUserSessionCredentialSchema,
   externalSubjectSchema,
   exchangeEndUserAuthorizationSchema,
   eventEnvelopeSchema,
@@ -99,6 +102,23 @@ describe("public protocol schemas", () => {
         codeVerifier: "v".repeat(43),
       })
     ).toMatchObject({ state: "s".repeat(43) })
+    expect(
+      createEndUserSessionHeadersSchema.parse({
+        dpop: "header.payload.signature",
+        origin: "https://app.example.com",
+      })
+    ).toMatchObject({ dpop: "header.payload.signature" })
+    expect(
+      createEndUserSessionSchema.parse({ exchangeToken: "lnx_exchange-token" })
+    ).toEqual({ exchangeToken: "lnx_exchange-token" })
+    expect(
+      endUserSessionCredentialSchema.parse({
+        accessToken: "lnu_access-token",
+        tokenType: "DPoP",
+        dpopNonce: "n".repeat(32),
+        expiresAt: "2026-09-12T12:00:00Z",
+      })
+    ).toMatchObject({ tokenType: "DPoP" })
   })
 
   it("rejects malformed and unknown wire values", () => {
