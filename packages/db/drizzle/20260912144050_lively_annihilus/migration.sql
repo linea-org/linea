@@ -22,11 +22,16 @@ CREATE TABLE "conversations" (
 DROP INDEX "chat_messages_conversation_created_idx";--> statement-breakpoint
 ALTER TABLE "applications" ADD COLUMN "kind" "application_kind" DEFAULT 'operator'::"application_kind" NOT NULL;--> statement-breakpoint
 ALTER TABLE "chat_messages" ADD COLUMN "client_message_id" text;--> statement-breakpoint
--- Legacy Chat Preview ownership is ambiguous and no production conversation data exists.
-DELETE FROM "flags" WHERE "conversation_finding_id" IS NOT NULL;--> statement-breakpoint
-DELETE FROM "conversation_analysis_claims";--> statement-breakpoint
-DELETE FROM "conversation_analyses";--> statement-breakpoint
-DELETE FROM "chat_messages";--> statement-breakpoint
+-- First-class conversation ownership cannot be inferred safely from legacy Chat Preview rows.
+DO $$
+BEGIN
+	IF EXISTS (SELECT 1 FROM "chat_messages")
+		OR EXISTS (SELECT 1 FROM "conversation_analyses")
+		OR EXISTS (SELECT 1 FROM "conversation_analysis_claims") THEN
+		RAISE EXCEPTION 'Legacy conversation data must be reset explicitly before applying this migration';
+	END IF;
+END
+$$;--> statement-breakpoint
 ALTER TABLE "chat_messages" DROP COLUMN "workflow_id";--> statement-breakpoint
 ALTER TABLE "chat_messages" DROP COLUMN "external_subject_id";--> statement-breakpoint
 CREATE UNIQUE INDEX "applications_internal_builder_workspace_uidx" ON "applications" ("workspace_id") WHERE "kind" = 'internal_builder';--> statement-breakpoint
