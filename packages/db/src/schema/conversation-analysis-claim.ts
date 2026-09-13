@@ -1,10 +1,12 @@
 import {
+  foreignKey,
   integer,
   snakeCase,
   timestamp,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
+import { conversations } from "./conversation.js"
 
 // Durable, cross-tick claim state for the due-conversation poller. Without this, two concurrent
 // worker instances can both select and pay to analyze the same conversation, and a batch of
@@ -32,6 +34,15 @@ export const conversationAnalysisClaims = snakeCase.table(
       table.workflowId,
       table.conversationId
     ),
+    foreignKey({
+      name: "conversation_analysis_claims_conversation_fkey",
+      columns: [table.conversationId, table.workspaceId, table.workflowId],
+      foreignColumns: [
+        conversations.id,
+        conversations.workspaceId,
+        conversations.workflowId,
+      ],
+    }).onDelete("cascade"),
   ]
 )
 

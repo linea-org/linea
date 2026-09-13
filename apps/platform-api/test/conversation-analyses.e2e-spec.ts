@@ -59,17 +59,17 @@ describe('Conversation analyses API (e2e)', () => {
         hashedKey: generatedKey.hashedKey,
         keyPrefix: generatedKey.keyPrefix,
       })
-      const userMessage = await repositories.chatMessage.createChatMessage(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        conversationId,
-        role: 'user',
-        content: 'You have repeated the same answer three times.',
-        externalSubjectId: 'customer-42',
-      })
-      const assistantMessage = await repositories.chatMessage.createChatMessage(
-        db,
-        {
+      const userMessage =
+        await repositories.chatMessage.createBuilderChatMessage(db, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: 'user',
+          content: 'You have repeated the same answer three times.',
+          externalSubjectId: 'customer-42',
+        })
+      const assistantMessage =
+        await repositories.chatMessage.createBuilderChatMessage(db, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId,
@@ -77,8 +77,7 @@ describe('Conversation analyses API (e2e)', () => {
           content: 'Please try the same steps again.',
           externalSubjectId: 'customer-42',
           respondsToMessageId: userMessage.id,
-        },
-      )
+        })
       const olderAnalysis =
         await repositories.conversationAnalysis.createConversationAnalysis(db, {
           workspaceId: organization.id,
@@ -234,14 +233,17 @@ describe('Conversation analyses API (e2e)', () => {
         hashedKey: generatedKey.hashedKey,
         keyPrefix: generatedKey.keyPrefix,
       })
-      const message = await repositories.chatMessage.createChatMessage(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        conversationId,
-        role: 'user',
-        content: 'Can you help me?',
-        externalSubjectId: 'customer-43',
-      })
+      const message = await repositories.chatMessage.createBuilderChatMessage(
+        db,
+        {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: 'user',
+          content: 'Can you help me?',
+          externalSubjectId: 'customer-43',
+        },
+      )
       const disabledResponse = await request(app.getHttpServer())
         .get(
           `/v1/workflows/${workflow.id}/conversations/${conversationId}/analysis`,
@@ -316,13 +318,16 @@ describe('Conversation analyses API (e2e)', () => {
         hashedKey: generatedKey.hashedKey,
         keyPrefix: generatedKey.keyPrefix,
       })
-      const message = await repositories.chatMessage.createChatMessage(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        conversationId,
-        role: 'user',
-        content: 'Thank you, that solved it.',
-      })
+      const message = await repositories.chatMessage.createBuilderChatMessage(
+        db,
+        {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: 'user',
+          content: 'Thank you, that solved it.',
+        },
+      )
       await repositories.conversationAnalysis.createConversationAnalysis(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -330,16 +335,14 @@ describe('Conversation analyses API (e2e)', () => {
         analyzedThroughSequence: message.sequence,
         analyzerVersion: 'sampled-out',
       })
-      const analyzedMessage = await repositories.chatMessage.createChatMessage(
-        db,
-        {
+      const analyzedMessage =
+        await repositories.chatMessage.createBuilderChatMessage(db, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId: analyzedConversationId,
           role: 'user',
           content: 'This conversation had no notable behavior.',
-        },
-      )
+        })
       await repositories.conversationAnalysis.createConversationAnalysis(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -418,7 +421,7 @@ describe('Conversation analyses API (e2e)', () => {
         organization.id,
         { behaviourAnalysisEnabled: true },
       )
-      await repositories.chatMessage.createChatMessage(db, {
+      await repositories.chatMessage.createBuilderChatMessage(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
@@ -493,7 +496,7 @@ describe('Conversation analyses API (e2e)', () => {
         hashedKey: generatedKey.hashedKey,
         keyPrefix: generatedKey.keyPrefix,
       })
-      await repositories.chatMessage.createChatMessage(db, {
+      await repositories.chatMessage.createBuilderChatMessage(db, {
         workspaceId: owner.id,
         workflowId: workflow.id,
         conversationId,

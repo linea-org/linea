@@ -60,6 +60,7 @@ export const relations = defineRelations(schema, (r) => ({
     endUserAuthorizationRequests: r.many.endUserAuthorizationRequests(),
     endUserIdentityExchanges: r.many.endUserIdentityExchanges(),
     endUserSessions: r.many.endUserSessions(),
+    conversations: r.many.conversations(),
   },
 
   applications: {
@@ -74,6 +75,7 @@ export const relations = defineRelations(schema, (r) => ({
     endUserAuthorizationRequests: r.many.endUserAuthorizationRequests(),
     endUserIdentityExchanges: r.many.endUserIdentityExchanges(),
     endUserSessions: r.many.endUserSessions(),
+    conversations: r.many.conversations(),
   },
 
   externalSubjects: {
@@ -85,6 +87,7 @@ export const relations = defineRelations(schema, (r) => ({
     authorizationRequests: r.many.endUserAuthorizationRequests(),
     identityExchanges: r.many.endUserIdentityExchanges(),
     sessions: r.many.endUserSessions(),
+    conversations: r.many.conversations(),
   },
 
   externalSubjectApplications: {
@@ -197,6 +200,7 @@ export const relations = defineRelations(schema, (r) => ({
     versions: r.many.workflowVersions(),
     contractRevisions: r.many.workflowContractRevisions(),
     applicationBindings: r.many.applicationWorkflowBindings(),
+    conversations: r.many.conversations(),
 
     publishedVersion: r.one.workflowVersions({
       from: r.workflows.publishedVersionId,
@@ -232,6 +236,33 @@ export const relations = defineRelations(schema, (r) => ({
     workflowVersions: r.many.workflowVersions(),
     applicationBindings: r.many.applicationWorkflowBindings(),
     executions: r.many.executions(),
+  },
+
+  conversations: {
+    workspace: r.one.organizations({
+      from: r.conversations.workspaceId,
+      to: r.organizations.id,
+    }),
+    application: r.one.applications({
+      from: r.conversations.applicationId,
+      to: r.applications.id,
+    }),
+    workflow: r.one.workflows({
+      from: r.conversations.workflowId,
+      to: r.workflows.id,
+    }),
+    externalSubject: r.one.externalSubjects({
+      from: r.conversations.externalSubjectId,
+      to: r.externalSubjects.id,
+    }),
+    messages: r.many.chatMessages(),
+  },
+
+  chatMessages: {
+    conversation: r.one.conversations({
+      from: r.chatMessages.conversationId,
+      to: r.conversations.id,
+    }),
   },
 
   executions: {

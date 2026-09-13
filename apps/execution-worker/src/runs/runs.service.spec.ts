@@ -503,16 +503,14 @@ describe("RunsService chat-preview message persistence", () => {
         contentHash: "runs-chat-forged-hash",
       })
       // Real row, wrong conversation — passes the FK constraint, so only an explicit scope check catches this.
-      const foreignMessage = await repositories.chatMessage.createChatMessage(
-        db,
-        {
+      const foreignMessage =
+        await repositories.chatMessage.createBuilderChatMessage(db, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId: randomUUID(),
           role: "user",
           content: "a message from a different conversation",
-        }
-      )
+        })
       const conversationId = randomUUID()
       // Simulates an ordinary execution whose triggerPayload happens to carry a mismatched pair.
       const execution = await repositories.execution.createExecution(db, {
@@ -586,13 +584,14 @@ describe("RunsService chat-preview message persistence", () => {
         contentHash: "runs-chat-order-hash",
       })
       const conversationId = randomUUID()
-      const userMessage = await repositories.chatMessage.createChatMessage(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        conversationId,
-        role: "user",
-        content: "hello",
-      })
+      const userMessage =
+        await repositories.chatMessage.createBuilderChatMessage(db, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "user",
+          content: "hello",
+        })
       const execution = await repositories.execution.createExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -668,13 +667,14 @@ describe("RunsService chat-preview message persistence", () => {
         contentHash: "runs-chat-non-ai-text-hash",
       })
       const conversationId = randomUUID()
-      const userMessage = await repositories.chatMessage.createChatMessage(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        conversationId,
-        role: "user",
-        content: "hello",
-      })
+      const userMessage =
+        await repositories.chatMessage.createBuilderChatMessage(db, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "user",
+          content: "hello",
+        })
       const execution = await repositories.execution.createExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,

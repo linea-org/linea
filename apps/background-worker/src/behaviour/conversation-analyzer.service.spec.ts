@@ -71,17 +71,14 @@ async function setUpConversation(options: {
 
   const conversationId = randomUUID()
   const idleAt = new Date(Date.now() - 60 * 60_000)
-  const [message] = await db
-    .insert(schema.chatMessages)
-    .values({
-      workspaceId: organization.id,
-      workflowId: workflow.id,
-      conversationId,
-      role: "user",
-      content: "I've been trying to cancel my subscription for an hour",
-      createdAt: idleAt,
-    })
-    .returning()
+  const message = await repositories.chatMessage.createBuilderChatMessage(db, {
+    workspaceId: organization.id,
+    workflowId: workflow.id,
+    conversationId,
+    role: "user",
+    content: "I've been trying to cancel my subscription for an hour",
+    createdAt: idleAt,
+  })
 
   return { organization, workflow, conversationId, message }
 }
@@ -314,13 +311,16 @@ describe("ConversationAnalyzerService", () => {
         organization.id,
         firstFlag.signalId
       )
-      const followUp = await repositories.chatMessage.createChatMessage(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        conversationId,
-        role: "assistant",
-        content: "I still cannot resolve this.",
-      })
+      const followUp = await repositories.chatMessage.createBuilderChatMessage(
+        db,
+        {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "assistant",
+          content: "I still cannot resolve this.",
+        }
+      )
       await pool.query(
         "UPDATE conversation_analysis_claims SET claimed_at = $1 WHERE workspace_id = $2 AND conversation_id = $3",
         [new Date(Date.now() - 10 * 60_000), organization.id, conversationId]

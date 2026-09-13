@@ -1,11 +1,8 @@
 import { randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
-import {
-  chatMessages,
-  conversationFindings,
-  executionSteps,
-} from "../schema/index.js"
+import { conversationFindings, executionSteps } from "../schema/index.js"
+import { createBuilderChatMessage } from "./chat-message.repository.js"
 import {
   createConversationAnalysis,
   insertConversationFindings,
@@ -120,48 +117,36 @@ describe("createRegressionCaseFromFinding", () => {
       const { organization, workflow } = await createTestFixtures(tx)
       const conversationId = randomUUID()
 
-      const [turn1] = await tx
-        .insert(chatMessages)
-        .values({
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          conversationId,
-          role: "user",
-          content: "What's your refund policy?",
-        })
-        .returning()
-      await tx
-        .insert(chatMessages)
-        .values({
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          conversationId,
-          role: "assistant",
-          content: "We offer refunds within 30 days.",
-          respondsToMessageId: turn1.id,
-        })
-        .returning()
-      const [turn3] = await tx
-        .insert(chatMessages)
-        .values({
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          conversationId,
-          role: "user",
-          content: "What about after 30 days?",
-        })
-        .returning()
-      const [turn4] = await tx
-        .insert(chatMessages)
-        .values({
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          conversationId,
-          role: "assistant",
-          content: "Sure, I can process that refund for you right now.",
-          respondsToMessageId: turn3.id,
-        })
-        .returning()
+      const turn1 = await createBuilderChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "What's your refund policy?",
+      })
+      await createBuilderChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "assistant",
+        content: "We offer refunds within 30 days.",
+        respondsToMessageId: turn1.id,
+      })
+      const turn3 = await createBuilderChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "What about after 30 days?",
+      })
+      const turn4 = await createBuilderChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "assistant",
+        content: "Sure, I can process that refund for you right now.",
+        respondsToMessageId: turn3.id,
+      })
 
       const analysis = await createConversationAnalysis(tx, {
         workspaceId: organization.id,
@@ -247,48 +232,36 @@ describe("createRegressionCaseFromFlag", () => {
       const { organization, workflow } = await createTestFixtures(tx)
       const conversationId = randomUUID()
 
-      const [turn1] = await tx
-        .insert(chatMessages)
-        .values({
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          conversationId,
-          role: "user",
-          content: "What's your refund policy?",
-        })
-        .returning()
-      await tx
-        .insert(chatMessages)
-        .values({
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          conversationId,
-          role: "assistant",
-          content: "We offer refunds within 30 days.",
-          respondsToMessageId: turn1.id,
-        })
-        .returning()
-      const [turn3] = await tx
-        .insert(chatMessages)
-        .values({
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          conversationId,
-          role: "user",
-          content: "What about after 30 days?",
-        })
-        .returning()
-      const [turn4] = await tx
-        .insert(chatMessages)
-        .values({
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          conversationId,
-          role: "assistant",
-          content: "Sure, I can process that refund for you right now.",
-          respondsToMessageId: turn3.id,
-        })
-        .returning()
+      const turn1 = await createBuilderChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "What's your refund policy?",
+      })
+      await createBuilderChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "assistant",
+        content: "We offer refunds within 30 days.",
+        respondsToMessageId: turn1.id,
+      })
+      const turn3 = await createBuilderChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "What about after 30 days?",
+      })
+      const turn4 = await createBuilderChatMessage(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "assistant",
+        content: "Sure, I can process that refund for you right now.",
+        respondsToMessageId: turn3.id,
+      })
 
       const flag = await createFlagIfNew(tx, {
         workspaceId: organization.id,

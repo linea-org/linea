@@ -267,13 +267,14 @@ export async function findConversationsDueForAnalysis(
   }>(sql`
     WITH conversation_stats AS (
       SELECT
-        workspace_id, workflow_id, conversation_id,
-        max(sequence) AS max_sequence,
-        max(created_at) AS last_message_at,
-        (array_agg(external_subject_id) FILTER (WHERE external_subject_id IS NOT NULL))[1]
-          AS external_subject_id
-      FROM chat_messages
-      GROUP BY workspace_id, workflow_id, conversation_id
+        cm.workspace_id, c.workflow_id, cm.conversation_id,
+        max(cm.sequence) AS max_sequence,
+        max(cm.created_at) AS last_message_at,
+        c.external_subject_id::text AS external_subject_id
+      FROM chat_messages cm
+      JOIN conversations c
+        ON c.id = cm.conversation_id AND c.workspace_id = cm.workspace_id
+      GROUP BY cm.workspace_id, c.workflow_id, cm.conversation_id, c.external_subject_id
     ),
     latest_analysis AS (
       -- Tied created_at (same-millisecond concurrent runs) falls through to the highest

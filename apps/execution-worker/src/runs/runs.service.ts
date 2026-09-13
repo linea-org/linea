@@ -240,7 +240,6 @@ export class RunsService {
             await repositories.chatMessage
               .createChatMessage(db, {
                 workspaceId: execution.workspaceId,
-                workflowId: execution.workflowId,
                 conversationId,
                 executionId,
                 role: "assistant",

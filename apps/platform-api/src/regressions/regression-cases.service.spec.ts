@@ -130,16 +130,16 @@ describe('RegressionCasesService', () => {
           slug: `regression-cases-flag-test-other-${suffix}`,
         })
         const conversationId = randomUUID()
-        const [turn] = await db
-          .insert(schema.chatMessages)
-          .values({
+        const turn = await repositories.chatMessage.createBuilderChatMessage(
+          db,
+          {
             workspaceId,
             workflowId: workflow.id,
             conversationId,
             role: 'user',
             content: 'What is your refund policy?',
-          })
-          .returning()
+          },
+        )
 
         const flagWithDetail = await repositories.flag.createFlagIfNew(db, {
           workspaceId,
