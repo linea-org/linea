@@ -22,52 +22,11 @@ CREATE TABLE "conversations" (
 DROP INDEX "chat_messages_conversation_created_idx";--> statement-breakpoint
 ALTER TABLE "applications" ADD COLUMN "kind" "application_kind" DEFAULT 'operator'::"application_kind" NOT NULL;--> statement-breakpoint
 ALTER TABLE "chat_messages" ADD COLUMN "client_message_id" text;--> statement-breakpoint
-INSERT INTO "applications" (
-	"workspace_id", "kind", "environment", "display_name", "allowed_browser_origins",
-	"allowed_redirect_origins", "oidc_issuer", "oidc_client_id", "oidc_audience", "oidc_jwks_url", "enabled"
-)
-SELECT DISTINCT
-	cm."workspace_id", 'internal_builder'::"application_kind", 'dev'::"application_environment", 'Linea Builder', ARRAY['http://localhost'],
-	ARRAY['http://localhost'], 'urn:linea:builder', 'linea-builder', 'linea-builder',
-	'http://localhost/.well-known/jwks.json', false
-FROM "chat_messages" cm
-ON CONFLICT DO NOTHING;--> statement-breakpoint
-INSERT INTO "external_subjects" (
-	"workspace_id", "issuer", "issuer_subject", "status", "verified_at"
-)
-SELECT DISTINCT
-	cm."workspace_id", 'urn:linea:builder',
-	coalesce(cm."external_subject_id", 'anonymous:' || cm."conversation_id"::text),
-	'verified'::"external_subject_status", now()
-FROM "chat_messages" cm
-ON CONFLICT DO NOTHING;--> statement-breakpoint
-INSERT INTO "external_subject_applications" (
-	"workspace_id", "application_id", "external_subject_id"
-)
-SELECT DISTINCT cm."workspace_id", a."id", es."id"
-FROM "chat_messages" cm
-JOIN "applications" a
-	ON a."workspace_id" = cm."workspace_id" AND a."kind" = 'internal_builder'
-JOIN "external_subjects" es
-	ON es."workspace_id" = cm."workspace_id"
-	AND es."issuer" = 'urn:linea:builder'
-	AND es."issuer_subject" = coalesce(cm."external_subject_id", 'anonymous:' || cm."conversation_id"::text)
-ON CONFLICT DO NOTHING;--> statement-breakpoint
-INSERT INTO "conversations" (
-	"id", "workspace_id", "application_id", "workflow_id", "external_subject_id",
-	"environment", "last_activity_at", "created_at", "updated_at"
-)
-SELECT
-	cm."conversation_id", cm."workspace_id", a."id", cm."workflow_id", es."id",
-	'draft'::"execution_environment", max(cm."created_at"), min(cm."created_at"), max(cm."created_at")
-FROM "chat_messages" cm
-JOIN "applications" a
-	ON a."workspace_id" = cm."workspace_id" AND a."kind" = 'internal_builder'
-JOIN "external_subjects" es
-	ON es."workspace_id" = cm."workspace_id"
-	AND es."issuer" = 'urn:linea:builder'
-	AND es."issuer_subject" = coalesce(cm."external_subject_id", 'anonymous:' || cm."conversation_id"::text)
-GROUP BY cm."conversation_id", cm."workspace_id", a."id", cm."workflow_id", es."id";--> statement-breakpoint
+-- Legacy Chat Preview ownership is ambiguous and no production conversation data exists.
+DELETE FROM "flags" WHERE "conversation_finding_id" IS NOT NULL;--> statement-breakpoint
+DELETE FROM "conversation_analysis_claims";--> statement-breakpoint
+DELETE FROM "conversation_analyses";--> statement-breakpoint
+DELETE FROM "chat_messages";--> statement-breakpoint
 ALTER TABLE "chat_messages" DROP COLUMN "workflow_id";--> statement-breakpoint
 ALTER TABLE "chat_messages" DROP COLUMN "external_subject_id";--> statement-breakpoint
 CREATE UNIQUE INDEX "applications_internal_builder_workspace_uidx" ON "applications" ("workspace_id") WHERE "kind" = 'internal_builder';--> statement-breakpoint

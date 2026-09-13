@@ -230,6 +230,10 @@ describe("findConversationsDueForAnalysis", () => {
       expect(dueWithExpiredLease.map((d) => d.conversationId)).toContain(
         conversationId
       )
+      expect(
+        dueWithExpiredLease.find((d) => d.conversationId === conversationId)
+          ?.externalSubjectId
+      ).toBeNull()
     })
   })
 
@@ -365,9 +369,7 @@ describe("findConversationsDueForAnalysis", () => {
         (d) => d.conversationId === conversationId
       )
       expect(match).toBeDefined()
-      expect(match?.externalSubjectId).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
-      )
+      expect(match?.externalSubjectId).toBe("customer-user-1")
       expect(match?.behaviourSampleRate).toBe(0.5)
 
       const analysis = await createConversationAnalysis(tx, {
