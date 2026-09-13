@@ -37,6 +37,19 @@ describe("operation registry", () => {
       "exchangeEndUserAuthorization",
       "createEndUserSession",
       "revokeEndUserSession",
+      "createApplicationConversation",
+      "listApplicationConversations",
+      "getApplicationConversation",
+      "startApplicationExecution",
+      "getApplicationExecution",
+      "cancelApplicationExecution",
+      "createEndUserConversation",
+      "listEndUserConversations",
+      "getEndUserConversation",
+      "createEndUserMessage",
+      "listEndUserMessages",
+      "startEndUserExecution",
+      "getEndUserExecution",
     ])
   })
 
@@ -54,6 +67,18 @@ describe("operation registry", () => {
     })
     expect(registered[0]?.request).toBe(request)
     expect(registered[0]?.response).toBe(response)
+  })
+
+  it("publishes paginated list contracts", () => {
+    const listMessages = operationRegistry.find(
+      ({ operationId }) => operationId === "listEndUserMessages"
+    )
+    if (!listMessages) throw new Error("Message list operation is missing")
+    expect(listMessages.request.query.parse({})).toEqual({ limit: 20 })
+    expect(
+      listMessages.response.body.safeParse({ data: [], nextCursor: null })
+        .success
+    ).toBe(true)
   })
 
   it("rejects duplicate operation IDs", () => {

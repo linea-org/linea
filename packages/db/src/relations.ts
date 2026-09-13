@@ -256,6 +256,7 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.externalSubjects.id,
     }),
     messages: r.many.chatMessages(),
+    executions: r.many.executions(),
   },
 
   chatMessages: {
@@ -283,6 +284,14 @@ export const relations = defineRelations(schema, (r) => ({
     application: r.one.applications({
       from: r.executions.applicationId,
       to: r.applications.id,
+    }),
+    conversation: r.one.conversations({
+      from: r.executions.conversationId,
+      to: r.conversations.id,
+    }),
+    externalSubject: r.one.externalSubjects({
+      from: r.executions.externalSubjectRecordId,
+      to: r.externalSubjects.id,
     }),
     workflowContractRevision: r.one.workflowContractRevisions({
       from: r.executions.workflowContractRevisionId,
