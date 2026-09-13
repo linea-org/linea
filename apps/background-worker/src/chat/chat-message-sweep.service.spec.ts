@@ -39,14 +39,17 @@ describe("ChatMessageSweepService", () => {
         contentHash: "test-hash",
       })
       const conversationId = randomUUID()
-      const message = await repositories.chatMessage.createChatMessage(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        conversationId,
-        role: "user",
-        content: "hello",
-        createdAt: new Date(Date.now() - 600_000),
-      })
+      const message = await repositories.chatMessage.createBuilderChatMessage(
+        db,
+        {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId,
+          role: "user",
+          content: "hello",
+          createdAt: new Date(Date.now() - 600_000),
+        }
+      )
       const execution = await repositories.execution.createExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,

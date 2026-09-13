@@ -18,11 +18,16 @@ export class ConversationAnalysesService {
     if (messages.length === 0) {
       throw new NotFoundException('Conversation not found')
     }
+    const identity =
+      await repositories.chatMessage.getEstablishedExternalSubjectId(
+        db,
+        workspaceId,
+        workflowId,
+        conversationId,
+      )
     const conversation = {
       id: conversationId,
-      externalSubjectId:
-        messages.find((message) => message.externalSubjectId)
-          ?.externalSubjectId ?? null,
+      externalSubjectId: identity.externalSubjectId,
       messages: messages.map((message) => ({
         id: message.id,
         executionId: message.executionId,

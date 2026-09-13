@@ -1,11 +1,15 @@
 import { and, desc, eq, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import {
+  applications,
   chatMessages,
+  conversations,
   executions,
+  externalSubjects,
   type ChatMessage,
   type NewChatMessage,
 } from "../schema/index.js"
+import { ensureBuilderConversation } from "./conversation.repository.js"
 import type { DbClient } from "./types.js"
 
 const respondsTo = alias(chatMessages, "responds_to")
@@ -14,11 +18,43 @@ export async function createChatMessage(
   db: DbClient,
   input: NewChatMessage
 ): Promise<ChatMessage> {
-  const [message] = await db.insert(chatMessages).values(input).returning()
-  return message
+  return db.transaction(async (tx) => {
+    const [message] = await tx.insert(chatMessages).values(input).returning()
+    await tx
+      .update(conversations)
+      .set({
+        lastActivityAt: sql`greatest(${conversations.lastActivityAt}, ${message.createdAt})`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(conversations.id, message.conversationId),
+          eq(conversations.workspaceId, message.workspaceId)
+        )
+      )
+    return message
+  })
 }
 
-/** The user turn a reply claims to answer, scoped to the same workspace/workflow/conversation — used to reject a reply's linkage before persisting it, not just trust an id from triggerPayload. */
+export async function createBuilderChatMessage(
+  db: DbClient,
+  input: NewChatMessage & {
+    workflowId: string
+    externalSubjectId?: string
+  }
+): Promise<ChatMessage> {
+  return db.transaction(async (tx) => {
+    const { workflowId, externalSubjectId, ...messageInput } = input
+    await ensureBuilderConversation(tx, {
+      id: input.conversationId,
+      workspaceId: input.workspaceId,
+      workflowId,
+      externalSubjectKey: externalSubjectId ?? null,
+    })
+    return createChatMessage(tx, messageInput)
+  })
+}
+
 export async function getUserChatMessageById(
   db: DbClient,
   workspaceId: string,
@@ -27,21 +63,27 @@ export async function getUserChatMessageById(
   id: string
 ): Promise<ChatMessage | undefined> {
   const [message] = await db
-    .select()
+    .select({ message: chatMessages })
     .from(chatMessages)
+    .innerJoin(
+      conversations,
+      and(
+        eq(conversations.id, chatMessages.conversationId),
+        eq(conversations.workspaceId, chatMessages.workspaceId)
+      )
+    )
     .where(
       and(
         eq(chatMessages.id, id),
         eq(chatMessages.workspaceId, workspaceId),
-        eq(chatMessages.workflowId, workflowId),
         eq(chatMessages.conversationId, conversationId),
+        eq(conversations.workflowId, workflowId),
         eq(chatMessages.role, "user")
       )
     )
-  return message
+  return message?.message
 }
 
-/** Scoped by workspaceId in the same query, not a separate ownership check. Used to compensate for a user turn whose triggering execution never made it onto the queue - there is no reply coming, so the turn shouldn't linger in history either. */
 export async function deleteChatMessage(
   db: DbClient,
   workspaceId: string,
@@ -54,20 +96,22 @@ export async function deleteChatMessage(
     )
 }
 
-/** Catches what a failed compensating delete missed: a user turn whose triggering execution definitively failed (so no reply is ever coming) and that's still unanswered, older than the given cutoff so a turn mid-flight is never touched. The matching execution is also scoped by workspace/workflow, not just chatMessageId — triggerPayload is caller-supplied, so an unscoped match could delete an unrelated message in another workflow. */
 export async function deleteOrphanedChatMessages(
   db: DbClient,
   olderThan: Date
 ): Promise<number> {
   const result = await db.execute(sql`
     delete from ${chatMessages}
-    where ${chatMessages.role} = 'user'
+    using ${conversations}
+    where ${conversations.id} = ${chatMessages.conversationId}
+      and ${conversations.workspaceId} = ${chatMessages.workspaceId}
+      and ${chatMessages.role} = 'user'
       and ${chatMessages.createdAt} < ${olderThan}
       and exists (
         select 1 from ${executions}
         where ${executions.triggerPayload} ->> 'chatMessageId' = ${chatMessages.id}::text
           and ${executions.workspaceId} = ${chatMessages.workspaceId}
-          and ${executions.workflowId} = ${chatMessages.workflowId}
+          and ${executions.workflowId} = ${conversations.workflowId}
           and ${executions.status} = 'failed'
       )
       and not exists (
@@ -78,7 +122,6 @@ export async function deleteOrphanedChatMessages(
   return result.rowCount ?? 0
 }
 
-/** Ordered by turn (via each reply's linked user message's `sequence`), not raw insertion time — independent executions can finish out of wall-clock order, and `sequence` (unlike `createdAt`) can't tie. */
 export async function listChatMessages(
   db: DbClient,
   workspaceId: string,
@@ -88,12 +131,19 @@ export async function listChatMessages(
   const rows = await db
     .select({ message: chatMessages })
     .from(chatMessages)
+    .innerJoin(
+      conversations,
+      and(
+        eq(conversations.id, chatMessages.conversationId),
+        eq(conversations.workspaceId, chatMessages.workspaceId)
+      )
+    )
     .leftJoin(respondsTo, eq(chatMessages.respondsToMessageId, respondsTo.id))
     .where(
       and(
         eq(chatMessages.workspaceId, workspaceId),
-        eq(chatMessages.workflowId, workflowId),
-        eq(chatMessages.conversationId, conversationId)
+        eq(chatMessages.conversationId, conversationId),
+        eq(conversations.workflowId, workflowId)
       )
     )
     .orderBy(
@@ -103,29 +153,35 @@ export async function listChatMessages(
   return rows.map((row) => row.message)
 }
 
-/** Serializes concurrent first turns of the same conversation so subject establishment can't race:
- * two requests reading getEstablishedExternalSubjectId at the same instant would otherwise both
- * see "not found" and each proceed to insert with a different externalSubjectId. Call inside the
- * same transaction that will read-then-insert, before the read — pg_advisory_xact_lock blocks a
- * concurrent transaction taking the same key until this one commits or rolls back (auto-released
- * either way), so the second caller's read only runs after the first caller's insert is visible.
- * Scoped per (workspaceId, workflowId, conversationId), not globally, so unrelated conversations
- * never contend with each other. */
-export async function acquireConversationLock(
+export async function listExternalSubjectChatMessages(
   db: DbClient,
   workspaceId: string,
-  workflowId: string,
+  applicationId: string,
+  externalSubjectId: string,
   conversationId: string
-): Promise<void> {
-  const key = `${workspaceId}:${workflowId}:${conversationId}`
-  await db.execute(sql`select pg_advisory_xact_lock(hashtext(${key})::bigint)`)
+): Promise<ChatMessage[]> {
+  return db
+    .select({ message: chatMessages })
+    .from(chatMessages)
+    .innerJoin(
+      conversations,
+      and(
+        eq(conversations.id, chatMessages.conversationId),
+        eq(conversations.workspaceId, chatMessages.workspaceId)
+      )
+    )
+    .where(
+      and(
+        eq(conversations.id, conversationId),
+        eq(conversations.workspaceId, workspaceId),
+        eq(conversations.applicationId, applicationId),
+        eq(conversations.externalSubjectId, externalSubjectId)
+      )
+    )
+    .orderBy(chatMessages.sequence)
+    .then((rows) => rows.map((row) => row.message))
 }
 
-/** Whether this conversationId already has any turns, and if so, the externalSubjectId established
- * by its first message — the caller-supplied value on a later turn must never override this, or a
- * conversation could silently wobble between memory-scoped subjects turn to turn. A conversation
- * with no prior turns yet (found: false) has nothing established, so the current turn's own value
- * is free to set it for the first time. */
 export async function getEstablishedExternalSubjectId(
   db: DbClient,
   workspaceId: string,
@@ -133,21 +189,30 @@ export async function getEstablishedExternalSubjectId(
   conversationId: string
 ): Promise<{ found: boolean; externalSubjectId: string | null }> {
   const [row] = await db
-    .select({ externalSubjectId: chatMessages.externalSubjectId })
-    .from(chatMessages)
-    .where(
+    .select({ issuerSubject: externalSubjects.issuerSubject })
+    .from(conversations)
+    .innerJoin(
+      externalSubjects,
       and(
-        eq(chatMessages.workspaceId, workspaceId),
-        eq(chatMessages.workflowId, workflowId),
-        eq(chatMessages.conversationId, conversationId)
+        eq(externalSubjects.id, conversations.externalSubjectId),
+        eq(externalSubjects.workspaceId, conversations.workspaceId)
       )
     )
-    // Prefer a row that actually has one set, in case an older conversation (predating this
-    // check) has an inconsistent mix — matches listConversations' own "any non-null" preference.
-    .orderBy(sql`${chatMessages.externalSubjectId} is null asc`)
-    .limit(1)
+    .where(
+      and(
+        eq(conversations.workspaceId, workspaceId),
+        eq(conversations.workflowId, workflowId),
+        eq(conversations.id, conversationId)
+      )
+    )
   if (!row) return { found: false, externalSubjectId: null }
-  return { found: true, externalSubjectId: row.externalSubjectId }
+  return {
+    found: true,
+    externalSubjectId:
+      row.issuerSubject === `anonymous:${conversationId}`
+        ? null
+        : row.issuerSubject,
+  }
 }
 
 export type ConversationSummary = {
@@ -158,7 +223,6 @@ export type ConversationSummary = {
   externalSubjectId: string | null
 }
 
-/** One row per conversation in this workflow — preview is the first (oldest) message's content, for a history picker to label each entry. */
 export async function listConversations(
   db: DbClient,
   workspaceId: string,
@@ -166,22 +230,43 @@ export async function listConversations(
 ): Promise<ConversationSummary[]> {
   return db
     .select({
-      conversationId: chatMessages.conversationId,
-      preview: sql<string>`(array_agg(${chatMessages.content} order by ${chatMessages.createdAt} asc))[1]`,
+      conversationId: conversations.id,
+      preview: sql<string>`(array_agg(${chatMessages.content} order by ${chatMessages.sequence} asc))[1]`,
       lastMessageAt: sql<Date>`max(${chatMessages.createdAt})`,
       messageCount: sql<number>`count(*)::int`,
-      // Same value on every message in a conversation — any() picks whichever non-null one exists.
       externalSubjectId: sql<
         string | null
-      >`(array_agg(${chatMessages.externalSubjectId}) filter (where ${chatMessages.externalSubjectId} is not null))[1]`,
+      >`case when ${externalSubjects.issuerSubject} = 'anonymous:' || ${conversations.id}::text then null else ${externalSubjects.issuerSubject} end`,
     })
-    .from(chatMessages)
-    .where(
+    .from(conversations)
+    .innerJoin(
+      applications,
       and(
-        eq(chatMessages.workspaceId, workspaceId),
-        eq(chatMessages.workflowId, workflowId)
+        eq(applications.id, conversations.applicationId),
+        eq(applications.workspaceId, conversations.workspaceId)
       )
     )
-    .groupBy(chatMessages.conversationId)
+    .innerJoin(
+      externalSubjects,
+      and(
+        eq(externalSubjects.id, conversations.externalSubjectId),
+        eq(externalSubjects.workspaceId, conversations.workspaceId)
+      )
+    )
+    .innerJoin(
+      chatMessages,
+      and(
+        eq(chatMessages.conversationId, conversations.id),
+        eq(chatMessages.workspaceId, conversations.workspaceId)
+      )
+    )
+    .where(
+      and(
+        eq(conversations.workspaceId, workspaceId),
+        eq(conversations.workflowId, workflowId),
+        eq(applications.kind, "internal_builder")
+      )
+    )
+    .groupBy(conversations.id, externalSubjects.issuerSubject)
     .orderBy(desc(sql`max(${chatMessages.createdAt})`))
 }

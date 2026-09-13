@@ -1,5 +1,6 @@
 import {
   bigint,
+  foreignKey,
   index,
   integer,
   snakeCase,
@@ -9,6 +10,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 import { organizations } from "./organisation.js"
+import { conversations } from "./conversation.js"
 
 // One row per analysis RUN, not per conversation — a conversation gets re-analyzed as it grows,
 // and each run is its own record so cost/model/version history isn't overwritten. workflowId is
@@ -51,6 +53,15 @@ export const conversationAnalyses = snakeCase.table(
       table.id,
       table.workspaceId
     ),
+    foreignKey({
+      name: "conversation_analyses_conversation_fkey",
+      columns: [table.conversationId, table.workspaceId, table.workflowId],
+      foreignColumns: [
+        conversations.id,
+        conversations.workspaceId,
+        conversations.workflowId,
+      ],
+    }).onDelete("cascade"),
   ]
 )
 

@@ -233,16 +233,19 @@ async function seedConversation(
     if (turn.role === "assistant" && !lastUserMessageId) {
       throw new Error(`${scenario.name}: assistant turn has no user turn`)
     }
-    const message = await repositories.chatMessage.createChatMessage(db, {
-      workspaceId,
-      workflowId,
-      conversationId,
-      externalSubjectId,
-      role: turn.role,
-      content: turn.content,
-      respondsToMessageId:
-        turn.role === "assistant" ? lastUserMessageId : undefined,
-    })
+    const message = await repositories.chatMessage.createBuilderChatMessage(
+      db,
+      {
+        workspaceId,
+        workflowId,
+        conversationId,
+        externalSubjectId,
+        role: turn.role,
+        content: turn.content,
+        respondsToMessageId:
+          turn.role === "assistant" ? lastUserMessageId : undefined,
+      }
+    )
     messages.push(message)
     if (turn.role === "user") lastUserMessageId = message.id
   }
@@ -313,7 +316,7 @@ async function analyzeScenario(
     workflowId,
     conversationId,
     maxSequence,
-    externalSubjectId: messages[0].externalSubjectId,
+    externalSubjectId: `validation-${scenario.name}`,
     behaviourSampleRate: 1,
     behaviourModel: model,
   })

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import {
-  createChatMessage,
+  createBuilderChatMessage,
   deleteOrphanedChatMessages,
   getEstablishedExternalSubjectId,
   listChatMessages,
@@ -9,6 +9,7 @@ import {
 } from "./chat-message.repository.js"
 import { createExecution, failQueuedExecution } from "./execution.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
+import { createWorkflow } from "./workflow.repository.js"
 
 describe("chat-message.repository", () => {
   it("lists messages for a conversation ordered oldest first", async () => {
@@ -16,14 +17,14 @@ describe("chat-message.repository", () => {
       const { organization, workflow } = await createTestFixtures(tx)
       const conversationId = randomUUID()
 
-      await createChatMessage(tx, {
+      await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
         role: "user",
         content: "hello",
       })
-      await createChatMessage(tx, {
+      await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
@@ -52,7 +53,7 @@ describe("chat-message.repository", () => {
       const conversationId = randomUUID()
       const now = Date.now()
 
-      const user1 = await createChatMessage(tx, {
+      const user1 = await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
@@ -60,7 +61,7 @@ describe("chat-message.repository", () => {
         content: "first turn",
         createdAt: new Date(now),
       })
-      const user2 = await createChatMessage(tx, {
+      const user2 = await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
@@ -69,7 +70,7 @@ describe("chat-message.repository", () => {
         createdAt: new Date(now + 1_000),
       })
       // Turn 2's execution finishes first in wall-clock time, even though turn 1 was submitted first.
-      await createChatMessage(tx, {
+      await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
@@ -78,7 +79,7 @@ describe("chat-message.repository", () => {
         respondsToMessageId: user2.id,
         createdAt: new Date(now + 2_000),
       })
-      await createChatMessage(tx, {
+      await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
@@ -110,7 +111,7 @@ describe("chat-message.repository", () => {
       // Same timestamp for both user turns — only correct if something besides createdAt orders them.
       const tiedTimestamp = new Date()
 
-      const user1 = await createChatMessage(tx, {
+      const user1 = await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
@@ -118,7 +119,7 @@ describe("chat-message.repository", () => {
         content: "first turn",
         createdAt: tiedTimestamp,
       })
-      const user2 = await createChatMessage(tx, {
+      const user2 = await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
@@ -127,7 +128,7 @@ describe("chat-message.repository", () => {
         createdAt: tiedTimestamp,
       })
       // Turn 2's reply persisted first, but there's no timestamp gap here for coalesce() to fall back on.
-      await createChatMessage(tx, {
+      await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
@@ -136,7 +137,7 @@ describe("chat-message.repository", () => {
         respondsToMessageId: user2.id,
         createdAt: tiedTimestamp,
       })
-      await createChatMessage(tx, {
+      await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
@@ -161,23 +162,24 @@ describe("chat-message.repository", () => {
     })
   })
 
-  it("scopes by workspaceId, excluding another workspace's conversation of the same id", async () => {
+  it("scopes by workspaceId", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
       const otherOrg = await createTestFixtures(tx)
       const conversationId = randomUUID()
+      const otherConversationId = randomUUID()
 
-      await createChatMessage(tx, {
+      await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
         role: "user",
         content: "in scope",
       })
-      await createChatMessage(tx, {
+      await createBuilderChatMessage(tx, {
         workspaceId: otherOrg.organization.id,
         workflowId: otherOrg.workflow.id,
-        conversationId,
+        conversationId: otherConversationId,
         role: "user",
         content: "different workspace",
       })
@@ -193,25 +195,28 @@ describe("chat-message.repository", () => {
     })
   })
 
-  it("scopes by workflowId, excluding another workflow's conversation of the same id in the same workspace", async () => {
+  it("scopes by workflowId", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
-      const otherWorkflow = await createTestFixtures(tx)
+      const otherWorkflow = await createWorkflow(tx, {
+        workspaceId: organization.id,
+        name: "Other Workflow",
+        slug: `other-${randomUUID()}`,
+      })
       const conversationId = randomUUID()
+      const otherConversationId = randomUUID()
 
-      await createChatMessage(tx, {
+      await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
         role: "user",
         content: "workflow A's turn",
       })
-      // Same workspace as `organization`, different workflow, reusing the same conversationId -
-      // must not be visible when scoped to `workflow`.
-      await createChatMessage(tx, {
+      await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
-        workflowId: otherWorkflow.workflow.id,
-        conversationId,
+        workflowId: otherWorkflow.id,
+        conversationId: otherConversationId,
         role: "user",
         content: "workflow B's turn",
       })
@@ -233,14 +238,14 @@ describe("chat-message.repository", () => {
       const conversationA = randomUUID()
       const conversationB = randomUUID()
 
-      await createChatMessage(tx, {
+      await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId: conversationA,
         role: "user",
         content: "conversation A",
       })
-      await createChatMessage(tx, {
+      await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId: conversationB,
@@ -266,7 +271,7 @@ describe("chat-message.repository", () => {
         const older = randomUUID()
         const newer = randomUUID()
 
-        await createChatMessage(tx, {
+        await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId: older,
@@ -274,7 +279,7 @@ describe("chat-message.repository", () => {
           content: "older conversation opener",
           createdAt: new Date(Date.now() - 60_000),
         })
-        await createChatMessage(tx, {
+        await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId: older,
@@ -282,7 +287,7 @@ describe("chat-message.repository", () => {
           content: "older conversation reply",
           createdAt: new Date(Date.now() - 50_000),
         })
-        await createChatMessage(tx, {
+        await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId: newer,
@@ -315,14 +320,14 @@ describe("chat-message.repository", () => {
         const { organization, workflow } = await createTestFixtures(tx)
         const otherOrg = await createTestFixtures(tx)
 
-        await createChatMessage(tx, {
+        await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId: randomUUID(),
           role: "user",
           content: "in scope",
         })
-        await createChatMessage(tx, {
+        await createBuilderChatMessage(tx, {
           workspaceId: otherOrg.organization.id,
           workflowId: otherOrg.workflow.id,
           conversationId: randomUUID(),
@@ -346,7 +351,7 @@ describe("chat-message.repository", () => {
       await withRollback(async (tx) => {
         const { organization, workflow, version } = await createTestFixtures(tx)
         const conversationId = randomUUID()
-        const message = await createChatMessage(tx, {
+        const message = await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId,
@@ -383,7 +388,7 @@ describe("chat-message.repository", () => {
       await withRollback(async (tx) => {
         const { organization, workflow, version } = await createTestFixtures(tx)
         const conversationId = randomUUID()
-        const message = await createChatMessage(tx, {
+        const message = await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId,
@@ -399,7 +404,7 @@ describe("chat-message.repository", () => {
           triggerPayload: { conversationId, chatMessageId: message.id },
         })
         await failQueuedExecution(tx, execution.id, { message: "boom" })
-        await createChatMessage(tx, {
+        await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId,
@@ -420,7 +425,7 @@ describe("chat-message.repository", () => {
       await withRollback(async (tx) => {
         const { organization, workflow, version } = await createTestFixtures(tx)
         const conversationId = randomUUID()
-        const message = await createChatMessage(tx, {
+        const message = await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId,
@@ -448,7 +453,7 @@ describe("chat-message.repository", () => {
       await withRollback(async (tx) => {
         const { organization, workflow, version } = await createTestFixtures(tx)
         const conversationId = randomUUID()
-        const message = await createChatMessage(tx, {
+        const message = await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId,
@@ -477,7 +482,7 @@ describe("chat-message.repository", () => {
         const { organization, workflow } = await createTestFixtures(tx)
         const otherWorkflow = await createTestFixtures(tx)
         const conversationId = randomUUID()
-        const message = await createChatMessage(tx, {
+        const message = await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId,
@@ -532,7 +537,7 @@ describe("chat-message.repository", () => {
         const { organization, workflow } = await createTestFixtures(tx)
         const conversationId = randomUUID()
 
-        await createChatMessage(tx, {
+        await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId,
@@ -559,7 +564,7 @@ describe("chat-message.repository", () => {
         const { organization, workflow } = await createTestFixtures(tx)
         const conversationId = randomUUID()
 
-        await createChatMessage(tx, {
+        await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           conversationId,

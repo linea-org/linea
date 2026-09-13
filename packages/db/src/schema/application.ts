@@ -18,6 +18,11 @@ export const applicationEnvironment = pgEnum("application_environment", [
   "production",
 ])
 
+export const applicationKind = pgEnum("application_kind", [
+  "operator",
+  "internal_builder",
+])
+
 export const applications = snakeCase.table(
   "applications",
   {
@@ -25,6 +30,7 @@ export const applications = snakeCase.table(
     workspaceId: uuid()
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
+    kind: applicationKind().default("operator").notNull(),
     environment: applicationEnvironment().notNull(),
     displayName: text().notNull(),
     logoUrl: text(),
@@ -49,6 +55,9 @@ export const applications = snakeCase.table(
       table.id,
       table.workspaceId
     ),
+    uniqueIndex("applications_internal_builder_workspace_uidx")
+      .on(table.workspaceId)
+      .where(sql`${table.kind} = 'internal_builder'`),
     check(
       "applications_content_retention_days_check",
       sql`${table.contentRetentionDays} BETWEEN 1 AND 3650`

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { auditLogs, users } from "../schema/index.js"
@@ -11,6 +12,7 @@ import {
   updateApplicationProfile,
   type CreateApplicationInput,
 } from "./application.repository.js"
+import { ensureBuilderConversation } from "./conversation.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 
 function applicationInput(workspaceId: string): CreateApplicationInput {
@@ -31,6 +33,18 @@ function applicationInput(workspaceId: string): CreateApplicationInput {
 }
 
 describe("application repository", () => {
+  it("does not expose the internal builder Application in operator lists", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow } = await createTestFixtures(tx)
+      await ensureBuilderConversation(tx, {
+        id: randomUUID(),
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        externalSubjectKey: null,
+      })
+      expect(await listApplications(tx, organization.id)).toEqual([])
+    })
+  })
   it("persists the deployed boundary and a redacted creation audit", async () => {
     await withRollback(async (tx) => {
       const { organization } = await createTestFixtures(tx)

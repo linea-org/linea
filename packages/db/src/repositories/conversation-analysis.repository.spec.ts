@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
-import { chatMessages } from "../schema/index.js"
 import type { Transaction } from "./types.js"
+import { createBuilderChatMessage } from "./chat-message.repository.js"
+import { ensureBuilderConversation } from "./conversation.repository.js"
 import {
   claimConversationForAnalysis,
   createConversationAnalysis,
@@ -22,7 +23,7 @@ async function insertMessage(
     externalSubjectId?: string
   }
 ) {
-  await tx.insert(chatMessages).values({
+  await createBuilderChatMessage(tx, {
     workspaceId: input.workspaceId,
     workflowId: input.workflowId,
     conversationId: input.conversationId,
@@ -43,6 +44,12 @@ describe("claimConversationForAnalysis", () => {
         workflowId: workflow.id,
         conversationId,
       }
+      await ensureBuilderConversation(tx, {
+        id: conversationId,
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        externalSubjectKey: null,
+      })
 
       const first = await claimConversationForAnalysis(tx, input, 60_000)
       if (first.outcome !== "claimed") throw new Error("expected claimed")
@@ -63,6 +70,12 @@ describe("claimConversationForAnalysis", () => {
         workflowId: workflow.id,
         conversationId,
       }
+      await ensureBuilderConversation(tx, {
+        id: conversationId,
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        externalSubjectKey: null,
+      })
 
       // A lease of 0ms is immediately stale, standing in for "the previous claim expired" without
       // an actual sleep.
@@ -79,13 +92,27 @@ describe("claimConversationForAnalysis", () => {
   it("claims for different conversations independently", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
+      const conversationA = randomUUID()
+      const conversationB = randomUUID()
+      await ensureBuilderConversation(tx, {
+        id: conversationA,
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        externalSubjectKey: null,
+      })
+      await ensureBuilderConversation(tx, {
+        id: conversationB,
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        externalSubjectKey: null,
+      })
 
       const a = await claimConversationForAnalysis(
         tx,
         {
           workspaceId: organization.id,
           workflowId: workflow.id,
-          conversationId: randomUUID(),
+          conversationId: conversationA,
         },
         60_000
       )
@@ -94,7 +121,7 @@ describe("claimConversationForAnalysis", () => {
         {
           workspaceId: organization.id,
           workflowId: workflow.id,
-          conversationId: randomUUID(),
+          conversationId: conversationB,
         },
         60_000
       )
@@ -115,6 +142,12 @@ describe("renewClaimIfOwned", () => {
         workflowId: workflow.id,
         conversationId: randomUUID(),
       }
+      await ensureBuilderConversation(tx, {
+        id: input.conversationId,
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        externalSubjectKey: null,
+      })
       const claim = await claimConversationForAnalysis(tx, input, 60_000)
       if (claim.outcome !== "claimed") throw new Error("expected claimed")
 
@@ -131,6 +164,12 @@ describe("renewClaimIfOwned", () => {
         workflowId: workflow.id,
         conversationId: randomUUID(),
       }
+      await ensureBuilderConversation(tx, {
+        id: input.conversationId,
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        externalSubjectKey: null,
+      })
       const first = await claimConversationForAnalysis(tx, input, 0)
       if (first.outcome !== "claimed") throw new Error("expected claimed")
 
@@ -191,6 +230,10 @@ describe("findConversationsDueForAnalysis", () => {
       expect(dueWithExpiredLease.map((d) => d.conversationId)).toContain(
         conversationId
       )
+      expect(
+        dueWithExpiredLease.find((d) => d.conversationId === conversationId)
+          ?.externalSubjectId
+      ).toBeNull()
     })
   })
 
@@ -247,7 +290,7 @@ describe("findConversationsDueForAnalysis", () => {
       // Postgres int32 tops out at 2,147,483,647 — chat_messages.sequence is a shared bigserial
       // across every conversation in the database, so a busy deployment reaches this eventually.
       const beyondInt32 = 3_000_000_000
-      await tx.insert(chatMessages).values({
+      await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
@@ -333,7 +376,7 @@ describe("findConversationsDueForAnalysis", () => {
         workspaceId: organization.id,
         workflowId: workflow.id,
         conversationId,
-        externalSubjectId: "customer-user-1",
+        externalSubjectId: match?.externalSubjectId,
         analyzedThroughSequence: match!.maxSequence,
         analyzerVersion: "v1",
       })

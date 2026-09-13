@@ -108,7 +108,12 @@ export async function listApplications(
   return db
     .select()
     .from(applications)
-    .where(eq(applications.workspaceId, workspaceId))
+    .where(
+      and(
+        eq(applications.workspaceId, workspaceId),
+        eq(applications.kind, "operator")
+      )
+    )
     .orderBy(desc(applications.createdAt))
 }
 
