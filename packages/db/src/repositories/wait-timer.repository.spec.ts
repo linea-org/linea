@@ -225,11 +225,10 @@ describe("wait-timer.repository", () => {
       })
     })
 
-    // Real concurrent connections (not withRollback's shared tx), same pattern as approval.repository.spec.ts's concurrency test.
-    it("never leaves the execution paused with an already-fired timer, whichever caller wins the race", async () => {
-      const { organization, execution } = await db.transaction((tx) =>
-        insertExecution(tx)
-      )
+    it("retries a due timer skipped before its pause claim completes", async () => {
+      const fixtures = await db.transaction(insertExecution)
+      const { organization, execution } = fixtures
+      const lockClient = await pool.connect()
       try {
         await startExecution(
           db,
@@ -241,40 +240,36 @@ describe("wait-timer.repository", () => {
           workspaceId: organization.id,
           executionId: execution.id,
           nodeId: "wait-1",
-          resumeAt: new Date(Date.now() - 1_000), // already due
+          // Epoch isolates this timer from due timers created by parallel tests.
+          resumeAt: new Date(0),
         })
-
-        const [claimResult, fireResult] = await Promise.all([
-          claimPauseForPendingWait(
-            db,
-            organization.id,
-            execution.id,
-            "wait-1",
-            "worker-a"
-          ),
-          claimAndResolveDueWaitTimer(db),
-        ])
-
-        const [finalExecution] = await db
+        await lockClient.query("BEGIN")
+        await lockClient.query(
+          "SELECT id FROM wait_timers WHERE execution_id = $1 AND node_id = $2 FOR UPDATE",
+          [execution.id, "wait-1"]
+        )
+        const claimPromise = claimPauseForPendingWait(
+          db,
+          organization.id,
+          execution.id,
+          "wait-1",
+          "worker-a"
+        )
+        const fireResult = await claimAndResolveDueWaitTimer(db, new Date(1))
+        await lockClient.query("COMMIT")
+        const claimResult = await claimPromise
+        expect(fireResult.outcome).toBe("empty")
+        expect(claimResult.outcome).toBe("paused")
+        const retryResult = await claimAndResolveDueWaitTimer(db, new Date(1))
+        expect(retryResult.outcome).toBe("fired")
+        const [resumedExecution] = await db
           .select()
           .from(executions)
           .where(eq(executions.id, execution.id))
-
-        // The invariant this protects: never end up paused with a fired timer and nothing left to resume it.
-        expect(
-          finalExecution.status === "paused" && fireResult.outcome === "fired"
-        ).toBe(false)
-
-        if (claimResult.outcome === "paused") {
-          // The poller only ran after the pause committed, so its own paused->queued flip matched and succeeded.
-          expect(fireResult.outcome).toBe("fired")
-          expect(finalExecution.status).toBe("queued")
-        } else {
-          // The poller won first; claimPauseForPendingWait saw the timer already fired and did not pause on top of it.
-          expect(fireResult.outcome).toBe("fired")
-          expect(finalExecution.status).toBe("running")
-        }
+        expect(resumedExecution.status).toBe("queued")
       } finally {
+        await lockClient.query("ROLLBACK")
+        lockClient.release()
         await pool.query("DELETE FROM organizations WHERE id = $1", [
           organization.id,
         ])
