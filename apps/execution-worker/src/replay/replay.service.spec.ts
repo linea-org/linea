@@ -117,7 +117,6 @@ describe("ReplayService.replay", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const executeSpy = jest.fn(() =>
         Promise.resolve({ status: 200, body: { replayed: true } })
@@ -582,6 +581,19 @@ describe("ReplayService.replay", () => {
         createdAt: new Date(),
       })
       .returning()
+    const [reviewer] = await db
+      .insert(schema.users)
+      .values({
+        name: "Replay reviewer",
+        email: `replay-reviewer-${suffix}@test.dev`,
+      })
+      .returning()
+    await db.insert(schema.members).values({
+      organizationId: organization.id,
+      userId: reviewer.id,
+      role: "member",
+      createdAt: new Date(),
+    })
 
     try {
       const graph: WorkflowGraph = {
@@ -626,19 +638,25 @@ describe("ReplayService.replay", () => {
           tokensOutput: 0,
         }
       )
-      const created = await repositories.approval.createApproval(db, {
-        workspaceId: organization.id,
-        executionId: execution.id,
-        nodeId: "n1",
-      })
-      await repositories.approval.resolveApproval(
+      const created = await repositories.approvalRequest.createApprovalRequest(
+        db,
+        {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          executionId: execution.id,
+          nodeId: "n1",
+          audience: "workspace",
+          display: { title: "Continue?" },
+        }
+      )
+      await repositories.approvalRequest.decideWorkspaceApprovalRequest(
         db,
         organization.id,
         created!.id,
         {
-          status: "approved",
-          respondedBy: null,
-          respondedByEmail: "reviewer@test.dev",
+          outcome: "approved",
+          actorUserId: reviewer.id,
+          actorEmail: reviewer.email,
           comment: "looks good",
         }
       )
@@ -697,6 +715,7 @@ describe("ReplayService.replay", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
+      await pool.query("DELETE FROM users WHERE id = $1", [reviewer.id])
     }
   })
 

@@ -38,13 +38,21 @@ async function createDueApproval(
     "UPDATE executions SET status = 'paused', leased_by = NULL, lease_expires_at = NULL WHERE id = $1",
     [execution.id]
   )
-  const approval = await repositories.approval.createApproval(db, {
-    workspaceId: organization.id,
-    executionId: execution.id,
-    nodeId: "approval-1",
-    timeoutAt: new Date(Date.now() - 60_000),
-    timeoutAction,
-  })
+  const requestedAt = new Date(Date.now() - 120_000)
+  const approval = await repositories.approvalRequest.createApprovalRequest(
+    db,
+    {
+      workspaceId: organization.id,
+      workflowId: workflow.id,
+      executionId: execution.id,
+      nodeId: "approval-1",
+      audience: "workspace",
+      display: { title: "Continue?" },
+      requestedAt,
+      expiresAt: new Date(Date.now() - 60_000),
+      timeoutAction,
+    }
+  )
 
   return { organization, workflow, execution, approval: approval! }
 }
@@ -61,7 +69,7 @@ describe("ApprovalTimeoutService", () => {
       await service.poll()
       await service.poll()
 
-      const resolved = await repositories.approval.getApproval(
+      const resolved = await repositories.approvalRequest.getApprovalRequest(
         db,
         organization.id,
         execution.id,
@@ -69,9 +77,11 @@ describe("ApprovalTimeoutService", () => {
       )
       expect(resolved).toMatchObject({
         id: approval.id,
-        status: "rejected",
-        timedOut: true,
+        status: "decided",
       })
+      await expect(
+        repositories.approvalRequest.getApprovalDecision(db, approval.id)
+      ).resolves.toMatchObject({ outcome: "rejected", reason: "timeout" })
 
       const reloaded = await repositories.execution.getExecutionById(
         db,
@@ -97,13 +107,18 @@ describe("ApprovalTimeoutService", () => {
       const service = new ApprovalTimeoutService(queue)
       await service.poll()
 
-      const resolved = await repositories.approval.getApproval(
+      const resolved = await repositories.approvalRequest.getApprovalRequest(
         db,
         organization.id,
         execution.id,
         "approval-1"
       )
-      expect(resolved).toMatchObject({ status: "approved", timedOut: true })
+      expect(resolved).toMatchObject({ status: "decided" })
+      const decision = await repositories.approvalRequest.getApprovalDecision(
+        db,
+        resolved!.id
+      )
+      expect(decision).toMatchObject({ outcome: "approved", reason: "timeout" })
     } finally {
       await queue.onModuleDestroy()
       await pool.query("DELETE FROM organizations WHERE id = $1", [
@@ -166,11 +181,14 @@ describe("ApprovalTimeoutService", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-      await repositories.approval.createApproval(db, {
+      await repositories.approvalRequest.createApprovalRequest(db, {
         workspaceId: organization.id,
+        workflowId: workflow.id,
         executionId: execution.id,
         nodeId: "approval-1",
-        timeoutAt: new Date(Date.now() + 60_000),
+        audience: "workspace",
+        display: { title: "Continue?" },
+        expiresAt: new Date(Date.now() + 60_000),
         timeoutAction: "auto_reject",
       })
 
@@ -179,7 +197,7 @@ describe("ApprovalTimeoutService", () => {
         const service = new ApprovalTimeoutService(queue)
         await expect(service.poll()).resolves.toBeUndefined()
 
-        const untouched = await repositories.approval.getApproval(
+        const untouched = await repositories.approvalRequest.getApprovalRequest(
           db,
           organization.id,
           execution.id,

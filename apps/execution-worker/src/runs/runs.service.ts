@@ -167,7 +167,7 @@ export class RunsService {
                 outcome.pausedAt,
                 attemptId
               )
-            : await repositories.approval.claimPauseForPendingApproval(
+            : await repositories.approvalRequest.claimPauseForPendingApprovalRequest(
                 db,
                 execution.workspaceId,
                 executionId,
@@ -199,7 +199,7 @@ export class RunsService {
       }
 
       if (paused) {
-        // Already marked paused atomically by claimPauseForPendingApproval above.
+        // Already marked paused atomically by claimPauseForPendingApprovalRequest above.
         return
       }
 

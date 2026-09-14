@@ -31,10 +31,15 @@ export class ApprovalTimeoutService implements OnModuleInit, OnModuleDestroy {
     this.polling = true
     try {
       let result =
-        await repositories.approval.claimAndResolveTimedOutApproval(db)
+        await repositories.approvalRequest.claimAndDecideTimedOutApprovalRequest(
+          db
+        )
       while (result.outcome !== "empty") {
-        await this.enqueue(result.approval.executionId, result.approval.id)
-        result = await repositories.approval.claimAndResolveTimedOutApproval(db)
+        await this.enqueue(result.request.executionId, result.request.id)
+        result =
+          await repositories.approvalRequest.claimAndDecideTimedOutApprovalRequest(
+            db
+          )
       }
     } catch (error) {
       this.logger.error(

@@ -57,6 +57,11 @@ export const conversations = snakeCase.table(
       table.workspaceId,
       table.workflowId
     ),
+    uniqueIndex("conversations_id_application_subject_uidx").on(
+      table.id,
+      table.applicationId,
+      table.externalSubjectId
+    ),
     uniqueIndex("conversations_application_thread_uidx")
       .on(table.applicationId, table.externalThreadKey)
       .where(sql`${table.externalThreadKey} IS NOT NULL`),

@@ -394,7 +394,10 @@ export class ExecutionsService {
     let pausedAtNode: { nodeId: string; type: string } | undefined
     if (result.execution.status === 'paused') {
       const [pendingApproval, pendingWaitTimer] = await Promise.all([
-        repositories.approval.getPendingApprovalForExecution(db, id),
+        repositories.approvalRequest.getPendingApprovalRequestForExecution(
+          db,
+          id,
+        ),
         repositories.waitTimer.getPendingWaitTimerForExecution(db, id),
       ])
       const nodeId = pendingApproval?.nodeId ?? pendingWaitTimer?.nodeId

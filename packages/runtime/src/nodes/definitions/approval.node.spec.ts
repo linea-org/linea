@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { approvalNode } from "./approval.node.js"
 
 describe("approvalNode", () => {
-  it("exposes workspace approver configuration only", () => {
+  it("keeps external-subject configuration hidden until it can resolve", () => {
     const fields = Object.fromEntries(
       approvalNode.ui.fields.map((field) => [field.key, field])
     )

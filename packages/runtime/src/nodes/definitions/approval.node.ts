@@ -28,9 +28,9 @@ export const approvalNode: NodeDefinition<
     fields: [
       {
         key: "message",
-        label: "Message",
+        label: "Title",
         widget: "textarea",
-        description: "Shown to whoever reviews this approval.",
+        description: "A safe summary shown to whoever reviews this request.",
       },
       {
         key: "approverEmails",
