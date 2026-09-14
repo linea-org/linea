@@ -5,6 +5,21 @@ import {
   revokeEndUserSessionOperation,
   startEndUserAuthorizationOperation,
 } from "./operations/user-sessions"
+import {
+  cancelApplicationExecutionOperation,
+  createApplicationConversationOperation,
+  createEndUserConversationOperation,
+  createEndUserMessageOperation,
+  getApplicationConversationOperation,
+  getApplicationExecutionOperation,
+  getEndUserConversationOperation,
+  getEndUserExecutionOperation,
+  listApplicationConversationsOperation,
+  listEndUserConversationsOperation,
+  listEndUserMessagesOperation,
+  startApplicationExecutionOperation,
+  startEndUserExecutionOperation,
+} from "./operations/runtime"
 
 function routeIdentity(operation: OperationDefinition): string {
   const path = operation.path.replace(/\{[^/{}]+\}/g, "{}")
@@ -47,4 +62,17 @@ export const operationRegistry = createOperationRegistry([
   exchangeEndUserAuthorizationOperation,
   createEndUserSessionOperation,
   revokeEndUserSessionOperation,
+  createApplicationConversationOperation,
+  listApplicationConversationsOperation,
+  getApplicationConversationOperation,
+  startApplicationExecutionOperation,
+  getApplicationExecutionOperation,
+  cancelApplicationExecutionOperation,
+  createEndUserConversationOperation,
+  listEndUserConversationsOperation,
+  getEndUserConversationOperation,
+  createEndUserMessageOperation,
+  listEndUserMessagesOperation,
+  startEndUserExecutionOperation,
+  getEndUserExecutionOperation,
 ])

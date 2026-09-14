@@ -16,6 +16,9 @@ import { sql } from "drizzle-orm"
 import { organizations } from "./organisation.js"
 import { users } from "./user.js"
 import { applications } from "./application.js"
+import { conversations } from "./conversation.js"
+import { externalSubjects } from "./external-subject.js"
+import { executionEnvironment } from "./execution-environment.js"
 import {
   workflowContractRevisions,
   workflows,
@@ -43,18 +46,6 @@ export const executionTrigger = pgEnum("execution_trigger", [
   "api",
 ])
 
-// Which of the customer's own deployments this execution came from — orthogonal to `trigger`
-// (which is about the mechanism, not the caller). "draft" is reserved for Linea's own builder
-// testing surfaces (Chat Preview, Test Run) and is always set server-side, never caller-supplied,
-// so a real customer execution can never be mistaken for a Linea-internal test run. "dev"/"production"
-// come from the trigger API's caller (the future SDK, or a direct API call); default is "dev" so an
-// execution is never miscategorized as real production traffic unless a caller explicitly says so.
-export const executionEnvironment = pgEnum("execution_environment", [
-  "draft",
-  "dev",
-  "production",
-])
-
 type ExecutionError = {
   message: string
   stepId?: string
@@ -74,6 +65,8 @@ export const executions = snakeCase.table(
     workflowVersionId: uuid().notNull(),
     applicationId: uuid(),
     workflowContractRevisionId: uuid(),
+    externalSubjectRecordId: uuid(),
+    conversationId: uuid(),
 
     status: executionStatus().notNull().default("queued"),
     origin: executionOrigin().notNull().default("native"),
@@ -152,6 +145,20 @@ export const executions = snakeCase.table(
         workflowContractRevisions.workflowId,
         workflowContractRevisions.id,
         workflowContractRevisions.workspaceId,
+      ],
+    }),
+    foreignKey({
+      name: "executions_external_subject_fkey",
+      columns: [table.externalSubjectRecordId, table.workspaceId],
+      foreignColumns: [externalSubjects.id, externalSubjects.workspaceId],
+    }),
+    foreignKey({
+      name: "executions_conversation_fkey",
+      columns: [table.conversationId, table.workspaceId, table.workflowId],
+      foreignColumns: [
+        conversations.id,
+        conversations.workspaceId,
+        conversations.workflowId,
       ],
     }),
   ]

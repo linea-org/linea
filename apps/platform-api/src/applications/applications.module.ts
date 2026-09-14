@@ -5,8 +5,6 @@ import { ApplicationWorkflowBindingsController } from './application-workflow-bi
 import { ApplicationWorkflowBindingsService } from './application-workflow-bindings.service'
 import { ApplicationKeysController } from './application-keys.controller'
 import { ApplicationKeysService } from './application-keys.service'
-import { ApplicationRuntimeController } from './application-runtime.controller'
-import { ApplicationRuntimeService } from './application-runtime.service'
 import { ApplicationKeyGuard } from '../auth/application-key.guard'
 import { ApplicationScopeGuard } from '../auth/application-scope.guard'
 import { ApplicationExternalSubjectsController } from './application-external-subjects.controller'
@@ -18,7 +16,6 @@ import { ExternalSubjectsService } from './external-subjects.service'
     ApplicationsController,
     ApplicationWorkflowBindingsController,
     ApplicationKeysController,
-    ApplicationRuntimeController,
     ApplicationExternalSubjectsController,
     ExternalSubjectsController,
   ],
@@ -26,7 +23,6 @@ import { ExternalSubjectsService } from './external-subjects.service'
     ApplicationsService,
     ApplicationWorkflowBindingsService,
     ApplicationKeysService,
-    ApplicationRuntimeService,
     ApplicationKeyGuard,
     ApplicationScopeGuard,
     ExternalSubjectsService,

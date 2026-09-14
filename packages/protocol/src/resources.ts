@@ -1,5 +1,7 @@
 export * from "./resources/resource-projection"
 export * from "./resources/application-key"
+export * from "./resources/conversation"
+export * from "./resources/execution"
 export * from "./resources/external-subject"
 export * from "./resources/end-user-authorization"
 export * from "./resources/workflow-contract"

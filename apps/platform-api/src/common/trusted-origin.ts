@@ -23,6 +23,7 @@ export function usesApplicationOriginPolicy(path: string): boolean {
     path === '/v1/user-sessions/authorization' ||
     path === '/v1/user-sessions/exchange' ||
     path === '/v1/user-sessions' ||
-    path === '/v1/user-sessions/current'
+    path === '/v1/user-sessions/current' ||
+    path.startsWith('/v1/user/')
   )
 }

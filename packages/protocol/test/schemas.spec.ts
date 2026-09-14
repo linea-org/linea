@@ -4,6 +4,7 @@ import {
   applicationKeyScopes,
   createEndUserSessionHeadersSchema,
   createEndUserSessionSchema,
+  createMessageSchema,
   endUserSessionCredentialSchema,
   externalSubjectSchema,
   exchangeEndUserAuthorizationSchema,
@@ -14,6 +15,8 @@ import {
   publicErrorCodes,
   publicErrorResponseSchema,
   provisionExternalSubjectSchema,
+  publicExecutionInputLimitBytes,
+  publicExecutionInputSchema,
   startEndUserAuthorizationSchema,
   resourceReferenceSchema,
   workflowContractRevisionSchema,
@@ -152,6 +155,29 @@ describe("public protocol schemas", () => {
       provisionExternalSubjectSchema.safeParse({
         issuerSubject: "subject",
         metadata: { nested: { secret: true } },
+      }).success
+    ).toBe(false)
+    expect(
+      createMessageSchema.safeParse({ content: "€".repeat(5462) }).success
+    ).toBe(false)
+    expect(
+      createMessageSchema.safeParse({ content: "a".repeat(16 * 1024) }).success
+    ).toBe(true)
+    expect(
+      publicExecutionInputSchema.safeParse({
+        prompt: "a".repeat(publicExecutionInputLimitBytes),
+      }).success
+    ).toBe(false)
+    let deepInput: unknown = "leaf"
+    for (let depth = 0; depth < 17; depth += 1) {
+      deepInput = { value: deepInput }
+    }
+    expect(
+      publicExecutionInputSchema.safeParse({ value: deepInput }).success
+    ).toBe(false)
+    expect(
+      publicExecutionInputSchema.safeParse({
+        values: Array.from({ length: 257 }, () => true),
       }).success
     ).toBe(false)
   })

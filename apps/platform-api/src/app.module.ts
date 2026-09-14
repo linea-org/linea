@@ -15,6 +15,7 @@ import { EndUserSessionsModule } from './end-user-sessions/end-user-sessions.mod
 import { HealthController } from './health/health.controller'
 import { MeController } from './me/me.controller'
 import { NotificationsModule } from './notifications/notifications.module'
+import { PublicRuntimeModule } from './public-runtime/public-runtime.module'
 import { QueueModule } from './queue/queue.module'
 import { SecretsModule } from './secrets/secrets.module'
 import { SignalsModule } from './signals/signals.module'
@@ -32,6 +33,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     ApplicationsModule,
     EndUserAuthorizationModule,
     EndUserSessionsModule,
+    PublicRuntimeModule,
     WorkflowsModule,
     ExecutionsModule,
     TriggersModule,
