@@ -9,7 +9,7 @@ afterAll(async () => {
   await pool.end()
 })
 
-async function setup() {
+async function setup(designatedEmail?: string) {
   const suffix = randomUUID()
   const [organization] = await db
     .insert(schema.organizations)
@@ -52,12 +52,18 @@ async function setup() {
     "UPDATE executions SET status = 'paused', leased_by = NULL, lease_expires_at = NULL WHERE id = $1",
     [execution.id],
   )
-  const approval = await repositories.approval.createApproval(db, {
-    workspaceId: organization.id,
-    executionId: execution.id,
-    nodeId: 'approval-1',
-    message: 'Ship it?',
-  })
+  const approval = await repositories.approvalRequest.createApprovalRequest(
+    db,
+    {
+      workspaceId: organization.id,
+      workflowId: workflow.id,
+      executionId: execution.id,
+      nodeId: 'approval-1',
+      audience: 'workspace',
+      display: { title: 'Ship it?' },
+      approverEmails: designatedEmail ? [designatedEmail] : undefined,
+    },
+  )
   return { organization, user, execution, approval: approval! }
 }
 
@@ -127,13 +133,15 @@ describe('ApprovalsService', () => {
     }).compile()
     const service = moduleRef.get(ApprovalsService)
 
-    const { organization, execution, approval } = await setup()
     const suffix = randomUUID()
+    const designatedEmail = `designated-${suffix}@test.dev`
+    const { organization, user, execution, approval } =
+      await setup(designatedEmail)
     const [designated] = await db
       .insert(schema.users)
       .values({
         name: 'Designated Approver',
-        email: `designated-${suffix}@test.dev`,
+        email: designatedEmail,
       })
       .returning()
     const [outsider] = await db
@@ -157,11 +165,6 @@ describe('ApprovalsService', () => {
         createdAt: new Date(),
       },
     ])
-    await pool.query(
-      'UPDATE approvals SET approver_emails = $1 WHERE id = $2',
-      [JSON.stringify([designated.email]), approval.id],
-    )
-
     try {
       await expect(
         service.respond(outsider.id, organization.id, approval.id, {
@@ -192,6 +195,7 @@ describe('ApprovalsService', () => {
         designated.id,
         outsider.id,
       ])
+      await pool.query('DELETE FROM users WHERE id = $1', [user.id])
     }
   })
 })

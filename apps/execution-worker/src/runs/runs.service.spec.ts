@@ -920,19 +920,25 @@ describe("RunsService fencing identity", () => {
       })
 
       // Simulates a response racing ahead of the pause: the approval is already resolved before RunsService's own pausedAt handling runs.
-      const approval = await repositories.approval.createApproval(db, {
-        workspaceId: organization.id,
-        executionId: execution.id,
-        nodeId: "approval-1",
-      })
-      await repositories.approval.resolveApproval(
+      const approval = await repositories.approvalRequest.createApprovalRequest(
+        db,
+        {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          executionId: execution.id,
+          nodeId: "approval-1",
+          audience: "workspace",
+          display: { title: "Continue?" },
+        }
+      )
+      await repositories.approvalRequest.decideWorkspaceApprovalRequest(
         db,
         organization.id,
         approval!.id,
         {
-          status: "approved",
-          respondedBy: null,
-          respondedByEmail: approver.email,
+          outcome: "approved",
+          actorUserId: approver.id,
+          actorEmail: approver.email,
         }
       )
 
@@ -1019,10 +1025,13 @@ describe("RunsService fencing identity", () => {
         trigger: "manual",
         triggerPayload: {},
       })
-      await repositories.approval.createApproval(db, {
+      await repositories.approvalRequest.createApprovalRequest(db, {
         workspaceId: organization.id,
+        workflowId: workflow.id,
         executionId: execution.id,
         nodeId: "approval-1",
+        audience: "workspace",
+        display: { title: "Continue?" },
       })
 
       const leaseStealingInterpreter = {

@@ -119,6 +119,18 @@ export const executions = snakeCase.table(
       .where(sql`${table.status} = 'running'`),
     // Supports execution_steps' composite foreign key.
     uniqueIndex("executions_id_workspace_uidx").on(table.id, table.workspaceId),
+    uniqueIndex("executions_id_workspace_workflow_uidx").on(
+      table.id,
+      table.workspaceId,
+      table.workflowId
+    ),
+    uniqueIndex("executions_approval_subject_scope_uidx").on(
+      table.id,
+      table.workspaceId,
+      table.workflowId,
+      table.applicationId,
+      table.externalSubjectRecordId
+    ),
     foreignKey({
       name: "executions_workflow_workspace_fkey",
       columns: [table.workflowId, table.workspaceId],

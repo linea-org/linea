@@ -50,23 +50,25 @@ async function setup() {
     role: "member",
     createdAt: new Date(),
   })
-  return { organization, execution, approverEmail: approver.email }
+  return { organization, execution, approver }
 }
 
 describe("ApprovalNode", () => {
-  it("rejects the unsupported external-subject audience before persistence", async () => {
+  it("rejects an unsupported audience before persistence", async () => {
     const node = new ApprovalNode()
     await expect(
-      node.execute({ audience: "external_subject" }, undefined, {
+      node.execute({ audience: "anyone" }, undefined, {
         workspaceId: randomUUID(),
         executionId: randomUUID(),
         nodeId: "approval-1",
       })
-    ).rejects.toThrow('Approval node audience must be "workspace"')
+    ).rejects.toThrow(
+      'Approval node audience must be "workspace" or "external_subject"'
+    )
   })
 
   it("creates a pending approval and pauses on first visit, then pauses again while still pending", async () => {
-    const { organization, execution, approverEmail } = await setup()
+    const { organization, execution, approver } = await setup()
     try {
       const node = new ApprovalNode()
       const context = {
@@ -79,13 +81,16 @@ describe("ApprovalNode", () => {
         node.execute({ message: "Ship it?" }, undefined, context)
       ).rejects.toThrow("Execution paused at node approval-1")
 
-      const approval = await repositories.approval.getApproval(
+      const approval = await repositories.approvalRequest.getApprovalRequest(
         db,
         organization.id,
         execution.id,
         "approval-1"
       )
-      expect(approval).toMatchObject({ status: "pending", message: "Ship it?" })
+      expect(approval).toMatchObject({
+        status: "pending",
+        display: { title: "Ship it?" },
+      })
 
       // Second visit (a resumed run re-entering the same node) — still pending, pauses again without creating a duplicate row.
       await expect(node.execute({}, undefined, context)).rejects.toThrow(
@@ -95,12 +100,12 @@ describe("ApprovalNode", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
-      await pool.query("DELETE FROM users WHERE email = $1", [approverEmail])
+      await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
     }
   })
 
   it("resolves to approved output once the approval is responded to", async () => {
-    const { organization, execution, approverEmail } = await setup()
+    const { organization, execution, approver } = await setup()
     try {
       const node = new ApprovalNode()
       const context = {
@@ -111,20 +116,20 @@ describe("ApprovalNode", () => {
 
       await expect(node.execute({}, undefined, context)).rejects.toThrow()
 
-      const approval = await repositories.approval.getApproval(
+      const approval = await repositories.approvalRequest.getApprovalRequest(
         db,
         organization.id,
         execution.id,
         "approval-1"
       )
-      await repositories.approval.resolveApproval(
+      await repositories.approvalRequest.decideWorkspaceApprovalRequest(
         db,
         organization.id,
         approval!.id,
         {
-          status: "approved",
-          respondedBy: null,
-          respondedByEmail: approverEmail,
+          outcome: "approved",
+          actorUserId: approver.id,
+          actorEmail: approver.email,
           comment: "looks good",
         }
       )
@@ -139,12 +144,12 @@ describe("ApprovalNode", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
-      await pool.query("DELETE FROM users WHERE email = $1", [approverEmail])
+      await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
     }
   })
 
   it("resolves to approved: false when rejected", async () => {
-    const { organization, execution, approverEmail } = await setup()
+    const { organization, execution, approver } = await setup()
     try {
       const node = new ApprovalNode()
       const context = {
@@ -155,20 +160,20 @@ describe("ApprovalNode", () => {
 
       await expect(node.execute({}, undefined, context)).rejects.toThrow()
 
-      const approval = await repositories.approval.getApproval(
+      const approval = await repositories.approvalRequest.getApprovalRequest(
         db,
         organization.id,
         execution.id,
         "approval-1"
       )
-      await repositories.approval.resolveApproval(
+      await repositories.approvalRequest.decideWorkspaceApprovalRequest(
         db,
         organization.id,
         approval!.id,
         {
-          status: "rejected",
-          respondedBy: null,
-          respondedByEmail: approverEmail,
+          outcome: "rejected",
+          actorUserId: approver.id,
+          actorEmail: approver.email,
         }
       )
 
@@ -178,12 +183,12 @@ describe("ApprovalNode", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
-      await pool.query("DELETE FROM users WHERE email = $1", [approverEmail])
+      await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
     }
   })
 
   it("reflects a timed-out resolution", async () => {
-    const { organization, execution, approverEmail } = await setup()
+    const { organization, execution, approver } = await setup()
     try {
       const node = new ApprovalNode()
       const context = {
@@ -192,24 +197,17 @@ describe("ApprovalNode", () => {
         nodeId: "approval-1",
       }
 
-      await expect(node.execute({}, undefined, context)).rejects.toThrow()
+      await expect(
+        node.execute(
+          { timeoutMinutes: "1", timeoutAction: "auto_reject" },
+          undefined,
+          context
+        )
+      ).rejects.toThrow()
 
-      const approval = await repositories.approval.getApproval(
+      await repositories.approvalRequest.claimAndDecideTimedOutApprovalRequest(
         db,
-        organization.id,
-        execution.id,
-        "approval-1"
-      )
-      await repositories.approval.resolveApproval(
-        db,
-        organization.id,
-        approval!.id,
-        {
-          status: "rejected",
-          respondedBy: null,
-          respondedByEmail: approverEmail,
-          timedOut: true,
-        }
+        new Date(Date.now() + 120_000)
       )
 
       const output = await node.execute({}, undefined, context)
@@ -218,12 +216,12 @@ describe("ApprovalNode", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
-      await pool.query("DELETE FROM users WHERE email = $1", [approverEmail])
+      await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
     }
   })
 
   it("escapes the approval message before sending it as email HTML", async () => {
-    const { organization, execution, approverEmail } = await setup()
+    const { organization, execution, approver } = await setup()
     sendEmail.mockClear()
     try {
       const node = new ApprovalNode()
@@ -257,7 +255,7 @@ describe("ApprovalNode", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
-      await pool.query("DELETE FROM users WHERE email = $1", [approverEmail])
+      await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
     }
   })
 })

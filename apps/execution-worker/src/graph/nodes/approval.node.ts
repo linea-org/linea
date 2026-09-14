@@ -1,19 +1,26 @@
-import { Injectable, Logger } from "@nestjs/common"
 import { sendEmail } from "@linea/auth/email"
-import { db, repositories, type Approval } from "@linea/db"
+import {
+  db,
+  repositories,
+  type ApprovalRequest,
+  type ApprovalRequestDisplay,
+} from "@linea/db"
 import { nodeRegistry } from "@linea/runtime"
+import { Injectable, Logger } from "@nestjs/common"
 import { PauseExecutionError } from "../../checkpoints/checkpoints.service"
 import type {
   NodeExecutionContext,
   NodeHandler,
 } from "./node-handler.interface"
 
-function assertWorkspaceAudience(raw: unknown): void {
-  if (raw === undefined || raw === "workspace") return
-  throw new Error('Approval node audience must be "workspace"')
+function parseAudience(raw: unknown): "workspace" | "external_subject" {
+  if (raw === undefined || raw === "workspace") return "workspace"
+  if (raw === "external_subject") return raw
+  throw new Error(
+    'Approval node audience must be "workspace" or "external_subject"'
+  )
 }
 
-// Lowercased so a workflow author's casing can't diverge from a designated approver's own stored email (see eligibleForUser).
 function parseApproverEmails(raw: unknown): string[] | undefined {
   if (typeof raw !== "string" || raw.trim() === "") return undefined
   return raw
@@ -29,7 +36,39 @@ function parseTimeoutAt(raw: unknown): Date | undefined {
   return new Date(Date.now() + minutes * 60_000)
 }
 
-// approval.message is workflow-author-controlled and lands in an email's HTML body — must stay inert text.
+function parseDetails(raw: unknown): Record<string, string> | undefined {
+  if (raw === undefined) return undefined
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new Error("Approval display details must be an object")
+  }
+  const details: Record<string, string> = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value !== "string") {
+      throw new Error("Approval display details must contain only text values")
+    }
+    details[key] = value
+  }
+  return details
+}
+
+function parseDisplay(config: Record<string, unknown>): ApprovalRequestDisplay {
+  const rawTitle = config.title ?? config.message
+  const title =
+    typeof rawTitle === "string" && rawTitle.trim() !== ""
+      ? rawTitle.trim()
+      : "Approval requested"
+  const description =
+    typeof config.description === "string" && config.description.trim() !== ""
+      ? config.description.trim()
+      : undefined
+  const details = parseDetails(config.details)
+  const display = { title, description, details }
+  if (new TextEncoder().encode(JSON.stringify(display)).length > 8_192) {
+    throw new Error("Approval display must not exceed 8 KiB")
+  }
+  return display
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -54,42 +93,59 @@ export class ApprovalNode implements NodeHandler {
         "Approval node requires executionId and nodeId in context"
       )
     }
-    assertWorkspaceAudience(config.audience)
-
-    let approval = await repositories.approval.getApproval(
+    const audience = parseAudience(config.audience)
+    let request = await repositories.approvalRequest.getApprovalRequest(
       db,
       context.workspaceId,
       executionId,
       nodeId
     )
-    if (approval && approval.audience !== "workspace") {
-      throw new Error("External-subject approvals are not supported")
+    if (request && request.audience !== audience) {
+      throw new Error("Approval Request audience cannot change after creation")
     }
-
-    if (!approval) {
-      const timeoutAt = parseTimeoutAt(config.timeoutMinutes)
-      const created = await repositories.approval.createApproval(db, {
-        workspaceId: context.workspaceId,
-        executionId,
-        nodeId,
-        message:
-          typeof config.message === "string" ? config.message : undefined,
-        audience: "workspace",
-        approverEmails: parseApproverEmails(config.approverEmails),
-        timeoutAt,
-        timeoutAction: timeoutAt
-          ? config.timeoutAction === "auto_approve"
-            ? "auto_approve"
-            : "auto_reject"
-          : undefined,
-      })
+    if (!request) {
+      const execution = await repositories.execution.getExecutionById(
+        db,
+        executionId
+      )
+      if (!execution || execution.workspaceId !== context.workspaceId) {
+        throw new Error("Approval node execution was not found")
+      }
+      const expiresAt = parseTimeoutAt(config.timeoutMinutes)
+      const created = await repositories.approvalRequest.createApprovalRequest(
+        db,
+        {
+          workspaceId: context.workspaceId,
+          applicationId: execution.applicationId,
+          workflowId: execution.workflowId,
+          executionId,
+          nodeId,
+          audience,
+          externalSubjectId:
+            audience === "external_subject"
+              ? execution.externalSubjectRecordId
+              : undefined,
+          conversationId: execution.conversationId,
+          display: parseDisplay(config),
+          approverEmails:
+            audience === "workspace"
+              ? parseApproverEmails(config.approverEmails)
+              : undefined,
+          expiresAt,
+          timeoutAction: expiresAt
+            ? config.timeoutAction === "auto_approve"
+              ? "auto_approve"
+              : "auto_reject"
+            : undefined,
+        }
+      )
       if (created) {
-        approval = created
-        // Only the worker that actually won the insert notifies — a concurrent re-fetch below (a lease reclaim racing this same visit) must not double-notify.
-        await this.notifyApprovers(created)
+        request = created
+        if (created.audience === "workspace") {
+          await this.notifyApprovers(created)
+        }
       } else {
-        // A concurrent worker already inserted it — re-fetch rather than trust a possibly-undefined onConflictDoNothing result.
-        approval = await repositories.approval.getApproval(
+        request = await repositories.approvalRequest.getApprovalRequest(
           db,
           context.workspaceId,
           executionId,
@@ -98,74 +154,77 @@ export class ApprovalNode implements NodeHandler {
       }
       throw new PauseExecutionError(nodeId)
     }
-
-    if (approval.status === "pending") {
+    if (request.status === "pending") {
       throw new PauseExecutionError(nodeId)
     }
-
+    if (request.status === "cancelled") {
+      throw new Error("Approval Request was cancelled")
+    }
+    const decision = await repositories.approvalRequest.getApprovalDecision(
+      db,
+      request.id
+    )
+    if (!decision) {
+      throw new Error("Decided Approval Request is missing its Decision")
+    }
     return nodeRegistry.approval.outputSchema.parse({
-      approved: approval.status === "approved",
-      comment: approval.comment,
-      respondedBy: approval.respondedBy,
-      respondedAt: approval.respondedAt?.toISOString() ?? null,
-      timedOut: approval.timedOut,
+      approved: decision.outcome === "approved",
+      comment: decision.comment,
+      respondedBy:
+        decision.actorUserId ?? decision.actorExternalSubjectId ?? null,
+      respondedAt: decision.decidedAt.toISOString(),
+      timedOut: decision.reason === "timeout",
     })
   }
 
-  /** Best-effort: a notification failure must never fail the node — the approval row already exists and the run is already paused by the time this runs. In-app always fans out (to the listed approvers if set, otherwise the whole workspace); email only goes to explicitly-listed approver addresses — blasting the whole workspace by email for an unassigned approval isn't a default anyone asked for. */
-  private async notifyApprovers(approval: Approval): Promise<void> {
+  private async notifyApprovers(request: ApprovalRequest): Promise<void> {
     try {
       const execution = await repositories.execution.getExecutionById(
         db,
-        approval.executionId
+        request.executionId
       )
       const workflow = execution
         ? await repositories.workflow.getWorkflowById(
             db,
-            approval.workspaceId,
+            request.workspaceId,
             execution.workflowId
           )
         : undefined
-
-      const recipientUserIds = approval.approverEmails?.length
+      const recipientUserIds = request.approverEmails?.length
         ? await repositories.organization.listMemberUserIdsByEmail(
             db,
-            approval.workspaceId,
-            approval.approverEmails
+            request.workspaceId,
+            request.approverEmails
           )
         : await repositories.organization.listMemberUserIds(
             db,
-            approval.workspaceId
+            request.workspaceId
           )
-
       await repositories.notification.createNotificationsForUsers(
         db,
         recipientUserIds,
         {
-          workspaceId: approval.workspaceId,
+          workspaceId: request.workspaceId,
           type: "execution.approval_requested",
           severity: "info",
           title: `${workflow?.name ?? "A workflow"} needs your approval`,
-          body:
-            approval.message ?? "A workflow run is waiting on your decision.",
+          body: request.display.description ?? request.display.title,
           metadata: {
-            workspaceId: approval.workspaceId,
+            workspaceId: request.workspaceId,
             workflowId: workflow?.id,
-            executionId: approval.executionId,
+            executionId: request.executionId,
           },
         }
       )
-
-      if (approval.approverEmails?.length) {
+      if (request.approverEmails?.length) {
+        const message = request.display.description ?? request.display.title
         await Promise.all(
-          approval.approverEmails.map((to) =>
+          request.approverEmails.map((to) =>
             sendEmail({
               to,
               subject: `${workflow?.name ?? "A workflow"} needs your approval`,
-              html: `<p>${escapeHtml(approval.message ?? "A workflow run is waiting on your decision.")}</p>`,
-              text:
-                approval.message ??
-                "A workflow run is waiting on your decision.",
+              html: `<p>${escapeHtml(message)}</p>`,
+              text: message,
             })
           )
         )
@@ -173,7 +232,7 @@ export class ApprovalNode implements NodeHandler {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       this.logger.warn(
-        `Failed to notify approvers for approval ${approval.id}: ${message}`
+        `Failed to notify approvers for Approval Request ${request.id}: ${message}`
       )
     }
   }
