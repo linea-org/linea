@@ -1,7 +1,20 @@
-import { and, eq, isNotNull, isNull, lte, or, sql } from "drizzle-orm"
 import {
+  and,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm"
+import {
+  applications,
+  auditLogs,
   approvalDecisions,
   approvalRequests,
+  endUserSessions,
   executions,
   externalSubjectApplications,
   externalSubjects,
@@ -9,10 +22,16 @@ import {
   users,
   type ApprovalDecision,
   type ApprovalRequest,
+  type Execution,
   type NewApprovalRequest,
 } from "../schema/index.js"
 import { pauseExecution } from "./execution.repository.js"
-import type { DbClient } from "./types.js"
+import {
+  finalizePublicRequest,
+  hashPublicRequest,
+  reservePublicRequest,
+} from "./public-idempotency.repository.js"
+import type { DbClient, Transaction } from "./types.js"
 
 export async function createApprovalRequest(
   db: DbClient,
@@ -160,6 +179,100 @@ export type DecidedApprovalRequest = {
   decision: ApprovalDecision
 }
 
+type DecisionActor =
+  | { kind: "workspace_member"; userId: string }
+  | {
+      kind: "external_subject"
+      externalSubjectId: string
+      endUserSessionId: string
+    }
+  | { kind: "system" }
+
+async function recordDecision(
+  tx: Transaction,
+  request: ApprovalRequest,
+  input: {
+    outcome: "approved" | "rejected"
+    actor: DecisionActor
+    reason: "human" | "timeout"
+    comment?: string | null
+    idempotencyKey?: string | null
+    decidedAt: Date
+  }
+): Promise<DecidedApprovalRequest> {
+  const [decision] = await tx
+    .insert(approvalDecisions)
+    .values({
+      workspaceId: request.workspaceId,
+      approvalRequestId: request.id,
+      outcome: input.outcome,
+      actorKind: input.actor.kind,
+      actorUserId:
+        input.actor.kind === "workspace_member" ? input.actor.userId : null,
+      actorExternalSubjectId:
+        input.actor.kind === "external_subject"
+          ? input.actor.externalSubjectId
+          : null,
+      endUserSessionId:
+        input.actor.kind === "external_subject"
+          ? input.actor.endUserSessionId
+          : null,
+      reason: input.reason,
+      comment: input.comment ?? null,
+      idempotencyKey: input.idempotencyKey ?? null,
+      decidedAt: input.decidedAt,
+    })
+    .returning()
+  const [updatedRequest] = await tx
+    .update(approvalRequests)
+    .set({
+      status: "decided",
+      version: sql`${approvalRequests.version} + 1`,
+    })
+    .where(
+      and(
+        eq(approvalRequests.id, request.id),
+        eq(approvalRequests.status, "pending")
+      )
+    )
+    .returning()
+  if (!updatedRequest) throw new Error("Locked Approval Request changed state")
+  await tx
+    .update(executions)
+    .set({ status: "queued" })
+    .where(
+      and(
+        eq(executions.id, request.executionId),
+        eq(executions.status, "paused")
+      )
+    )
+  await tx.insert(auditLogs).values({
+    workspaceId: request.workspaceId,
+    actorUserId:
+      input.actor.kind === "workspace_member" ? input.actor.userId : null,
+    actorExternalSubjectId:
+      input.actor.kind === "external_subject"
+        ? input.actor.externalSubjectId
+        : null,
+    actorEndUserSessionId:
+      input.actor.kind === "external_subject"
+        ? input.actor.endUserSessionId
+        : null,
+    action:
+      input.reason === "timeout"
+        ? "approval_request.timed_out"
+        : "approval_request.decided",
+    resource: "approval_request",
+    resourceId: request.id,
+    metadata: {
+      executionId: request.executionId,
+      outcome: input.outcome,
+      reason: input.reason,
+    },
+  })
+  return { request: updatedRequest, decision }
+}
+
 export async function decideWorkspaceApprovalRequest(
   db: DbClient,
   workspaceId: string,
@@ -168,11 +281,8 @@ export async function decideWorkspaceApprovalRequest(
 ): Promise<DecidedApprovalRequest | undefined> {
   return db.transaction(async (tx) => {
     const [request] = await tx
-      .update(approvalRequests)
-      .set({
-        status: "decided",
-        version: sql`${approvalRequests.version} + 1`,
-      })
+      .select()
+      .from(approvalRequests)
       .where(
         and(
           eq(approvalRequests.id, approvalRequestId),
@@ -181,31 +291,254 @@ export async function decideWorkspaceApprovalRequest(
           eligibleForWorkspaceMember(workspaceId, input.actorEmail)
         )
       )
-      .returning()
+      .for("update")
     if (!request) return undefined
-    const [decision] = await tx
-      .insert(approvalDecisions)
-      .values({
-        workspaceId,
-        approvalRequestId,
-        outcome: input.outcome,
-        actorKind: "workspace_member",
-        actorUserId: input.actorUserId,
-        reason: "human",
-        comment: input.comment ?? null,
-      })
-      .returning()
-    await tx
-      .update(executions)
-      .set({ status: "queued" })
-      .where(
-        and(
-          eq(executions.id, request.executionId),
-          eq(executions.status, "paused")
-        )
-      )
-    return { request, decision }
+    if (request.expiresAt && request.expiresAt.getTime() <= Date.now()) {
+      return recordTimeoutDecision(tx, request, new Date())
+    }
+    return recordDecision(tx, request, {
+      outcome: input.outcome,
+      actor: { kind: "workspace_member", userId: input.actorUserId },
+      reason: "human",
+      comment: input.comment,
+      decidedAt: new Date(),
+    })
   })
+}
+
+export type DecideExternalApprovalRequestInput = {
+  workspaceId: string
+  applicationId: string
+  externalSubjectId: string
+  endUserSessionId: string
+  approvalRequestId: string
+  outcome: "approved" | "rejected"
+  comment?: string | null
+  idempotencyKey: string
+  now: Date
+}
+
+export type DecideExternalApprovalRequestResult =
+  | ({ outcome: "decided" | "replay" } & DecidedApprovalRequest)
+  | ({ outcome: "expired" } & DecidedApprovalRequest)
+  | { outcome: "already_decided" }
+  | { outcome: "cancelled" }
+  | { outcome: "wrong_subject" }
+  | { outcome: "session_invalid" }
+  | { outcome: "decision_conflict" }
+
+function isIdenticalRetry(
+  decision: ApprovalDecision,
+  input: DecideExternalApprovalRequestInput
+): boolean {
+  return (
+    decision.idempotencyKey === input.idempotencyKey &&
+    decision.actorKind === "external_subject" &&
+    decision.actorExternalSubjectId === input.externalSubjectId &&
+    decision.outcome === input.outcome &&
+    decision.comment === (input.comment ?? null)
+  )
+}
+
+async function getLockedRequestDecision(
+  tx: Transaction,
+  approvalRequestId: string
+): Promise<ApprovalDecision | undefined> {
+  const [decision] = await tx
+    .select()
+    .from(approvalDecisions)
+    .where(eq(approvalDecisions.approvalRequestId, approvalRequestId))
+  return decision
+}
+
+async function recordTimeoutDecision(
+  tx: Transaction,
+  request: ApprovalRequest,
+  now: Date
+): Promise<DecidedApprovalRequest> {
+  if (!request.timeoutAction) {
+    throw new Error("Expired Approval Request is missing its timeout action")
+  }
+  return recordDecision(tx, request, {
+    outcome: request.timeoutAction === "auto_approve" ? "approved" : "rejected",
+    actor: { kind: "system" },
+    reason: "timeout",
+    decidedAt: now,
+  })
+}
+
+export async function decideExternalApprovalRequest(
+  db: DbClient,
+  input: DecideExternalApprovalRequestInput
+): Promise<DecideExternalApprovalRequestResult> {
+  const now = input.now
+  return db.transaction(
+    async (tx): Promise<DecideExternalApprovalRequestResult> => {
+      const [request] = await tx
+        .select()
+        .from(approvalRequests)
+        .where(eq(approvalRequests.id, input.approvalRequestId))
+        .for("update")
+      if (
+        request?.audience !== "external_subject" ||
+        request.workspaceId !== input.workspaceId ||
+        request.applicationId !== input.applicationId ||
+        request.externalSubjectId !== input.externalSubjectId
+      ) {
+        return { outcome: "wrong_subject" }
+      }
+      const [session] = await tx
+        .select({ id: endUserSessions.id })
+        .from(endUserSessions)
+        .innerJoin(
+          applications,
+          and(
+            eq(applications.id, endUserSessions.applicationId),
+            eq(applications.workspaceId, endUserSessions.workspaceId)
+          )
+        )
+        .innerJoin(
+          externalSubjects,
+          and(
+            eq(externalSubjects.id, endUserSessions.externalSubjectId),
+            eq(externalSubjects.workspaceId, endUserSessions.workspaceId)
+          )
+        )
+        .where(
+          and(
+            eq(endUserSessions.id, input.endUserSessionId),
+            eq(endUserSessions.workspaceId, input.workspaceId),
+            eq(endUserSessions.applicationId, input.applicationId),
+            eq(endUserSessions.externalSubjectId, input.externalSubjectId),
+            isNull(endUserSessions.revokedAt),
+            gt(endUserSessions.expiresAt, now),
+            eq(applications.enabled, true),
+            eq(externalSubjects.status, "verified")
+          )
+        )
+        .for("key share")
+      if (!session) return { outcome: "session_invalid" }
+      if (request.status === "cancelled") return { outcome: "cancelled" }
+      if (request.status === "decided") {
+        const decision = await getLockedRequestDecision(tx, request.id)
+        if (!decision)
+          throw new Error("Decided Approval Request has no Decision")
+        if (decision.reason === "timeout") {
+          return { outcome: "expired", request, decision }
+        }
+        if (decision.idempotencyKey !== input.idempotencyKey) {
+          return { outcome: "already_decided" }
+        }
+        return isIdenticalRetry(decision, input)
+          ? { outcome: "replay", request, decision }
+          : { outcome: "decision_conflict" }
+      }
+      if (request.expiresAt && request.expiresAt.getTime() <= now.getTime()) {
+        const expired = await recordTimeoutDecision(tx, request, now)
+        return { outcome: "expired", ...expired }
+      }
+      const reservation = await reservePublicRequest(tx, {
+        workspaceId: input.workspaceId,
+        applicationId: input.applicationId,
+        actorKind: "end_user_session",
+        actorId: input.endUserSessionId,
+        operation: "approval_request.decision",
+        idempotencyKey: input.idempotencyKey,
+        requestHash: hashPublicRequest({
+          approvalRequestId: input.approvalRequestId,
+          outcome: input.outcome,
+          comment: input.comment ?? null,
+        }),
+      })
+      switch (reservation.outcome) {
+        case "conflict":
+          return { outcome: "decision_conflict" }
+        case "replay":
+          throw new Error("Idempotent Decision exists for a pending request")
+      }
+      const decided = await recordDecision(tx, request, {
+        outcome: input.outcome,
+        actor: {
+          kind: "external_subject",
+          externalSubjectId: input.externalSubjectId,
+          endUserSessionId: input.endUserSessionId,
+        },
+        reason: "human",
+        comment: input.comment,
+        idempotencyKey: input.idempotencyKey,
+        decidedAt: now,
+      })
+      await finalizePublicRequest(tx, reservation.recordId, decided.decision.id)
+      return { outcome: "decided", ...decided }
+    }
+  )
+}
+
+export async function cancelExecutionWithPendingApproval(
+  tx: Transaction,
+  workspaceId: string,
+  applicationId: string,
+  executionId: string,
+  actorApplicationKeyId: string,
+  cancelledAt: Date
+): Promise<Execution | undefined> {
+  const pending = await tx
+    .select()
+    .from(approvalRequests)
+    .where(
+      and(
+        eq(approvalRequests.workspaceId, workspaceId),
+        eq(approvalRequests.executionId, executionId),
+        eq(approvalRequests.status, "pending")
+      )
+    )
+    .for("update")
+  if (pending.length > 1) {
+    throw new Error("Execution has multiple pending Approval Requests")
+  }
+  const request = pending[0]
+  const [execution] = await tx
+    .update(executions)
+    .set({
+      status: "cancelled",
+      completedAt: cancelledAt,
+      leasedBy: null,
+      leaseExpiresAt: null,
+    })
+    .where(
+      and(
+        eq(executions.id, executionId),
+        eq(executions.workspaceId, workspaceId),
+        eq(executions.applicationId, applicationId),
+        inArray(executions.status, ["queued", "running", "paused"])
+      )
+    )
+    .returning()
+  if (!execution || !request) return execution
+  const [cancelled] = await tx
+    .update(approvalRequests)
+    .set({
+      status: "cancelled",
+      cancelledAt,
+      version: sql`${approvalRequests.version} + 1`,
+    })
+    .where(
+      and(
+        eq(approvalRequests.id, request.id),
+        eq(approvalRequests.status, "pending")
+      )
+    )
+    .returning()
+  if (!cancelled) throw new Error("Locked Approval Request changed state")
+  await tx.insert(auditLogs).values({
+    workspaceId: request.workspaceId,
+    actorApplicationKeyId,
+    action: "approval_request.cancelled",
+    resource: "approval_request",
+    resourceId: request.id,
+    metadata: { executionId },
+  })
+  return execution
 }
 
 export type ClaimPauseResult =
@@ -263,35 +596,7 @@ export async function claimAndDecideTimedOutApprovalRequest(
       .for("update", { skipLocked: true })
       .limit(1)
     if (!due) return { outcome: "empty" }
-    const [request] = await tx
-      .update(approvalRequests)
-      .set({
-        status: "decided",
-        version: sql`${approvalRequests.version} + 1`,
-      })
-      .where(eq(approvalRequests.id, due.id))
-      .returning()
-    const [decision] = await tx
-      .insert(approvalDecisions)
-      .values({
-        workspaceId: request.workspaceId,
-        approvalRequestId: request.id,
-        outcome:
-          request.timeoutAction === "auto_approve" ? "approved" : "rejected",
-        actorKind: "system",
-        reason: "timeout",
-        decidedAt: now,
-      })
-      .returning()
-    await tx
-      .update(executions)
-      .set({ status: "queued" })
-      .where(
-        and(
-          eq(executions.id, request.executionId),
-          eq(executions.status, "paused")
-        )
-      )
-    return { outcome: "decided", request, decision }
+    const decided = await recordTimeoutDecision(tx, due, now)
+    return { outcome: "decided", ...decided }
   })
 }

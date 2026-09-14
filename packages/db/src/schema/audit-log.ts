@@ -10,6 +10,7 @@ import {
 import { users } from "./user.js"
 import { organizations } from "./organisation.js"
 import { applicationKeys } from "./application-key.js"
+import { externalSubjects } from "./external-subject.js"
 
 export const auditAction = pgEnum("audit_action", [
   // Workspace
@@ -57,6 +58,10 @@ export const auditAction = pgEnum("audit_action", [
   "execution.failed",
   "execution.cancelled",
 
+  "approval_request.decided",
+  "approval_request.timed_out",
+  "approval_request.cancelled",
+
   // Secrets
   "secret.created",
   "secret.updated",
@@ -98,6 +103,7 @@ export const auditResource = pgEnum("audit_resource", [
   "member",
   "workflow",
   "execution",
+  "approval_request",
   "api_key",
   "secret",
 ])
@@ -120,6 +126,12 @@ export const auditLogs = snakeCase.table(
     actorApplicationKeyId: uuid().references(() => applicationKeys.id, {
       onDelete: "set null",
     }),
+
+    actorExternalSubjectId: uuid().references(() => externalSubjects.id, {
+      onDelete: "set null",
+    }),
+
+    actorEndUserSessionId: uuid(),
 
     targetUserId: uuid().references(() => users.id, {
       onDelete: "set null",

@@ -10,7 +10,6 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 import { approvalRequests } from "./approval-request.js"
-import { endUserSessions } from "./end-user-session.js"
 import { externalSubjects } from "./external-subject.js"
 import { users } from "./user.js"
 
@@ -56,11 +55,6 @@ export const approvalDecisions = snakeCase.table(
       name: "approval_decisions_external_subject_fkey",
       columns: [table.actorExternalSubjectId, table.workspaceId],
       foreignColumns: [externalSubjects.id, externalSubjects.workspaceId],
-    }),
-    foreignKey({
-      name: "approval_decisions_session_fkey",
-      columns: [table.endUserSessionId, table.workspaceId],
-      foreignColumns: [endUserSessions.id, endUserSessions.workspaceId],
     }),
     check(
       "approval_decisions_actor_check",
