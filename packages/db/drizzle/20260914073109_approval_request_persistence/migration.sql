@@ -2,6 +2,7 @@ CREATE TYPE "approval_decision_actor_kind" AS ENUM('workspace_member', 'external
 CREATE TYPE "approval_decision_outcome" AS ENUM('approved', 'rejected');--> statement-breakpoint
 CREATE TYPE "approval_decision_reason" AS ENUM('human', 'timeout');--> statement-breakpoint
 ALTER TYPE "approval_status" RENAME TO "approval_request_status";--> statement-breakpoint
+TRUNCATE TABLE "approvals";--> statement-breakpoint
 CREATE TABLE "approval_decisions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 	"workspace_id" uuid NOT NULL,
@@ -35,62 +36,8 @@ ALTER TABLE "approval_requests" ADD COLUMN "version" integer DEFAULT 1 NOT NULL;
 ALTER TABLE "approval_requests" ADD COLUMN "display" jsonb;--> statement-breakpoint
 ALTER TABLE "approval_requests" ADD COLUMN "action_intent_digest" text;--> statement-breakpoint
 ALTER TABLE "approval_requests" ADD COLUMN "cancelled_at" timestamp with time zone;--> statement-breakpoint
-DO $$
-BEGIN
-	IF EXISTS (SELECT 1 FROM approval_requests WHERE audience = 'external_subject') THEN
-		RAISE EXCEPTION 'Legacy external Approval data must be reset explicitly before applying this migration';
-	END IF;
-END;
-$$;--> statement-breakpoint
-UPDATE "approval_requests" AS request
-SET
-	"application_id" = execution."application_id",
-	"workflow_id" = execution."workflow_id",
-	"conversation_id" = execution."conversation_id",
-	"display" = CASE
-		WHEN request."message" IS NULL OR btrim(request."message") = '' THEN jsonb_build_object('title', 'Approval requested')
-		ELSE jsonb_build_object('title', 'Approval requested', 'description', request."message")
-	END,
-	"external_subject_id" = NULL
-FROM "executions" AS execution
-WHERE execution."id" = request."execution_id"
-	AND execution."workspace_id" = request."workspace_id";--> statement-breakpoint
-DO $$
-BEGIN
-	IF EXISTS (SELECT 1 FROM approval_requests WHERE workflow_id IS NULL OR octet_length(display::text) > 8192) THEN
-		RAISE EXCEPTION 'Legacy Approval data is inconsistent or exceeds the safe display limit and must be reset explicitly';
-	END IF;
-	IF EXISTS (SELECT 1 FROM approval_requests WHERE status IN ('approved', 'rejected') AND timed_out = false AND responded_by IS NULL) THEN
-		RAISE EXCEPTION 'Legacy human Approval Decisions without a workspace actor must be reset explicitly';
-	END IF;
-END;
-$$;--> statement-breakpoint
 ALTER TABLE "approval_requests" ALTER COLUMN "status" DROP DEFAULT;--> statement-breakpoint
 ALTER TABLE "approval_requests" ALTER COLUMN "status" SET DATA TYPE text USING "status"::text;--> statement-breakpoint
-INSERT INTO "approval_decisions" (
-	"workspace_id",
-	"approval_request_id",
-	"outcome",
-	"actor_kind",
-	"actor_user_id",
-	"reason",
-	"comment",
-	"decided_at"
-)
-SELECT
-	"workspace_id",
-	"id",
-	"status"::text::"approval_decision_outcome",
-	CASE WHEN "timed_out" THEN 'system'::"approval_decision_actor_kind" ELSE 'workspace_member'::"approval_decision_actor_kind" END,
-	CASE WHEN "timed_out" THEN NULL ELSE "responded_by" END,
-	CASE WHEN "timed_out" THEN 'timeout'::"approval_decision_reason" ELSE 'human'::"approval_decision_reason" END,
-	"comment",
-	COALESCE("responded_at", "requested_at")
-FROM "approval_requests"
-WHERE "status" IN ('approved', 'rejected');--> statement-breakpoint
-UPDATE "approval_requests"
-SET "status" = 'decided', "version" = 2
-WHERE "status" IN ('approved', 'rejected');--> statement-breakpoint
 ALTER TABLE "approval_requests" ALTER COLUMN "workflow_id" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "approval_requests" ALTER COLUMN "display" SET NOT NULL;--> statement-breakpoint
 DROP TYPE "approval_request_status";--> statement-breakpoint

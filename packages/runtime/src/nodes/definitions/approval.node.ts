@@ -27,16 +27,6 @@ export const approvalNode: NodeDefinition<
     icon: "user-check",
     fields: [
       {
-        key: "audience",
-        label: "Audience",
-        widget: "select",
-        description: "Choose who can decide this request.",
-        options: [
-          { label: "Workspace members", value: "workspace" },
-          { label: "End user", value: "external_subject" },
-        ],
-      },
-      {
         key: "message",
         label: "Title",
         widget: "textarea",

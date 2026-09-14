@@ -62,9 +62,18 @@ describe("ApprovalNode", () => {
         executionId: randomUUID(),
         nodeId: "approval-1",
       })
-    ).rejects.toThrow(
-      'Approval node audience must be "workspace" or "external_subject"'
-    )
+    ).rejects.toThrow('Approval node audience must be "workspace"')
+  })
+
+  it("rejects a title longer than the persistence limit", async () => {
+    const node = new ApprovalNode()
+    await expect(
+      node.execute({ message: "x".repeat(201) }, undefined, {
+        workspaceId: randomUUID(),
+        executionId: randomUUID(),
+        nodeId: "approval-1",
+      })
+    ).rejects.toThrow("Approval display title must not exceed 200 characters")
   })
 
   it("creates a pending approval and pauses on first visit, then pauses again while still pending", async () => {

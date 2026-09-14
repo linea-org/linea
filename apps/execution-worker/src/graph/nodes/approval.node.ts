@@ -13,12 +13,9 @@ import type {
   NodeHandler,
 } from "./node-handler.interface"
 
-function parseAudience(raw: unknown): "workspace" | "external_subject" {
-  if (raw === undefined || raw === "workspace") return "workspace"
-  if (raw === "external_subject") return raw
-  throw new Error(
-    'Approval node audience must be "workspace" or "external_subject"'
-  )
+function assertWorkspaceAudience(raw: unknown): void {
+  if (raw === undefined || raw === "workspace") return
+  throw new Error('Approval node audience must be "workspace"')
 }
 
 function parseApproverEmails(raw: unknown): string[] | undefined {
@@ -57,6 +54,9 @@ function parseDisplay(config: Record<string, unknown>): ApprovalRequestDisplay {
     typeof rawTitle === "string" && rawTitle.trim() !== ""
       ? rawTitle.trim()
       : "Approval requested"
+  if ([...title].length > 200) {
+    throw new Error("Approval display title must not exceed 200 characters")
+  }
   const description =
     typeof config.description === "string" && config.description.trim() !== ""
       ? config.description.trim()
@@ -93,17 +93,18 @@ export class ApprovalNode implements NodeHandler {
         "Approval node requires executionId and nodeId in context"
       )
     }
-    const audience = parseAudience(config.audience)
+    assertWorkspaceAudience(config.audience)
     let request = await repositories.approvalRequest.getApprovalRequest(
       db,
       context.workspaceId,
       executionId,
       nodeId
     )
-    if (request && request.audience !== audience) {
-      throw new Error("Approval Request audience cannot change after creation")
+    if (request && request.audience !== "workspace") {
+      throw new Error("External-subject Approval Requests are not active yet")
     }
     if (!request) {
+      const display = parseDisplay(config)
       const execution = await repositories.execution.getExecutionById(
         db,
         executionId
@@ -120,17 +121,10 @@ export class ApprovalNode implements NodeHandler {
           workflowId: execution.workflowId,
           executionId,
           nodeId,
-          audience,
-          externalSubjectId:
-            audience === "external_subject"
-              ? execution.externalSubjectRecordId
-              : undefined,
+          audience: "workspace",
           conversationId: execution.conversationId,
-          display: parseDisplay(config),
-          approverEmails:
-            audience === "workspace"
-              ? parseApproverEmails(config.approverEmails)
-              : undefined,
+          display,
+          approverEmails: parseApproverEmails(config.approverEmails),
           expiresAt,
           timeoutAction: expiresAt
             ? config.timeoutAction === "auto_approve"
@@ -141,9 +135,7 @@ export class ApprovalNode implements NodeHandler {
       )
       if (created) {
         request = created
-        if (created.audience === "workspace") {
-          await this.notifyApprovers(created)
-        }
+        await this.notifyApprovers(created)
       } else {
         request = await repositories.approvalRequest.getApprovalRequest(
           db,
