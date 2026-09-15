@@ -179,7 +179,7 @@ export const approvalRequests = snakeCase.table(
     ),
     check(
       "approval_requests_action_intent_digest_check",
-      sql`${table.actionIntentDigest} IS NULL OR char_length(${table.actionIntentDigest}) BETWEEN 1 AND 256`
+      sql`${table.actionIntentDigest} IS NULL OR (char_length(${table.actionIntentDigest}) BETWEEN 1 AND 256 AND (${table.timeoutAction} IS NULL OR ${table.timeoutAction} = 'auto_reject'))`
     ),
   ]
 )

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, isNull, lt, or } from "drizzle-orm"
+import { and, desc, eq, isNotNull, isNull, lt, or } from "drizzle-orm"
 import Ajv2020 from "ajv/dist/2020.js"
 import {
   applications,
@@ -18,6 +18,7 @@ import {
 } from "../schema/index.js"
 import { createChatMessage } from "./chat-message.repository.js"
 import { createConversation } from "./conversation.repository.js"
+import { cancelExecutionWithPendingApproval } from "./approval-request.repository.js"
 import {
   finalizePublicRequest,
   releasePublicRequest,
@@ -476,23 +477,15 @@ export async function cancelPublicExecution(
       if (!execution) throw new Error("Idempotent Execution disappeared")
       return { outcome: "cancelled", execution }
     }
-    const [execution] = await tx
-      .update(executions)
-      .set({
-        status: "cancelled",
-        completedAt: new Date(),
-        leasedBy: null,
-        leaseExpiresAt: null,
-      })
-      .where(
-        and(
-          eq(executions.id, executionId),
-          eq(executions.workspaceId, workspaceId),
-          eq(executions.applicationId, applicationId),
-          inArray(executions.status, ["queued", "running", "paused"])
-        )
-      )
-      .returning()
+    const cancelledAt = new Date()
+    const execution = await cancelExecutionWithPendingApproval(
+      tx,
+      workspaceId,
+      applicationId,
+      executionId,
+      idempotency.actor.id,
+      cancelledAt
+    )
     if (execution) {
       await tx.insert(auditLogs).values({
         workspaceId,
