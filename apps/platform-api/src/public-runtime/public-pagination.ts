@@ -7,9 +7,18 @@ const conversationCursorSchema = z.strictObject({
   id: z.string().uuid(),
 })
 const messageCursorSchema = z.number().int().positive()
+const approvalRequestCursorSchema = z.strictObject({
+  requestedAt: z.iso.datetime({ offset: true }),
+  id: z.string().uuid(),
+})
 
 export type PublicConversationCursor = {
   lastActivityAt: Date
+  id: string
+}
+
+export type PublicApprovalRequestCursor = {
+  requestedAt: Date
   id: string
 }
 
@@ -62,4 +71,22 @@ export function decodeMessageCursor(
   cursor: string | undefined,
 ): number | undefined {
   return decodeCursor(cursor, messageCursorSchema)
+}
+
+export function encodeApprovalRequestCursor(
+  cursor: PublicApprovalRequestCursor,
+): string {
+  return encodeCursor({
+    requestedAt: cursor.requestedAt.toISOString(),
+    id: cursor.id,
+  })
+}
+
+export function decodeApprovalRequestCursor(
+  cursor: string | undefined,
+): PublicApprovalRequestCursor | undefined {
+  const decoded = decodeCursor(cursor, approvalRequestCursorSchema)
+  return decoded
+    ? { requestedAt: new Date(decoded.requestedAt), id: decoded.id }
+    : undefined
 }

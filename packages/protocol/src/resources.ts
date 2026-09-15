@@ -1,4 +1,5 @@
 export * from "./resources/resource-projection"
+export * from "./resources/approval-request"
 export * from "./resources/application-key"
 export * from "./resources/conversation"
 export * from "./resources/execution"

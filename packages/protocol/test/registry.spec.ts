@@ -50,6 +50,9 @@ describe("operation registry", () => {
       "listEndUserMessages",
       "startEndUserExecution",
       "getEndUserExecution",
+      "listEndUserApprovalRequests",
+      "getEndUserApprovalRequest",
+      "decideEndUserApprovalRequest",
     ])
   })
 
@@ -79,6 +82,25 @@ describe("operation registry", () => {
       listMessages.response.body.safeParse({ data: [], nextCursor: null })
         .success
     ).toBe(true)
+  })
+
+  it("publishes the end-user Approval Request contract", () => {
+    const decision = operationRegistry.find(
+      ({ operationId }) => operationId === "decideEndUserApprovalRequest"
+    )
+    if (!decision) throw new Error("Decision operation is missing")
+    expect(decision.path).toBe(
+      "/v1/user/approval-requests/{approvalRequestId}/decisions"
+    )
+    expect(
+      decision.request.body.safeParse({ decision: "approved" }).success
+    ).toBe(true)
+    expect(
+      decision.request.body.safeParse({
+        decision: "approved",
+        comment: "😀".repeat(513),
+      }).success
+    ).toBe(false)
   })
 
   it("rejects duplicate operation IDs", () => {

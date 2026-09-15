@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
 import {
@@ -20,6 +20,7 @@ import {
   decideWorkspaceApprovalRequest,
   getApprovalDecision,
   getApprovalRequest,
+  findExternalApprovalRequests,
   listPendingApprovalRequests,
 } from "./approval-request.repository.js"
 import { createExecution } from "./execution.repository.js"
@@ -186,6 +187,115 @@ describe("Approval Request repository", () => {
         externalSubjectId: fixtures.subject.id,
         conversationId: fixtures.conversation.id,
       })
+    })
+  })
+
+  it("lists only pending requests owned by the external subject", async () => {
+    await withRollback(async (tx) => {
+      const fixture = await createExternalExecution(tx)
+      const request = await createApprovalRequest(tx, {
+        workspaceId: fixture.organization.id,
+        applicationId: fixture.application.id,
+        workflowId: fixture.workflow.id,
+        executionId: fixture.execution.id,
+        nodeId: "approval-1",
+        audience: "external_subject",
+        externalSubjectId: fixture.subject.id,
+        conversationId: fixture.conversation.id,
+        display: { title: "Send refund?" },
+      })
+      if (!request) throw new Error("Approval Request was not created")
+      const input = {
+        workspaceId: fixture.organization.id,
+        applicationId: fixture.application.id,
+        externalSubjectId: fixture.subject.id,
+      }
+      await expect(
+        findExternalApprovalRequests(tx, {
+          ...input,
+          conversationId: fixture.conversation.id,
+          limit: 20,
+          status: "pending",
+        })
+      ).resolves.toMatchObject([{ request: { id: request.id } }])
+      await expect(
+        findExternalApprovalRequests(tx, {
+          ...input,
+          conversationId: randomUUID(),
+          limit: 20,
+          status: "pending",
+        })
+      ).resolves.toEqual([])
+      await expect(
+        findExternalApprovalRequests(tx, {
+          ...input,
+          approvalRequestId: request.id,
+          limit: 1,
+        })
+      ).resolves.toMatchObject([
+        { request: { id: request.id }, decision: null },
+      ])
+      await expect(
+        findExternalApprovalRequests(tx, {
+          ...input,
+          externalSubjectId: randomUUID(),
+          approvalRequestId: request.id,
+          limit: 1,
+        })
+      ).resolves.toEqual([])
+    })
+  })
+
+  it("does not skip requests that differ only below cursor precision", async () => {
+    await withRollback(async (tx) => {
+      const fixture = await createExternalExecution(tx)
+      const newerId = "ffffffff-ffff-4fff-8fff-ffffffffffff"
+      const olderId = "00000000-0000-4000-8000-000000000001"
+      await tx.execute(sql`
+        insert into ${approvalRequests} (
+          id, workspace_id, application_id, workflow_id, execution_id,
+          node_id, audience, external_subject_id, conversation_id, display,
+          requested_at
+        ) values
+          (
+            ${newerId}::uuid, ${fixture.organization.id}::uuid,
+            ${fixture.application.id}::uuid, ${fixture.workflow.id}::uuid,
+            ${fixture.execution.id}::uuid, 'approval-newer',
+            'external_subject', ${fixture.subject.id}::uuid,
+            ${fixture.conversation.id}::uuid, '{"title":"newer"}'::jsonb,
+            '2026-09-16 00:00:00.123900+00'::timestamptz
+          ),
+          (
+            ${olderId}::uuid, ${fixture.organization.id}::uuid,
+            ${fixture.application.id}::uuid, ${fixture.workflow.id}::uuid,
+            ${fixture.execution.id}::uuid, 'approval-older',
+            'external_subject', ${fixture.subject.id}::uuid,
+            ${fixture.conversation.id}::uuid, '{"title":"older"}'::jsonb,
+            '2026-09-16 00:00:00.123100+00'::timestamptz
+          )
+      `)
+      const first = await findExternalApprovalRequests(tx, {
+        workspaceId: fixture.organization.id,
+        applicationId: fixture.application.id,
+        externalSubjectId: fixture.subject.id,
+        status: "pending",
+        limit: 1,
+      })
+      if (!first[0]) throw new Error("First Approval Request page is empty")
+      const second = await findExternalApprovalRequests(tx, {
+        workspaceId: fixture.organization.id,
+        applicationId: fixture.application.id,
+        externalSubjectId: fixture.subject.id,
+        status: "pending",
+        limit: 1,
+        cursor: {
+          requestedAt: first[0].request.requestedAt,
+          id: first[0].request.id,
+        },
+      })
+      if (!second[0]) throw new Error("Second Approval Request page is empty")
+      expect(first[0].request.id).toBe(newerId)
+      expect(second[0].request.id).toBe(olderId)
     })
   })
 

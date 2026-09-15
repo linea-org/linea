@@ -12,6 +12,8 @@ import type {
   CreateApplicationConversation,
   CreateEndUserConversation,
   CreateMessage,
+  DecideApprovalRequest,
+  ListApprovalRequestsQuery,
   StartApplicationExecution,
   StartEndUserExecution,
 } from '@linea/protocol/resources'
@@ -29,12 +31,18 @@ import {
   messageProjection,
 } from './public-runtime.projections'
 import {
+  decodeApprovalRequestCursor,
   decodeConversationCursor,
   decodeMessageCursor,
+  encodeApprovalRequestCursor,
   encodeConversationCursor,
   encodeMessageCursor,
 } from './public-pagination'
 import { PublicRuntimeRateLimitException } from './public-runtime-rate-limit.filter'
+import {
+  approvalDecisionProjection,
+  approvalRequestProjection,
+} from './approval-request.projections'
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
 const MESSAGE_RATE_LIMIT = 60
@@ -323,6 +331,136 @@ export class PublicRuntimeService {
       principal,
       principal.externalSubjectId,
       executionId,
+    )
+  }
+
+  async listEndUserApprovalRequests(
+    principal: EndUserPrincipal,
+    query: ListApprovalRequestsQuery,
+  ) {
+    const cursor = decodeApprovalRequestCursor(query.cursor)
+    const views =
+      await repositories.approvalRequest.findExternalApprovalRequests(db, {
+        workspaceId: principal.workspaceId,
+        applicationId: principal.applicationId,
+        externalSubjectId: principal.externalSubjectId,
+        conversationId: query.conversationId,
+        limit: query.limit + 1,
+        cursor,
+        status: 'pending',
+      })
+    const page = views.slice(0, query.limit)
+    const last = page.at(-1)
+    return {
+      data: page.map(({ request, decision }) =>
+        approvalRequestProjection(request, decision),
+      ),
+      nextCursor:
+        views.length > query.limit && last
+          ? encodeApprovalRequestCursor(last.request)
+          : null,
+    }
+  }
+
+  async getEndUserApprovalRequest(
+    principal: EndUserPrincipal,
+    approvalRequestId: string,
+  ) {
+    const [view] =
+      await repositories.approvalRequest.findExternalApprovalRequests(db, {
+        workspaceId: principal.workspaceId,
+        applicationId: principal.applicationId,
+        externalSubjectId: principal.externalSubjectId,
+        approvalRequestId,
+        limit: 1,
+      })
+    if (!view) {
+      throw new NotFoundException(
+        publicError(
+          'approval_request_wrong_subject',
+          'Approval Request is unavailable',
+        ),
+      )
+    }
+    return approvalRequestProjection(view.request, view.decision)
+  }
+
+  async decideEndUserApprovalRequest(
+    principal: EndUserPrincipal,
+    approvalRequestId: string,
+    input: DecideApprovalRequest,
+    idempotencyKey: string,
+  ) {
+    const result =
+      await repositories.approvalRequest.decideExternalApprovalRequest(db, {
+        workspaceId: principal.workspaceId,
+        applicationId: principal.applicationId,
+        externalSubjectId: principal.externalSubjectId,
+        endUserSessionId: principal.sessionId,
+        approvalRequestId,
+        outcome: input.decision,
+        comment: input.comment,
+        idempotencyKey,
+        now: new Date(),
+      })
+    if (
+      result.outcome === 'decided' ||
+      result.outcome === 'replay' ||
+      result.outcome === 'expired'
+    ) {
+      try {
+        await this.queue.enqueue(result.request.executionId)
+      } catch {
+        await repositories.execution.recordEnqueueFailure(
+          db,
+          result.request.executionId,
+        )
+        throw new ServiceUnavailableException(
+          publicError(
+            'service_unavailable',
+            'Execution dispatch is temporarily unavailable',
+          ),
+        )
+      }
+      if (result.outcome === 'expired') {
+        throw new ConflictException(
+          publicError('approval_request_expired', 'Approval Request expired'),
+        )
+      }
+      return approvalDecisionProjection(result.decision)
+    }
+    if (result.outcome === 'already_decided') {
+      throw new ConflictException(
+        publicError(
+          'approval_request_already_decided',
+          'Approval Request was already decided',
+        ),
+      )
+    }
+    if (result.outcome === 'cancelled') {
+      throw new ConflictException(
+        publicError(
+          'approval_request_cancelled',
+          'Approval Request was cancelled',
+        ),
+      )
+    }
+    if (result.outcome === 'wrong_subject') {
+      throw new NotFoundException(
+        publicError(
+          'approval_request_wrong_subject',
+          'Approval Request is unavailable',
+        ),
+      )
+    }
+    if (result.outcome === 'session_invalid') {
+      throw new HttpException(
+        publicError('session_revoked', 'End-user session revoked'),
+        publicErrorStatuses.session_revoked,
+      )
+    }
+    throw new ConflictException(
+      publicError('decision_conflict', 'Decision conflicts'),
     )
   }
 
