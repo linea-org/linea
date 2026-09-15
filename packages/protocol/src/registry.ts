@@ -1,5 +1,10 @@
 import type { OperationDefinition } from "./operations/operation"
 import {
+  decideEndUserApprovalRequestOperation,
+  getEndUserApprovalRequestOperation,
+  listEndUserApprovalRequestsOperation,
+} from "./operations/approval-requests"
+import {
   createEndUserSessionOperation,
   exchangeEndUserAuthorizationOperation,
   revokeEndUserSessionOperation,
@@ -75,4 +80,7 @@ export const operationRegistry = createOperationRegistry([
   listEndUserMessagesOperation,
   startEndUserExecutionOperation,
   getEndUserExecutionOperation,
+  listEndUserApprovalRequestsOperation,
+  getEndUserApprovalRequestOperation,
+  decideEndUserApprovalRequestOperation,
 ])

@@ -1,11 +1,13 @@
 import {
   and,
+  desc,
   eq,
   gt,
   inArray,
   isNotNull,
   isNull,
   lte,
+  lt,
   or,
   sql,
 } from "drizzle-orm"
@@ -115,6 +117,96 @@ export async function getApprovalDecision(
     .from(approvalDecisions)
     .where(eq(approvalDecisions.approvalRequestId, approvalRequestId))
   return decision
+}
+
+export type ExternalApprovalRequestView = {
+  request: ApprovalRequest
+  decision: ApprovalDecision | null
+}
+
+type ExternalApprovalRequestFilter =
+  | {
+      approvalRequestId: string
+      status?: never
+      conversationId?: never
+      cursor?: never
+    }
+  | {
+      approvalRequestId?: never
+      status: "pending"
+      conversationId?: string
+      cursor?: { requestedAt: Date; id: string }
+    }
+
+function externalApprovalRequestOwner(input: {
+  workspaceId: string
+  applicationId: string
+  externalSubjectId: string
+}) {
+  return and(
+    eq(approvalRequests.audience, "external_subject"),
+    eq(approvalRequests.workspaceId, input.workspaceId),
+    eq(approvalRequests.applicationId, input.applicationId),
+    eq(approvalRequests.externalSubjectId, input.externalSubjectId),
+    eq(externalSubjects.status, "verified"),
+    eq(applications.enabled, true)
+  )
+}
+
+export async function findExternalApprovalRequests(
+  db: DbClient,
+  input: {
+    workspaceId: string
+    applicationId: string
+    externalSubjectId: string
+    limit: number
+  } & ExternalApprovalRequestFilter
+): Promise<ExternalApprovalRequestView[]> {
+  const requestedAtCursorKey = sql<Date>`date_trunc('milliseconds', ${approvalRequests.requestedAt})`
+  return db
+    .select({ request: approvalRequests, decision: approvalDecisions })
+    .from(approvalRequests)
+    .innerJoin(
+      externalSubjects,
+      and(
+        eq(externalSubjects.id, approvalRequests.externalSubjectId),
+        eq(externalSubjects.workspaceId, approvalRequests.workspaceId)
+      )
+    )
+    .innerJoin(
+      applications,
+      and(
+        eq(applications.id, approvalRequests.applicationId),
+        eq(applications.workspaceId, approvalRequests.workspaceId)
+      )
+    )
+    .leftJoin(
+      approvalDecisions,
+      eq(approvalDecisions.approvalRequestId, approvalRequests.id)
+    )
+    .where(
+      and(
+        externalApprovalRequestOwner(input),
+        input.approvalRequestId
+          ? eq(approvalRequests.id, input.approvalRequestId)
+          : undefined,
+        input.status ? eq(approvalRequests.status, input.status) : undefined,
+        input.conversationId
+          ? eq(approvalRequests.conversationId, input.conversationId)
+          : undefined,
+        input.cursor
+          ? or(
+              lt(requestedAtCursorKey, input.cursor.requestedAt),
+              and(
+                eq(requestedAtCursorKey, input.cursor.requestedAt),
+                lt(approvalRequests.id, input.cursor.id)
+              )
+            )
+          : undefined
+      )
+    )
+    .orderBy(desc(requestedAtCursorKey), desc(approvalRequests.id))
+    .limit(input.limit)
 }
 
 function eligibleForWorkspaceMember(workspaceId: string, userEmail: string) {

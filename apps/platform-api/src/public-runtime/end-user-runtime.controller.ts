@@ -15,10 +15,14 @@ import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import {
   createEndUserConversationSchema,
   createMessageSchema,
+  decideApprovalRequestSchema,
+  listApprovalRequestsQuerySchema,
   publicRuntimeIdSchema,
   startEndUserExecutionSchema,
   type CreateEndUserConversation,
   type CreateMessage,
+  type DecideApprovalRequest,
+  type ListApprovalRequestsQuery,
   type StartEndUserExecution,
 } from '@linea/protocol/resources'
 import {
@@ -127,5 +131,40 @@ export class EndUserRuntimeController {
     executionId: string,
   ) {
     return this.runtime.getEndUserExecution(principal, executionId)
+  }
+
+  @Get('approval-requests')
+  listApprovalRequests(
+    @CurrentEndUser() principal: EndUserPrincipal,
+    @Query(new PublicValidationPipe(listApprovalRequestsQuerySchema))
+    query: ListApprovalRequestsQuery,
+  ) {
+    return this.runtime.listEndUserApprovalRequests(principal, query)
+  }
+
+  @Get('approval-requests/:approvalRequestId')
+  getApprovalRequest(
+    @CurrentEndUser() principal: EndUserPrincipal,
+    @Param('approvalRequestId', new PublicValidationPipe(publicRuntimeIdSchema))
+    approvalRequestId: string,
+  ) {
+    return this.runtime.getEndUserApprovalRequest(principal, approvalRequestId)
+  }
+
+  @Post('approval-requests/:approvalRequestId/decisions')
+  decideApprovalRequest(
+    @CurrentEndUser() principal: EndUserPrincipal,
+    @Param('approvalRequestId', new PublicValidationPipe(publicRuntimeIdSchema))
+    approvalRequestId: string,
+    @IdempotencyKey() idempotencyKey: string,
+    @Body(new PublicValidationPipe(decideApprovalRequestSchema))
+    body: DecideApprovalRequest,
+  ) {
+    return this.runtime.decideEndUserApprovalRequest(
+      principal,
+      approvalRequestId,
+      body,
+      idempotencyKey,
+    )
   }
 }
