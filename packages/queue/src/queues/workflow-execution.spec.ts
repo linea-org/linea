@@ -28,9 +28,13 @@ describe("workflow-execution queue", () => {
   it("configures retries with backoff, so a lost lease isn't left permanently stuck", async () => {
     queue = createWorkflowExecutionQueue(connection)
 
-    const job = await enqueueWorkflowExecution(queue, {
-      executionId: "exec-retry",
-    })
+    const job = await enqueueWorkflowExecution(
+      queue,
+      {
+        executionId: "exec-retry",
+      },
+      "outbox-retry"
+    )
 
     expect(job.opts.attempts).toBeGreaterThan(1)
     expect(job.opts.backoff).toBeTruthy()
@@ -46,9 +50,30 @@ describe("workflow-execution queue", () => {
       worker.on("failed", (_job, error) => reject(error))
     })
 
-    await enqueueWorkflowExecution(queue, { executionId: "exec-1" })
+    await enqueueWorkflowExecution(
+      queue,
+      { executionId: "exec-1" },
+      "outbox-delivery"
+    )
 
     await expect(delivered).resolves.toEqual({ executionId: "exec-1" })
+  })
+
+  it("deduplicates repeated publication of the same outbox message", async () => {
+    queue = createWorkflowExecutionQueue(connection)
+    const first = await enqueueWorkflowExecution(
+      queue,
+      { executionId: "exec-1" },
+      "outbox-deterministic"
+    )
+    const repeated = await enqueueWorkflowExecution(
+      queue,
+      { executionId: "exec-1" },
+      "outbox-deterministic"
+    )
+    expect(first.id).toBe("outbox-deterministic")
+    expect(repeated.id).toBe(first.id)
+    await expect(queue.getJobCounts()).resolves.toMatchObject({ waiting: 1 })
   })
 
   it("delivers each job to exactly one of two competing workers", async () => {
@@ -85,7 +110,11 @@ describe("workflow-execution queue", () => {
       })
 
       for (const executionId of executionIds) {
-        await enqueueWorkflowExecution(queue, { executionId })
+        await enqueueWorkflowExecution(
+          queue,
+          { executionId },
+          `outbox-${executionId}`
+        )
       }
 
       await completions

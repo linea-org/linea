@@ -7,6 +7,10 @@ import {
   type ExecutionStep,
 } from "../schema/index.js"
 import { upsertEndSubject } from "./end-subject.repository.js"
+import {
+  createPublicEvent,
+  createWorkflowExecutionMessage,
+} from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
 
 export type CreateExecutionInput = {
@@ -26,20 +30,26 @@ export async function createExecution(
   db: DbClient,
   input: CreateExecutionInput
 ): Promise<Execution> {
-  // "" is not a meaningful external subject id — normalized to undefined so the end_subjects
-  // roster and the execution's own column never disagree about whether one was actually provided.
-  const externalSubjectId = input.externalSubjectId || undefined
-  if (externalSubjectId) {
-    await upsertEndSubject(db, {
+  return db.transaction(async (tx) => {
+    // "" is not a meaningful external subject id — normalized to undefined so the end_subjects
+    // roster and the execution's own column never disagree about whether one was actually provided.
+    const externalSubjectId = input.externalSubjectId || undefined
+    if (externalSubjectId) {
+      await upsertEndSubject(tx, {
+        workspaceId: input.workspaceId,
+        externalId: externalSubjectId,
+      })
+    }
+    const [execution] = await tx
+      .insert(executions)
+      .values({ ...input, externalSubjectId })
+      .returning()
+    await createWorkflowExecutionMessage(tx, {
       workspaceId: input.workspaceId,
-      externalId: externalSubjectId,
+      executionId: execution.id,
     })
-  }
-  const [execution] = await db
-    .insert(executions)
-    .values({ ...input, externalSubjectId })
-    .returning()
-  return execution
+    return execution
+  })
 }
 
 export type TriggerWorkflowLookup =
@@ -111,7 +121,10 @@ export async function triggerWorkflowExecution(
         ...(input.environment ? { environment: input.environment } : {}),
       })
       .returning()
-
+    await createWorkflowExecutionMessage(tx, {
+      workspaceId,
+      executionId: execution.id,
+    })
     return { outcome: "created", execution }
   })
 }
@@ -168,7 +181,10 @@ export async function triggerWorkflowExecutionForVersion(
         ...(input.environment ? { environment: input.environment } : {}),
       })
       .returning()
-
+    await createWorkflowExecutionMessage(tx, {
+      workspaceId,
+      executionId: execution.id,
+    })
     return { outcome: "created", execution }
   })
 }
@@ -249,19 +265,44 @@ export async function completeExecution(
   leasedBy: string,
   input: CompleteExecutionInput
 ): Promise<Execution | undefined> {
-  const [execution] = await db
-    .update(executions)
-    .set({ ...input, completedAt: new Date() })
-    .where(
-      and(
-        eq(executions.id, executionId),
-        eq(executions.leasedBy, leasedBy),
-        gt(executions.leaseExpiresAt, new Date()),
-        notInArray(executions.status, terminalStatuses)
+  return db.transaction(async (tx) => {
+    const [execution] = await tx
+      .update(executions)
+      .set({ ...input, completedAt: new Date() })
+      .where(
+        and(
+          eq(executions.id, executionId),
+          eq(executions.leasedBy, leasedBy),
+          gt(executions.leaseExpiresAt, new Date()),
+          notInArray(executions.status, terminalStatuses)
+        )
       )
-    )
-    .returning()
-  return execution
+      .returning()
+    if (
+      execution?.applicationId &&
+      (execution.status === "succeeded" || execution.status === "failed")
+    ) {
+      await createPublicEvent(tx, {
+        workspaceId: execution.workspaceId,
+        applicationId: execution.applicationId,
+        ...(execution.externalSubjectRecordId
+          ? { externalSubjectId: execution.externalSubjectRecordId }
+          : {}),
+        eventType:
+          execution.status === "succeeded"
+            ? "execution.completed"
+            : "execution.failed",
+        data: {
+          executionId: execution.id,
+          status: execution.status,
+          ...(execution.conversationId
+            ? { conversationId: execution.conversationId }
+            : {}),
+        },
+      })
+    }
+    return execution
+  })
 }
 
 /** Same guard as `completeExecution` (leasedBy match, unexpired lease, not already terminal) but leaves the row resumable — releases the lease instead of finalizing, for a node pausing on a human decision rather than the run actually finishing. `"paused"` deliberately stays out of `terminalStatuses`. */
@@ -285,7 +326,7 @@ export async function pauseExecution(
   return execution
 }
 
-/** Marks a still-queued execution as failed before any worker claimed it — for when enqueueing itself fails, so the row doesn't strand at "queued" with no job behind it. `completeExecution` can't be used here since it requires a `leasedBy` match, and a never-claimed execution's is null. */
+/** Only transitions queued rows, so a worker claim wins races with administrative failure. */
 export async function failQueuedExecution(
   db: DbClient,
   executionId: string,
@@ -297,32 +338,6 @@ export async function failQueuedExecution(
     .where(and(eq(executions.id, executionId), eq(executions.status, "queued")))
     .returning()
   return execution
-}
-
-/** Counts an enqueue failure but never fails the execution: a schedule has no caller to retry it, and once next_run_at has advanced, a terminal status would drop the occurrence for good — retrying forever costs nothing at this scale. */
-export async function recordEnqueueFailure(
-  db: DbClient,
-  executionId: string
-): Promise<Execution | undefined> {
-  const [execution] = await db
-    .update(executions)
-    .set({ enqueueAttempts: sql`${executions.enqueueAttempts} + 1` })
-    .where(and(eq(executions.id, executionId), eq(executions.status, "queued")))
-    .returning()
-  return execution
-}
-
-/** Executions still "queued" past the cutoff — a crash between creating the row and enqueueing its job leaves no other trace, so age is the only signal. */
-export async function findStaleQueuedExecutions(
-  db: DbClient,
-  olderThan: Date
-): Promise<Execution[]> {
-  return db
-    .select()
-    .from(executions)
-    .where(
-      and(eq(executions.status, "queued"), lt(executions.createdAt, olderThan))
-    )
 }
 
 /** Current `leasedBy`, or undefined if the execution doesn't exist — used to check ownership before a risky operation, not just before persisting its result. */

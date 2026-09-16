@@ -60,7 +60,7 @@ describe("ScheduleFiringService", () => {
 
     const queue = new WorkflowQueueService()
     try {
-      const service = new ScheduleFiringService(queue)
+      const service = new ScheduleFiringService()
       await service.poll()
       await service.poll()
 
@@ -94,7 +94,7 @@ describe("ScheduleFiringService", () => {
 
     const queue = new WorkflowQueueService()
     try {
-      const service = new ScheduleFiringService(queue)
+      const service = new ScheduleFiringService()
       await expect(service.poll()).resolves.toBeUndefined()
 
       const executions = await repositories.execution.listExecutions(
@@ -110,16 +110,13 @@ describe("ScheduleFiringService", () => {
     }
   })
 
-  it("leaves the execution queued instead of failing it when enqueueing fails, so the sweep can retry it", async () => {
+  it("commits a queued execution for the outbox dispatcher", async () => {
     const { organization, workflow } = await createDueSchedule(
       "Schedule Firing Enqueue Fail Test Org"
     )
 
     try {
-      const failingQueue = {
-        enqueue: () => Promise.reject(new Error("redis unreachable")),
-      } as unknown as WorkflowQueueService
-      const service = new ScheduleFiringService(failingQueue)
+      const service = new ScheduleFiringService()
       await service.poll()
 
       const executions = await repositories.execution.listExecutions(
@@ -144,8 +141,8 @@ describe("ScheduleFiringService", () => {
     const queueA = new WorkflowQueueService()
     const queueB = new WorkflowQueueService()
     try {
-      const serviceA = new ScheduleFiringService(queueA)
-      const serviceB = new ScheduleFiringService(queueB)
+      const serviceA = new ScheduleFiringService()
+      const serviceB = new ScheduleFiringService()
 
       await Promise.all([serviceA.poll(), serviceB.poll()])
 

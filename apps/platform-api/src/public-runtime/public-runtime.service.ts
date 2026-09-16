@@ -5,7 +5,6 @@ import {
   HttpException,
   Injectable,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common'
 import { db, repositories, type Execution } from '@linea/db'
 import type {
@@ -24,7 +23,6 @@ import Ajv2020 from 'ajv/dist/2020'
 import type { ApplicationPrincipal } from '../auth/application-key.guard'
 import { publicError } from '../auth/public-error'
 import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.guard'
-import { WorkflowQueueService } from '../queue/workflow-queue.service'
 import {
   conversationProjection,
   executionProjection,
@@ -55,8 +53,6 @@ function hash(value: string): string {
 
 @Injectable()
 export class PublicRuntimeService {
-  constructor(private readonly queue: WorkflowQueueService) {}
-
   async createApplicationConversation(
     principal: ApplicationPrincipal,
     input: CreateApplicationConversation,
@@ -299,23 +295,6 @@ export class PublicRuntimeService {
         publicErrorStatuses[result.outcome],
       )
     }
-    if (result.outcome === 'created') {
-      try {
-        await this.queue.enqueue(result.execution.id)
-      } catch {
-        await repositories.execution.failQueuedExecution(
-          db,
-          result.execution.id,
-          { message: 'Execution dispatch failed' },
-        )
-        throw new ServiceUnavailableException(
-          publicError(
-            'service_unavailable',
-            'Execution dispatch is temporarily unavailable',
-          ),
-        )
-      }
-    }
     return this.projectExecution(result.execution)
   }
 
@@ -408,20 +387,6 @@ export class PublicRuntimeService {
       result.outcome === 'replay' ||
       result.outcome === 'expired'
     ) {
-      try {
-        await this.queue.enqueue(result.request.executionId)
-      } catch {
-        await repositories.execution.recordEnqueueFailure(
-          db,
-          result.request.executionId,
-        )
-        throw new ServiceUnavailableException(
-          publicError(
-            'service_unavailable',
-            'Execution dispatch is temporarily unavailable',
-          ),
-        )
-      }
       if (result.outcome === 'expired') {
         throw new ConflictException(
           publicError('approval_request_expired', 'Approval Request expired'),

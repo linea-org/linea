@@ -29,6 +29,10 @@ import {
 } from "../schema/index.js"
 import { pauseExecution } from "./execution.repository.js"
 import {
+  createPublicEvent,
+  createWorkflowExecutionMessage,
+} from "./outbox-message.repository.js"
+import {
   finalizePublicRequest,
   hashPublicRequest,
   reservePublicRequest,
@@ -85,6 +89,38 @@ export async function createApprovalRequest(
         target: [approvalRequests.executionId, approvalRequests.nodeId],
       })
       .returning()
+    if (request?.audience === "external_subject") {
+      if (!request.applicationId || !request.externalSubjectId) {
+        throw new Error("External Approval Request is missing its audience")
+      }
+      await createPublicEvent(tx, {
+        workspaceId: request.workspaceId,
+        applicationId: request.applicationId,
+        externalSubjectId: request.externalSubjectId,
+        eventType: "approval_request.created",
+        data: {
+          approvalRequestId: request.id,
+          executionId: request.executionId,
+          workflowId: request.workflowId,
+          status: request.status,
+          display: {
+            title: request.display.title,
+            ...(request.display.description
+              ? { description: request.display.description }
+              : {}),
+            ...(request.display.details
+              ? { details: request.display.details }
+              : {}),
+          },
+          ...(request.conversationId
+            ? { conversationId: request.conversationId }
+            : {}),
+          ...(request.expiresAt
+            ? { expiresAt: request.expiresAt.toISOString() }
+            : {}),
+        },
+      })
+    }
     return request
   })
 }
@@ -329,7 +365,7 @@ async function recordDecision(
     )
     .returning()
   if (!updatedRequest) throw new Error("Locked Approval Request changed state")
-  await tx
+  const [execution] = await tx
     .update(executions)
     .set({ status: "queued" })
     .where(
@@ -338,6 +374,13 @@ async function recordDecision(
         eq(executions.status, "paused")
       )
     )
+    .returning()
+  if (execution) {
+    await createWorkflowExecutionMessage(tx, {
+      workspaceId: request.workspaceId,
+      executionId: request.executionId,
+    })
+  }
   await tx.insert(auditLogs).values({
     workspaceId: request.workspaceId,
     actorUserId:
@@ -362,6 +405,28 @@ async function recordDecision(
       reason: input.reason,
     },
   })
+  if (request.audience === "external_subject") {
+    if (!request.applicationId || !request.externalSubjectId) {
+      throw new Error("External Approval Request is missing its audience")
+    }
+    await createPublicEvent(tx, {
+      workspaceId: request.workspaceId,
+      applicationId: request.applicationId,
+      externalSubjectId: request.externalSubjectId,
+      eventType: "approval_request.decided",
+      data: {
+        approvalRequestId: request.id,
+        executionId: request.executionId,
+        decisionId: decision.id,
+        outcome: decision.outcome,
+        reason: decision.reason,
+        status: updatedRequest.status,
+        ...(request.conversationId
+          ? { conversationId: request.conversationId }
+          : {}),
+      },
+    })
+  }
   return { request: updatedRequest, decision }
 }
 
@@ -630,6 +695,25 @@ export async function cancelExecutionWithPendingApproval(
     resourceId: request.id,
     metadata: { executionId },
   })
+  if (request.audience === "external_subject") {
+    if (!request.externalSubjectId) {
+      throw new Error("External Approval Request is missing its audience")
+    }
+    await createPublicEvent(tx, {
+      workspaceId: request.workspaceId,
+      applicationId,
+      externalSubjectId: request.externalSubjectId,
+      eventType: "approval_request.cancelled",
+      data: {
+        approvalRequestId: request.id,
+        executionId,
+        status: cancelled.status,
+        ...(request.conversationId
+          ? { conversationId: request.conversationId }
+          : {}),
+      },
+    })
+  }
   return execution
 }
 

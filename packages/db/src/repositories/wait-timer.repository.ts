@@ -6,6 +6,7 @@ import {
   type WaitTimer,
 } from "../schema/index.js"
 import { pauseExecution } from "./execution.repository.js"
+import { createWorkflowExecutionMessage } from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
 
 export async function createWaitTimer(
@@ -126,7 +127,7 @@ export async function claimAndResolveDueWaitTimer(
       .where(eq(waitTimers.id, due.id))
       .returning()
 
-    await tx
+    const [execution] = await tx
       .update(executions)
       .set({ status: "queued" })
       .where(
@@ -135,7 +136,13 @@ export async function claimAndResolveDueWaitTimer(
           eq(executions.status, "paused")
         )
       )
-
+      .returning()
+    if (execution) {
+      await createWorkflowExecutionMessage(tx, {
+        workspaceId: waitTimer.workspaceId,
+        executionId: waitTimer.executionId,
+      })
+    }
     return { outcome: "fired", waitTimer }
   })
 }

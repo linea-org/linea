@@ -1,3 +1,4 @@
+import '@linea/config/env'
 import { createHash, randomUUID } from 'node:crypto'
 import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
@@ -30,7 +31,6 @@ import {
 import request from 'supertest'
 import type { App } from 'supertest/types'
 import { EndUserSessionGuard } from '../end-user-sessions/end-user-session.guard'
-import { WorkflowQueueService } from '../queue/workflow-queue.service'
 import { EndUserRuntimeController } from './end-user-runtime.controller'
 import { PublicRuntimeService } from './public-runtime.service'
 
@@ -256,17 +256,12 @@ describe('end-user Approval Request API', () => {
   let app: INestApplication<App>
   let baseUrl: string
   let fixture: Fixture
-  const enqueue = jest.fn(() => Promise.resolve())
 
   beforeAll(async () => {
     fixture = await createFixture()
     const moduleRef = await Test.createTestingModule({
       controllers: [EndUserRuntimeController],
-      providers: [
-        PublicRuntimeService,
-        EndUserSessionGuard,
-        { provide: WorkflowQueueService, useValue: { enqueue } },
-      ],
+      providers: [PublicRuntimeService, EndUserSessionGuard],
     }).compile()
     app = moduleRef.createNestApplication()
     app.setGlobalPrefix('v1')
@@ -422,11 +417,10 @@ describe('end-user Approval Request API', () => {
     )
   })
 
-  it('retries dispatch after a committed Decision survives a queue failure', async () => {
+  it('replays a committed Decision without duplicating dispatch or public events', async () => {
     const subject = fixture.subjects[0]
     const approvalRequest = await createApprovalRequest(fixture, subject)
     const path = `/v1/user/approval-requests/${approvalRequest.id}/decisions`
-    enqueue.mockRejectedValueOnce(new Error('Redis unavailable'))
     const unavailable = await request(baseUrl)
       .post(path)
       .set(await headers(subject.sessions[0], 'POST', path))
@@ -437,12 +431,39 @@ describe('end-user Approval Request API', () => {
       .set(await headers(subject.sessions[1], 'POST', path))
       .set('Idempotency-Key', 'approval-retry-0001')
       .send({ decision: 'approved' })
-    expect(unavailable.status).toBe(503)
-    expect(publicErrorResponseSchema.parse(unavailable.body).error.code).toBe(
-      'service_unavailable',
+    expect(unavailable.status).toBe(201)
+    expect(approvalDecisionSchema.parse(unavailable.body).outcome).toBe(
+      'approved',
     )
     expect(retried.status).toBe(201)
     expect(approvalDecisionSchema.parse(retried.body).outcome).toBe('approved')
+    const workflowMessages = await pool.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM outbox_messages WHERE kind = 'workflow_execution' AND payload->>'executionId' = $1",
+      [approvalRequest.executionId],
+    )
+    expect(workflowMessages.rows[0].count).toBe(1)
+    const publicEvents = await pool.query<{
+      event_type: string
+      external_subject_id: string
+      count: number
+    }>(
+      "SELECT event_type, external_subject_id, count(*)::int AS count FROM outbox_messages WHERE application_id = $1 AND payload->>'approvalRequestId' = $2 GROUP BY event_type, external_subject_id",
+      [fixture.applicationId, approvalRequest.id],
+    )
+    expect(publicEvents.rows).toEqual(
+      expect.arrayContaining([
+        {
+          event_type: 'approval_request.created',
+          external_subject_id: subject.id,
+          count: 1,
+        },
+        {
+          event_type: 'approval_request.decided',
+          external_subject_id: subject.id,
+          count: 1,
+        },
+      ]),
+    )
   })
 
   it('returns stable errors for cancelled, expired, and conflicting Decisions', async () => {

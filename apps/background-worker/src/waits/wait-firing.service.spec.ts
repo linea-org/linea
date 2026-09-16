@@ -53,7 +53,7 @@ describe("WaitFiringService", () => {
 
     const queue = new WorkflowQueueService()
     try {
-      const service = new WaitFiringService(queue)
+      const service = new WaitFiringService()
       await service.poll()
       await service.poll()
 
@@ -86,8 +86,8 @@ describe("WaitFiringService", () => {
     const queueA = new WorkflowQueueService()
     const queueB = new WorkflowQueueService()
     try {
-      const serviceA = new WaitFiringService(queueA)
-      const serviceB = new WaitFiringService(queueB)
+      const serviceA = new WaitFiringService()
+      const serviceB = new WaitFiringService()
 
       await Promise.all([serviceA.poll(), serviceB.poll()])
 
@@ -141,7 +141,7 @@ describe("WaitFiringService", () => {
 
       const queue = new WorkflowQueueService()
       try {
-        const service = new WaitFiringService(queue)
+        const service = new WaitFiringService()
         await expect(service.poll()).resolves.toBeUndefined()
 
         const untouched = await repositories.waitTimer.getWaitTimer(

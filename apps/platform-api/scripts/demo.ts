@@ -9,11 +9,6 @@ import {
   workflowGraphSchema,
   type WorkflowGraph,
 } from '@linea/runtime'
-import {
-  createConnection,
-  createWorkflowExecutionQueue,
-  enqueueWorkflowExecution,
-} from '@linea/queue'
 
 const DEMO_ORG_SLUG = 'linea-demo'
 const DEMO_ORG_NAME = 'Linea Demo'
@@ -174,12 +169,7 @@ async function main() {
     throw new Error(`Could not trigger execution: ${trigger.outcome}`)
   }
 
-  const connection = createConnection()
-  const queue = createWorkflowExecutionQueue(connection)
   try {
-    await enqueueWorkflowExecution(queue, {
-      executionId: trigger.execution.id,
-    })
     console.log(`Triggered execution ${trigger.execution.id}, waiting...`)
 
     const { execution, steps } = await pollUntilTerminal(trigger.execution.id)
@@ -188,8 +178,6 @@ async function main() {
       throw new Error(`Execution ended with status "${execution.status}"`)
     }
   } finally {
-    await queue.close()
-    await connection.quit()
     await pool.end()
   }
 }

@@ -2,9 +2,7 @@ import { randomUUID } from 'node:crypto'
 import {
   BadRequestException,
   Injectable,
-  Logger,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common'
 import {
   db,
@@ -21,7 +19,6 @@ import {
   WorkflowGraphError,
 } from '@linea/runtime'
 import { StepReplayQueueService } from '../queue/step-replay-queue.service'
-import { WorkflowQueueService } from '../queue/workflow-queue.service'
 import type { CountNewWorkspaceExecutionsDto } from './dto/count-new-workspace-executions.dto'
 import type { ListWorkspaceExecutionsDto } from './dto/list-workspace-executions.dto'
 import type { SendChatMessageDto } from './dto/chat-preview.dto'
@@ -29,39 +26,9 @@ import type { ReplayStepDto } from './dto/replay-step.dto'
 import type { TestRunDto } from './dto/test-run.dto'
 import type { TriggerExecutionDto } from './dto/trigger-execution.dto'
 
-const DELETE_CHAT_MESSAGE_RETRY_ATTEMPTS = 3
-const DELETE_CHAT_MESSAGE_RETRY_DELAY_MS = 200
-
-/** Retries a transient failure a few times before giving up, closing most of the window where a blip would otherwise leave an unanswered turn stuck in history. */
-export async function deleteChatMessageWithRetry(
-  deleteFn: () => Promise<void>,
-  onGiveUp: (error: unknown) => void,
-  attempts = DELETE_CHAT_MESSAGE_RETRY_ATTEMPTS,
-): Promise<void> {
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      await deleteFn()
-      return
-    } catch (error) {
-      if (attempt === attempts) {
-        onGiveUp(error)
-        return
-      }
-      await new Promise((resolve) =>
-        setTimeout(resolve, DELETE_CHAT_MESSAGE_RETRY_DELAY_MS),
-      )
-    }
-  }
-}
-
 @Injectable()
 export class ExecutionsService {
-  private readonly logger = new Logger(ExecutionsService.name)
-
-  constructor(
-    private readonly queue: WorkflowQueueService,
-    private readonly stepReplayQueue: StepReplayQueueService,
-  ) {}
+  constructor(private readonly stepReplayQueue: StepReplayQueueService) {}
 
   async trigger(
     workspaceId: string,
@@ -90,21 +57,7 @@ export class ExecutionsService {
         throw new BadRequestException('Workflow has no published version')
     }
 
-    const execution = result.execution
-
-    try {
-      await this.queue.enqueue(execution.id)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      await repositories.execution.failQueuedExecution(db, execution.id, {
-        message,
-      })
-      throw new ServiceUnavailableException(
-        'Failed to enqueue execution — it will not run',
-      )
-    }
-
-    return execution
+    return result.execution
   }
 
   /** Runs a graph the builder hasn't published (or even committed) yet — checkpoints it under the hood via ensureVersionForGraph so the interpreter has a version row to read, without polluting the "Save as version" history the user curates explicitly. */
@@ -155,21 +108,7 @@ export class ExecutionsService {
         throw new BadRequestException('Workflow is archived')
     }
 
-    const execution = result.execution
-
-    try {
-      await this.queue.enqueue(execution.id)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      await repositories.execution.failQueuedExecution(db, execution.id, {
-        message,
-      })
-      throw new ServiceUnavailableException(
-        'Failed to enqueue execution — it will not run',
-      )
-    }
-
-    return execution
+    return result.execution
   }
 
   /** One turn of a chat preview: persists the user's message, then runs the (possibly draft) graph as a normal one-shot execution carrying conversationId in triggerPayload — the AI node picks up prior turns from there. Follows testRun's exact draft-graph pattern. A conversation is a sequence of independent executions sharing a conversationId, not one execution pausing repeatedly — the graph is a DAG and can't loop back to "wait for the next message." */
@@ -207,7 +146,7 @@ export class ExecutionsService {
     )
 
     // Created in one transaction so a trigger failure rolls back the message too, not an orphaned turn.
-    const { chatMessage, execution } = await db.transaction(async (tx) => {
+    const execution = await db.transaction(async (tx) => {
       const builderConversation =
         await repositories.conversation.ensureBuilderConversation(tx, {
           id: conversationId,
@@ -250,43 +189,8 @@ export class ExecutionsService {
           throw new BadRequestException('Workflow is archived')
       }
 
-      return { chatMessage, execution: result.execution }
+      return result.execution
     })
-
-    try {
-      await this.queue.enqueue(execution.id)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      const failed = await repositories.execution.failQueuedExecution(
-        db,
-        execution.id,
-        { message },
-      )
-      // Only delete the message if we genuinely won the "failed" transition — a worker may already have claimed this execution (see WorkflowQueueService's accepted-risk note), in which case it's still running and needs this message.
-      if (failed) {
-        await deleteChatMessageWithRetry(
-          () =>
-            repositories.chatMessage.deleteChatMessage(
-              db,
-              workspaceId,
-              chatMessage.id,
-            ),
-          (deleteError) => {
-            const deleteMessage =
-              deleteError instanceof Error
-                ? deleteError.message
-                : String(deleteError)
-            this.logger.warn(
-              `Execution ${execution.id}: failed to delete orphaned chat message ${chatMessage.id} after enqueue failure — it will remain in conversation history unanswered: ${deleteMessage}`,
-            )
-          },
-        )
-      }
-      throw new ServiceUnavailableException(
-        'Failed to enqueue execution — it will not run',
-      )
-    }
-
     return { execution, conversationId }
   }
 

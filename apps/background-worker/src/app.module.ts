@@ -3,8 +3,8 @@ import { ApprovalsModule } from "./approvals/approvals.module"
 import { BehaviourModule } from "./behaviour/behaviour.module"
 import { ChatModule } from "./chat/chat.module"
 import { EndUserAuthorizationModule } from "./end-user-authorization/end-user-authorization.module"
-import { ExecutionsModule } from "./executions/executions.module"
 import { FlaggersModule } from "./flaggers/flaggers.module"
+import { OutboxModule } from "./outbox/outbox.module"
 import { QueueModule } from "./queue/queue.module"
 import { ReplayModule } from "./replay/replay.module"
 import { SchedulesModule } from "./schedules/schedules.module"
@@ -14,7 +14,7 @@ import { WaitsModule } from "./waits/waits.module"
   imports: [
     QueueModule,
     SchedulesModule,
-    ExecutionsModule,
+    OutboxModule,
     ReplayModule,
     FlaggersModule,
     ApprovalsModule,

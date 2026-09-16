@@ -9,13 +9,10 @@ import {
   type ApprovalDecision,
   type ApprovalRequest,
 } from '@linea/db'
-import { WorkflowQueueService } from '../queue/workflow-queue.service'
 import type { RespondToApprovalDto } from './dto/respond-to-approval.dto'
 
 @Injectable()
 export class ApprovalsService {
-  constructor(private readonly queue: WorkflowQueueService) {}
-
   async list(userId: string, workspaceId: string) {
     const user = await repositories.user.getUserById(db, userId)
     if (!user) {
@@ -40,7 +37,6 @@ export class ApprovalsService {
     if (!user) {
       throw new UnauthorizedException('A signed-in session is required')
     }
-
     const result =
       await repositories.approvalRequest.decideWorkspaceApprovalRequest(
         db,
@@ -58,21 +54,6 @@ export class ApprovalsService {
         'Approval not found, already responded to, or you are not a designated approver',
       )
     }
-
-    try {
-      await this.queue.enqueue(result.request.executionId)
-    } catch (error) {
-      // The committed Decision already queued the Execution, so a failed publish must surface instead of stranding it.
-      const message = error instanceof Error ? error.message : String(error)
-      await repositories.execution.failQueuedExecution(
-        db,
-        result.request.executionId,
-        {
-          message: `Failed to resume after approval: ${message}`,
-        },
-      )
-    }
-
     return this.project(result.request, result.decision)
   }
 
