@@ -4,7 +4,6 @@ import { Test } from '@nestjs/testing'
 import { db, pool, repositories, schema } from '@linea/db'
 import type { WorkflowGraph } from '@linea/runtime'
 import { TriggersService } from './triggers.service'
-import { WorkflowQueueService } from '../queue/workflow-queue.service'
 
 afterAll(async () => {
   await pool.end()
@@ -21,7 +20,7 @@ const graph: WorkflowGraph = {
 describe('TriggersService', () => {
   it('resolves a workflow by slug within the workspace and triggers it', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [TriggersService, WorkflowQueueService],
+      providers: [TriggersService],
     }).compile()
     const service = moduleRef.get(TriggersService)
 
@@ -81,7 +80,7 @@ describe('TriggersService', () => {
 
   it('rejects triggering an unpublished workflow', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [TriggersService, WorkflowQueueService],
+      providers: [TriggersService],
     }).compile()
     const service = moduleRef.get(TriggersService)
 
@@ -115,7 +114,7 @@ describe('TriggersService', () => {
 
   it('rejects triggering an archived workflow, even with a published version', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [TriggersService, WorkflowQueueService],
+      providers: [TriggersService],
     }).compile()
     const service = moduleRef.get(TriggersService)
 
@@ -165,7 +164,7 @@ describe('TriggersService', () => {
     }
   })
 
-  it('marks the execution failed instead of stranding it queued when enqueueing fails', async () => {
+  it('commits a webhook execution and its dispatch message together', async () => {
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -193,19 +192,22 @@ describe('TriggersService', () => {
         version.id,
       )
 
-      const failingQueue = {
-        enqueue: () => Promise.reject(new Error('redis unreachable')),
-      } as unknown as WorkflowQueueService
-      const service = new TriggersService(failingQueue)
-
-      await expect(
-        service.trigger(organization.id, workflow.slug, undefined),
-      ).rejects.toThrow()
-
+      const service = new TriggersService()
+      const execution = await service.trigger(
+        organization.id,
+        workflow.slug,
+        undefined,
+      )
       const list = await repositories.execution.listExecutions(db, workflow.id)
       expect(list).toHaveLength(1)
-      expect(list[0].status).toBe('failed')
-      expect(list[0].error).toEqual({ message: 'redis unreachable' })
+      expect(list[0].status).toBe('queued')
+      const messages = await pool.query(
+        'SELECT payload FROM outbox_messages WHERE workspace_id = $1',
+        [organization.id],
+      )
+      expect(messages.rows).toEqual([
+        { payload: { executionId: execution.id } },
+      ])
     } finally {
       await pool.query('DELETE FROM organizations WHERE id = $1', [
         organization.id,

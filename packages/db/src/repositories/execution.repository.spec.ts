@@ -7,12 +7,10 @@ import {
   countNewWorkspaceExecutions,
   createExecution,
   failQueuedExecution,
-  findStaleQueuedExecutions,
   getLeaseOwner,
   isLeaseValid,
   listExecutions,
   listWorkspaceExecutions,
-  recordEnqueueFailure,
   renewLease,
   startExecution,
   triggerWorkflowExecution,
@@ -1186,110 +1184,5 @@ describe("triggerWorkflowExecution", () => {
         organization.id,
       ])
     }
-  })
-})
-
-describe("findStaleQueuedExecutions", () => {
-  it("returns only queued executions older than the cutoff", async () => {
-    await withRollback(async (tx) => {
-      const { organization, workflow, version } = await createTestFixtures(tx)
-      const cutoff = new Date()
-
-      const [stale] = await tx
-        .insert(executions)
-        .values({
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          workflowVersionId: version.id,
-          trigger: "manual",
-          createdAt: new Date(cutoff.getTime() - 1_000),
-        })
-        .returning()
-      await tx.insert(executions).values({
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        createdAt: new Date(cutoff.getTime() + 1_000),
-      })
-      const [running] = await tx
-        .insert(executions)
-        .values({
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          workflowVersionId: version.id,
-          trigger: "manual",
-          createdAt: new Date(cutoff.getTime() - 1_000),
-        })
-        .returning()
-      await startExecution(
-        tx,
-        running.id,
-        "worker-a",
-        new Date(Date.now() + 60_000)
-      )
-
-      const results = await findStaleQueuedExecutions(tx, cutoff)
-      expect(results.map((e) => e.id)).toEqual([stale.id])
-    })
-  })
-})
-
-describe("recordEnqueueFailure", () => {
-  it("increments enqueueAttempts and leaves the execution queued", async () => {
-    await withRollback(async (tx) => {
-      const { organization, workflow, version } = await createTestFixtures(tx)
-      const execution = await createExecution(tx, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "schedule",
-      })
-
-      const result = await recordEnqueueFailure(tx, execution.id)
-      expect(result?.status).toBe("queued")
-      expect(result?.enqueueAttempts).toBe(1)
-    })
-  })
-
-  it("never fails the execution, no matter how many attempts accumulate", async () => {
-    await withRollback(async (tx) => {
-      const { organization, workflow, version } = await createTestFixtures(tx)
-      const execution = await createExecution(tx, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "schedule",
-      })
-
-      let last
-      for (let attempt = 1; attempt <= 20; attempt++) {
-        last = await recordEnqueueFailure(tx, execution.id)
-      }
-
-      expect(last?.status).toBe("queued")
-      expect(last?.enqueueAttempts).toBe(20)
-    })
-  })
-
-  it("returns undefined for an execution that's no longer queued", async () => {
-    await withRollback(async (tx) => {
-      const { organization, workflow, version } = await createTestFixtures(tx)
-      const execution = await createExecution(tx, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "schedule",
-      })
-      await startExecution(
-        tx,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
-
-      const result = await recordEnqueueFailure(tx, execution.id)
-      expect(result).toBeUndefined()
-    })
   })
 })

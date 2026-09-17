@@ -2,15 +2,11 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common'
 import { db, repositories, type Execution } from '@linea/db'
-import { WorkflowQueueService } from '../queue/workflow-queue.service'
 
 @Injectable()
 export class TriggersService {
-  constructor(private readonly queue: WorkflowQueueService) {}
-
   async trigger(
     workspaceId: string,
     slug: string,
@@ -30,21 +26,6 @@ export class TriggersService {
       case 'unpublished':
         throw new BadRequestException('Workflow has no published version')
     }
-
-    const execution = result.execution
-
-    try {
-      await this.queue.enqueue(execution.id)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      await repositories.execution.failQueuedExecution(db, execution.id, {
-        message,
-      })
-      throw new ServiceUnavailableException(
-        'Failed to enqueue execution — it will not run',
-      )
-    }
-
-    return execution
+    return result.execution
   }
 }

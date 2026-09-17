@@ -22,8 +22,8 @@ export class WorkflowQueueService implements OnModuleDestroy {
     this.queue = createWorkflowExecutionQueue(this.connection)
   }
 
-  // On timeout the underlying command may still succeed after the caller marked it failed — accepted Phase 0 risk.
-  async enqueue(executionId: string): Promise<void> {
+  // A late Redis success and an outbox retry converge on the same deterministic job id.
+  async enqueue(executionId: string, outboxMessageId: string): Promise<void> {
     let timeout: NodeJS.Timeout
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeout = setTimeout(
@@ -39,7 +39,7 @@ export class WorkflowQueueService implements OnModuleDestroy {
 
     try {
       await Promise.race([
-        enqueueWorkflowExecution(this.queue, { executionId }),
+        enqueueWorkflowExecution(this.queue, { executionId }, outboxMessageId),
         timeoutPromise,
       ])
     } finally {

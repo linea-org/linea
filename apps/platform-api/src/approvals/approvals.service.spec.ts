@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import { db, pool, repositories, schema } from '@linea/db'
 import { ApprovalsService } from './approvals.service'
-import { WorkflowQueueService } from '../queue/workflow-queue.service'
 
 afterAll(async () => {
   await pool.end()
@@ -70,7 +69,7 @@ async function setup(designatedEmail?: string) {
 describe('ApprovalsService', () => {
   it('lists a pending approval for a member with no approverEmails restriction', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [ApprovalsService, WorkflowQueueService],
+      providers: [ApprovalsService],
     }).compile()
     const service = moduleRef.get(ApprovalsService)
 
@@ -89,7 +88,7 @@ describe('ApprovalsService', () => {
 
   it('responding resolves the approval, re-queues the execution, and rejects a second response', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [ApprovalsService, WorkflowQueueService],
+      providers: [ApprovalsService],
     }).compile()
     const service = moduleRef.get(ApprovalsService)
 
@@ -129,7 +128,7 @@ describe('ApprovalsService', () => {
 
   it('rejects a response from a workspace member who is not a designated approver', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [ApprovalsService, WorkflowQueueService],
+      providers: [ApprovalsService],
     }).compile()
     const service = moduleRef.get(ApprovalsService)
 

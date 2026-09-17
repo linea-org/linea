@@ -65,7 +65,7 @@ describe("ApprovalTimeoutService", () => {
 
     const queue = new WorkflowQueueService()
     try {
-      const service = new ApprovalTimeoutService(queue)
+      const service = new ApprovalTimeoutService()
       await service.poll()
       await service.poll()
 
@@ -104,7 +104,7 @@ describe("ApprovalTimeoutService", () => {
 
     const queue = new WorkflowQueueService()
     try {
-      const service = new ApprovalTimeoutService(queue)
+      const service = new ApprovalTimeoutService()
       await service.poll()
 
       const resolved = await repositories.approvalRequest.getApprovalRequest(
@@ -135,8 +135,8 @@ describe("ApprovalTimeoutService", () => {
     const queueA = new WorkflowQueueService()
     const queueB = new WorkflowQueueService()
     try {
-      const serviceA = new ApprovalTimeoutService(queueA)
-      const serviceB = new ApprovalTimeoutService(queueB)
+      const serviceA = new ApprovalTimeoutService()
+      const serviceB = new ApprovalTimeoutService()
 
       await Promise.all([serviceA.poll(), serviceB.poll()])
 
@@ -194,7 +194,7 @@ describe("ApprovalTimeoutService", () => {
 
       const queue = new WorkflowQueueService()
       try {
-        const service = new ApprovalTimeoutService(queue)
+        const service = new ApprovalTimeoutService()
         await expect(service.poll()).resolves.toBeUndefined()
 
         const untouched = await repositories.approvalRequest.getApprovalRequest(

@@ -3,12 +3,8 @@ import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import { db, pool, repositories, schema } from '@linea/db'
 import type { WorkflowGraph } from '@linea/runtime'
-import {
-  deleteChatMessageWithRetry,
-  ExecutionsService,
-} from './executions.service'
+import { ExecutionsService } from './executions.service'
 import { StepReplayQueueService } from '../queue/step-replay-queue.service'
-import { WorkflowQueueService } from '../queue/workflow-queue.service'
 
 afterAll(async () => {
   await pool.end()
@@ -34,46 +30,6 @@ async function drainDueWaitTimers(): Promise<void> {
   }
 }
 
-describe('deleteChatMessageWithRetry', () => {
-  it('does not retry once the delete succeeds', async () => {
-    const deleteFn = jest.fn().mockResolvedValue(undefined)
-    const onGiveUp = jest.fn()
-
-    await deleteChatMessageWithRetry(deleteFn, onGiveUp, 3)
-
-    expect(deleteFn).toHaveBeenCalledTimes(1)
-    expect(onGiveUp).not.toHaveBeenCalled()
-  })
-
-  it('retries a failing delete and succeeds once it stops failing', async () => {
-    const deleteFn = jest
-      .fn()
-      .mockRejectedValueOnce(new Error('connection reset'))
-      .mockResolvedValueOnce(undefined)
-    const onGiveUp = jest.fn()
-
-    await deleteChatMessageWithRetry(deleteFn, onGiveUp, 3)
-
-    expect(deleteFn).toHaveBeenCalledTimes(2)
-    expect(onGiveUp).not.toHaveBeenCalled()
-  })
-
-  it('gives up and reports the last error once every attempt has failed', async () => {
-    const lastError = new Error('still down')
-    const deleteFn = jest
-      .fn()
-      .mockRejectedValueOnce(new Error('down'))
-      .mockRejectedValueOnce(new Error('still down'))
-      .mockRejectedValueOnce(lastError)
-    const onGiveUp = jest.fn()
-
-    await deleteChatMessageWithRetry(deleteFn, onGiveUp, 3)
-
-    expect(deleteFn).toHaveBeenCalledTimes(3)
-    expect(onGiveUp).toHaveBeenCalledWith(lastError)
-  })
-})
-
 const graph: WorkflowGraph = {
   version: 1,
   trigger: { type: 'manual' },
@@ -85,11 +41,7 @@ const graph: WorkflowGraph = {
 describe('ExecutionsService', () => {
   it('rejects triggering a workflow with no published version', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [
-        ExecutionsService,
-        WorkflowQueueService,
-        StepReplayQueueService,
-      ],
+      providers: [ExecutionsService, StepReplayQueueService],
     }).compile()
     const service = moduleRef.get(ExecutionsService)
 
@@ -123,11 +75,7 @@ describe('ExecutionsService', () => {
 
   it('triggers a published workflow, enqueues it, and lists/gets it back scoped to the workspace', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [
-        ExecutionsService,
-        WorkflowQueueService,
-        StepReplayQueueService,
-      ],
+      providers: [ExecutionsService, StepReplayQueueService],
     }).compile()
     const service = moduleRef.get(ExecutionsService)
 
@@ -237,11 +185,7 @@ describe('ExecutionsService', () => {
 
   it('reports pausedAtNode for an execution paused on a wait timer, and omits it once resolved', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [
-        ExecutionsService,
-        WorkflowQueueService,
-        StepReplayQueueService,
-      ],
+      providers: [ExecutionsService, StepReplayQueueService],
     }).compile()
     const service = moduleRef.get(ExecutionsService)
 
@@ -316,11 +260,7 @@ describe('ExecutionsService', () => {
 
   it('rejects triggering an archived workflow, even with a published version', async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [
-        ExecutionsService,
-        WorkflowQueueService,
-        StepReplayQueueService,
-      ],
+      providers: [ExecutionsService, StepReplayQueueService],
     }).compile()
     const service = moduleRef.get(ExecutionsService)
 
@@ -370,7 +310,7 @@ describe('ExecutionsService', () => {
     }
   })
 
-  it('marks the execution failed instead of stranding it queued when enqueueing fails', async () => {
+  it('commits a queued execution and its dispatch outbox message together', async () => {
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -398,20 +338,19 @@ describe('ExecutionsService', () => {
         version.id,
       )
 
-      const failingQueue = {
-        enqueue: () => Promise.reject(new Error('redis unreachable')),
-      } as unknown as WorkflowQueueService
       const unusedStepReplayQueue = {} as StepReplayQueueService
-      const service = new ExecutionsService(failingQueue, unusedStepReplayQueue)
-
-      await expect(
-        service.trigger(organization.id, workflow.id, {}),
-      ).rejects.toThrow()
-
+      const service = new ExecutionsService(unusedStepReplayQueue)
+      const execution = await service.trigger(organization.id, workflow.id, {})
       const list = await repositories.execution.listExecutions(db, workflow.id)
       expect(list).toHaveLength(1)
-      expect(list[0].status).toBe('failed')
-      expect(list[0].error).toEqual({ message: 'redis unreachable' })
+      expect(list[0].status).toBe('queued')
+      const messages = await pool.query(
+        'SELECT payload FROM outbox_messages WHERE workspace_id = $1',
+        [organization.id],
+      )
+      expect(messages.rows).toEqual([
+        { payload: { executionId: execution.id } },
+      ])
     } finally {
       await pool.query('DELETE FROM organizations WHERE id = $1', [
         organization.id,
@@ -422,11 +361,7 @@ describe('ExecutionsService', () => {
   describe('testRun()', () => {
     it('runs the current graph immediately, without a published or committed version', async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 
@@ -475,11 +410,7 @@ describe('ExecutionsService', () => {
 
     it('rejects a workflow from a different workspace and creates no version row for it', async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 
@@ -530,11 +461,7 @@ describe('ExecutionsService', () => {
   describe('sendChatMessage() / listChatMessages()', () => {
     it('generates a conversationId on the first turn, reuses it on later turns, and returns them in order', async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 
@@ -607,11 +534,7 @@ describe('ExecutionsService', () => {
 
     it('carries externalSubjectId into triggerPayload on every turn, and surfaces it on the conversation list, when provided', async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 
@@ -673,11 +596,7 @@ describe('ExecutionsService', () => {
 
     it("pins a conversation's externalSubjectId to what its first turn established, ignoring a different or omitted value on a later turn", async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 
@@ -745,11 +664,7 @@ describe('ExecutionsService', () => {
 
     it('serializes two concurrent first turns for the same new conversation, so they agree on one established subject instead of racing to different ones', async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 
@@ -807,11 +722,7 @@ describe('ExecutionsService', () => {
 
     it("leaves a conversation's subject unestablished if its first turn had none, even if a later turn tries to introduce one", async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 
@@ -864,11 +775,7 @@ describe('ExecutionsService', () => {
 
     it('omits externalSubjectId from triggerPayload entirely when not provided', async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 
@@ -913,11 +820,7 @@ describe('ExecutionsService', () => {
 
     it('rejects a workflow from a different workspace for both sending and listing', async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 
@@ -971,11 +874,7 @@ describe('ExecutionsService', () => {
 
     it('scopes a conversation lookup by workflow, not just workspace', async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 
@@ -1033,7 +932,7 @@ describe('ExecutionsService', () => {
       }
     })
 
-    it('does not leave an orphaned user turn when enqueueing fails', async () => {
+    it('commits the chat turn, execution, and dispatch message together', async () => {
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -1051,35 +950,32 @@ describe('ExecutionsService', () => {
           slug: `chat-preview-enqueue-fail-${suffix}`,
         })
 
-        const failingQueue = {
-          enqueue: () => Promise.reject(new Error('redis unreachable')),
-        } as unknown as WorkflowQueueService
         const unusedStepReplayQueue = {} as StepReplayQueueService
-        const service = new ExecutionsService(
-          failingQueue,
-          unusedStepReplayQueue,
+        const service = new ExecutionsService(unusedStepReplayQueue)
+        const result = await service.sendChatMessage(
+          organization.id,
+          workflow.id,
+          { graph, message: 'hello' },
         )
-
-        await expect(
-          service.sendChatMessage(organization.id, workflow.id, {
-            graph,
-            message: 'hello',
-          }),
-        ).rejects.toThrow()
-
         const list = await repositories.execution.listExecutions(
           db,
           workflow.id,
         )
         expect(list).toHaveLength(1)
-        expect(list[0].status).toBe('failed')
-
+        expect(list[0].status).toBe('queued')
         const conversations = await repositories.chatMessage.listConversations(
           db,
           organization.id,
           workflow.id,
         )
-        expect(conversations).toEqual([])
+        expect(conversations).toHaveLength(1)
+        const messages = await pool.query(
+          'SELECT payload FROM outbox_messages WHERE workspace_id = $1',
+          [organization.id],
+        )
+        expect(messages.rows).toContainEqual({
+          payload: { executionId: result.execution.id },
+        })
       } finally {
         await pool.query('DELETE FROM organizations WHERE id = $1', [
           organization.id,
@@ -1087,7 +983,7 @@ describe('ExecutionsService', () => {
       }
     })
 
-    it('does not delete the triggering message when the execution was already claimed despite the enqueue error', async () => {
+    it('does not require Redis to accept a chat turn', async () => {
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -1105,41 +1001,18 @@ describe('ExecutionsService', () => {
           slug: `chat-preview-racy-enqueue-${suffix}`,
         })
 
-        // Simulates the real race the fix protects against: the enqueue's underlying Redis
-        // command actually landed and a worker claimed the execution before this call's own
-        // timeout/error fired (WorkflowQueueService's own "accepted Phase 0 risk" note).
-        const racyQueue = {
-          enqueue: async (executionId: string) => {
-            await repositories.execution.startExecution(
-              db,
-              executionId,
-              'worker-a',
-              new Date(Date.now() + 60_000),
-            )
-            throw new Error('enqueue timed out (but the job actually landed)')
-          },
-        } as unknown as WorkflowQueueService
         const unusedStepReplayQueue = {} as StepReplayQueueService
-        const service = new ExecutionsService(racyQueue, unusedStepReplayQueue)
-
-        await expect(
-          service.sendChatMessage(organization.id, workflow.id, {
-            graph,
-            message: 'hello',
-          }),
-        ).rejects.toThrow()
-
+        const service = new ExecutionsService(unusedStepReplayQueue)
+        await service.sendChatMessage(organization.id, workflow.id, {
+          graph,
+          message: 'hello',
+        })
         const list = await repositories.execution.listExecutions(
           db,
           workflow.id,
         )
         expect(list).toHaveLength(1)
-        // failQueuedExecution only transitions a still-"queued" row - this one was already
-        // claimed, so it stays "running", not "failed".
-        expect(list[0].status).toBe('running')
-
-        // The running execution still needs this message to persist its linked reply - it
-        // must not have been deleted.
+        expect(list[0].status).toBe('queued')
         const conversations = await repositories.chatMessage.listConversations(
           db,
           organization.id,
@@ -1158,11 +1031,7 @@ describe('ExecutionsService', () => {
   describe('get()', () => {
     it('computes nodeConfigs from the bound workflow version and replayable from origin/status', async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 
@@ -1301,11 +1170,7 @@ describe('ExecutionsService', () => {
 
     it('enqueues a replay and returns a replayStepId for a valid target', async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 
@@ -1341,11 +1206,7 @@ describe('ExecutionsService', () => {
 
     it('rejects a non-terminal execution, a missing step, and a replay-of-a-replay', async () => {
       const moduleRef = await Test.createTestingModule({
-        providers: [
-          ExecutionsService,
-          WorkflowQueueService,
-          StepReplayQueueService,
-        ],
+        providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
 

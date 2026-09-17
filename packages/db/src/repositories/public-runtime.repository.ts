@@ -25,6 +25,7 @@ import {
   reservePublicRequest,
 } from "./public-idempotency.repository.js"
 import type { DbClient } from "./types.js"
+import { createWorkflowExecutionMessage } from "./outbox-message.repository.js"
 
 const jsonSchemaValidator = new Ajv2020({ strict: true, addUsedSchema: false })
 
@@ -412,6 +413,10 @@ export async function startPublicExecution(
         triggerPayload: input.triggerPayload,
       })
       .returning()
+    await createWorkflowExecutionMessage(tx, {
+      workspaceId: input.workspaceId,
+      executionId: execution.id,
+    })
     await finalizePublicRequest(tx, reservation.recordId, execution.id)
     return { outcome: "created", execution }
   })
