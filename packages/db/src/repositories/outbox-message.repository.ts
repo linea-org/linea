@@ -1,7 +1,11 @@
 import { and, asc, eq, inArray, lte, or, sql } from "drizzle-orm"
 import type { EventType } from "@linea/protocol/events"
 import type { JsonValue } from "@linea/protocol/shared"
-import { outboxMessages, type OutboxMessage } from "../schema/index.js"
+import {
+  executions,
+  outboxMessages,
+  type OutboxMessage,
+} from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
 export async function createWorkflowExecutionMessage(
@@ -125,7 +129,10 @@ export async function recordOutboxMessageFailure(
 ): Promise<OutboxMessage | undefined> {
   return db.transaction(async (tx) => {
     const [current] = await tx
-      .select({ attempts: outboxMessages.attempts })
+      .select({
+        attempts: outboxMessages.attempts,
+        payload: outboxMessages.payload,
+      })
       .from(outboxMessages)
       .where(
         and(
@@ -156,6 +163,37 @@ export async function recordOutboxMessageFailure(
         )
       )
       .returning()
+    const executionId = current.payload.executionId
+    if (exhausted && typeof executionId === "string") {
+      const [execution] = await tx
+        .update(executions)
+        .set({
+          status: "failed",
+          error: { message: input.error },
+          completedAt: input.failedAt,
+        })
+        .where(
+          and(eq(executions.id, executionId), eq(executions.status, "queued"))
+        )
+        .returning()
+      if (execution?.applicationId) {
+        await createPublicEvent(tx, {
+          workspaceId: execution.workspaceId,
+          applicationId: execution.applicationId,
+          ...(execution.externalSubjectRecordId
+            ? { externalSubjectId: execution.externalSubjectRecordId }
+            : {}),
+          eventType: "execution.failed",
+          data: {
+            executionId: execution.id,
+            status: execution.status,
+            ...(execution.conversationId
+              ? { conversationId: execution.conversationId }
+              : {}),
+          },
+        })
+      }
+    }
     return message
   })
 }

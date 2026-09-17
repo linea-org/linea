@@ -1,9 +1,12 @@
+import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
 import {
   applications,
+  executions,
   externalSubjectApplications,
   externalSubjects,
+  outboxMessages,
 } from "../schema/index.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import {
@@ -179,11 +182,16 @@ describe("outbox message repository", () => {
         executionId: "00000000-0000-4000-8000-000000000001",
       })
       const now = new Date()
-      await claimWorkflowExecutionMessage(tx, {
-        claimedBy: "dispatcher-a",
-        now,
-        claimExpiresAt: new Date(now.getTime() + 30_000),
-      })
+      await tx
+        .update(outboxMessages)
+        .set({
+          status: "publishing",
+          attempts: 1,
+          claimedAt: now,
+          claimExpiresAt: new Date(now.getTime() + 30_000),
+          claimedBy: "dispatcher-a",
+        })
+        .where(eq(outboxMessages.id, message.id))
       const published = await markOutboxMessagePublished(tx, {
         messageId: message.id,
         claimedBy: "dispatcher-a",
@@ -200,6 +208,48 @@ describe("outbox message repository", () => {
           publishedAt: new Date(now.getTime() + 2_000),
         })
       ).resolves.toBeUndefined()
+    })
+  })
+
+  it("fails a still-queued execution when dispatch retries are exhausted", async () => {
+    await withRollback(async (tx) => {
+      const fixture = await createTestFixtures(tx)
+      const [execution] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: fixture.organization.id,
+          workflowId: fixture.workflow.id,
+          workflowVersionId: fixture.version.id,
+          trigger: "manual",
+        })
+        .returning()
+      const message = await createWorkflowExecutionMessage(tx, {
+        workspaceId: fixture.organization.id,
+        executionId: execution.id,
+      })
+      const now = new Date()
+      await claimWorkflowExecutionMessage(tx, {
+        claimedBy: "dispatcher-a",
+        now,
+        claimExpiresAt: new Date(now.getTime() + 30_000),
+      })
+      await recordOutboxMessageFailure(tx, {
+        messageId: message.id,
+        claimedBy: "dispatcher-a",
+        error: "Redis unavailable",
+        failedAt: now,
+        retryAt: now,
+        maximumAttempts: 1,
+      })
+      const [storedExecution] = await tx
+        .select()
+        .from(executions)
+        .where(eq(executions.id, execution.id))
+      expect(storedExecution).toMatchObject({
+        status: "failed",
+        error: { message: "Redis unavailable" },
+        completedAt: now,
+      })
     })
   })
 })

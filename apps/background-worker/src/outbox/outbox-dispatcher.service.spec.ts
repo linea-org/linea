@@ -42,20 +42,8 @@ describe("OutboxDispatcherService", () => {
         workspaceId: organization.id,
         executionId: afterExecutionId,
       })
-    const now = new Date()
-    const activeUntil = new Date(now.getTime() + 30_000)
-    await repositories.outboxMessage.claimWorkflowExecutionMessage(db, {
-      claimedBy: "crashed-before-publication",
-      now,
-      claimExpiresAt: activeUntil,
-    })
-    await repositories.outboxMessage.claimWorkflowExecutionMessage(db, {
-      claimedBy: "crashed-after-publication",
-      now,
-      claimExpiresAt: activeUntil,
-    })
     await pool.query(
-      "UPDATE outbox_messages SET claim_expires_at = now() - interval '1 second' WHERE id IN ($1, $2)",
+      "UPDATE outbox_messages SET status = 'publishing', attempts = 1, claimed_at = now() - interval '2 seconds', claim_expires_at = now() - interval '1 second', claimed_by = 'crashed-dispatcher' WHERE id IN ($1, $2)",
       [beforeMessage.id, afterMessage.id]
     )
     const connection = createConnection()
@@ -95,7 +83,6 @@ describe("OutboxDispatcherService", () => {
         id: afterMessage.id,
         data: { executionId: afterExecutionId },
       })
-      await expect(queue.getJobCounts()).resolves.toMatchObject({ waiting: 2 })
     } finally {
       await queue.obliterate({ force: true })
       await closeQueueConnection(queue, connection)

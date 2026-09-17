@@ -60,9 +60,11 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async dispatch(message: OutboxMessage): Promise<void> {
+    const payloadExecutionId = message.payload.executionId
+    const executionId =
+      typeof payloadExecutionId === "string" ? payloadExecutionId : undefined
     try {
-      const executionId = message.payload.executionId
-      if (typeof executionId !== "string") {
+      if (!executionId) {
         throw new Error("Workflow execution outbox payload has no executionId")
       }
       await this.queue.enqueue(executionId, message.id)
