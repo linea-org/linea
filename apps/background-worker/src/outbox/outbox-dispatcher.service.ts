@@ -10,7 +10,6 @@ import { WorkflowQueueService } from "../queue/workflow-queue.service"
 
 const POLL_INTERVAL_MS = 1_000
 const CLAIM_LEASE_MS = 30_000
-const MAXIMUM_ATTEMPTS = 10
 const MAXIMUM_RETRY_DELAY_MS = 60_000
 const MAXIMUM_ERROR_LENGTH = 4_096
 
@@ -78,7 +77,7 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       const failedAt = new Date()
       const retryDelay = Math.min(
-        2 ** (message.attempts - 1) * 1_000,
+        2 ** Math.min(message.attempts - 1, 16) * 1_000,
         MAXIMUM_RETRY_DELAY_MS
       )
       const failure =
@@ -91,7 +90,7 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
           ),
           failedAt,
           retryAt: new Date(failedAt.getTime() + retryDelay),
-          maximumAttempts: MAXIMUM_ATTEMPTS,
+          terminal: !executionId,
         })
       if (failure?.status === "failed") {
         this.logger.error(`Outbox message ${message.id} permanently failed`)

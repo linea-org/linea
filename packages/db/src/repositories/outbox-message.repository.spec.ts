@@ -141,7 +141,7 @@ describe("outbox message repository", () => {
           error: "Redis unavailable",
           failedAt: new Date(now.getTime() + 1_000),
           retryAt: new Date(now.getTime() + 2_000),
-          maximumAttempts: 2,
+          terminal: false,
         })
       ).resolves.toMatchObject({
         status: "pending",
@@ -160,7 +160,7 @@ describe("outbox message repository", () => {
           error: "Invalid payload",
           failedAt: new Date(now.getTime() + 3_000),
           retryAt: new Date(now.getTime() + 4_000),
-          maximumAttempts: 2,
+          terminal: true,
         })
       ).resolves.toMatchObject({
         status: "failed",
@@ -211,7 +211,7 @@ describe("outbox message repository", () => {
     })
   })
 
-  it("fails a still-queued execution when dispatch retries are exhausted", async () => {
+  it("keeps valid workflow dispatch retryable after repeated failures", async () => {
     await withRollback(async (tx) => {
       const fixture = await createTestFixtures(tx)
       const [execution] = await tx
@@ -228,27 +228,35 @@ describe("outbox message repository", () => {
         executionId: execution.id,
       })
       const now = new Date()
-      await claimWorkflowExecutionMessage(tx, {
-        claimedBy: "dispatcher-a",
-        now,
-        claimExpiresAt: new Date(now.getTime() + 30_000),
-      })
+      await tx
+        .update(outboxMessages)
+        .set({
+          status: "publishing",
+          attempts: 10,
+          claimedAt: now,
+          claimExpiresAt: new Date(now.getTime() + 30_000),
+          claimedBy: "dispatcher-a",
+        })
+        .where(eq(outboxMessages.id, message.id))
       await recordOutboxMessageFailure(tx, {
         messageId: message.id,
         claimedBy: "dispatcher-a",
         error: "Redis unavailable",
         failedAt: now,
         retryAt: now,
-        maximumAttempts: 1,
+        terminal: false,
       })
+      await expect(getOutboxMessages(tx, [message.id])).resolves.toMatchObject([
+        { status: "pending", attempts: 10 },
+      ])
       const [storedExecution] = await tx
         .select()
         .from(executions)
         .where(eq(executions.id, execution.id))
       expect(storedExecution).toMatchObject({
-        status: "failed",
-        error: { message: "Redis unavailable" },
-        completedAt: now,
+        status: "queued",
+        error: null,
+        completedAt: null,
       })
     })
   })

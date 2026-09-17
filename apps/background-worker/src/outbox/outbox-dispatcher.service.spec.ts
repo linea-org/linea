@@ -93,7 +93,7 @@ describe("OutboxDispatcherService", () => {
     }
   })
 
-  it("moves a poison message to an inspectable terminal failure", async () => {
+  it("moves a permanently invalid message to an inspectable terminal failure", async () => {
     const organization = await createOrganization()
     const [message] = await db
       .insert(schema.outboxMessages)
@@ -106,22 +106,50 @@ describe("OutboxDispatcherService", () => {
     const publisher = new WorkflowQueueService()
     const dispatcher = new OutboxDispatcherService(publisher)
     try {
-      for (let attempt = 0; attempt < 10; attempt += 1) {
-        await pool.query(
-          "UPDATE outbox_messages SET available_at = now() - interval '1 second' WHERE id = $1",
-          [message.id]
-        )
-        await dispatcher.poll()
-      }
+      await dispatcher.poll()
       const [stored] = await repositories.outboxMessage.getOutboxMessages(db, [
         message.id,
       ])
       expect(stored).toMatchObject({
         status: "failed",
-        attempts: 10,
+        attempts: 1,
         lastError: "Workflow execution outbox payload has no executionId",
       })
       expect(stored.failedAt).toBeInstanceOf(Date)
+    } finally {
+      await publisher.onModuleDestroy()
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("keeps ambiguous enqueue failures retryable regardless of attempt count", async () => {
+    const organization = await createOrganization()
+    const message =
+      await repositories.outboxMessage.createWorkflowExecutionMessage(db, {
+        workspaceId: organization.id,
+        executionId: randomUUID(),
+      })
+    await pool.query("UPDATE outbox_messages SET attempts = 9 WHERE id = $1", [
+      message.id,
+    ])
+    const publisher = new WorkflowQueueService()
+    jest
+      .spyOn(publisher, "enqueue")
+      .mockRejectedValue(new Error("Ambiguous Redis timeout"))
+    const dispatcher = new OutboxDispatcherService(publisher)
+    try {
+      await dispatcher.poll()
+      const [stored] = await repositories.outboxMessage.getOutboxMessages(db, [
+        message.id,
+      ])
+      expect(stored).toMatchObject({
+        status: "pending",
+        attempts: 10,
+        failedAt: null,
+        lastError: "Ambiguous Redis timeout",
+      })
     } finally {
       await publisher.onModuleDestroy()
       await pool.query("DELETE FROM organizations WHERE id = $1", [

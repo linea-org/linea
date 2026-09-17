@@ -1,11 +1,7 @@
 import { and, asc, eq, inArray, lte, or, sql } from "drizzle-orm"
 import type { EventType } from "@linea/protocol/events"
 import type { JsonValue } from "@linea/protocol/shared"
-import {
-  executions,
-  outboxMessages,
-  type OutboxMessage,
-} from "../schema/index.js"
+import { outboxMessages, type OutboxMessage } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
 export async function createWorkflowExecutionMessage(
@@ -124,15 +120,12 @@ export async function recordOutboxMessageFailure(
     error: string
     failedAt: Date
     retryAt: Date
-    maximumAttempts: number
+    terminal: boolean
   }
 ): Promise<OutboxMessage | undefined> {
   return db.transaction(async (tx) => {
     const [current] = await tx
-      .select({
-        attempts: outboxMessages.attempts,
-        payload: outboxMessages.payload,
-      })
+      .select({ id: outboxMessages.id })
       .from(outboxMessages)
       .where(
         and(
@@ -143,16 +136,15 @@ export async function recordOutboxMessageFailure(
       )
       .for("update")
     if (!current) return undefined
-    const exhausted = current.attempts >= input.maximumAttempts
     const [message] = await tx
       .update(outboxMessages)
       .set({
-        status: exhausted ? "failed" : "pending",
-        availableAt: exhausted ? input.failedAt : input.retryAt,
+        status: input.terminal ? "failed" : "pending",
+        availableAt: input.terminal ? input.failedAt : input.retryAt,
         claimedAt: null,
         claimExpiresAt: null,
         claimedBy: null,
-        failedAt: exhausted ? input.failedAt : null,
+        failedAt: input.terminal ? input.failedAt : null,
         lastError: input.error,
       })
       .where(
@@ -163,37 +155,6 @@ export async function recordOutboxMessageFailure(
         )
       )
       .returning()
-    const executionId = current.payload.executionId
-    if (exhausted && typeof executionId === "string") {
-      const [execution] = await tx
-        .update(executions)
-        .set({
-          status: "failed",
-          error: { message: input.error },
-          completedAt: input.failedAt,
-        })
-        .where(
-          and(eq(executions.id, executionId), eq(executions.status, "queued"))
-        )
-        .returning()
-      if (execution?.applicationId) {
-        await createPublicEvent(tx, {
-          workspaceId: execution.workspaceId,
-          applicationId: execution.applicationId,
-          ...(execution.externalSubjectRecordId
-            ? { externalSubjectId: execution.externalSubjectRecordId }
-            : {}),
-          eventType: "execution.failed",
-          data: {
-            executionId: execution.id,
-            status: execution.status,
-            ...(execution.conversationId
-              ? { conversationId: execution.conversationId }
-              : {}),
-          },
-        })
-      }
-    }
     return message
   })
 }
