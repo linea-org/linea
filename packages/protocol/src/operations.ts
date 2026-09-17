@@ -1,5 +1,6 @@
 export * from "./operations/operation"
 export * from "./operations/approval-requests"
+export * from "./operations/events"
 export * from "./operations/runtime"
 export * from "./operations/user-sessions"
 export * from "./registry"

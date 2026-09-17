@@ -7,6 +7,7 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Res,
   UseGuards,
   UseFilters,
@@ -29,14 +30,20 @@ import {
   paginationQuerySchema,
   type PaginationQuery,
 } from '@linea/protocol/shared'
-import type { Response } from 'express'
+import {
+  eventStreamQuerySchema,
+  type EventStreamQuery,
+} from '@linea/protocol/events'
+import type { Request, Response } from 'express'
 import { CurrentEndUser } from '../end-user-sessions/current-end-user.decorator'
 import {
   EndUserSessionGuard,
   type EndUserPrincipal,
 } from '../end-user-sessions/end-user-session.guard'
 import { PublicRuntimeService } from './public-runtime.service'
+import { EndUserEventStreamService } from './end-user-event-stream.service'
 import { IdempotencyKey } from './idempotency-key.decorator'
+import { LastEventId } from './last-event-id.decorator'
 import { PublicRuntimeRateLimitFilter } from './public-runtime-rate-limit.filter'
 import { PublicValidationPipe } from './public-validation.pipe'
 
@@ -45,7 +52,10 @@ import { PublicValidationPipe } from './public-validation.pipe'
 @UseGuards(EndUserSessionGuard)
 @UseFilters(PublicRuntimeRateLimitFilter)
 export class EndUserRuntimeController {
-  constructor(private readonly runtime: PublicRuntimeService) {}
+  constructor(
+    private readonly runtime: PublicRuntimeService,
+    private readonly eventStream: EndUserEventStreamService,
+  ) {}
 
   @Post('conversations')
   createConversation(
@@ -131,6 +141,24 @@ export class EndUserRuntimeController {
     executionId: string,
   ) {
     return this.runtime.getEndUserExecution(principal, executionId)
+  }
+
+  @Get('events')
+  streamEvents(
+    @CurrentEndUser() principal: EndUserPrincipal,
+    @Query(new PublicValidationPipe(eventStreamQuerySchema))
+    query: EventStreamQuery,
+    @LastEventId() afterEventId: string | undefined,
+    @Req() request: Request,
+    @Res() response: Response,
+  ) {
+    return this.eventStream.open(
+      principal,
+      query,
+      afterEventId,
+      request,
+      response,
+    )
   }
 
   @Get('approval-requests')

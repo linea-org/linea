@@ -4,6 +4,7 @@ import {
   getEndUserApprovalRequestOperation,
   listEndUserApprovalRequestsOperation,
 } from "./operations/approval-requests"
+import { streamEndUserEventsOperation } from "./operations/events"
 import {
   createEndUserSessionOperation,
   exchangeEndUserAuthorizationOperation,
@@ -83,4 +84,5 @@ export const operationRegistry = createOperationRegistry([
   listEndUserApprovalRequestsOperation,
   getEndUserApprovalRequestOperation,
   decideEndUserApprovalRequestOperation,
+  streamEndUserEventsOperation,
 ])

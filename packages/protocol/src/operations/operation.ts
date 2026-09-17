@@ -31,6 +31,7 @@ export type OperationRequestSchemas = {
 
 export type OperationResponseSchema = {
   readonly status: number
+  readonly contentType?: "text/event-stream"
   readonly body: z.ZodType
 }
 
