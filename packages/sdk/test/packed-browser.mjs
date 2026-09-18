@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process"
 import {
+  cpSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -49,42 +50,44 @@ try {
   const sdkArchive = archives.find((file) => file.startsWith("linea-sdk-"))
   if (!protocolArchive || !sdkArchive)
     throw new Error("Packed archives are missing")
+  cpSync(resolve(repository, "examples/sdk-browser"), temporary, {
+    recursive: true,
+  })
+  const packageJson = JSON.parse(
+    readFileSync(join(temporary, "package.json"), "utf8")
+  )
+  packageJson.dependencies["@linea/sdk"] = `file:${join(temporary, sdkArchive)}`
+  packageJson.pnpm = {
+    overrides: {
+      "@linea/protocol": `file:${join(temporary, protocolArchive)}`,
+    },
+  }
   writeFileSync(
     join(temporary, "package.json"),
-    JSON.stringify({
-      private: true,
-      type: "module",
-      dependencies: {
-        "@linea/protocol": `file:${join(temporary, protocolArchive)}`,
-        "@linea/sdk": `file:${join(temporary, sdkArchive)}`,
-      },
-      pnpm: {
-        overrides: {
-          "@linea/protocol": `file:${join(temporary, protocolArchive)}`,
-        },
-      },
-    })
-  )
-  writeFileSync(
-    join(temporary, "index.js"),
-    'import { LineaUserClient } from "@linea/sdk/user"; export { LineaUserClient }'
+    JSON.stringify(packageJson, null, 2)
   )
   execFileSync(
     pnpmCommand,
     pnpmArguments(["install", "--ignore-scripts", "--no-lockfile"]),
     { cwd: temporary, stdio: "inherit" }
   )
+  const typescript = resolve(temporary, "node_modules/typescript/bin/tsc")
+  execFileSync(process.execPath, [typescript, "--project", "tsconfig.json"], {
+    cwd: temporary,
+    stdio: "inherit",
+  })
   buildSync({
     absWorkingDir: temporary,
-    entryPoints: ["index.js"],
+    entryPoints: ["src/main.ts"],
     bundle: true,
     platform: "browser",
     format: "esm",
     outfile: "bundle.js",
   })
   const bundle = readFileSync(join(temporary, "bundle.js"), "utf8")
-  if (!bundle.includes("LineaUserClient"))
-    throw new Error("Packed browser bundle omitted the user client")
+  if (!bundle.includes("/v1/user/approval-requests")) {
+    throw new Error("Packed browser example omitted the public approval route")
+  }
 } finally {
   rmSync(temporary, { recursive: true, force: true })
 }

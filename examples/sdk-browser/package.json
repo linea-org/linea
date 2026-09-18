@@ -1,0 +1,11 @@
+{
+  "name": "linea-sdk-browser-example",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@linea/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^6"
+  }
+}
