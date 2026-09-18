@@ -327,7 +327,9 @@ describe("headless React hooks", () => {
       timeout: 3_000,
     })
     expect(result.current.error).toBeUndefined()
-    expect(result.current.requests[0]?.decision?.outcome).toBe("approved")
+    await waitFor(() =>
+      expect(result.current.requests[0]?.decision?.outcome).toBe("approved")
+    )
     expect(listCalls).toBeGreaterThanOrEqual(3)
     expect(result.current.pending).toEqual([])
     expect(result.current.connection).toBe("reconnecting")
