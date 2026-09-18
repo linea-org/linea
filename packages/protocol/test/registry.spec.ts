@@ -31,12 +31,13 @@ function operation(
 }
 
 describe("operation registry", () => {
-  it("publishes the end-user authorization protocol", () => {
+  it("publishes the public protocol", () => {
     expect(operationRegistry.map(({ operationId }) => operationId)).toEqual([
       "startEndUserAuthorization",
       "exchangeEndUserAuthorization",
       "createEndUserSession",
       "revokeEndUserSession",
+      "provisionApplicationSubject",
       "createApplicationConversation",
       "listApplicationConversations",
       "getApplicationConversation",
@@ -55,6 +56,13 @@ describe("operation registry", () => {
       "decideEndUserApprovalRequest",
       "streamEndUserEvents",
       "listWebhookDeliveries",
+      "listRegressionCases",
+      "createRegressionCaseFromStep",
+      "createRegressionCaseFromFlag",
+      "archiveRegressionCase",
+      "listRegressionRuns",
+      "triggerRegressionRun",
+      "getRegressionRun",
     ])
   })
 

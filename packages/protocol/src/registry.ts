@@ -23,10 +23,20 @@ import {
   listApplicationConversationsOperation,
   listEndUserConversationsOperation,
   listEndUserMessagesOperation,
+  provisionApplicationSubjectOperation,
   startApplicationExecutionOperation,
   startEndUserExecutionOperation,
 } from "./operations/runtime"
 import { listWebhookDeliveriesOperation } from "./operations/webhooks"
+import {
+  archiveRegressionCaseOperation,
+  createRegressionCaseFromFlagOperation,
+  createRegressionCaseFromStepOperation,
+  getRegressionRunOperation,
+  listRegressionCasesOperation,
+  listRegressionRunsOperation,
+  triggerRegressionRunOperation,
+} from "./operations/workspace-regressions"
 
 function routeIdentity(operation: OperationDefinition): string {
   const path = operation.path.replace(/\{[^/{}]+\}/g, "{}")
@@ -69,6 +79,7 @@ export const operationRegistry = createOperationRegistry([
   exchangeEndUserAuthorizationOperation,
   createEndUserSessionOperation,
   revokeEndUserSessionOperation,
+  provisionApplicationSubjectOperation,
   createApplicationConversationOperation,
   listApplicationConversationsOperation,
   getApplicationConversationOperation,
@@ -87,4 +98,11 @@ export const operationRegistry = createOperationRegistry([
   decideEndUserApprovalRequestOperation,
   streamEndUserEventsOperation,
   listWebhookDeliveriesOperation,
+  listRegressionCasesOperation,
+  createRegressionCaseFromStepOperation,
+  createRegressionCaseFromFlagOperation,
+  archiveRegressionCaseOperation,
+  listRegressionRunsOperation,
+  triggerRegressionRunOperation,
+  getRegressionRunOperation,
 ])

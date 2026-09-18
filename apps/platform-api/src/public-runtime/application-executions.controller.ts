@@ -61,6 +61,7 @@ export class ApplicationExecutionsController {
   }
 
   @Post('executions/:executionId/cancel')
+  @HttpCode(HttpStatus.OK)
   @RequireApplicationScopes('executions:cancel')
   cancel(
     @CurrentApplicationPrincipal() principal: ApplicationPrincipal,
