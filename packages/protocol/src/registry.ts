@@ -1,4 +1,7 @@
 import type { OperationDefinition } from "./operations/operation"
+import type { OperationMetadata } from "./operations/operation-metadata"
+import { registerOperation } from "./operations/operation-metadata"
+import { operationMetadata } from "./operation-metadata"
 import {
   decideEndUserApprovalRequestOperation,
   getEndUserApprovalRequestOperation,
@@ -44,11 +47,14 @@ function routeIdentity(operation: OperationDefinition): string {
 }
 
 function freezeOperation(operation: OperationDefinition): void {
+  const metadata = operation as OperationDefinition & Partial<OperationMetadata>
   Object.freeze(operation.auth.scopes)
   Object.freeze(operation.auth)
   Object.freeze(operation.request)
   Object.freeze(operation.response)
   Object.freeze(operation.errors)
+  if (metadata.adapter) Object.freeze(metadata.adapter)
+  if (metadata.sdk) Object.freeze(metadata.sdk)
   Object.freeze(operation)
 }
 
@@ -75,34 +81,124 @@ export function createOperationRegistry<
 }
 
 export const operationRegistry = createOperationRegistry([
-  startEndUserAuthorizationOperation,
-  exchangeEndUserAuthorizationOperation,
-  createEndUserSessionOperation,
-  revokeEndUserSessionOperation,
-  provisionApplicationSubjectOperation,
-  createApplicationConversationOperation,
-  listApplicationConversationsOperation,
-  getApplicationConversationOperation,
-  startApplicationExecutionOperation,
-  getApplicationExecutionOperation,
-  cancelApplicationExecutionOperation,
-  createEndUserConversationOperation,
-  listEndUserConversationsOperation,
-  getEndUserConversationOperation,
-  createEndUserMessageOperation,
-  listEndUserMessagesOperation,
-  startEndUserExecutionOperation,
-  getEndUserExecutionOperation,
-  listEndUserApprovalRequestsOperation,
-  getEndUserApprovalRequestOperation,
-  decideEndUserApprovalRequestOperation,
-  streamEndUserEventsOperation,
-  listWebhookDeliveriesOperation,
-  listRegressionCasesOperation,
-  createRegressionCaseFromStepOperation,
-  createRegressionCaseFromFlagOperation,
-  archiveRegressionCaseOperation,
-  listRegressionRunsOperation,
-  triggerRegressionRunOperation,
-  getRegressionRunOperation,
+  registerOperation(
+    startEndUserAuthorizationOperation,
+    operationMetadata.startEndUserAuthorization
+  ),
+  registerOperation(
+    exchangeEndUserAuthorizationOperation,
+    operationMetadata.exchangeEndUserAuthorization
+  ),
+  registerOperation(
+    createEndUserSessionOperation,
+    operationMetadata.createEndUserSession
+  ),
+  registerOperation(
+    revokeEndUserSessionOperation,
+    operationMetadata.revokeEndUserSession
+  ),
+  registerOperation(
+    provisionApplicationSubjectOperation,
+    operationMetadata.provisionApplicationSubject
+  ),
+  registerOperation(
+    createApplicationConversationOperation,
+    operationMetadata.createApplicationConversation
+  ),
+  registerOperation(
+    listApplicationConversationsOperation,
+    operationMetadata.listApplicationConversations
+  ),
+  registerOperation(
+    getApplicationConversationOperation,
+    operationMetadata.getApplicationConversation
+  ),
+  registerOperation(
+    startApplicationExecutionOperation,
+    operationMetadata.startApplicationExecution
+  ),
+  registerOperation(
+    getApplicationExecutionOperation,
+    operationMetadata.getApplicationExecution
+  ),
+  registerOperation(
+    cancelApplicationExecutionOperation,
+    operationMetadata.cancelApplicationExecution
+  ),
+  registerOperation(
+    createEndUserConversationOperation,
+    operationMetadata.createEndUserConversation
+  ),
+  registerOperation(
+    listEndUserConversationsOperation,
+    operationMetadata.listEndUserConversations
+  ),
+  registerOperation(
+    getEndUserConversationOperation,
+    operationMetadata.getEndUserConversation
+  ),
+  registerOperation(
+    createEndUserMessageOperation,
+    operationMetadata.createEndUserMessage
+  ),
+  registerOperation(
+    listEndUserMessagesOperation,
+    operationMetadata.listEndUserMessages
+  ),
+  registerOperation(
+    startEndUserExecutionOperation,
+    operationMetadata.startEndUserExecution
+  ),
+  registerOperation(
+    getEndUserExecutionOperation,
+    operationMetadata.getEndUserExecution
+  ),
+  registerOperation(
+    listEndUserApprovalRequestsOperation,
+    operationMetadata.listEndUserApprovalRequests
+  ),
+  registerOperation(
+    getEndUserApprovalRequestOperation,
+    operationMetadata.getEndUserApprovalRequest
+  ),
+  registerOperation(
+    decideEndUserApprovalRequestOperation,
+    operationMetadata.decideEndUserApprovalRequest
+  ),
+  registerOperation(
+    streamEndUserEventsOperation,
+    operationMetadata.streamEndUserEvents
+  ),
+  registerOperation(
+    listWebhookDeliveriesOperation,
+    operationMetadata.listWebhookDeliveries
+  ),
+  registerOperation(
+    listRegressionCasesOperation,
+    operationMetadata.listRegressionCases
+  ),
+  registerOperation(
+    createRegressionCaseFromStepOperation,
+    operationMetadata.createRegressionCaseFromStep
+  ),
+  registerOperation(
+    createRegressionCaseFromFlagOperation,
+    operationMetadata.createRegressionCaseFromFlag
+  ),
+  registerOperation(
+    archiveRegressionCaseOperation,
+    operationMetadata.archiveRegressionCase
+  ),
+  registerOperation(
+    listRegressionRunsOperation,
+    operationMetadata.listRegressionRuns
+  ),
+  registerOperation(
+    triggerRegressionRunOperation,
+    operationMetadata.triggerRegressionRun
+  ),
+  registerOperation(
+    getRegressionRunOperation,
+    operationMetadata.getRegressionRun
+  ),
 ])

@@ -67,7 +67,7 @@ try {
     join(temporary, "index.ts"),
     `import { LineaClient } from "@linea/sdk"
 import { LineaUserClient } from "@linea/sdk/user"
-import { verifyWebhookSignature } from "@linea/sdk/webhooks"
+import { verifyWebhook, verifyWebhookSignature } from "@linea/sdk/webhooks"
 import { LineaApplicationClient, LineaWorkspaceClient, applicationKey, workspaceKey } from "@linea/sdk/server"
 const application = new LineaApplicationClient({ applicationId: "app", applicationKey: applicationKey("lin_app_secret") })
 const workspace = new LineaWorkspaceClient({ workspaceKey: workspaceKey("lin_secret") })
@@ -75,7 +75,21 @@ const workspace = new LineaWorkspaceClient({ workspaceKey: workspaceKey("lin_sec
 new LineaApplicationClient({ applicationId: "app", applicationKey: workspaceKey("lin_secret") })
 // @ts-expect-error Application credentials cannot cross the workspace boundary
 new LineaWorkspaceClient({ workspaceKey: applicationKey("lin_app_secret") })
-export { application, workspace, LineaClient, LineaUserClient, verifyWebhookSignature }
+export { application, workspace, LineaClient, LineaUserClient, verifyWebhook, verifyWebhookSignature }
+`
+  )
+  writeFileSync(
+    join(temporary, "webhook.mjs"),
+    `import { createHmac } from "node:crypto"
+import { verifyWebhook } from "@linea/sdk/webhooks"
+const secret = "webhook-secret"
+const eventId = "event-1"
+const now = new Date("2026-09-18T12:00:00.000Z")
+const timestamp = String(now.getTime() / 1000)
+const body = Buffer.from(JSON.stringify({ id: eventId, type: "execution.completed", version: 1, createdAt: now.toISOString(), applicationId: "application-1", data: { executionId: "00000000-0000-4000-8000-000000000001", status: "succeeded" } }))
+const digest = createHmac("sha256", secret).update(timestamp + "." + eventId + ".").update(body).digest("hex")
+const result = verifyWebhook({ body, eventId, timestamp, signature: "v1=" + digest, currentSecret: secret, previousSecret: null, previousSecretExpiresAt: null, now, timestampToleranceSeconds: 300 })
+if (!result.valid || result.envelope.id !== eventId) throw new Error("Packed webhook verification failed")
 `
   )
   execFileSync(
@@ -85,6 +99,10 @@ export { application, workspace, LineaClient, LineaUserClient, verifyWebhookSign
   )
   const typescript = resolve(repository, "node_modules/typescript/bin/tsc")
   execFileSync(process.execPath, [typescript, "--project", "tsconfig.json"], {
+    cwd: temporary,
+    stdio: "inherit",
+  })
+  execFileSync(process.execPath, ["webhook.mjs"], {
     cwd: temporary,
     stdio: "inherit",
   })

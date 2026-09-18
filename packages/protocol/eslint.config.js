@@ -3,7 +3,7 @@
 import { createSharedEslintConfig } from "@linea/config/eslint"
 
 export default createSharedEslintConfig({
-  ignores: ["eslint.config.js", "dist/**"],
+  ignores: ["eslint.config.js", "dist/**", "scripts/**"],
   rules: {
     "no-restricted-imports": [
       "error",
