@@ -6,6 +6,7 @@ import {
   type RegressionCase,
   type RegressionRun,
 } from "@linea/db"
+import { jsonValueSchema, type JsonValue } from "@linea/protocol/shared"
 import { workflowGraphSchema, type WorkflowGraph } from "@linea/runtime"
 import { InterpreterService } from "../graph/interpreter.service"
 import { resolveNodeModel } from "../graph/resolve-node-model"
@@ -19,6 +20,8 @@ type CaseOutcome = {
   score: number | null
   costMicros: bigint
 }
+
+type PersistedCaseOutcome = Omit<CaseOutcome, "output"> & { output: JsonValue }
 
 type ConversationInput = {
   turns: { role: "user" | "assistant"; content: string }[]
@@ -237,17 +240,21 @@ export class RegressionExecutionService {
     let totalCostMicros = 0n
     const results: repositories.regressionRun.NewRegressionResultInput[] = []
     for (const regressionCase of cases) {
-      let outcome: CaseOutcome
+      let outcome: PersistedCaseOutcome
       try {
-        outcome = await this.executeCase(
+        const executed = await this.executeCase(
           regressionCase,
           graph,
           workflowVersionId
         )
+        outcome = {
+          ...executed,
+          output: jsonValueSchema.parse(executed.output),
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         this.logger.error(
-          `Regression case ${regressionCase.id} threw outside its own error handling: ${message}`
+          `Regression case ${regressionCase.id} failed during execution or output validation: ${message}`
         )
         outcome = {
           status: "errored",
@@ -264,7 +271,7 @@ export class RegressionExecutionService {
         caseId: regressionCase.id,
         status: outcome.status,
         score: outcome.score,
-        output: outcome.output as Record<string, unknown> | unknown[],
+        output: outcome.output,
         costMicros: outcome.costMicros,
       })
     }

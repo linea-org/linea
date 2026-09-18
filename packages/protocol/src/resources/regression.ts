@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { jsonValueSchema } from "../shared/json-value"
 
 const regressionAssertionSchema = z.object({
   type: z.string(),
@@ -7,7 +8,6 @@ const regressionAssertionSchema = z.object({
 
 export const regressionCaseSchema = z.object({
   id: z.string(),
-  workspaceId: z.string(),
   workflowId: z.string(),
   caseType: z.enum(["node", "conversation"]),
   nodeId: z.string().nullable(),
@@ -22,7 +22,6 @@ export const regressionCaseSchema = z.object({
 
 export const regressionRunSchema = z.object({
   id: z.string(),
-  workspaceId: z.string(),
   workflowId: z.string(),
   workflowVersionId: z.string(),
   trigger: z.enum(["publish", "manual"]),
@@ -37,13 +36,10 @@ export const regressionRunSchema = z.object({
 export const regressionResultSchema = z.object({
   id: z.string(),
   runId: z.string(),
-  workspaceId: z.string(),
   caseId: z.string(),
   status: z.enum(["passed", "failed", "errored"]),
   score: z.number().nullable(),
-  output: z
-    .union([z.record(z.string(), z.unknown()), z.array(z.unknown())])
-    .nullable(),
+  output: jsonValueSchema.nullable(),
   costMicros: z.string(),
   createdAt: z.string(),
 })

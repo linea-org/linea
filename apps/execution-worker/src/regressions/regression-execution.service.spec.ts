@@ -187,6 +187,56 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
     }
   })
 
+  it("errors a case with non-JSON output without aborting the run", async () => {
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "transform-1",
+      nodes: [
+        {
+          id: "transform-1",
+          type: "transform",
+          config: { expression: "missing" },
+        },
+      ],
+      edges: [],
+    }
+    const { organization, workflow, version } = await setUpWorkflow(graph)
+    const aiNode = { execute: jest.fn() } as unknown as AiNode
+    const service = new RegressionExecutionService(
+      buildInterpreter(aiNode),
+      aiNode
+    )
+    try {
+      await repositories.regressionCase.createRegressionCase(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        caseType: "node",
+        nodeId: "transform-1",
+        input: { nodeInput: {} },
+        assertions: [],
+      })
+      const run = await service.runRegressionForVersion(
+        organization.id,
+        workflow.id,
+        version.id,
+        "manual"
+      )
+      expect(run.completedAt).toBeInstanceOf(Date)
+      expect(run.failed).toBe(1)
+      const results = await repositories.regressionRun.listRegressionResults(
+        db,
+        organization.id,
+        run.id
+      )
+      expect(results[0].status).toBe("errored")
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
   it("errors a node-type case whose nodeId no longer exists in this workflow version", async () => {
     const graph: WorkflowGraph = {
       version: 1,

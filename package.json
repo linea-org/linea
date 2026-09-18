@@ -9,6 +9,8 @@
     "lint": "turbo lint",
     "format": "turbo format",
     "format:check": "prettier --check .",
+    "generate:contracts": "pnpm --filter @linea/protocol build && node packages/protocol/scripts/generate-public-contracts.mjs",
+    "check:contracts": "pnpm --filter @linea/protocol build && node packages/protocol/scripts/generate-public-contracts.mjs --check",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "db:up": "pnpm --filter @linea/db db:up",

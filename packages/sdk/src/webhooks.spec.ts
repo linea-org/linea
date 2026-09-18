@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto"
 import { describe, expect, it } from "vitest"
-import { verifyWebhookSignature } from "./webhooks.js"
+import { verifyWebhook, verifyWebhookSignature } from "./webhooks.js"
 
 function signature(
   secret: string,
@@ -97,5 +97,86 @@ describe("verifyWebhookSignature", () => {
         timestampToleranceSeconds: 300,
       })
     ).toEqual({ valid: false })
+  })
+})
+
+describe("verifyWebhook", () => {
+  const now = new Date("2026-09-18T12:00:00.000Z")
+  const timestamp = String(now.getTime() / 1_000)
+  const eventId = "event-1"
+  const secret = "current"
+  const envelope = {
+    id: eventId,
+    type: "execution.completed",
+    version: 1,
+    createdAt: now.toISOString(),
+    applicationId: "application-1",
+    data: {
+      executionId: "00000000-0000-4000-8000-000000000001",
+      status: "succeeded",
+    },
+  }
+
+  function input(body: Uint8Array, id = eventId) {
+    return {
+      body,
+      eventId: id,
+      timestamp,
+      signature: signature(secret, timestamp, id, body),
+      currentSecret: secret,
+      previousSecret: null,
+      previousSecretExpiresAt: null,
+      now,
+      timestampToleranceSeconds: 300,
+    }
+  }
+
+  it("returns the typed envelope after verifying its exact bytes", () => {
+    const body = Buffer.from(JSON.stringify(envelope))
+    expect(verifyWebhook(input(body))).toEqual({
+      valid: true,
+      secret: "current",
+      envelope,
+    })
+  })
+
+  it("rejects an event ID that does not match the signed envelope", () => {
+    const body = Buffer.from(JSON.stringify(envelope))
+    expect(verifyWebhook(input(body, "event-2"))).toEqual({
+      valid: false,
+      reason: "event_id_mismatch",
+    })
+  })
+
+  it("rejects unsupported envelope versions and event data", () => {
+    for (const candidate of [
+      { ...envelope, version: 2 },
+      {
+        ...envelope,
+        data: {
+          executionId: "00000000-0000-4000-8000-000000000001",
+          status: "pending",
+        },
+      },
+    ]) {
+      const body = Buffer.from(JSON.stringify(candidate))
+      expect(verifyWebhook(input(body))).toEqual({
+        valid: false,
+        reason: "body_invalid",
+      })
+    }
+  })
+
+  it("rejects malformed event IDs and invalid JSON", () => {
+    const invalidJson = Buffer.from("{")
+    expect(verifyWebhook(input(invalidJson))).toEqual({
+      valid: false,
+      reason: "body_invalid",
+    })
+    const body = Buffer.from(JSON.stringify(envelope))
+    expect(verifyWebhook(input(body, "event id"))).toEqual({
+      valid: false,
+      reason: "event_id_invalid",
+    })
   })
 })

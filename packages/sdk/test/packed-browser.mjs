@@ -8,6 +8,7 @@ import {
 } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
+import { buildSync } from "esbuild"
 
 const repository = resolve(import.meta.dirname, "../../..")
 const temporary = mkdtempSync(join(tmpdir(), "linea-sdk-browser-"))
@@ -73,22 +74,14 @@ try {
     pnpmArguments(["install", "--ignore-scripts", "--no-lockfile"]),
     { cwd: temporary, stdio: "inherit" }
   )
-  const esbuild = resolve(
-    import.meta.dirname,
-    "../node_modules/esbuild/bin/esbuild"
-  )
-  execFileSync(
-    process.execPath,
-    [
-      esbuild,
-      "index.js",
-      "--bundle",
-      "--platform=browser",
-      "--format=esm",
-      "--outfile=bundle.js",
-    ],
-    { cwd: temporary, stdio: "inherit" }
-  )
+  buildSync({
+    absWorkingDir: temporary,
+    entryPoints: ["index.js"],
+    bundle: true,
+    platform: "browser",
+    format: "esm",
+    outfile: "bundle.js",
+  })
   const bundle = readFileSync(join(temporary, "bundle.js"), "utf8")
   if (!bundle.includes("LineaUserClient"))
     throw new Error("Packed browser bundle omitted the user client")
