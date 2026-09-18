@@ -21,6 +21,10 @@ import {
   startApplicationExecutionSchema,
   startEndUserExecutionSchema,
 } from "../resources/execution"
+import {
+  externalSubjectSchema,
+  provisionExternalSubjectSchema,
+} from "../resources/external-subject"
 import type { OperationDefinition } from "./operation"
 
 const emptySchema = z.strictObject({})
@@ -67,6 +71,22 @@ const endUserErrors = [
   "session_revoked",
   "proof_invalid",
 ] as const
+
+export const provisionApplicationSubjectOperation = {
+  operationId: "provisionApplicationSubject",
+  method: "POST",
+  path: "/v1/applications/{applicationId}/subjects",
+  plane: "control",
+  auth: { kind: "application_key", scopes: ["subjects:provision"] },
+  request: {
+    path: applicationPathSchema,
+    query: emptySchema,
+    headers: applicationHeadersSchema,
+    body: provisionExternalSubjectSchema,
+  },
+  response: { status: 200, body: externalSubjectSchema },
+  errors: [...runtimeErrors, "external_subject_disabled", "scope_denied"],
+} as const satisfies OperationDefinition
 
 export const createApplicationConversationOperation = {
   operationId: "createApplicationConversation",
