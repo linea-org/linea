@@ -71,6 +71,13 @@ export async function startTestIdentityProvider() {
         json(response, 400, { error: 'invalid_request' })
         return
       }
+      if (
+        url.searchParams.get('response_type') !== 'code' ||
+        url.searchParams.get('code_challenge_method') !== 'S256'
+      ) {
+        json(response, 400, { error: 'unsupported_request' })
+        return
+      }
       codes.set(code, {
         challenge: codeChallenge,
         clientId,
@@ -94,6 +101,7 @@ export async function startTestIdentityProvider() {
         !code ||
         !verifier ||
         !authorization ||
+        form.get('grant_type') !== 'authorization_code' ||
         challenge(verifier) !== authorization.challenge ||
         form.get('client_id') !== authorization.clientId ||
         form.get('redirect_uri') !== authorization.redirectUri
