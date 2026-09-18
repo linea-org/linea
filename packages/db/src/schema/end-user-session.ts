@@ -34,6 +34,12 @@ export const endUserSessions = snakeCase.table(
       table.id,
       table.workspaceId
     ),
+    uniqueIndex("end_user_sessions_audience_uidx").on(
+      table.id,
+      table.workspaceId,
+      table.applicationId,
+      table.externalSubjectId
+    ),
     index("end_user_sessions_application_subject_idx").on(
       table.applicationId,
       table.externalSubjectId

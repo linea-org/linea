@@ -60,6 +60,7 @@ export const relations = defineRelations(schema, (r) => ({
     endUserAuthorizationRequests: r.many.endUserAuthorizationRequests(),
     endUserIdentityExchanges: r.many.endUserIdentityExchanges(),
     endUserSessions: r.many.endUserSessions(),
+    endUserEventStreams: r.many.endUserEventStreams(),
     conversations: r.many.conversations(),
   },
 
@@ -75,6 +76,7 @@ export const relations = defineRelations(schema, (r) => ({
     endUserAuthorizationRequests: r.many.endUserAuthorizationRequests(),
     endUserIdentityExchanges: r.many.endUserIdentityExchanges(),
     endUserSessions: r.many.endUserSessions(),
+    endUserEventStreams: r.many.endUserEventStreams(),
     conversations: r.many.conversations(),
   },
 
@@ -87,6 +89,7 @@ export const relations = defineRelations(schema, (r) => ({
     authorizationRequests: r.many.endUserAuthorizationRequests(),
     identityExchanges: r.many.endUserIdentityExchanges(),
     sessions: r.many.endUserSessions(),
+    eventStreams: r.many.endUserEventStreams(),
     conversations: r.many.conversations(),
   },
 
@@ -119,6 +122,26 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.externalSubjects.id,
     }),
     proofs: r.many.endUserSessionProofs(),
+    eventStreams: r.many.endUserEventStreams(),
+  },
+
+  endUserEventStreams: {
+    workspace: r.one.organizations({
+      from: r.endUserEventStreams.workspaceId,
+      to: r.organizations.id,
+    }),
+    application: r.one.applications({
+      from: r.endUserEventStreams.applicationId,
+      to: r.applications.id,
+    }),
+    externalSubject: r.one.externalSubjects({
+      from: r.endUserEventStreams.externalSubjectId,
+      to: r.externalSubjects.id,
+    }),
+    session: r.one.endUserSessions({
+      from: r.endUserEventStreams.sessionId,
+      to: r.endUserSessions.id,
+    }),
   },
 
   endUserSessionProofs: {

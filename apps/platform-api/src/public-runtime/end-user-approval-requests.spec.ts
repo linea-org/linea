@@ -31,6 +31,7 @@ import {
 import request from 'supertest'
 import type { App } from 'supertest/types'
 import { EndUserSessionGuard } from '../end-user-sessions/end-user-session.guard'
+import { EndUserEventStreamService } from './end-user-event-stream.service'
 import { EndUserRuntimeController } from './end-user-runtime.controller'
 import { PublicRuntimeService } from './public-runtime.service'
 
@@ -261,7 +262,11 @@ describe('end-user Approval Request API', () => {
     fixture = await createFixture()
     const moduleRef = await Test.createTestingModule({
       controllers: [EndUserRuntimeController],
-      providers: [PublicRuntimeService, EndUserSessionGuard],
+      providers: [
+        PublicRuntimeService,
+        EndUserEventStreamService,
+        EndUserSessionGuard,
+      ],
     }).compile()
     app = moduleRef.createNestApplication()
     app.setGlobalPrefix('v1')

@@ -5,6 +5,7 @@ import { EndUserSessionsModule } from '../end-user-sessions/end-user-sessions.mo
 import { ApplicationConversationsController } from './application-conversations.controller'
 import { ApplicationExecutionsController } from './application-executions.controller'
 import { EndUserRuntimeController } from './end-user-runtime.controller'
+import { EndUserEventStreamService } from './end-user-event-stream.service'
 import { PublicRuntimeService } from './public-runtime.service'
 
 @Module({
@@ -14,6 +15,11 @@ import { PublicRuntimeService } from './public-runtime.service'
     ApplicationExecutionsController,
     EndUserRuntimeController,
   ],
-  providers: [PublicRuntimeService, ApplicationKeyGuard, ApplicationScopeGuard],
+  providers: [
+    PublicRuntimeService,
+    EndUserEventStreamService,
+    ApplicationKeyGuard,
+    ApplicationScopeGuard,
+  ],
 })
 export class PublicRuntimeModule {}
