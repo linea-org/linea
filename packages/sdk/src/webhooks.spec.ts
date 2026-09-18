@@ -140,6 +140,22 @@ describe("verifyWebhook", () => {
     })
   })
 
+  it("gives receivers a stable verified event ID for retry deduplication", () => {
+    const body = Buffer.from(JSON.stringify(envelope))
+    const handled = new Set<string>()
+    let effects = 0
+    for (const delivery of [
+      verifyWebhook(input(body)),
+      verifyWebhook(input(body)),
+    ]) {
+      if (!delivery.valid || handled.has(delivery.envelope.id)) continue
+      handled.add(delivery.envelope.id)
+      effects += 1
+    }
+    expect(effects).toBe(1)
+    expect(handled).toEqual(new Set([eventId]))
+  })
+
   it("rejects an event ID that does not match the signed envelope", () => {
     const body = Buffer.from(JSON.stringify(envelope))
     expect(verifyWebhook(input(body, "event-2"))).toEqual({

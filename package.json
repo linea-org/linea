@@ -13,6 +13,7 @@
     "check:contracts": "pnpm --filter @linea/protocol build && node packages/protocol/scripts/generate-public-contracts.mjs --check",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
+    "test:launch": "node scripts/first-launch-gate.mjs",
     "db:up": "pnpm --filter @linea/db db:up",
     "db:down": "pnpm --filter @linea/db db:down",
     "db:logs": "pnpm --filter @linea/db db:logs",
