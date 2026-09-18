@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useRouter } from "expo-router"
 import {
   ActivityIndicator,
   FlatList,
@@ -9,11 +10,14 @@ import {
 } from "react-native"
 import { useMobileAuth, type Workspace } from "../../auth/mobile-auth"
 import { authErrorMessage } from "../../lib/auth-error"
+import { useClearWorkspaceCache } from "../../query/monitoring-query"
 import { colors } from "../../theme/colors"
 import { CreateWorkspaceForm } from "./create-workspace-form"
 
 export function WorkspacesScreen() {
   const auth = useMobileAuth()
+  const router = useRouter()
+  const clearWorkspaceCache = useClearWorkspaceCache()
   const { data: session } = auth.useSession()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [activeId, setActiveId] = useState<string | null>(
@@ -69,6 +73,7 @@ export function WorkspacesScreen() {
       }
       setWorkspaces([creation.data])
       setPendingId(creation.data.id)
+      clearWorkspaceCache()
       const activation = await auth.setActiveWorkspace(creation.data.id)
       setPendingId(undefined)
       if (activation.error) {
@@ -78,6 +83,7 @@ export function WorkspacesScreen() {
         return
       }
       setActiveId(creation.data.id)
+      router.replace("/monitor")
     } catch (creationError) {
       setPendingId(undefined)
       setError(authErrorMessage(creationError, "Could not create workspace"))
@@ -87,6 +93,7 @@ export function WorkspacesScreen() {
     if (workspace.id === activeId || pendingId) return
     setError(undefined)
     setPendingId(workspace.id)
+    clearWorkspaceCache()
     try {
       const result = await auth.setActiveWorkspace(workspace.id)
       setPendingId(undefined)
@@ -95,6 +102,7 @@ export function WorkspacesScreen() {
         return
       }
       setActiveId(workspace.id)
+      router.replace("/monitor")
     } catch (switchError) {
       setPendingId(undefined)
       setError(authErrorMessage(switchError, "Could not switch workspace"))

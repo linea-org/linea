@@ -3,5 +3,10 @@ import { useMobileAuth } from "../src/auth/mobile-auth"
 
 export default function Index() {
   const { data: session } = useMobileAuth().useSession()
-  return <Redirect href={session ? "/workspaces" : "/sign-in"} />
+  if (!session) return <Redirect href="/sign-in" />
+  return (
+    <Redirect
+      href={session.session.activeOrganizationId ? "/monitor" : "/workspaces"}
+    />
+  )
 }

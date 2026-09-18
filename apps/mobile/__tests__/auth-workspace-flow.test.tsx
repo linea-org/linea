@@ -7,6 +7,12 @@ import { MagicLinkScreen } from "../src/features/auth/magic-link-screen"
 import { SignInScreen } from "../src/features/auth/sign-in-screen"
 import { WorkspacesScreen } from "../src/features/workspaces/workspaces-screen"
 
+const mockReplace = jest.fn()
+
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ replace: mockReplace }),
+}))
+
 const requestMagicLink = jest.fn()
 const verifyMagicLink = jest.fn()
 const listWorkspaces = jest.fn()
@@ -86,6 +92,7 @@ it("shows every membership and switches the active workspace", async () => {
   await waitFor(() => {
     expect(setActiveWorkspace).toHaveBeenCalledWith("workspace-2")
     expect(screen.getByText("Current workspace: Operations")).toBeTruthy()
+    expect(mockReplace).toHaveBeenCalledWith("/monitor")
   })
 })
 
