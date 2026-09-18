@@ -114,6 +114,29 @@ it("removes a device after Expo permanently rejects its ticket", async () => {
   )
 })
 
+it("retains a device when Expo reports a provider configuration error", async () => {
+  const rejected = delivery()
+  mockClaimDelivery
+    .mockResolvedValueOnce({
+      delivery: rejected,
+      notification: notification(),
+      token: "ExponentPushToken[valid]",
+    })
+    .mockResolvedValueOnce(undefined)
+  sendMock.mockResolvedValue({
+    status: "error",
+    message: "Credentials are invalid",
+    code: "InvalidCredentials",
+  })
+  await new PushDeliveryService().poll()
+  expect(mockPermanentFailure).toHaveBeenCalledWith(
+    expect.anything(),
+    rejected,
+    "InvalidCredentials: Credentials are invalid",
+    false
+  )
+})
+
 it("retries transient sends and receipt checks", async () => {
   const sending = delivery()
   const receipt = delivery({

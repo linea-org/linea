@@ -24,8 +24,12 @@ export class ExpoTransportError extends Error {
 
 type ExpoResponse = { data?: unknown }
 
+const REQUEST_TIMEOUT_MS = 30_000
+
 async function request(url: string, body: unknown): Promise<ExpoResponse> {
   let response: Response
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   try {
     response = await fetch(url, {
       method: "POST",
@@ -35,12 +39,15 @@ async function request(url: string, body: unknown): Promise<ExpoResponse> {
         "content-type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: controller.signal,
     })
   } catch (error) {
     throw new ExpoTransportError(
       error instanceof Error ? error.message : String(error),
       true
     )
+  } finally {
+    clearTimeout(timeout)
   }
   if (!response.ok) {
     throw new ExpoTransportError(

@@ -1,6 +1,6 @@
 import * as Notifications from "expo-notifications"
 import { useRouter } from "expo-router"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useMobileAuth } from "../auth/mobile-auth"
 import { useClearWorkspaceCache } from "../query/monitoring-query"
 import {
@@ -13,14 +13,14 @@ export function NotificationNavigation() {
   const { data: session } = auth.useSession()
   const router = useRouter()
   const clearWorkspaceCache = useClearWorkspaceCache()
-  const [pending, setPending] = useState<NotificationTarget>()
-  const navigating = useRef(false)
+  const [pending, setPending] = useState<NotificationTarget[]>([])
+  const [navigating, setNavigating] = useState(false)
   useEffect(() => {
     function receive(response: Notifications.NotificationResponse) {
       const target = parseNotificationTarget(
         response.notification.request.content.data
       )
-      if (target) setPending(target)
+      if (target) setPending((current) => [...current, target])
     }
     const subscription =
       Notifications.addNotificationResponseReceivedListener(receive)
@@ -33,11 +33,11 @@ export function NotificationNavigation() {
     return () => subscription.remove()
   }, [])
   useEffect(() => {
-    const target = pending
-    if (!session || !target || navigating.current) return
+    const target = pending[0]
+    if (!session || !target || navigating) return
     const activeSession = session
     const destination = target
-    navigating.current = true
+    setNavigating(true)
     async function navigate() {
       if (
         activeSession.session.activeOrganizationId !== destination.workspaceId
@@ -50,7 +50,6 @@ export function NotificationNavigation() {
             : new Error("Could not select the notification workspace")
         }
       }
-      setPending(undefined)
       if (destination.screen === "execution") {
         router.replace({
           pathname: "/executions/[executionId]",
@@ -76,8 +75,9 @@ export function NotificationNavigation() {
         router.replace("/workspaces")
       })
       .finally(() => {
-        navigating.current = false
+        setPending((current) => current.slice(1))
+        setNavigating(false)
       })
-  }, [auth, clearWorkspaceCache, pending, router, session])
+  }, [auth, clearWorkspaceCache, navigating, pending, router, session])
   return null
 }

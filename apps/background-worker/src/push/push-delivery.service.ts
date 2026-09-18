@@ -29,6 +29,10 @@ function isTransientExpoCode(code: string | undefined): boolean {
   return code === "MessageRateExceeded"
 }
 
+function invalidatesDevice(code: string | undefined): boolean {
+  return code === "DeviceNotRegistered"
+}
+
 @Injectable()
 export class PushDeliveryService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PushDeliveryService.name)
@@ -128,7 +132,7 @@ export class PushDeliveryService implements OnModuleInit, OnModuleDestroy {
       db,
       delivery,
       error,
-      true
+      invalidatesDevice(result.code)
     )
   }
 
@@ -176,7 +180,7 @@ export class PushDeliveryService implements OnModuleInit, OnModuleDestroy {
         db,
         delivery,
         error,
-        true
+        invalidatesDevice(result.code)
       )
     } catch (error) {
       if (error instanceof ExpoTransportError && !error.transient) {

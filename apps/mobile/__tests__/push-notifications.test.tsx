@@ -115,6 +115,49 @@ it("opens a warm notification without switching the current workspace", async ()
   })
 })
 
+it("opens notification responses received during an active navigation", async () => {
+  let finishWorkspaceSwitch: (value: { data: object; error: null }) => void
+  setActiveWorkspace.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishWorkspaceSwitch = resolve
+    })
+  )
+  await renderNavigation()
+  await waitFor(() => expect(mockAddResponseListener).toHaveBeenCalledTimes(1))
+  const listener = mockAddResponseListener.mock.calls[0]?.[0]
+  if (!listener) throw new Error("Notification listener was not registered")
+  await act(async () => {
+    listener(
+      response({
+        screen: "approval",
+        workspaceId: "workspace-target",
+        approvalId: "approval-1",
+      })
+    )
+  })
+  await waitFor(() => expect(setActiveWorkspace).toHaveBeenCalledTimes(1))
+  await act(async () => {
+    listener(
+      response({
+        screen: "execution",
+        workspaceId: "workspace-current",
+        executionId: "execution-2",
+      })
+    )
+    finishWorkspaceSwitch!({ data: {}, error: null })
+  })
+  await waitFor(() => {
+    expect(mockReplace).toHaveBeenNthCalledWith(1, {
+      pathname: "/approvals/[approvalId]",
+      params: { approvalId: "approval-1" },
+    })
+    expect(mockReplace).toHaveBeenNthCalledWith(2, {
+      pathname: "/executions/[executionId]",
+      params: { executionId: "execution-2" },
+    })
+  })
+})
+
 it("parses only supported safe deep-link fields", () => {
   expect(
     parseNotificationTarget({

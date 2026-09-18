@@ -64,3 +64,20 @@ it("surfaces device errors and classifies retryable transport failures", async (
     transient: true,
   } satisfies Partial<ExpoTransportError>)
 })
+
+it("aborts requests before a delivery claim can expire", async () => {
+  jest.useFakeTimers()
+  fetchMock.mockImplementation(
+    (_url: string, init: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () =>
+          reject(new Error("request aborted"))
+        )
+      })
+  )
+  const request = getExpoPushReceipt("ticket")
+  const rejection = expect(request).rejects.toMatchObject({ transient: true })
+  await jest.advanceTimersByTimeAsync(30_000)
+  await rejection
+  jest.useRealTimers()
+})
