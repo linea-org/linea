@@ -20,6 +20,9 @@ describe("webhook request SSRF protection", () => {
       "169.254.169.254",
       "192.168.1.1",
       "::1",
+      "::ffff:127.0.0.1",
+      "0:0:0:0:0:ffff:7f00:1",
+      "0:0:0:0:0:ffff:a00:1",
       "fd00::1",
     ]) {
       await expect(
@@ -42,6 +45,7 @@ describe("webhook request SSRF protection", () => {
       )
     ).rejects.toThrow("non-public")
     expect(isPublicAddress(publicAddress.address)).toBe(true)
+    expect(isPublicAddress("0:0:0:0:0:ffff:5db8:d822")).toBe(true)
   })
 
   it("requires HTTPS outside local development", async () => {

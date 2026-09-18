@@ -226,4 +226,47 @@ describe("WebhookDeliveryService", () => {
       await receiver.close()
     }
   })
+
+  it("does not overwrite a disabled delivery after an in-flight response", async () => {
+    let receiveRequest: (() => void) | undefined
+    let releaseResponse: (() => void) | undefined
+    const requestReceived = new Promise<void>((resolve) => {
+      receiveRequest = resolve
+    })
+    const receiver = await startReceiver((_index, _request, response) => {
+      receiveRequest?.()
+      releaseResponse = () => {
+        response.statusCode = 204
+        response.end()
+      }
+    })
+    const { delivery, endpoint } = await createDelivery(
+      receiver.url,
+      "disabled-secret"
+    )
+    const service = new WebhookDeliveryService()
+    try {
+      const processing = service.processDelivery(delivery.id, 0)
+      await requestReceived
+      await repositories.webhookEndpoint.disableWebhookEndpoint(db, {
+        workspaceId,
+        applicationId,
+        webhookId: endpoint.id,
+        actorUserId,
+        now: new Date(),
+      })
+      releaseResponse?.()
+      await processing
+      const [stored] = await repositories.webhookDelivery.getWebhookDeliveries(
+        db,
+        [delivery.id]
+      )
+      expect(stored).toMatchObject({
+        status: "failed",
+        lastError: "Webhook endpoint was disabled",
+      })
+    } finally {
+      await receiver.close()
+    }
+  })
 })

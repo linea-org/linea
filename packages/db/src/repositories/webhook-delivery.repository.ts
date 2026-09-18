@@ -231,6 +231,7 @@ export async function completeWebhookDelivery(
   db: DbClient,
   input: {
     deliveryId: string
+    attempt: number
     deliveredAt: Date
     responseStatus: number
     responseBody: string
@@ -248,13 +249,20 @@ export async function completeWebhookDelivery(
       failedAt: null,
       updatedAt: input.deliveredAt,
     })
-    .where(eq(webhookDeliveries.id, input.deliveryId))
+    .where(
+      and(
+        eq(webhookDeliveries.id, input.deliveryId),
+        eq(webhookDeliveries.status, "delivering"),
+        eq(webhookDeliveries.attempts, input.attempt)
+      )
+    )
 }
 
 export async function failWebhookDelivery(
   db: DbClient,
   input: {
     deliveryId: string
+    attempt: number
     failedAt: Date
     error: string
     responseStatus: number | null
@@ -274,7 +282,13 @@ export async function failWebhookDelivery(
       failedAt: input.retryAt ? null : input.failedAt,
       updatedAt: input.failedAt,
     })
-    .where(eq(webhookDeliveries.id, input.deliveryId))
+    .where(
+      and(
+        eq(webhookDeliveries.id, input.deliveryId),
+        eq(webhookDeliveries.status, "delivering"),
+        eq(webhookDeliveries.attempts, input.attempt)
+      )
+    )
 }
 
 export function listWebhookDeliveries(

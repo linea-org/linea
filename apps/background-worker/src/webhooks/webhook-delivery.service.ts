@@ -103,6 +103,7 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
       if (response.status >= 200 && response.status < 300) {
         await repositories.webhookDelivery.completeWebhookDelivery(db, {
           deliveryId: delivery.id,
+          attempt: delivery.attempts,
           deliveredAt: new Date(),
           responseStatus: response.status,
           responseBody: response.body,
@@ -117,6 +118,7 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
       if (!retryable) {
         await this.recordFailure(
           delivery.id,
+          delivery.attempts,
           `Webhook returned HTTP ${response.status}`,
           response,
           null
@@ -139,6 +141,7 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
             )
       await this.recordFailure(
         delivery.id,
+        delivery.attempts,
         error instanceof Error ? error.message : String(error),
         response,
         retryAt
@@ -149,12 +152,14 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
 
   private recordFailure(
     deliveryId: string,
+    attempt: number,
     error: string,
     response: WebhookResponse | undefined,
     retryAt: Date | null
   ): Promise<void> {
     return repositories.webhookDelivery.failWebhookDelivery(db, {
       deliveryId,
+      attempt,
       failedAt: new Date(),
       error: error.slice(0, MAXIMUM_ERROR_LENGTH),
       responseStatus: response?.status ?? null,
