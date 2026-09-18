@@ -7,6 +7,17 @@ const pnpmArguments = (arguments_) =>
   pnpmCli.endsWith(".exe") ? arguments_ : [pnpmCli, ...arguments_]
 const checks = [
   [
+    "build launch test dependencies",
+    [
+      "exec",
+      "turbo",
+      "run",
+      "build",
+      "--filter=@linea/platform-api",
+      "--filter=@linea/background-worker",
+    ],
+  ],
+  [
     "real OIDC, DPoP, public runtime, isolation, and races",
     [
       "--filter",
