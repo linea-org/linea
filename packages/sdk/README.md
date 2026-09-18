@@ -4,7 +4,7 @@ A minimal Node client for the Linea platform API: trigger a workflow, read
 back its execution, and read signals. This is a v0 — it wraps today's
 existing `/v1` REST endpoints exactly as they are, nothing more.
 
-## ⚠️ Server-side only — never use this in a browser
+## ⚠️ The root entry point is server-side only
 
 An API key is a bearer credential scoped to your **entire workspace**, with
 no finer-grained permissions. The platform's CORS policy only blocks browser
@@ -12,6 +12,63 @@ requests that carry an `Origin` header — it does nothing to protect a key
 that's embedded in client-side JavaScript. Only construct `LineaClient` from
 trusted server-side code (a backend service, a script, a CI job) — never
 from code that ships to an end user's device.
+
+The separate `@linea/sdk/user` entry point is safe for browsers, edge
+runtimes, and React Native. It never accepts an API key.
+
+## End-user client
+
+```ts
+import { LineaUserClient } from "@linea/sdk/user"
+
+const client = new LineaUserClient({
+  applicationId: "app_123",
+  baseUrl: "https://api.linea.example",
+})
+
+const authorization = await client.startAuthorization({
+  redirectUri: `${location.origin}/oidc/callback`,
+})
+location.assign(authorization.authorizationUrl)
+```
+
+Complete the same authorization after the OIDC redirect. The SDK checks the
+state, supplies the saved PKCE verifier, creates a non-extractable proof key,
+and retains only an opaque DPoP-bound session.
+
+```ts
+const callback = new URL(location.href)
+await client.completeAuthorization({
+  code: callback.searchParams.get("code")!,
+  state: callback.searchParams.get("state")!,
+})
+
+const conversation = await client.createConversation({})
+const execution = await client.startExecution({
+  workflowId: "workflow_123",
+  conversationId: conversation.id,
+  input: {},
+})
+const latestExecution = await execution.refresh()
+```
+
+Browsers persist authorization, session, and non-extractable proof-key state
+in IndexedDB. Edge runtimes use in-memory state. React Native applications
+must inject durable `storage` and `proofKeys` implementations backed by the
+platform's secure application storage and key store. `proofKeys` returns only
+an opaque key identifier and public JWK; private key material must remain in
+the platform key store. `fetch` and `crypto` can also be injected when they
+are not available on `globalThis`.
+
+`session()` returns public metadata or `undefined`; it never returns the
+opaque token or proof key. Expired, revoked, or terminally rejected sessions
+are removed with their proof key. Call `revoke()` for explicit sign-out.
+
+`streamEvents()` uses authenticated streaming fetch, resumes with
+`Last-Event-ID`, and emits `{ kind: "reconciled" }` after an expired cursor.
+Replace the relevant local approval snapshot with that authoritative list
+before processing later events. Event notifications are hints and must not be
+treated as authoritative resource state.
 
 ## Installation
 

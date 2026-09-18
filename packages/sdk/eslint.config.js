@@ -3,9 +3,10 @@
 import { createSharedEslintConfig, globals } from "@linea/config/eslint"
 
 export default createSharedEslintConfig({
-  ignores: ["eslint.config.js", ".prettierrc", "dist/**"],
+  ignores: ["eslint.config.js", ".prettierrc", "dist/**", "test/*.mjs"],
   globals: {
     ...globals.node,
+    ...globals.browser,
   },
   rules: {
     "import/no-cycle": "off",
