@@ -12,6 +12,11 @@ export {
   isEncryptedSecret,
   isCorruptedEncryptedSecret,
 } from "./encryption.js"
+export {
+  encryptCredential,
+  decryptCredential,
+  type CredentialEncryptionContext,
+} from "./credential-encryption.js"
 export * as schema from "./schema/index.js"
 export * from "./schema/index.js"
 export * as repositories from "./repositories/index.js"

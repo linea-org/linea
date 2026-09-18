@@ -8,6 +8,7 @@ import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { ApprovalsModule } from './approvals/approvals.module'
 import { ConversationAnalysesModule } from './conversation-analyses/conversation-analyses.module'
+import { ConnectionsModule } from './connections/connections.module'
 import { RegressionsModule } from './regressions/regressions.module'
 import { ExecutionsModule } from './executions/executions.module'
 import { EndUserAuthorizationModule } from './end-user-authorization/end-user-authorization.module'
@@ -32,6 +33,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     QueueModule,
     ApiKeysModule,
     ApplicationsModule,
+    ConnectionsModule,
     EndUserAuthorizationModule,
     EndUserSessionsModule,
     PublicRuntimeModule,

@@ -4,6 +4,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgEnum,
   snakeCase,
   text,
@@ -12,6 +13,14 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 import { organizations } from "./organisation.js"
+
+export type ConnectorAccessPolicy = {
+  providers: Array<{
+    provider: string
+    actionFamilies: string[]
+    maxScopes: string[]
+  }>
+}
 
 export const applicationEnvironment = pgEnum("application_environment", [
   "dev",
@@ -42,6 +51,10 @@ export const applications = snakeCase.table(
     oidcAudience: text().notNull(),
     oidcJwksUrl: text().notNull(),
     oidcSubjectClaim: text().default("sub").notNull(),
+    connectorAccessPolicy: jsonb()
+      .$type<ConnectorAccessPolicy>()
+      .default({ providers: [] })
+      .notNull(),
     enabled: boolean().default(true).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })

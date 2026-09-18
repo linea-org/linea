@@ -6,13 +6,17 @@ import {
   createEndUserSessionOperation,
   decideEndUserApprovalRequestOperation,
   exchangeEndUserAuthorizationOperation,
+  getConnectionOperation,
   getEndUserApprovalRequestOperation,
   getEndUserConversationOperation,
   getEndUserExecutionOperation,
   listEndUserApprovalRequestsOperation,
   listEndUserConversationsOperation,
   listEndUserMessagesOperation,
+  listConnectionsOperation,
   revokeEndUserSessionOperation,
+  revokeConnectionOperation,
+  startConnectionAuthorizationOperation,
   startEndUserAuthorizationOperation,
   startEndUserExecutionOperation,
   streamEndUserEventsOperation,
@@ -20,6 +24,8 @@ import {
 import type {
   ApprovalDecision,
   ApprovalRequest,
+  Connection,
+  ConnectionAuthorizationResponse,
   ConversationProjection,
   CreateEndUserConversation,
   CreateMessage,
@@ -29,6 +35,7 @@ import type {
   MessageProjection,
   PublicExecution,
   StartEndUserExecution,
+  StartConnectionAuthorization,
 } from "@linea/protocol/resources"
 import type { PaginatedResponse, PaginationQuery } from "@linea/protocol/shared"
 import { LineaExecutionHandle } from "./execution-handle.js"
@@ -286,6 +293,55 @@ export class LineaUserClient {
     } finally {
       await this.clearSession(session.proofKeyId)
     }
+  }
+
+  startConnectionAuthorization(
+    input: StartConnectionAuthorization
+  ): Promise<ConnectionAuthorizationResponse> {
+    const body = startConnectionAuthorizationOperation.request.body.parse(input)
+    return this.authorizedJson(
+      startConnectionAuthorizationOperation.method,
+      startConnectionAuthorizationOperation.path,
+      body,
+      startConnectionAuthorizationOperation.response.body
+    )
+  }
+
+  listConnections(): Promise<{ data: Connection[] }> {
+    return this.authorizedJson(
+      listConnectionsOperation.method,
+      listConnectionsOperation.path,
+      undefined,
+      listConnectionsOperation.response.body
+    )
+  }
+
+  getConnection(connectionId: string): Promise<Connection> {
+    const path = this.path(
+      getConnectionOperation.path,
+      "connectionId",
+      connectionId
+    )
+    return this.authorizedJson(
+      getConnectionOperation.method,
+      path,
+      undefined,
+      getConnectionOperation.response.body
+    )
+  }
+
+  revokeConnection(connectionId: string): Promise<Connection> {
+    const path = this.path(
+      revokeConnectionOperation.path,
+      "connectionId",
+      connectionId
+    )
+    return this.authorizedJson(
+      revokeConnectionOperation.method,
+      path,
+      undefined,
+      revokeConnectionOperation.response.body
+    )
   }
 
   async createConversation(

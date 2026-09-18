@@ -8,6 +8,7 @@ import { ZodError } from 'zod'
 import type {
   CreateApplicationDto,
   ReplaceApplicationTrustDto,
+  ReplaceConnectorAccessPolicyDto,
   UpdateApplicationProfileDto,
 } from './dto/application-input.dto'
 import { validateProductionApplicationTrust } from './dto/application-input.dto'
@@ -105,6 +106,24 @@ export class ApplicationsService {
       id,
       { userId: actorUserId },
     )
+    if (!application) throw new NotFoundException('Application not found')
+    return application
+  }
+
+  async replaceConnectorAccessPolicy(
+    workspaceId: string,
+    actorUserId: string,
+    id: string,
+    input: ReplaceConnectorAccessPolicyDto,
+  ): Promise<Application> {
+    const application =
+      await repositories.application.replaceConnectorAccessPolicy(
+        db,
+        workspaceId,
+        id,
+        input,
+        { userId: actorUserId },
+      )
     if (!application) throw new NotFoundException('Application not found')
     return application
   }
