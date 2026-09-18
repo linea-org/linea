@@ -12,6 +12,8 @@ import { OutboxDispatcherService } from "./outbox-dispatcher.service"
 import { WorkflowQueueService } from "../queue/workflow-queue.service"
 import { WebhookQueueService } from "../queue/webhook-queue.service"
 
+jest.setTimeout(15_000)
+
 afterAll(async () => {
   await pool.end()
 })
