@@ -20,6 +20,7 @@ import {
   startEndUserAuthorizationSchema,
   resourceReferenceSchema,
   workflowContractRevisionSchema,
+  webhookEnvelopeSchema,
 } from "../src"
 
 describe("public protocol schemas", () => {
@@ -180,6 +181,35 @@ describe("public protocol schemas", () => {
         values: Array.from({ length: 257 }, () => true),
       }).success
     ).toBe(false)
+  })
+
+  it("keeps webhook envelopes minimal and rejects sensitive fields", () => {
+    const envelope = {
+      id: "00000000-0000-4000-8000-000000000001",
+      type: "execution.completed",
+      version: 1,
+      createdAt: "2026-09-18T12:00:00Z",
+      applicationId: "00000000-0000-4000-8000-000000000002",
+      data: {
+        executionId: "00000000-0000-4000-8000-000000000003",
+        status: "succeeded",
+      },
+    }
+    expect(webhookEnvelopeSchema.safeParse(envelope).success).toBe(true)
+    for (const forbidden of [
+      "token",
+      "credential",
+      "input",
+      "output",
+      "resolveToken",
+    ]) {
+      expect(
+        webhookEnvelopeSchema.safeParse({
+          ...envelope,
+          data: { ...envelope.data, [forbidden]: "forbidden" },
+        }).success
+      ).toBe(false)
+    }
   })
 
   it("publishes every accepted stable failure category", () => {

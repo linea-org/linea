@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common"
 import { db, repositories, type OutboxMessage } from "@linea/db"
 import { WorkflowQueueService } from "../queue/workflow-queue.service"
+import { WebhookQueueService } from "../queue/webhook-queue.service"
 
 const POLL_INTERVAL_MS = 1_000
 const CLAIM_LEASE_MS = 30_000
@@ -19,8 +20,12 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
   private readonly dispatcherId = randomUUID()
   private interval?: NodeJS.Timeout
   private polling = false
+  private claimPublicEventNext = false
 
-  constructor(private readonly queue: WorkflowQueueService) {}
+  constructor(
+    private readonly queue: WorkflowQueueService,
+    private readonly webhookQueue: WebhookQueueService
+  ) {}
 
   onModuleInit(): void {
     void this.poll()
@@ -49,13 +54,21 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private claim() {
+  private async claim() {
     const now = new Date()
-    return repositories.outboxMessage.claimWorkflowExecutionMessage(db, {
+    const input = {
       claimedBy: this.dispatcherId,
       now,
       claimExpiresAt: new Date(now.getTime() + CLAIM_LEASE_MS),
-    })
+    }
+    const first = this.claimPublicEventNext
+      ? repositories.outboxMessage.claimPublicEventMessage
+      : repositories.outboxMessage.claimWorkflowExecutionMessage
+    const second = this.claimPublicEventNext
+      ? repositories.outboxMessage.claimWorkflowExecutionMessage
+      : repositories.outboxMessage.claimPublicEventMessage
+    this.claimPublicEventNext = !this.claimPublicEventNext
+    return (await first(db, input)) ?? second(db, input)
   }
 
   private async dispatch(message: OutboxMessage): Promise<void> {
@@ -63,6 +76,26 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
     const executionId =
       typeof payloadExecutionId === "string" ? payloadExecutionId : undefined
     try {
+      if (message.kind === "public_event") {
+        const deliveries =
+          await repositories.webhookDelivery.prepareWebhookDeliveries(db, {
+            messageId: message.id,
+            claimedBy: this.dispatcherId,
+          })
+        await Promise.all(
+          deliveries.map((delivery) => this.webhookQueue.enqueue(delivery.id))
+        )
+        const published =
+          await repositories.outboxMessage.markOutboxMessagePublished(db, {
+            messageId: message.id,
+            claimedBy: this.dispatcherId,
+            publishedAt: new Date(),
+          })
+        if (!published) {
+          throw new Error("Outbox claim was lost after publication")
+        }
+        return
+      }
       if (!executionId) {
         throw new Error("Workflow execution outbox payload has no executionId")
       }
@@ -90,7 +123,11 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
           ),
           failedAt,
           retryAt: new Date(failedAt.getTime() + retryDelay),
-          terminal: !executionId,
+          terminal:
+            (message.kind === "workflow_execution" && !executionId) ||
+            (message.kind === "public_event" &&
+              error instanceof
+                repositories.webhookDelivery.InvalidWebhookEventError),
         })
       if (failure?.status === "failed") {
         this.logger.error(`Outbox message ${message.id} permanently failed`)

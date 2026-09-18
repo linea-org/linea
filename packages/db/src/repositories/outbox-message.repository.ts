@@ -110,6 +110,50 @@ export async function claimWorkflowExecutionMessage(
   })
 }
 
+export async function claimPublicEventMessage(
+  db: DbClient,
+  input: { claimedBy: string; now: Date; claimExpiresAt: Date }
+): Promise<OutboxMessage | undefined> {
+  return db.transaction(async (tx) => {
+    const [candidate] = await tx
+      .select({ id: outboxMessages.id })
+      .from(outboxMessages)
+      .where(
+        and(
+          eq(outboxMessages.kind, "public_event"),
+          or(
+            and(
+              eq(outboxMessages.status, "pending"),
+              sql`date_trunc('milliseconds', ${outboxMessages.availableAt}) <= ${input.now}`
+            ),
+            and(
+              eq(outboxMessages.status, "publishing"),
+              lte(outboxMessages.claimExpiresAt, input.now)
+            )
+          )
+        )
+      )
+      .orderBy(asc(outboxMessages.availableAt), asc(outboxMessages.id))
+      .for("update", { skipLocked: true })
+      .limit(1)
+    if (!candidate) return undefined
+    const [message] = await tx
+      .update(outboxMessages)
+      .set({
+        status: "publishing",
+        attempts: sql`${outboxMessages.attempts} + 1`,
+        claimedAt: input.now,
+        claimExpiresAt: input.claimExpiresAt,
+        claimedBy: input.claimedBy,
+        publishedAt: null,
+        failedAt: null,
+      })
+      .where(eq(outboxMessages.id, candidate.id))
+      .returning()
+    return message
+  })
+}
+
 export async function markOutboxMessagePublished(
   db: DbClient,
   input: { messageId: string; claimedBy: string; publishedAt: Date }

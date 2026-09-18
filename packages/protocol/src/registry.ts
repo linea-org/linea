@@ -26,6 +26,7 @@ import {
   startApplicationExecutionOperation,
   startEndUserExecutionOperation,
 } from "./operations/runtime"
+import { listWebhookDeliveriesOperation } from "./operations/webhooks"
 
 function routeIdentity(operation: OperationDefinition): string {
   const path = operation.path.replace(/\{[^/{}]+\}/g, "{}")
@@ -85,4 +86,5 @@ export const operationRegistry = createOperationRegistry([
   getEndUserApprovalRequestOperation,
   decideEndUserApprovalRequestOperation,
   streamEndUserEventsOperation,
+  listWebhookDeliveriesOperation,
 ])
