@@ -29,11 +29,17 @@ function operationPath(
   template: string,
   values: Record<string, string> | undefined
 ): string {
-  return template.replace(/\{([^}]+)\}/g, (_, name: string) => {
+  const segments = template.split("{")
+  let path = segments[0] ?? ""
+  for (const segment of segments.slice(1)) {
+    const closingBrace = segment.indexOf("}")
+    if (closingBrace < 1) throw new Error(`Invalid path template: ${template}`)
+    const name = segment.slice(0, closingBrace)
     const value = values?.[name]
     if (!value) throw new Error(`Missing path parameter: ${name}`)
-    return encodeURIComponent(value)
-  })
+    path += `${encodeURIComponent(value)}${segment.slice(closingBrace + 1)}`
+  }
+  return path
 }
 
 function operationUrl(
@@ -74,6 +80,78 @@ function readableError(body: unknown, fallback: string): string {
   return fallback || "Request failed"
 }
 
+function serializeBody(
+  body: unknown,
+  headers: Record<string, string>,
+  endpoint: string
+): string | undefined {
+  if (body === undefined) return undefined
+  headers["Content-Type"] = "application/json"
+  try {
+    return JSON.stringify(body)
+  } catch (cause) {
+    throw new LineaNetworkError({ endpoint, cause })
+  }
+}
+
+async function sendRequest(
+  url: string,
+  endpoint: string,
+  method: OperationDefinition["method"],
+  headers: Record<string, string>,
+  body: string | undefined
+): Promise<{ response: Response; text: string }> {
+  try {
+    const response = await fetch(url, { method, headers, body })
+    return { response, text: await response.text() }
+  } catch (cause) {
+    throw new LineaNetworkError({ endpoint, cause })
+  }
+}
+
+function parseBody(text: string): unknown {
+  try {
+    return text ? JSON.parse(text) : undefined
+  } catch {
+    return { raw: text }
+  }
+}
+
+function retryAfterSeconds(response: Response): number | undefined {
+  const value = response.headers.get("retry-after")
+  if (!value) return undefined
+  const seconds = Number(value)
+  return Number.isFinite(seconds) ? seconds : undefined
+}
+
+function apiError(
+  response: Response,
+  endpoint: string,
+  body: unknown
+): LineaApiError {
+  const parsed = publicErrorResponseSchema.safeParse(body)
+  return new LineaApiError({
+    status: response.status,
+    endpoint,
+    body,
+    message: readableError(body, response.statusText),
+    code: parsed.success ? parsed.data.error.code : undefined,
+    retryAfter: retryAfterSeconds(response),
+  })
+}
+
+function shouldRetryResponse(
+  response: Response,
+  canRetry: boolean,
+  attempt: number
+): boolean {
+  return (
+    canRetry &&
+    retryableStatuses.has(response.status) &&
+    attempt < maximumAttempts
+  )
+}
+
 export class ServerTransport {
   constructor(
     private readonly baseUrl: string,
@@ -91,78 +169,41 @@ export class ServerTransport {
       Authorization: `Bearer ${this.credential}`,
     }
     if (call.idempotencyKey) headers["Idempotency-Key"] = call.idempotencyKey
-    let serializedBody: string | undefined
-    if (call.body !== undefined) {
-      headers["Content-Type"] = "application/json"
-      try {
-        serializedBody = JSON.stringify(call.body)
-      } catch (cause) {
-        throw new LineaNetworkError({ endpoint, cause })
-      }
-    }
+    const body = serializeBody(call.body, headers, endpoint)
     const canRetry =
       operation.method === "GET" || call.idempotencyKey !== undefined
     for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
-      let response: Response
+      let result: { response: Response; text: string }
       try {
-        response = await fetch(url, {
-          method: operation.method,
-          headers,
-          body: serializedBody,
-        })
-      } catch (cause) {
-        if (canRetry && attempt < maximumAttempts) {
-          await wait(retryDelay(undefined, attempt))
-          continue
-        }
-        throw new LineaNetworkError({ endpoint, cause })
-      }
-      let text: string
-      try {
-        text = await response.text()
-      } catch (cause) {
-        if (canRetry && attempt < maximumAttempts) {
-          await wait(retryDelay(undefined, attempt))
-          continue
-        }
-        throw new LineaNetworkError({ endpoint, cause })
-      }
-      let body: unknown
-      try {
-        body = text ? JSON.parse(text) : undefined
-      } catch {
-        body = { raw: text }
-      }
-      if (!response.ok) {
-        if (
-          canRetry &&
-          retryableStatuses.has(response.status) &&
-          attempt < maximumAttempts
-        ) {
-          await wait(retryDelay(response, attempt))
-          continue
-        }
-        const parsed = publicErrorResponseSchema.safeParse(body)
-        const retryAfter = response.headers.get("retry-after")
-        throw new LineaApiError({
-          status: response.status,
+        result = await sendRequest(
+          url,
           endpoint,
-          body,
-          message: readableError(body, response.statusText),
-          code: parsed.success ? parsed.data.error.code : undefined,
-          retryAfter: retryAfter ? Number(retryAfter) : undefined,
-        })
+          operation.method,
+          headers,
+          body
+        )
+      } catch (cause) {
+        if (!canRetry || attempt === maximumAttempts) throw cause
+        await wait(retryDelay(undefined, attempt))
+        continue
       }
-      if (response.status !== operation.response.status) {
+      const responseBody = parseBody(result.text)
+      if (shouldRetryResponse(result.response, canRetry, attempt)) {
+        await wait(retryDelay(result.response, attempt))
+        continue
+      }
+      if (!result.response.ok)
+        throw apiError(result.response, endpoint, responseBody)
+      if (result.response.status !== operation.response.status) {
         throw new LineaProtocolError({
           endpoint,
           cause: new Error(
-            `Expected HTTP ${operation.response.status}, received ${response.status}`
+            `Expected HTTP ${operation.response.status}, received ${result.response.status}`
           ),
         })
       }
       try {
-        return operation.response.body.parse(body)
+        return operation.response.body.parse(responseBody)
       } catch (cause) {
         throw new LineaProtocolError({ endpoint, cause })
       }
