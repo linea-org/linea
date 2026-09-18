@@ -15,6 +15,7 @@ export function MonitoringQueryProvider({ children }: { children: ReactNode }) {
       <ClearWorkspaceCacheContext.Provider
         value={() => {
           monitoringQueryClient.removeQueries({ queryKey: ["monitoring"] })
+          monitoringQueryClient.removeQueries({ queryKey: ["approvals"] })
         }}
       >
         {children}

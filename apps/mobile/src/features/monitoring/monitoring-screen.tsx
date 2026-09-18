@@ -2,19 +2,23 @@ import { useRouter } from "expo-router"
 import {
   ActivityIcon,
   Building2Icon,
+  CircleCheckIcon,
   RadioTowerIcon,
 } from "lucide-react-native"
 import { useState } from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 import { useMobileAuth } from "../../auth/mobile-auth"
 import { colors } from "../../theme/colors"
+import { ApprovalsFeed } from "../approvals/approvals-feed"
 import { ExecutionsFeed } from "../executions/executions-feed"
 import { SignalsFeed } from "../signals/signals-feed"
 
 export function MonitoringScreen() {
   const router = useRouter()
   const { data: session } = useMobileAuth().useSession()
-  const [feed, setFeed] = useState<"executions" | "signals">("executions")
+  const [feed, setFeed] = useState<"approvals" | "executions" | "signals">(
+    "executions"
+  )
   const workspaceId = session?.session.activeOrganizationId
   if (!workspaceId) return null
   return (
@@ -23,7 +27,11 @@ export function MonitoringScreen() {
         <View style={styles.heading}>
           <Text style={styles.eyebrow}>WORKSPACE MONITORING</Text>
           <Text style={styles.title}>
-            {feed === "executions" ? "Executions" : "Signals"}
+            {feed === "executions"
+              ? "Executions"
+              : feed === "signals"
+                ? "Signals"
+                : "Approvals"}
           </Text>
         </View>
         <Pressable
@@ -58,11 +66,27 @@ export function MonitoringScreen() {
           onPress={() => setFeed("signals")}
           selected={feed === "signals"}
         />
+        <Tab
+          icon={
+            <CircleCheckIcon
+              color={feed === "approvals" ? colors.accent : colors.muted}
+              size={18}
+            />
+          }
+          label="Approvals"
+          onPress={() => setFeed("approvals")}
+          selected={feed === "approvals"}
+        />
       </View>
       {feed === "executions" ? (
         <ExecutionsFeed workspaceId={workspaceId} />
-      ) : (
+      ) : feed === "signals" ? (
         <SignalsFeed workspaceId={workspaceId} />
+      ) : (
+        <ApprovalsFeed
+          userEmail={session.user.email}
+          workspaceId={workspaceId}
+        />
       )}
     </View>
   )

@@ -28,6 +28,15 @@ export class ApprovalsController {
     return this.approvals.list(userId, workspaceId)
   }
 
+  @Get(':id')
+  get(
+    @CurrentUserId() userId: string,
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('id') id: string,
+  ) {
+    return this.approvals.get(userId, workspaceId, id)
+  }
+
   @Post(':id/respond')
   respond(
     @CurrentUserId() userId: string,

@@ -20,6 +20,7 @@ import {
   decideWorkspaceApprovalRequest,
   getApprovalDecision,
   getApprovalRequest,
+  getWorkspaceApprovalRequest,
   findExternalApprovalRequests,
   listPendingApprovalRequests,
 } from "./approval-request.repository.js"
@@ -171,6 +172,11 @@ describe("Approval Request repository", () => {
   it("owns an external request by a verified subject and Conversation", async () => {
     await withRollback(async (tx) => {
       const fixtures = await createExternalExecution(tx)
+      const reviewer = await addMember(
+        tx,
+        fixtures.organization.id,
+        "reviewer@test.dev"
+      )
       const request = await createApprovalRequest(tx, {
         workspaceId: fixtures.organization.id,
         applicationId: fixtures.application.id,
@@ -182,11 +188,27 @@ describe("Approval Request repository", () => {
         conversationId: fixtures.conversation.id,
         display: { title: "Send refund?" },
       })
+      if (!request) throw new Error("Approval Request was not created")
       expect(request).toMatchObject({
         applicationId: fixtures.application.id,
         externalSubjectId: fixtures.subject.id,
         conversationId: fixtures.conversation.id,
       })
+      await expect(
+        listPendingApprovalRequests(
+          tx,
+          fixtures.organization.id,
+          reviewer.email
+        )
+      ).resolves.toEqual([])
+      await expect(
+        getWorkspaceApprovalRequest(
+          tx,
+          fixtures.organization.id,
+          request.id,
+          reviewer.email
+        )
+      ).resolves.toBeUndefined()
     })
   })
 
