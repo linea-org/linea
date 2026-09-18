@@ -1,4 +1,3 @@
-import { once } from 'node:events'
 import { HttpException, Injectable } from '@nestjs/common'
 import { db, repositories, type OutboxMessage } from '@linea/db'
 import { publicErrorStatuses } from '@linea/protocol/errors'
@@ -9,6 +8,7 @@ import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.gua
 
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000
 const STREAM_LEASE_MS = 30_000
+const LEASE_RENEWAL_INTERVAL_MS = 10_000
 const POLL_INTERVAL_MS = 1_000
 const KEEPALIVE_INTERVAL_MS = 15_000
 const PAGE_SIZE = 100
@@ -61,30 +61,48 @@ export class EndUserEventStreamService {
     response.write(': connected\n\n')
     let cursor = afterEventId
     let lastKeepalive = Date.now()
+    let nextRenewalAt = Date.now() + LEASE_RENEWAL_INTERVAL_MS
+    const renew = async (force: boolean) => {
+      const now = Date.now()
+      if (!force && now < nextRenewalAt) return true
+      const renewedAt = new Date(now)
+      const renewed = await repositories.endUserEvent.renewEndUserEventStream(
+        db,
+        {
+          streamId: stream.id,
+          sessionId: principal.sessionId,
+          now: renewedAt,
+          leaseExpiresAt: new Date(renewedAt.getTime() + STREAM_LEASE_MS),
+        },
+      )
+      if (renewed) nextRenewalAt = Date.now() + LEASE_RENEWAL_INTERVAL_MS
+      return renewed
+    }
     try {
       while (!closed) {
         for (const event of result.events) {
           if (closed) break
-          await this.write(response, this.serialize(event))
+          if (!(await renew(false))) {
+            closed = true
+            break
+          }
+          if (!(await this.write(response, this.serialize(event), renew))) {
+            closed = true
+            break
+          }
           cursor = event.id
         }
         if (closed) break
         if (result.events.length < PAGE_SIZE) {
           if (Date.now() - lastKeepalive >= KEEPALIVE_INTERVAL_MS) {
-            await this.write(response, ': keepalive\n\n')
+            if (!(await this.write(response, ': keepalive\n\n', renew))) break
             lastKeepalive = Date.now()
           }
           await this.wait(request)
           if (closed) break
-          const renewedAt = new Date()
-          const renewed =
-            await repositories.endUserEvent.renewEndUserEventStream(db, {
-              streamId: stream.id,
-              sessionId: principal.sessionId,
-              now: renewedAt,
-              leaseExpiresAt: new Date(renewedAt.getTime() + STREAM_LEASE_MS),
-            })
-          if (!renewed) break
+          if (!(await renew(true))) break
+        } else if (!(await renew(true))) {
+          break
         }
         result = await this.list(principal, query, cursor)
         if (result.outcome === 'cursor_expired') break
@@ -133,9 +151,40 @@ export class EndUserEventStreamService {
     return `id: ${envelope.id}\nevent: ${envelope.type}\ndata: ${JSON.stringify(envelope)}\n\n`
   }
 
-  private async write(response: Response, content: string): Promise<void> {
-    if (response.write(content)) return
-    await Promise.race([once(response, 'drain'), once(response, 'close')])
+  private async write(
+    response: Response,
+    content: string,
+    renew: (force: boolean) => Promise<boolean>,
+  ): Promise<boolean> {
+    if (response.write(content)) return true
+    while (!response.writableEnded) {
+      const outcome = await this.waitForWritable(response)
+      if (outcome === 'drain') return true
+      if (outcome === 'close' || !(await renew(true))) return false
+    }
+    return false
+  }
+
+  private waitForWritable(
+    response: Response,
+  ): Promise<'drain' | 'close' | 'renew'> {
+    return new Promise((resolve) => {
+      const finish = (outcome: 'drain' | 'close' | 'renew') => {
+        clearTimeout(timeout)
+        response.off('drain', drained)
+        response.off('close', closed)
+        resolve(outcome)
+      }
+      const drained = () => finish('drain')
+      const closed = () => finish('close')
+      const timeout = setTimeout(
+        () => finish('renew'),
+        LEASE_RENEWAL_INTERVAL_MS,
+      )
+      response.once('drain', drained)
+      response.once('close', closed)
+      if (response.writableEnded) finish('close')
+    })
   }
 
   private wait(request: Request): Promise<void> {

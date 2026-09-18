@@ -1,7 +1,11 @@
 import { and, asc, eq, inArray, lte, or, sql } from "drizzle-orm"
 import type { EventType } from "@linea/protocol/events"
 import type { JsonValue } from "@linea/protocol/shared"
-import { outboxMessages, type OutboxMessage } from "../schema/index.js"
+import {
+  externalSubjectApplications,
+  outboxMessages,
+  type OutboxMessage,
+} from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
 export async function createWorkflowExecutionMessage(
@@ -29,18 +33,37 @@ export async function createPublicEvent(
     data: Record<string, JsonValue>
   }
 ): Promise<OutboxMessage> {
-  const [message] = await db
-    .insert(outboxMessages)
-    .values({
-      workspaceId: input.workspaceId,
-      applicationId: input.applicationId,
-      externalSubjectId: input.externalSubjectId,
-      kind: "public_event",
-      eventType: input.eventType,
-      payload: input.data,
-    })
-    .returning()
-  return message
+  return db.transaction(async (tx) => {
+    if (input.externalSubjectId) {
+      const [audience] = await tx
+        .select({ applicationId: externalSubjectApplications.applicationId })
+        .from(externalSubjectApplications)
+        .where(
+          and(
+            eq(externalSubjectApplications.workspaceId, input.workspaceId),
+            eq(externalSubjectApplications.applicationId, input.applicationId),
+            eq(
+              externalSubjectApplications.externalSubjectId,
+              input.externalSubjectId
+            )
+          )
+        )
+        .for("update")
+      if (!audience) throw new Error("Public event audience does not exist")
+    }
+    const [message] = await tx
+      .insert(outboxMessages)
+      .values({
+        workspaceId: input.workspaceId,
+        applicationId: input.applicationId,
+        externalSubjectId: input.externalSubjectId,
+        kind: "public_event",
+        eventType: input.eventType,
+        payload: input.data,
+      })
+      .returning()
+    return message
+  })
 }
 
 export async function claimWorkflowExecutionMessage(

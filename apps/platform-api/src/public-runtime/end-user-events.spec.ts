@@ -406,18 +406,52 @@ describe('end-user event stream', () => {
     }
   })
 
-  it('closes a live stream after session revocation', async () => {
-    const path = `/v1/user/events?conversationId=${randomUUID()}`
+  it('stops a full-page backlog after session revocation', async () => {
+    const conversationId = randomUUID()
+    const inserted = await db
+      .insert(outboxMessages)
+      .values(
+        Array.from(
+          { length: 1_000 },
+          (): typeof outboxMessages.$inferInsert => ({
+            workspaceId: fixture.workspaceId,
+            applicationId: fixture.applicationId,
+            externalSubjectId: fixture.subjects[1].id,
+            kind: 'public_event',
+            eventType: 'approval_request.created',
+            payload: {
+              approvalRequestId: randomUUID(),
+              conversationId,
+            },
+          }),
+        ),
+      )
+      .returning({ id: outboxMessages.id })
+    const path = `/v1/user/events?conversationId=${conversationId}`
     const response = await openStream(fixture.subjects[1], path)
     if (!response.body) throw new Error('Event stream body is missing')
     const reader = response.body.getReader()
-    await withTimeout(reader.read())
-    await repositories.endUserSession.revokeEndUserSession(
-      db,
-      fixture.subjects[1].session.id,
-      new Date(),
-    )
-    const closed = await withTimeout(reader.read(), 3_000)
-    expect(closed.done).toBe(true)
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let eventCount = 0
+    let revoked = false
+    while (true) {
+      const chunk = await withTimeout(reader.read())
+      if (chunk.done) break
+      buffer += decoder.decode(chunk.value, { stream: true })
+      const frames = buffer.split('\n\n')
+      buffer = frames.pop() ?? ''
+      eventCount += frames.filter((frame) => frame.includes('data: ')).length
+      if (!revoked && eventCount >= 100) {
+        await repositories.endUserSession.revokeEndUserSession(
+          db,
+          fixture.subjects[1].session.id,
+          new Date(),
+        )
+        revoked = true
+      }
+    }
+    expect(revoked).toBe(true)
+    expect(eventCount).toBeLessThan(inserted.length)
   })
 })

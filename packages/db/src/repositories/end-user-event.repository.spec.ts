@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
@@ -165,6 +165,82 @@ describe("end-user event repository", () => {
         })
       ).resolves.toEqual({ outcome: "cursor_expired" })
     })
+  })
+
+  it("prevents later subject events from committing around an earlier event", async () => {
+    const { fixture, application, subjects } = await db.transaction((tx) =>
+      createApplicationAndSubjects(tx)
+    )
+    const cursor = await createPublicEvent(db, {
+      workspaceId: fixture.organization.id,
+      applicationId: application.id,
+      externalSubjectId: subjects[0].id,
+      eventType: "approval_request.created",
+      data: { approvalRequestId: randomUUID() },
+    })
+    let signalInserted = () => {}
+    const inserted = new Promise<void>((resolve) => {
+      signalInserted = resolve
+    })
+    let releaseEarlier = () => {}
+    const mayCommit = new Promise<void>((resolve) => {
+      releaseEarlier = resolve
+    })
+    const earlierTransaction = db.transaction(async (tx) => {
+      const event = await createPublicEvent(tx, {
+        workspaceId: fixture.organization.id,
+        applicationId: application.id,
+        externalSubjectId: subjects[0].id,
+        eventType: "approval_request.created",
+        data: { approvalRequestId: randomUUID() },
+      })
+      signalInserted()
+      await mayCommit
+      return event
+    })
+    await inserted
+    try {
+      await expect(
+        db.transaction(async (tx) => {
+          await tx.execute(sql`SET LOCAL lock_timeout = '100ms'`)
+          return createPublicEvent(tx, {
+            workspaceId: fixture.organization.id,
+            applicationId: application.id,
+            externalSubjectId: subjects[0].id,
+            eventType: "approval_request.decided",
+            data: { approvalRequestId: randomUUID() },
+          })
+        })
+      ).rejects.toMatchObject({ cause: { code: "55P03" } })
+    } finally {
+      releaseEarlier()
+    }
+    try {
+      const earlier = await earlierTransaction
+      const later = await createPublicEvent(db, {
+        workspaceId: fixture.organization.id,
+        applicationId: application.id,
+        externalSubjectId: subjects[0].id,
+        eventType: "approval_request.decided",
+        data: { approvalRequestId: randomUUID() },
+      })
+      await expect(
+        listEndUserEvents(db, {
+          workspaceId: fixture.organization.id,
+          applicationId: application.id,
+          externalSubjectId: subjects[0].id,
+          conversationId: undefined,
+          eventTypes: undefined,
+          afterEventId: cursor.id,
+          retainedAfter: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          limit: 100,
+        })
+      ).resolves.toEqual({ outcome: "events", events: [earlier, later] })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        fixture.organization.id,
+      ])
+    }
   })
 
   it("enforces three distributed leases, recovers expiry, and observes revocation", async () => {
