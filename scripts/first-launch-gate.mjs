@@ -57,12 +57,12 @@ const checks = [
       "src/webhooks/webhook-delivery.service.spec.ts"
     ),
   ],
+  ["build browser SDK", ["--filter", "@linea/sdk", "build"]],
   [
     "webhook verification and receiver deduplication contract",
     ["--filter", "@linea/sdk", "test", "--", "src/webhooks.spec.ts"],
   ],
   ["headless React reconciliation", ["--filter", "@linea/sdk-react", "test"]],
-  ["build browser SDK", ["--filter", "@linea/sdk", "build"]],
   ["verify vanilla browser package", ["--filter", "@linea/sdk", "test:pack"]],
   ["build React SDK", ["--filter", "@linea/sdk-react", "build"]],
   ["verify React package", ["--filter", "@linea/sdk-react", "test:pack"]],
