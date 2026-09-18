@@ -23,6 +23,7 @@ type ParseableOperation<TResponse> = Omit<OperationDefinition, "response"> & {
 
 const retryableStatuses = new Set([429, 502, 503, 504])
 const maximumAttempts = 3
+const maximumRetryDelay = 30_000
 
 function operationPath(
   template: string,
@@ -53,9 +54,10 @@ function retryDelay(response: Response | undefined, attempt: number): number {
   const retryAfter = response?.headers.get("retry-after")
   if (retryAfter) {
     const seconds = Number(retryAfter)
-    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000)
+    if (Number.isFinite(seconds))
+      return Math.min(maximumRetryDelay, Math.max(0, seconds * 1000))
   }
-  return 100 * 2 ** (attempt - 1)
+  return Math.min(maximumRetryDelay, 100 * 2 ** (attempt - 1))
 }
 
 function wait(milliseconds: number): Promise<void> {

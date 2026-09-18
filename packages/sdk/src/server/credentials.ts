@@ -29,7 +29,6 @@ export function applicationKey(value: string): ApplicationKey {
 export function workspaceKey(value: string): WorkspaceKey {
   if (
     !value.startsWith(workspaceKeyPrefix) ||
-    value.startsWith(applicationKeyPrefix) ||
     value.length === workspaceKeyPrefix.length
   ) {
     throw new Error(`Workspace keys must start with ${workspaceKeyPrefix}`)

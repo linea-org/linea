@@ -197,6 +197,7 @@ describe("server SDK public HTTP contract", () => {
 
   it("rejects credential kinds at construction boundaries", () => {
     expect(() => applicationKey("lin_workspace_secret")).toThrow(/lin_app_/)
-    expect(() => workspaceKey("lin_app_secret")).toThrow(/Workspace keys/)
+    expect(() => workspaceKey("workspace_secret")).toThrow(/lin_/)
+    expect(() => workspaceKey("lin_")).toThrow(/lin_/)
   })
 })
