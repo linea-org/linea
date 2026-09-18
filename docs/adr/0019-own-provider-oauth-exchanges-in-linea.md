@@ -1,0 +1,3 @@
+# Own Provider OAuth Exchanges in Linea
+
+Linea-managed Google and GitHub OAuth registrations receive provider callbacks and exchange authorization codes so provider credentials never transit an Operator backend or browser redirect. A DPoP-authenticated End-User Session starts the ceremony using single-use state bound to its Application, External Subject, session, provider, PKCE challenge, and allowlisted return URI; Linea resolves the provider's stable account identity before creating the Application-scoped Connection. Operator-supplied and generic OAuth client configuration remain deferred because they would add protected secret administration, callback validation, provider-review variance, and another trust configuration surface to the first release.

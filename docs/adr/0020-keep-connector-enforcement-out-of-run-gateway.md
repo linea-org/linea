@@ -1,0 +1,3 @@
+# Keep Connector Enforcement out of Run Gateway
+
+The Connector Gateway is a logical security boundary implemented through `@linea/connectors` and a narrow execution-worker enforcement service, not the `apps/run-gateway` process. Provider credentials are resolved only inside that boundary and never enter workflow state, while `run-gateway` remains the sole sandbox-facing boundary and does not depend on connectors. Keeping these responsibilities separate prevents End-User credentials from entering a process designed for untrusted code traffic and preserves the repository's existing sandbox architecture.

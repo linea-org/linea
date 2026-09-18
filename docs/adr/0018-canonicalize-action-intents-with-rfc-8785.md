@@ -1,0 +1,3 @@
+# Canonicalize Action Intents with RFC 8785
+
+Action Consent authorizes a versioned SHA-256 digest, encoded as base64url, of an RFC 8785 JSON Canonicalization Scheme envelope containing the Connection, connector operation, target, normalized parameters, and provider preconditions. Operation schemas accept only I-JSON-compatible values and normalize timestamps and binary data as strings; display text, timestamps unrelated to the external action, lifecycle state, and idempotency keys remain outside the digest. Linea stores the canonical envelope and verifies its digest again before execution so serialization differences cannot change or broaden the action an End User authorized.
