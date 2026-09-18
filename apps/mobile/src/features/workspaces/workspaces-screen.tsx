@@ -9,11 +9,13 @@ import {
 } from "react-native"
 import { useMobileAuth, type Workspace } from "../../auth/mobile-auth"
 import { authErrorMessage } from "../../lib/auth-error"
+import { useClearWorkspaceCache } from "../../query/monitoring-query"
 import { colors } from "../../theme/colors"
 import { CreateWorkspaceForm } from "./create-workspace-form"
 
 export function WorkspacesScreen() {
   const auth = useMobileAuth()
+  const clearWorkspaceCache = useClearWorkspaceCache()
   const { data: session } = auth.useSession()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [activeId, setActiveId] = useState<string | null>(
@@ -69,6 +71,7 @@ export function WorkspacesScreen() {
       }
       setWorkspaces([creation.data])
       setPendingId(creation.data.id)
+      clearWorkspaceCache()
       const activation = await auth.setActiveWorkspace(creation.data.id)
       setPendingId(undefined)
       if (activation.error) {
@@ -87,6 +90,7 @@ export function WorkspacesScreen() {
     if (workspace.id === activeId || pendingId) return
     setError(undefined)
     setPendingId(workspace.id)
+    clearWorkspaceCache()
     try {
       const result = await auth.setActiveWorkspace(workspace.id)
       setPendingId(undefined)

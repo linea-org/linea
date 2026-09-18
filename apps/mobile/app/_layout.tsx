@@ -2,14 +2,33 @@ import { Stack } from "expo-router"
 import { StatusBar } from "expo-status-bar"
 import { ActivityIndicator, StyleSheet, View } from "react-native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
-import { mobileAuthClient } from "../src/auth/better-auth-client"
+import {
+  getMobileSessionCookie,
+  mobileAuthClient,
+} from "../src/auth/better-auth-client"
 import { MobileAuthProvider, useMobileAuth } from "../src/auth/mobile-auth"
+import {
+  createMonitoringApi,
+  MonitoringApiProvider,
+} from "../src/api/monitoring-api"
+import { MonitoringQueryProvider } from "../src/query/monitoring-query"
 import { colors } from "../src/theme/colors"
 
 export default function RootLayout() {
+  const baseUrl = process.env.EXPO_PUBLIC_API_URL
+  if (!baseUrl) throw new Error("EXPO_PUBLIC_API_URL is required")
   return (
     <MobileAuthProvider client={mobileAuthClient}>
-      <RootNavigator />
+      <MonitoringQueryProvider>
+        <MonitoringApiProvider
+          api={createMonitoringApi({
+            baseUrl: baseUrl.replace(/\/$/, ""),
+            getCookie: getMobileSessionCookie,
+          })}
+        >
+          <RootNavigator />
+        </MonitoringApiProvider>
+      </MonitoringQueryProvider>
     </MobileAuthProvider>
   )
 }
@@ -32,7 +51,9 @@ function RootNavigator() {
         </Stack.Protected>
         <Stack.Screen name="magic-link" />
         <Stack.Protected guard={!!session}>
+          <Stack.Screen name="monitor" />
           <Stack.Screen name="workspaces" />
+          <Stack.Screen name="executions/[executionId]" />
         </Stack.Protected>
       </Stack>
     </SafeAreaProvider>
