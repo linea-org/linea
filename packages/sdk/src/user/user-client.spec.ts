@@ -395,6 +395,45 @@ describe("browser end-user client", () => {
     await expect(client.session()).resolves.toBeUndefined()
   })
 
+  it("removes an old proof key without clearing a replacement session", async () => {
+    const platform = await reactNativePlatform()
+    const revokeStarted = deferred<void>()
+    const revokeResponse = deferred<Response>()
+    const remove = vi.fn((id: string) => platform.proofKeys.remove(id))
+    const proofKeys: LineaUserProofKeyStore = {
+      create: () => platform.proofKeys.create(),
+      sign: (id, data) => platform.proofKeys.sign(id, data),
+      remove,
+    }
+    const { client } = await authenticatedClient(
+      (path) => {
+        if (path !== "/v1/user-sessions/current") {
+          throw new Error(`Unexpected ${path}`)
+        }
+        revokeStarted.resolve()
+        return revokeResponse.promise
+      },
+      { storage: platform.storage, proofKeys }
+    )
+    const revoking = client.revoke()
+    await revokeStarted.promise
+    await client.startAuthorization({
+      redirectUri: "linea-app://callback",
+    })
+    await client.completeAuthorization({
+      code: "replacement-provider-code",
+      state,
+    })
+    revokeResponse.resolve(new Response(null, { status: 204 }))
+    await revoking
+    await expect(client.session()).resolves.toMatchObject({
+      applicationId,
+      externalSubjectId,
+    })
+    expect(remove).toHaveBeenCalledWith("native-key-0")
+    expect(remove).not.toHaveBeenCalledWith("native-key-1")
+  })
+
   it("rejects malformed errors without exposing untrusted response fields", async () => {
     const { client } = await authenticatedClient(() =>
       jsonResponse(

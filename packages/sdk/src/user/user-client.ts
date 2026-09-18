@@ -691,8 +691,9 @@ export class LineaUserClient {
   private clearSession(proofKeyId: string): Promise<void> {
     return this.mutateState(async () => {
       const state = await this.state()
-      if (state.session?.proofKeyId !== proofKeyId) return
-      await this.saveState({ ...state, session: undefined })
+      if (state.session?.proofKeyId === proofKeyId) {
+        await this.saveState({ ...state, session: undefined })
+      }
       await this.proofKeys.remove(proofKeyId)
     })
   }
