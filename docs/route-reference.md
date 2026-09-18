@@ -6960,6 +6960,39 @@ Status: `200`
 
 ```json
 {
+  "$defs": {
+    "__schema0": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
   "additionalProperties": false,
   "properties": {
     "completedAt": {
@@ -7007,19 +7040,7 @@ Status: `200`
           "output": {
             "anyOf": [
               {
-                "anyOf": [
-                  {
-                    "additionalProperties": {},
-                    "propertyNames": {
-                      "type": "string"
-                    },
-                    "type": "object"
-                  },
-                  {
-                    "items": {},
-                    "type": "array"
-                  }
-                ]
+                "$ref": "#/$defs/__schema0"
               },
               {
                 "type": "null"

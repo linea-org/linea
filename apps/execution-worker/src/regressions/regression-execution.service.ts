@@ -6,6 +6,7 @@ import {
   type RegressionCase,
   type RegressionRun,
 } from "@linea/db"
+import { jsonValueSchema } from "@linea/protocol/shared"
 import { workflowGraphSchema, type WorkflowGraph } from "@linea/runtime"
 import { InterpreterService } from "../graph/interpreter.service"
 import { resolveNodeModel } from "../graph/resolve-node-model"
@@ -264,7 +265,7 @@ export class RegressionExecutionService {
         caseId: regressionCase.id,
         status: outcome.status,
         score: outcome.score,
-        output: outcome.output as Record<string, unknown> | unknown[],
+        output: jsonValueSchema.parse(outcome.output),
         costMicros: outcome.costMicros,
       })
     }

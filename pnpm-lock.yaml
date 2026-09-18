@@ -137,6 +137,9 @@ importers:
       '@linea/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@linea/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       '@linea/queue':
         specifier: workspace:*
         version: link:../../packages/queue

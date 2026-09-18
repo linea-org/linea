@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { jsonValueSchema } from "../shared/json-value"
 
 const regressionAssertionSchema = z.object({
   type: z.string(),
@@ -38,9 +39,7 @@ export const regressionResultSchema = z.object({
   caseId: z.string(),
   status: z.enum(["passed", "failed", "errored"]),
   score: z.number().nullable(),
-  output: z
-    .union([z.record(z.string(), z.unknown()), z.array(z.unknown())])
-    .nullable(),
+  output: jsonValueSchema.nullable(),
   costMicros: z.string(),
   createdAt: z.string(),
 })
