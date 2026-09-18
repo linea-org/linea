@@ -63,4 +63,4 @@ async function main(): Promise<void> {
   if (await client.session()) await renderApprovals(approvals)
 }
 
-void main()
+await main()

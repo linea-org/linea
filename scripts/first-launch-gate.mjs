@@ -5,6 +5,14 @@ if (!pnpmCli) throw new Error("pnpm executable path is unavailable")
 const pnpmCommand = pnpmCli.endsWith(".exe") ? pnpmCli : process.execPath
 const pnpmArguments = (arguments_) =>
   pnpmCli.endsWith(".exe") ? arguments_ : [pnpmCli, ...arguments_]
+const jestTest = (packageName, testPath) => [
+  "--filter",
+  packageName,
+  "test",
+  "--",
+  "--runInBand",
+  testPath,
+]
 const checks = [
   [
     "build launch test dependencies",
@@ -19,58 +27,35 @@ const checks = [
   ],
   [
     "real OIDC, DPoP, public runtime, isolation, and races",
-    [
-      "--filter",
-      "@linea/platform-api",
-      "test",
-      "--",
-      "--runInBand",
-      "src/launch-gate/first-launch.spec.ts",
-    ],
+    jestTest("@linea/platform-api", "src/launch-gate/first-launch.spec.ts"),
   ],
   [
     "SSE reconnect and cursor expiry",
-    [
-      "--filter",
+    jestTest(
       "@linea/platform-api",
-      "test",
-      "--",
-      "--runInBand",
-      "src/public-runtime/end-user-events.spec.ts",
-    ],
+      "src/public-runtime/end-user-events.spec.ts"
+    ),
   ],
   [
     "approval timeout convergence",
-    [
-      "--filter",
+    jestTest(
       "@linea/background-worker",
-      "test",
-      "--",
-      "--runInBand",
-      "src/approvals/approval-timeout.service.spec.ts",
-    ],
+      "src/approvals/approval-timeout.service.spec.ts"
+    ),
   ],
   [
     "Postgres outbox and BullMQ crash recovery",
-    [
-      "--filter",
+    jestTest(
       "@linea/background-worker",
-      "test",
-      "--",
-      "--runInBand",
-      "src/outbox/outbox-dispatcher.service.spec.ts",
-    ],
+      "src/outbox/outbox-dispatcher.service.spec.ts"
+    ),
   ],
   [
     "signed webhook retry and stable delivery identity",
-    [
-      "--filter",
+    jestTest(
       "@linea/background-worker",
-      "test",
-      "--",
-      "--runInBand",
-      "src/webhooks/webhook-delivery.service.spec.ts",
-    ],
+      "src/webhooks/webhook-delivery.service.spec.ts"
+    ),
   ],
   [
     "webhook verification and receiver deduplication contract",

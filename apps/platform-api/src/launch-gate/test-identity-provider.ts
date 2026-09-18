@@ -89,7 +89,7 @@ export async function startTestIdentityProvider() {
       const form = new URLSearchParams(await readBody(request))
       const code = form.get('code')
       const verifier = form.get('code_verifier')
-      const authorization = code ? codes.get(code) : undefined
+      const authorization = codes.get(code ?? '')
       if (
         !code ||
         !verifier ||
