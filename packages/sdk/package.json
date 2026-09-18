@@ -33,6 +33,11 @@
       "types": "./dist/user.d.ts",
       "import": "./dist/user.js",
       "require": "./dist/user.cjs"
+    },
+    "./webhooks": {
+      "types": "./dist/webhooks.d.ts",
+      "import": "./dist/webhooks.js",
+      "require": "./dist/webhooks.cjs"
     }
   },
   "files": [
