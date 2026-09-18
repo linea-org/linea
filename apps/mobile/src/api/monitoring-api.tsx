@@ -5,17 +5,20 @@ import type {
   ExecutionDetail,
   ExecutionPage,
   SignalSummary,
+  SignalDetail,
 } from "./monitoring-types"
 import {
   executionDetailSchema,
   executionPageSchema,
   signalsSchema,
+  signalDetailSchema,
 } from "./monitoring-types"
 
 export type MonitoringApi = {
   listExecutions: () => Promise<ExecutionPage>
   getExecution: (executionId: string) => Promise<ExecutionDetail>
   listSignals: () => Promise<SignalSummary[]>
+  getSignal: (signalId: string) => Promise<SignalDetail>
 }
 
 const MonitoringApiContext = createContext<MonitoringApi | null>(null)
@@ -92,5 +95,7 @@ export function createMonitoringApi({
         executionDetailSchema
       ),
     listSignals: () => get("/signals", signalsSchema),
+    getSignal: (signalId) =>
+      get(`/signals/${encodeURIComponent(signalId)}`, signalDetailSchema),
   }
 }

@@ -1,6 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import { RadioTowerIcon } from "lucide-react-native"
-import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native"
+import { useRouter } from "expo-router"
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native"
 import { useMonitoringApi } from "../../api/monitoring-api"
 import type { SignalSummary } from "../../api/monitoring-types"
 import { useMonitoringRefresh } from "../../query/use-monitoring-refresh"
@@ -13,6 +21,7 @@ import {
 } from "../monitoring/monitoring-state"
 
 export function SignalsFeed({ workspaceId }: { workspaceId: string }) {
+  const router = useRouter()
   const api = useMonitoringApi()
   const query = useQuery({
     queryKey: ["monitoring", workspaceId, "signals"],
@@ -46,14 +55,30 @@ export function SignalsFeed({ workspaceId }: { workspaceId: string }) {
           tintColor={colors.accent}
         />
       }
-      renderItem={({ item }) => <SignalCard signal={item} />}
+      renderItem={({ item }) => (
+        <SignalCard
+          onPress={() =>
+            router.push({
+              pathname: "/signals/[signalId]",
+              params: { signalId: item.id },
+            })
+          }
+          signal={item}
+        />
+      )}
     />
   )
 }
 
-function SignalCard({ signal }: { signal: SignalSummary }) {
+function SignalCard({
+  onPress,
+  signal,
+}: {
+  onPress: () => void
+  signal: SignalSummary
+}) {
   return (
-    <View style={styles.card}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={styles.card}>
       <View style={styles.icon}>
         <RadioTowerIcon color={colors.accent} size={18} />
       </View>
@@ -71,7 +96,7 @@ function SignalCard({ signal }: { signal: SignalSummary }) {
           seen {new Date(signal.lastFlaggedAt).toLocaleDateString()}
         </Text>
       </View>
-    </View>
+    </Pressable>
   )
 }
 

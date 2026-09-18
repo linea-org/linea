@@ -8,6 +8,7 @@ export const relations = defineRelations(schema, (r) => ({
     members: r.many.members(),
     invitations: r.many.invitations(),
     notifications: r.many.notifications(),
+    pushDeviceRegistrations: r.many.pushDeviceRegistrations(),
 
     settings: r.one.userSettings(),
 
@@ -39,6 +40,26 @@ export const relations = defineRelations(schema, (r) => ({
       alias: "notification_actor",
       from: r.notifications.actorUserId,
       to: r.users.id,
+    }),
+    pushDeliveries: r.many.pushDeliveries(),
+  },
+
+  pushDeviceRegistrations: {
+    user: r.one.users({
+      from: r.pushDeviceRegistrations.userId,
+      to: r.users.id,
+    }),
+    deliveries: r.many.pushDeliveries(),
+  },
+
+  pushDeliveries: {
+    notification: r.one.notifications({
+      from: r.pushDeliveries.notificationId,
+      to: r.notifications.id,
+    }),
+    deviceRegistration: r.one.pushDeviceRegistrations({
+      from: r.pushDeliveries.deviceRegistrationId,
+      to: r.pushDeviceRegistrations.id,
     }),
   },
 

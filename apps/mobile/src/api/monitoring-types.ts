@@ -79,3 +79,8 @@ export const signalSummarySchema = z.object({
 export type SignalSummary = z.infer<typeof signalSummarySchema>
 
 export const signalsSchema = z.array(signalSummarySchema)
+
+export const signalDetailSchema = signalSummarySchema.extend({
+  affectedExecutions: z.number(),
+})
+export type SignalDetail = z.infer<typeof signalDetailSchema>
