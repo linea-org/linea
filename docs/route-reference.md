@@ -606,7 +606,7 @@ Body:
       "type": "object"
     }
   },
-  "required": ["issuerSubject", "metadata"],
+  "required": ["issuerSubject"],
   "type": "object"
 }
 ```
@@ -703,8 +703,8 @@ await client.provisionSubject(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request POST 'https://api.linea.dev/v1/applications/{applicationId}/subjects' \
-  --header 'Authorization: Bearer $LINEA_APPLICATION_KEY' \
+curl --request POST "https://api.linea.dev/v1/applications/$APPLICATION_ID/subjects" \
+  --header "Authorization: Bearer $LINEA_APPLICATION_KEY" \
   --header 'Content-Type: application/json' \
   --data "$REQUEST_JSON"
 ```
@@ -848,7 +848,7 @@ Body:
       "type": "string"
     }
   },
-  "required": ["workflowId", "externalSubjectId", "metadata"],
+  "required": ["workflowId", "externalSubjectId"],
   "type": "object"
 }
 ```
@@ -1009,8 +1009,9 @@ await client.createConversation(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request POST 'https://api.linea.dev/v1/applications/{applicationId}/conversations' \
-  --header 'Authorization: Bearer $LINEA_APPLICATION_KEY' \
+curl --request POST "https://api.linea.dev/v1/applications/$APPLICATION_ID/conversations" \
+  --header "Authorization: Bearer $LINEA_APPLICATION_KEY" \
+  --header "idempotency-key: $IDEMPOTENCY_KEY" \
   --header 'Content-Type: application/json' \
   --data "$REQUEST_JSON"
 ```
@@ -1069,7 +1070,6 @@ Query parameters:
       "type": "integer"
     }
   },
-  "required": ["limit"],
   "type": "object"
 }
 ```
@@ -1271,8 +1271,8 @@ await client.listConversations(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request GET 'https://api.linea.dev/v1/applications/{applicationId}/conversations' \
-  --header 'Authorization: Bearer $LINEA_APPLICATION_KEY'
+curl --request GET "https://api.linea.dev/v1/applications/$APPLICATION_ID/conversations" \
+  --header "Authorization: Bearer $LINEA_APPLICATION_KEY"
 ```
 
 <!-- operation:getApplicationConversation -->
@@ -1499,8 +1499,8 @@ await client.getConversation(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request GET 'https://api.linea.dev/v1/applications/{applicationId}/conversations/{conversationId}' \
-  --header 'Authorization: Bearer $LINEA_APPLICATION_KEY'
+curl --request GET "https://api.linea.dev/v1/applications/$APPLICATION_ID/conversations/$CONVERSATION_ID" \
+  --header "Authorization: Bearer $LINEA_APPLICATION_KEY"
 ```
 
 <!-- operation:startApplicationExecution -->
@@ -1787,8 +1787,9 @@ await client.startExecution(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request POST 'https://api.linea.dev/v1/applications/{applicationId}/executions' \
-  --header 'Authorization: Bearer $LINEA_APPLICATION_KEY' \
+curl --request POST "https://api.linea.dev/v1/applications/$APPLICATION_ID/executions" \
+  --header "Authorization: Bearer $LINEA_APPLICATION_KEY" \
+  --header "idempotency-key: $IDEMPOTENCY_KEY" \
   --header 'Content-Type: application/json' \
   --data "$REQUEST_JSON"
 ```
@@ -2041,8 +2042,8 @@ await client.getExecution(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request GET 'https://api.linea.dev/v1/executions/{executionId}' \
-  --header 'Authorization: Bearer $LINEA_APPLICATION_KEY'
+curl --request GET "https://api.linea.dev/v1/executions/$EXECUTION_ID" \
+  --header "Authorization: Bearer $LINEA_APPLICATION_KEY"
 ```
 
 <!-- operation:cancelApplicationExecution -->
@@ -2301,8 +2302,9 @@ await client.cancelExecution(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request POST 'https://api.linea.dev/v1/executions/{executionId}/cancel' \
-  --header 'Authorization: Bearer $LINEA_APPLICATION_KEY'
+curl --request POST "https://api.linea.dev/v1/executions/$EXECUTION_ID/cancel" \
+  --header "Authorization: Bearer $LINEA_APPLICATION_KEY" \
+  --header "idempotency-key: $IDEMPOTENCY_KEY"
 ```
 
 <!-- operation:createEndUserConversation -->
@@ -2441,7 +2443,7 @@ Body:
       "type": "string"
     }
   },
-  "required": ["workflowId", "metadata"],
+  "required": ["workflowId"],
   "type": "object"
 }
 ```
@@ -2653,7 +2655,6 @@ Query parameters:
       "type": "integer"
     }
   },
-  "required": ["limit"],
   "type": "object"
 }
 ```
@@ -3356,7 +3357,6 @@ Query parameters:
       "type": "integer"
     }
   },
-  "required": ["limit"],
   "type": "object"
 }
 ```
@@ -4125,7 +4125,6 @@ Query parameters:
       "type": "string"
     }
   },
-  "required": ["limit", "status"],
   "type": "object"
 }
 ```
@@ -5038,7 +5037,6 @@ Query parameters:
       "type": "integer"
     }
   },
-  "required": ["limit"],
   "type": "object"
 }
 ```
@@ -5758,8 +5756,8 @@ await client.listWebhookDeliveries(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request GET 'https://api.linea.dev/v1/applications/{applicationId}/webhook-deliveries' \
-  --header 'Authorization: Bearer $LINEA_APPLICATION_KEY'
+curl --request GET "https://api.linea.dev/v1/applications/$APPLICATION_ID/webhook-deliveries" \
+  --header "Authorization: Bearer $LINEA_APPLICATION_KEY"
 ```
 
 <!-- operation:listRegressionCases -->
@@ -5969,8 +5967,8 @@ await client.listRegressionCases(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request GET 'https://api.linea.dev/v1/workflows/{workflowId}/regression-cases' \
-  --header 'Authorization: Bearer $LINEA_WORKSPACE_KEY'
+curl --request GET "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-cases" \
+  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY"
 ```
 
 <!-- operation:createRegressionCaseFromStep -->
@@ -6036,7 +6034,6 @@ Body:
 
 ```json
 {
-  "additionalProperties": false,
   "properties": {
     "stepId": {
       "type": "string"
@@ -6183,8 +6180,8 @@ await client.createRegressionCaseFromStep(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request POST 'https://api.linea.dev/v1/workflows/{workflowId}/regression-cases/from-step' \
-  --header 'Authorization: Bearer $LINEA_WORKSPACE_KEY' \
+curl --request POST "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-cases/from-step" \
+  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY" \
   --header 'Content-Type: application/json' \
   --data "$REQUEST_JSON"
 ```
@@ -6252,7 +6249,6 @@ Body:
 
 ```json
 {
-  "additionalProperties": false,
   "properties": {
     "flagId": {
       "type": "string"
@@ -6399,8 +6395,8 @@ await client.createRegressionCaseFromFlag(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request POST 'https://api.linea.dev/v1/workflows/{workflowId}/regression-cases/from-flag' \
-  --header 'Authorization: Bearer $LINEA_WORKSPACE_KEY' \
+curl --request POST "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-cases/from-flag" \
+  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY" \
   --header 'Content-Type: application/json' \
   --data "$REQUEST_JSON"
 ```
@@ -6607,8 +6603,8 @@ await client.archiveRegressionCase(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request POST 'https://api.linea.dev/v1/workflows/{workflowId}/regression-cases/{id}/archive' \
-  --header 'Authorization: Bearer $LINEA_WORKSPACE_KEY'
+curl --request POST "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-cases/$ID/archive" \
+  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY"
 ```
 
 <!-- operation:listRegressionRuns -->
@@ -6772,8 +6768,8 @@ await client.listRegressionRuns(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request GET 'https://api.linea.dev/v1/workflows/{workflowId}/regression-runs' \
-  --header 'Authorization: Bearer $LINEA_WORKSPACE_KEY'
+curl --request GET "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-runs" \
+  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY"
 ```
 
 <!-- operation:triggerRegressionRun -->
@@ -6839,7 +6835,6 @@ Body:
 
 ```json
 {
-  "additionalProperties": false,
   "properties": {
     "workflowVersionId": {
       "type": "string"
@@ -6887,8 +6882,8 @@ await client.triggerRegressionRun(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request POST 'https://api.linea.dev/v1/workflows/{workflowId}/regression-runs' \
-  --header 'Authorization: Bearer $LINEA_WORKSPACE_KEY' \
+curl --request POST "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-runs" \
+  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY" \
   --header 'Content-Type: application/json' \
   --data "$REQUEST_JSON"
 ```
@@ -7119,6 +7114,6 @@ await client.getRegressionRun(/* typed arguments */)
 ### cURL
 
 ```sh
-curl --request GET 'https://api.linea.dev/v1/workflows/{workflowId}/regression-runs/{id}' \
-  --header 'Authorization: Bearer $LINEA_WORKSPACE_KEY'
+curl --request GET "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-runs/$ID" \
+  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY"
 ```

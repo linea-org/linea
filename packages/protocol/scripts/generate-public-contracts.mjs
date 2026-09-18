@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { format, resolveConfig } from "prettier"
+import ts from "typescript"
 import { z } from "zod"
 import { publicErrorStatuses } from "../dist/errors.js"
 import { operationRegistry } from "../dist/operations.js"
@@ -20,18 +21,53 @@ function ordered(value) {
   )
 }
 
-function jsonSchema(schema) {
-  const result = z.toJSONSchema(schema, { unrepresentable: "any" })
+function jsonSchema(schema, io = "output") {
+  const result = z.toJSONSchema(schema, { unrepresentable: "any", io })
   delete result.$schema
   return ordered(result)
+}
+
+function rewriteDefinitionReferences(value, names) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => rewriteDefinitionReferences(entry, names))
+  }
+  if (!value || typeof value !== "object") return value
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => {
+      if (key !== "$ref" || typeof entry !== "string") {
+        return [key, rewriteDefinitionReferences(entry, names)]
+      }
+      const localName = entry.match(/^#\/\$defs\/(.+)$/)?.[1]
+      return [key, localName && names[localName] ? names[localName] : entry]
+    })
+  )
+}
+
+function openapiSchema(schema, definitions, prefix, io) {
+  const document = jsonSchema(schema, io)
+  const localDefinitions = document.$defs ?? {}
+  delete document.$defs
+  const names = Object.fromEntries(
+    Object.keys(localDefinitions).map((name) => [
+      name,
+      `#/components/schemas/${prefix}_${name}`,
+    ])
+  )
+  for (const [name, definition] of Object.entries(localDefinitions)) {
+    definitions[`${prefix}_${name}`] = rewriteDefinitionReferences(
+      definition,
+      names
+    )
+  }
+  return rewriteDefinitionReferences(document, names)
 }
 
 function acceptsUndefined(schema) {
   return schema.safeParse(undefined).success
 }
 
-function parameters(schema, location) {
-  const document = jsonSchema(schema)
+function parameters(schema, location, definitions, prefix) {
+  const document = openapiSchema(schema, definitions, prefix, "input")
   const required = new Set(document.required ?? [])
   return Object.entries(document.properties ?? {})
     .filter(([name]) => name !== "authorization")
@@ -83,12 +119,17 @@ function errorResponse(operation, status) {
   }
 }
 
-function openapiOperation(operation) {
+function openapiOperation(operation, definitions) {
   const response = { description: "Success" }
   if (!acceptsUndefined(operation.response.body)) {
     response.content = {
       [operation.response.contentType ?? "application/json"]: {
-        schema: jsonSchema(operation.response.body),
+        schema: openapiSchema(
+          operation.response.body,
+          definitions,
+          `${operation.operationId}_response`,
+          "output"
+        ),
       },
     }
   }
@@ -105,9 +146,24 @@ function openapiOperation(operation) {
     tags: [operation.plane],
     security: security(operation),
     parameters: [
-      ...parameters(operation.request.path, "path"),
-      ...parameters(operation.request.query, "query"),
-      ...parameters(operation.request.headers, "header"),
+      ...parameters(
+        operation.request.path,
+        "path",
+        definitions,
+        `${operation.operationId}_path`
+      ),
+      ...parameters(
+        operation.request.query,
+        "query",
+        definitions,
+        `${operation.operationId}_query`
+      ),
+      ...parameters(
+        operation.request.headers,
+        "header",
+        definitions,
+        `${operation.operationId}_headers`
+      ),
     ],
     responses,
     "x-linea-idempotency": operation.idempotency,
@@ -118,7 +174,14 @@ function openapiOperation(operation) {
     result.requestBody = {
       required: true,
       content: {
-        "application/json": { schema: jsonSchema(operation.request.body) },
+        "application/json": {
+          schema: openapiSchema(
+            operation.request.body,
+            definitions,
+            `${operation.operationId}_body`,
+            "input"
+          ),
+        },
       },
     }
   }
@@ -127,10 +190,13 @@ function openapiOperation(operation) {
 
 function generateOpenapi() {
   const paths = {}
+  const schemas = {}
   for (const operation of operationRegistry) {
     paths[operation.path] ??= {}
-    paths[operation.path][operation.method.toLowerCase()] =
-      openapiOperation(operation)
+    paths[operation.path][operation.method.toLowerCase()] = openapiOperation(
+      operation,
+      schemas
+    )
   }
   return `${JSON.stringify(
     ordered({
@@ -148,6 +214,7 @@ function generateOpenapi() {
       ],
       paths,
       components: {
+        schemas,
         securitySchemes: {
           applicationKey: {
             type: "http",
@@ -189,15 +256,27 @@ function sdkMethod(operation) {
   return `\`${operation.sdk.client}.${operation.sdk.method}\` from \`${operation.sdk.importPath}\``
 }
 
-function schemaBlock(schema) {
+function schemaBlock(schema, io) {
   if (acceptsUndefined(schema)) return "None."
-  return `\`\`\`json\n${JSON.stringify(jsonSchema(schema), null, 2)}\n\`\`\``
+  return `\`\`\`json\n${JSON.stringify(jsonSchema(schema, io), null, 2)}\n\`\`\``
 }
 
 function retryability(code) {
   return code === "rate_limited" || code === "service_unavailable"
     ? "retryable"
     : "not automatically retryable"
+}
+
+function environmentName(name) {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .toUpperCase()
+}
+
+function requiredNames(schema) {
+  const document = jsonSchema(schema, "input")
+  return (document.required ?? []).filter((name) => name !== "authorization")
 }
 
 function curlExample(operation) {
@@ -207,10 +286,28 @@ function curlExample(operation) {
     operation.auth.kind === "application_key"
       ? "$LINEA_APPLICATION_KEY"
       : "$LINEA_WORKSPACE_KEY"
-  const body = acceptsUndefined(operation.request.body)
-    ? ""
-    : " \\\n  --header 'Content-Type: application/json' \\\n  --data \"$REQUEST_JSON\""
-  return `\`\`\`sh\ncurl --request ${operation.method} 'https://api.linea.dev${operation.path}' \\\n  --header 'Authorization: Bearer ${credential}'${body}\n\`\`\``
+  const path = operation.path.replace(
+    /\{([^}]+)\}/g,
+    (_, name) => `$${environmentName(name)}`
+  )
+  const query = requiredNames(operation.request.query)
+    .map((name) => `${name}=$${environmentName(name)}`)
+    .join("&")
+  const url = `https://api.linea.dev${path}${query ? `?${query}` : ""}`
+  const lines = [
+    `curl --request ${operation.method} \"${url}\"`,
+    `--header \"Authorization: Bearer ${credential}\"`,
+    ...requiredNames(operation.request.headers).map(
+      (name) => `--header \"${name}: $${environmentName(name)}\"`
+    ),
+  ]
+  if (!acceptsUndefined(operation.request.body)) {
+    lines.push(
+      "--header 'Content-Type: application/json'",
+      '--data "$REQUEST_JSON"'
+    )
+  }
+  return `\`\`\`sh\n${lines.join(" \\\n  ")}\n\`\`\``
 }
 
 function routeEntry(operation) {
@@ -243,25 +340,25 @@ ${operation.purpose}
 
 Path parameters:
 
-${schemaBlock(operation.request.path)}
+${schemaBlock(operation.request.path, "input")}
 
 Query parameters:
 
-${schemaBlock(operation.request.query)}
+${schemaBlock(operation.request.query, "input")}
 
 Header parameters:
 
-${schemaBlock(operation.request.headers)}
+${schemaBlock(operation.request.headers, "input")}
 
 Body:
 
-${schemaBlock(operation.request.body)}
+${schemaBlock(operation.request.body, "input")}
 
 ### Response
 
 Status: \`${operation.response.status}\`
 
-${schemaBlock(operation.response.body)}
+${schemaBlock(operation.response.body, "output")}
 
 ### Stable errors
 
@@ -288,13 +385,42 @@ Generated from \`@linea/protocol\`. Do not edit this file directly.
 ${entries}`
 }
 
+function hasMethodDeclaration(source, filename, methodName) {
+  const sourceFile = ts.createSourceFile(
+    filename,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS
+  )
+  let found = false
+  function visit(node) {
+    if (
+      ts.isMethodDeclaration(node) &&
+      (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name)) &&
+      node.name.text === methodName
+    ) {
+      found = true
+      return
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sourceFile)
+  return found
+}
+
 function assertAdapter(operation) {
   const source = readFileSync(
     resolve(repository, operation.adapter.source),
     "utf8"
   )
-  const handler = new RegExp(String.raw`\b${operation.adapter.handler}\s*\(`)
-  if (!handler.test(source)) {
+  if (
+    !hasMethodDeclaration(
+      source,
+      operation.adapter.source,
+      operation.adapter.handler
+    )
+  ) {
     throw new Error(
       `${operation.operationId} lacks its registered platform-api adapter`
     )
@@ -327,8 +453,13 @@ function assertSdk(operation) {
     resolve(repository, sdkSources[operation.sdk.client]),
     "utf8"
   )
-  const method = new RegExp(String.raw`\b${operation.sdk.method}\s*\(`)
-  if (!method.test(source)) {
+  if (
+    !hasMethodDeclaration(
+      source,
+      sdkSources[operation.sdk.client],
+      operation.sdk.method
+    )
+  ) {
     throw new Error(`${operation.operationId} lacks its registered SDK method`)
   }
 }
@@ -345,6 +476,7 @@ function assertCoverage(openapi, routes) {
     assertDocumentation(operation, documented, routes)
     assertSdk(operation)
   }
+  assertReferences(openapiDocument)
   for (const forbidden of [
     "workspaceId",
     "sessionId",
@@ -358,6 +490,29 @@ function assertCoverage(openapi, routes) {
       )
     }
   }
+}
+
+function assertReferences(document) {
+  function resolveReference(reference) {
+    return reference
+      .slice(2)
+      .split("/")
+      .map((part) => part.replaceAll("~1", "/").replaceAll("~0", "~"))
+      .reduce((value, part) => value?.[part], document)
+  }
+  function visit(value) {
+    if (Array.isArray(value)) return value.forEach(visit)
+    if (!value || typeof value !== "object") return
+    if (
+      typeof value.$ref === "string" &&
+      value.$ref.startsWith("#/") &&
+      !resolveReference(value.$ref)
+    ) {
+      throw new Error(`Generated OpenAPI has a dangling $ref: ${value.$ref}`)
+    }
+    Object.values(value).forEach(visit)
+  }
+  visit(document)
 }
 
 function checkFile(path, expected) {
