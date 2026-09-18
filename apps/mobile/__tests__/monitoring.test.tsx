@@ -1,8 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native"
-import { AppState, type AppStateStatus, Text } from "react-native"
+import { AppState, type AppStateStatus, Platform, Text } from "react-native"
 import type { MonitoringApi } from "../src/api/monitoring-api"
-import { MonitoringApiProvider } from "../src/api/monitoring-api"
+import {
+  createMonitoringApi,
+  MonitoringApiProvider,
+} from "../src/api/monitoring-api"
 import type {
   ExecutionDetail,
   ExecutionPage,
@@ -31,7 +34,7 @@ jest.mock("expo-router", () => ({
   useFocusEffect: (callback: FocusEffect) => {
     mockUseFocusEffect(callback)
   },
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
 }))
 
 jest.mock("lucide-react-native", () => {
@@ -146,6 +149,58 @@ function withMonitoring(screen: React.ReactNode, api = createApi()) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+})
+
+it("uses the native session cookie and follows every execution page", async () => {
+  const firstPage: ExecutionPage = {
+    executions: [executionPage.executions[0]],
+    hasMore: true,
+    total: 2,
+  }
+  const secondPage: ExecutionPage = {
+    executions: [executionPage.executions[1]],
+    hasMore: false,
+    total: 2,
+  }
+  const fetchRequest = jest
+    .spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify(firstPage), { status: 200 })
+    )
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify(secondPage), { status: 200 })
+    )
+  const api = createMonitoringApi({
+    baseUrl: "https://api.example.com",
+    getCookie: () => "session=mobile",
+  })
+  const result = await api.listExecutions()
+  expect(result.executions).toHaveLength(2)
+  expect(fetchRequest).toHaveBeenNthCalledWith(
+    1,
+    "https://api.example.com/v1/executions",
+    { credentials: "omit", headers: { cookie: "session=mobile" } }
+  )
+  expect(fetchRequest.mock.calls[1]?.[0]).toContain("cursor=")
+  fetchRequest.mockRestore()
+})
+
+it("uses browser credentials without trying to set a Cookie header", async () => {
+  const platform = jest.replaceProperty(Platform, "OS", "web")
+  const fetchRequest = jest
+    .spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+  const api = createMonitoringApi({
+    baseUrl: "https://api.example.com",
+    getCookie: () => "session=mobile",
+  })
+  await api.listSignals()
+  expect(fetchRequest).toHaveBeenCalledWith(
+    "https://api.example.com/v1/signals",
+    { credentials: "include", headers: undefined }
+  )
+  fetchRequest.mockRestore()
+  platform.restore()
 })
 
 it("filters the execution response by monitored status and workflow", async () => {

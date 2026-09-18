@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useRouter } from "expo-router"
 import {
   ActivityIndicator,
   FlatList,
@@ -15,6 +16,7 @@ import { CreateWorkspaceForm } from "./create-workspace-form"
 
 export function WorkspacesScreen() {
   const auth = useMobileAuth()
+  const router = useRouter()
   const clearWorkspaceCache = useClearWorkspaceCache()
   const { data: session } = auth.useSession()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
@@ -81,6 +83,7 @@ export function WorkspacesScreen() {
         return
       }
       setActiveId(creation.data.id)
+      router.replace("/monitor")
     } catch (creationError) {
       setPendingId(undefined)
       setError(authErrorMessage(creationError, "Could not create workspace"))
@@ -99,6 +102,7 @@ export function WorkspacesScreen() {
         return
       }
       setActiveId(workspace.id)
+      router.replace("/monitor")
     } catch (switchError) {
       setPendingId(undefined)
       setError(authErrorMessage(switchError, "Could not switch workspace"))
