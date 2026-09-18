@@ -9,6 +9,7 @@ import { QueueModule } from "./queue/queue.module"
 import { ReplayModule } from "./replay/replay.module"
 import { SchedulesModule } from "./schedules/schedules.module"
 import { WaitsModule } from "./waits/waits.module"
+import { WebhooksModule } from "./webhooks/webhooks.module"
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { WaitsModule } from "./waits/waits.module"
     WaitsModule,
     BehaviourModule,
     EndUserAuthorizationModule,
+    WebhooksModule,
   ],
 })
 export class AppModule {}

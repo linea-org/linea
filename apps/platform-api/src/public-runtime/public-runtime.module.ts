@@ -7,6 +7,8 @@ import { ApplicationExecutionsController } from './application-executions.contro
 import { EndUserRuntimeController } from './end-user-runtime.controller'
 import { EndUserEventStreamService } from './end-user-event-stream.service'
 import { PublicRuntimeService } from './public-runtime.service'
+import { WebhookDeliveriesController } from './webhook-deliveries.controller'
+import { WebhookDeliveriesService } from './webhook-deliveries.service'
 
 @Module({
   imports: [EndUserSessionsModule],
@@ -14,12 +16,14 @@ import { PublicRuntimeService } from './public-runtime.service'
     ApplicationConversationsController,
     ApplicationExecutionsController,
     EndUserRuntimeController,
+    WebhookDeliveriesController,
   ],
   providers: [
     PublicRuntimeService,
     EndUserEventStreamService,
     ApplicationKeyGuard,
     ApplicationScopeGuard,
+    WebhookDeliveriesService,
   ],
 })
 export class PublicRuntimeModule {}

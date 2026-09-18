@@ -54,6 +54,7 @@ describe("operation registry", () => {
       "getEndUserApprovalRequest",
       "decideEndUserApprovalRequest",
       "streamEndUserEvents",
+      "listWebhookDeliveries",
     ])
   })
 
