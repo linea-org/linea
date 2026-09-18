@@ -16,6 +16,7 @@ import { HealthController } from './health/health.controller'
 import { MeController } from './me/me.controller'
 import { NotificationsModule } from './notifications/notifications.module'
 import { PublicRuntimeModule } from './public-runtime/public-runtime.module'
+import { PushDevicesModule } from './push-devices/push-devices.module'
 import { QueueModule } from './queue/queue.module'
 import { SecretsModule } from './secrets/secrets.module'
 import { SignalsModule } from './signals/signals.module'
@@ -34,6 +35,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     EndUserAuthorizationModule,
     EndUserSessionsModule,
     PublicRuntimeModule,
+    PushDevicesModule,
     WorkflowsModule,
     ExecutionsModule,
     TriggersModule,

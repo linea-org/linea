@@ -205,6 +205,7 @@ export class ApprovalNode implements NodeHandler {
             workspaceId: request.workspaceId,
             workflowId: workflow?.id,
             executionId: request.executionId,
+            approvalId: request.id,
           },
         }
       )

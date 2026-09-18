@@ -14,6 +14,8 @@ import {
 } from "../src/api/monitoring-api"
 import { MonitoringQueryProvider } from "../src/query/monitoring-query"
 import { colors } from "../src/theme/colors"
+import { NotificationNavigation } from "../src/notifications/notification-navigation"
+import { PushRegistration } from "../src/notifications/push-registration"
 
 export default function RootLayout() {
   const baseUrl = process.env.EXPO_PUBLIC_API_URL
@@ -52,6 +54,8 @@ function RootNavigator() {
   }
   return (
     <SafeAreaProvider>
+      <NotificationNavigation />
+      <PushRegistration />
       <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={!session}>
@@ -63,6 +67,7 @@ function RootNavigator() {
           <Stack.Screen name="workspaces" />
           <Stack.Screen name="executions/[executionId]" />
           <Stack.Screen name="approvals/[approvalId]" />
+          <Stack.Screen name="signals/[signalId]" />
         </Stack.Protected>
       </Stack>
     </SafeAreaProvider>

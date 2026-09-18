@@ -132,6 +132,7 @@ function createApi(overrides: Partial<MonitoringApi> = {}): MonitoringApi {
     listExecutions: jest.fn().mockResolvedValue(executionPage),
     getExecution: jest.fn().mockResolvedValue(executionDetail),
     listSignals: jest.fn().mockResolvedValue([]),
+    getSignal: jest.fn(),
     ...overrides,
   }
 }
