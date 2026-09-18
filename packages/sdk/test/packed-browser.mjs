@@ -1,6 +1,5 @@
 import { execFileSync } from "node:child_process"
 import {
-  existsSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -8,7 +7,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { tmpdir } from "node:os"
-import { dirname, join, resolve } from "node:path"
+import { join, resolve } from "node:path"
 
 const repository = resolve(import.meta.dirname, "../../..")
 const temporary = mkdtempSync(join(tmpdir(), "linea-sdk-browser-"))
@@ -17,12 +16,6 @@ if (!pnpmCli) throw new Error("pnpm executable path is unavailable")
 const pnpmCommand = pnpmCli.endsWith(".exe") ? pnpmCli : process.execPath
 const pnpmArguments = (arguments_) =>
   pnpmCli.endsWith(".exe") ? arguments_ : [pnpmCli, ...arguments_]
-const npmCli = [
-  resolve(dirname(process.execPath), "node_modules/npm/bin/npm-cli.js"),
-  resolve(dirname(process.execPath), "../lib/node_modules/npm/bin/npm-cli.js"),
-].find(existsSync)
-if (!npmCli) throw new Error("npm executable path is unavailable")
-
 try {
   execFileSync(
     pnpmCommand,
@@ -64,6 +57,11 @@ try {
         "@linea/protocol": `file:${join(temporary, protocolArchive)}`,
         "@linea/sdk": `file:${join(temporary, sdkArchive)}`,
       },
+      pnpm: {
+        overrides: {
+          "@linea/protocol": `file:${join(temporary, protocolArchive)}`,
+        },
+      },
     })
   )
   writeFileSync(
@@ -71,8 +69,8 @@ try {
     'import { LineaUserClient } from "@linea/sdk/user"; export { LineaUserClient }'
   )
   execFileSync(
-    process.execPath,
-    [npmCli, "install", "--ignore-scripts", "--package-lock=false"],
+    pnpmCommand,
+    pnpmArguments(["install", "--ignore-scripts", "--no-lockfile"]),
     { cwd: temporary, stdio: "inherit" }
   )
   const esbuild = resolve(

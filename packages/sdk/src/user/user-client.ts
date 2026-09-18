@@ -122,6 +122,7 @@ export class LineaUserClient {
   private readonly store: UserStateStore
   private readonly proofKeys: LineaUserProofKeyStore
   private statePromise: Promise<StoredUserState> | undefined
+  private stateMutation = Promise.resolve()
 
   constructor(options: LineaUserClientOptions) {
     this.applicationId = options.applicationId
@@ -165,14 +166,16 @@ export class LineaUserClient {
         "Authorization URL has no state"
       )
     }
-    const stored = await this.state()
-    await this.save({
-      ...stored,
-      authorization: {
-        state,
-        redirectUri: input.redirectUri,
-        codeVerifier: pkce.verifier,
-      },
+    await this.mutateState(async () => {
+      const stored = await this.state()
+      await this.saveState({
+        ...stored,
+        authorization: {
+          state,
+          redirectUri: input.redirectUri,
+          codeVerifier: pkce.verifier,
+        },
+      })
     })
     return response
   }
@@ -258,13 +261,14 @@ export class LineaUserClient {
     const session = state.session
     if (!session) return undefined
     if (Date.parse(session.expiresAt) <= Date.now()) {
-      await this.clearSession(state)
+      await this.clearSession(session.proofKeyId)
       return undefined
     }
     return this.publicSession(session)
   }
 
   async revoke(): Promise<void> {
+    const session = await this.requireSession()
     try {
       const response = await this.requestWithSession({
         method: revokeEndUserSessionOperation.method,
@@ -278,8 +282,7 @@ export class LineaUserClient {
       })
       if (!response.ok) throw await parseErrorResponse(response, response.url)
     } finally {
-      await this.clearSession(await this.state())
-      await this.save({ authorization: undefined, session: undefined })
+      await this.clearSession(session.proofKeyId)
     }
   }
 
@@ -567,7 +570,7 @@ export class LineaUserClient {
         response.status === 401 &&
         !nonceRetried
       if (challengedNonce && challengedNonce !== session.dpopNonce) {
-        await this.updateNonce(challengedNonce)
+        await this.updateNonce(challengedNonce, session.proofKeyId)
       }
       if (shouldRetryNonce) {
         nonceRetried = true
@@ -575,7 +578,7 @@ export class LineaUserClient {
       }
       if (!response.ok) {
         const error = await parseErrorResponse(response, request.path)
-        await this.clearTerminalSession(error.code)
+        await this.clearTerminalSession(error.code, session.proofKeyId)
         throw error
       }
       return response
@@ -660,30 +663,38 @@ export class LineaUserClient {
     const state = await this.state()
     if (!state.session) throw new LineaUserSessionError("session_unavailable")
     if (Date.parse(state.session.expiresAt) <= Date.now()) {
-      await this.clearSession(state)
+      await this.clearSession(state.session.proofKeyId)
       throw new LineaUserSessionError("session_expired")
     }
     return state.session
   }
 
-  private async clearTerminalSession(code: PublicErrorCode): Promise<void> {
+  private async clearTerminalSession(
+    code: PublicErrorCode,
+    proofKeyId: string
+  ): Promise<void> {
     if (!isTerminalSessionCode(code)) return
-    const state = await this.state()
-    await this.clearSession(state)
+    await this.clearSession(proofKeyId)
   }
 
-  private async updateNonce(dpopNonce: string): Promise<void> {
-    const state = await this.state()
-    if (!state.session) return
-    await this.save({
-      ...state,
-      session: { ...state.session, dpopNonce },
+  private updateNonce(dpopNonce: string, proofKeyId: string): Promise<void> {
+    return this.mutateState(async () => {
+      const state = await this.state()
+      if (state.session?.proofKeyId !== proofKeyId) return
+      await this.saveState({
+        ...state,
+        session: { ...state.session, dpopNonce },
+      })
     })
   }
 
-  private async clearSession(state: StoredUserState): Promise<void> {
-    if (state.session) await this.proofKeys.remove(state.session.proofKeyId)
-    await this.save({ ...state, session: undefined })
+  private clearSession(proofKeyId: string): Promise<void> {
+    return this.mutateState(async () => {
+      const state = await this.state()
+      if (state.session?.proofKeyId !== proofKeyId) return
+      await this.saveState({ ...state, session: undefined })
+      await this.proofKeys.remove(proofKeyId)
+    })
   }
 
   private publicSession(session: StoredUserSession): LineaUserSession {
@@ -700,8 +711,22 @@ export class LineaUserClient {
   }
 
   private async save(state: StoredUserState): Promise<void> {
+    await this.mutateState(() => this.saveState(state))
+  }
+
+  private async saveState(state: StoredUserState): Promise<void> {
     await this.store.save(state)
     this.statePromise = Promise.resolve(state)
+  }
+
+  private mutateState(mutation: () => Promise<void>): Promise<void> {
+    const result = this.stateMutation.then(mutation)
+    // Keep the queue usable while the caller still receives the original failure.
+    this.stateMutation = result.then(
+      () => undefined,
+      () => undefined
+    )
+    return result
   }
 
   private path(template: string, name: string, value: string): string {

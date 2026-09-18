@@ -31,7 +31,8 @@ function apiError(
   code:
     | "proof_invalid"
     | "event_cursor_expired"
-    | "approval_request_already_decided",
+    | "approval_request_already_decided"
+    | "session_revoked",
   status: number,
   headers: Record<string, string> = {}
 ): Response {
@@ -79,7 +80,11 @@ async function authenticatedClient(
     path: string,
     init: RequestInit,
     url: URL
-  ) => Response | Promise<Response>
+  ) => Response | Promise<Response>,
+  platform?: {
+    storage: LineaUserStorage
+    proofKeys: LineaUserProofKeyStore
+  }
 ): Promise<{ client: LineaUserClient; fetch: ReturnType<typeof vi.fn> }> {
   const fetch = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
@@ -94,6 +99,8 @@ async function authenticatedClient(
     applicationId,
     baseUrl: "https://api.example",
     fetch,
+    storage: platform?.storage,
+    proofKeys: platform?.proofKeys,
   })
   await client.startAuthorization({
     redirectUri: "https://app.example/callback",
@@ -151,6 +158,23 @@ function approvalRequest(): ApprovalRequest {
     expiresAt: null,
     cancelledAt: null,
     decision: null,
+  }
+}
+
+function deferred<T>(): {
+  promise: Promise<T>
+  resolve(value: T): void
+} {
+  let resolvePromise: ((value: T) => void) | undefined
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve
+  })
+  return {
+    promise,
+    resolve(value) {
+      if (!resolvePromise) throw new Error("Deferred promise is unavailable")
+      resolvePromise(value)
+    },
   }
 }
 
@@ -323,6 +347,52 @@ describe("browser end-user client", () => {
     await expect(client.listConversations()).rejects.toMatchObject({
       code: "session_unavailable",
     })
+  })
+
+  it("does not restore a cleared session from a concurrent nonce update", async () => {
+    const platform = await reactNativePlatform()
+    const writeStarted = deferred<void>()
+    const continueWrite = deferred<void>()
+    let pauseNextWrite = false
+    const storage: LineaUserStorage = {
+      getItem: (key) => platform.storage.getItem(key),
+      removeItem: (key) => platform.storage.removeItem(key),
+      async setItem(key, value) {
+        if (pauseNextWrite) {
+          pauseNextWrite = false
+          writeStarted.resolve()
+          await continueWrite.promise
+        }
+        await platform.storage.setItem(key, value)
+      },
+    }
+    const successfulResponse = deferred<Response>()
+    const terminalResponse = deferred<Response>()
+    let request = 0
+    const { client } = await authenticatedClient(
+      () =>
+        request++ === 0 ? successfulResponse.promise : terminalResponse.promise,
+      { storage, proofKeys: platform.proofKeys }
+    )
+    pauseNextWrite = true
+    const successfulRequest = client.listConversations()
+    const terminalRequest = client.listConversations()
+    successfulResponse.resolve(
+      jsonResponse({ data: [], nextCursor: null }, 200, {
+        "DPoP-Nonce": "q".repeat(32),
+      })
+    )
+    await writeStarted.promise
+    terminalResponse.resolve(apiError("session_revoked", 401))
+    continueWrite.resolve()
+    await expect(successfulRequest).resolves.toEqual({
+      data: [],
+      nextCursor: null,
+    })
+    await expect(terminalRequest).rejects.toMatchObject({
+      code: "session_revoked",
+    })
+    await expect(client.session()).resolves.toBeUndefined()
   })
 
   it("rejects malformed errors without exposing untrusted response fields", async () => {
