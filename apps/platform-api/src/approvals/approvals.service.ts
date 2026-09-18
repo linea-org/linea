@@ -57,15 +57,35 @@ export class ApprovalsService {
     return this.project(result.request, result.decision)
   }
 
+  async get(userId: string, workspaceId: string, approvalId: string) {
+    const user = await repositories.user.getUserById(db, userId)
+    if (!user) {
+      throw new UnauthorizedException('A signed-in session is required')
+    }
+    const result =
+      await repositories.approvalRequest.getWorkspaceApprovalRequest(
+        db,
+        workspaceId,
+        approvalId,
+        user.email,
+      )
+    if (!result) {
+      throw new NotFoundException('Approval not found')
+    }
+    return this.project(result.request, result.decision ?? undefined)
+  }
+
   private project(request: ApprovalRequest, decision?: ApprovalDecision) {
     return {
       id: request.id,
       executionId: request.executionId,
       nodeId: request.nodeId,
+      audience: request.audience,
       status:
         request.status === 'pending'
           ? 'pending'
           : (decision?.outcome ?? request.status),
+      display: request.display,
       message: request.display.description ?? request.display.title,
       approverEmails: request.approverEmails,
       timeoutAt: request.expiresAt,

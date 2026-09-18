@@ -6,6 +6,7 @@ import {
   getMobileSessionCookie,
   mobileAuthClient,
 } from "../src/auth/better-auth-client"
+import { ApprovalApiProvider, createApprovalApi } from "../src/api/approval-api"
 import { MobileAuthProvider, useMobileAuth } from "../src/auth/mobile-auth"
 import {
   createMonitoringApi,
@@ -20,14 +21,21 @@ export default function RootLayout() {
   return (
     <MobileAuthProvider client={mobileAuthClient}>
       <MonitoringQueryProvider>
-        <MonitoringApiProvider
-          api={createMonitoringApi({
+        <ApprovalApiProvider
+          api={createApprovalApi({
             baseUrl: baseUrl.replace(/\/$/, ""),
             getCookie: getMobileSessionCookie,
           })}
         >
-          <RootNavigator />
-        </MonitoringApiProvider>
+          <MonitoringApiProvider
+            api={createMonitoringApi({
+              baseUrl: baseUrl.replace(/\/$/, ""),
+              getCookie: getMobileSessionCookie,
+            })}
+          >
+            <RootNavigator />
+          </MonitoringApiProvider>
+        </ApprovalApiProvider>
       </MonitoringQueryProvider>
     </MobileAuthProvider>
   )
@@ -54,6 +62,7 @@ function RootNavigator() {
           <Stack.Screen name="monitor" />
           <Stack.Screen name="workspaces" />
           <Stack.Screen name="executions/[executionId]" />
+          <Stack.Screen name="approvals/[approvalId]" />
         </Stack.Protected>
       </Stack>
     </SafeAreaProvider>

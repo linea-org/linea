@@ -166,6 +166,16 @@ describe('ApprovalsService', () => {
     ])
     try {
       await expect(
+        service.get(outsider.id, organization.id, approval.id),
+      ).rejects.toThrow('Approval not found')
+      await expect(
+        service.get(designated.id, organization.id, approval.id),
+      ).resolves.toMatchObject({
+        audience: 'workspace',
+        display: { title: 'Ship it?' },
+        status: 'pending',
+      })
+      await expect(
         service.respond(outsider.id, organization.id, approval.id, {
           approved: true,
         }),
@@ -179,6 +189,12 @@ describe('ApprovalsService', () => {
         { approved: true },
       )
       expect(resolved.status).toBe('approved')
+      await expect(
+        service.get(designated.id, organization.id, approval.id),
+      ).resolves.toMatchObject({
+        display: { title: 'Ship it?' },
+        status: 'approved',
+      })
 
       const reloaded = await repositories.execution.getExecutionById(
         db,
