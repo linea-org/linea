@@ -458,10 +458,13 @@ describe("browser end-user client", () => {
       })
     })
     const stream = client.streamEvents({ reconnectDelayMs: 0 })
+    expect((await stream.next()).value).toEqual({ kind: "connected" })
     expect((await stream.next()).value).toMatchObject({
       kind: "event",
       event: { id: "event_1" },
     })
+    expect((await stream.next()).value).toEqual({ kind: "reconnecting" })
+    expect((await stream.next()).value).toEqual({ kind: "connected" })
     expect((await stream.next()).value).toMatchObject({
       kind: "event",
       event: { id: "event_2" },
@@ -497,10 +500,13 @@ describe("browser end-user client", () => {
     })
     const stream = client.streamEvents({ conversationId, reconnectDelayMs: 0 })
     await stream.next()
+    await stream.next()
+    await stream.next()
     expect((await stream.next()).value).toEqual({
       kind: "reconciled",
       approvalRequests: [approvalRequest()],
     })
+    expect((await stream.next()).value).toEqual({ kind: "connected" })
     expect((await stream.next()).value).toMatchObject({
       kind: "event",
       event: { id: "event_2" },
