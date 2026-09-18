@@ -39,14 +39,14 @@ import {
   LineaUserProtocolError,
   LineaUserSessionError,
 } from "./errors.js"
+import { createDpopProof, createPkce, randomId } from "./proof.js"
 import {
-  createDpopProof,
-  createPkce,
-  createProofKey,
-  randomId,
-} from "./proof.js"
+  createProofKeyStore,
+  type LineaUserProofKeyStore,
+} from "./proof-key-store.js"
 import {
   createUserStateStore,
+  type LineaUserStorage,
   type StoredUserSession,
   type StoredUserState,
   type UserStateStore,
@@ -95,6 +95,8 @@ export type LineaUserClientOptions = {
   baseUrl?: string
   fetch?: typeof fetch
   crypto?: Crypto
+  storage?: LineaUserStorage
+  proofKeys?: LineaUserProofKeyStore
 }
 
 export type StartAuthorizationInput = { redirectUri: string }
@@ -118,6 +120,7 @@ export class LineaUserClient {
   private readonly fetchImplementation: typeof fetch
   private readonly cryptoImplementation: Crypto
   private readonly store: UserStateStore
+  private readonly proofKeys: LineaUserProofKeyStore
   private statePromise: Promise<StoredUserState> | undefined
 
   constructor(options: LineaUserClientOptions) {
@@ -131,7 +134,13 @@ export class LineaUserClient {
     if (!this.cryptoImplementation?.subtle) {
       throw new Error("LineaUserClient requires Web Crypto API support")
     }
-    this.store = createUserStateStore(`${this.baseUrl}|${this.applicationId}`)
+    const namespace = `${this.baseUrl}|${this.applicationId}`
+    this.store = createUserStateStore(namespace, options.storage)
+    this.proofKeys = createProofKeyStore(
+      this.cryptoImplementation,
+      namespace,
+      options.proofKeys
+    )
   }
 
   async startAuthorization(
@@ -193,46 +202,55 @@ export class LineaUserClient {
       exchangeBody,
       exchangeEndUserAuthorizationOperation.response.body
     )
-    const proofKey = await createProofKey(this.cryptoImplementation)
-    const sessionUrl = this.url(createEndUserSessionOperation.path)
-    const proof = await createDpopProof({
-      crypto: this.cryptoImplementation,
-      privateKey: proofKey.privateKey,
-      publicJwk: proofKey.publicJwk,
-      method: createEndUserSessionOperation.method,
-      url: sessionUrl,
-      nonce: exchange.dpopNonce,
-      accessToken: undefined,
-      now: Date.now(),
-    })
-    const response = await fetchResponse(this.fetchImplementation, sessionUrl, {
-      method: createEndUserSessionOperation.method,
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        DPoP: proof,
-      },
-      body: JSON.stringify(
-        createEndUserSessionOperation.request.body.parse({
-          exchangeToken: exchange.exchangeToken,
-        })
-      ),
-    })
-    const credential = await parseJsonResponse(
-      response,
-      createEndUserSessionOperation.path,
-      createEndUserSessionOperation.response.body
-    )
-    const session: StoredUserSession = {
-      accessToken: credential.accessToken,
-      dpopNonce: response.headers.get("dpop-nonce") ?? credential.dpopNonce,
-      expiresAt: credential.expiresAt,
-      externalSubjectId: exchange.externalSubjectId,
-      privateKey: proofKey.privateKey,
-      publicJwk: proofKey.publicJwk,
+    const proofKey = await this.proofKeys.create()
+    try {
+      const sessionUrl = this.url(createEndUserSessionOperation.path)
+      const proof = await createDpopProof({
+        crypto: this.cryptoImplementation,
+        sign: (data) => this.proofKeys.sign(proofKey.id, data),
+        publicJwk: proofKey.publicJwk,
+        method: createEndUserSessionOperation.method,
+        url: sessionUrl,
+        nonce: exchange.dpopNonce,
+        accessToken: undefined,
+        now: Date.now(),
+      })
+      const response = await fetchResponse(
+        this.fetchImplementation,
+        sessionUrl,
+        {
+          method: createEndUserSessionOperation.method,
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            DPoP: proof,
+          },
+          body: JSON.stringify(
+            createEndUserSessionOperation.request.body.parse({
+              exchangeToken: exchange.exchangeToken,
+            })
+          ),
+        }
+      )
+      const credential = await parseJsonResponse(
+        response,
+        createEndUserSessionOperation.path,
+        createEndUserSessionOperation.response.body
+      )
+      const session: StoredUserSession = {
+        accessToken: credential.accessToken,
+        dpopNonce: response.headers.get("dpop-nonce") ?? credential.dpopNonce,
+        expiresAt: credential.expiresAt,
+        externalSubjectId: exchange.externalSubjectId,
+        proofKeyId: proofKey.id,
+        publicJwk: proofKey.publicJwk,
+      }
+      await this.save({ authorization: undefined, session })
+      return this.publicSession(session)
+    } catch (error) {
+      await this.proofKeys.remove(proofKey.id)
+      throw error
     }
-    await this.save({ authorization: undefined, session })
-    return this.publicSession(session)
   }
 
   async session(): Promise<LineaUserSession | undefined> {
@@ -240,7 +258,7 @@ export class LineaUserClient {
     const session = state.session
     if (!session) return undefined
     if (Date.parse(session.expiresAt) <= Date.now()) {
-      await this.save({ ...state, session: undefined })
+      await this.clearSession(state)
       return undefined
     }
     return this.publicSession(session)
@@ -260,6 +278,7 @@ export class LineaUserClient {
       })
       if (!response.ok) throw await parseErrorResponse(response, response.url)
     } finally {
+      await this.clearSession(await this.state())
       await this.save({ authorization: undefined, session: undefined })
     }
   }
@@ -424,7 +443,9 @@ export class LineaUserClient {
       if (connection.outcome === "reconcile") {
         yield {
           kind: "reconciled",
-          approvalRequests: await this.listAllApprovalRequests(),
+          approvalRequests: await this.listAllApprovalRequests(
+            options.conversationId
+          ),
         }
         cursor = undefined
         continue
@@ -568,7 +589,7 @@ export class LineaUserClient {
     const url = this.url(request.path, request.query)
     const proof = await createDpopProof({
       crypto: this.cryptoImplementation,
-      privateKey: session.privateKey,
+      sign: (data) => this.proofKeys.sign(session.proofKeyId, data),
       publicJwk: session.publicJwk,
       method: request.method,
       url,
@@ -618,11 +639,17 @@ export class LineaUserClient {
     )
   }
 
-  private async listAllApprovalRequests(): Promise<ApprovalRequest[]> {
+  private async listAllApprovalRequests(
+    conversationId: string | undefined
+  ): Promise<ApprovalRequest[]> {
     const approvalRequests: ApprovalRequest[] = []
     let cursor: string | undefined
     do {
-      const page = await this.listApprovalRequests({ cursor, limit: 100 })
+      const page = await this.listApprovalRequests({
+        conversationId,
+        cursor,
+        limit: 100,
+      })
       approvalRequests.push(...page.data)
       cursor = page.nextCursor ?? undefined
     } while (cursor)
@@ -633,7 +660,7 @@ export class LineaUserClient {
     const state = await this.state()
     if (!state.session) throw new LineaUserSessionError("session_unavailable")
     if (Date.parse(state.session.expiresAt) <= Date.now()) {
-      await this.save({ ...state, session: undefined })
+      await this.clearSession(state)
       throw new LineaUserSessionError("session_expired")
     }
     return state.session
@@ -642,7 +669,7 @@ export class LineaUserClient {
   private async clearTerminalSession(code: PublicErrorCode): Promise<void> {
     if (!isTerminalSessionCode(code)) return
     const state = await this.state()
-    await this.save({ ...state, session: undefined })
+    await this.clearSession(state)
   }
 
   private async updateNonce(dpopNonce: string): Promise<void> {
@@ -652,6 +679,11 @@ export class LineaUserClient {
       ...state,
       session: { ...state.session, dpopNonce },
     })
+  }
+
+  private async clearSession(state: StoredUserState): Promise<void> {
+    if (state.session) await this.proofKeys.remove(state.session.proofKeyId)
+    await this.save({ ...state, session: undefined })
   }
 
   private publicSession(session: StoredUserSession): LineaUserSession {

@@ -15,6 +15,11 @@ export {
   LineaUserSessionError,
 } from "./errors.js"
 export type {
+  LineaUserProofKey,
+  LineaUserProofKeyStore,
+} from "./proof-key-store.js"
+export type { LineaUserStorage } from "./state-store.js"
+export type {
   ApprovalDecision,
   ApprovalRequest,
   ConversationProjection,

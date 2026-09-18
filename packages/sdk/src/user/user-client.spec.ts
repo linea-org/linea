@@ -1,6 +1,11 @@
 import type { ApprovalRequest } from "@linea/protocol/resources"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { LineaUserClient, LineaUserProtocolError } from "./index.js"
+import {
+  LineaUserClient,
+  LineaUserProtocolError,
+  type LineaUserProofKeyStore,
+  type LineaUserStorage,
+} from "./index.js"
 
 const applicationId = "app_test"
 const conversationId = "10000000-0000-4000-8000-000000000001"
@@ -70,14 +75,19 @@ function authorizationResponse(path: string): Response | undefined {
 }
 
 async function authenticatedClient(
-  runtime: (path: string, init: RequestInit) => Response | Promise<Response>
+  runtime: (
+    path: string,
+    init: RequestInit,
+    url: URL
+  ) => Response | Promise<Response>
 ): Promise<{ client: LineaUserClient; fetch: ReturnType<typeof vi.fn> }> {
   const fetch = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
-      const path = new URL(requestUrl(input)).pathname
+      const url = new URL(requestUrl(input))
+      const path = url.pathname
       const authorization = authorizationResponse(path)
       if (authorization) return authorization
-      return runtime(path, init ?? {})
+      return runtime(path, init ?? {}, url)
     }
   )
   const client = new LineaUserClient({
@@ -141,6 +151,58 @@ function approvalRequest(): ApprovalRequest {
     expiresAt: null,
     cancelledAt: null,
     decision: null,
+  }
+}
+
+async function reactNativePlatform(): Promise<{
+  storage: LineaUserStorage
+  proofKeys: LineaUserProofKeyStore
+}> {
+  const values = new Map<string, string>()
+  const keys = new Map<string, CryptoKey>()
+  let keySequence = 0
+  return {
+    storage: {
+      async getItem(key) {
+        return values.get(key) ?? null
+      },
+      async setItem(key, value) {
+        values.set(key, value)
+      },
+      async removeItem(key) {
+        values.delete(key)
+      },
+    },
+    proofKeys: {
+      async create() {
+        const pair = await globalThis.crypto.subtle.generateKey(
+          { name: "ECDSA", namedCurve: "P-256" },
+          false,
+          ["sign", "verify"]
+        )
+        const id = `native-key-${keySequence++}`
+        keys.set(id, pair.privateKey)
+        return {
+          id,
+          publicJwk: await globalThis.crypto.subtle.exportKey(
+            "jwk",
+            pair.publicKey
+          ),
+        }
+      },
+      async sign(id, data) {
+        const key = keys.get(id)
+        if (!key) throw new Error("Native proof key is unavailable")
+        return globalThis.crypto.subtle.sign(
+          { name: "ECDSA", hash: "SHA-256" },
+          key,
+          data
+        )
+      },
+      async remove(id) {
+        keys.delete(id)
+      },
+    },
   }
 }
 
@@ -304,9 +366,11 @@ describe("browser end-user client", () => {
 
   it("reconciles pending approvals before dropping an expired cursor", async () => {
     const eventHeaders: Record<string, string>[] = []
+    let approvalListUrl: URL | undefined
     let connection = 0
-    const { client } = await authenticatedClient((path, init) => {
+    const { client } = await authenticatedClient((path, init, url) => {
       if (path === "/v1/user/approval-requests") {
+        approvalListUrl = url
         return jsonResponse({ data: [approvalRequest()], nextCursor: null })
       }
       if (path !== "/v1/user/events") throw new Error(`Unexpected ${path}`)
@@ -322,7 +386,7 @@ describe("browser end-user client", () => {
         headers: { "content-type": "text/event-stream" },
       })
     })
-    const stream = client.streamEvents({ reconnectDelayMs: 0 })
+    const stream = client.streamEvents({ conversationId, reconnectDelayMs: 0 })
     await stream.next()
     expect((await stream.next()).value).toEqual({
       kind: "reconciled",
@@ -334,6 +398,9 @@ describe("browser end-user client", () => {
     })
     expect(eventHeaders[1]?.["Last-Event-ID"]).toBe("event_1")
     expect(eventHeaders[2]?.["Last-Event-ID"]).toBeUndefined()
+    expect(approvalListUrl?.searchParams.get("conversationId")).toBe(
+      conversationId
+    )
     await stream.return(undefined)
   })
 })
@@ -365,5 +432,37 @@ describe("React Native end-user client", () => {
       nextCursor: null,
     })
     expect(runtime).toHaveBeenCalledOnce()
+  })
+
+  it("retains authorization and proof-bound sessions across cold starts", async () => {
+    const platform = await reactNativePlatform()
+    const fetch = vi.fn(async (input: string | URL | Request) => {
+      const path = new URL(requestUrl(input)).pathname
+      return authorizationResponse(path) ?? conversationPage()
+    })
+    const options = {
+      applicationId,
+      baseUrl: "https://api.example",
+      fetch,
+      crypto: globalThis.crypto,
+      storage: platform.storage,
+      proofKeys: platform.proofKeys,
+    }
+    await new LineaUserClient(options).startAuthorization({
+      redirectUri: "linea-app://callback",
+    })
+    await new LineaUserClient(options).completeAuthorization({
+      code: "provider-authorization-code",
+      state,
+    })
+    const restored = new LineaUserClient(options)
+    await expect(restored.listConversations()).resolves.toEqual({
+      data: [],
+      nextCursor: null,
+    })
+    await expect(restored.session()).resolves.toMatchObject({
+      applicationId,
+      externalSubjectId,
+    })
   })
 })

@@ -1,5 +1,3 @@
-import { LineaUserProtocolError } from "./errors.js"
-
 function base64Url(bytes: Uint8Array): string {
   const alphabet =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
@@ -38,28 +36,9 @@ export async function createPkce(crypto: Crypto): Promise<{
   return { verifier, challenge: base64Url(new Uint8Array(digest)) }
 }
 
-export async function createProofKey(crypto: Crypto): Promise<{
-  privateKey: CryptoKey
-  publicJwk: JsonWebKey
-}> {
-  const keyPair = await crypto.subtle.generateKey(
-    { name: "ECDSA", namedCurve: "P-256" },
-    false,
-    ["sign", "verify"]
-  )
-  const publicJwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey)
-  if (!publicJwk.x || !publicJwk.y) {
-    throw new LineaUserProtocolError(
-      "DPoP proof key",
-      "Missing JWK coordinates"
-    )
-  }
-  return { privateKey: keyPair.privateKey, publicJwk }
-}
-
 export async function createDpopProof(input: {
   crypto: Crypto
-  privateKey: CryptoKey
+  sign(data: Uint8Array<ArrayBuffer>): Promise<ArrayBuffer>
   publicJwk: JsonWebKey
   method: string
   url: string
@@ -67,6 +46,12 @@ export async function createDpopProof(input: {
   accessToken: string | undefined
   now: number
 }): Promise<string> {
+  if (!input.publicJwk.x || !input.publicJwk.y || input.publicJwk.d) {
+    throw new LineaUserProtocolError(
+      "DPoP proof key",
+      "Missing or unsafe JWK coordinates"
+    )
+  }
   const target = new URL(input.url)
   target.search = ""
   target.hash = ""
@@ -100,10 +85,7 @@ export async function createDpopProof(input: {
   }
   const encodedPayload = base64Url(utf8(JSON.stringify(payload)))
   const signingInput = `${header}.${encodedPayload}`
-  const signature = await input.crypto.subtle.sign(
-    { name: "ECDSA", hash: "SHA-256" },
-    input.privateKey,
-    utf8(signingInput)
-  )
+  const signature = await input.sign(utf8(signingInput))
   return `${signingInput}.${base64Url(new Uint8Array(signature))}`
 }
+import { LineaUserProtocolError } from "./errors.js"
