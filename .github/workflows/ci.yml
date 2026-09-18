@@ -96,6 +96,12 @@ jobs:
       - name: Verify packed examples
         run: pnpm --filter @linea/sdk test:pack
 
+      - name: Build React SDK
+        run: pnpm --filter @linea/sdk-react build
+
+      - name: Verify packed React example
+        run: pnpm --filter @linea/sdk-react test:pack
+
   test:
     name: Test
     runs-on: ubuntu-latest

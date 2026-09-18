@@ -111,6 +111,8 @@ export type StreamEventsOptions = EventStreamQuery & {
   reconnectDelayMs?: number
 }
 export type UserEventUpdate =
+  | { kind: "connected" }
+  | { kind: "reconnecting" }
   | { kind: "event"; event: EventEnvelope }
   | { kind: "reconciled"; approvalRequests: ApprovalRequest[] }
 
@@ -454,16 +456,19 @@ export class LineaUserClient {
         continue
       }
       if (connection.outcome === "retry") {
+        yield { kind: "reconnecting" }
         await waitForReconnect(
           options.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS,
           options.signal
         )
         continue
       }
+      yield { kind: "connected" }
       for await (const event of this.readEventConnection(connection.response)) {
         cursor = event.id
         yield { kind: "event", event }
       }
+      yield { kind: "reconnecting" }
       await waitForReconnect(
         options.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS,
         options.signal
