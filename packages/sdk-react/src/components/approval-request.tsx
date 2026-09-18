@@ -135,7 +135,8 @@ export function ApprovalRequest({
           ))}
         </dl>
       ) : null}
-      {presentation.isActionable ? (
+      {presentation.isActionable &&
+      (onApprove !== undefined || onReject !== undefined) ? (
         <footer>
           <label>
             Comment
@@ -144,12 +145,16 @@ export function ApprovalRequest({
               onChange={(event) => setComment(event.currentTarget.value)}
             />
           </label>
-          <button type="button" onClick={() => void submit(onReject)}>
-            Reject
-          </button>
-          <button type="button" onClick={() => void submit(onApprove)}>
-            Approve
-          </button>
+          {onReject ? (
+            <button type="button" onClick={() => void submit(onReject)}>
+              Reject
+            </button>
+          ) : null}
+          {onApprove ? (
+            <button type="button" onClick={() => void submit(onApprove)}>
+              Approve
+            </button>
+          ) : null}
         </footer>
       ) : null}
       {errorMessage(presentation.error) ? (

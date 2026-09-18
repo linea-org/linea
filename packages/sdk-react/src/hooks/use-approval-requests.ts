@@ -40,6 +40,15 @@ export function useApprovalRequests(
   options: ApprovalRequestsOptions = {}
 ): ApprovalRequestsState {
   const client = useLineaUserClient()
+  const generation = useRef(0)
+  const scope = useRef({ client, conversationId: options.conversationId })
+  if (
+    scope.current.client !== client ||
+    scope.current.conversationId !== options.conversationId
+  ) {
+    scope.current = { client, conversationId: options.conversationId }
+    generation.current += 1
+  }
   const requestsRef = useRef<ApprovalRequest[]>([])
   const [requests, setRequests] = useState<ApprovalRequest[]>([])
   const [connection, setConnection] =
@@ -65,7 +74,10 @@ export function useApprovalRequests(
     return pending
   }, [client, options.conversationId])
   const reconcile = useCallback(
-    async (authoritativePending?: ApprovalRequest[]) => {
+    async (
+      currentGeneration: number,
+      authoritativePending?: ApprovalRequest[]
+    ) => {
       const pending = authoritativePending ?? (await loadPending())
       const pendingIds = new Set(pending.map((request) => request.id))
       const stalePending = requestsRef.current.filter(
@@ -77,16 +89,19 @@ export function useApprovalRequests(
       const historical = requestsRef.current.filter(
         (request) => request.status !== "pending"
       )
+      if (generation.current !== currentGeneration) return
       replaceRequests(mergeRequests(historical, [...pending, ...resolved]))
     },
     [client, loadPending, replaceRequests]
   )
   const refresh = useCallback(async () => {
+    const currentGeneration = ++generation.current
     setError(undefined)
     try {
-      await reconcile()
-      setConnection("ready")
+      await reconcile(currentGeneration)
+      if (generation.current === currentGeneration) setConnection("ready")
     } catch (cause) {
+      if (generation.current !== currentGeneration) return
       setError(cause)
       setConnection("error")
     }
@@ -94,6 +109,10 @@ export function useApprovalRequests(
   useEffect(() => {
     const controller = new AbortController()
     let active = true
+    generation.current += 1
+    replaceRequests([])
+    setConnection("loading")
+    setError(undefined)
     async function consume(): Promise<void> {
       await refresh()
       if (!active) return
@@ -117,13 +136,16 @@ export function useApprovalRequests(
             continue
           }
           if (update.kind === "reconciled") {
-            await reconcile(update.approvalRequests)
-            setConnection("ready")
+            const currentGeneration = ++generation.current
+            await reconcile(currentGeneration, update.approvalRequests)
+            if (generation.current === currentGeneration) setConnection("ready")
             continue
           }
           const approvalRequestId = update.event.data.approvalRequestId
           if (typeof approvalRequestId !== "string") continue
+          const currentGeneration = ++generation.current
           const request = await client.getApprovalRequest(approvalRequestId)
+          if (generation.current !== currentGeneration) continue
           replaceRequests(mergeRequests(requestsRef.current, [request]))
         }
       } catch (cause) {
@@ -135,6 +157,7 @@ export function useApprovalRequests(
     void consume()
     return () => {
       active = false
+      generation.current += 1
       controller.abort()
     }
   }, [client, options.conversationId, reconcile, refresh, replaceRequests])

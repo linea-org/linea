@@ -19,10 +19,12 @@ export type ConversationState = {
 export function useConversation(conversationId: string): ConversationState {
   const client = useLineaUserClient()
   const generation = useRef(0)
+  const scope = useRef({ client, conversationId })
+  scope.current = { client, conversationId }
   const [conversation, setConversation] = useState<ConversationProjection>()
   const [messages, setMessages] = useState<MessageProjection[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isSending, setIsSending] = useState(false)
+  const [pendingSends, setPendingSends] = useState(0)
   const [error, setError] = useState<unknown>()
   const refresh = useCallback(async () => {
     const currentGeneration = ++generation.current
@@ -50,6 +52,9 @@ export function useConversation(conversationId: string): ConversationState {
     }
   }, [client, conversationId])
   useEffect(() => {
+    setConversation(undefined)
+    setMessages([])
+    setPendingSends(0)
     void refresh()
     return () => {
       generation.current += 1
@@ -57,17 +62,32 @@ export function useConversation(conversationId: string): ConversationState {
   }, [refresh])
   const sendMessage = useCallback(
     async (input: CreateMessage) => {
-      setIsSending(true)
+      setPendingSends((count) => count + 1)
       setError(undefined)
       try {
         const message = await client.sendMessage(conversationId, input)
-        setMessages((current) => [...current, message])
+        if (
+          scope.current.client === client &&
+          scope.current.conversationId === conversationId
+        ) {
+          setMessages((current) => [...current, message])
+        }
         return message
       } catch (cause) {
-        setError(cause)
+        if (
+          scope.current.client === client &&
+          scope.current.conversationId === conversationId
+        ) {
+          setError(cause)
+        }
         throw cause
       } finally {
-        setIsSending(false)
+        if (
+          scope.current.client === client &&
+          scope.current.conversationId === conversationId
+        ) {
+          setPendingSends((count) => count - 1)
+        }
       }
     },
     [client, conversationId]
@@ -76,7 +96,7 @@ export function useConversation(conversationId: string): ConversationState {
     conversation,
     messages,
     isLoading,
-    isSending,
+    isSending: pendingSends > 0,
     error,
     refresh,
     sendMessage,

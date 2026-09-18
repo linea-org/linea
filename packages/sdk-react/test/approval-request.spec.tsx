@@ -55,5 +55,6 @@ describe("ApprovalRequest", () => {
     })
     fireEvent.click(screen.getByRole("button", { name: "Approve" }))
     expect(approve).toHaveBeenCalledWith("Reviewed")
+    expect(screen.queryByRole("button", { name: "Reject" })).toBeNull()
   })
 })
