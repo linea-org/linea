@@ -86,7 +86,10 @@ export function isPublicAddress(address: string): boolean {
   }
   if (family !== 6) return false
   const value = ipv6Number(address.toLowerCase())
-  if (inIpv6Range(value, "::ffff:0:0", 96)) {
+  if (
+    inIpv6Range(value, "::ffff:0:0", 96) ||
+    inIpv6Range(value, "64:ff9b::", 96)
+  ) {
     return isPublicIpv4(Number(value & 0xffffffffn))
   }
   return ![
