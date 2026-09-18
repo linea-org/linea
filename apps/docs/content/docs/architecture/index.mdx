@@ -1,0 +1,97 @@
+---
+title: Architecture overview
+description: The services, workers, packages, and data stores that make up Linea.
+icon: Blocks
+---
+
+Linea has two operational halves: a control plane that accepts and observes
+work, and an execution plane that performs it. They communicate through
+versioned contracts, durable records, and queues—not direct application
+imports.
+
+A request moves through four layers. PostgreSQL remains the source of truth;
+state crosses process boundaries through durable records, not application
+imports.
+
+1. **Product surfaces** author workflows and inspect their state: the web app
+   and client applications.
+2. **Control plane** applies identity, policy, contracts, and orchestration:
+   the platform API, authentication, and authorization.
+3. **Delivery and execution** move durable work to purpose-built processes:
+   BullMQ, the execution worker, and the background worker.
+4. **Runtime capabilities** resolve nodes and call external systems: the node
+   registry, AI providers, and connectors.
+
+## Architectural boundaries
+
+Every deployable application owns one runtime concern. Shared packages own the
+contracts and behavior that must remain consistent across those applications.
+
+### Deployable applications
+
+| Package                  | Owns                                                | Does not own              |
+| ------------------------ | --------------------------------------------------- | ------------------------- |
+| `apps/web`               | Workflow authoring and operational UI               | Credentials and execution |
+| `apps/platform-api`      | HTTP contracts, identity, policy, and orchestration | Long-running execution    |
+| `apps/execution-worker`  | Graph execution and checkpoint recovery             | Public HTTP contracts     |
+| `apps/background-worker` | Schedules and asynchronous maintenance              | Interactive execution     |
+
+### Shared foundations
+
+| Package             | Owns                                                  | Does not own                       |
+| ------------------- | ----------------------------------------------------- | ---------------------------------- |
+| `packages/protocol` | Public schemas, operations, events, and stable errors | Database and server implementation |
+| `packages/runtime`  | Workflow schema, node registry, and graph walking     | Credentials and persistence        |
+| `packages/db`       | Schema, migrations, transactions, and repositories    | Public wire contracts              |
+| `packages/queue`    | Job payloads, delivery, and worker helpers            | Authoritative execution state      |
+
+## Design principles
+
+### Contracts have one owner
+
+Public transport shapes live in `@linea/protocol`; persistent shapes live in
+`@linea/db`; workflow definitions and node metadata live in `@linea/runtime`.
+Applications adapt these contracts but do not redefine them.
+
+### Executions bind to immutable workflow versions
+
+An execution selects one published workflow version when it starts. Later
+publishing cannot change an in-flight execution or rewrite its history.
+
+### Execution history is a product surface
+
+Steps retain enough structure for traces, replay, evaluation, cost accounting,
+and debugging. They are not disposable worker logs.
+
+### Applications do not import from other applications
+
+When two deployable apps need the same behavior or contract, that shared
+concern belongs in `packages/*`.
+
+## Go deeper
+
+<DocsLinks
+  items={[
+    {
+      title: "Repository map",
+      href: "/docs/architecture/repository-map",
+      description: "What each application and shared package owns.",
+    },
+    {
+      title: "Execution flow",
+      href: "/docs/architecture/execution-flow",
+      description:
+        "How a run moves from the API through workers and checkpoints.",
+    },
+    {
+      title: "Architecture decisions",
+      href: "/docs/decisions",
+      description: "The trade-offs we chose and why they stay.",
+    },
+    {
+      title: "Security model",
+      href: "/docs/security",
+      description: "Trust boundaries, credentials, and approvals.",
+    },
+  ]}
+/>

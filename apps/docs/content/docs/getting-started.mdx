@@ -1,0 +1,82 @@
+---
+title: Getting started
+description: Install the monorepo, start its infrastructure, and run the documentation site.
+icon: Rocket
+---
+
+## Prerequisites
+
+- Node.js 20 or newer
+- pnpm 10
+- Docker
+
+## Start the platform
+
+<Steps>
+
+### Install dependencies
+
+```bash
+pnpm install
+```
+
+### Start PostgreSQL
+
+```bash
+pnpm db:up
+```
+
+### Configure the environment
+
+Copy `.env.example` to `.env`, then provide the required authentication and
+email credentials.
+
+```bash
+cp .env.example .env
+pnpm db:migrate
+```
+
+### Start all applications
+
+```bash
+pnpm dev
+```
+
+</Steps>
+
+The web application runs at `http://localhost:3001`, the API at
+`http://localhost:3000`, and this documentation site at
+`http://localhost:3002`.
+
+## Run only the docs
+
+```bash
+pnpm exec turbo dev --filter=@linea/docs
+```
+
+## Configure the docs assistant
+
+The right-side **Ask Linea Docs** sheet uses the first configured AI provider
+key. Set `DOCS_AI_MODEL` to choose a specific registered model:
+
+```bash
+DOCS_AI_MODEL="gpt-5-mini"
+OPENAI_API_KEY="your-key"
+```
+
+Provider credentials are read only by the server-side route. Questions are
+grounded in relevant pages from this documentation site, and answers link back
+to those sources.
+
+## Verify a change
+
+Run the same checks used by CI before opening a pull request:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm format:check
+```
+
+See the [contribution guide](./contributing.mdx) for repository conventions and
+the documentation workflow.

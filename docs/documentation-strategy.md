@@ -10,11 +10,11 @@ homes, different tooling, and — most importantly — different start dates.
 Writing one before its gating condition is real produces fiction, not
 documentation.
 
-| Surface              | Audience                                   | Home                                           | Starts when                              |
-| -------------------- | ------------------------------------------ | ---------------------------------------------- | ---------------------------------------- |
-| Contributor docs     | Whoever is working on this repo            | `CONTRIBUTING.md` / `AGENTS.md`                | Now — already exists, needs upkeep       |
-| User docs            | Someone building a workflow in the product | `apps/docs` (future)                           | Phase 1, when the visual builder exists  |
-| API / developer docs | Someone integrating via SDK or REST        | `apps/docs` (future), generated where possible | Incrementally from Phase 0 item 6 onward |
+| Surface              | Audience                                   | Home                                  | Starts when                              |
+| -------------------- | ------------------------------------------ | ------------------------------------- | ---------------------------------------- |
+| Contributor docs     | Whoever is working on this repo            | `CONTRIBUTING.md` / `AGENTS.md`       | Now — already exists, needs upkeep       |
+| User docs            | Someone building a workflow in the product | `apps/docs`                           | Incrementally as product surfaces land   |
+| API / developer docs | Someone integrating via SDK or REST        | `apps/docs`, generated where possible | Incrementally from Phase 0 item 6 onward |
 
 ## Contributor docs: fix continuously, don't split out
 
@@ -83,11 +83,12 @@ This is a mechanism inside contributor docs, not a fourth surface — still
 something a browser and `grep` serve, just organized per-package instead of
 centrally.
 
-## User docs: gated on the builder existing
+## User docs: follow implemented product surfaces
 
-Don't start before Phase 1. Writing "how to build a workflow" against a
-product with no visual builder is fiction, and it would need to be rewritten
-once the builder's actual constraints are known regardless.
+Write user guides only for implemented product surfaces. The documentation
+site can exist before the visual builder because it also owns architecture,
+security, API concepts, and contributor knowledge; workflow-authoring guides
+remain gated on the builder behavior they describe.
 
 `linea-org/linea-mvp` — the prior, sunset system this rebuild replaces —
 already worked out a documentation IA worth reusing: `apps/docs`, built on
@@ -110,39 +111,31 @@ This is the one surface worth starting before its "obvious" gate. The SDK is
 Phase 5, but `platform-api` gets real REST endpoints in Phase 0 item 6
 (`workflows`, `executions`, `triggers`) — long before anything wraps them.
 
-**Generate the reference from the controllers, don't hand-write it.** Wire up
-`@nestjs/swagger` on `platform-api`'s controllers as soon as they exist, so
-the API reference is a build artifact of the actual code rather than a
-second copy of it someone has to remember to update. This is the direct fix
-for the same class of problem the contributor-docs section above just
-described happening to `CONTRIBUTING.md` — the difference is that generated
-docs structurally can't drift the same way. Hand-write only what can't be
-generated: guides, concepts, the "why," not the endpoint list.
+**Generate the reference from the public operation registry, don't hand-write
+it.** `packages/protocol` owns public methods, paths, schemas, errors, and
+visibility, so OpenAPI should be a deterministic artifact of those definitions
+rather than a second copy someone has to remember to update. This fixes the
+same class of drift described above for `CONTRIBUTING.md`. Hand-write only what
+cannot be generated: guides, concepts, and the "why," not the endpoint list.
 
-Sequencing: OpenAPI generation can start the moment `platform-api` has its
-first real controller (Phase 0). Publishing it anywhere public waits until
-there's a public API worth exposing (Phase 5), but there's no reason not to
-have it generating into CI output long before that.
+Sequencing: OpenAPI generation can start from the existing public operation
+registry. Publishing it anywhere public waits until the public API is ready to
+support as a compatibility contract, but CI can verify it earlier.
 
-## Tooling: Fumadocs, deferred until there's content
+## Tooling: Fumadocs
 
-When `apps/docs` actually gets built — Phase 1 for the user-docs half, sooner
-in spirit for the generated API reference — use Fumadocs, matching
-`linea-mvp`'s validated choice. It's a Next.js app, which means a second
-frontend framework alongside `apps/web`'s TanStack Start. That's a normal
-pattern for documentation sites (Stripe and Vercel both do it) and not an
-architectural conflict, but it is a deliberate choice worth naming rather
-than defaulting into: one more app to build, deploy, and keep running.
+`apps/docs` uses Fumadocs with Next.js and MDX, matching `linea-mvp`'s
+validated choice. It supports local search, Markdown tables, Mermaid diagrams,
+page navigation, and editable content in the repository. This is a second
+frontend framework alongside `apps/web`'s TanStack Start, a deliberate tradeoff
+for documentation-specific content processing and navigation.
 
-**Do not scaffold `apps/docs` now.** Same discipline the roadmap already
-applies elsewhere — the web trace UI and the visual builder are both cut
-from Phase 0 for the identical reason: building a surface before there's
-real content to put in it is pure overhead. An empty docs site teaches
-nothing and is one more thing to maintain through every phase between now
-and when it has something to say.
+The site starts with real architecture, security, API, and contribution
+content. User-facing workflow guides are added only when the corresponding
+product behavior exists.
 
 ## Summary: what to do, and when
 
-| Now                                                                                                                   | Phase 0 (rest of it)                                                | Phase 1                                                                   | Phase 5                                               |
-| --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Keep `CONTRIBUTING.md`/`AGENTS.md` current, in the PR that changes them; write `MODULE.md` for packages that earn one | Wire `@nestjs/swagger` onto `platform-api` controllers as they land | Scaffold `apps/docs` (Fumadocs); write user docs against the real builder | Publish the generated API reference; write SDK guides |
+| Now                                                                                                                                           | Phase 1                                         | Phase 5                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------- |
+| Keep `CONTRIBUTING.md`, `AGENTS.md`, and `apps/docs` current; generate API artifacts from protocol definitions; write `MODULE.md` when earned | Write user docs against the real visual builder | Publish the generated API reference; write SDK guides |

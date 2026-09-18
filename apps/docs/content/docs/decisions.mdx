@@ -1,0 +1,33 @@
+---
+title: Architecture decisions
+description: Where Linea records durable technical and security choices.
+icon: Scale
+---
+
+Architecture Decision Records preserve why a hard-to-reverse choice was made,
+which alternatives were rejected, and what consequences follow. The canonical
+records live in [`docs/adr`](https://github.com/linea-org/linea/tree/main/docs/adr)
+so they can be reviewed with the code they govern.
+
+## Decision themes
+
+| Theme            | Examples                                                                               |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| Product boundary | Agentic behavior analysis supports the platform rather than defining its initial wedge |
+| Identity         | Applications, External Subjects, and End-User Sessions are distinct boundaries         |
+| Authorization    | Application and Workspace Keys remain non-interchangeable                              |
+| Human control    | Approval Requests and Decisions are separate durable resources                         |
+| Side effects     | Consent is enforced at the connector gateway against an Action Intent digest           |
+| Compatibility    | Only the public developer interface is versioned                                       |
+| Delivery         | PostgreSQL outbox state is authoritative for asynchronous delivery                     |
+| Contracts        | Public wire schemas belong to a browser-safe shared protocol module                    |
+
+## When to write an ADR
+
+Write one when a decision is expensive to reverse, crosses several packages or
+deployable applications, establishes a security invariant, or deliberately
+rejects an otherwise plausible design.
+
+Do not use an ADR for routine implementation details that are clearer in code.
+Use the next sequential number and update the affected conceptual guide in the
+same pull request.

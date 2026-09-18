@@ -1,0 +1,44 @@
+---
+title: Approvals and external actions
+description: How Linea pauses work, records human decisions, and authorizes side effects.
+icon: BadgeCheck
+---
+
+An Approval Request and an Action Consent solve different problems. An Approval
+Request pauses an execution for a human decision. Action Consent authorizes a
+specific external side effect.
+
+```mermaid
+sequenceDiagram
+  participant Workflow
+  participant Linea
+  participant User as End User
+  participant Gateway as Connector gateway
+  participant External as External service
+  Workflow->>Linea: Create Approval Request
+  Linea-->>User: approval_request.created
+  User->>Linea: Submit immutable Decision
+  Linea-->>Workflow: Resume or reject
+  Workflow->>Gateway: Action Intent
+  User->>Gateway: Consent for intent digest
+  Gateway->>External: Execute authorized side effect
+  External-->>Gateway: Result
+```
+
+## Approval lifecycle
+
+- The request is durable and owned by the approver identity.
+- A browser session ending does not orphan the request.
+- Approve and reject responses are immutable Decisions.
+- Timeout and cancellation are explicit terminal outcomes.
+- A decided request cannot accept a second Decision.
+
+## Action consent
+
+An Action Intent describes the target, operation, and relevant parameters
+before the side effect occurs. Consent covers the digest of that exact intent
+or an explicit policy broad enough to include it. The connector gateway checks
+consent at the final side-effect boundary.
+
+This prevents a compromised or buggy workflow executor from turning approval
+for one action into authority for a different action.

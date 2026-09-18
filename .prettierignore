@@ -1,6 +1,9 @@
 dist/
 node_modules/
 .turbo/
+.next/
+.source/
+**/next-env.d.ts
 .output/
 .nitro/
 .tanstack/

@@ -1,0 +1,49 @@
+---
+title: Authentication
+description: Choose the credential that matches the caller and trust boundary.
+icon: KeyRound
+---
+
+Linea uses distinct credentials because an Operator backend, an Operator
+application, and an End User do not have interchangeable authority.
+
+## Credential selection
+
+| Caller                         | Credential                   | Scope                                                  |
+| ------------------------------ | ---------------------------- | ------------------------------------------------------ |
+| Operator control plane         | Authenticated member session | Workspace role and membership                          |
+| Operator server integration    | Workspace key                | Explicit workspace operations                          |
+| Application backend            | Application key              | One deployed Application and runtime resources         |
+| End-user browser or mobile app | End-User Session             | One subject, Application, audience, and short lifetime |
+
+Application keys cannot change identity trust configuration or cross into
+another Application. Workspace keys cannot impersonate End Users. An
+End-User Session is a short-lived capability, not a Linea account session.
+
+## End-user authorization
+
+<Steps>
+
+### Begin authorization
+
+The Application starts an authorization request for an external subject using
+its server-side Application Key.
+
+### Verify identity
+
+Linea validates the configured issuer and binds the external identity to the
+canonical subject within the workspace.
+
+### Exchange the authorization result
+
+The client exchanges the short-lived result for an opaque End-User Session.
+
+### Prove possession on each request
+
+DPoP binds requests to the client key, method, and target URL so copying the
+session value alone is insufficient.
+
+</Steps>
+
+See [trust boundaries](../security/trust-boundaries.mdx) for the full identity
+and credential map.

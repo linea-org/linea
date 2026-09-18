@@ -1,0 +1,12 @@
+{
+  "title": "Linea Docs",
+  "pages": [
+    "index",
+    "getting-started",
+    "architecture",
+    "api",
+    "security",
+    "decisions",
+    "contributing"
+  ]
+}

@@ -1,0 +1,56 @@
+---
+title: Linea documentation
+description: Architecture, APIs, security boundaries, and contribution guidance for the Linea platform.
+icon: BookOpen
+---
+
+Linea is an AI workflow orchestration platform for building, running, and
+operating automations that combine models, tools, and integrations. These docs
+explain how the system fits together and how to change it safely.
+
+<Callout type="warn" title="Early-stage project">
+  Linea is pre-1.0 and under active development. Treat current code and public
+  protocol definitions as authoritative when a planning document disagrees.
+</Callout>
+
+## Choose a path
+
+<DocsLinks
+  items={[
+    {
+      title: "Run Linea locally",
+      href: "/docs/getting-started",
+      description: "Install dependencies and start the platform.",
+    },
+    {
+      title: "Understand the architecture",
+      href: "/docs/architecture",
+      description: "Follow a workflow from an API request through execution.",
+    },
+    {
+      title: "Integrate with the API",
+      href: "/docs/api",
+      description: "Learn the protocol, versioning, and identity surfaces.",
+    },
+    {
+      title: "Review the security model",
+      href: "/docs/security",
+      description:
+        "See credentials, trust boundaries, approvals, and invariants.",
+    },
+  ]}
+/>
+
+## Documentation contract
+
+| Information                           | Source of truth                   | Documentation role               |
+| ------------------------------------- | --------------------------------- | -------------------------------- |
+| Public request and response shapes    | `packages/protocol`               | Explain concepts and usage       |
+| Runtime behavior and node definitions | `packages/runtime`                | Explain execution and invariants |
+| Persistent data                       | `packages/db`                     | Explain ownership and lifecycle  |
+| Hard-to-reverse decisions             | `docs/adr`                        | Preserve context and trade-offs  |
+| Contributor rules                     | `AGENTS.md` and `CONTRIBUTING.md` | Define how changes are made      |
+
+The documentation site is versioned in the same repository. A change to a
+contract or architectural boundary should update its documentation in the same
+pull request.

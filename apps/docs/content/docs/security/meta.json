@@ -1,0 +1,5 @@
+{
+  "title": "Security",
+  "icon": "ShieldCheck",
+  "pages": ["index", "trust-boundaries", "approvals-and-actions"]
+}
