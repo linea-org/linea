@@ -1,26 +1,30 @@
 import { eventEnvelopeSchema, type EventEnvelope } from "@linea/protocol/events"
 import { LineaUserNetworkError, LineaUserProtocolError } from "./errors.js"
 
+type EventBlock = { id: string | undefined; data: string[] }
+
+function addEventLine(block: EventBlock, line: string): void {
+  if (line.startsWith(":")) return
+  const separator = line.indexOf(":")
+  const field = separator === -1 ? line : line.slice(0, separator)
+  const rawValue = separator === -1 ? "" : line.slice(separator + 1)
+  const value = rawValue.startsWith(" ") ? rawValue.slice(1) : rawValue
+  if (field === "id") block.id = value
+  if (field === "data") block.data.push(value)
+}
+
 function parseBlock(
   block: string,
   endpoint: string
 ): EventEnvelope | undefined {
-  const lines = block.split(/\r?\n/)
-  const data: string[] = []
-  let id: string | undefined
-  for (const line of lines) {
-    if (line.startsWith(":")) continue
-    const separator = line.indexOf(":")
-    const field = separator === -1 ? line : line.slice(0, separator)
-    const rawValue = separator === -1 ? "" : line.slice(separator + 1)
-    const value = rawValue.startsWith(" ") ? rawValue.slice(1) : rawValue
-    if (field === "id") id = value
-    if (field === "data") data.push(value)
-  }
-  if (data.length === 0) return undefined
+  const parsedBlock: EventBlock = { id: undefined, data: [] }
+  for (const line of block.split(/\r?\n/)) addEventLine(parsedBlock, line)
+  if (parsedBlock.data.length === 0) return undefined
   try {
-    const event = eventEnvelopeSchema.parse(JSON.parse(data.join("\n")))
-    if (id !== undefined && id !== event.id) {
+    const event = eventEnvelopeSchema.parse(
+      JSON.parse(parsedBlock.data.join("\n"))
+    )
+    if (parsedBlock.id !== undefined && parsedBlock.id !== event.id) {
       throw new Error("SSE event ID does not match its envelope")
     }
     return event

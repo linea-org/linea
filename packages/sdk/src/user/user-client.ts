@@ -63,6 +63,32 @@ const DEFAULT_RECONNECT_DELAY_MS = 1_000
 
 type QueryValue = string | number | readonly string[] | undefined
 type ResponseSchema<T> = { parse(value: unknown): T }
+type SessionRequest = {
+  method: string
+  path: string
+  query: Record<string, QueryValue> | undefined
+  body: unknown
+  lastEventId: string | undefined
+  retryNetwork: boolean
+  signal: AbortSignal | undefined
+  idempotencyKey: string | undefined
+}
+type StreamConnection =
+  | { outcome: "connected"; response: Response }
+  | { outcome: "reconcile" }
+  | { outcome: "retry" }
+
+function shouldRetryNetwork(
+  error: unknown,
+  request: SessionRequest,
+  alreadyRetried: boolean
+): boolean {
+  return (
+    request.retryNetwork &&
+    !alreadyRetried &&
+    error instanceof LineaUserNetworkError
+  )
+}
 
 export type LineaUserClientOptions = {
   applicationId: string
@@ -92,7 +118,7 @@ export class LineaUserClient {
   private readonly fetchImplementation: typeof fetch
   private readonly cryptoImplementation: Crypto
   private readonly store: UserStateStore
-  private statePromise: Promise<StoredUserState>
+  private statePromise: Promise<StoredUserState> | undefined
 
   constructor(options: LineaUserClientOptions) {
     this.applicationId = options.applicationId
@@ -106,7 +132,6 @@ export class LineaUserClient {
       throw new Error("LineaUserClient requires Web Crypto API support")
     }
     this.store = createUserStateStore(`${this.baseUrl}|${this.applicationId}`)
-    this.statePromise = this.store.load()
   }
 
   async startAuthorization(
@@ -148,7 +173,7 @@ export class LineaUserClient {
   ): Promise<LineaUserSession> {
     const stored = await this.state()
     const authorization = stored.authorization
-    if (!authorization || authorization.state !== input.state) {
+    if (authorization?.state !== input.state) {
       throw new LineaUserProtocolError(
         exchangeEndUserAuthorizationOperation.path,
         "OIDC callback state does not match the pending authorization"
@@ -223,14 +248,16 @@ export class LineaUserClient {
 
   async revoke(): Promise<void> {
     try {
-      const response = await this.requestWithSession(
-        revokeEndUserSessionOperation.method,
-        revokeEndUserSessionOperation.path,
-        undefined,
-        undefined,
-        undefined,
-        false
-      )
+      const response = await this.requestWithSession({
+        method: revokeEndUserSessionOperation.method,
+        path: revokeEndUserSessionOperation.path,
+        query: undefined,
+        body: undefined,
+        lastEventId: undefined,
+        retryNetwork: false,
+        signal: undefined,
+        idempotencyKey: undefined,
+      })
       if (!response.ok) throw await parseErrorResponse(response, response.url)
     } finally {
       await this.save({ authorization: undefined, session: undefined })
@@ -393,52 +420,70 @@ export class LineaUserClient {
     })
     let cursor: string | undefined
     while (!options.signal?.aborted) {
-      let response: Response
-      try {
-        response = await this.requestWithSession(
-          streamEndUserEventsOperation.method,
-          streamEndUserEventsOperation.path,
-          query,
-          undefined,
-          cursor,
-          false,
-          options.signal
-        )
-      } catch (error) {
-        if (options.signal?.aborted) return
-        if (
-          error instanceof LineaUserApiError &&
-          error.code === "event_cursor_expired"
-        ) {
-          yield {
-            kind: "reconciled",
-            approvalRequests: await this.listAllApprovalRequests(),
-          }
-          cursor = undefined
-          continue
+      const connection = await this.openEventConnection(query, cursor, options)
+      if (connection.outcome === "reconcile") {
+        yield {
+          kind: "reconciled",
+          approvalRequests: await this.listAllApprovalRequests(),
         }
-        if (!(error instanceof LineaUserNetworkError)) throw error
+        cursor = undefined
+        continue
+      }
+      if (connection.outcome === "retry") {
         await waitForReconnect(
           options.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS,
           options.signal
         )
         continue
       }
-      try {
-        for await (const event of readEventStream(
-          response,
-          streamEndUserEventsOperation.path
-        )) {
-          cursor = event.id
-          yield { kind: "event", event }
-        }
-      } catch (error) {
-        if (!(error instanceof LineaUserNetworkError)) throw error
+      for await (const event of this.readEventConnection(connection.response)) {
+        cursor = event.id
+        yield { kind: "event", event }
       }
       await waitForReconnect(
         options.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS,
         options.signal
       )
+    }
+  }
+
+  private async openEventConnection(
+    query: Record<string, QueryValue>,
+    cursor: string | undefined,
+    options: StreamEventsOptions
+  ): Promise<StreamConnection> {
+    try {
+      const response = await this.requestWithSession({
+        method: streamEndUserEventsOperation.method,
+        path: streamEndUserEventsOperation.path,
+        query,
+        body: undefined,
+        lastEventId: cursor,
+        retryNetwork: false,
+        signal: options.signal,
+        idempotencyKey: undefined,
+      })
+      return { outcome: "connected", response }
+    } catch (error) {
+      if (options.signal?.aborted) return { outcome: "retry" }
+      if (
+        error instanceof LineaUserApiError &&
+        error.code === "event_cursor_expired"
+      ) {
+        return { outcome: "reconcile" }
+      }
+      if (error instanceof LineaUserNetworkError) return { outcome: "retry" }
+      throw error
+    }
+  }
+
+  private async *readEventConnection(
+    response: Response
+  ): AsyncGenerator<EventEnvelope> {
+    try {
+      yield* readEventStream(response, streamEndUserEventsOperation.path)
+    } catch (error) {
+      if (!(error instanceof LineaUserNetworkError)) throw error
     }
   }
 
@@ -468,89 +513,89 @@ export class LineaUserClient {
     query?: Record<string, QueryValue>,
     idempotencyKey?: string
   ): Promise<T> {
-    const response = await this.requestWithSession(
+    const response = await this.requestWithSession({
       method,
       path,
       query,
       body,
-      undefined,
-      idempotencyKey !== undefined,
-      undefined,
-      idempotencyKey
-    )
+      lastEventId: undefined,
+      retryNetwork: idempotencyKey !== undefined,
+      signal: undefined,
+      idempotencyKey,
+    })
     return parseJsonResponse(response, path, schema)
   }
 
-  private async requestWithSession(
-    method: string,
-    path: string,
-    query: Record<string, QueryValue> | undefined,
-    body: unknown,
-    lastEventId: string | undefined,
-    retryNetwork: boolean,
-    signal?: AbortSignal,
-    idempotencyKey?: string
-  ): Promise<Response> {
+  private async requestWithSession(request: SessionRequest): Promise<Response> {
     let nonceRetried = false
     let networkRetried = false
     while (true) {
       const session = await this.requireSession()
-      const url = this.url(path, query)
-      const proof = await createDpopProof({
-        crypto: this.cryptoImplementation,
-        privateKey: session.privateKey,
-        publicJwk: session.publicJwk,
-        method,
-        url,
-        nonce: session.dpopNonce,
-        accessToken: session.accessToken,
-        now: Date.now(),
-      })
-      const headers: Record<string, string> = {
-        Accept:
-          path === streamEndUserEventsOperation.path
-            ? "text/event-stream"
-            : "application/json",
-        Authorization: `DPoP ${session.accessToken}`,
-        DPoP: proof,
-      }
-      if (body !== undefined) headers["Content-Type"] = "application/json"
-      if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey
-      if (lastEventId) headers["Last-Event-ID"] = lastEventId
       let response: Response
       try {
-        response = await fetchResponse(this.fetchImplementation, url, {
-          method,
-          headers,
-          body: body === undefined ? undefined : JSON.stringify(body),
-          signal,
-        })
+        response = await this.sendSessionRequest(request, session)
       } catch (error) {
-        if (
-          retryNetwork &&
-          !networkRetried &&
-          error instanceof LineaUserNetworkError
-        ) {
-          networkRetried = true
-          continue
-        }
-        throw error
+        if (!shouldRetryNetwork(error, request, networkRetried)) throw error
+        networkRetried = true
+        continue
       }
       const challengedNonce = response.headers.get("dpop-nonce")
+      const shouldRetryNonce =
+        challengedNonce !== null &&
+        challengedNonce !== session.dpopNonce &&
+        response.status === 401 &&
+        !nonceRetried
       if (challengedNonce && challengedNonce !== session.dpopNonce) {
         await this.updateNonce(challengedNonce)
-        if (response.status === 401 && !nonceRetried) {
-          nonceRetried = true
-          continue
-        }
+      }
+      if (shouldRetryNonce) {
+        nonceRetried = true
+        continue
       }
       if (!response.ok) {
-        const error = await parseErrorResponse(response, path)
+        const error = await parseErrorResponse(response, request.path)
         await this.clearTerminalSession(error.code)
         throw error
       }
       return response
     }
+  }
+
+  private async sendSessionRequest(
+    request: SessionRequest,
+    session: StoredUserSession
+  ): Promise<Response> {
+    const url = this.url(request.path, request.query)
+    const proof = await createDpopProof({
+      crypto: this.cryptoImplementation,
+      privateKey: session.privateKey,
+      publicJwk: session.publicJwk,
+      method: request.method,
+      url,
+      nonce: session.dpopNonce,
+      accessToken: session.accessToken,
+      now: Date.now(),
+    })
+    const headers: Record<string, string> = {
+      Accept:
+        request.path === streamEndUserEventsOperation.path
+          ? "text/event-stream"
+          : "application/json",
+      Authorization: `DPoP ${session.accessToken}`,
+      DPoP: proof,
+    }
+    if (request.body !== undefined) headers["Content-Type"] = "application/json"
+    if (request.idempotencyKey) {
+      headers["Idempotency-Key"] = request.idempotencyKey
+    }
+    if (request.lastEventId) headers["Last-Event-ID"] = request.lastEventId
+    return fetchResponse(this.fetchImplementation, url, {
+      method: request.method,
+      headers,
+      body:
+        request.body === undefined ? undefined : JSON.stringify(request.body),
+      signal: request.signal,
+    })
   }
 
   private async readExecution(executionId: string): Promise<PublicExecution> {
@@ -618,6 +663,7 @@ export class LineaUserClient {
   }
 
   private state(): Promise<StoredUserState> {
+    this.statePromise ??= this.store.load()
     return this.statePromise
   }
 
