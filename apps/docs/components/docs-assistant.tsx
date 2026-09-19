@@ -133,7 +133,7 @@ export function DocsAssistant({ trigger }: { trigger: "header" | "floating" }) {
         { role: "assistant", content: value.answer, sources: value.sources },
       ])
     } catch (caught) {
-      setMessages(messages)
+      setMessages((currentMessages) => currentMessages.slice(0, -1))
       setError(
         caught instanceof Error
           ? caught.message
