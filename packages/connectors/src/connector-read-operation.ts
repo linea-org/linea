@@ -6,7 +6,7 @@ export type ConnectorReadCredential = {
   expiresAt: string | null
 }
 
-export type ConnectorReadOperation = {
+export interface ConnectorReadOperation {
   readonly id: string
   readonly provider: string
   readonly actionFamily: string

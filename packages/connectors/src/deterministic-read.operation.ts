@@ -15,8 +15,8 @@ function providerBaseUrl(): URL {
   return new URL(value)
 }
 
-export const deterministicReadOperation: ConnectorReadOperation = Object.freeze(
-  {
+export const deterministicReadOperation: ConnectorReadOperation =
+  Object.freeze<ConnectorReadOperation>({
     id: "deterministic.read",
     provider: "test",
     actionFamily: "test",
@@ -41,5 +41,4 @@ export const deterministicReadOperation: ConnectorReadOperation = Object.freeze(
       )
       return outputSchema.parse(providerResponse)
     },
-  }
-)
+  })
