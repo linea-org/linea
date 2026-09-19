@@ -10,6 +10,7 @@ import {
   type ExternalSubjectApplication,
 } from "../schema/index.js"
 import type { DbClient } from "./types.js"
+import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.repository.js"
 
 export type ExternalSubjectProjection = {
   subject: ExternalSubject
@@ -207,6 +208,12 @@ export async function disableExternalSubject(
     if (!existing || existing.status === "erased") return existing
     if (existing.status === "disabled") return existing
     const now = new Date()
+    await cancelNonExecutingActionIntents(tx, {
+      workspaceId,
+      scope: { kind: "external_subject", id: existing.id },
+      actor: { kind: "workspace_member", id: actorUserId },
+      cancelledAt: now,
+    })
     const [subject] = await tx
       .update(externalSubjects)
       .set({ status: "disabled", disabledAt: now, updatedAt: now })
@@ -252,6 +259,12 @@ export async function eraseExternalSubject(
       .for("update")
     if (!existing || existing.status === "erased") return existing
     const now = new Date()
+    await cancelNonExecutingActionIntents(tx, {
+      workspaceId,
+      scope: { kind: "external_subject", id: existing.id },
+      actor: { kind: "workspace_member", id: actorUserId },
+      cancelledAt: now,
+    })
     const [subject] = await tx
       .update(externalSubjects)
       .set({

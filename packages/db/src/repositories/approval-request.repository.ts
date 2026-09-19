@@ -38,6 +38,7 @@ import {
   reservePublicRequest,
 } from "./public-idempotency.repository.js"
 import type { DbClient, Transaction } from "./types.js"
+import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.repository.js"
 
 export async function createApprovalRequest(
   db: DbClient,
@@ -525,6 +526,18 @@ function isIdenticalRetry(
   )
 }
 
+function isExternalRequestOwner(
+  request: ApprovalRequest | undefined,
+  input: DecideExternalApprovalRequestInput
+): request is ApprovalRequest {
+  return (
+    request?.audience === "external_subject" &&
+    request.workspaceId === input.workspaceId &&
+    request.applicationId === input.applicationId &&
+    request.externalSubjectId === input.externalSubjectId
+  )
+}
+
 async function getLockedRequestDecision(
   tx: Transaction,
   approvalRequestId: string
@@ -552,6 +565,24 @@ async function recordTimeoutDecision(
   })
 }
 
+async function resolveExistingExternalDecision(
+  tx: Transaction,
+  request: ApprovalRequest,
+  input: DecideExternalApprovalRequestInput
+): Promise<DecideExternalApprovalRequestResult> {
+  const decision = await getLockedRequestDecision(tx, request.id)
+  if (!decision) throw new Error("Decided Approval Request has no Decision")
+  if (decision.reason === "timeout") {
+    return { outcome: "expired", request, decision }
+  }
+  if (decision.idempotencyKey !== input.idempotencyKey) {
+    return { outcome: "already_decided" }
+  }
+  return isIdenticalRetry(decision, input)
+    ? { outcome: "replay", request, decision }
+    : { outcome: "decision_conflict" }
+}
+
 export async function decideExternalApprovalRequest(
   db: DbClient,
   input: DecideExternalApprovalRequestInput
@@ -559,17 +590,11 @@ export async function decideExternalApprovalRequest(
   const now = input.now
   return db.transaction(
     async (tx): Promise<DecideExternalApprovalRequestResult> => {
-      const [request] = await tx
+      const [snapshot] = await tx
         .select()
         .from(approvalRequests)
         .where(eq(approvalRequests.id, input.approvalRequestId))
-        .for("update")
-      if (
-        request?.audience !== "external_subject" ||
-        request.workspaceId !== input.workspaceId ||
-        request.applicationId !== input.applicationId ||
-        request.externalSubjectId !== input.externalSubjectId
-      ) {
+      if (!isExternalRequestOwner(snapshot, input)) {
         return { outcome: "wrong_subject" }
       }
       const [session] = await tx
@@ -603,20 +628,17 @@ export async function decideExternalApprovalRequest(
         )
         .for("key share")
       if (!session) return { outcome: "session_invalid" }
+      const [request] = await tx
+        .select()
+        .from(approvalRequests)
+        .where(eq(approvalRequests.id, input.approvalRequestId))
+        .for("update")
+      if (!isExternalRequestOwner(request, input)) {
+        return { outcome: "wrong_subject" }
+      }
       if (request.status === "cancelled") return { outcome: "cancelled" }
       if (request.status === "decided") {
-        const decision = await getLockedRequestDecision(tx, request.id)
-        if (!decision)
-          throw new Error("Decided Approval Request has no Decision")
-        if (decision.reason === "timeout") {
-          return { outcome: "expired", request, decision }
-        }
-        if (decision.idempotencyKey !== input.idempotencyKey) {
-          return { outcome: "already_decided" }
-        }
-        return isIdenticalRetry(decision, input)
-          ? { outcome: "replay", request, decision }
-          : { outcome: "decision_conflict" }
+        return resolveExistingExternalDecision(tx, request, input)
       }
       if (request.expiresAt && request.expiresAt.getTime() <= now.getTime()) {
         const expired = await recordTimeoutDecision(tx, request, now)
@@ -667,6 +689,10 @@ export async function cancelExecutionWithPendingApproval(
   actorApplicationKeyId: string,
   cancelledAt: Date
 ): Promise<Execution | undefined> {
+  const lockKey = `action-intent-execution:${executionId}`
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
+  )
   const pending = await tx
     .select()
     .from(approvalRequests)
@@ -681,6 +707,26 @@ export async function cancelExecutionWithPendingApproval(
   if (pending.length > 1) {
     throw new Error("Execution has multiple pending Approval Requests")
   }
+  const [executionSnapshot] = await tx
+    .select({ id: executions.id })
+    .from(executions)
+    .where(
+      and(
+        eq(executions.id, executionId),
+        eq(executions.workspaceId, workspaceId),
+        eq(executions.applicationId, applicationId),
+        inArray(executions.status, ["queued", "running", "paused"])
+      )
+    )
+    .for("update")
+  if (!executionSnapshot) return undefined
+  const actionIntents = await cancelNonExecutingActionIntents(tx, {
+    workspaceId,
+    scope: { kind: "execution", id: executionId },
+    actor: { kind: "application_key", id: actorApplicationKeyId },
+    cancelledAt,
+  })
+  if (actionIntents.executing.length > 0) return undefined
   const request = pending[0]
   const [execution] = await tx
     .update(executions)
@@ -699,7 +745,9 @@ export async function cancelExecutionWithPendingApproval(
       )
     )
     .returning()
-  if (!execution || !request) return execution
+  if (!execution || actionIntents.cancelled.length > 0 || !request) {
+    return execution
+  }
   const [cancelled] = await tx
     .update(approvalRequests)
     .set({

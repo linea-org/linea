@@ -30,6 +30,59 @@ const storedCredentialSchema = z
   })
   .passthrough()
 
+type SideEffectExecutionInput = {
+  executionId: string
+  workspaceId: string
+  nodeId: string
+  connectionId: string
+  operationInput: unknown
+  invocationIdempotencyKey: string
+  executionClaimId: string
+  signal?: AbortSignal
+}
+
+type SideEffectExecutionResult =
+  | { outcome: "completed"; result: unknown }
+  | { outcome: "awaiting_consent"; actionIntentId: string }
+  | {
+      outcome: "rejected"
+      actionIntentId: string
+      reason: "human" | "timeout"
+    }
+
+type ActionIntentConsent = NonNullable<
+  Awaited<ReturnType<typeof repositories.actionIntent.getActionIntentConsent>>
+>
+
+type ActionIntentClaim = NonNullable<
+  Awaited<
+    ReturnType<typeof repositories.actionIntent.claimApprovedActionIntent>
+  >
+>
+
+function retryProviderRequest(
+  operation: ConnectorSideEffectOperation,
+  outcomeUnknown: boolean,
+  attempt: number,
+  maximumAttempts: number,
+  signal: AbortSignal | undefined
+): boolean {
+  return (
+    outcomeUnknown &&
+    operation.retrySafety === "provider_idempotency" &&
+    attempt < maximumAttempts &&
+    !signal?.aborted
+  )
+}
+
+function providerFailureStatus(
+  code: string,
+  outcomeUnknown: boolean
+): "failed" | "stale" | "outcome_unknown" {
+  if (outcomeUnknown) return "outcome_unknown"
+  return code === "precondition_failed" ? "stale" : "failed"
+}
+
 export class ConnectorGatewayError extends Error {
   constructor(
     message = "Connector operation rejected",
@@ -54,6 +107,7 @@ export class ConnectorGateway {
     operationId: string
     operationInput: unknown
     invocationIdempotencyKey: string
+    executionClaimId: string
     signal?: AbortSignal
   }): Promise<
     | { outcome: "completed"; result: unknown }
@@ -141,26 +195,8 @@ export class ConnectorGateway {
 
   private async executeSideEffect(
     operation: ConnectorSideEffectOperation,
-    input: {
-      executionId: string
-      workspaceId: string
-      nodeId: string
-      connectionId: string
-      operationInput: unknown
-      invocationIdempotencyKey: string
-      signal?: AbortSignal
-    }
-  ): Promise<
-    | { outcome: "completed"; result: unknown }
-    | { outcome: "awaiting_consent"; actionIntentId: string }
-    | {
-        outcome: "rejected"
-        actionIntentId: string
-        reason: "human" | "timeout"
-      }
-  > {
-    const authority = await this.requireAuthority(operation, input)
-    this.resolveCredential(authority.connection)
+    input: SideEffectExecutionInput
+  ): Promise<SideEffectExecutionResult> {
     const { normalized, envelope, canonicalDigest, safeDisplay } =
       this.prepareSideEffect(operation, input)
     const created = await repositories.actionIntent.createActionIntent(
@@ -171,6 +207,8 @@ export class ConnectorGateway {
         nodeId: input.nodeId,
         connectionId: input.connectionId,
         connector: operation.provider,
+        actionFamily: operation.actionFamily,
+        requiredScopes: operation.requiredScopes,
         operationId: operation.id,
         operationRevision: operation.revision,
         target: normalized.target,
@@ -190,6 +228,9 @@ export class ConnectorGateway {
         "idempotency_conflict"
       )
     }
+    if (created.outcome === "authority_invalid") {
+      throw new ConnectorGatewayError()
+    }
     const consent = await repositories.actionIntent.getActionIntentConsent(
       this.db,
       {
@@ -200,6 +241,14 @@ export class ConnectorGateway {
       }
     )
     if (!consent) throw new Error("Created Action Intent was not found")
+    return this.resolveSideEffectConsent(operation, input, consent)
+  }
+
+  private async resolveSideEffectConsent(
+    operation: ConnectorSideEffectOperation,
+    input: SideEffectExecutionInput,
+    consent: ActionIntentConsent
+  ): Promise<SideEffectExecutionResult> {
     switch (consent.approvalRequest.status) {
       case "pending":
         return {
@@ -226,6 +275,14 @@ export class ConnectorGateway {
         reason: consent.decision.reason,
       }
     }
+    this.verifyConsentDigest(operation, consent)
+    return this.executeApprovedSideEffect(operation, input, consent)
+  }
+
+  private verifyConsentDigest(
+    operation: ConnectorSideEffectOperation,
+    consent: ActionIntentConsent
+  ): void {
     if (
       consent.intent.operationRevision !== operation.revision ||
       consent.intent.digestVersion !== ACTION_INTENT_DIGEST_VERSION ||
@@ -239,48 +296,144 @@ export class ConnectorGateway {
         "digest_mismatch"
       )
     }
-    const currentAuthority = await this.requireAuthority(operation, {
-      executionId: input.executionId,
-      workspaceId: input.workspaceId,
-      connectionId: consent.intent.connectionId,
-    })
-    const credential = this.resolveCredential(currentAuthority.connection)
+  }
+
+  private async executeApprovedSideEffect(
+    operation: ConnectorSideEffectOperation,
+    input: SideEffectExecutionInput,
+    consent: ActionIntentConsent
+  ): Promise<SideEffectExecutionResult> {
     const claimed = await repositories.actionIntent.claimApprovedActionIntent(
       this.db,
-      consent.intent.id
+      {
+        actionIntentId: consent.intent.id,
+        executionClaimId: input.executionClaimId,
+        provider: operation.provider,
+        actionFamily: operation.actionFamily,
+        requiredScopes: operation.requiredScopes,
+        now: new Date(),
+      }
     )
     if (!claimed) throw new Error("Action Intent was not claimable")
-    switch (claimed.status) {
+    return this.resolveActionIntentClaim(operation, input, consent, claimed)
+  }
+
+  private resolveActionIntentClaim(
+    operation: ConnectorSideEffectOperation,
+    input: SideEffectExecutionInput,
+    consent: ActionIntentConsent,
+    claimed: ActionIntentClaim
+  ): Promise<SideEffectExecutionResult> | SideEffectExecutionResult {
+    switch (claimed.outcome) {
+      case "cancelled":
+        throw new ConnectorGatewayError(
+          "Action Intent was cancelled",
+          "cancelled"
+        )
+      case "in_progress":
+        throw new ConnectorGatewayError(
+          "Action Intent execution is already in progress",
+          "execution_in_progress"
+        )
+      case "not_ready":
+        throw new ConnectorGatewayError("Action Intent is not executable")
+      case "terminal":
+        return this.resolveTerminalActionIntent(claimed.intent, consent)
+      case "claimed":
+      case "recovered":
+        return this.dispatchClaimedSideEffect(operation, input, claimed)
+    }
+  }
+
+  private resolveTerminalActionIntent(
+    intent: ActionIntent,
+    consent: ActionIntentConsent
+  ): SideEffectExecutionResult {
+    switch (intent.status) {
       case "succeeded":
-        return { outcome: "completed", result: claimed.normalizedResult }
+        return { outcome: "completed", result: intent.normalizedResult }
       case "rejected":
+        if (!consent.decision) {
+          throw new Error("Action Intent Approval Request has no Decision")
+        }
         return {
           outcome: "rejected",
-          actionIntentId: claimed.id,
+          actionIntentId: intent.id,
           reason: consent.decision.reason,
         }
       case "failed":
       case "stale":
       case "outcome_unknown":
-        if (!claimed.normalizedError) {
+        if (!intent.normalizedError) {
           throw new Error("Terminal Action Intent is missing its error")
         }
         throw new ConnectorGatewayError(
-          claimed.normalizedError.message,
-          claimed.normalizedError.code
+          intent.normalizedError.message,
+          intent.normalizedError.code
         )
-      case "executing":
-        return {
-          outcome: "completed",
-          result: await this.invokeSideEffect(
-            operation,
-            claimed,
-            credential,
-            input.signal
-          ),
-        }
       default:
         throw new ConnectorGatewayError("Action Intent is not executable")
+    }
+  }
+
+  private async dispatchClaimedSideEffect(
+    operation: ConnectorSideEffectOperation,
+    input: SideEffectExecutionInput,
+    claimed: Extract<ActionIntentClaim, { outcome: "claimed" | "recovered" }>
+  ): Promise<SideEffectExecutionResult> {
+    if (
+      claimed.outcome === "recovered" &&
+      claimed.intent.dispatchStartedAt &&
+      operation.retrySafety === "none"
+    ) {
+      await this.failSideEffect(
+        claimed.intent,
+        input.executionClaimId,
+        {
+          code: "outcome_unknown",
+          message: "Connector provider outcome could not be reconciled",
+          outcomeUnknown: true,
+        },
+        "outcome_unknown"
+      )
+    }
+    let credential: ConnectorReadCredential
+    try {
+      credential = this.resolveCredential(claimed.connection)
+    } catch {
+      const dispatchMayHaveReachedProvider = Boolean(
+        claimed.intent.dispatchStartedAt
+      )
+      const normalizedError = dispatchMayHaveReachedProvider
+        ? {
+            code: "outcome_unknown",
+            message: "Connector provider outcome could not be reconciled",
+            outcomeUnknown: true,
+          }
+        : {
+            code: "provider_failed",
+            message: "Connector credential became unavailable",
+            outcomeUnknown: false,
+          }
+      return this.failSideEffect(
+        claimed.intent,
+        input.executionClaimId,
+        normalizedError,
+        dispatchMayHaveReachedProvider ? "outcome_unknown" : "failed"
+      )
+    }
+    if (claimed.intent.status !== "executing") {
+      throw new ConnectorGatewayError("Action Intent is not executable")
+    }
+    return {
+      outcome: "completed",
+      result: await this.invokeSideEffect(
+        operation,
+        claimed.intent,
+        credential,
+        input.executionClaimId,
+        input.signal
+      ),
     }
   }
 
@@ -333,81 +486,157 @@ export class ConnectorGateway {
     operation: ConnectorSideEffectOperation,
     claimed: ActionIntent,
     credential: ConnectorReadCredential,
+    executionClaimId: string,
     signal?: AbortSignal
   ): Promise<unknown> {
-    let result: unknown
-    try {
-      result = operation.resultSchema.parse(
-        await operation.execute(
-          operation.parametersSchema.parse(
-            claimed.canonicalEnvelope.parameters
-          ),
-          operation.preconditionsSchema.parse(
-            claimed.canonicalEnvelope.providerPreconditions
-          ),
-          credential,
-          claimed.invocationIdempotencyKey,
-          signal
-        )
-      )
-    } catch (error_) {
-      const normalizedError = operation.providerErrorSchema.parse(
-        operation.normalizeProviderError(error_)
-      )
-      let status: "failed" | "stale" | "outcome_unknown" = "failed"
-      if (normalizedError.outcomeUnknown) status = "outcome_unknown"
-      else if (normalizedError.code === "precondition_failed") status = "stale"
-      const failed = await repositories.actionIntent.failActionIntent(
-        this.db,
-        claimed.id,
-        normalizedError,
-        status
-      )
-      if (!failed) throw new Error("Action Intent failure was lost")
-      throw new ConnectorGatewayError(
-        normalizedError.message,
-        normalizedError.code
+    const parameters = operation.parametersSchema.parse(
+      claimed.canonicalEnvelope.parameters
+    )
+    const preconditions = operation.preconditionsSchema.parse(
+      claimed.canonicalEnvelope.providerPreconditions
+    )
+    const maximumAttempts =
+      operation.retrySafety === "provider_idempotency" ? 2 : 1
+    if (!claimed.dispatchStartedAt) {
+      await this.requireCurrentProviderPreconditions(
+        operation,
+        claimed,
+        parameters,
+        preconditions,
+        credential,
+        executionClaimId,
+        signal
       )
     }
-    const completed = await repositories.actionIntent.completeActionIntent(
-      this.db,
-      claimed.id,
-      result
-    )
-    if (!completed) throw new Error("Action Intent completion was lost")
-    return result
+    let attempt = 0
+    for (;;) {
+      const dispatch =
+        await repositories.actionIntent.beginActionIntentDispatch(this.db, {
+          actionIntentId: claimed.id,
+          executionClaimId,
+          now: new Date(),
+        })
+      if (!dispatch) {
+        throw new ConnectorGatewayError(
+          "Action Intent execution claim was lost",
+          "execution_in_progress"
+        )
+      }
+      attempt += 1
+      let result: unknown
+      try {
+        result = operation.resultSchema.parse(
+          await operation.execute(
+            parameters,
+            preconditions,
+            credential,
+            claimed.invocationIdempotencyKey,
+            signal
+          )
+        )
+      } catch (error_) {
+        const normalizedError = operation.providerErrorSchema.parse(
+          operation.normalizeProviderError(error_)
+        )
+        if (
+          retryProviderRequest(
+            operation,
+            normalizedError.outcomeUnknown,
+            attempt,
+            maximumAttempts,
+            signal
+          )
+        ) {
+          continue
+        }
+        await this.failSideEffect(
+          claimed,
+          executionClaimId,
+          normalizedError,
+          providerFailureStatus(
+            normalizedError.code,
+            normalizedError.outcomeUnknown
+          )
+        )
+      }
+      const completed = await repositories.actionIntent.completeActionIntent(
+        this.db,
+        {
+          actionIntentId: claimed.id,
+          executionClaimId,
+          result,
+          completedAt: new Date(),
+        }
+      )
+      if (!completed) throw new Error("Action Intent completion was lost")
+      return result
+    }
   }
 
-  private async requireAuthority(
-    operation: {
-      provider: string
-      actionFamily: string
-      requiredScopes: readonly string[]
-    },
-    input: { executionId: string; workspaceId: string; connectionId: string }
-  ) {
-    const authority = await repositories.connection.getConnectorReadAuthority(
-      this.db,
-      input
-    )
-    if (authority?.connection.status !== "active") {
-      throw new ConnectorGatewayError()
-    }
-    if (
-      authority.connection.provider !== operation.provider ||
-      !authority.providerPolicy.actionFamilies.includes(
-        operation.actionFamily
-      ) ||
-      operation.requiredScopes.some(
-        (scope) => !authority.connection.scopes.includes(scope)
-      ) ||
-      operation.requiredScopes.some(
-        (scope) => !authority.providerPolicy.maxScopes.includes(scope)
+  private async requireCurrentProviderPreconditions(
+    operation: ConnectorSideEffectOperation,
+    claimed: ActionIntent,
+    parameters: unknown,
+    preconditions: unknown,
+    credential: ConnectorReadCredential,
+    executionClaimId: string,
+    signal?: AbortSignal
+  ): Promise<void> {
+    let valid = false
+    try {
+      valid = await operation.revalidateProviderPreconditions(
+        parameters,
+        preconditions,
+        credential,
+        signal
       )
-    ) {
-      throw new ConnectorGatewayError()
+    } catch {
+      await this.failSideEffect(
+        claimed,
+        executionClaimId,
+        {
+          code: "provider_failed",
+          message: "Connector provider precondition check failed",
+          outcomeUnknown: false,
+        },
+        "failed"
+      )
     }
-    return authority
+    if (valid) return
+    await this.failSideEffect(
+      claimed,
+      executionClaimId,
+      {
+        code: "precondition_failed",
+        message: "Connector target changed before execution",
+        outcomeUnknown: false,
+      },
+      "stale"
+    )
+  }
+
+  private async failSideEffect(
+    claimed: ActionIntent,
+    executionClaimId: string,
+    normalizedError: {
+      code: string
+      message: string
+      outcomeUnknown: boolean
+    },
+    status: "failed" | "stale" | "outcome_unknown"
+  ): Promise<never> {
+    const failed = await repositories.actionIntent.failActionIntent(this.db, {
+      actionIntentId: claimed.id,
+      executionClaimId,
+      error: normalizedError,
+      status,
+      failedAt: new Date(),
+    })
+    if (!failed) throw new Error("Action Intent failure was lost")
+    throw new ConnectorGatewayError(
+      normalizedError.message,
+      normalizedError.code
+    )
   }
 
   private resolveCredential(connection: {
