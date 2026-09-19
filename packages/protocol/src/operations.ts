@@ -1,6 +1,7 @@
 export * from "./operations/operation"
 export * from "./operations/operation-metadata"
 export * from "./operations/approval-requests"
+export * from "./operations/action-intents"
 export * from "./operations/connections"
 export * from "./operations/events"
 export * from "./operations/runtime"

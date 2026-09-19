@@ -11,6 +11,7 @@ import {
   getEndUserConversationOperation,
   getEndUserExecutionOperation,
   listEndUserApprovalRequestsOperation,
+  listPendingActionIntentsOperation,
   listEndUserConversationsOperation,
   listEndUserMessagesOperation,
   listConnectionsOperation,
@@ -32,7 +33,9 @@ import type {
   DecideApprovalRequest,
   EndUserAuthorizationResponse,
   ListApprovalRequestsQuery,
+  ListPendingActionIntentsQuery,
   MessageProjection,
+  PendingActionIntent,
   PublicExecution,
   StartEndUserExecution,
   StartConnectionAuthorization,
@@ -453,6 +456,19 @@ export class LineaUserClient {
       listEndUserApprovalRequestsOperation.path,
       undefined,
       listEndUserApprovalRequestsOperation.response.body,
+      parsed
+    )
+  }
+
+  listPendingActionIntents(
+    query: Partial<ListPendingActionIntentsQuery> = {}
+  ): Promise<PaginatedResponse<PendingActionIntent>> {
+    const parsed = listPendingActionIntentsOperation.request.query.parse(query)
+    return this.authorizedJson(
+      listPendingActionIntentsOperation.method,
+      listPendingActionIntentsOperation.path,
+      undefined,
+      listPendingActionIntentsOperation.response.body,
       parsed
     )
   }

@@ -580,6 +580,31 @@ describe("browser end-user client", () => {
       status: "revoked",
     })
   })
+
+  it("lists pending Action Intents through the bounded user contract", async () => {
+    const actionIntent = {
+      id: "70000000-0000-4000-8000-000000000007",
+      executionId,
+      connectionId: "50000000-0000-4000-8000-000000000005",
+      operation: "deterministic.update",
+      display: { title: "Update resource" },
+      approvalRequest: {
+        id: approvalRequestId,
+        expiresAt: "2026-09-18T00:15:00.000Z",
+      },
+      createdAt: "2026-09-18T00:00:00.000Z",
+    }
+    const { client } = await authenticatedClient((path) => {
+      if (path === "/v1/user/action-intents") {
+        return jsonResponse({ data: [actionIntent], nextCursor: null })
+      }
+      throw new Error(`Unexpected request: ${path}`)
+    })
+    await expect(client.listPendingActionIntents()).resolves.toEqual({
+      data: [actionIntent],
+      nextCursor: null,
+    })
+  })
 })
 
 describe("React Native end-user client", () => {

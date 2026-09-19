@@ -1,6 +1,7 @@
 export * from "./resources/resource-projection"
 export * from "./resources/regression"
 export * from "./resources/approval-request"
+export * from "./resources/action-intent"
 export * from "./resources/application-key"
 export * from "./resources/conversation"
 export * from "./resources/connection"

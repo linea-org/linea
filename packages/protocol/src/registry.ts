@@ -7,6 +7,7 @@ import {
   getEndUserApprovalRequestOperation,
   listEndUserApprovalRequestsOperation,
 } from "./operations/approval-requests"
+import { listPendingActionIntentsOperation } from "./operations/action-intents"
 import { streamEndUserEventsOperation } from "./operations/events"
 import {
   createEndUserSessionOperation,
@@ -183,6 +184,10 @@ export const operationRegistry = createOperationRegistry([
   registerOperation(
     decideEndUserApprovalRequestOperation,
     operationMetadata.decideEndUserApprovalRequest
+  ),
+  registerOperation(
+    listPendingActionIntentsOperation,
+    operationMetadata.listPendingActionIntents
   ),
   registerOperation(
     streamEndUserEventsOperation,

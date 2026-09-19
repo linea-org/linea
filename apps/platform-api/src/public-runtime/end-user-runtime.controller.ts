@@ -18,12 +18,14 @@ import {
   createMessageSchema,
   decideApprovalRequestSchema,
   listApprovalRequestsQuerySchema,
+  listPendingActionIntentsQuerySchema,
   publicRuntimeIdSchema,
   startEndUserExecutionSchema,
   type CreateEndUserConversation,
   type CreateMessage,
   type DecideApprovalRequest,
   type ListApprovalRequestsQuery,
+  type ListPendingActionIntentsQuery,
   type StartEndUserExecution,
 } from '@linea/protocol/resources'
 import {
@@ -168,6 +170,15 @@ export class EndUserRuntimeController {
     query: ListApprovalRequestsQuery,
   ) {
     return this.runtime.listEndUserApprovalRequests(principal, query)
+  }
+
+  @Get('action-intents')
+  listPendingActionIntents(
+    @CurrentEndUser() principal: EndUserPrincipal,
+    @Query(new PublicValidationPipe(listPendingActionIntentsQuerySchema))
+    query: ListPendingActionIntentsQuery,
+  ) {
+    return this.runtime.listPendingActionIntents(principal, query)
   }
 
   @Get('approval-requests/:approvalRequestId')

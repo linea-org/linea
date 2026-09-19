@@ -374,6 +374,19 @@ export const operationMetadata = {
     ),
     sdk: userSdk("decide"),
   },
+  listPendingActionIntents: {
+    purpose: "List pending Action Intents owned by the authenticated End User.",
+    caller: userCaller,
+    idempotency: none,
+    rateLimit: platformProtection,
+    pagination: cursorPagination,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
+      "listPendingActionIntents"
+    ),
+    sdk: userSdk("listPendingActionIntents"),
+  },
   streamEndUserEvents: {
     purpose:
       "Stream resumable Application events for the authenticated End User.",
