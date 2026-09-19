@@ -7,6 +7,7 @@ describe("nodeRegistry", () => {
       "ai",
       "approval",
       "branch",
+      "connector",
       "datetime",
       "end",
       "evaluator",

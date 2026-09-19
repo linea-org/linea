@@ -19,6 +19,7 @@ export type CreateExecutionInput = {
   workflowVersionId: string
   applicationId?: string
   workflowContractRevisionId?: string
+  externalSubjectRecordId?: string
   trigger: Execution["trigger"]
   triggerPayload?: Record<string, unknown>
   origin?: Execution["origin"]

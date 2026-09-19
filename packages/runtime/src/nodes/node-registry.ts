@@ -1,6 +1,7 @@
 import { aiNode } from "./definitions/ai.node.js"
 import { approvalNode } from "./definitions/approval.node.js"
 import { branchNode } from "./definitions/branch.node.js"
+import { connectorNode } from "./definitions/connector.node.js"
 import { datetimeNode } from "./definitions/datetime.node.js"
 import { endNode } from "./definitions/end.node.js"
 import { evaluatorNode } from "./definitions/evaluator.node.js"
@@ -20,6 +21,7 @@ export const nodeRegistry = {
   end: endNode,
   evaluator: evaluatorNode,
   http: httpNode,
+  connector: connectorNode,
   transform: transformNode,
   branch: branchNode,
   ai: aiNode,

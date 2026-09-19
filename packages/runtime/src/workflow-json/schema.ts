@@ -4,6 +4,7 @@ export const nodeTypeSchema = z.enum([
   "start",
   "end",
   "http",
+  "connector",
   "transform",
   "branch",
   "ai",
