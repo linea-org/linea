@@ -1,0 +1,140 @@
+---
+title: Architecture overview
+description: The services, workers, packages, and data stores that make up Linea.
+icon: Blocks
+---
+
+Linea has two operational halves: a control plane that accepts and observes
+work, and an execution plane that performs it. They communicate through
+versioned contracts, durable records, and queues—not direct application
+imports.
+
+## Product model
+
+Linea uses Workflows to define agent behavior, but a Workflow is not itself a
+customer-facing product or a single audience. An Operator owns the workspace
+and publishes Workflow versions; an Application is one deployed product and
+environment that exposes an immutable Workflow Contract to End Users. Each
+Execution selects a published implementation version when it starts.
+
+| Concept                       | Why it matters                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------ |
+| External Subject              | Linea's identity for an End User, separate from workspace members                                      |
+| Conversation                  | One independent thread for a subject in an Application and Workflow; histories do not merge by subject |
+| Approval Request and Decision | A durable pause and one immutable human or timeout response                                            |
+| Evaluator and Regression      | In-run measurement versus saved-case replay of known inputs                                            |
+| Finding, Flag, and Signal     | A judgment, an alertable issue, and a recurring pattern over time                                      |
+
+An Execution records its environment and selected Workflow version; the
+Workflow itself is not permanently labeled draft, development, or production.
+The same published Workflow can serve different traffic at different times.
+The [domain glossary](https://github.com/linea-org/linea/blob/main/CONTEXT.md)
+keeps these terms distinct.
+
+A request moves through four layers. PostgreSQL remains the source of truth;
+state crosses process boundaries through durable records, not application
+imports.
+
+1. **Product surfaces** author workflows and inspect their state: the web app
+   and client applications.
+2. **Control plane** applies identity, policy, contracts, and orchestration:
+   the platform API, authentication, and authorization.
+3. **Delivery and execution** move durable work to purpose-built processes:
+   BullMQ, the execution worker, and the background worker.
+4. **Runtime capabilities** resolve nodes and call external systems: the node
+   registry and AI providers. Connector execution is a planned boundary.
+
+## Architectural boundaries
+
+Every deployable application owns one runtime concern. Shared packages own the
+contracts and behavior that must remain consistent across those applications.
+
+### Deployable applications
+
+| Package                  | Owns                                                | Does not own              |
+| ------------------------ | --------------------------------------------------- | ------------------------- |
+| `apps/web`               | Workflow authoring and operational UI               | Credentials and execution |
+| `apps/platform-api`      | HTTP contracts, identity, policy, and orchestration | Long-running execution    |
+| `apps/execution-worker`  | Graph execution and checkpoint recovery             | Public HTTP contracts     |
+| `apps/background-worker` | Schedules and asynchronous maintenance              | Interactive execution     |
+| `apps/mobile`            | Workspace-member monitoring and approvals           | End-User identity         |
+| `apps/docs`              | Developer and contributor documentation             | Product runtime           |
+
+### Shared foundations
+
+| Package              | Owns                                                  | Does not own                       |
+| -------------------- | ----------------------------------------------------- | ---------------------------------- |
+| `packages/protocol`  | Public schemas, operations, events, and stable errors | Database and server implementation |
+| `packages/runtime`   | Workflow schema, node registry, and graph walking     | Credentials and persistence        |
+| `packages/db`        | Schema, migrations, transactions, and repositories    | Public wire contracts              |
+| `packages/queue`     | Job payloads, delivery, and worker helpers            | Authoritative execution state      |
+| `packages/auth`      | Better Auth and shared identity behavior              | Workflow execution                 |
+| `packages/ai`        | Model registry and normalized provider calls          | Tenant policy                      |
+| `packages/sdk`       | Server and End-User clients for public operations     | Protocol semantics                 |
+| `packages/sdk-react` | Headless React bindings over the End-User SDK         | Identity or transport              |
+| `packages/ui`        | Reusable operator UI primitives                       | Product-specific state             |
+
+### State and trust boundaries
+
+PostgreSQL owns durable execution, conversation, approval, and outbox state.
+Redis and BullMQ deliver jobs; a queued message alone is not the authority for
+whether work exists or has completed. Operator backends use scoped Workspace
+or Application Keys; End-User clients use proof-bound End-User Sessions. The
+first-party web and mobile apps authenticate workspace members. Credentials
+must not cross those planes. See [trust boundaries](../security/trust-boundaries.mdx)
+for the full model.
+
+The Connector Gateway and sandbox-facing Run Gateway are separate planned
+boundaries; their directories are not evidence that provider-credential
+execution or isolated sandbox traffic is already available.
+
+## Design principles
+
+### Contracts have one owner
+
+Public transport shapes live in `@linea/protocol`; persistent shapes live in
+`@linea/db`; workflow definitions and node metadata live in `@linea/runtime`.
+Applications adapt these contracts but do not redefine them.
+
+### Executions bind to immutable workflow versions
+
+An execution selects one published workflow version when it starts. Later
+publishing cannot change an in-flight execution or rewrite its history.
+
+### Execution history is a product surface
+
+Steps retain enough structure for traces, replay, evaluation, cost accounting,
+and debugging. They are not disposable worker logs.
+
+### Applications do not import from other applications
+
+When two deployable apps need the same behavior or contract, that shared
+concern belongs in `packages/*`.
+
+## Go deeper
+
+<DocsLinks
+  items={[
+    {
+      title: "Repository map",
+      href: "/docs/architecture/repository-map",
+      description: "What each application and shared package owns.",
+    },
+    {
+      title: "Execution flow",
+      href: "/docs/architecture/execution-flow",
+      description:
+        "How a run moves from the API through workers and checkpoints.",
+    },
+    {
+      title: "Architecture decisions",
+      href: "/docs/decisions",
+      description: "The trade-offs we chose and why they stay.",
+    },
+    {
+      title: "Security model",
+      href: "/docs/security",
+      description: "Trust boundaries, credentials, and approvals.",
+    },
+  ]}
+/>

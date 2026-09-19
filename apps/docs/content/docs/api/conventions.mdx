@@ -1,0 +1,43 @@
+---
+title: API conventions
+description: Versioning, asynchronous work, errors, and compatibility rules.
+icon: Braces
+---
+
+## Versioning
+
+Public developer endpoints, webhook envelopes, OpenAPI, and SDK clients use
+`/v1`. Dashboard-only endpoints are allowed to evolve with the first-party UI
+and are not public compatibility promises merely because they share the prefix.
+
+## Asynchronous execution starts
+
+Starting a workflow returns after the execution has been durably accepted, not
+after its graph completes.
+
+```http
+HTTP/1.1 202 Accepted
+Location: /v1/executions/01J...
+```
+
+Clients observe progress through the execution resource or the appropriate
+ordered event stream.
+
+## Errors
+
+Stable public errors use protocol-owned codes and structured envelopes. SDKs
+may expose richer error classes, but the wire code remains the compatibility
+contract.
+
+## Pagination and ordering
+
+Collection routes define ordering explicitly. Event streams use persisted
+sequence information rather than timestamps as their sole ordering authority.
+
+## Compatibility checklist
+
+- Add the operation to `@linea/protocol` before exposing it publicly.
+- Reuse protocol schemas in the controller and SDK.
+- Cover authentication, authorization, request, response, and error behavior.
+- Regenerate OpenAPI and route-reference artifacts.
+- Update conceptual documentation when behavior or security expectations change.

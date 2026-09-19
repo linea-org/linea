@@ -1,0 +1,59 @@
+---
+title: Execution flow
+description: How a workflow request becomes a durable, observable execution.
+icon: Workflow
+---
+
+An execution is one instance of an immutable workflow version running. The term
+**execution** is used consistently in tables, APIs, events, and code.
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant API as Platform API
+  participant DB as PostgreSQL
+  participant Queue as BullMQ
+  participant Worker as Execution worker
+  participant Provider as Model or integration
+  Client->>API: Start execution
+  API->>DB: Insert queued execution and outbox event
+  API-->>Client: 202 Accepted and execution location
+  DB-->>Queue: Relay committed outbox event
+  Queue->>Worker: Deliver execution job
+  Worker->>DB: Claim lease and load workflow version
+  loop Graph steps
+    Worker->>Provider: Execute node
+    Provider-->>Worker: Result
+    Worker->>DB: Persist step and checkpoint
+  end
+  Worker->>DB: Mark execution terminal
+  Client->>API: Read status or event stream
+  API-->>Client: Execution projection
+```
+
+## Delivery guarantees
+
+The queue is a delivery mechanism, while PostgreSQL is the authority for
+execution state. The outbox closes the gap between committing state and
+publishing work. Worker leases allow recovery when a process disappears.
+
+| Concern              | Mechanism                                      |
+| -------------------- | ---------------------------------------------- |
+| Queue delivery       | At least once                                  |
+| Duplicate work       | Lease claims and idempotency keys              |
+| Resume               | Latest durable checkpoint                      |
+| Workflow consistency | Immutable selected version                     |
+| Event ordering       | Persisted sequence within the owning stream    |
+| Side effects         | Connector-specific idempotency where available |
+
+## Step records
+
+Each attempt records its node identity, sequence, status, input/output, error,
+timing, trace identifiers, token usage, and cost. This OTel-shaped history
+supports inspection today and replay or evaluation without inventing a second
+execution record later.
+
+<Callout type="info" title="Failure is explicit">
+  A failed handler does not silently substitute a value. The step and execution
+  transition to an observable failure state, preserving the error boundary.
+</Callout>
