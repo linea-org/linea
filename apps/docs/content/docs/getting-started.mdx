@@ -65,8 +65,24 @@ OPENAI_API_KEY="your-key"
 ```
 
 Provider credentials are read only by the server-side route. Questions are
-grounded in relevant pages from this documentation site, and answers link back
-to those sources.
+grounded through a `searchDocs` tool, and answers link back to its sources.
+
+For production semantic search, create an Upstash Vector index with a hosted
+embedding model and set its REST credentials:
+
+```bash
+UPSTASH_VECTOR_REST_URL="your-index-url"
+UPSTASH_VECTOR_REST_TOKEN="your-index-token"
+```
+
+Ingest the MDX documentation after configuring those variables:
+
+```bash
+pnpm --filter @linea/docs ingest
+```
+
+The command replaces the `linea-docs` namespace with fresh chunks. Without
+Upstash credentials, local development uses the built-in documentation search.
 
 ## Verify a change
 

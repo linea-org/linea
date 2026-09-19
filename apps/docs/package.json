@@ -6,13 +6,21 @@
     "build": "next build",
     "dev": "next dev --port 3002",
     "format": "prettier --write \"**/*.{css,json,md,mdx,mjs,ts,tsx}\"",
+    "ingest": "tsx scripts/ingest-docs.ts",
     "lint": "eslint .",
     "start": "next start --port 3002",
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.58",
+    "@ai-sdk/groq": "^4.0.46",
+    "@ai-sdk/openai": "^4.0.71",
+    "@ai-sdk/react": "^4.0.110",
+    "@ai-sdk/xai": "^5.0.4",
     "@base-ui/react": "^1.6.0",
     "@linea/ai": "workspace:*",
+    "@upstash/vector": "^1.2.3",
+    "ai": "^7.0.107",
     "fumadocs-core": "16.15.11",
     "fumadocs-mdx": "15.4.1",
     "fumadocs-ui": "npm:@fumadocs/base-ui@16.15.11",
@@ -35,6 +43,7 @@
     "postcss": "^8.5.28",
     "prettier": "^3.8.3",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.21.0",
     "typescript": "^6"
   }
 }

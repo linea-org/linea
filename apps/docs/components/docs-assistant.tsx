@@ -1,6 +1,12 @@
 "use client"
 
+import type {
+  DocsAssistantMessage,
+  DocsSearchResult,
+} from "@/lib/docs-assistant-types"
+import { useChat } from "@ai-sdk/react"
 import { Dialog } from "@base-ui/react/dialog"
+import { DefaultChatTransport, isTextUIPart } from "ai"
 import { useNotebookLayout } from "fumadocs-ui/layouts/notebook"
 import {
   ArrowUp,
@@ -20,62 +26,59 @@ import {
   useState,
 } from "react"
 
-type AssistantSource = {
-  title: string
-  url: string
-}
-
-type ChatMessage =
-  | { role: "user"; content: string }
-  | { role: "assistant"; content: string; sources: AssistantSource[] }
-
-type AssistantResponse = {
-  answer: string
-  sources: AssistantSource[]
-}
-
 const suggestions = [
   "Explain this page",
   "What are the security implications?",
   "Show me the execution flow",
 ]
-const MAX_HISTORY_MESSAGES = 10
+const MAX_CLIENT_MESSAGES = 11
+const transport = new DefaultChatTransport<DocsAssistantMessage>({
+  api: "/api/docs-assistant",
+  prepareSendMessagesRequest: ({ messages, body }) => ({
+    body: {
+      ...body,
+      messages: messages.slice(-MAX_CLIENT_MESSAGES).map((message) => ({
+        ...message,
+        parts: message.parts.filter(isTextUIPart),
+      })),
+    },
+  }),
+})
 
-function isAssistantSource(value: unknown): value is AssistantSource {
-  return Boolean(
-    value &&
-    typeof value === "object" &&
-    "title" in value &&
-    typeof value.title === "string" &&
-    "url" in value &&
-    typeof value.url === "string"
+function getMessageText(message: DocsAssistantMessage) {
+  return message.parts
+    .filter(isTextUIPart)
+    .map((part) => part.text)
+    .join("")
+}
+
+function getMessageSources(message: DocsAssistantMessage) {
+  const sources = message.parts.flatMap((part) =>
+    part.type === "tool-searchDocs" && part.state === "output-available"
+      ? part.output
+      : []
+  )
+  return sources.filter(
+    (source, index) =>
+      sources.findIndex((candidate) => candidate.url === source.url) === index
   )
 }
 
-function isAssistantResponse(value: unknown): value is AssistantResponse {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    !("answer" in value) ||
-    !("sources" in value)
+function SourceLinks({ sources }: { sources: DocsSearchResult[] }) {
+  if (sources.length === 0) return null
+  return (
+    <div className="mt-3 flex flex-col gap-1.5">
+      {sources.map((source, index) => (
+        <Link
+          key={source.url}
+          href={source.url}
+          className="text-fd-muted-foreground hover:text-fd-foreground text-xs"
+        >
+          [{index + 1}] {source.title}
+        </Link>
+      ))}
+    </div>
   )
-    return false
-  if (typeof value.answer !== "string" || !Array.isArray(value.sources))
-    return false
-  return value.sources.every(isAssistantSource)
-}
-
-async function getErrorMessage(response: Response) {
-  const value: unknown = await response.json().catch(() => undefined)
-  if (
-    value &&
-    typeof value === "object" &&
-    "error" in value &&
-    typeof value.error === "string"
-  ) {
-    return value.error
-  }
-  return "The docs assistant could not answer right now."
 }
 
 export function DocsMobileAskTrigger() {
@@ -93,55 +96,29 @@ export function DocsAssistant({ trigger }: { trigger: "header" | "floating" }) {
   const questionId = useId()
   const threadRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState("")
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [error, setError] = useState<string>()
-  const [isLoading, setIsLoading] = useState(false)
   const [pageTitle, setPageTitle] = useState("Linea documentation")
+  const { messages, sendMessage, status, error, setMessages, clearError } =
+    useChat<DocsAssistantMessage>({ transport })
+  const isLoading = status === "submitted" || status === "streaming"
   useEffect(() => {
     setPageTitle(document.title.split(" | ")[0] || "Linea documentation")
   }, [pathname])
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight })
-  }, [messages, isLoading])
+  }, [messages, status])
   async function askDocs(nextQuestion: string) {
-    const content = nextQuestion.trim()
-    if (!content || isLoading) return
-    const history = messages.slice(-MAX_HISTORY_MESSAGES).map((message) => ({
-      role: message.role,
-      content: message.content,
-    }))
-    const nextMessages: ChatMessage[] = [...messages, { role: "user", content }]
-    setMessages(nextMessages)
+    const text = nextQuestion.trim()
+    if (!text || isLoading) return
     setDraft("")
-    setError(undefined)
-    setIsLoading(true)
-    try {
-      const response = await fetch("/api/docs-assistant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [...history, { role: "user", content }],
+    clearError()
+    await sendMessage(
+      { text },
+      {
+        body: {
           currentPath: pathname.startsWith("/docs") ? pathname : undefined,
-        }),
-      })
-      if (!response.ok) throw new Error(await getErrorMessage(response))
-      const value: unknown = await response.json()
-      if (!isAssistantResponse(value))
-        throw new Error("The docs assistant returned an invalid response.")
-      setMessages([
-        ...nextMessages,
-        { role: "assistant", content: value.answer, sources: value.sources },
-      ])
-    } catch (caught) {
-      setMessages((currentMessages) => currentMessages.slice(0, -1))
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "The docs assistant could not answer right now."
-      )
-    } finally {
-      setIsLoading(false)
-    }
+        },
+      }
+    )
   }
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -155,7 +132,7 @@ export function DocsAssistant({ trigger }: { trigger: "header" | "floating" }) {
   function resetChat() {
     setMessages([])
     setDraft("")
-    setError(undefined)
+    clearError()
   }
   return (
     <Dialog.Root modal="trap-focus">
@@ -224,43 +201,41 @@ export function DocsAssistant({ trigger }: { trigger: "header" | "floating" }) {
               </div>
             )}
             <div className="flex flex-col gap-4">
-              {messages.map((message, index) =>
-                message.role === "user" ? (
-                  <p
-                    key={`${message.role}-${index}`}
-                    className="bg-fd-secondary text-fd-secondary-foreground ms-8 rounded-md px-3 py-2 text-sm leading-6"
-                  >
-                    {message.content}
-                  </p>
-                ) : (
-                  <div key={`${message.role}-${index}`} className="me-4">
-                    <p className="text-sm leading-7 whitespace-pre-wrap">
-                      {message.content}
+              {messages.map((message) => {
+                const text = getMessageText(message)
+                if (message.role === "user")
+                  return (
+                    <p
+                      key={message.id}
+                      className="bg-fd-secondary text-fd-secondary-foreground ms-8 rounded-md px-3 py-2 text-sm leading-6"
+                    >
+                      {text}
                     </p>
-                    {message.sources.length > 0 && (
-                      <div className="mt-3 flex flex-col gap-1.5">
-                        {message.sources.map((source, sourceIndex) => (
-                          <Link
-                            key={source.url}
-                            href={source.url}
-                            className="text-fd-muted-foreground hover:text-fd-foreground text-xs"
-                          >
-                            [{sourceIndex + 1}] {source.title}
-                          </Link>
-                        ))}
-                      </div>
+                  )
+                return (
+                  <div key={message.id} className="me-4">
+                    {text && (
+                      <p className="text-sm leading-7 whitespace-pre-wrap">
+                        {text}
+                      </p>
                     )}
+                    <SourceLinks sources={getMessageSources(message)} />
                   </div>
                 )
-              )}
+              })}
               {isLoading && (
                 <div className="text-fd-muted-foreground flex items-center gap-2 text-sm">
                   <LoaderCircle className="size-4 animate-spin" />
-                  Reading the docs…
+                  {status === "submitted"
+                    ? "Searching the docs..."
+                    : "Writing..."}
                 </div>
               )}
               {error && (
-                <p className="text-fd-muted-foreground text-sm">{error}</p>
+                <p className="text-fd-muted-foreground text-sm">
+                  {error.message ||
+                    "The docs assistant could not answer right now."}
+                </p>
               )}
             </div>
           </div>
@@ -277,7 +252,7 @@ export function DocsAssistant({ trigger }: { trigger: "header" | "floating" }) {
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about this page…"
+                placeholder="Ask about this page..."
                 rows={2}
                 maxLength={500}
                 className="min-h-10 flex-1 resize-none bg-transparent px-2 py-1 text-sm outline-none"
