@@ -11,16 +11,16 @@ so they can be reviewed with the code they govern.
 
 ## Decision themes
 
-| Theme            | Examples                                                                               |
-| ---------------- | -------------------------------------------------------------------------------------- |
-| Product boundary | Agentic behavior analysis supports the platform rather than defining its initial wedge |
-| Identity         | Applications, External Subjects, and End-User Sessions are distinct boundaries         |
-| Authorization    | Application and Workspace Keys remain non-interchangeable                              |
-| Human control    | Approval Requests and Decisions are separate durable resources                         |
-| Side effects     | Consent is enforced at the connector gateway against an Action Intent digest           |
-| Compatibility    | Only the public developer interface is versioned                                       |
-| Delivery         | PostgreSQL outbox state is authoritative for asynchronous delivery                     |
-| Contracts        | Public wire schemas belong to a browser-safe shared protocol module                    |
+| Theme            | Examples                                                                                |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| Product boundary | Agentic behavior analysis supports the platform rather than defining its initial wedge  |
+| Identity         | Applications, External Subjects, and End-User Sessions are distinct boundaries          |
+| Authorization    | Application and Workspace Keys remain non-interchangeable                               |
+| Human control    | Approval Requests and Decisions are separate durable resources                          |
+| Side effects     | Planned consent enforcement belongs at the connector gateway and binds an intent digest |
+| Compatibility    | Only the public developer interface is versioned                                        |
+| Delivery         | PostgreSQL outbox state is authoritative for asynchronous delivery                      |
+| Contracts        | Public wire schemas belong to a browser-safe shared protocol module                     |
 
 ## When to write an ADR
 

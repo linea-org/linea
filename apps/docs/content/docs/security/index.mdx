@@ -16,8 +16,11 @@ and independently scoped capabilities, not one all-powerful token.
 4. Public browser requests prove possession with DPoP and enforce trusted origins.
 5. Approval ownership follows the approver identity, not an ephemeral browser session.
 6. A Decision is immutable and separate from the Approval Request it answers.
-7. External side effects require consent for the exact Action Intent or a covering policy.
-8. Provider and connector secrets remain on trusted server boundaries.
+7. Provider and connector secrets remain on trusted server boundaries.
+
+The planned Connections milestone adds another invariant: an external side
+effect requires consent for the exact Action Intent or a covering policy. That
+connector enforcement is not part of the current release.
 
 ```mermaid
 flowchart TB
@@ -32,9 +35,9 @@ flowchart TB
   Application -->|provisions| Subject
   Subject -->|authorizes| Session
   Session -->|scoped interaction| Execution
-  Execution -->|Action Intent| Connector
-  Session -->|Action Consent| Connector
-  Connector -->|authorized side effect| Service
+  Execution -.->|planned Action Intent| Connector
+  Session -.->|planned Action Consent| Connector
+  Connector -.->|planned authorized side effect| Service
 ```
 
 ## Reporting vulnerabilities

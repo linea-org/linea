@@ -39,6 +39,7 @@ const suggestions = [
   "What are the security implications?",
   "Show me the execution flow",
 ]
+const MAX_HISTORY_MESSAGES = 10
 
 function isAssistantSource(value: unknown): value is AssistantSource {
   return Boolean(
@@ -105,7 +106,7 @@ export function DocsAssistant({ trigger }: { trigger: "header" | "floating" }) {
   async function askDocs(nextQuestion: string) {
     const content = nextQuestion.trim()
     if (!content || isLoading) return
-    const history = messages.map((message) => ({
+    const history = messages.slice(-MAX_HISTORY_MESSAGES).map((message) => ({
       role: message.role,
       content: message.content,
     }))
@@ -132,6 +133,7 @@ export function DocsAssistant({ trigger }: { trigger: "header" | "floating" }) {
         { role: "assistant", content: value.answer, sources: value.sources },
       ])
     } catch (caught) {
+      setMessages(messages)
       setError(
         caught instanceof Error
           ? caught.message
