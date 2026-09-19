@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./"
+  "ignoreCommand": "npx --yes turbo query affected --packages @linea/docs --tasks build --base $VERCEL_GIT_PREVIOUS_SHA --exit-code"
 }
