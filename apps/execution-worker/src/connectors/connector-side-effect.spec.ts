@@ -11,6 +11,7 @@ import {
   ConnectorGatewayError,
   connectorOperationRegistry,
   deterministicSideEffectOperation,
+  type ConnectorReadCredential,
   type ConnectorSideEffectOperation,
 } from "@linea/connectors"
 import { db, encryptCredential, pool, repositories, schema } from "@linea/db"
@@ -144,7 +145,7 @@ function respondToProvider(
     accessToken: token,
     rawProviderField: "must not enter workflow state",
   }
-  if (resourceId === "response-lost") {
+  if (resourceId === "response-lost" || resourceId === "lease-expired") {
     const idempotencyKey = singleHeader(request.headers["idempotency-key"])
     if (!idempotencyKey) throw new Error("Provider idempotency key is missing")
     const previous = idempotentResults.get(idempotencyKey)
@@ -159,7 +160,12 @@ function respondToProvider(
       resourceId,
       (provider.effects.get(resourceId) ?? 0) + 1
     )
-    response.destroy()
+    if (resourceId === "response-lost") response.destroy()
+    else {
+      response
+        .writeHead(200, { "content-type": "application/json" })
+        .end(JSON.stringify(result))
+    }
     return
   }
   provider.effects.set(resourceId, (provider.effects.get(resourceId) ?? 0) + 1)
@@ -966,6 +972,133 @@ describe("exact Action Intent consent", () => {
           },
         },
       ])
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+
+  it("revalidates authority before recovering an executing intent", async () => {
+    const fixture = await createFixture()
+    const [actor] = await db
+      .insert(schema.users)
+      .values({
+        name: "Connector recovery actor",
+        email: `connector-recovery-${randomUUID()}@example.com`,
+      })
+      .returning()
+    try {
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      const view = await consent(fixture)
+      const claimed = await repositories.actionIntent.claimApprovedActionIntent(
+        db,
+        {
+          actionIntentId: view.intent.id,
+          executionClaimId: fixture.executionClaimId,
+          provider: "test",
+          actionFamily: "test",
+          requiredScopes: ["write:resources"],
+          now: new Date(),
+        }
+      )
+      expect(claimed?.outcome).toBe("claimed")
+      await repositories.externalSubject.disableExternalSubject(
+        db,
+        fixture.workspaceId,
+        fixture.externalSubjectId,
+        actor.id
+      )
+      await pool.query(
+        "UPDATE executions SET lease_expires_at = $1 WHERE id = $2",
+        [new Date(Date.now() - 1), fixture.executionId]
+      )
+      const recoveredClaimId = `recovered:${randomUUID()}`
+      const recoveredExecution = await repositories.execution.startExecution(
+        db,
+        fixture.executionId,
+        recoveredClaimId,
+        new Date(Date.now() + 60_000)
+      )
+      expect(recoveredExecution?.leasedBy).toBe(recoveredClaimId)
+      fixture.executionClaimId = recoveredClaimId
+      await expect(invoke(fixture)).rejects.toMatchObject({
+        code: "authorization_revoked",
+      })
+      expect((await consent(fixture)).intent.status).toBe("failed")
+      expect(
+        provider.requests.filter(({ method }) => method === "PUT")
+      ).toHaveLength(0)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+      await pool.query("DELETE FROM users WHERE id = $1", [actor.id])
+    }
+  })
+
+  it("fences a terminal write after lease expiry and recovers idempotently", async () => {
+    const fixture = await createFixture("lease-expired")
+    let expireLease = true
+    const leaseExpiringOperation: ConnectorSideEffectOperation = Object.freeze({
+      ...deterministicSideEffectOperation,
+      execute: async (
+        parameters: unknown,
+        preconditions: unknown,
+        credential: ConnectorReadCredential,
+        idempotencyKey: string,
+        signal?: AbortSignal
+      ) => {
+        const result = await deterministicSideEffectOperation.execute(
+          parameters,
+          preconditions,
+          credential,
+          idempotencyKey,
+          signal
+        )
+        if (expireLease) {
+          expireLease = false
+          await pool.query(
+            "UPDATE executions SET lease_expires_at = $1 WHERE id = $2",
+            [new Date(Date.now() - 1), fixture.executionId]
+          )
+        }
+        return result
+      },
+    })
+    const gateway = new ConnectorGateway(db, {
+      "deterministic.update": leaseExpiringOperation,
+    })
+    const execute = () =>
+      gateway.execute({
+        executionId: fixture.executionId,
+        workspaceId: fixture.workspaceId,
+        nodeId: "action",
+        connectionId: fixture.connectionId,
+        operationId: "deterministic.update",
+        operationInput: fixture.input,
+        invocationIdempotencyKey: `${fixture.executionId}:action`,
+        executionClaimId: fixture.executionClaimId,
+      })
+    try {
+      await execute()
+      await decide(fixture, "approved")
+      await expect(execute()).rejects.toThrow(
+        "Action Intent completion was lost"
+      )
+      expect((await consent(fixture)).intent.status).toBe("executing")
+      const recoveredClaimId = `recovered:${randomUUID()}`
+      const recoveredExecution = await repositories.execution.startExecution(
+        db,
+        fixture.executionId,
+        recoveredClaimId,
+        new Date(Date.now() + 60_000)
+      )
+      expect(recoveredExecution?.leasedBy).toBe(recoveredClaimId)
+      fixture.executionClaimId = recoveredClaimId
+      await expect(execute()).resolves.toMatchObject({ outcome: "completed" })
+      expect(provider.effects.get("lease-expired")).toBe(1)
+      expect(
+        provider.requests.filter(({ method }) => method === "PUT")
+      ).toHaveLength(2)
+      expect((await consent(fixture)).intent.status).toBe("succeeded")
     } finally {
       await removeWorkspace(fixture.workspaceId)
     }

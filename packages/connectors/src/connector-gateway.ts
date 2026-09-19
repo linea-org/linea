@@ -60,6 +60,29 @@ type ActionIntentClaim = NonNullable<
   >
 >
 
+function retryProviderRequest(
+  operation: ConnectorSideEffectOperation,
+  outcomeUnknown: boolean,
+  attempt: number,
+  maximumAttempts: number,
+  signal: AbortSignal | undefined
+): boolean {
+  return (
+    outcomeUnknown &&
+    operation.retrySafety === "provider_idempotency" &&
+    attempt < maximumAttempts &&
+    !signal?.aborted
+  )
+}
+
+function providerFailureStatus(
+  code: string,
+  outcomeUnknown: boolean
+): "failed" | "stale" | "outcome_unknown" {
+  if (outcomeUnknown) return "outcome_unknown"
+  return code === "precondition_failed" ? "stale" : "failed"
+}
+
 export class ConnectorGatewayError extends Error {
   constructor(
     message = "Connector operation rejected",
@@ -174,8 +197,6 @@ export class ConnectorGateway {
     operation: ConnectorSideEffectOperation,
     input: SideEffectExecutionInput
   ): Promise<SideEffectExecutionResult> {
-    const authority = await this.requireAuthority(operation, input)
-    this.resolveCredential(authority.connection)
     const { normalized, envelope, canonicalDigest, safeDisplay } =
       this.prepareSideEffect(operation, input)
     const created = await repositories.actionIntent.createActionIntent(
@@ -401,20 +422,18 @@ export class ConnectorGateway {
         dispatchMayHaveReachedProvider ? "outcome_unknown" : "failed"
       )
     }
-    switch (claimed.intent.status) {
-      case "executing":
-        return {
-          outcome: "completed",
-          result: await this.invokeSideEffect(
-            operation,
-            claimed.intent,
-            credential,
-            input.executionClaimId,
-            input.signal
-          ),
-        }
-      default:
-        throw new ConnectorGatewayError("Action Intent is not executable")
+    if (claimed.intent.status !== "executing") {
+      throw new ConnectorGatewayError("Action Intent is not executable")
+    }
+    return {
+      outcome: "completed",
+      result: await this.invokeSideEffect(
+        operation,
+        claimed.intent,
+        credential,
+        input.executionClaimId,
+        input.signal
+      ),
     }
   }
 
@@ -520,23 +539,24 @@ export class ConnectorGateway {
           operation.normalizeProviderError(error_)
         )
         if (
-          normalizedError.outcomeUnknown &&
-          operation.retrySafety === "provider_idempotency" &&
-          attempt < maximumAttempts &&
-          !signal?.aborted
+          retryProviderRequest(
+            operation,
+            normalizedError.outcomeUnknown,
+            attempt,
+            maximumAttempts,
+            signal
+          )
         ) {
           continue
-        }
-        let failureStatus: "failed" | "stale" | "outcome_unknown" = "failed"
-        if (normalizedError.outcomeUnknown) failureStatus = "outcome_unknown"
-        else if (normalizedError.code === "precondition_failed") {
-          failureStatus = "stale"
         }
         await this.failSideEffect(
           claimed,
           executionClaimId,
           normalizedError,
-          failureStatus
+          providerFailureStatus(
+            normalizedError.code,
+            normalizedError.outcomeUnknown
+          )
         )
       }
       const completed = await repositories.actionIntent.completeActionIntent(
@@ -617,38 +637,6 @@ export class ConnectorGateway {
       normalizedError.message,
       normalizedError.code
     )
-  }
-
-  private async requireAuthority(
-    operation: {
-      provider: string
-      actionFamily: string
-      requiredScopes: readonly string[]
-    },
-    input: { executionId: string; workspaceId: string; connectionId: string }
-  ) {
-    const authority = await repositories.connection.getConnectorReadAuthority(
-      this.db,
-      input
-    )
-    if (authority?.connection.status !== "active") {
-      throw new ConnectorGatewayError()
-    }
-    if (
-      authority.connection.provider !== operation.provider ||
-      !authority.providerPolicy.actionFamilies.includes(
-        operation.actionFamily
-      ) ||
-      operation.requiredScopes.some(
-        (scope) => !authority.connection.scopes.includes(scope)
-      ) ||
-      operation.requiredScopes.some(
-        (scope) => !authority.providerPolicy.maxScopes.includes(scope)
-      )
-    ) {
-      throw new ConnectorGatewayError()
-    }
-    return authority
   }
 
   private resolveCredential(connection: {

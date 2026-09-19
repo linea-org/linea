@@ -367,6 +367,10 @@ async function recoverExecutingActionIntent(
   tx: DbClient,
   intent: ActionIntent,
   connection: Connection | undefined,
+  application: typeof applications.$inferSelect | undefined,
+  subject: typeof externalSubjects.$inferSelect | undefined,
+  request: ApprovalRequest | undefined,
+  decision: ApprovalDecision | undefined,
   execution: Execution | undefined,
   input: ClaimApprovedActionIntentInput
 ): Promise<ClaimApprovedActionIntentResult> {
@@ -376,9 +380,46 @@ async function recoverExecutingActionIntent(
   if (!activeExecutionClaim(execution, input)) {
     return { outcome: "in_progress", intent }
   }
+  const authorityValid =
+    currentIntentAuthority(intent, connection, application, subject, input) &&
+    currentIntentApproval(intent, request, decision)
   const priorClaimId = intent.executionClaimId
   if (!priorClaimId) {
     throw new Error("Executing Action Intent has no execution claim")
+  }
+  if (!authorityValid) {
+    const outcomeUnknown = intent.dispatchStartedAt !== null
+    const [failed] = await tx
+      .update(actionIntents)
+      .set({
+        status: outcomeUnknown ? "outcome_unknown" : "failed",
+        executionClaimId: input.executionClaimId,
+        normalizedError: {
+          code: outcomeUnknown ? "outcome_unknown" : "authorization_revoked",
+          message: outcomeUnknown
+            ? "Connector provider outcome could not be reconciled"
+            : "Connector authority became unavailable",
+          outcomeUnknown,
+        },
+        updatedAt: input.now,
+      })
+      .where(
+        and(
+          eq(actionIntents.id, intent.id),
+          eq(actionIntents.status, "executing"),
+          eq(actionIntents.executionClaimId, priorClaimId)
+        )
+      )
+      .returning()
+    if (!failed) return { outcome: "in_progress", intent }
+    await createPublicEvent(tx, {
+      workspaceId: failed.workspaceId,
+      applicationId: failed.applicationId,
+      externalSubjectId: failed.externalSubjectId,
+      eventType: "action_intent.failed",
+      data: { actionIntentId: failed.id, executionId: failed.executionId },
+    })
+    return { outcome: "terminal", intent: failed }
   }
   const [recovered] = await tx
     .update(actionIntents)
@@ -479,6 +520,12 @@ export async function claimApprovedActionIntent(
       .from(executions)
       .where(eq(executions.id, snapshot.executionId))
       .for("update")
+    const [decision] = await tx
+      .select()
+      .from(approvalDecisions)
+      .where(
+        eq(approvalDecisions.approvalRequestId, snapshot.approvalRequestId)
+      )
     const [intent] = await tx
       .select()
       .from(actionIntents)
@@ -496,14 +543,14 @@ export async function claimApprovedActionIntent(
         tx,
         intent,
         connection,
+        application,
+        subject,
+        request,
+        decision,
         execution,
         input
       )
     }
-    const [decision] = await tx
-      .select()
-      .from(approvalDecisions)
-      .where(eq(approvalDecisions.approvalRequestId, intent.approvalRequestId))
     if (decision?.outcome !== "approved") {
       return { outcome: "not_ready", intent }
     }
@@ -559,21 +606,7 @@ export async function beginActionIntentDispatch(
   }
 ): Promise<ActionIntent | undefined> {
   return db.transaction(async (tx) => {
-    const [execution] = await tx
-      .select()
-      .from(executions)
-      .innerJoin(actionIntents, eq(actionIntents.executionId, executions.id))
-      .where(eq(actionIntents.id, input.actionIntentId))
-      .for("update", { of: executions })
-    const currentExecution = execution?.executions
-    if (
-      currentExecution?.status !== "running" ||
-      currentExecution.leasedBy !== input.executionClaimId ||
-      !currentExecution.leaseExpiresAt ||
-      currentExecution.leaseExpiresAt <= input.now
-    ) {
-      return undefined
-    }
+    if (!(await lockActiveActionIntentExecution(tx, input))) return undefined
     const [intent] = await tx
       .update(actionIntents)
       .set({
@@ -593,6 +626,32 @@ export async function beginActionIntentDispatch(
   })
 }
 
+async function lockActiveActionIntentExecution(
+  tx: DbClient,
+  input: {
+    actionIntentId: string
+    executionClaimId: string
+    now: Date
+  }
+): Promise<boolean> {
+  const [execution] = await tx
+    .select({ id: executions.id })
+    .from(executions)
+    .innerJoin(actionIntents, eq(actionIntents.executionId, executions.id))
+    .where(
+      and(
+        eq(actionIntents.id, input.actionIntentId),
+        eq(actionIntents.status, "executing"),
+        eq(actionIntents.executionClaimId, input.executionClaimId),
+        eq(executions.status, "running"),
+        eq(executions.leasedBy, input.executionClaimId),
+        gt(executions.leaseExpiresAt, input.now)
+      )
+    )
+    .for("update", { of: executions })
+  return Boolean(execution)
+}
+
 export async function completeActionIntent(
   db: DbClient,
   input: {
@@ -603,6 +662,15 @@ export async function completeActionIntent(
   }
 ): Promise<ActionIntent | undefined> {
   return db.transaction(async (tx) => {
+    if (
+      !(await lockActiveActionIntentExecution(tx, {
+        actionIntentId: input.actionIntentId,
+        executionClaimId: input.executionClaimId,
+        now: input.completedAt,
+      }))
+    ) {
+      return undefined
+    }
     const [intent] = await tx
       .update(actionIntents)
       .set({
@@ -644,6 +712,15 @@ export async function failActionIntent(
   }
 ): Promise<ActionIntent | undefined> {
   return db.transaction(async (tx) => {
+    if (
+      !(await lockActiveActionIntentExecution(tx, {
+        actionIntentId: input.actionIntentId,
+        executionClaimId: input.executionClaimId,
+        now: input.failedAt,
+      }))
+    ) {
+      return undefined
+    }
     const [intent] = await tx
       .update(actionIntents)
       .set({
