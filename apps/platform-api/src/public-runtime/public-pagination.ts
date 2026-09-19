@@ -113,8 +113,8 @@ export function encodeActionIntentCursor(
   cursor: PublicActionIntentCursor,
 ): string {
   return encodeCursor({
+    ...cursor,
     createdAt: cursor.createdAt.toISOString(),
-    id: cursor.id,
   })
 }
 

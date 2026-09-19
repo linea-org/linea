@@ -245,10 +245,15 @@ async function createApprovalRequest(
 async function createPendingActionIntent(
   fixture: Fixture,
   subject: SubjectFixture,
+  expiresAt = new Date(Date.now() + 60_000),
 ) {
   const canonicalDigest = 'a'.repeat(43)
   const approvalRequest = await createApprovalRequest(fixture, subject, {
-    expiresAt: new Date(Date.now() + 60_000),
+    expiresAt,
+    requestedAt:
+      expiresAt.getTime() <= Date.now()
+        ? new Date(expiresAt.getTime() - 60_000)
+        : undefined,
     actionIntentDigest: canonicalDigest,
   })
   const [connection] = await db
@@ -412,6 +417,11 @@ describe('end-user Approval Request API', () => {
   it('lists only the bounded pending Action Intent projection for its owner', async () => {
     const own = await createPendingActionIntent(fixture, fixture.subjects[0])
     await createPendingActionIntent(fixture, fixture.subjects[1])
+    await createPendingActionIntent(
+      fixture,
+      fixture.subjects[0],
+      new Date(Date.now() - 1_000),
+    )
     const path = '/v1/user/action-intents'
     const response = await request(baseUrl)
       .get(path)

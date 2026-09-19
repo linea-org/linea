@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, or } from "drizzle-orm"
+import { and, desc, eq, gt, lt, or } from "drizzle-orm"
 import {
   actionIntents,
   approvalDecisions,
@@ -126,8 +126,7 @@ export async function createActionIntent(
       approvalRequest = foundApprovalRequest
     }
     if (
-      !approvalRequest ||
-      approvalRequest.audience !== "external_subject" ||
+      approvalRequest?.audience !== "external_subject" ||
       approvalRequest.timeoutAction !== "auto_reject" ||
       approvalRequest.actionIntentDigest !== input.canonicalDigest
     ) {
@@ -351,6 +350,7 @@ export async function findPendingActionIntents(
         eq(actionIntents.externalSubjectId, input.externalSubjectId),
         eq(actionIntents.status, "awaiting_consent"),
         eq(approvalRequests.status, "pending"),
+        gt(approvalRequests.expiresAt, new Date()),
         input.cursor
           ? or(
               lt(actionIntents.createdAt, input.cursor.createdAt),

@@ -1,4 +1,9 @@
-import { decryptCredential, repositories, type Database } from "@linea/db"
+import {
+  decryptCredential,
+  repositories,
+  type ActionIntent,
+  type Database,
+} from "@linea/db"
 import { z } from "zod"
 import {
   ACTION_INTENT_DIGEST_VERSION,
@@ -13,6 +18,7 @@ import {
   registeredSideEffectOperation,
   type ActionIntentEnvelope,
   type ConnectorSideEffectOperation,
+  type NormalizedSideEffect,
 } from "./connector-side-effect-operation.js"
 import { validateSafeDisplay } from "./safe-display.js"
 
@@ -155,43 +161,8 @@ export class ConnectorGateway {
   > {
     const authority = await this.requireAuthority(operation, input)
     this.resolveCredential(authority.connection)
-    let normalized
-    try {
-      const validatedInput = operation.inputSchema.parse(input.operationInput)
-      normalized = operation.normalize(validatedInput)
-      normalized.parameters = operation.parametersSchema.parse(
-        normalized.parameters
-      )
-      normalized.providerPreconditions = operation.preconditionsSchema.parse(
-        normalized.providerPreconditions
-      )
-    } catch {
-      throw new ConnectorGatewayError(
-        "Connector input is invalid",
-        "validation_failed"
-      )
-    }
-    const envelope: ActionIntentEnvelope = {
-      version: 1,
-      operationRevision: operation.revision,
-      connectionId: input.connectionId,
-      connector: operation.provider,
-      operation: operation.id,
-      target: normalized.target,
-      parameters: normalized.parameters,
-      providerPreconditions: normalized.providerPreconditions,
-    }
-    let canonicalDigest: string
-    let safeDisplay
-    try {
-      canonicalDigest = digestActionIntent(envelope)
-      safeDisplay = validateSafeDisplay(operation.display(envelope))
-    } catch {
-      throw new ConnectorGatewayError(
-        "Connector action is invalid",
-        "validation_failed"
-      )
-    }
+    const { normalized, envelope, canonicalDigest, safeDisplay } =
+      this.prepareSideEffect(operation, input)
     const created = await repositories.actionIntent.createActionIntent(
       this.db,
       {
@@ -229,17 +200,17 @@ export class ConnectorGateway {
       }
     )
     if (!consent) throw new Error("Created Action Intent was not found")
-    if (consent.approvalRequest.status === "pending") {
-      return {
-        outcome: "awaiting_consent",
-        actionIntentId: consent.intent.id,
-      }
-    }
-    if (consent.approvalRequest.status === "cancelled") {
-      throw new ConnectorGatewayError(
-        "Action Intent was cancelled",
-        "cancelled"
-      )
+    switch (consent.approvalRequest.status) {
+      case "pending":
+        return {
+          outcome: "awaiting_consent",
+          actionIntentId: consent.intent.id,
+        }
+      case "cancelled":
+        throw new ConnectorGatewayError(
+          "Action Intent was cancelled",
+          "cancelled"
+        )
     }
     if (!consent.decision) {
       throw new Error("Action Intent Approval Request has no Decision")
@@ -279,58 +250,113 @@ export class ConnectorGateway {
       consent.intent.id
     )
     if (!claimed) throw new Error("Action Intent was not claimable")
-    if (claimed.status === "succeeded") {
-      return { outcome: "completed", result: claimed.normalizedResult }
+    switch (claimed.status) {
+      case "succeeded":
+        return { outcome: "completed", result: claimed.normalizedResult }
+      case "rejected":
+        return {
+          outcome: "rejected",
+          actionIntentId: claimed.id,
+          reason: consent.decision.reason,
+        }
+      case "failed":
+      case "stale":
+      case "outcome_unknown":
+        if (!claimed.normalizedError) {
+          throw new Error("Terminal Action Intent is missing its error")
+        }
+        throw new ConnectorGatewayError(
+          claimed.normalizedError.message,
+          claimed.normalizedError.code
+        )
+      case "executing":
+        return {
+          outcome: "completed",
+          result: await this.invokeSideEffect(
+            operation,
+            claimed,
+            credential,
+            input.signal
+          ),
+        }
+      default:
+        throw new ConnectorGatewayError("Action Intent is not executable")
     }
-    if (claimed.status === "rejected") {
-      return {
-        outcome: "rejected",
-        actionIntentId: claimed.id,
-        reason: consent.decision.reason,
-      }
-    }
-    if (
-      claimed.status === "failed" ||
-      claimed.status === "stale" ||
-      claimed.status === "outcome_unknown"
-    ) {
-      if (!claimed.normalizedError) {
-        throw new Error("Terminal Action Intent is missing its error")
-      }
+  }
+
+  private prepareSideEffect(
+    operation: ConnectorSideEffectOperation,
+    input: { connectionId: string; operationInput: unknown }
+  ) {
+    let normalized: NormalizedSideEffect
+    try {
+      const validatedInput = operation.inputSchema.parse(input.operationInput)
+      normalized = operation.normalize(validatedInput)
+      normalized.parameters = operation.parametersSchema.parse(
+        normalized.parameters
+      )
+      normalized.providerPreconditions = operation.preconditionsSchema.parse(
+        normalized.providerPreconditions
+      )
+    } catch {
       throw new ConnectorGatewayError(
-        claimed.normalizedError.message,
-        claimed.normalizedError.code
+        "Connector input is invalid",
+        "validation_failed"
       )
     }
-    if (claimed.status !== "executing") {
-      throw new ConnectorGatewayError("Action Intent is not executable")
+    const envelope: ActionIntentEnvelope = {
+      version: 1,
+      operationRevision: operation.revision,
+      connectionId: input.connectionId,
+      connector: operation.provider,
+      operation: operation.id,
+      target: normalized.target,
+      parameters: normalized.parameters,
+      providerPreconditions: normalized.providerPreconditions,
     }
+    try {
+      return {
+        normalized,
+        envelope,
+        canonicalDigest: digestActionIntent(envelope),
+        safeDisplay: validateSafeDisplay(operation.display(envelope)),
+      }
+    } catch {
+      throw new ConnectorGatewayError(
+        "Connector action is invalid",
+        "validation_failed"
+      )
+    }
+  }
+
+  private async invokeSideEffect(
+    operation: ConnectorSideEffectOperation,
+    claimed: ActionIntent,
+    credential: ConnectorReadCredential,
+    signal?: AbortSignal
+  ): Promise<unknown> {
     let result: unknown
     try {
-      const parameters = operation.parametersSchema.parse(
-        claimed.canonicalEnvelope.parameters
-      )
-      const preconditions = operation.preconditionsSchema.parse(
-        claimed.canonicalEnvelope.providerPreconditions
-      )
       result = operation.resultSchema.parse(
         await operation.execute(
-          parameters,
-          preconditions,
+          operation.parametersSchema.parse(
+            claimed.canonicalEnvelope.parameters
+          ),
+          operation.preconditionsSchema.parse(
+            claimed.canonicalEnvelope.providerPreconditions
+          ),
           credential,
           claimed.invocationIdempotencyKey,
-          input.signal
+          signal
         )
       )
-    } catch (providerFailure) {
+    } catch (error_) {
       const normalizedError = operation.providerErrorSchema.parse(
-        operation.normalizeProviderError(providerFailure)
+        operation.normalizeProviderError(error_)
       )
-      const status = normalizedError.outcomeUnknown
-        ? "outcome_unknown"
-        : normalizedError.code === "precondition_failed"
-          ? "stale"
-          : "failed"
+      let status: "failed" | "stale" | "outcome_unknown" = "failed"
+      if (normalizedError.outcomeUnknown) status = "outcome_unknown"
+      else if (normalizedError.code === "precondition_failed") status = "stale"
       const failed = await repositories.actionIntent.failActionIntent(
         this.db,
         claimed.id,
@@ -349,7 +375,7 @@ export class ConnectorGateway {
       result
     )
     if (!completed) throw new Error("Action Intent completion was lost")
-    return { outcome: "completed", result }
+    return result
   }
 
   private async requireAuthority(

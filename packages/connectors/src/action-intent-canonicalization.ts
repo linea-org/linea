@@ -11,18 +11,16 @@ export type IJsonValue =
 export const ACTION_INTENT_DIGEST_VERSION = "jcs-sha256-v1"
 
 function assertUnicodeScalarValue(value: string): void {
-  for (let index = 0; index < value.length; index += 1) {
-    const codeUnit = value.charCodeAt(index)
-    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
-      const next = value.charCodeAt(index + 1)
-      if (!Number.isInteger(next) || next < 0xdc00 || next > 0xdfff) {
-        throw new Error("I-JSON strings must contain valid Unicode")
-      }
-      index += 1
-    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
-      throw new Error("I-JSON strings must contain valid Unicode")
-    }
+  if (/[\uD800-\uDFFF]/u.test(value)) {
+    throw new Error("I-JSON strings must contain valid Unicode")
   }
+}
+
+function compareUtf16CodeUnits(left: string, right: string): number {
+  // RFC 8785 requires raw UTF-16 ordering, which localeCompare does not provide.
+  if (left < right) return -1
+  if (left > right) return 1
+  return 0
 }
 
 function canonicalizeValue(value: unknown): string {
@@ -48,7 +46,7 @@ function canonicalizeValue(value: unknown): string {
     throw new Error("I-JSON objects must be plain objects")
   }
   const object = value as Record<string, unknown>
-  const keys = Object.keys(object).sort()
+  const keys = Object.keys(object).sort(compareUtf16CodeUnits)
   return `{${keys
     .map((key) => {
       assertUnicodeScalarValue(key)
