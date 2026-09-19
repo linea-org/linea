@@ -22,6 +22,8 @@ export type { LineaUserStorage } from "./state-store.js"
 export type {
   ApprovalDecision,
   ApprovalRequest,
+  PendingActionIntent,
+  ListPendingActionIntentsQuery,
   ConversationProjection,
   CreateEndUserConversation,
   CreateMessage,

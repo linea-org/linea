@@ -5473,6 +5473,220 @@ await client.decide(/* typed arguments */)
 
 Not shown for browser/native credentials.
 
+<!-- operation:listPendingActionIntents -->
+
+## listPendingActionIntents
+
+List pending Action Intents owned by the authenticated End User.
+
+- Caller plane: `end_user`
+- Intended caller: An End User's browser or native application.
+- Authentication: end_user_session
+- Method and path: `GET /v1/user/action-intents`
+- Idempotency: None.
+- Rate limits: No operation-specific limit; platform protections apply.
+- Pagination or event resumption: Cursor pagination through limit and cursor query parameters.
+- Emitted events/webhooks: None.
+- SDK method: `LineaUserClient.listPendingActionIntents` from `@linea/sdk/user`
+
+### Request
+
+Path parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {},
+  "type": "object"
+}
+```
+
+Query parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "cursor": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "type": "string"
+    },
+    "limit": {
+      "default": 20,
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}
+```
+
+Header parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "authorization": {
+      "pattern": "^DPoP .*",
+      "type": "string"
+    },
+    "dpop": {
+      "maxLength": 8192,
+      "minLength": 1,
+      "type": "string"
+    },
+    "origin": {
+      "format": "uri",
+      "type": "string"
+    }
+  },
+  "required": ["authorization", "dpop"],
+  "type": "object"
+}
+```
+
+Body:
+
+None.
+
+### Response
+
+Status: `200`
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalRequest": {
+            "additionalProperties": false,
+            "properties": {
+              "expiresAt": {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              "id": {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              }
+            },
+            "required": ["id", "expiresAt"],
+            "type": "object"
+          },
+          "connectionId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "display": {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "details": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "propertyNames": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "title": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": ["title"],
+            "type": "object"
+          },
+          "executionId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "operation": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "executionId",
+          "connectionId",
+          "operation",
+          "display",
+          "approvalRequest",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "maxLength": 2048,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": ["data", "nextCursor"],
+  "type": "object"
+}
+```
+
+### Stable errors
+
+| Code                    | Status | Retryability                |
+| ----------------------- | -----: | --------------------------- |
+| `validation_failed`     |    400 | not automatically retryable |
+| `authentication_failed` |    401 | not automatically retryable |
+| `session_expired`       |    401 | not automatically retryable |
+| `session_revoked`       |    401 | not automatically retryable |
+| `proof_invalid`         |    401 | not automatically retryable |
+| `rate_limited`          |    429 | retryable                   |
+
+### TypeScript
+
+```ts
+import { LineaUserClient } from "@linea/sdk/user"
+
+await client.listPendingActionIntents(/* typed arguments */)
+```
+
+### cURL
+
+Not shown for browser/native credentials.
+
 <!-- operation:streamEndUserEvents -->
 
 ## streamEndUserEvents

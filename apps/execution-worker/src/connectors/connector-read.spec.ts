@@ -248,6 +248,9 @@ async function createFixture(
 
 function runs(operations: ConnectorOperationRegistry): RunsService {
   const gateway = {
+    execute(input: Parameters<ConnectorGateway["execute"]>[0]) {
+      return new ConnectorGateway(db, operations).execute(input)
+    },
     executeRead(input: Parameters<ConnectorGateway["executeRead"]>[0]) {
       return new ConnectorGateway(db, operations).executeRead(input)
     },

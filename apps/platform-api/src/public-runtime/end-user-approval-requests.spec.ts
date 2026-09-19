@@ -7,6 +7,8 @@ import {
   pool,
   repositories,
   applications,
+  actionIntents,
+  connections,
   conversations,
   endUserSessions,
   executions,
@@ -18,6 +20,7 @@ import { publicErrorResponseSchema } from '@linea/protocol/errors'
 import {
   approvalDecisionSchema,
   approvalRequestSchema,
+  pendingActionIntentSchema,
 } from '@linea/protocol/resources'
 import { paginatedResponseSchema } from '@linea/protocol/shared'
 import {
@@ -194,7 +197,11 @@ async function createFixture(): Promise<Fixture> {
 async function createApprovalRequest(
   fixture: Fixture,
   subject: SubjectFixture,
-  input: { expiresAt?: Date; requestedAt?: Date } = {},
+  input: {
+    expiresAt?: Date
+    requestedAt?: Date
+    actionIntentDigest?: string
+  } = {},
 ) {
   const [execution] = await db
     .insert(executions)
@@ -228,10 +235,83 @@ async function createApprovalRequest(
       expiresAt: input.expiresAt,
       requestedAt: input.requestedAt,
       timeoutAction: input.expiresAt ? 'auto_reject' : undefined,
-      actionIntentDigest: input.expiresAt ? 'refund-49' : undefined,
+      actionIntentDigest:
+        input.actionIntentDigest ?? (input.expiresAt ? 'refund-49' : undefined),
     })
   if (!approvalRequest) throw new Error('Approval Request was not created')
   return approvalRequest
+}
+
+async function createPendingActionIntent(
+  fixture: Fixture,
+  subject: SubjectFixture,
+  expiresAt = new Date(Date.now() + 60_000),
+) {
+  const canonicalDigest = 'a'.repeat(43)
+  const approvalRequest = await createApprovalRequest(fixture, subject, {
+    expiresAt,
+    requestedAt:
+      expiresAt.getTime() <= Date.now()
+        ? new Date(expiresAt.getTime() - 60_000)
+        : undefined,
+    actionIntentDigest: canonicalDigest,
+  })
+  const [connection] = await db
+    .insert(connections)
+    .values({
+      workspaceId: fixture.workspaceId,
+      applicationId: fixture.applicationId,
+      externalSubjectId: subject.id,
+      provider: 'test',
+      providerAccountId: randomUUID(),
+      accountLabel: 'Safe account label',
+      status: 'active',
+      scopes: ['write:resources'],
+      credentialEncrypted: 'credential-must-not-leak',
+    })
+    .returning()
+  const target = { resourceId: 'resource-one' }
+  const normalizedParameters = {
+    resourceId: 'resource-one',
+    value: 'safe value',
+    secret: 'canonical-secret-must-not-leak',
+  }
+  const providerPreconditions = { expectedVersion: 'version-one' }
+  const canonicalEnvelope = {
+    version: 1 as const,
+    operationRevision: '1',
+    connectionId: connection.id,
+    connector: 'test',
+    operation: 'deterministic.update',
+    target,
+    parameters: normalizedParameters,
+    providerPreconditions,
+  }
+  const [intent] = await db
+    .insert(actionIntents)
+    .values({
+      workspaceId: fixture.workspaceId,
+      applicationId: fixture.applicationId,
+      externalSubjectId: subject.id,
+      connectionId: connection.id,
+      workflowId: fixture.workflowId,
+      executionId: approvalRequest.executionId,
+      nodeId: approvalRequest.nodeId,
+      approvalRequestId: approvalRequest.id,
+      connector: 'test',
+      operationId: 'deterministic.update',
+      operationRevision: '1',
+      target,
+      normalizedParameters,
+      providerPreconditions,
+      safeDisplay: approvalRequest.display,
+      digestVersion: 'jcs-sha256-v1',
+      canonicalDigest,
+      canonicalEnvelope,
+      invocationIdempotencyKey: `${approvalRequest.executionId}:${approvalRequest.nodeId}`,
+    })
+    .returning()
+  return { intent, approvalRequest }
 }
 
 async function dpopProof(input: {
@@ -332,6 +412,46 @@ describe('end-user Approval Request API', () => {
     })
     expect(body.data[0]).not.toHaveProperty('actionIntentDigest')
     expect(body.data[0]).not.toHaveProperty('externalSubjectId')
+  })
+
+  it('lists only the bounded pending Action Intent projection for its owner', async () => {
+    const own = await createPendingActionIntent(fixture, fixture.subjects[0])
+    await createPendingActionIntent(fixture, fixture.subjects[1])
+    await createPendingActionIntent(
+      fixture,
+      fixture.subjects[0],
+      new Date(Date.now() - 1_000),
+    )
+    const path = '/v1/user/action-intents'
+    const response = await request(baseUrl)
+      .get(path)
+      .set(await headers(fixture.subjects[0].sessions[0], 'GET', path))
+    expect(response.status).toBe(200)
+    const body = paginatedResponseSchema(pendingActionIntentSchema).parse(
+      response.body,
+    )
+    expect(body).toEqual({
+      data: [
+        {
+          id: own.intent.id,
+          executionId: own.intent.executionId,
+          connectionId: own.intent.connectionId,
+          operation: 'deterministic.update',
+          display: own.intent.safeDisplay,
+          approvalRequest: {
+            id: own.approvalRequest.id,
+            expiresAt: own.approvalRequest.expiresAt?.toISOString(),
+          },
+          createdAt: own.intent.createdAt.toISOString(),
+        },
+      ],
+      nextCursor: null,
+    })
+    expect(JSON.stringify(body)).not.toContain('canonical-secret')
+    expect(JSON.stringify(body)).not.toContain('credential-must-not-leak')
+    expect(body.data[0]).not.toHaveProperty('canonicalDigest')
+    expect(body.data[0]).not.toHaveProperty('providerPreconditions')
+    expect(body.data[0]).not.toHaveProperty('normalizedParameters')
   })
 
   it('accepts a Decision from a second current session and replays it', async () => {

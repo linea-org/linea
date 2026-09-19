@@ -58,6 +58,7 @@ describe("operation registry", () => {
       "listEndUserApprovalRequests",
       "getEndUserApprovalRequest",
       "decideEndUserApprovalRequest",
+      "listPendingActionIntents",
       "streamEndUserEvents",
       "listWebhookDeliveries",
       "listRegressionCases",

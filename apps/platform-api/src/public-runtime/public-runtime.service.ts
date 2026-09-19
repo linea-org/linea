@@ -13,6 +13,7 @@ import type {
   CreateMessage,
   DecideApprovalRequest,
   ListApprovalRequestsQuery,
+  ListPendingActionIntentsQuery,
   StartApplicationExecution,
   StartEndUserExecution,
 } from '@linea/protocol/resources'
@@ -30,9 +31,11 @@ import {
 } from './public-runtime.projections'
 import {
   decodeApprovalRequestCursor,
+  decodeActionIntentCursor,
   decodeConversationCursor,
   decodeMessageCursor,
   encodeApprovalRequestCursor,
+  encodeActionIntentCursor,
   encodeConversationCursor,
   encodeMessageCursor,
 } from './public-pagination'
@@ -41,6 +44,7 @@ import {
   approvalDecisionProjection,
   approvalRequestProjection,
 } from './approval-request.projections'
+import { pendingActionIntentProjection } from './action-intent.projections'
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
 const MESSAGE_RATE_LIMIT = 60
@@ -337,6 +341,30 @@ export class PublicRuntimeService {
       nextCursor:
         views.length > query.limit && last
           ? encodeApprovalRequestCursor(last.request)
+          : null,
+    }
+  }
+
+  async listPendingActionIntents(
+    principal: EndUserPrincipal,
+    query: ListPendingActionIntentsQuery,
+  ) {
+    const views = await repositories.actionIntent.findPendingActionIntents(db, {
+      workspaceId: principal.workspaceId,
+      applicationId: principal.applicationId,
+      externalSubjectId: principal.externalSubjectId,
+      limit: query.limit + 1,
+      cursor: decodeActionIntentCursor(query.cursor),
+    })
+    const page = views.slice(0, query.limit)
+    const last = page.at(-1)
+    return {
+      data: page.map(({ intent, approvalRequest }) =>
+        pendingActionIntentProjection(intent, approvalRequest),
+      ),
+      nextCursor:
+        views.length > query.limit && last
+          ? encodeActionIntentCursor(last.intent)
           : null,
     }
   }
