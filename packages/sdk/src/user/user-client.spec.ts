@@ -518,6 +518,68 @@ describe("browser end-user client", () => {
     )
     await stream.return(undefined)
   })
+
+  it("starts, lists, inspects, and revokes Connections", async () => {
+    const connectionId = "50000000-0000-4000-8000-000000000005"
+    const connection = {
+      id: connectionId,
+      provider: "test",
+      providerAccountId: "account-one",
+      accountLabel: "Test Account",
+      status: "active",
+      scopes: ["profile"],
+      credentialVersion: 1,
+      createdAt: "2026-09-18T00:00:00.000Z",
+      updatedAt: "2026-09-18T00:00:00.000Z",
+      revokedAt: null,
+    }
+    const { client } = await authenticatedClient((path, init) => {
+      if (path === "/v1/user/connections/authorizations") {
+        return jsonResponse(
+          {
+            authorizationId: "60000000-0000-4000-8000-000000000006",
+            authorizationUrl: "https://provider.example/authorize",
+          },
+          201
+        )
+      }
+      if (path === "/v1/user/connections") {
+        return jsonResponse({ data: [connection] })
+      }
+      if (path === `/v1/user/connections/${connectionId}`) {
+        return jsonResponse(
+          init.method === "DELETE"
+            ? {
+                ...connection,
+                status: "revoked",
+                updatedAt: "2026-09-18T00:01:00.000Z",
+                revokedAt: "2026-09-18T00:01:00.000Z",
+              }
+            : connection
+        )
+      }
+      throw new Error(`Unexpected request: ${path}`)
+    })
+    await expect(
+      client.startConnectionAuthorization({
+        provider: "test",
+        returnUri: "https://app.example/connections/callback",
+        scopes: ["profile"],
+      })
+    ).resolves.toMatchObject({
+      authorizationUrl: "https://provider.example/authorize",
+    })
+    await expect(client.listConnections()).resolves.toEqual({
+      data: [connection],
+    })
+    await expect(client.getConnection(connectionId)).resolves.toEqual(
+      connection
+    )
+    await expect(client.revokeConnection(connectionId)).resolves.toMatchObject({
+      id: connectionId,
+      status: "revoked",
+    })
+  })
 })
 
 describe("React Native end-user client", () => {

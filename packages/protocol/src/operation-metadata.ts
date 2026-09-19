@@ -39,6 +39,58 @@ function workspaceSdk(method: string): OperationSdkCoverage {
 }
 
 export const operationMetadata = {
+  startConnectionAuthorization: {
+    purpose: "Start provider authorization for an End User's Connection.",
+    caller: userCaller,
+    idempotency: none,
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/connections.controller.ts",
+      "startAuthorization"
+    ),
+    sdk: userSdk("startConnectionAuthorization"),
+  },
+  listConnections: {
+    purpose: "List the End User's Application-scoped Connections.",
+    caller: userCaller,
+    idempotency: none,
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/connections.controller.ts",
+      "list"
+    ),
+    sdk: userSdk("listConnections"),
+  },
+  getConnection: {
+    purpose: "Inspect one End User Connection without provider credentials.",
+    caller: userCaller,
+    idempotency: none,
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/connections.controller.ts",
+      "get"
+    ),
+    sdk: userSdk("getConnection"),
+  },
+  revokeConnection: {
+    purpose: "Revoke one End User Connection and remove its active credential.",
+    caller: userCaller,
+    idempotency: "A revoked Connection cannot be revoked again.",
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/connections.controller.ts",
+      "revoke"
+    ),
+    sdk: userSdk("revokeConnection"),
+  },
   startEndUserAuthorization: {
     purpose: "Start an OIDC authorization with PKCE for an End User.",
     caller: userCaller,

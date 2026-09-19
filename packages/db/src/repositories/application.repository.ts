@@ -6,6 +6,7 @@ import {
   endUserIdentityExchanges,
   endUserSessions,
   type Application,
+  type ConnectorAccessPolicy,
   type NewAuditLog,
 } from "../schema/index.js"
 import type { DbClient, Transaction } from "./types.js"
@@ -225,6 +226,29 @@ export async function disableApplication(
         )
       )
     await recordAudit(tx, application, actor, "application.disabled", null)
+    return application
+  })
+}
+
+export async function replaceConnectorAccessPolicy(
+  db: DbClient,
+  workspaceId: string,
+  id: string,
+  connectorAccessPolicy: ConnectorAccessPolicy,
+  actor: ApplicationActor
+): Promise<Application | undefined> {
+  return db.transaction(async (tx) => {
+    const [application] = await tx
+      .update(applications)
+      .set({ connectorAccessPolicy, updatedAt: new Date() })
+      .where(
+        and(eq(applications.workspaceId, workspaceId), eq(applications.id, id))
+      )
+      .returning()
+    if (!application) return undefined
+    await recordAudit(tx, application, actor, "application.updated", {
+      changedFields: ["connectorAccessPolicy"],
+    })
     return application
   })
 }

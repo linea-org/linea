@@ -21,9 +21,11 @@ import { ApplicationsService } from './applications.service'
 import {
   createApplicationSchema,
   replaceApplicationTrustSchema,
+  replaceConnectorAccessPolicySchema,
   updateApplicationProfileSchema,
   type CreateApplicationDto,
   type ReplaceApplicationTrustDto,
+  type ReplaceConnectorAccessPolicyDto,
   type UpdateApplicationProfileDto,
 } from './dto/application-input.dto'
 
@@ -90,5 +92,22 @@ export class ApplicationsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.applications.disable(workspaceId, actorUserId, id)
+  }
+
+  @Put(':id/connector-access-policy')
+  @UseGuards(RecentAuthenticationGuard)
+  replaceConnectorAccessPolicy(
+    @CurrentWorkspaceId() workspaceId: string,
+    @CurrentUserId() actorUserId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(replaceConnectorAccessPolicySchema))
+    body: ReplaceConnectorAccessPolicyDto,
+  ) {
+    return this.applications.replaceConnectorAccessPolicy(
+      workspaceId,
+      actorUserId,
+      id,
+      body,
+    )
   }
 }

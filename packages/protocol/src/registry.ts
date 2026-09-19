@@ -40,6 +40,12 @@ import {
   listRegressionRunsOperation,
   triggerRegressionRunOperation,
 } from "./operations/workspace-regressions"
+import {
+  getConnectionOperation,
+  listConnectionsOperation,
+  revokeConnectionOperation,
+  startConnectionAuthorizationOperation,
+} from "./operations/connections"
 
 function routeIdentity(operation: OperationDefinition): string {
   const path = operation.path.replace(/\{[^/{}]+\}/g, "{}")
@@ -81,6 +87,19 @@ export function createOperationRegistry<
 }
 
 export const operationRegistry = createOperationRegistry([
+  registerOperation(
+    startConnectionAuthorizationOperation,
+    operationMetadata.startConnectionAuthorization
+  ),
+  registerOperation(
+    listConnectionsOperation,
+    operationMetadata.listConnections
+  ),
+  registerOperation(getConnectionOperation, operationMetadata.getConnection),
+  registerOperation(
+    revokeConnectionOperation,
+    operationMetadata.revokeConnection
+  ),
   registerOperation(
     startEndUserAuthorizationOperation,
     operationMetadata.startEndUserAuthorization

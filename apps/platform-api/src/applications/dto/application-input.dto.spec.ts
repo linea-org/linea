@@ -1,5 +1,6 @@
 import {
   createApplicationSchema,
+  replaceConnectorAccessPolicySchema,
   updateApplicationProfileSchema,
 } from './application-input.dto'
 
@@ -73,6 +74,35 @@ describe('application input', () => {
     expect(updateApplicationProfileSchema.safeParse({}).success).toBe(false)
     expect(
       updateApplicationProfileSchema.safeParse({ environment: 'dev' }).success,
+    ).toBe(false)
+  })
+  it('normalizes Connector Access Policy and rejects duplicate providers', () => {
+    expect(
+      replaceConnectorAccessPolicySchema.parse({
+        providers: [
+          {
+            provider: 'test',
+            actionFamilies: ['profile', 'profile'],
+            maxScopes: ['write', 'read', 'read'],
+          },
+        ],
+      }),
+    ).toEqual({
+      providers: [
+        {
+          provider: 'test',
+          actionFamilies: ['profile'],
+          maxScopes: ['read', 'write'],
+        },
+      ],
+    })
+    expect(
+      replaceConnectorAccessPolicySchema.safeParse({
+        providers: [
+          { provider: 'test', actionFamilies: ['one'], maxScopes: ['read'] },
+          { provider: 'test', actionFamilies: ['two'], maxScopes: ['write'] },
+        ],
+      }).success,
     ).toBe(false)
   })
 })
