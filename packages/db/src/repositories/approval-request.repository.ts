@@ -38,6 +38,7 @@ import {
   reservePublicRequest,
 } from "./public-idempotency.repository.js"
 import type { DbClient, Transaction } from "./types.js"
+import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.repository.js"
 
 export async function createApprovalRequest(
   db: DbClient,
@@ -559,16 +560,15 @@ export async function decideExternalApprovalRequest(
   const now = input.now
   return db.transaction(
     async (tx): Promise<DecideExternalApprovalRequestResult> => {
-      const [request] = await tx
+      const [snapshot] = await tx
         .select()
         .from(approvalRequests)
         .where(eq(approvalRequests.id, input.approvalRequestId))
-        .for("update")
       if (
-        request?.audience !== "external_subject" ||
-        request.workspaceId !== input.workspaceId ||
-        request.applicationId !== input.applicationId ||
-        request.externalSubjectId !== input.externalSubjectId
+        snapshot?.audience !== "external_subject" ||
+        snapshot.workspaceId !== input.workspaceId ||
+        snapshot.applicationId !== input.applicationId ||
+        snapshot.externalSubjectId !== input.externalSubjectId
       ) {
         return { outcome: "wrong_subject" }
       }
@@ -603,6 +603,19 @@ export async function decideExternalApprovalRequest(
         )
         .for("key share")
       if (!session) return { outcome: "session_invalid" }
+      const [request] = await tx
+        .select()
+        .from(approvalRequests)
+        .where(eq(approvalRequests.id, input.approvalRequestId))
+        .for("update")
+      if (
+        request?.audience !== "external_subject" ||
+        request.workspaceId !== input.workspaceId ||
+        request.applicationId !== input.applicationId ||
+        request.externalSubjectId !== input.externalSubjectId
+      ) {
+        return { outcome: "wrong_subject" }
+      }
       if (request.status === "cancelled") return { outcome: "cancelled" }
       if (request.status === "decided") {
         const decision = await getLockedRequestDecision(tx, request.id)
@@ -667,6 +680,17 @@ export async function cancelExecutionWithPendingApproval(
   actorApplicationKeyId: string,
   cancelledAt: Date
 ): Promise<Execution | undefined> {
+  const lockKey = `action-intent-execution:${executionId}`
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
+  )
+  const actionIntents = await cancelNonExecutingActionIntents(tx, {
+    workspaceId,
+    scope: { kind: "execution", id: executionId },
+    actor: { kind: "application_key", id: actorApplicationKeyId },
+    cancelledAt,
+  })
+  if (actionIntents.executing.length > 0) return undefined
   const pending = await tx
     .select()
     .from(approvalRequests)

@@ -529,6 +529,28 @@ describe('OAuth Connections', () => {
     expect(delivery?.credentialEncrypted).toBeNull()
     expect(delivery?.attemptCount).toBe(2)
     expect(delivery?.deliveredAt).toBeInstanceOf(Date)
+    const expiredDeliveryId = randomUUID()
+    await db.insert(schema.connectionRevocationDeliveries).values({
+      id: expiredDeliveryId,
+      workspaceId,
+      connectionId,
+      provider: 'test',
+      credentialEncrypted: encryptCredential('expired-revocation', {
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+        recordId: expiredDeliveryId,
+        provider: 'test:revocation',
+      }),
+      availableAt: new Date(Date.now() - 2_000),
+      expiresAt: new Date(Date.now() - 1_000),
+    })
+    await revocations.poll()
+    expect(
+      await db.query.connectionRevocationDeliveries.findFirst({
+        where: { id: expiredDeliveryId },
+      }),
+    ).toBeUndefined()
   })
 
   it('transitions an invalid refresh grant without an unbounded retry', async () => {

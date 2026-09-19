@@ -3,6 +3,7 @@ import {
   check,
   foreignKey,
   index,
+  integer,
   jsonb,
   pgEnum,
   snakeCase,
@@ -73,6 +74,9 @@ export const actionIntents = snakeCase.table(
     canonicalEnvelope: jsonb().$type<ActionIntentEnvelope>().notNull(),
     invocationIdempotencyKey: text().notNull(),
     status: actionIntentStatus().default("awaiting_consent").notNull(),
+    executionClaimId: text(),
+    dispatchStartedAt: timestamp({ withTimezone: true }),
+    providerAttemptCount: integer().default(0).notNull(),
     normalizedResult: jsonb().$type<unknown>(),
     normalizedError: jsonb().$type<NormalizedConnectorError>(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -141,6 +145,14 @@ export const actionIntents = snakeCase.table(
     check(
       "action_intents_outcome_check",
       sql`(${table.status} = 'succeeded') = (${table.normalizedResult} IS NOT NULL) AND (${table.status} IN ('failed', 'stale', 'outcome_unknown')) = (${table.normalizedError} IS NOT NULL)`
+    ),
+    check(
+      "action_intents_execution_claim_check",
+      sql`(${table.status} IN ('executing', 'succeeded', 'failed', 'stale', 'outcome_unknown')) = (${table.executionClaimId} IS NOT NULL)`
+    ),
+    check(
+      "action_intents_dispatch_check",
+      sql`${table.providerAttemptCount} >= 0 AND (${table.dispatchStartedAt} IS NULL) = (${table.providerAttemptCount} = 0)`
     ),
   ]
 )

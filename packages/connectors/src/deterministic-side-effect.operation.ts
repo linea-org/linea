@@ -67,6 +67,7 @@ export const deterministicSideEffectOperation: ConnectorSideEffectOperation =
     preconditionsSchema,
     resultSchema,
     providerErrorSchema,
+    retrySafety: "provider_idempotency",
     normalize(rawInput) {
       const input = inputSchema.parse(rawInput)
       return {
@@ -88,6 +89,30 @@ export const deterministicSideEffectOperation: ConnectorSideEffectOperation =
           Value: escapeSafeDisplayText(parameters.value),
         }),
       })
+    },
+    async revalidateProviderPreconditions(
+      rawParameters,
+      rawPreconditions,
+      credential,
+      signal
+    ) {
+      const parameters = parametersSchema.parse(rawParameters)
+      const preconditions = preconditionsSchema.parse(rawPreconditions)
+      const response = await fetch(
+        new URL(
+          `/resources/${encodeURIComponent(parameters.resourceId)}/version`,
+          providerBaseUrl()
+        ),
+        {
+          headers: { authorization: `Bearer ${credential.accessToken}` },
+          signal,
+        }
+      )
+      if (!response.ok) throw new DeterministicProviderError(response.status)
+      const state = z
+        .strictObject({ version: z.string().min(1).max(64) })
+        .parse(await response.json())
+      return state.version === preconditions.expectedVersion
     },
     async execute(
       rawParameters,

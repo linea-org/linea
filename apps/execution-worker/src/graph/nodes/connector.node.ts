@@ -6,6 +6,7 @@ import type {
   NodeExecutionContext,
   NodeHandler,
 } from "./node-handler.interface"
+import { NonRetryableError } from "./non-retryable-error"
 
 @Injectable()
 export class ConnectorNode implements NodeHandler {
@@ -18,22 +19,31 @@ export class ConnectorNode implements NodeHandler {
     input: unknown,
     context: NodeExecutionContext
   ): Promise<unknown> {
-    const { executionId, nodeId, idempotencyKey } = context
-    if (!executionId || !nodeId || !idempotencyKey) {
+    const { executionId, nodeId, idempotencyKey, leasedBy } = context
+    if (!executionId || !nodeId || !idempotencyKey || !leasedBy) {
       throw new Error("Connector node requires an invocation identity")
     }
     const connectorConfig = nodeRegistry.connector.inputSchema.parse(config)
     const request = connectorRequestSchema.parse(input)
-    const result = await this.gateway.execute({
-      executionId,
-      workspaceId: context.workspaceId,
-      nodeId,
-      connectionId: request.connectionId,
-      operationId: connectorConfig.operation,
-      operationInput: request.input,
-      invocationIdempotencyKey: idempotencyKey,
-      signal: context.signal,
-    })
+    let result: Awaited<ReturnType<ConnectorGatewayService["execute"]>>
+    try {
+      result = await this.gateway.execute({
+        executionId,
+        workspaceId: context.workspaceId,
+        nodeId,
+        connectionId: request.connectionId,
+        operationId: connectorConfig.operation,
+        operationInput: request.input,
+        invocationIdempotencyKey: idempotencyKey,
+        executionClaimId: leasedBy,
+        signal: context.signal,
+      })
+    } catch (error) {
+      throw new NonRetryableError(
+        error instanceof Error ? error.message : "Connector operation failed",
+        { cause: error }
+      )
+    }
     if (result.outcome === "awaiting_consent") {
       throw new PauseExecutionError(nodeId)
     }

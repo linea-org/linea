@@ -12,6 +12,7 @@ export class ConnectorGatewayService {
     operationId: string
     operationInput: unknown
     invocationIdempotencyKey: string
+    executionClaimId: string
     signal?: AbortSignal
   }) {
     return new ConnectorGateway(db, connectorOperationRegistry).execute(input)

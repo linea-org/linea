@@ -10,6 +10,8 @@ import {
   ConnectorGateway,
   ConnectorGatewayError,
   connectorOperationRegistry,
+  deterministicSideEffectOperation,
+  type ConnectorSideEffectOperation,
 } from "@linea/connectors"
 import { db, encryptCredential, pool, repositories, schema } from "@linea/db"
 import type { WorkflowGraph } from "@linea/runtime"
@@ -35,6 +37,7 @@ type ProviderRequest = {
   body: unknown
   idempotencyKey: string | undefined
   ifMatch: string | undefined
+  method: string | undefined
   path: string
 }
 
@@ -42,15 +45,19 @@ type Provider = {
   server: Server
   baseUrl: string
   requests: ProviderRequest[]
+  effects: Map<string, number>
 }
 
 type Fixture = {
   workspaceId: string
   applicationId: string
+  applicationKeyId: string
   externalSubjectId: string
   endUserSessionId: string
   connectionId: string
+  accessToken: string
   executionId: string
+  executionClaimId: string
   input: {
     resourceId: string
     value: string
@@ -75,8 +82,7 @@ async function requestBody(request: IncomingMessage): Promise<unknown> {
       throw new Error("Provider request body is not binary data")
     })
     .join("")
-  const body: unknown = JSON.parse(text)
-  return body
+  return text ? JSON.parse(text) : undefined
 }
 
 function singleHeader(
@@ -89,15 +95,17 @@ function singleHeader(
 function respondToProvider(
   request: IncomingMessage,
   response: ServerResponse,
-  requests: ProviderRequest[],
+  provider: Pick<Provider, "requests" | "effects">,
+  idempotentResults: Map<string, unknown>,
   body: unknown
 ): void {
   const path = requestPath(request)
-  requests.push({
+  provider.requests.push({
     authorization: request.headers.authorization,
     body,
     idempotencyKey: singleHeader(request.headers["idempotency-key"]),
     ifMatch: singleHeader(request.headers["if-match"]),
+    method: request.method,
     path,
   })
   const token = request.headers.authorization?.replace(/^Bearer /, "")
@@ -106,6 +114,15 @@ function respondToProvider(
     return
   }
   const resourceId = decodeURIComponent(path.replace("/resources/", ""))
+  if (request.method === "GET" && resourceId.endsWith("/version")) {
+    const id = resourceId.slice(0, -"/version".length)
+    response.writeHead(200, { "content-type": "application/json" }).end(
+      JSON.stringify({
+        version: id === "stale" ? "version-two" : "version-one",
+      })
+    )
+    return
+  }
   if (resourceId === "stale") {
     response.writeHead(412).end()
     return
@@ -120,22 +137,52 @@ function respondToProvider(
       .end(JSON.stringify({ error: `private provider failure ${token}` }))
     return
   }
-  response.writeHead(200, { "content-type": "application/json" }).end(
-    JSON.stringify({
+  const result = {
+    resourceId,
+    value: (body as { value: string }).value,
+    version: "version-two",
+    accessToken: token,
+    rawProviderField: "must not enter workflow state",
+  }
+  if (resourceId === "response-lost") {
+    const idempotencyKey = singleHeader(request.headers["idempotency-key"])
+    if (!idempotencyKey) throw new Error("Provider idempotency key is missing")
+    const previous = idempotentResults.get(idempotencyKey)
+    if (previous) {
+      response
+        .writeHead(200, { "content-type": "application/json" })
+        .end(JSON.stringify(previous))
+      return
+    }
+    idempotentResults.set(idempotencyKey, result)
+    provider.effects.set(
       resourceId,
-      value: (body as { value: string }).value,
-      version: "version-two",
-      accessToken: token,
-      rawProviderField: "must not enter workflow state",
-    })
-  )
+      (provider.effects.get(resourceId) ?? 0) + 1
+    )
+    response.destroy()
+    return
+  }
+  provider.effects.set(resourceId, (provider.effects.get(resourceId) ?? 0) + 1)
+  response
+    .writeHead(200, { "content-type": "application/json" })
+    .end(JSON.stringify(result))
 }
 
 async function startProvider(): Promise<Provider> {
   const requests: ProviderRequest[] = []
+  const effects = new Map<string, number>()
+  const idempotentResults = new Map<string, unknown>()
   const server = createServer((request, response) => {
     void requestBody(request)
-      .then((body) => respondToProvider(request, response, requests, body))
+      .then((body) =>
+        respondToProvider(
+          request,
+          response,
+          { requests, effects },
+          idempotentResults,
+          body
+        )
+      )
       .catch((error: unknown) =>
         response.destroy(
           error instanceof Error ? error : new Error(String(error))
@@ -154,6 +201,7 @@ async function startProvider(): Promise<Provider> {
     server,
     baseUrl: `http://127.0.0.1:${address.port}`,
     requests,
+    effects,
   }
 }
 
@@ -218,6 +266,17 @@ async function createFixture(
       issuerSubject: `connector-subject-${suffix}`,
       status: "verified",
       verifiedAt: new Date(),
+    })
+    .returning()
+  const [applicationKey] = await db
+    .insert(schema.applicationKeys)
+    .values({
+      workspaceId: workspace.id,
+      applicationId: application.id,
+      name: "Connector race test",
+      scopes: ["executions:cancel"],
+      hashedKey: `hashed-${suffix}`,
+      keyPrefix: `prefix-${suffix}`,
     })
     .returning()
   await db.insert(schema.externalSubjectApplications).values({
@@ -292,11 +351,12 @@ async function createFixture(
       },
     },
   })
+  const executionClaimId = `side-effect-test:${suffix}`
   if (start) {
     const started = await repositories.execution.startExecution(
       db,
       execution.id,
-      `side-effect-test:${suffix}`,
+      executionClaimId,
       new Date(Date.now() + 60_000)
     )
     if (!started) throw new Error("Fixture Execution did not start")
@@ -304,10 +364,13 @@ async function createFixture(
   return {
     workspaceId: workspace.id,
     applicationId: application.id,
+    applicationKeyId: applicationKey.id,
     externalSubjectId: subject.id,
     endUserSessionId: session.id,
     connectionId,
+    accessToken,
     executionId: execution.id,
+    executionClaimId,
     input: {
       resourceId,
       value: " <new value> ",
@@ -350,6 +413,7 @@ function invoke(
     operationId: "deterministic.update",
     operationInput,
     invocationIdempotencyKey,
+    executionClaimId: fixture.executionClaimId,
   })
 }
 
@@ -385,6 +449,59 @@ async function decide(
   }
 }
 
+async function revoke(fixture: Fixture) {
+  const connection = await repositories.connection.getConnection(
+    db,
+    {
+      workspaceId: fixture.workspaceId,
+      applicationId: fixture.applicationId,
+      externalSubjectId: fixture.externalSubjectId,
+    },
+    fixture.connectionId
+  )
+  if (!connection) throw new Error("Fixture Connection was not found")
+  const deliveryId = randomUUID()
+  return repositories.connection.revokeConnection(
+    db,
+    {
+      workspaceId: fixture.workspaceId,
+      applicationId: fixture.applicationId,
+      externalSubjectId: fixture.externalSubjectId,
+    },
+    fixture.connectionId,
+    {
+      expectedCredentialVersion: connection.credentialVersion,
+      deliveryId,
+      revocationCredentialEncrypted: encryptCredential("revocation", {
+        workspaceId: fixture.workspaceId,
+        applicationId: fixture.applicationId,
+        externalSubjectId: fixture.externalSubjectId,
+        recordId: deliveryId,
+        provider: "test:revocation",
+      }),
+      actorEndUserSessionId: fixture.endUserSessionId,
+      expiresAt: new Date(Date.now() + 60_000),
+      now: new Date(),
+    }
+  )
+}
+
+function cancelExecution(fixture: Fixture) {
+  return repositories.publicRuntime.cancelPublicExecution(
+    db,
+    fixture.workspaceId,
+    fixture.applicationId,
+    fixture.executionId,
+    {
+      actor: { kind: "application_key", id: fixture.applicationKeyId },
+      key: randomUUID(),
+      requestHash: repositories.publicIdempotency.hashPublicRequest({
+        executionId: fixture.executionId,
+      }),
+    }
+  )
+}
+
 async function removeWorkspace(workspaceId: string): Promise<void> {
   await pool.query("DELETE FROM approval_requests WHERE workspace_id = $1", [
     workspaceId,
@@ -406,6 +523,7 @@ describe("exact Action Intent consent", () => {
 
   afterEach(() => {
     provider.requests.length = 0
+    provider.effects.clear()
   })
 
   afterAll(async () => {
@@ -460,7 +578,9 @@ describe("exact Action Intent consent", () => {
           version: "version-two",
         },
       })
-      expect(provider.requests).toEqual([
+      expect(
+        provider.requests.filter(({ method }) => method === "PUT")
+      ).toEqual([
         expect.objectContaining({
           body: { value: "<new value>", secret: fixture.input.secret },
           idempotencyKey: `${fixture.executionId}:action`,
@@ -498,7 +618,9 @@ describe("exact Action Intent consent", () => {
         value: "<new value>",
         version: "version-two",
       })
-      expect(provider.requests).toHaveLength(1)
+      expect(
+        provider.requests.filter(({ method }) => method === "PUT")
+      ).toHaveLength(1)
     } finally {
       await removeWorkspace(fixture.workspaceId)
     }
@@ -549,6 +671,149 @@ describe("exact Action Intent consent", () => {
       ).rejects.toMatchObject({
         code: "idempotency_conflict",
       } satisfies Partial<ConnectorGatewayError>)
+      expect(provider.requests).toHaveLength(0)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+
+  it("lets only one duplicate worker dispatch the approved side effect", async () => {
+    const fixture = await createFixture()
+    try {
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      const results = await Promise.allSettled([
+        invoke(fixture),
+        invoke(fixture),
+      ])
+      expect(
+        results.filter(({ status }) => status === "fulfilled")
+      ).toHaveLength(1)
+      expect(
+        results.filter(({ status }) => status === "rejected")
+      ).toHaveLength(1)
+      expect(
+        provider.requests.filter(({ path }) => path === "/resources/record-one")
+      ).toHaveLength(1)
+      expect((await consent(fixture)).intent.status).toBe("succeeded")
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+
+  it("cancels the intent without dispatch when Decision races Connection revocation", async () => {
+    const fixture = await createFixture()
+    try {
+      await invoke(fixture)
+      const outcomes = await Promise.allSettled([
+        decide(fixture, "approved"),
+        revoke(fixture),
+      ])
+      expect(outcomes[1]).toMatchObject({
+        status: "fulfilled",
+        value: { outcome: "revoked" },
+      })
+      const view = await consent(fixture)
+      expect(view.intent.status).toBe("cancelled")
+      expect(["cancelled", "decided"]).toContain(view.approvalRequest.status)
+      await expect(invoke(fixture)).rejects.toBeInstanceOf(
+        ConnectorGatewayError
+      )
+      expect(
+        provider.requests.filter(({ method }) => method === "PUT")
+      ).toHaveLength(0)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+
+  it("cancels the intent without dispatch when Decision races subject disablement", async () => {
+    const fixture = await createFixture()
+    const [actor] = await db
+      .insert(schema.users)
+      .values({
+        name: "Connector race actor",
+        email: `connector-race-${randomUUID()}@example.com`,
+      })
+      .returning()
+    try {
+      await invoke(fixture)
+      const outcomes = await Promise.allSettled([
+        decide(fixture, "approved"),
+        repositories.externalSubject.disableExternalSubject(
+          db,
+          fixture.workspaceId,
+          fixture.externalSubjectId,
+          actor.id
+        ),
+      ])
+      if (outcomes[1]?.status === "rejected") throw outcomes[1].reason
+      expect(outcomes[1]).toMatchObject({
+        status: "fulfilled",
+        value: { status: "disabled" },
+      })
+      const view = await consent(fixture)
+      expect(view.intent.status).toBe("cancelled")
+      await expect(invoke(fixture)).rejects.toBeInstanceOf(
+        ConnectorGatewayError
+      )
+      expect(
+        provider.requests.filter(({ method }) => method === "PUT")
+      ).toHaveLength(0)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+      await pool.query("DELETE FROM users WHERE id = $1", [actor.id])
+    }
+  })
+
+  it("atomically chooses execution or cancellation after an approving Decision", async () => {
+    const fixture = await createFixture()
+    try {
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      const [execution, cancellation] = await Promise.allSettled([
+        invoke(fixture),
+        cancelExecution(fixture),
+      ])
+      expect(cancellation.status).toBe("fulfilled")
+      if (cancellation.status !== "fulfilled") return
+      const view = await consent(fixture)
+      if (view.intent.status === "cancelled") {
+        expect(cancellation.value.outcome).toBe("cancelled")
+        expect(execution.status).toBe("rejected")
+        expect(
+          provider.requests.filter(({ method }) => method === "PUT")
+        ).toHaveLength(0)
+      } else {
+        expect(["cancelled", "execution_not_cancellable"]).toContain(
+          cancellation.value.outcome
+        )
+        expect(execution.status).toBe("fulfilled")
+        expect(view.intent.status).toBe("succeeded")
+        expect(
+          provider.requests.filter(({ method }) => method === "PUT")
+        ).toHaveLength(1)
+      }
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+
+  it("resolves concurrent conflicting invocation content to one intent and one conflict", async () => {
+    const fixture = await createFixture()
+    try {
+      const outcomes = await Promise.allSettled([
+        invoke(fixture),
+        invoke(fixture, { ...fixture.input, value: "conflicting" }),
+      ])
+      expect(
+        outcomes.filter(({ status }) => status === "fulfilled")
+      ).toHaveLength(1)
+      const rejection = outcomes.find(({ status }) => status === "rejected")
+      expect(rejection).toMatchObject({
+        status: "rejected",
+        reason: { code: "idempotency_conflict" },
+      })
       expect(provider.requests).toHaveLength(0)
     } finally {
       await removeWorkspace(fixture.workspaceId)
@@ -609,6 +874,138 @@ describe("exact Action Intent consent", () => {
     }
   })
 
+  it("reconciles a lost provider response with one side effect", async () => {
+    const fixture = await createFixture("response-lost")
+    try {
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      await expect(invoke(fixture)).resolves.toMatchObject({
+        outcome: "completed",
+      })
+      expect(
+        provider.requests.filter(({ method }) => method === "PUT")
+      ).toHaveLength(2)
+      expect(provider.effects.get("response-lost")).toBe(1)
+      expect((await consent(fixture)).intent.status).toBe("succeeded")
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+
+  it("recovers a committed dispatch after worker failure without duplicating the provider effect", async () => {
+    const fixture = await createFixture("response-lost")
+    try {
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      const view = await consent(fixture)
+      const claimed = await repositories.actionIntent.claimApprovedActionIntent(
+        db,
+        {
+          actionIntentId: view.intent.id,
+          executionClaimId: fixture.executionClaimId,
+          provider: "test",
+          actionFamily: "test",
+          requiredScopes: ["write:resources"],
+          now: new Date(),
+        }
+      )
+      expect(claimed?.outcome).toBe("claimed")
+      await repositories.actionIntent.beginActionIntentDispatch(db, {
+        actionIntentId: view.intent.id,
+        executionClaimId: fixture.executionClaimId,
+        now: new Date(),
+      })
+      await expect(
+        fetch(new URL("/resources/response-lost", provider.baseUrl), {
+          method: "PUT",
+          headers: {
+            authorization: `Bearer ${fixture.accessToken}`,
+            "content-type": "application/json",
+            "if-match": "version-one",
+            "idempotency-key": `${fixture.executionId}:action`,
+          },
+          body: JSON.stringify({
+            value: fixture.input.value.trim(),
+            secret: fixture.input.secret,
+          }),
+        })
+      ).rejects.toThrow()
+      await pool.query(
+        "UPDATE executions SET lease_expires_at = $1 WHERE id = $2",
+        [new Date(Date.now() - 1), fixture.executionId]
+      )
+      const recoveredClaimId = `recovered:${randomUUID()}`
+      const recoveredExecution = await repositories.execution.startExecution(
+        db,
+        fixture.executionId,
+        recoveredClaimId,
+        new Date(Date.now() + 60_000)
+      )
+      expect(recoveredExecution?.leasedBy).toBe(recoveredClaimId)
+      fixture.executionClaimId = recoveredClaimId
+      await expect(invoke(fixture)).resolves.toMatchObject({
+        outcome: "completed",
+      })
+      expect(provider.effects.get("response-lost")).toBe(1)
+      expect(
+        provider.requests.filter(({ method }) => method === "PUT")
+      ).toHaveLength(2)
+      const terminalEvents = await pool.query<{
+        event_type: string
+        payload: Record<string, unknown>
+      }>(
+        "SELECT event_type, payload FROM outbox_messages WHERE workspace_id = $1 AND event_type = 'action_intent.executed'",
+        [fixture.workspaceId]
+      )
+      expect(terminalEvents.rows).toEqual([
+        {
+          event_type: "action_intent.executed",
+          payload: {
+            actionIntentId: view.intent.id,
+            executionId: fixture.executionId,
+          },
+        },
+      ])
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+
+  it("does not retry a possibly sent request without a provider idempotency guarantee", async () => {
+    const fixture = await createFixture("outcome-unknown")
+    const unsafeOperation: ConnectorSideEffectOperation = Object.freeze({
+      ...deterministicSideEffectOperation,
+      retrySafety: "none",
+    })
+    const gateway = new ConnectorGateway(db, {
+      "deterministic.update": unsafeOperation,
+    })
+    const execute = () =>
+      gateway.execute({
+        executionId: fixture.executionId,
+        workspaceId: fixture.workspaceId,
+        nodeId: "action",
+        connectionId: fixture.connectionId,
+        operationId: "deterministic.update",
+        operationInput: fixture.input,
+        invocationIdempotencyKey: `${fixture.executionId}:action`,
+        executionClaimId: fixture.executionClaimId,
+      })
+    try {
+      await execute()
+      await decide(fixture, "approved")
+      await expect(execute()).rejects.toMatchObject({
+        code: "outcome_unknown",
+      })
+      expect(
+        provider.requests.filter(({ method }) => method === "PUT")
+      ).toHaveLength(1)
+      expect((await consent(fixture)).intent.status).toBe("outcome_unknown")
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+
   it.each([
     ["stale", "precondition_failed", "stale"],
     ["provider-failure", "provider_failed", "failed"],
@@ -627,7 +1024,24 @@ describe("exact Action Intent consent", () => {
         expect(JSON.stringify(view.intent.normalizedError)).not.toContain(
           "connector-secret"
         )
-        expect(provider.requests).toHaveLength(1)
+        let expectedSideEffects = 1
+        if (resourceId === "stale") expectedSideEffects = 0
+        if (resourceId === "outcome-unknown") expectedSideEffects = 2
+        expect(
+          provider.requests.filter(({ method }) => method === "PUT")
+        ).toHaveLength(expectedSideEffects)
+        const events = await pool.query<{ payload: Record<string, unknown> }>(
+          "SELECT payload FROM outbox_messages WHERE workspace_id = $1 AND event_type = 'action_intent.failed'",
+          [fixture.workspaceId]
+        )
+        expect(events.rows).toEqual([
+          {
+            payload: {
+              actionIntentId: view.intent.id,
+              executionId: fixture.executionId,
+            },
+          },
+        ])
       } finally {
         await removeWorkspace(fixture.workspaceId)
       }
@@ -646,6 +1060,7 @@ describe("exact Action Intent consent", () => {
           operationId: "unregistered.side-effect",
           operationInput: fixture.input,
           invocationIdempotencyKey: `${fixture.executionId}:action`,
+          executionClaimId: fixture.executionClaimId,
         })
       ).rejects.toBeInstanceOf(ConnectorGatewayError)
       const intentCount = await pool.query<{ count: string }>(

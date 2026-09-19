@@ -41,8 +41,15 @@ export interface ConnectorSideEffectOperation {
   readonly preconditionsSchema: z.ZodType<IJsonValue>
   readonly resultSchema: z.ZodType<IJsonValue>
   readonly providerErrorSchema: z.ZodType<ConnectorProviderError>
+  readonly retrySafety: "provider_idempotency" | "none"
   normalize(input: unknown): NormalizedSideEffect
   display(envelope: ActionIntentEnvelope): ApprovalRequestDisplay
+  revalidateProviderPreconditions(
+    parameters: unknown,
+    providerPreconditions: unknown,
+    credential: ConnectorReadCredential,
+    signal?: AbortSignal
+  ): Promise<boolean>
   execute(
     parameters: unknown,
     providerPreconditions: unknown,
@@ -87,10 +94,15 @@ function isConnectorSideEffectOperation(
     schema(value, "preconditionsSchema") &&
     schema(value, "resultSchema") &&
     schema(value, "providerErrorSchema") &&
+    "retrySafety" in value &&
+    (value.retrySafety === "provider_idempotency" ||
+      value.retrySafety === "none") &&
     "normalize" in value &&
     typeof value.normalize === "function" &&
     "display" in value &&
     typeof value.display === "function" &&
+    "revalidateProviderPreconditions" in value &&
+    typeof value.revalidateProviderPreconditions === "function" &&
     "execute" in value &&
     typeof value.execute === "function" &&
     "normalizeProviderError" in value &&

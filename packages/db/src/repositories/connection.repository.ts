@@ -13,6 +13,7 @@ import {
   type ConnectionRevocationDelivery,
 } from "../schema/index.js"
 import { encryptCredential } from "../credential-encryption.js"
+import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.repository.js"
 import type { DbClient } from "./types.js"
 
 type CreateAuthorizationInput = {
@@ -330,6 +331,7 @@ export async function revokeConnection(
     expectedCredentialVersion: number
     deliveryId: string
     revocationCredentialEncrypted: string
+    actorEndUserSessionId: string
     expiresAt: Date
     now: Date
   }
@@ -359,6 +361,16 @@ export async function revokeConnection(
       const existing = await getConnection(tx, owner, connectionId)
       return existing ? { outcome: "conflict" } : { outcome: "not_found" }
     }
+    await cancelNonExecutingActionIntents(tx, {
+      workspaceId: owner.workspaceId,
+      scope: { kind: "connection", id: connection.id },
+      actor: {
+        kind: "end_user_session",
+        id: input.actorEndUserSessionId,
+        externalSubjectId: owner.externalSubjectId,
+      },
+      cancelledAt: input.now,
+    })
     await tx.insert(connectionRevocationDeliveries).values({
       id: input.deliveryId,
       workspaceId: owner.workspaceId,

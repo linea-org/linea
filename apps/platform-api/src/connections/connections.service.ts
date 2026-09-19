@@ -269,6 +269,7 @@ export class ConnectionsService {
             provider: `${current.provider}:revocation`,
           },
         ),
+        actorEndUserSessionId: principal.sessionId,
         expiresAt: new Date(now.getTime() + REVOCATION_LIFETIME_MS),
         now,
       },
