@@ -16,6 +16,7 @@ export const runtime = "nodejs"
 const MAX_QUESTION_LENGTH = 500
 const MAX_ASSISTANT_MESSAGE_LENGTH = 6_000
 const MAX_MESSAGES = 12
+const MAX_RATE_LIMIT_CLIENTS = 10_000
 const REQUESTS_PER_MINUTE = 10
 const rateLimits = new Map<string, { count: number; resetAt: number }>()
 const requestSchema = z.object({
@@ -24,11 +25,8 @@ const requestSchema = z.object({
 })
 
 function getClientId(request: Request) {
-  return (
-    request.headers.get("x-real-ip") ??
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    "local"
-  )
+  if (!process.env.VERCEL) return "local"
+  return request.headers.get("x-vercel-forwarded-for") ?? "unknown"
 }
 
 function exceedsRateLimit(clientId: string) {
@@ -38,6 +36,7 @@ function exceedsRateLimit(clientId: string) {
   }
   const existing = rateLimits.get(clientId)
   if (!existing) {
+    if (rateLimits.size >= MAX_RATE_LIMIT_CLIENTS) return true
     rateLimits.set(clientId, { count: 1, resetAt: now + 60_000 })
     return false
   }

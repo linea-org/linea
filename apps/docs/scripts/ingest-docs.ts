@@ -13,7 +13,7 @@ const docsDirectory = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../content/docs"
 )
-const namespace = "linea-docs"
+const namespace = `linea-docs-${Date.now()}`
 const maxChunkLength = 1_400
 const chunkOverlap = 180
 
@@ -125,12 +125,11 @@ async function main() {
   if (vectors.length === 0)
     throw new Error("No documentation chunks were generated.")
   const docsIndex = new Index<DocsVectorMetadata>().namespace(namespace)
-  await docsIndex.reset()
   for (let start = 0; start < vectors.length; start += 100) {
     await docsIndex.upsert(vectors.slice(start, start + 100))
   }
   process.stdout.write(
-    `Indexed ${vectors.length} chunks from ${files.length} docs pages.\n`
+    `Indexed ${vectors.length} chunks from ${files.length} docs pages.\nSet DOCS_VECTOR_NAMESPACE=${namespace} and deploy to activate this index.\n`
   )
 }
 

@@ -81,8 +81,10 @@ Ingest the MDX documentation after configuring those variables:
 pnpm --filter @linea/docs ingest
 ```
 
-The command replaces the `linea-docs` namespace with fresh chunks. Without
-Upstash credentials, local development uses the built-in documentation search.
+The command writes to a new namespace and prints the
+`DOCS_VECTOR_NAMESPACE` value to deploy. This keeps the active index intact if
+ingestion fails. Without Upstash credentials, local development uses the
+built-in documentation search.
 
 ## Verify a change
 

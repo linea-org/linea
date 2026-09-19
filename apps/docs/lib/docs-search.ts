@@ -9,6 +9,7 @@ type DocsVectorMetadata = {
 
 const MAX_RESULTS = 4
 const MAX_SOURCE_LENGTH = 5_000
+const vectorNamespace = process.env.DOCS_VECTOR_NAMESPACE ?? "linea-docs"
 const ignoredTerms = new Set([
   "about",
   "from",
@@ -36,7 +37,7 @@ function hasVectorCredentials() {
 
 async function searchVectorDocs(query: string, currentPath?: string) {
   const index = new Index<DocsVectorMetadata>()
-  const matches = await index.namespace("linea-docs").query({
+  const matches = await index.namespace(vectorNamespace).query({
     data: query,
     topK: 8,
     includeData: true,

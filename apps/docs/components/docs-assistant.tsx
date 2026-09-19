@@ -95,6 +95,7 @@ export function DocsAssistant({ trigger }: { trigger: "header" | "floating" }) {
   const pathname = usePathname()
   const questionId = useId()
   const threadRef = useRef<HTMLDivElement>(null)
+  const requestStartRef = useRef<number | undefined>(undefined)
   const [draft, setDraft] = useState("")
   const [pageTitle, setPageTitle] = useState("Linea documentation")
   const { messages, sendMessage, status, error, setMessages, clearError } =
@@ -106,11 +107,19 @@ export function DocsAssistant({ trigger }: { trigger: "header" | "floating" }) {
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight })
   }, [messages, status])
+  useEffect(() => {
+    if (status === "error" && requestStartRef.current !== undefined) {
+      setMessages((current) => current.slice(0, requestStartRef.current))
+      requestStartRef.current = undefined
+    }
+    if (status === "ready") requestStartRef.current = undefined
+  }, [setMessages, status])
   async function askDocs(nextQuestion: string) {
     const text = nextQuestion.trim()
     if (!text || isLoading) return
     setDraft("")
     clearError()
+    requestStartRef.current = messages.length
     await sendMessage(
       { text },
       {
