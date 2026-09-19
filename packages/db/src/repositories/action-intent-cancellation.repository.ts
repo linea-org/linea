@@ -4,6 +4,7 @@ import {
   approvalRequests,
   auditLogs,
   type ActionIntent,
+  type ApprovalRequest,
 } from "../schema/index.js"
 import { createPublicEvent } from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
@@ -18,6 +19,61 @@ type ActionIntentCancellationActor =
   | { kind: "end_user_session"; id: string; externalSubjectId: string }
   | { kind: "workspace_member"; id: string }
 
+function cancellationScopePredicate(scope: ActionIntentCancellationScope) {
+  switch (scope.kind) {
+    case "connection":
+      return eq(actionIntents.connectionId, scope.id)
+    case "execution":
+      return eq(actionIntents.executionId, scope.id)
+    case "external_subject":
+      return eq(actionIntents.externalSubjectId, scope.id)
+  }
+}
+
+function cancellationActorColumns(actor: ActionIntentCancellationActor) {
+  switch (actor.kind) {
+    case "application_key":
+      return { actorApplicationKeyId: actor.id }
+    case "end_user_session":
+      return {
+        actorEndUserSessionId: actor.id,
+        actorExternalSubjectId: actor.externalSubjectId,
+      }
+    case "workspace_member":
+      return { actorUserId: actor.id }
+  }
+}
+
+async function recordApprovalCancellation(
+  tx: DbClient,
+  request: ApprovalRequest,
+  actor: ActionIntentCancellationActor
+): Promise<void> {
+  await tx.insert(auditLogs).values({
+    workspaceId: request.workspaceId,
+    ...cancellationActorColumns(actor),
+    action: "approval_request.cancelled",
+    resource: "approval_request",
+    resourceId: request.id,
+    metadata: { executionId: request.executionId },
+  })
+  if (!request.applicationId || !request.externalSubjectId) return
+  await createPublicEvent(tx, {
+    workspaceId: request.workspaceId,
+    applicationId: request.applicationId,
+    externalSubjectId: request.externalSubjectId,
+    eventType: "approval_request.cancelled",
+    data: {
+      approvalRequestId: request.id,
+      executionId: request.executionId,
+      status: request.status,
+      ...(request.conversationId
+        ? { conversationId: request.conversationId }
+        : {}),
+    },
+  })
+}
+
 export async function cancelNonExecutingActionIntents(
   tx: DbClient,
   input: {
@@ -27,21 +83,9 @@ export async function cancelNonExecutingActionIntents(
     cancelledAt: Date
   }
 ): Promise<{ cancelled: ActionIntent[]; executing: ActionIntent[] }> {
-  let scopePredicate
-  switch (input.scope.kind) {
-    case "connection":
-      scopePredicate = eq(actionIntents.connectionId, input.scope.id)
-      break
-    case "execution":
-      scopePredicate = eq(actionIntents.executionId, input.scope.id)
-      break
-    case "external_subject":
-      scopePredicate = eq(actionIntents.externalSubjectId, input.scope.id)
-      break
-  }
   const scoped = and(
     eq(actionIntents.workspaceId, input.workspaceId),
-    scopePredicate
+    cancellationScopePredicate(input.scope)
   )
   const snapshots = await tx.select().from(actionIntents).where(scoped)
   if (snapshots.length === 0) return { cancelled: [], executing: [] }
@@ -89,39 +133,7 @@ export async function cancelNonExecutingActionIntents(
     )
     .returning()
   for (const request of requests) {
-    await tx.insert(auditLogs).values({
-      workspaceId: request.workspaceId,
-      actorApplicationKeyId:
-        input.actor.kind === "application_key" ? input.actor.id : null,
-      actorUserId:
-        input.actor.kind === "workspace_member" ? input.actor.id : null,
-      actorEndUserSessionId:
-        input.actor.kind === "end_user_session" ? input.actor.id : null,
-      actorExternalSubjectId:
-        input.actor.kind === "end_user_session"
-          ? input.actor.externalSubjectId
-          : null,
-      action: "approval_request.cancelled",
-      resource: "approval_request",
-      resourceId: request.id,
-      metadata: { executionId: request.executionId },
-    })
-    if (request.applicationId && request.externalSubjectId) {
-      await createPublicEvent(tx, {
-        workspaceId: request.workspaceId,
-        applicationId: request.applicationId,
-        externalSubjectId: request.externalSubjectId,
-        eventType: "approval_request.cancelled",
-        data: {
-          approvalRequestId: request.id,
-          executionId: request.executionId,
-          status: request.status,
-          ...(request.conversationId
-            ? { conversationId: request.conversationId }
-            : {}),
-        },
-      })
-    }
+    await recordApprovalCancellation(tx, request, input.actor)
   }
   return { cancelled, executing }
 }

@@ -526,6 +526,18 @@ function isIdenticalRetry(
   )
 }
 
+function isExternalRequestOwner(
+  request: ApprovalRequest | undefined,
+  input: DecideExternalApprovalRequestInput
+): request is ApprovalRequest {
+  return (
+    request?.audience === "external_subject" &&
+    request.workspaceId === input.workspaceId &&
+    request.applicationId === input.applicationId &&
+    request.externalSubjectId === input.externalSubjectId
+  )
+}
+
 async function getLockedRequestDecision(
   tx: Transaction,
   approvalRequestId: string
@@ -564,12 +576,7 @@ export async function decideExternalApprovalRequest(
         .select()
         .from(approvalRequests)
         .where(eq(approvalRequests.id, input.approvalRequestId))
-      if (
-        snapshot?.audience !== "external_subject" ||
-        snapshot.workspaceId !== input.workspaceId ||
-        snapshot.applicationId !== input.applicationId ||
-        snapshot.externalSubjectId !== input.externalSubjectId
-      ) {
+      if (!isExternalRequestOwner(snapshot, input)) {
         return { outcome: "wrong_subject" }
       }
       const [session] = await tx
@@ -608,12 +615,7 @@ export async function decideExternalApprovalRequest(
         .from(approvalRequests)
         .where(eq(approvalRequests.id, input.approvalRequestId))
         .for("update")
-      if (
-        request?.audience !== "external_subject" ||
-        request.workspaceId !== input.workspaceId ||
-        request.applicationId !== input.applicationId ||
-        request.externalSubjectId !== input.externalSubjectId
-      ) {
+      if (!isExternalRequestOwner(request, input)) {
         return { outcome: "wrong_subject" }
       }
       if (request.status === "cancelled") return { outcome: "cancelled" }

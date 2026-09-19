@@ -13,6 +13,7 @@ import {
   type ApprovalRequest,
   type ApprovalRequestDisplay,
   type Connection,
+  type Execution,
   type NormalizedConnectorError,
 } from "../schema/index.js"
 import { createApprovalRequest } from "./approval-request.repository.js"
@@ -330,6 +331,15 @@ export type ClaimApprovedActionIntentResult =
       intent: ActionIntent
     }
 
+type ClaimApprovedActionIntentInput = {
+  actionIntentId: string
+  executionClaimId: string
+  provider: string
+  actionFamily: string
+  requiredScopes: readonly string[]
+  now: Date
+}
+
 function terminalActionIntent(intent: ActionIntent): boolean {
   return [
     "succeeded",
@@ -341,16 +351,96 @@ function terminalActionIntent(intent: ActionIntent): boolean {
   ].includes(intent.status)
 }
 
+function activeExecutionClaim(
+  execution: Execution | undefined,
+  input: ClaimApprovedActionIntentInput
+): boolean {
+  return Boolean(
+    execution?.status === "running" &&
+    execution.leasedBy === input.executionClaimId &&
+    execution.leaseExpiresAt &&
+    execution.leaseExpiresAt > input.now
+  )
+}
+
+async function recoverExecutingActionIntent(
+  tx: DbClient,
+  intent: ActionIntent,
+  connection: Connection | undefined,
+  execution: Execution | undefined,
+  input: ClaimApprovedActionIntentInput
+): Promise<ClaimApprovedActionIntentResult> {
+  if (intent.executionClaimId === input.executionClaimId) {
+    return { outcome: "in_progress", intent }
+  }
+  if (!activeExecutionClaim(execution, input)) {
+    return { outcome: "in_progress", intent }
+  }
+  const priorClaimId = intent.executionClaimId
+  if (!priorClaimId) {
+    throw new Error("Executing Action Intent has no execution claim")
+  }
+  const [recovered] = await tx
+    .update(actionIntents)
+    .set({ executionClaimId: input.executionClaimId, updatedAt: input.now })
+    .where(
+      and(
+        eq(actionIntents.id, intent.id),
+        eq(actionIntents.status, "executing"),
+        eq(actionIntents.executionClaimId, priorClaimId)
+      )
+    )
+    .returning()
+  return recovered && connection
+    ? { outcome: "recovered", intent: recovered, connection }
+    : { outcome: "in_progress", intent }
+}
+
+function currentIntentAuthority(
+  intent: ActionIntent,
+  connection: Connection | undefined,
+  application: typeof applications.$inferSelect | undefined,
+  subject: typeof externalSubjects.$inferSelect | undefined,
+  input: ClaimApprovedActionIntentInput
+): boolean {
+  const providerPolicy = application?.connectorAccessPolicy.providers.find(
+    (candidate) => candidate.provider === input.provider
+  )
+  return Boolean(
+    subject?.status === "verified" &&
+    application?.enabled === true &&
+    connection?.status === "active" &&
+    connection.credentialEncrypted !== null &&
+    connection.workspaceId === intent.workspaceId &&
+    connection.applicationId === intent.applicationId &&
+    connection.externalSubjectId === intent.externalSubjectId &&
+    connection.provider === input.provider &&
+    providerPolicy?.actionFamilies.includes(input.actionFamily) === true &&
+    input.requiredScopes.every((scope) => connection.scopes.includes(scope)) &&
+    input.requiredScopes.every((scope) =>
+      providerPolicy.maxScopes.includes(scope)
+    )
+  )
+}
+
+function currentIntentApproval(
+  intent: ActionIntent,
+  request: ApprovalRequest | undefined,
+  decision: ApprovalDecision | undefined
+): boolean {
+  return Boolean(
+    request?.status === "decided" &&
+    request.actionIntentDigest === intent.canonicalDigest &&
+    decision?.outcome === "approved" &&
+    decision.actorKind === "external_subject" &&
+    decision.actorExternalSubjectId === intent.externalSubjectId &&
+    decision.reason === "human"
+  )
+}
+
 export async function claimApprovedActionIntent(
   db: DbClient,
-  input: {
-    actionIntentId: string
-    executionClaimId: string
-    provider: string
-    actionFamily: string
-    requiredScopes: readonly string[]
-    now: Date
-  }
+  input: ClaimApprovedActionIntentInput
 ): Promise<ClaimApprovedActionIntentResult | undefined> {
   return db.transaction(async (tx) => {
     const [snapshot] = await tx
@@ -402,35 +492,13 @@ export async function claimApprovedActionIntent(
       }
     }
     if (intent.status === "executing") {
-      if (intent.executionClaimId === input.executionClaimId) {
-        return { outcome: "in_progress", intent }
-      }
-      if (
-        execution?.status !== "running" ||
-        execution.leasedBy !== input.executionClaimId ||
-        !execution.leaseExpiresAt ||
-        execution.leaseExpiresAt <= input.now
-      ) {
-        return { outcome: "in_progress", intent }
-      }
-      const priorClaimId = intent.executionClaimId
-      if (!priorClaimId) {
-        throw new Error("Executing Action Intent has no execution claim")
-      }
-      const [recovered] = await tx
-        .update(actionIntents)
-        .set({ executionClaimId: input.executionClaimId, updatedAt: input.now })
-        .where(
-          and(
-            eq(actionIntents.id, intent.id),
-            eq(actionIntents.status, "executing"),
-            eq(actionIntents.executionClaimId, priorClaimId)
-          )
-        )
-        .returning()
-      return recovered && connection
-        ? { outcome: "recovered", intent: recovered, connection }
-        : { outcome: "in_progress", intent }
+      return recoverExecutingActionIntent(
+        tx,
+        intent,
+        connection,
+        execution,
+        input
+      )
     }
     const [decision] = await tx
       .select()
@@ -439,34 +507,10 @@ export async function claimApprovedActionIntent(
     if (decision?.outcome !== "approved") {
       return { outcome: "not_ready", intent }
     }
-    const providerPolicy = application?.connectorAccessPolicy.providers.find(
-      (candidate) => candidate.provider === input.provider
-    )
     const authorityValid =
-      subject?.status === "verified" &&
-      application?.enabled === true &&
-      connection?.status === "active" &&
-      connection.credentialEncrypted !== null &&
-      connection.workspaceId === intent.workspaceId &&
-      connection.applicationId === intent.applicationId &&
-      connection.externalSubjectId === intent.externalSubjectId &&
-      connection.provider === input.provider &&
-      providerPolicy?.actionFamilies.includes(input.actionFamily) === true &&
-      input.requiredScopes.every((scope) =>
-        connection.scopes.includes(scope)
-      ) &&
-      input.requiredScopes.every((scope) =>
-        providerPolicy.maxScopes.includes(scope)
-      ) &&
-      request?.status === "decided" &&
-      request.actionIntentDigest === intent.canonicalDigest &&
-      decision.actorKind === "external_subject" &&
-      decision.actorExternalSubjectId === intent.externalSubjectId &&
-      decision.reason === "human" &&
-      execution?.status === "running" &&
-      execution.leasedBy === input.executionClaimId &&
-      execution.leaseExpiresAt !== null &&
-      execution.leaseExpiresAt > input.now
+      currentIntentAuthority(intent, connection, application, subject, input) &&
+      currentIntentApproval(intent, request, decision) &&
+      activeExecutionClaim(execution, input)
     if (!authorityValid) {
       const [cancelled] = await tx
         .update(actionIntents)
@@ -521,12 +565,12 @@ export async function beginActionIntentDispatch(
       .innerJoin(actionIntents, eq(actionIntents.executionId, executions.id))
       .where(eq(actionIntents.id, input.actionIntentId))
       .for("update", { of: executions })
+    const currentExecution = execution?.executions
     if (
-      !execution ||
-      execution.executions.status !== "running" ||
-      execution.executions.leasedBy !== input.executionClaimId ||
-      !execution.executions.leaseExpiresAt ||
-      execution.executions.leaseExpiresAt <= input.now
+      currentExecution?.status !== "running" ||
+      currentExecution.leasedBy !== input.executionClaimId ||
+      !currentExecution.leaseExpiresAt ||
+      currentExecution.leaseExpiresAt <= input.now
     ) {
       return undefined
     }
