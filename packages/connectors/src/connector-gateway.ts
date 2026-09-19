@@ -48,7 +48,7 @@ export class ConnectorGateway {
         connectionId: input.connectionId,
       }
     )
-    if (!authority || authority.connection.status !== "active") {
+    if (authority?.connection.status !== "active") {
       throw new ConnectorGatewayError()
     }
     if (
@@ -82,8 +82,7 @@ export class ConnectorGateway {
         input.signal
       )
       return operation.outputSchema.parse(result)
-    } catch (error) {
-      if (input.signal?.aborted) throw error
+    } catch {
       throw new ConnectorGatewayError(operation.providerErrorMessage)
     }
   }

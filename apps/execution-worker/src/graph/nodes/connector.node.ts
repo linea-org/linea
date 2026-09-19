@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common"
-import { nodeRegistry } from "@linea/runtime"
+import { connectorRequestSchema, nodeRegistry } from "@linea/runtime"
 import { ConnectorGatewayService } from "../../connectors/connector-gateway.service"
 import type {
   NodeExecutionContext,
@@ -20,15 +20,13 @@ export class ConnectorNode implements NodeHandler {
     if (!context.executionId) {
       throw new Error("Connector node requires an Execution")
     }
-    if (typeof config.operation !== "string" || !config.operation) {
-      throw new Error("Connector node requires an operation")
-    }
-    const request = nodeRegistry.connector.inputSchema.parse(input)
+    const connectorConfig = nodeRegistry.connector.inputSchema.parse(config)
+    const request = connectorRequestSchema.parse(input)
     return this.gateway.executeRead({
       executionId: context.executionId,
       workspaceId: context.workspaceId,
       connectionId: request.connectionId,
-      operationId: config.operation,
+      operationId: connectorConfig.operation,
       operationInput: request.input,
       signal: context.signal,
     })

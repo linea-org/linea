@@ -1,7 +1,13 @@
 import { z } from "zod"
 import type { NodeDefinition } from "../node-definition.js"
+import { retryPolicySchema } from "../retry-policy.js"
 
-const connectorInputSchema = z
+const connectorInputSchema = z.object({
+  operation: z.string().min(1),
+  retryPolicy: retryPolicySchema.optional(),
+})
+
+export const connectorRequestSchema = z
   .object({
     connectionId: z.string().uuid(),
     input: z.unknown(),

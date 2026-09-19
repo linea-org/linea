@@ -7,8 +7,7 @@
     "build": "tsup",
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@linea/db": "workspace:*",
@@ -19,8 +18,7 @@
     "@types/node": "22",
     "eslint": "^9",
     "tsup": "^8.5.0",
-    "typescript": "^6",
-    "vitest": "^3"
+    "typescript": "^6"
   },
   "exports": {
     ".": {

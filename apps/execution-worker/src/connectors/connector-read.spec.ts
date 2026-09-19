@@ -7,7 +7,7 @@ import {
   type ConnectorOperationRegistry,
 } from "@linea/connectors"
 import { db, encryptCredential, pool, repositories, schema } from "@linea/db"
-import type { WorkflowGraph } from "@linea/runtime"
+import type { RetryPolicy, WorkflowGraph } from "@linea/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
 import { InterpreterService } from "../graph/interpreter.service"
 import { AiNode } from "../graph/nodes/ai.node"
@@ -64,6 +64,7 @@ async function startProvider(): Promise<Provider> {
         .end(JSON.stringify({ error: `private provider failure ${token}` }))
       return
     }
+    if (resourceId === "provider-timeout") return
     response.writeHead(200, { "content-type": "application/json" }).end(
       JSON.stringify({
         resourceId,
@@ -88,13 +89,20 @@ async function startProvider(): Promise<Provider> {
   }
 }
 
-function graph(operation: string): WorkflowGraph {
+function graph(
+  operation: string,
+  retryPolicy: RetryPolicy | undefined
+): WorkflowGraph {
   return {
     version: 1,
     trigger: { type: "api" },
     entryNodeId: "read",
     nodes: [
-      { id: "read", type: "connector", config: { operation } },
+      {
+        id: "read",
+        type: "connector",
+        config: { operation, ...(retryPolicy ? { retryPolicy } : {}) },
+      },
       { id: "end", type: "end", config: {} },
     ],
     edges: [{ from: "read", to: "end" }],
@@ -148,6 +156,7 @@ async function createFixture(
     operationInput?: unknown
     connectionId?: string
     credentialAccountId?: string
+    retryPolicy?: RetryPolicy
   } = {}
 ): Promise<Fixture> {
   const suffix = randomUUID()
@@ -211,7 +220,7 @@ async function createFixture(
   })
   const version = await repositories.workflow.createWorkflowVersion(db, {
     workflowId: workflow.id,
-    graph: graph(input.operation ?? "deterministic.read"),
+    graph: graph(input.operation ?? "deterministic.read", input.retryPolicy),
     contentHash: suffix,
   })
   const execution = await repositories.execution.createExecution(db, {
@@ -630,6 +639,27 @@ describe("classified Connector reads", () => {
       consoleError.mockRestore()
       consoleLog.mockRestore()
       consoleWarn.mockRestore()
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+
+  it("redacts the provider error when an operation times out", async () => {
+    const fixture = await createFixture({
+      operationInput: { resourceId: "provider-timeout" },
+      retryPolicy: {
+        maxAttempts: 1,
+        backoff: { type: "fixed", delayMs: 0 },
+        timeoutMs: 1000,
+      },
+    })
+    try {
+      const result = await execute(fixture)
+      expect(result.execution?.status).toBe("failed")
+      expect(result.execution?.error?.message).toBe(
+        "Connector provider request failed"
+      )
+      expect(serialize(result)).not.toContain(fixture.accessToken)
+    } finally {
       await removeWorkspace(fixture.workspaceId)
     }
   })

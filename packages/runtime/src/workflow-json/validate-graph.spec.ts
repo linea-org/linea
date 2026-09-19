@@ -31,6 +31,20 @@ describe("validateGraphStructure", () => {
     ).toThrow(WorkflowGraphError)
   })
 
+  it.each([{}, { operation: "" }])(
+    "rejects a connector without an operation",
+    (config) => {
+      expect(() =>
+        validateGraphStructure(
+          graph({
+            nodes: [{ id: "a", type: "connector", config }],
+            edges: [],
+          })
+        )
+      ).toThrow('Connector node "a" has invalid configuration')
+    }
+  )
+
   it("accepts a node with a valid retryPolicy", () => {
     expect(() =>
       validateGraphStructure(
