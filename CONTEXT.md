@@ -90,13 +90,33 @@ An immutable approve or reject response to an Approval Request.
 _Avoid_: Resolution
 
 **Connection**:
-An Application-scoped credential relationship between an End User and an external service.
+An Application-scoped credential relationship between one External Subject and one stable provider account. A revoked Connection cannot be reactivated.
 _Avoid_: Integration
 
 **Action Intent**:
-An immutable description of one proposed external side effect.
+An immutable, versioned description of one proposed external side effect, bound to a Connection, connector operation, target, canonical parameters, and provider preconditions.
 _Avoid_: Tool call
 
 **Action Consent**:
 An End User's authorization of the exact digest of one Action Intent or an explicit policy that covers it.
 _Avoid_: Approval
+
+**Connector Operation**:
+A registered external-service action whose gateway-owned definition classifies it as a read or side effect.
+_Avoid_: Tool call, workflow action
+
+**Connector Gateway**:
+The logical enforcement boundary that resolves Connections and executes registered Connector Operations without exposing credentials to workflow state. It is distinct from the sandbox-facing run-gateway application.
+_Avoid_: Run Gateway, sandbox gateway
+
+**Connector Access Policy**:
+Protected Application configuration that limits enabled provider action families and the maximum OAuth scopes they may request.
+_Avoid_: Consent policy
+
+**Provider Preconditions**:
+Provider state that must remain unchanged between Action Intent creation and execution for the side effect to remain valid.
+_Avoid_: Validation
+
+**Unknown Action Outcome**:
+A terminal Action Intent outcome where an external provider may have performed the side effect but Linea cannot prove success or failure.
+_Avoid_: Failure, retryable error
