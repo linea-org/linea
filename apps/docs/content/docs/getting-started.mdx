@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: Install the monorepo, start its infrastructure, and run the documentation site.
+description: Install the monorepo, start the platform, and find your first change.
 icon: Rocket
 ---
 
@@ -20,10 +20,11 @@ icon: Rocket
 pnpm install
 ```
 
-### Start PostgreSQL
+### Start PostgreSQL and Redis
 
 ```bash
 pnpm db:up
+pnpm queue:up
 ```
 
 ### Configure the environment
@@ -67,6 +68,11 @@ OPENAI_API_KEY="your-key"
 Provider credentials are read only by the server-side route. Questions are
 grounded through a `searchDocs` tool, and answers link back to its sources.
 
+In production, the assistant requires a trusted client IP from Vercel or a
+reverse proxy that overwrites `X-Real-IP` or appends to `X-Forwarded-For`.
+Without one, the assistant returns 503 rather than sharing a rate-limit bucket
+among all visitors.
+
 For production semantic search, create an Upstash Vector index with a hosted
 embedding model and set its REST credentials:
 
@@ -95,6 +101,10 @@ pnpm lint
 pnpm typecheck
 pnpm format:check
 ```
+
+For a first code change, use the [repository map](./architecture/repository-map.mdx)
+to find the owner, then follow the [contribution guide](./contributing.mdx)
+for tests, contracts, and pull-request expectations.
 
 See the [contribution guide](./contributing.mdx) for repository conventions and
 the documentation workflow.

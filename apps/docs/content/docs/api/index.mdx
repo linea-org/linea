@@ -19,8 +19,10 @@ can share the prefix without becoming public API.
 
 The operation registry in `packages/protocol/src/operations` owns method,
 path, request schema, response schema, stable errors, and public visibility.
-The API, SDKs, and contract tests consume that registry. OpenAPI and the route
-reference will be generated from the same source when that generator lands.
+The API, SDKs, and contract tests consume that registry. Run
+`pnpm check:contracts` to verify the generated
+[OpenAPI document](https://github.com/linea-org/linea/blob/main/docs/openapi.json)
+and [route reference](https://github.com/linea-org/linea/blob/main/docs/route-reference.md).
 
 ```mermaid
 flowchart LR
@@ -39,7 +41,7 @@ flowchart LR
 - Approval requests and immutable decisions
 - Ordered end-user events
 
-<Callout type="info" title="Planned reference generation">
+<Callout type="info" title="Generated reference">
   Conceptual guides are written by hand. Endpoint reference is generated from
   protocol definitions so request and response shapes cannot drift from code.
 </Callout>

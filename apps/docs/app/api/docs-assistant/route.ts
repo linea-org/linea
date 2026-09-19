@@ -8,6 +8,7 @@ import {
   streamText,
   validateUIMessages,
 } from "ai"
+import { isIP } from "node:net"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -25,8 +26,15 @@ const requestSchema = z.object({
 })
 
 function getClientId(request: Request) {
-  if (!process.env.VERCEL) return "local"
-  return request.headers.get("x-vercel-forwarded-for") ?? "unknown"
+  const forwardedFor = request.headers.get(
+    process.env.VERCEL ? "x-vercel-forwarded-for" : "x-forwarded-for"
+  )
+  const clientIp = forwardedFor?.split(",").at(-1)?.trim()
+  if (clientIp && isIP(clientIp)) return clientIp
+  const realIp = request.headers.get("x-real-ip")?.trim()
+  if (realIp && isIP(realIp)) return realIp
+  if (process.env.NODE_ENV !== "production") return "local"
+  return null
 }
 
 function exceedsRateLimit(clientId: string) {
@@ -64,6 +72,11 @@ function hasValidMessages(messages: DocsAssistantMessage[]) {
 
 export async function POST(request: Request) {
   const clientId = getClientId(request)
+  if (!clientId)
+    return NextResponse.json(
+      { error: "The documentation assistant requires a trusted client IP." },
+      { status: 503 }
+    )
   if (exceedsRateLimit(clientId))
     return NextResponse.json(
       { error: "Too many questions. Please try again in a minute." },
