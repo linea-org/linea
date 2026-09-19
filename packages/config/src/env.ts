@@ -14,9 +14,21 @@ function findWorkspaceRoot(start = process.cwd()) {
 }
 
 const rootDir = findWorkspaceRoot()
-
-loadEnv({ path: resolve(rootDir, ".env") })
-loadEnv({ path: resolve(rootDir, ".env.local") })
+const processDir = process.cwd()
+const fileEnvironment: NodeJS.ProcessEnv = {}
+const envFiles = [
+  resolve(rootDir, ".env"),
+  resolve(rootDir, ".env.local"),
+  ...(processDir === rootDir
+    ? []
+    : [resolve(processDir, ".env"), resolve(processDir, ".env.local")]),
+]
+for (const path of envFiles) {
+  loadEnv({ path, processEnv: fileEnvironment, override: true, quiet: true })
+}
+for (const [key, value] of Object.entries(fileEnvironment)) {
+  if (process.env[key] === undefined) process.env[key] = value
+}
 
 if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = "development"
