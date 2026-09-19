@@ -5,6 +5,7 @@ import {
   type Notification,
 } from "../schema/index.js"
 import type { DbClient } from "./types.js"
+import { createPushDeliveries } from "./push-notification.repository.js"
 
 /** Account-level notifications (workspaceId null) are always included alongside whatever workspace the caller is currently viewing. */
 function scopedToUser(userId: string, workspaceId?: string) {
@@ -23,11 +24,14 @@ export async function createNotification(
   db: DbClient,
   input: NewNotification
 ): Promise<Notification> {
-  const [notification] = await db
-    .insert(notifications)
-    .values(input)
-    .returning()
-  return notification
+  return db.transaction(async (tx) => {
+    const [notification] = await tx
+      .insert(notifications)
+      .values(input)
+      .returning()
+    await createPushDeliveries(tx, [notification])
+    return notification
+  })
 }
 
 /** Fan-out to every member of a workspace at once, e.g. for an execution-failed or signal-regressed alert nobody in particular "owns". */
@@ -37,10 +41,14 @@ export async function createNotificationsForUsers(
   input: Omit<NewNotification, "userId">
 ): Promise<Notification[]> {
   if (userIds.length === 0) return []
-  return db
-    .insert(notifications)
-    .values(userIds.map((userId) => ({ ...input, userId })))
-    .returning()
+  return db.transaction(async (tx) => {
+    const created = await tx
+      .insert(notifications)
+      .values(userIds.map((userId) => ({ ...input, userId })))
+      .returning()
+    await createPushDeliveries(tx, created)
+    return created
+  })
 }
 
 export async function listNotifications(

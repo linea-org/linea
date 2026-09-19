@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm"
 import {
   check,
+  bigserial,
   foreignKey,
   index,
   integer,
@@ -38,6 +39,7 @@ export const outboxMessages = snakeCase.table(
   "outbox_messages",
   {
     id: uuid().defaultRandom().primaryKey(),
+    sequence: bigserial({ mode: "number" }).notNull(),
     workspaceId: uuid()
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
@@ -64,11 +66,10 @@ export const outboxMessages = snakeCase.table(
       table.availableAt,
       table.claimExpiresAt
     ),
-    index("outbox_messages_application_subject_created_idx").on(
+    index("outbox_messages_application_subject_sequence_idx").on(
       table.applicationId,
       table.externalSubjectId,
-      table.createdAt,
-      table.id
+      table.sequence
     ),
     foreignKey({
       name: "outbox_messages_application_fkey",

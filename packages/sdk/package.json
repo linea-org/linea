@@ -8,21 +8,41 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:pack": "node test/packed-browser.mjs && node test/packed-server.mjs"
   },
   "devDependencies": {
     "@linea/config": "workspace:*",
     "@types/node": "22",
+    "esbuild": "0.28.1",
     "eslint": "^9",
     "tsup": "^8.5.0",
     "typescript": "^6",
     "vitest": "^3"
+  },
+  "dependencies": {
+    "@linea/protocol": "workspace:*"
   },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./user": {
+      "types": "./dist/user.d.ts",
+      "import": "./dist/user.js",
+      "require": "./dist/user.cjs"
+    },
+    "./webhooks": {
+      "types": "./dist/webhooks.d.ts",
+      "import": "./dist/webhooks.js",
+      "require": "./dist/webhooks.cjs"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "require": "./dist/server.cjs"
     }
   },
   "files": [

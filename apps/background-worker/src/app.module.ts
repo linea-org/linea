@@ -6,13 +6,16 @@ import { EndUserAuthorizationModule } from "./end-user-authorization/end-user-au
 import { FlaggersModule } from "./flaggers/flaggers.module"
 import { OutboxModule } from "./outbox/outbox.module"
 import { QueueModule } from "./queue/queue.module"
+import { PushModule } from "./push/push.module"
 import { ReplayModule } from "./replay/replay.module"
 import { SchedulesModule } from "./schedules/schedules.module"
 import { WaitsModule } from "./waits/waits.module"
+import { WebhooksModule } from "./webhooks/webhooks.module"
 
 @Module({
   imports: [
     QueueModule,
+    PushModule,
     SchedulesModule,
     OutboxModule,
     ReplayModule,
@@ -22,6 +25,7 @@ import { WaitsModule } from "./waits/waits.module"
     WaitsModule,
     BehaviourModule,
     EndUserAuthorizationModule,
+    WebhooksModule,
   ],
 })
 export class AppModule {}

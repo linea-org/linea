@@ -9,7 +9,6 @@ export type RegressionResultStatus = "passed" | "failed" | "errored"
 
 export type RegressionRun = {
   id: string
-  workspaceId: string
   workflowId: string
   workflowVersionId: string
   trigger: RegressionRunTrigger
@@ -27,7 +26,7 @@ export type RegressionResult = {
   caseId: string
   status: RegressionResultStatus
   score: number | null
-  output: Record<string, JsonValue> | JsonValue[] | null
+  output: JsonValue
   costMicros: string
   createdAt: string
 }

@@ -5,7 +5,10 @@ import { EndUserSessionsModule } from '../end-user-sessions/end-user-sessions.mo
 import { ApplicationConversationsController } from './application-conversations.controller'
 import { ApplicationExecutionsController } from './application-executions.controller'
 import { EndUserRuntimeController } from './end-user-runtime.controller'
+import { EndUserEventStreamService } from './end-user-event-stream.service'
 import { PublicRuntimeService } from './public-runtime.service'
+import { WebhookDeliveriesController } from './webhook-deliveries.controller'
+import { WebhookDeliveriesService } from './webhook-deliveries.service'
 
 @Module({
   imports: [EndUserSessionsModule],
@@ -13,7 +16,14 @@ import { PublicRuntimeService } from './public-runtime.service'
     ApplicationConversationsController,
     ApplicationExecutionsController,
     EndUserRuntimeController,
+    WebhookDeliveriesController,
   ],
-  providers: [PublicRuntimeService, ApplicationKeyGuard, ApplicationScopeGuard],
+  providers: [
+    PublicRuntimeService,
+    EndUserEventStreamService,
+    ApplicationKeyGuard,
+    ApplicationScopeGuard,
+    WebhookDeliveriesService,
+  ],
 })
 export class PublicRuntimeModule {}

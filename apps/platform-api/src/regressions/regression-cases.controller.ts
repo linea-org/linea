@@ -23,6 +23,7 @@ import {
   listRegressionCasesSchema,
   type ListRegressionCasesDto,
 } from './dto/list-regression-cases.dto'
+import { regressionCaseProjection } from './regression.projections'
 import { RegressionCasesService } from './regression-cases.service'
 
 @Controller()
@@ -32,41 +33,52 @@ export class RegressionCasesController {
   constructor(private readonly regressionCases: RegressionCasesService) {}
 
   @Get('workflows/:workflowId/regression-cases')
-  list(
+  async list(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
     @Query(new ZodValidationPipe(listRegressionCasesSchema))
     query: ListRegressionCasesDto,
   ) {
-    return this.regressionCases.list(workspaceId, workflowId, query)
+    const cases = await this.regressionCases.list(
+      workspaceId,
+      workflowId,
+      query,
+    )
+    return cases.map(regressionCaseProjection)
   }
 
   @Post('workflows/:workflowId/regression-cases/from-step')
-  createFromStep(
+  async createFromStep(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
     @Body(new ZodValidationPipe(createRegressionCaseFromStepSchema))
     body: CreateRegressionCaseFromStepDto,
   ) {
-    return this.regressionCases.createFromStep(workspaceId, workflowId, body)
+    return regressionCaseProjection(
+      await this.regressionCases.createFromStep(workspaceId, workflowId, body),
+    )
   }
 
   @Post('workflows/:workflowId/regression-cases/from-flag')
-  createFromFlag(
+  async createFromFlag(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
     @Body(new ZodValidationPipe(createRegressionCaseFromFlagSchema))
     body: CreateRegressionCaseFromFlagDto,
   ) {
-    return this.regressionCases.createFromFlag(workspaceId, workflowId, body)
+    return regressionCaseProjection(
+      await this.regressionCases.createFromFlag(workspaceId, workflowId, body),
+    )
   }
 
   @Post('workflows/:workflowId/regression-cases/:id/archive')
-  archive(
+  async archive(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
     @Param('id') id: string,
   ) {
-    return this.regressionCases.archive(workspaceId, workflowId, id)
+    return regressionCaseProjection(
+      await this.regressionCases.archive(workspaceId, workflowId, id),
+    )
   }
 }

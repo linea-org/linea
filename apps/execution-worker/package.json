@@ -25,6 +25,7 @@
     "@linea/auth": "workspace:*",
     "@linea/config": "workspace:*",
     "@linea/db": "workspace:*",
+    "@linea/protocol": "workspace:*",
     "@linea/queue": "workspace:*",
     "@linea/runtime": "workspace:*",
     "@nestjs/common": "^11.0.1",

@@ -8,6 +8,7 @@ export const relations = defineRelations(schema, (r) => ({
     members: r.many.members(),
     invitations: r.many.invitations(),
     notifications: r.many.notifications(),
+    pushDeviceRegistrations: r.many.pushDeviceRegistrations(),
 
     settings: r.one.userSettings(),
 
@@ -40,6 +41,26 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.notifications.actorUserId,
       to: r.users.id,
     }),
+    pushDeliveries: r.many.pushDeliveries(),
+  },
+
+  pushDeviceRegistrations: {
+    user: r.one.users({
+      from: r.pushDeviceRegistrations.userId,
+      to: r.users.id,
+    }),
+    deliveries: r.many.pushDeliveries(),
+  },
+
+  pushDeliveries: {
+    notification: r.one.notifications({
+      from: r.pushDeliveries.notificationId,
+      to: r.notifications.id,
+    }),
+    deviceRegistration: r.one.pushDeviceRegistrations({
+      from: r.pushDeliveries.deviceRegistrationId,
+      to: r.pushDeviceRegistrations.id,
+    }),
   },
 
   organizations: {
@@ -60,6 +81,7 @@ export const relations = defineRelations(schema, (r) => ({
     endUserAuthorizationRequests: r.many.endUserAuthorizationRequests(),
     endUserIdentityExchanges: r.many.endUserIdentityExchanges(),
     endUserSessions: r.many.endUserSessions(),
+    endUserEventStreams: r.many.endUserEventStreams(),
     conversations: r.many.conversations(),
   },
 
@@ -75,6 +97,7 @@ export const relations = defineRelations(schema, (r) => ({
     endUserAuthorizationRequests: r.many.endUserAuthorizationRequests(),
     endUserIdentityExchanges: r.many.endUserIdentityExchanges(),
     endUserSessions: r.many.endUserSessions(),
+    endUserEventStreams: r.many.endUserEventStreams(),
     conversations: r.many.conversations(),
   },
 
@@ -87,6 +110,7 @@ export const relations = defineRelations(schema, (r) => ({
     authorizationRequests: r.many.endUserAuthorizationRequests(),
     identityExchanges: r.many.endUserIdentityExchanges(),
     sessions: r.many.endUserSessions(),
+    eventStreams: r.many.endUserEventStreams(),
     conversations: r.many.conversations(),
   },
 
@@ -119,6 +143,26 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.externalSubjects.id,
     }),
     proofs: r.many.endUserSessionProofs(),
+    eventStreams: r.many.endUserEventStreams(),
+  },
+
+  endUserEventStreams: {
+    workspace: r.one.organizations({
+      from: r.endUserEventStreams.workspaceId,
+      to: r.organizations.id,
+    }),
+    application: r.one.applications({
+      from: r.endUserEventStreams.applicationId,
+      to: r.applications.id,
+    }),
+    externalSubject: r.one.externalSubjects({
+      from: r.endUserEventStreams.externalSubjectId,
+      to: r.externalSubjects.id,
+    }),
+    session: r.one.endUserSessions({
+      from: r.endUserEventStreams.sessionId,
+      to: r.endUserSessions.id,
+    }),
   },
 
   endUserSessionProofs: {

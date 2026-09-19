@@ -81,6 +81,7 @@ export const auditAction = pgEnum("audit_action", [
   "webhook.created",
   "webhook.updated",
   "webhook.deleted",
+  "webhook.rotated",
 
   // Integrations
   "integration.connected",
@@ -106,6 +107,7 @@ export const auditResource = pgEnum("audit_resource", [
   "approval_request",
   "api_key",
   "secret",
+  "webhook",
 ])
 
 export const auditLogs = snakeCase.table(

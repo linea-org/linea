@@ -31,12 +31,13 @@ function operation(
 }
 
 describe("operation registry", () => {
-  it("publishes the end-user authorization protocol", () => {
+  it("publishes the public protocol", () => {
     expect(operationRegistry.map(({ operationId }) => operationId)).toEqual([
       "startEndUserAuthorization",
       "exchangeEndUserAuthorization",
       "createEndUserSession",
       "revokeEndUserSession",
+      "provisionApplicationSubject",
       "createApplicationConversation",
       "listApplicationConversations",
       "getApplicationConversation",
@@ -53,6 +54,15 @@ describe("operation registry", () => {
       "listEndUserApprovalRequests",
       "getEndUserApprovalRequest",
       "decideEndUserApprovalRequest",
+      "streamEndUserEvents",
+      "listWebhookDeliveries",
+      "listRegressionCases",
+      "createRegressionCaseFromStep",
+      "createRegressionCaseFromFlag",
+      "archiveRegressionCase",
+      "listRegressionRuns",
+      "triggerRegressionRun",
+      "getRegressionRun",
     ])
   })
 
@@ -101,6 +111,26 @@ describe("operation registry", () => {
         comment: "😀".repeat(513),
       }).success
     ).toBe(false)
+  })
+
+  it("publishes the resumable end-user event stream contract", () => {
+    const events = operationRegistry.find(
+      ({ operationId }) => operationId === "streamEndUserEvents"
+    )
+    if (!events) throw new Error("Event stream operation is missing")
+    expect(events.response).toMatchObject({ contentType: "text/event-stream" })
+    expect(
+      events.request.query.parse({
+        eventType: "approval_request.created",
+      })
+    ).toEqual({ eventType: ["approval_request.created"] })
+    expect(
+      events.request.headers.safeParse({
+        authorization: "DPoP lnu_token",
+        dpop: "proof",
+        "last-event-id": "event-id",
+      }).success
+    ).toBe(true)
   })
 
   it("rejects duplicate operation IDs", () => {

@@ -74,6 +74,7 @@ async function bootstrap() {
             'Cookie',
             'DPoP',
             'Idempotency-Key',
+            'Last-Event-ID',
           ],
           exposedHeaders: [
             'DPoP-Nonce',

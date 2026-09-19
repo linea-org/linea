@@ -39,3 +39,5 @@ export const mobileAuthClient: MobileAuthClient = {
   setActiveWorkspace: (organizationId) =>
     authClient.organization.setActive({ organizationId }),
 }
+
+export const getMobileSessionCookie = () => authClient.getCookie()

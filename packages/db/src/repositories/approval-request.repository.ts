@@ -279,6 +279,34 @@ export async function listPendingApprovalRequests(
     )
 }
 
+export type WorkspaceApprovalRequestView = {
+  request: ApprovalRequest
+  decision: ApprovalDecision | null
+}
+
+export async function getWorkspaceApprovalRequest(
+  db: DbClient,
+  workspaceId: string,
+  approvalRequestId: string,
+  userEmail: string
+): Promise<WorkspaceApprovalRequestView | undefined> {
+  const [view] = await db
+    .select({ request: approvalRequests, decision: approvalDecisions })
+    .from(approvalRequests)
+    .leftJoin(
+      approvalDecisions,
+      eq(approvalDecisions.approvalRequestId, approvalRequests.id)
+    )
+    .where(
+      and(
+        eq(approvalRequests.id, approvalRequestId),
+        eq(approvalRequests.workspaceId, workspaceId),
+        eligibleForWorkspaceMember(workspaceId, userEmail)
+      )
+    )
+  return view
+}
+
 export async function getPendingApprovalRequestForExecution(
   db: DbClient,
   executionId: string

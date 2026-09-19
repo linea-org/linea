@@ -10,6 +10,8 @@ import { ApplicationScopeGuard } from '../auth/application-scope.guard'
 import { ApplicationExternalSubjectsController } from './application-external-subjects.controller'
 import { ExternalSubjectsController } from './external-subjects.controller'
 import { ExternalSubjectsService } from './external-subjects.service'
+import { ApplicationWebhooksController } from './application-webhooks.controller'
+import { ApplicationWebhooksService } from './application-webhooks.service'
 
 @Module({
   controllers: [
@@ -18,6 +20,7 @@ import { ExternalSubjectsService } from './external-subjects.service'
     ApplicationKeysController,
     ApplicationExternalSubjectsController,
     ExternalSubjectsController,
+    ApplicationWebhooksController,
   ],
   providers: [
     ApplicationsService,
@@ -26,6 +29,7 @@ import { ExternalSubjectsService } from './external-subjects.service'
     ApplicationKeyGuard,
     ApplicationScopeGuard,
     ExternalSubjectsService,
+    ApplicationWebhooksService,
   ],
 })
 export class ApplicationsModule {}

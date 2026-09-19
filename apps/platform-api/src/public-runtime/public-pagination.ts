@@ -11,6 +11,10 @@ const approvalRequestCursorSchema = z.strictObject({
   requestedAt: z.iso.datetime({ offset: true }),
   id: z.string().uuid(),
 })
+const webhookDeliveryCursorSchema = z.strictObject({
+  createdAt: z.iso.datetime({ offset: true }),
+  id: z.string().uuid(),
+})
 
 export type PublicConversationCursor = {
   lastActivityAt: Date
@@ -19,6 +23,11 @@ export type PublicConversationCursor = {
 
 export type PublicApprovalRequestCursor = {
   requestedAt: Date
+  id: string
+}
+
+export type PublicWebhookDeliveryCursor = {
+  createdAt: Date
   id: string
 }
 
@@ -88,5 +97,23 @@ export function decodeApprovalRequestCursor(
   const decoded = decodeCursor(cursor, approvalRequestCursorSchema)
   return decoded
     ? { requestedAt: new Date(decoded.requestedAt), id: decoded.id }
+    : undefined
+}
+
+export function encodeWebhookDeliveryCursor(
+  cursor: PublicWebhookDeliveryCursor,
+): string {
+  return encodeCursor({
+    createdAt: cursor.createdAt.toISOString(),
+    id: cursor.id,
+  })
+}
+
+export function decodeWebhookDeliveryCursor(
+  cursor: string | undefined,
+): PublicWebhookDeliveryCursor | undefined {
+  const decoded = decodeCursor(cursor, webhookDeliveryCursorSchema)
+  return decoded
+    ? { createdAt: new Date(decoded.createdAt), id: decoded.id }
     : undefined
 }

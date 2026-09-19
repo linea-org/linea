@@ -1,0 +1,17 @@
+{
+  "name": "linea-sdk-react-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@linea/sdk": "0.0.0",
+    "@linea/sdk-react": "0.0.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^6"
+  }
+}

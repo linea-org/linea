@@ -9,6 +9,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core"
+import type { JsonValue } from "@linea/protocol/shared"
 import { regressionRuns } from "./regression-run.js"
 
 export const regressionResultStatus = pgEnum("regression_result_status", [
@@ -31,7 +32,7 @@ export const regressionResults = snakeCase.table(
     status: regressionResultStatus().notNull(),
     score: real(),
     // Conversation results retain every turn because whole-transcript graders need the sequence.
-    output: jsonb().$type<Record<string, unknown> | unknown[]>(),
+    output: jsonb().$type<JsonValue>(),
     costMicros: bigint({ mode: "bigint" }).notNull().default(0n),
 
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
