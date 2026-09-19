@@ -340,6 +340,16 @@ type ClaimApprovedActionIntentInput = {
   now: Date
 }
 
+type LockedActionIntentAuthority = {
+  intent: ActionIntent
+  connection: Connection | undefined
+  application: typeof applications.$inferSelect | undefined
+  subject: typeof externalSubjects.$inferSelect | undefined
+  request: ApprovalRequest | undefined
+  decision: ApprovalDecision | undefined
+  execution: Execution | undefined
+}
+
 function terminalActionIntent(intent: ActionIntent): boolean {
   return [
     "succeeded",
@@ -365,15 +375,18 @@ function activeExecutionClaim(
 
 async function recoverExecutingActionIntent(
   tx: DbClient,
-  intent: ActionIntent,
-  connection: Connection | undefined,
-  application: typeof applications.$inferSelect | undefined,
-  subject: typeof externalSubjects.$inferSelect | undefined,
-  request: ApprovalRequest | undefined,
-  decision: ApprovalDecision | undefined,
-  execution: Execution | undefined,
+  authority: LockedActionIntentAuthority,
   input: ClaimApprovedActionIntentInput
 ): Promise<ClaimApprovedActionIntentResult> {
+  const {
+    intent,
+    connection,
+    application,
+    subject,
+    request,
+    decision,
+    execution,
+  } = authority
   if (intent.executionClaimId === input.executionClaimId) {
     return { outcome: "in_progress", intent }
   }
@@ -541,13 +554,15 @@ export async function claimApprovedActionIntent(
     if (intent.status === "executing") {
       return recoverExecutingActionIntent(
         tx,
-        intent,
-        connection,
-        application,
-        subject,
-        request,
-        decision,
-        execution,
+        {
+          intent,
+          connection,
+          application,
+          subject,
+          request,
+          decision,
+          execution,
+        },
         input
       )
     }
