@@ -1,9 +1,11 @@
 import { Module } from "@nestjs/common"
 import { CheckpointsModule } from "../checkpoints/checkpoints.module"
+import { ConnectorGatewayService } from "../connectors/connector-gateway.service"
 import { InterpreterService } from "./interpreter.service"
 import { AiNode } from "./nodes/ai.node"
 import { ApprovalNode } from "./nodes/approval.node"
 import { BranchNode } from "./nodes/branch.node"
+import { ConnectorNode } from "./nodes/connector.node"
 import { DatetimeNode } from "./nodes/datetime.node"
 import { FilterNode } from "./nodes/filter.node"
 import { HttpNode } from "./nodes/http.node"
@@ -28,6 +30,8 @@ import { WaitNode } from "./nodes/wait.node"
     FilterNode,
     MergeNode,
     VariablesNode,
+    ConnectorGatewayService,
+    ConnectorNode,
   ],
   exports: [InterpreterService, AiNode],
 })

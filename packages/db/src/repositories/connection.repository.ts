@@ -5,6 +5,7 @@ import {
   connectionRevocationDeliveries,
   connections,
   endUserSessions,
+  executions,
   externalSubjectApplications,
   externalSubjects,
   type Connection,
@@ -248,6 +249,77 @@ export async function getConnection(
     .from(connections)
     .where(ownedConnection(owner, connectionId))
   return connection
+}
+
+export async function getConnectorReadAuthority(
+  db: DbClient,
+  input: { executionId: string; workspaceId: string; connectionId: string }
+): Promise<
+  | {
+      connection: Connection
+      providerPolicy: {
+        provider: string
+        actionFamilies: string[]
+        maxScopes: string[]
+      }
+    }
+  | undefined
+> {
+  const [authority] = await db
+    .select({
+      connection: connections,
+      policy: applications.connectorAccessPolicy,
+    })
+    .from(executions)
+    .innerJoin(
+      applications,
+      and(
+        eq(applications.id, executions.applicationId),
+        eq(applications.workspaceId, executions.workspaceId),
+        eq(applications.enabled, true)
+      )
+    )
+    .innerJoin(
+      externalSubjects,
+      and(
+        eq(externalSubjects.id, executions.externalSubjectRecordId),
+        eq(externalSubjects.workspaceId, executions.workspaceId),
+        eq(externalSubjects.status, "verified")
+      )
+    )
+    .innerJoin(
+      externalSubjectApplications,
+      and(
+        eq(externalSubjectApplications.applicationId, executions.applicationId),
+        eq(
+          externalSubjectApplications.externalSubjectId,
+          executions.externalSubjectRecordId
+        ),
+        eq(externalSubjectApplications.workspaceId, executions.workspaceId)
+      )
+    )
+    .innerJoin(
+      connections,
+      and(
+        eq(connections.id, input.connectionId),
+        eq(connections.workspaceId, executions.workspaceId),
+        eq(connections.applicationId, executions.applicationId),
+        eq(connections.externalSubjectId, executions.externalSubjectRecordId)
+      )
+    )
+    .where(
+      and(
+        eq(executions.id, input.executionId),
+        eq(executions.workspaceId, input.workspaceId)
+      )
+    )
+  if (!authority) return undefined
+  const providerPolicy = authority.policy.providers.find(
+    (candidate) => candidate.provider === authority.connection.provider
+  )
+  return providerPolicy
+    ? { connection: authority.connection, providerPolicy }
+    : undefined
 }
 
 export async function revokeConnection(
