@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm"
 import {
   applications,
+  actionIntents,
   auditLogs,
   approvalDecisions,
   approvalRequests,
@@ -39,6 +40,7 @@ import {
 } from "./public-idempotency.repository.js"
 import type { DbClient, Transaction } from "./types.js"
 import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.repository.js"
+import { recordActionIntentFact } from "./connector-audit.repository.js"
 
 export async function createApprovalRequest(
   db: DbClient,
@@ -394,6 +396,24 @@ async function recordDecision(
     )
     .returning()
   if (!updatedRequest) throw new Error("Locked Approval Request changed state")
+  if (request.actionIntentDigest) {
+    const [intent] = await tx
+      .select()
+      .from(actionIntents)
+      .where(eq(actionIntents.approvalRequestId, request.id))
+    if (intent) {
+      await recordActionIntentFact(tx, {
+        intent,
+        factType:
+          decision.outcome === "approved"
+            ? "action_intent.consent_approved"
+            : "action_intent.consent_rejected",
+        occurredAt: decision.decidedAt,
+        decisionId: decision.id,
+        outcome: decision.outcome,
+      })
+    }
+  }
   const [execution] = await tx
     .update(executions)
     .set({ status: "queued" })

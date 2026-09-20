@@ -605,6 +605,33 @@ describe("browser end-user client", () => {
       nextCursor: null,
     })
   })
+
+  it("lists only the bounded End-User audit projection", async () => {
+    const auditEvent = {
+      id: "10000000-0000-4000-8000-000000000001",
+      type: "connection.revoked",
+      connectionId: "50000000-0000-4000-8000-000000000005",
+      actionIntentId: null,
+      decisionId: null,
+      provider: "github",
+      operation: null,
+      digest: null,
+      outcome: "revoked",
+      display: null,
+      occurredAt: "2026-09-20T00:00:00.000Z",
+    }
+    const { client } = await authenticatedClient((_path, _init, url) => {
+      if (url.pathname === "/v1/user/audit-events") {
+        expect(url.searchParams.get("limit")).toBe("10")
+        return jsonResponse({ data: [auditEvent], nextCursor: null })
+      }
+      throw new Error(`Unexpected request: ${url.pathname}`)
+    })
+    await expect(client.listAuditEvents({ limit: 10 })).resolves.toEqual({
+      data: [auditEvent],
+      nextCursor: null,
+    })
+  })
 })
 
 describe("React Native end-user client", () => {

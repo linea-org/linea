@@ -39,6 +39,45 @@ function workspaceSdk(method: string): OperationSdkCoverage {
 }
 
 export const operationMetadata = {
+  listApplicationConnectorAuditEvents: {
+    purpose: "List redacted connector audit events for one Application.",
+    caller: applicationCaller,
+    idempotency: none,
+    rateLimit: platformProtection,
+    pagination: cursorPagination,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/public-runtime/application-connector-audit.controller.ts",
+      "list"
+    ),
+    sdk: applicationSdk("listAuditEvents"),
+  },
+  listWorkspaceConnectorAuditEvents: {
+    purpose: "List redacted connector audit events for one workspace.",
+    caller: workspaceCaller,
+    idempotency: none,
+    rateLimit: platformProtection,
+    pagination: cursorPagination,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/public-runtime/workspace-connector-audit.controller.ts",
+      "list"
+    ),
+    sdk: workspaceSdk("listAuditEvents"),
+  },
+  listEndUserConnectorAuditEvents: {
+    purpose: "List connector audit events owned by the authenticated End User.",
+    caller: userCaller,
+    idempotency: none,
+    rateLimit: platformProtection,
+    pagination: cursorPagination,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/public-runtime/end-user-connector-audit.controller.ts",
+      "list"
+    ),
+    sdk: userSdk("listAuditEvents"),
+  },
   startConnectionAuthorization: {
     purpose: "Start provider authorization for an End User's Connection.",
     caller: userCaller,

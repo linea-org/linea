@@ -17,6 +17,7 @@ import {
   type NormalizedConnectorError,
 } from "../schema/index.js"
 import { createApprovalRequest } from "./approval-request.repository.js"
+import { recordActionIntentFact } from "./connector-audit.repository.js"
 import { createPublicEvent } from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
 
@@ -237,6 +238,12 @@ export async function createActionIntent(
       })
       .returning()
     if (intent) {
+      await recordActionIntentFact(tx, {
+        intent,
+        factType: "action_intent.created",
+        occurredAt: intent.createdAt,
+        outcome: "awaiting_consent",
+      })
       return { outcome: "created", intent, approvalRequest }
     }
     const [raced] = await tx
@@ -307,17 +314,32 @@ export async function rejectActionIntent(
   db: DbClient,
   actionIntentId: string
 ): Promise<ActionIntent | undefined> {
-  const [intent] = await db
-    .update(actionIntents)
-    .set({ status: "rejected", updatedAt: new Date() })
-    .where(
-      and(
-        eq(actionIntents.id, actionIntentId),
-        eq(actionIntents.status, "awaiting_consent")
+  return db.transaction(async (tx) => {
+    const now = new Date()
+    const [intent] = await tx
+      .update(actionIntents)
+      .set({ status: "rejected", updatedAt: now })
+      .where(
+        and(
+          eq(actionIntents.id, actionIntentId),
+          eq(actionIntents.status, "awaiting_consent")
+        )
       )
-    )
-    .returning()
-  return intent
+      .returning()
+    if (!intent) return undefined
+    const [decision] = await tx
+      .select({ id: approvalDecisions.id })
+      .from(approvalDecisions)
+      .where(eq(approvalDecisions.approvalRequestId, intent.approvalRequestId))
+    await recordActionIntentFact(tx, {
+      intent,
+      factType: "action_intent.rejected",
+      occurredAt: now,
+      decisionId: decision?.id,
+      outcome: "rejected",
+    })
+    return intent
+  })
 }
 
 export type ClaimApprovedActionIntentResult =
@@ -431,6 +453,15 @@ async function recoverExecutingActionIntent(
       externalSubjectId: failed.externalSubjectId,
       eventType: "action_intent.failed",
       data: { actionIntentId: failed.id, executionId: failed.executionId },
+    })
+    await recordActionIntentFact(tx, {
+      intent: failed,
+      factType: outcomeUnknown
+        ? "action_intent.outcome_unknown"
+        : "action_intent.failed",
+      occurredAt: input.now,
+      outcome: failed.status,
+      failureClass: failed.normalizedError?.code,
     })
     return { outcome: "terminal", intent: failed }
   }
@@ -587,13 +618,30 @@ export async function claimApprovedActionIntent(
           )
         )
         .returning()
+      if (cancelled) {
+        await recordActionIntentFact(tx, {
+          intent: cancelled,
+          factType: "action_intent.cancelled",
+          occurredAt: input.now,
+          outcome: "cancelled",
+        })
+      }
       return { outcome: "cancelled", intent: cancelled ?? intent }
     }
     if (intent.status === "awaiting_consent") {
-      await tx
+      const [ready] = await tx
         .update(actionIntents)
         .set({ status: "ready", updatedAt: input.now })
         .where(eq(actionIntents.id, intent.id))
+        .returning()
+      if (ready) {
+        await recordActionIntentFact(tx, {
+          intent: ready,
+          factType: "action_intent.ready",
+          occurredAt: input.now,
+          outcome: "ready",
+        })
+      }
     }
     const [claimed] = await tx
       .update(actionIntents)
@@ -606,6 +654,14 @@ export async function claimApprovedActionIntent(
         and(eq(actionIntents.id, intent.id), eq(actionIntents.status, "ready"))
       )
       .returning()
+    if (claimed) {
+      await recordActionIntentFact(tx, {
+        intent: claimed,
+        factType: "action_intent.executing",
+        occurredAt: input.now,
+        outcome: "executing",
+      })
+    }
     return claimed
       ? { outcome: "claimed", intent: claimed, connection }
       : { outcome: "in_progress", intent }
@@ -712,6 +768,12 @@ export async function completeActionIntent(
         executionId: intent.executionId,
       },
     })
+    await recordActionIntentFact(tx, {
+      intent,
+      factType: "action_intent.succeeded",
+      occurredAt: input.completedAt,
+      outcome: "succeeded",
+    })
     return intent
   })
 }
@@ -761,6 +823,13 @@ export async function failActionIntent(
         actionIntentId: intent.id,
         executionId: intent.executionId,
       },
+    })
+    await recordActionIntentFact(tx, {
+      intent,
+      factType: `action_intent.${input.status}`,
+      occurredAt: input.failedAt,
+      outcome: input.status,
+      failureClass: input.error.code,
     })
     return intent
   })

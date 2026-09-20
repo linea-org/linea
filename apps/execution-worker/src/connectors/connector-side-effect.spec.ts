@@ -575,6 +575,15 @@ describe("exact Action Intent consent", () => {
         fixture.input.secret
       )
       await decide(fixture, "approved")
+      const decisionFacts = await db.query.connectorAuditFacts.findMany({
+        where: { actionIntentId: view.intent.id },
+      })
+      expect(decisionFacts.map(({ factType }) => factType)).toEqual(
+        expect.arrayContaining([
+          "action_intent.created",
+          "action_intent.consent_approved",
+        ])
+      )
       const executed = await invoke(fixture)
       expect(executed).toEqual({
         outcome: "completed",
@@ -596,6 +605,17 @@ describe("exact Action Intent consent", () => {
       ])
       expect(JSON.stringify(executed)).not.toContain(fixture.input.secret)
       expect(JSON.stringify(executed)).not.toContain("rawProviderField")
+      const terminalFacts = await db.query.connectorAuditFacts.findMany({
+        where: { actionIntentId: view.intent.id },
+      })
+      expect(terminalFacts.map(({ factType }) => factType)).toEqual(
+        expect.arrayContaining([
+          "action_intent.ready",
+          "action_intent.executing",
+          "action_intent.succeeded",
+        ])
+      )
+      expect(JSON.stringify(terminalFacts)).not.toContain(fixture.input.secret)
     } finally {
       await removeWorkspace(fixture.workspaceId)
     }
