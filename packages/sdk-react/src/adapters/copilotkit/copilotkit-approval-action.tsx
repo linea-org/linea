@@ -29,13 +29,13 @@ export type CopilotKitApprovalActionProps = ApprovalRequestsOptions & {
   render?: (presentation: CopilotKitApprovalPresentation) => ReactNode
 }
 
-type CopilotKitApprovalRequestProps = {
+type CopilotKitApprovalRequestProps = Readonly<{
   request: ApprovalRequestResource
   connection: ApprovalRequestProps["connection"]
   connectionError: unknown
   decide: DecisionState["decide"]
   render: CopilotKitApprovalActionProps["render"]
-}
+}>
 
 function CopilotKitApprovalRequest({
   request,
