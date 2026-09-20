@@ -3,6 +3,7 @@ import {
   render as renderReact,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react"
 import { http, HttpResponse } from "msw"
 import type { ReactElement, ReactNode } from "react"
@@ -65,13 +66,13 @@ function eventStream(
   )
 }
 
-function registeredAction(): ReactElement | null {
+function registeredAction(id = approvalRequestId): ReactElement | null {
   const tool = copilotKit.tool
   if (!tool) throw new Error("CopilotKit approval action is not registered")
   return tool.render({
     name: LINEA_APPROVAL_ACTION_NAME,
-    toolCallId: "tool-call-1",
-    parameters: { approvalRequestId },
+    toolCallId: `tool-call-${id}`,
+    parameters: { approvalRequestId: id },
     status: "executing",
     result: undefined,
   })
@@ -249,5 +250,74 @@ describe("CopilotKitApprovalAction", () => {
       action.rerender(<>{registeredAction()}</>)
       expect(screen.getByText("error")).toBeTruthy()
     })
+  })
+
+  it("scopes Decision errors to the Approval Request that failed", async () => {
+    const otherApprovalRequestId = "70000000-0000-4000-8000-000000000007"
+    const otherRequest = {
+      ...approvalRequest("pending"),
+      id: otherApprovalRequestId,
+      display: { title: "Delete release" },
+    }
+    server.use(
+      http.get(`${apiBaseUrl}/v1/user/approval-requests`, () =>
+        HttpResponse.json({
+          data: [approvalRequest("pending"), otherRequest],
+          nextCursor: null,
+        })
+      ),
+      http.get(`${apiBaseUrl}/v1/user/events`, () => eventStream()),
+      http.post(
+        `${apiBaseUrl}/v1/user/approval-requests/${approvalRequestId}/decisions`,
+        () => HttpResponse.json({ error: "Unavailable" }, { status: 503 })
+      )
+    )
+    await mountAdapter((presentation) => (
+      <section data-testid={presentation.request.id}>
+        <p>{presentation.state}</p>
+        {presentation.isActionable ? (
+          <button
+            type="button"
+            onClick={() => void presentation.approve().catch(() => undefined)}
+          >
+            Approve {presentation.request.display.title}
+          </button>
+        ) : null}
+      </section>
+    ))
+    const action = renderReact(
+      <>
+        {registeredAction()}
+        {registeredAction(otherApprovalRequestId)}
+      </>
+    )
+    await waitFor(() => {
+      action.rerender(
+        <>
+          {registeredAction()}
+          {registeredAction(otherApprovalRequestId)}
+        </>
+      )
+      expect(
+        screen.getByRole("button", { name: "Approve Publish release" })
+      ).toBeTruthy()
+      expect(
+        screen.getByRole("button", { name: "Approve Delete release" })
+      ).toBeTruthy()
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: "Approve Publish release" })
+    )
+    await waitFor(() => {
+      expect(
+        within(screen.getByTestId(approvalRequestId)).getByText("error")
+      ).toBeTruthy()
+    })
+    expect(
+      within(screen.getByTestId(otherApprovalRequestId)).getByText("pending")
+    ).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: "Approve Delete release" })
+    ).toBeTruthy()
   })
 })

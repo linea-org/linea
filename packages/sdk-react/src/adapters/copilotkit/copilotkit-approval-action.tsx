@@ -5,10 +5,14 @@ import {
   useApprovalRequests,
   useDecision,
   type ApprovalDecision,
+  type ApprovalRequestProps,
   type ApprovalRequestPresentation,
+  type ApprovalRequestResource,
   type ApprovalRequestsOptions,
+  type DecideApprovalRequest,
+  type DecisionState,
 } from "../../index.js"
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 
 export const LINEA_APPROVAL_ACTION_NAME = "linea_approval_request"
 
@@ -23,6 +27,55 @@ export type CopilotKitApprovalPresentation = ApprovalRequestPresentation & {
 
 export type CopilotKitApprovalActionProps = ApprovalRequestsOptions & {
   render?: (presentation: CopilotKitApprovalPresentation) => ReactNode
+}
+
+type CopilotKitApprovalRequestProps = {
+  request: ApprovalRequestResource
+  connection: ApprovalRequestProps["connection"]
+  connectionError: unknown
+  decide: DecisionState["decide"]
+  render: CopilotKitApprovalActionProps["render"]
+}
+
+function CopilotKitApprovalRequest({
+  request,
+  connection,
+  connectionError,
+  decide,
+  render,
+}: CopilotKitApprovalRequestProps): ReactNode {
+  const [decisionError, setDecisionError] = useState<unknown>()
+  async function submit(
+    outcome: DecideApprovalRequest["decision"],
+    comment?: string
+  ): Promise<ApprovalDecision> {
+    setDecisionError(undefined)
+    try {
+      return await decide(request.id, { decision: outcome, comment })
+    } catch (cause) {
+      setDecisionError(cause)
+      throw cause
+    }
+  }
+  const approve = (comment?: string) => submit("approved", comment)
+  const reject = (comment?: string) => submit("rejected", comment)
+  return (
+    <ApprovalRequest
+      request={request}
+      connection={connection}
+      error={
+        connectionError ??
+        (request.status === "pending" ? decisionError : undefined)
+      }
+      onApprove={approve}
+      onReject={reject}
+      render={
+        render
+          ? (presentation) => render({ ...presentation, approve, reject })
+          : undefined
+      }
+    />
+  )
 }
 
 export function CopilotKitApprovalAction({
@@ -42,22 +95,13 @@ export function CopilotKitApprovalAction({
           (candidate) => candidate.id === parameters.approvalRequestId
         )
         if (!request) return null
-        const approve = (comment?: string) =>
-          decision.decide(request.id, { decision: "approved", comment })
-        const reject = (comment?: string) =>
-          decision.decide(request.id, { decision: "rejected", comment })
         return (
-          <ApprovalRequest
+          <CopilotKitApprovalRequest
             request={request}
             connection={approvals.connection}
-            error={approvals.error ?? decision.error}
-            onApprove={approve}
-            onReject={reject}
-            render={
-              render
-                ? (presentation) => render({ ...presentation, approve, reject })
-                : undefined
-            }
+            connectionError={approvals.error}
+            decide={decision.decide}
+            render={render}
           />
         )
       },
@@ -67,7 +111,6 @@ export function CopilotKitApprovalAction({
       approvals.error,
       approvals.requests,
       decision.decide,
-      decision.error,
       render,
     ]
   )

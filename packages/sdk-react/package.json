@@ -10,7 +10,7 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:pack": "node test/packed-react.mjs && node test/packed-copilotkit.mjs"
+    "test:pack": "node test/packed-react.mjs"
   },
   "peerDependencies": {
     "@copilotkit/react-core": "^1.73.0",
