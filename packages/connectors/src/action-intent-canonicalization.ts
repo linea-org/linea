@@ -16,7 +16,7 @@ function assertUnicodeScalarValue(value: string): void {
   }
 }
 
-function compareUtf16CodeUnits(left: string, right: string): number {
+export function compareUtf16CodeUnits(left: string, right: string): number {
   // RFC 8785 requires raw UTF-16 ordering, which localeCompare does not provide.
   if (left < right) return -1
   if (left > right) return 1

@@ -3,6 +3,7 @@ import type {
   ActionIntentEnvelope,
   ConnectorSideEffectOperation,
 } from "./connector-side-effect-operation.js"
+import { compareUtf16CodeUnits } from "./action-intent-canonicalization.js"
 import {
   GithubProviderError,
   githubHeaders,
@@ -24,7 +25,7 @@ const issueFields = {
   labels: z
     .array(z.string().min(1).max(50))
     .max(5)
-    .transform((labels) => [...new Set(labels)].sort()),
+    .transform((labels) => [...new Set(labels)].sort(compareUtf16CodeUnits)),
   assignees: z
     .array(
       z
@@ -34,7 +35,9 @@ const issueFields = {
         .regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/)
     )
     .max(5)
-    .transform((assignees) => [...new Set(assignees)].sort()),
+    .transform((assignees) =>
+      [...new Set(assignees)].sort(compareUtf16CodeUnits)
+    ),
 }
 const inputSchema = z.strictObject(issueFields)
 const parametersSchema = z.strictObject(issueFields)
