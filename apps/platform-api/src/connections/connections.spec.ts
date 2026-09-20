@@ -242,8 +242,12 @@ describe('OAuth Connections', () => {
     google.selectAccount('stable-google-subject', 'stable@example.com')
     await replaceGoogleFamilies(['gmail_read'])
     await expect(authorize()).resolves.toBe('connected')
-    expect(google.requestedScopes().sort()).toEqual(
-      [...googleAuthorizationScopes(['gmail_read'])].sort(),
+    expect(
+      google.requestedScopes().sort((left, right) => left.localeCompare(right)),
+    ).toEqual(
+      [...googleAuthorizationScopes(['gmail_read'])].sort((left, right) =>
+        left.localeCompare(right),
+      ),
     )
     const initial = (
       await repositories.connection.listConnections(db, {
@@ -283,6 +287,23 @@ describe('OAuth Connections', () => {
       initial.id,
     )
     expect(denied?.credentialVersion).toBe(expanded?.credentialVersion)
+    const stagedRevocation =
+      await db.query.connectionRevocationDeliveries.findFirst({
+        where: {
+          provider: 'google',
+          connectionId: { isNull: true },
+          deliveredAt: { isNull: true },
+        },
+      })
+    expect(stagedRevocation?.credentialEncrypted).not.toBeNull()
+    const revocations = app.get(ConnectionRevocationService)
+    await revocations.poll(new Date(Date.now() + 6 * 60 * 1000))
+    const completedRevocation =
+      await db.query.connectionRevocationDeliveries.findFirst({
+        where: { id: stagedRevocation?.id },
+      })
+    expect(completedRevocation?.credentialEncrypted).toBeNull()
+    expect(completedRevocation?.deliveredAt).toBeInstanceOf(Date)
     if (!denied?.credentialEncrypted) {
       throw new Error('Expected Google credential')
     }
@@ -321,7 +342,6 @@ describe('OAuth Connections', () => {
       .set('Authorization', `DPoP ${accessToken}`)
       .set('DPoP', await createProof('DELETE', `${baseUrl}${getPath}`))
     expect(responseBody(revoked, connectionSchema).status).toBe('revoked')
-    const revocations = app.get(ConnectionRevocationService)
     await revocations.poll()
     const failed = await db.query.connectionRevocationDeliveries.findFirst({
       where: { connectionId: denied.id },
@@ -339,7 +359,7 @@ describe('OAuth Connections', () => {
         credentialEncrypted: null,
       }),
     )
-  })
+  }, 15_000)
 
   it('enforces the Application scope and return-origin caps', async () => {
     const path = '/v1/user/connections/authorizations'
@@ -418,10 +438,11 @@ describe('OAuth Connections', () => {
       startedBody.authorizationId,
     )
     expect(returned.searchParams.get('status')).toBe('failed')
-    expect([...returned.searchParams.keys()].sort()).toEqual([
-      'authorizationId',
-      'status',
-    ])
+    expect(
+      [...returned.searchParams.keys()].sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    ).toEqual(['authorizationId', 'status'])
   })
 
   it('completes an OAuth denial with a bounded failure redirect', async () => {
@@ -458,10 +479,11 @@ describe('OAuth Connections', () => {
       startedBody.authorizationId,
     )
     expect(returned.searchParams.get('status')).toBe('failed')
-    expect([...returned.searchParams.keys()].sort()).toEqual([
-      'authorizationId',
-      'status',
-    ])
+    expect(
+      [...returned.searchParams.keys()].sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    ).toEqual(['authorizationId', 'status'])
   })
 
   it('rechecks current Application policy before storing a credential', async () => {
@@ -697,6 +719,8 @@ describe('OAuth Connections', () => {
     await db.insert(schema.connectionRevocationDeliveries).values({
       id: expiredDeliveryId,
       workspaceId,
+      applicationId,
+      externalSubjectId,
       connectionId,
       provider: 'test',
       credentialEncrypted: encryptCredential('expired-revocation', {

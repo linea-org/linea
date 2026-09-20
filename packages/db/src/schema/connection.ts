@@ -138,7 +138,9 @@ export const connectionRevocationDeliveries = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
-    connectionId: uuid().notNull(),
+    applicationId: uuid().notNull(),
+    externalSubjectId: uuid().notNull(),
+    connectionId: uuid(),
     provider: text().notNull(),
     credentialEncrypted: text(),
     expiresAt: timestamp({ withTimezone: true }).notNull(),
@@ -160,6 +162,16 @@ export const connectionRevocationDeliveries = snakeCase.table(
       name: "connection_revocation_deliveries_connection_fkey",
       columns: [table.connectionId, table.workspaceId],
       foreignColumns: [connections.id, connections.workspaceId],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "connection_revocation_deliveries_application_fkey",
+      columns: [table.applicationId, table.workspaceId],
+      foreignColumns: [applications.id, applications.workspaceId],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "connection_revocation_deliveries_subject_fkey",
+      columns: [table.externalSubjectId, table.workspaceId],
+      foreignColumns: [externalSubjects.id, externalSubjects.workspaceId],
     }).onDelete("cascade"),
     check(
       "connection_revocation_deliveries_payload_check",

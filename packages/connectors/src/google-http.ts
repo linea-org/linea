@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { readBoundedJsonResponse } from "./bounded-response.js"
 
 const MAXIMUM_GOOGLE_RESPONSE_BYTES = 1_000_000
 
@@ -17,12 +18,11 @@ export function googleApiUrl(path: string): URL {
 }
 
 async function boundedJson(response: Response): Promise<unknown> {
-  const body = await response.text()
-  if (Buffer.byteLength(body) > MAXIMUM_GOOGLE_RESPONSE_BYTES) {
-    throw new GoogleProviderError(response.status, false)
-  }
   try {
-    return JSON.parse(body) as unknown
+    return await readBoundedJsonResponse(
+      response,
+      MAXIMUM_GOOGLE_RESPONSE_BYTES
+    )
   } catch {
     throw new GoogleProviderError(response.status, false)
   }

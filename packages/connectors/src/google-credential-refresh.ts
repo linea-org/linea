@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { readBoundedJsonResponse } from "./bounded-response.js"
 import type { ConnectorReadCredential } from "./connector-read-operation.js"
 
 const storedGoogleCredentialSchema = z
@@ -55,11 +56,9 @@ export async function refreshGoogleCredential(
       }),
     }
   )
-  const body = await response.text()
-  if (body.length > 64_000) throw new Error("Google refresh response failed")
   let parsed: unknown
   try {
-    parsed = JSON.parse(body) as unknown
+    parsed = await readBoundedJsonResponse(response, 64_000)
   } catch {
     throw new Error("Google refresh response failed")
   }
@@ -77,7 +76,9 @@ export async function refreshGoogleCredential(
     refreshToken: token.refresh_token ?? credential.refreshToken,
     expiresAt: new Date(Date.now() + token.expires_in * 1000).toISOString(),
     grantedScopes: token.scope
-      ? [...new Set(token.scope.split(" ").filter(Boolean))].sort()
+      ? [...new Set(token.scope.split(" ").filter(Boolean))].sort(
+          (left, right) => left.localeCompare(right)
+        )
       : credential.grantedScopes,
   }
 }

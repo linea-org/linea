@@ -1,4 +1,7 @@
-import { googleAuthorizationScopes } from '@linea/connectors'
+import {
+  googleAuthorizationScopes,
+  readBoundedJsonResponse,
+} from '@linea/connectors'
 import { z } from 'zod'
 import {
   ConnectionProviderInvalidGrantError,
@@ -33,13 +36,13 @@ export type GoogleOAuthProviderConfig = {
 }
 
 async function responseJson(response: Response): Promise<unknown> {
-  const body = await response.text()
-  if (body.length > 64_000) throw new Error('Google response exceeded limit')
-  return JSON.parse(body) as unknown
+  return readBoundedJsonResponse(response, 64_000)
 }
 
 function scopes(value: string | undefined, fallback: string[]): string[] {
-  return [...new Set((value?.split(' ') ?? fallback).filter(Boolean))].sort()
+  return [...new Set((value?.split(' ') ?? fallback).filter(Boolean))].sort(
+    (left, right) => left.localeCompare(right),
+  )
 }
 
 export class GoogleOAuthProvider implements ConnectionOAuthProvider {

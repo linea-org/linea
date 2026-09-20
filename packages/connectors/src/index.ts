@@ -1,4 +1,5 @@
 export { ConnectorGateway, ConnectorGatewayError } from "./connector-gateway.js"
+export { readBoundedJsonResponse } from "./bounded-response.js"
 export {
   ACTION_INTENT_DIGEST_VERSION,
   canonicalizeActionIntent,

@@ -156,8 +156,11 @@ function sameEvent(
     (event.end.timeZone ?? "") === (parameters.end.timeZone ?? "") &&
     event.attendees
       .map(({ email }) => email)
-      .sort()
-      .join("\0") === [...parameters.attendees].sort().join("\0")
+      .sort((left, right) => left.localeCompare(right))
+      .join("\0") ===
+      [...parameters.attendees]
+        .sort((left, right) => left.localeCompare(right))
+        .join("\0")
   )
 }
 

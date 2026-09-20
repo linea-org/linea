@@ -75,12 +75,15 @@ export async function completeConnectionAuthorizationRequest(
     providerAccountId: string
     accountLabel: string
     credentialPlaintext: string
+    revocationDeliveryId: string
     grantedScopes: string[]
     actionFamilies: string[]
     now: Date
   }
 ): Promise<CompleteConnectionAuthorizationResult> {
-  const grantedScopes = [...new Set(input.grantedScopes)].sort()
+  const grantedScopes = [...new Set(input.grantedScopes)].sort((left, right) =>
+    left.localeCompare(right)
+  )
   return db.transaction(
     async (tx): Promise<CompleteConnectionAuthorizationResult> => {
       const [request] = await tx
@@ -218,6 +221,30 @@ export async function completeConnectionAuthorizationRequest(
         .update(connectionAuthorizationRequests)
         .set({ completedAt: input.now })
         .where(eq(connectionAuthorizationRequests.id, request.id))
+      const [cancelledRevocation] = await tx
+        .delete(connectionRevocationDeliveries)
+        .where(
+          and(
+            eq(connectionRevocationDeliveries.id, input.revocationDeliveryId),
+            eq(connectionRevocationDeliveries.workspaceId, request.workspaceId),
+            eq(
+              connectionRevocationDeliveries.applicationId,
+              request.applicationId
+            ),
+            eq(
+              connectionRevocationDeliveries.externalSubjectId,
+              request.externalSubjectId
+            ),
+            eq(connectionRevocationDeliveries.provider, request.provider),
+            isNull(connectionRevocationDeliveries.connectionId),
+            isNull(connectionRevocationDeliveries.claimedBy),
+            isNull(connectionRevocationDeliveries.deliveredAt)
+          )
+        )
+        .returning({ id: connectionRevocationDeliveries.id })
+      if (!cancelledRevocation) {
+        throw new Error("Authorization credential cleanup was already claimed")
+      }
       return { outcome: "completed", connection }
     }
   )
@@ -383,6 +410,8 @@ export async function revokeConnection(
     await tx.insert(connectionRevocationDeliveries).values({
       id: input.deliveryId,
       workspaceId: owner.workspaceId,
+      applicationId: owner.applicationId,
+      externalSubjectId: owner.externalSubjectId,
       connectionId,
       provider: connection.provider,
       credentialEncrypted: input.revocationCredentialEncrypted,
@@ -400,9 +429,7 @@ export async function claimRevocationDelivery(
     now: Date
     claimExpiresAt: Date
   }
-): Promise<
-  { delivery: ConnectionRevocationDelivery; connection: Connection } | undefined
-> {
+): Promise<ConnectionRevocationDelivery | undefined> {
   return db.transaction(async (tx) => {
     const [candidate] = await tx
       .select({ id: connectionRevocationDeliveries.id })
@@ -435,12 +462,35 @@ export async function claimRevocationDelivery(
       })
       .where(eq(connectionRevocationDeliveries.id, candidate.id))
       .returning()
-    const [connection] = await tx
-      .select()
-      .from(connections)
-      .where(eq(connections.id, delivery.connectionId))
-    if (!connection) throw new Error("Revocation Connection is missing")
-    return { delivery, connection }
+    return delivery
+  })
+}
+
+export async function stageAuthorizationCredentialRevocation(
+  db: DbClient,
+  input: {
+    id: string
+    workspaceId: string
+    applicationId: string
+    externalSubjectId: string
+    provider: string
+    credentialEncrypted: string
+    availableAt: Date
+    expiresAt: Date
+    now: Date
+  }
+): Promise<void> {
+  await db.insert(connectionRevocationDeliveries).values({
+    id: input.id,
+    workspaceId: input.workspaceId,
+    applicationId: input.applicationId,
+    externalSubjectId: input.externalSubjectId,
+    connectionId: null,
+    provider: input.provider,
+    credentialEncrypted: input.credentialEncrypted,
+    availableAt: input.availableAt,
+    expiresAt: input.expiresAt,
+    createdAt: input.now,
   })
 }
 
@@ -663,8 +713,12 @@ function sameValues(
   left: readonly string[],
   right: readonly string[]
 ): boolean {
-  const sortedLeft = [...left].sort()
-  const sortedRight = [...right].sort()
+  const sortedLeft = [...left].sort((first, second) =>
+    first.localeCompare(second)
+  )
+  const sortedRight = [...right].sort((first, second) =>
+    first.localeCompare(second)
+  )
   return (
     sortedLeft.length === sortedRight.length &&
     sortedLeft.every((value, index) => value === sortedRight[index])

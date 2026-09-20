@@ -20,6 +20,8 @@ export function googleAuthorizationScopes(
     return GOOGLE_ACTION_SCOPES[family as GoogleActionFamily]
   })
   return Object.freeze(
-    [...new Set([...GOOGLE_IDENTITY_SCOPES, ...actionScopes])].sort()
+    [...new Set([...GOOGLE_IDENTITY_SCOPES, ...actionScopes])].sort(
+      (left, right) => left.localeCompare(right)
+    )
   )
 }

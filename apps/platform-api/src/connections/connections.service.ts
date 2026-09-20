@@ -27,10 +27,12 @@ import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.gua
 import {
   CONNECTION_OAUTH_PROVIDERS,
   type ConnectionOAuthProvider,
+  type ConnectionProviderCredential,
 } from './connection-oauth-provider'
 import { parseConnectionProviderCredential } from './connection-provider-credential'
 
 const AUTHORIZATION_LIFETIME_MS = 5 * 60 * 1000
+const AUTHORIZATION_CLEANUP_DELAY_MS = 5 * 60 * 1000
 const REVOCATION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000
 
 function opaqueValue(): string {
@@ -192,6 +194,8 @@ export class ConnectionsService {
       throw new BadRequestException('Invalid authorization')
     }
     const request = claimed.request
+    let credential: ConnectionProviderCredential | undefined
+    let revocationStaged = false
     try {
       const context = {
         workspaceId: request.workspaceId,
@@ -218,11 +222,35 @@ export class ConnectionsService {
       ) {
         return authorizationResultUrl(request, 'failed')
       }
-      const credential = await provider.exchangeAuthorizationCode({
+      credential = await provider.exchangeAuthorizationCode({
         code: input.code,
         redirectUri: callbackUrl(providerName),
         codeVerifier: decryptCredential(request.codeVerifierEncrypted, context),
       })
+      const revocationDeliveryId = randomUUID()
+      const revocationStagedAt = new Date()
+      await repositories.connection.stageAuthorizationCredentialRevocation(db, {
+        id: revocationDeliveryId,
+        workspaceId: request.workspaceId,
+        applicationId: request.applicationId,
+        externalSubjectId: request.externalSubjectId,
+        provider: request.provider,
+        credentialEncrypted: encryptCredential(JSON.stringify(credential), {
+          workspaceId: request.workspaceId,
+          applicationId: request.applicationId,
+          externalSubjectId: request.externalSubjectId,
+          recordId: revocationDeliveryId,
+          provider: `${request.provider}:revocation`,
+        }),
+        availableAt: new Date(
+          revocationStagedAt.getTime() + AUTHORIZATION_CLEANUP_DELAY_MS,
+        ),
+        expiresAt: new Date(
+          revocationStagedAt.getTime() + REVOCATION_LIFETIME_MS,
+        ),
+        now: revocationStagedAt,
+      })
+      revocationStaged = true
       const connectionId = randomUUID()
       const completed =
         await repositories.connection.completeConnectionAuthorizationRequest(
@@ -234,19 +262,27 @@ export class ConnectionsService {
             providerAccountId: credential.accountId,
             accountLabel: credential.accountLabel,
             credentialPlaintext: JSON.stringify(credential),
+            revocationDeliveryId,
             grantedScopes: credential.grantedScopes,
             actionFamilies: policy.actionFamilies,
             now: new Date(),
           },
         )
       if (completed.outcome !== 'completed') {
-        await provider
-          .revokeCredential(credential, AbortSignal.timeout(5_000))
-          .catch(() => undefined)
         return authorizationResultUrl(request, 'failed')
       }
       return authorizationResultUrl(request, 'connected')
     } catch {
+      if (credential && !revocationStaged) {
+        try {
+          await provider.revokeCredential(
+            credential,
+            AbortSignal.timeout(5_000),
+          )
+        } catch {
+          return authorizationResultUrl(request, 'failed')
+        }
+      }
       return authorizationResultUrl(request, 'failed')
     }
   }
