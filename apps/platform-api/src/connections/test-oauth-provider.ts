@@ -27,7 +27,12 @@ function requiredParameter(url: URL, name: string): string {
 export async function startTestOAuthProvider(): Promise<TestOAuthProvider> {
   const authorizationChallenges = new Map<
     string,
-    { challenge: string; accountId: string; accountLabel: string }
+    {
+      challenge: string
+      accountId: string
+      accountLabel: string
+      scopes: string[]
+    }
   >()
   const accessTokens = new Map<
     string,
@@ -48,10 +53,11 @@ export async function startTestOAuthProvider(): Promise<TestOAuthProvider> {
     const redirectUri = requiredParameter(url, 'redirect_uri')
     const state = requiredParameter(url, 'state')
     const codeChallenge = requiredParameter(url, 'code_challenge')
-    requiredParameter(url, 'scope')
+    const scopes = requiredParameter(url, 'scope').split(' ')
     const code = randomUUID()
     authorizationChallenges.set(code, {
       challenge: codeChallenge,
+      scopes,
       ...selectedAccount,
     })
     const callback = new URL(redirectUri)
@@ -230,6 +236,7 @@ export async function startTestOAuthProvider(): Promise<TestOAuthProvider> {
           expiresAt: new Date(
             Date.now() + token.expires_in * 1000,
           ).toISOString(),
+          grantedScopes: input.scopes,
         }
       },
       async refreshCredential(credential) {

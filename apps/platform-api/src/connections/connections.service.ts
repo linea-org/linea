@@ -29,6 +29,7 @@ import {
   type ConnectionOAuthProvider,
 } from './connection-oauth-provider'
 import { parseConnectionProviderCredential } from './connection-provider-credential'
+import { githubAuthorizationScopes } from './github-oauth-provider'
 
 const AUTHORIZATION_LIFETIME_MS = 5 * 60 * 1000
 const REVOCATION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000
@@ -99,6 +100,37 @@ export class ConnectionsService {
       throw new ServiceUnavailableException(
         publicError('service_unavailable', 'Connection provider unavailable'),
       )
+    }
+    if (input.provider === 'github') {
+      const application = await repositories.application.getApplicationById(
+        db,
+        principal.workspaceId,
+        principal.applicationId,
+      )
+      const providerPolicy = application?.connectorAccessPolicy.providers.find(
+        (candidate) => candidate.provider === 'github',
+      )
+      let requiredScopes: string[]
+      try {
+        requiredScopes = githubAuthorizationScopes(
+          providerPolicy?.actionFamilies ?? [],
+        )
+      } catch {
+        throw new ForbiddenException(
+          publicError('scope_denied', 'Connection authorization denied'),
+        )
+      }
+      if (
+        requiredScopes.some(
+          (scope) => !providerPolicy?.maxScopes.includes(scope),
+        ) ||
+        requiredScopes.length !== input.scopes.length ||
+        requiredScopes.some((scope, index) => scope !== input.scopes[index])
+      ) {
+        throw new ForbiddenException(
+          publicError('scope_denied', 'Connection authorization denied'),
+        )
+      }
     }
     const id = randomUUID()
     const state = opaqueValue()
@@ -176,6 +208,7 @@ export class ConnectionsService {
         code: input.code,
         redirectUri: callbackUrl(providerName),
         codeVerifier: decryptCredential(request.codeVerifierEncrypted, context),
+        scopes: request.scopes,
       })
       const connectionId = randomUUID()
       const completed =
@@ -187,6 +220,7 @@ export class ConnectionsService {
             connectionId,
             providerAccountId: credential.accountId,
             accountLabel: credential.accountLabel,
+            grantedScopes: credential.grantedScopes,
             credentialPlaintext: JSON.stringify(credential),
             now: new Date(),
           },

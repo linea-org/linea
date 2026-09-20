@@ -73,6 +73,7 @@ export async function completeConnectionAuthorizationRequest(
     connectionId: string
     providerAccountId: string
     accountLabel: string
+    grantedScopes: string[]
     credentialPlaintext: string
     now: Date
   }
@@ -149,6 +150,13 @@ export async function completeConnectionAuthorizationRequest(
         !providerPolicy ||
         request.scopes.some(
           (scope) => !providerPolicy.maxScopes.includes(scope)
+        ) ||
+        request.scopes.length !== input.grantedScopes.length ||
+        request.scopes.some(
+          (scope, index) => scope !== input.grantedScopes[index]
+        ) ||
+        input.grantedScopes.some(
+          (scope) => !providerPolicy.maxScopes.includes(scope)
         )
       ) {
         return { outcome: "invalid" }
@@ -181,7 +189,7 @@ export async function completeConnectionAuthorizationRequest(
             .set({
               accountLabel: input.accountLabel,
               status: "active",
-              scopes: request.scopes,
+              scopes: input.grantedScopes,
               credentialEncrypted,
               credentialVersion: sql`${connections.credentialVersion} + 1`,
               updatedAt: input.now,
@@ -199,7 +207,7 @@ export async function completeConnectionAuthorizationRequest(
               providerAccountId: input.providerAccountId,
               accountLabel: input.accountLabel,
               status: "active",
-              scopes: request.scopes,
+              scopes: input.grantedScopes,
               credentialEncrypted,
               createdAt: input.now,
               updatedAt: input.now,
