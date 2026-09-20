@@ -6,6 +6,12 @@ import { ConnectionsController } from './connections.controller'
 import { ConnectionsService } from './connections.service'
 import { ConnectionCredentialsService } from './connection-credentials.service'
 import { ConnectionRevocationService } from './connection-revocation.service'
+import { githubOAuthProviderFromEnvironment } from './github-oauth-provider'
+
+function connectionOAuthProviders() {
+  const github = githubOAuthProviderFromEnvironment()
+  return github ? [github] : []
+}
 
 @Module({
   imports: [EndUserSessionsModule],
@@ -14,7 +20,10 @@ import { ConnectionRevocationService } from './connection-revocation.service'
     ConnectionsService,
     ConnectionCredentialsService,
     ConnectionRevocationService,
-    { provide: CONNECTION_OAUTH_PROVIDERS, useValue: [] },
+    {
+      provide: CONNECTION_OAUTH_PROVIDERS,
+      useFactory: connectionOAuthProviders,
+    },
   ],
   exports: [ConnectionCredentialsService],
 })

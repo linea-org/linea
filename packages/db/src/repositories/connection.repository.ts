@@ -73,6 +73,9 @@ export async function completeConnectionAuthorizationRequest(
     connectionId: string
     providerAccountId: string
     accountLabel: string
+    grantedScopes: string[]
+    actionFamilies: string[]
+    requiredScopes: string[]
     credentialPlaintext: string
     now: Date
   }
@@ -141,13 +144,28 @@ export async function completeConnectionAuthorizationRequest(
       const providerPolicy = authority?.connectorAccessPolicy.providers.find(
         (candidate) => candidate.provider === request.provider
       )
+      if (!providerPolicy) return { outcome: "invalid" }
       if (
         !authority?.enabled ||
         authority.subjectStatus !== "verified" ||
         authority.sessionRevokedAt ||
         authority.sessionExpiresAt <= input.now ||
-        !providerPolicy ||
+        providerPolicy.actionFamilies.length !== input.actionFamilies.length ||
+        providerPolicy.actionFamilies.some(
+          (family, index) => family !== input.actionFamilies[index]
+        ) ||
+        request.scopes.length !== input.requiredScopes.length ||
         request.scopes.some(
+          (scope, index) => scope !== input.requiredScopes[index]
+        ) ||
+        request.scopes.some(
+          (scope) => !providerPolicy.maxScopes.includes(scope)
+        ) ||
+        input.requiredScopes.length !== input.grantedScopes.length ||
+        input.requiredScopes.some(
+          (scope, index) => scope !== input.grantedScopes[index]
+        ) ||
+        input.grantedScopes.some(
           (scope) => !providerPolicy.maxScopes.includes(scope)
         )
       ) {
@@ -181,7 +199,7 @@ export async function completeConnectionAuthorizationRequest(
             .set({
               accountLabel: input.accountLabel,
               status: "active",
-              scopes: request.scopes,
+              scopes: input.grantedScopes,
               credentialEncrypted,
               credentialVersion: sql`${connections.credentialVersion} + 1`,
               updatedAt: input.now,
@@ -199,7 +217,7 @@ export async function completeConnectionAuthorizationRequest(
               providerAccountId: input.providerAccountId,
               accountLabel: input.accountLabel,
               status: "active",
-              scopes: request.scopes,
+              scopes: input.grantedScopes,
               credentialEncrypted,
               createdAt: input.now,
               updatedAt: input.now,

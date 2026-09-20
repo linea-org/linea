@@ -1,7 +1,23 @@
 import type { ConnectionProviderCredential } from './connection-oauth-provider'
 
+function parseScopes(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError('Stored provider credential is invalid')
+  }
+  const scopes: string[] = []
+  for (const value_ of value) {
+    const scope: unknown = value_
+    if (typeof scope !== 'string') {
+      throw new TypeError('Stored provider credential is invalid')
+    }
+    scopes.push(scope)
+  }
+  return scopes
+}
+
 export function parseConnectionProviderCredential(
   value: string,
+  legacyScopes: string[],
 ): ConnectionProviderCredential {
   const parsed: unknown = JSON.parse(value)
   if (!parsed || typeof parsed !== 'object') {
@@ -34,5 +50,9 @@ export function parseConnectionProviderCredential(
     accessToken: parsed.accessToken,
     refreshToken: parsed.refreshToken,
     expiresAt: parsed.expiresAt,
+    grantedScopes:
+      'grantedScopes' in parsed
+        ? parseScopes(parsed.grantedScopes)
+        : parseScopes(legacyScopes),
   }
 }
