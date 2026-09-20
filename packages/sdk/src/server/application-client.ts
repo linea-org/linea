@@ -4,6 +4,7 @@ import {
   getApplicationConversationOperation,
   getApplicationExecutionOperation,
   listApplicationConversationsOperation,
+  listApplicationConnectorAuditEventsOperation,
   listWebhookDeliveriesOperation,
   provisionApplicationSubjectOperation,
   startApplicationExecutionOperation,
@@ -12,6 +13,7 @@ import type {
   ConversationProjection,
   CreateApplicationConversation,
   ExternalSubjectProjection,
+  OperatorConnectorAuditEvent,
   ProvisionExternalSubject,
   PublicExecution,
   StartApplicationExecution,
@@ -118,5 +120,14 @@ export class LineaApplicationClient {
       path: { applicationId: this.applicationId },
       query,
     })
+  }
+
+  listAuditEvents(
+    query: Partial<PaginationQuery> = {}
+  ): Promise<PaginatedResponse<OperatorConnectorAuditEvent>> {
+    return this.transport.execute(
+      listApplicationConnectorAuditEventsOperation,
+      { path: { applicationId: this.applicationId }, query }
+    )
   }
 }

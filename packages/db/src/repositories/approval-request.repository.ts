@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm"
 import {
   applications,
+  actionIntents,
   auditLogs,
   approvalDecisions,
   approvalRequests,
@@ -39,6 +40,7 @@ import {
 } from "./public-idempotency.repository.js"
 import type { DbClient, Transaction } from "./types.js"
 import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.repository.js"
+import { recordActionIntentFact } from "./connector-audit.repository.js"
 
 export async function createApprovalRequest(
   db: DbClient,
@@ -345,18 +347,145 @@ type DecisionActor =
     }
   | { kind: "system" }
 
+type RecordDecisionInput = {
+  outcome: "approved" | "rejected"
+  actor: DecisionActor
+  reason: "human" | "timeout"
+  comment?: string | null
+  idempotencyKey?: string | null
+  decidedAt: Date
+}
+
+function decisionActorIds(actor: DecisionActor): {
+  actorUserId: string | null
+  actorExternalSubjectId: string | null
+  endUserSessionId: string | null
+} {
+  if (actor.kind === "workspace_member") {
+    return {
+      actorUserId: actor.userId,
+      actorExternalSubjectId: null,
+      endUserSessionId: null,
+    }
+  }
+  if (actor.kind === "external_subject") {
+    return {
+      actorUserId: null,
+      actorExternalSubjectId: actor.externalSubjectId,
+      endUserSessionId: actor.endUserSessionId,
+    }
+  }
+  return {
+    actorUserId: null,
+    actorExternalSubjectId: null,
+    endUserSessionId: null,
+  }
+}
+
+async function recordActionIntentDecisionFact(
+  tx: Transaction,
+  request: ApprovalRequest,
+  decision: ApprovalDecision
+): Promise<void> {
+  if (!request.actionIntentDigest) return
+  const [intent] = await tx
+    .select()
+    .from(actionIntents)
+    .where(eq(actionIntents.approvalRequestId, request.id))
+  if (!intent) return
+  await recordActionIntentFact(tx, {
+    intent,
+    factType:
+      decision.outcome === "approved"
+        ? "action_intent.consent_approved"
+        : "action_intent.consent_rejected",
+    occurredAt: decision.decidedAt,
+    decisionId: decision.id,
+    outcome: decision.outcome,
+  })
+}
+
+async function resumeDecisionExecution(
+  tx: Transaction,
+  request: ApprovalRequest
+): Promise<void> {
+  const [execution] = await tx
+    .update(executions)
+    .set({ status: "queued" })
+    .where(
+      and(
+        eq(executions.id, request.executionId),
+        eq(executions.status, "paused")
+      )
+    )
+    .returning()
+  if (!execution) return
+  await createWorkflowExecutionMessage(tx, {
+    workspaceId: request.workspaceId,
+    executionId: request.executionId,
+  })
+}
+
+async function recordApprovalDecisionAudit(
+  tx: Transaction,
+  request: ApprovalRequest,
+  input: RecordDecisionInput
+): Promise<void> {
+  const actorIds = decisionActorIds(input.actor)
+  await tx.insert(auditLogs).values({
+    workspaceId: request.workspaceId,
+    actorUserId: actorIds.actorUserId,
+    actorExternalSubjectId: actorIds.actorExternalSubjectId,
+    actorEndUserSessionId: actorIds.endUserSessionId,
+    action:
+      input.reason === "timeout"
+        ? "approval_request.timed_out"
+        : "approval_request.decided",
+    resource: "approval_request",
+    resourceId: request.id,
+    metadata: {
+      executionId: request.executionId,
+      outcome: input.outcome,
+      reason: input.reason,
+    },
+  })
+}
+
+async function publishApprovalDecisionEvent(
+  tx: Transaction,
+  request: ApprovalRequest,
+  updatedRequest: ApprovalRequest,
+  decision: ApprovalDecision
+): Promise<void> {
+  if (request.audience !== "external_subject") return
+  if (!request.applicationId || !request.externalSubjectId) {
+    throw new Error("External Approval Request is missing its audience")
+  }
+  await createPublicEvent(tx, {
+    workspaceId: request.workspaceId,
+    applicationId: request.applicationId,
+    externalSubjectId: request.externalSubjectId,
+    eventType: "approval_request.decided",
+    data: {
+      approvalRequestId: request.id,
+      executionId: request.executionId,
+      decisionId: decision.id,
+      outcome: decision.outcome,
+      reason: decision.reason,
+      status: updatedRequest.status,
+      ...(request.conversationId
+        ? { conversationId: request.conversationId }
+        : {}),
+    },
+  })
+}
+
 async function recordDecision(
   tx: Transaction,
   request: ApprovalRequest,
-  input: {
-    outcome: "approved" | "rejected"
-    actor: DecisionActor
-    reason: "human" | "timeout"
-    comment?: string | null
-    idempotencyKey?: string | null
-    decidedAt: Date
-  }
+  input: RecordDecisionInput
 ): Promise<DecidedApprovalRequest> {
+  const actorIds = decisionActorIds(input.actor)
   const [decision] = await tx
     .insert(approvalDecisions)
     .values({
@@ -364,16 +493,7 @@ async function recordDecision(
       approvalRequestId: request.id,
       outcome: input.outcome,
       actorKind: input.actor.kind,
-      actorUserId:
-        input.actor.kind === "workspace_member" ? input.actor.userId : null,
-      actorExternalSubjectId:
-        input.actor.kind === "external_subject"
-          ? input.actor.externalSubjectId
-          : null,
-      endUserSessionId:
-        input.actor.kind === "external_subject"
-          ? input.actor.endUserSessionId
-          : null,
+      ...actorIds,
       reason: input.reason,
       comment: input.comment ?? null,
       idempotencyKey: input.idempotencyKey ?? null,
@@ -394,68 +514,10 @@ async function recordDecision(
     )
     .returning()
   if (!updatedRequest) throw new Error("Locked Approval Request changed state")
-  const [execution] = await tx
-    .update(executions)
-    .set({ status: "queued" })
-    .where(
-      and(
-        eq(executions.id, request.executionId),
-        eq(executions.status, "paused")
-      )
-    )
-    .returning()
-  if (execution) {
-    await createWorkflowExecutionMessage(tx, {
-      workspaceId: request.workspaceId,
-      executionId: request.executionId,
-    })
-  }
-  await tx.insert(auditLogs).values({
-    workspaceId: request.workspaceId,
-    actorUserId:
-      input.actor.kind === "workspace_member" ? input.actor.userId : null,
-    actorExternalSubjectId:
-      input.actor.kind === "external_subject"
-        ? input.actor.externalSubjectId
-        : null,
-    actorEndUserSessionId:
-      input.actor.kind === "external_subject"
-        ? input.actor.endUserSessionId
-        : null,
-    action:
-      input.reason === "timeout"
-        ? "approval_request.timed_out"
-        : "approval_request.decided",
-    resource: "approval_request",
-    resourceId: request.id,
-    metadata: {
-      executionId: request.executionId,
-      outcome: input.outcome,
-      reason: input.reason,
-    },
-  })
-  if (request.audience === "external_subject") {
-    if (!request.applicationId || !request.externalSubjectId) {
-      throw new Error("External Approval Request is missing its audience")
-    }
-    await createPublicEvent(tx, {
-      workspaceId: request.workspaceId,
-      applicationId: request.applicationId,
-      externalSubjectId: request.externalSubjectId,
-      eventType: "approval_request.decided",
-      data: {
-        approvalRequestId: request.id,
-        executionId: request.executionId,
-        decisionId: decision.id,
-        outcome: decision.outcome,
-        reason: decision.reason,
-        status: updatedRequest.status,
-        ...(request.conversationId
-          ? { conversationId: request.conversationId }
-          : {}),
-      },
-    })
-  }
+  await recordActionIntentDecisionFact(tx, request, decision)
+  await resumeDecisionExecution(tx, request)
+  await recordApprovalDecisionAudit(tx, request, input)
+  await publishApprovalDecisionEvent(tx, request, updatedRequest, decision)
   return { request: updatedRequest, decision }
 }
 

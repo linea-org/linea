@@ -79,6 +79,7 @@ export const actionIntents = snakeCase.table(
     providerAttemptCount: integer().default(0).notNull(),
     normalizedResult: jsonb().$type<unknown>(),
     normalizedError: jsonb().$type<NormalizedConnectorError>(),
+    contentErasedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
@@ -144,7 +145,7 @@ export const actionIntents = snakeCase.table(
     ),
     check(
       "action_intents_outcome_check",
-      sql`(${table.status} = 'succeeded') = (${table.normalizedResult} IS NOT NULL) AND (${table.status} IN ('failed', 'stale', 'outcome_unknown')) = (${table.normalizedError} IS NOT NULL)`
+      sql`${table.contentErasedAt} IS NOT NULL OR ((${table.status} = 'succeeded') = (${table.normalizedResult} IS NOT NULL) AND (${table.status} IN ('failed', 'stale', 'outcome_unknown')) = (${table.normalizedError} IS NOT NULL))`
     ),
     check(
       "action_intents_execution_claim_check",

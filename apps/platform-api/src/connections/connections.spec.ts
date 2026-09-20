@@ -1,6 +1,6 @@
 import '@linea/config/env'
 import { createHash, randomUUID } from 'node:crypto'
-import type { INestApplication } from '@nestjs/common'
+import { Logger, type INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import {
   db,
@@ -716,7 +716,15 @@ describe('OAuth Connections', () => {
     expect(pendingDelivery?.attemptCount).toBe(0)
     expect(pendingDelivery?.deliveredAt).toBeNull()
     const revocations = app.get(ConnectionRevocationService)
+    const warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined)
     await revocations.poll()
+    const warnings = JSON.stringify(warn.mock.calls)
+    warn.mockRestore()
+    expect(warnings).toContain('provider_error')
+    expect(warnings).not.toContain(revocationEncrypted)
+    expect(warnings).not.toContain('Provider revocation failed')
     const failedDelivery =
       await db.query.connectionRevocationDeliveries.findFirst({
         where: { connectionId },

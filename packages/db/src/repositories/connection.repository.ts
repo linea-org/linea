@@ -1,4 +1,15 @@
-import { and, asc, desc, eq, gt, isNull, lt, lte, or, sql } from "drizzle-orm"
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm"
 import {
   applications,
   connectionAuthorizationRequests,
@@ -14,6 +25,8 @@ import {
 } from "../schema/index.js"
 import { encryptCredential } from "../credential-encryption.js"
 import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.repository.js"
+import { recordConnectionFact } from "./connector-audit.repository.js"
+import { createPublicEvent } from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
 
 type CreateAuthorizationInput = {
@@ -227,6 +240,13 @@ export async function completeConnectionAuthorizationRequest(
         .update(connectionAuthorizationRequests)
         .set({ completedAt: input.now })
         .where(eq(connectionAuthorizationRequests.id, request.id))
+      await recordConnectionFact(tx, {
+        connection,
+        factType: existing ? "connection.refreshed" : "connection.created",
+        occurredAt: input.now,
+        outcome: "active",
+        content: { accountLabel: connection.accountLabel },
+      })
       return { outcome: "completed", connection }
     }
   )
@@ -398,6 +418,20 @@ export async function revokeConnection(
       expiresAt: input.expiresAt,
       createdAt: input.now,
     })
+    await recordConnectionFact(tx, {
+      connection,
+      factType: "connection.revoked",
+      occurredAt: input.now,
+      outcome: "revoked",
+      content: { accountLabel: connection.accountLabel },
+    })
+    await createPublicEvent(tx, {
+      workspaceId: connection.workspaceId,
+      applicationId: connection.applicationId,
+      externalSubjectId: connection.externalSubjectId,
+      eventType: "connection.revoked",
+      data: { connectionId: connection.id },
+    })
     return { outcome: "revoked", connection, deliveryId: input.deliveryId }
   })
 }
@@ -457,23 +491,37 @@ export async function completeRevocationDelivery(
   db: DbClient,
   input: { deliveryId: string; claimedBy: string; deliveredAt: Date }
 ): Promise<boolean> {
-  const [delivery] = await db
-    .update(connectionRevocationDeliveries)
-    .set({
-      deliveredAt: input.deliveredAt,
-      credentialEncrypted: null,
-      claimedBy: null,
-      claimExpiresAt: null,
-    })
-    .where(
-      and(
-        eq(connectionRevocationDeliveries.id, input.deliveryId),
-        eq(connectionRevocationDeliveries.claimedBy, input.claimedBy),
-        isNull(connectionRevocationDeliveries.deliveredAt)
+  return db.transaction(async (tx) => {
+    const [delivery] = await tx
+      .update(connectionRevocationDeliveries)
+      .set({
+        deliveredAt: input.deliveredAt,
+        credentialEncrypted: null,
+        claimedBy: null,
+        claimExpiresAt: null,
+      })
+      .where(
+        and(
+          eq(connectionRevocationDeliveries.id, input.deliveryId),
+          eq(connectionRevocationDeliveries.claimedBy, input.claimedBy),
+          isNull(connectionRevocationDeliveries.deliveredAt)
+        )
       )
-    )
-    .returning({ id: connectionRevocationDeliveries.id })
-  return Boolean(delivery)
+      .returning()
+    if (!delivery) return false
+    const [connection] = await tx
+      .select()
+      .from(connections)
+      .where(eq(connections.id, delivery.connectionId))
+    if (!connection) throw new Error("Revocation Connection is missing")
+    await recordConnectionFact(tx, {
+      connection,
+      factType: "connection.revocation_payload_destroyed",
+      occurredAt: input.deliveredAt,
+      outcome: "delivered",
+    })
+    return true
+  })
 }
 
 export async function recordRevocationDeliveryFailure(
@@ -482,12 +530,14 @@ export async function recordRevocationDeliveryFailure(
     deliveryId: string
     claimedBy: string
     retryAt: Date
+    failureClass: string
   }
 ): Promise<boolean> {
   const [delivery] = await db
     .update(connectionRevocationDeliveries)
     .set({
       availableAt: input.retryAt,
+      lastFailureClass: input.failureClass,
       claimedBy: null,
       claimExpiresAt: null,
     })
@@ -524,16 +574,45 @@ export async function deleteExpiredRevocationDeliveries(
   db: DbClient,
   now: Date
 ): Promise<number> {
-  const deleted = await db
-    .delete(connectionRevocationDeliveries)
-    .where(
-      and(
-        isNull(connectionRevocationDeliveries.deliveredAt),
-        lt(connectionRevocationDeliveries.expiresAt, now)
+  return db.transaction(async (tx) => {
+    const expired = await tx
+      .select({
+        delivery: connectionRevocationDeliveries,
+        connection: connections,
+      })
+      .from(connectionRevocationDeliveries)
+      .innerJoin(
+        connections,
+        eq(connections.id, connectionRevocationDeliveries.connectionId)
       )
-    )
-    .returning({ id: connectionRevocationDeliveries.id })
-  return deleted.length
+      .where(
+        and(
+          isNull(connectionRevocationDeliveries.deliveredAt),
+          lte(connectionRevocationDeliveries.expiresAt, now)
+        )
+      )
+      .for("update", { of: connectionRevocationDeliveries })
+    for (const { delivery, connection } of expired) {
+      await recordConnectionFact(tx, {
+        connection,
+        factType: "connection.revocation_payload_destroyed",
+        occurredAt: now,
+        outcome: "expired",
+        failureClass: delivery.lastFailureClass ?? "not_delivered",
+      })
+    }
+    if (expired.length === 0) return 0
+    const deleted = await tx
+      .delete(connectionRevocationDeliveries)
+      .where(
+        inArray(
+          connectionRevocationDeliveries.id,
+          expired.map(({ delivery }) => delivery.id)
+        )
+      )
+      .returning({ id: connectionRevocationDeliveries.id })
+    return deleted.length
+  })
 }
 
 export async function deleteExpiredConnectionAuthorizationRequests(
@@ -555,22 +634,31 @@ export async function rotateConnectionCredential(
   credentialEncrypted: string,
   now: Date
 ): Promise<Connection | undefined> {
-  const [connection] = await db
-    .update(connections)
-    .set({
-      credentialEncrypted,
-      credentialVersion: sql`${connections.credentialVersion} + 1`,
-      updatedAt: now,
-    })
-    .where(
-      and(
-        ownedConnection(owner, connectionId),
-        eq(connections.status, "active"),
-        eq(connections.credentialVersion, expectedCredentialVersion)
+  return db.transaction(async (tx) => {
+    const [connection] = await tx
+      .update(connections)
+      .set({
+        credentialEncrypted,
+        credentialVersion: sql`${connections.credentialVersion} + 1`,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          ownedConnection(owner, connectionId),
+          eq(connections.status, "active"),
+          eq(connections.credentialVersion, expectedCredentialVersion)
+        )
       )
-    )
-    .returning()
-  return connection
+      .returning()
+    if (!connection) return undefined
+    await recordConnectionFact(tx, {
+      connection,
+      factType: "connection.credential_rotated",
+      occurredAt: now,
+      outcome: "active",
+    })
+    return connection
+  })
 }
 
 export async function requireConnectionReauthorization(
@@ -580,23 +668,32 @@ export async function requireConnectionReauthorization(
   expectedCredentialVersion: number,
   now: Date
 ): Promise<Connection | undefined> {
-  const [connection] = await db
-    .update(connections)
-    .set({
-      status: "reauthorization_required",
-      credentialEncrypted: null,
-      credentialVersion: sql`${connections.credentialVersion} + 1`,
-      updatedAt: now,
-    })
-    .where(
-      and(
-        ownedConnection(owner, connectionId),
-        eq(connections.status, "active"),
-        eq(connections.credentialVersion, expectedCredentialVersion)
+  return db.transaction(async (tx) => {
+    const [connection] = await tx
+      .update(connections)
+      .set({
+        status: "reauthorization_required",
+        credentialEncrypted: null,
+        credentialVersion: sql`${connections.credentialVersion} + 1`,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          ownedConnection(owner, connectionId),
+          eq(connections.status, "active"),
+          eq(connections.credentialVersion, expectedCredentialVersion)
+        )
       )
-    )
-    .returning()
-  return connection
+      .returning()
+    if (!connection) return undefined
+    await recordConnectionFact(tx, {
+      connection,
+      factType: "connection.reauthorization_required",
+      occurredAt: now,
+      outcome: "reauthorization_required",
+    })
+    return connection
+  })
 }
 
 function origin(value: string): string {

@@ -195,6 +195,49 @@ describe("server SDK public HTTP contract", () => {
     ])
   })
 
+  it("exposes separate bounded audit clients for Application and workspace audiences", async () => {
+    const applicationId = "00000000-0000-4000-8000-000000000002"
+    const auditEvent = {
+      id: "10000000-0000-4000-8000-000000000001",
+      type: "connection.revoked",
+      applicationId,
+      subjectReference: "30000000-0000-4000-8000-000000000003",
+      connectionId: "40000000-0000-4000-8000-000000000004",
+      actionIntentId: null,
+      decisionId: null,
+      provider: "github",
+      operation: null,
+      digest: null,
+      outcome: "revoked",
+      failureClass: null,
+      display: null,
+      occurredAt: "2026-09-20T00:00:00.000Z",
+    }
+    const server = await testServer((_request, response) =>
+      json(response, { data: [auditEvent], nextCursor: null })
+    )
+    const application = new LineaApplicationClient({
+      applicationId,
+      applicationKey: applicationKey("lin_app_secret"),
+      baseUrl: server.baseUrl,
+    })
+    const workspace = new LineaWorkspaceClient({
+      workspaceKey: workspaceKey("lin_workspace_secret"),
+      baseUrl: server.baseUrl,
+    })
+    await expect(application.listAuditEvents({ limit: 10 })).resolves.toEqual({
+      data: [auditEvent],
+      nextCursor: null,
+    })
+    await expect(
+      workspace.listAuditEvents({ applicationId, limit: 20 })
+    ).resolves.toEqual({ data: [auditEvent], nextCursor: null })
+    expect(server.requests.map(({ url }) => url)).toEqual([
+      `/v1/applications/${applicationId}/audit-events?limit=10`,
+      `/v1/audit-events?applicationId=${applicationId}&limit=20`,
+    ])
+  })
+
   it("rejects credential kinds at construction boundaries", () => {
     expect(() => applicationKey("lin_workspace_secret")).toThrow(/lin_app_/)
     expect(() => workspaceKey("workspace_secret")).toThrow(/lin_/)

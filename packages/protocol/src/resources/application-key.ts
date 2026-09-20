@@ -8,6 +8,7 @@ export const applicationKeyScopes = [
   "conversations:read",
   "conversations:write",
   "events:read",
+  "audit:read",
   "webhooks:read",
 ] as const
 
