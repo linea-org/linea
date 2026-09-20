@@ -23,6 +23,7 @@ type CreateAuthorizationInput = {
   externalSubjectId: string
   endUserSessionId: string
   provider: string
+  actionFamilies: string[]
   scopes: string[]
   returnUri: string
   stateHash: string
@@ -74,9 +75,12 @@ export async function completeConnectionAuthorizationRequest(
     providerAccountId: string
     accountLabel: string
     credentialPlaintext: string
+    grantedScopes: string[]
+    actionFamilies: string[]
     now: Date
   }
 ): Promise<CompleteConnectionAuthorizationResult> {
+  const grantedScopes = [...new Set(input.grantedScopes)].sort()
   return db.transaction(
     async (tx): Promise<CompleteConnectionAuthorizationResult> => {
       const [request] = await tx
@@ -147,6 +151,11 @@ export async function completeConnectionAuthorizationRequest(
         authority.sessionRevokedAt ||
         authority.sessionExpiresAt <= input.now ||
         !providerPolicy ||
+        !sameValues(providerPolicy.actionFamilies, input.actionFamilies) ||
+        grantedScopes.some(
+          (scope) => !providerPolicy.maxScopes.includes(scope)
+        ) ||
+        request.scopes.some((scope) => !grantedScopes.includes(scope)) ||
         request.scopes.some(
           (scope) => !providerPolicy.maxScopes.includes(scope)
         )
@@ -624,13 +633,75 @@ export async function createConnectionAuthorizationRequest(
       (candidate) => candidate.provider === input.provider
     )
     if (!provider) return { outcome: "provider_denied" }
+    if (!sameValues(provider.actionFamilies, input.actionFamilies)) {
+      return { outcome: "provider_denied" }
+    }
     if (input.scopes.some((scope) => !provider.maxScopes.includes(scope))) {
       return { outcome: "scope_denied" }
     }
     const [request] = await tx
       .insert(connectionAuthorizationRequests)
-      .values(input)
+      .values({
+        id: input.id,
+        workspaceId: input.workspaceId,
+        applicationId: input.applicationId,
+        externalSubjectId: input.externalSubjectId,
+        endUserSessionId: input.endUserSessionId,
+        provider: input.provider,
+        scopes: input.scopes,
+        returnUri: input.returnUri,
+        stateHash: input.stateHash,
+        codeVerifierEncrypted: input.codeVerifierEncrypted,
+        expiresAt: input.expiresAt,
+      })
       .returning()
     return { outcome: "created", request }
   })
+}
+
+function sameValues(
+  left: readonly string[],
+  right: readonly string[]
+): boolean {
+  const sortedLeft = [...left].sort()
+  const sortedRight = [...right].sort()
+  return (
+    sortedLeft.length === sortedRight.length &&
+    sortedLeft.every((value, index) => value === sortedRight[index])
+  )
+}
+
+export async function getConnectionAuthorizationPolicy(
+  db: DbClient,
+  input: {
+    workspaceId: string
+    applicationId: string
+    externalSubjectId: string
+    provider: string
+  }
+): Promise<{ actionFamilies: string[]; maxScopes: string[] } | undefined> {
+  const [application] = await db
+    .select({ policy: applications.connectorAccessPolicy })
+    .from(applications)
+    .innerJoin(
+      externalSubjectApplications,
+      and(
+        eq(externalSubjectApplications.applicationId, applications.id),
+        eq(externalSubjectApplications.workspaceId, applications.workspaceId),
+        eq(
+          externalSubjectApplications.externalSubjectId,
+          input.externalSubjectId
+        )
+      )
+    )
+    .where(
+      and(
+        eq(applications.id, input.applicationId),
+        eq(applications.workspaceId, input.workspaceId),
+        eq(applications.enabled, true)
+      )
+    )
+  return application?.policy.providers.find(
+    (provider) => provider.provider === input.provider
+  )
 }

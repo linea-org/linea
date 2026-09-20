@@ -100,6 +100,34 @@ export class ConnectionsService {
         publicError('service_unavailable', 'Connection provider unavailable'),
       )
     }
+    const policy =
+      await repositories.connection.getConnectionAuthorizationPolicy(db, {
+        workspaceId: principal.workspaceId,
+        applicationId: principal.applicationId,
+        externalSubjectId: principal.externalSubjectId,
+        provider: input.provider,
+      })
+    if (!policy) {
+      throw new ForbiddenException(
+        publicError('scope_denied', 'Connection authorization denied'),
+      )
+    }
+    let scopes: string[]
+    try {
+      scopes = [
+        ...new Set(provider.authorizationScopes(policy.actionFamilies)),
+      ].sort((left, right) => left.localeCompare(right))
+      if (
+        scopes.length === 0 ||
+        scopes.some((scope) => !policy.maxScopes.includes(scope))
+      ) {
+        throw new Error('Provider scopes exceed policy')
+      }
+    } catch {
+      throw new ForbiddenException(
+        publicError('scope_denied', 'Connection authorization denied'),
+      )
+    }
     const id = randomUUID()
     const state = opaqueValue()
     const codeVerifier = opaqueValue()
@@ -111,7 +139,8 @@ export class ConnectionsService {
         externalSubjectId: principal.externalSubjectId,
         endUserSessionId: principal.sessionId,
         provider: input.provider,
-        scopes: input.scopes,
+        actionFamilies: policy.actionFamilies,
+        scopes,
         returnUri: input.returnUri,
         stateHash: hash(state),
         codeVerifierEncrypted: encryptCredential(codeVerifier, {
@@ -139,7 +168,7 @@ export class ConnectionsService {
         redirectUri: callbackUrl(input.provider),
         state,
         codeChallenge: challenge(codeVerifier),
-        scopes: input.scopes,
+        scopes,
       }),
     }
   }
@@ -172,6 +201,23 @@ export class ConnectionsService {
         provider: request.provider,
       }
       if ('error' in input) return authorizationResultUrl(request, 'failed')
+      const policy =
+        await repositories.connection.getConnectionAuthorizationPolicy(db, {
+          workspaceId: request.workspaceId,
+          applicationId: request.applicationId,
+          externalSubjectId: request.externalSubjectId,
+          provider: providerName,
+        })
+      if (!policy) return authorizationResultUrl(request, 'failed')
+      const currentScopes = [
+        ...new Set(provider.authorizationScopes(policy.actionFamilies)),
+      ].sort((left, right) => left.localeCompare(right))
+      if (
+        currentScopes.length !== request.scopes.length ||
+        currentScopes.some((scope, index) => scope !== request.scopes[index])
+      ) {
+        return authorizationResultUrl(request, 'failed')
+      }
       const credential = await provider.exchangeAuthorizationCode({
         code: input.code,
         redirectUri: callbackUrl(providerName),
@@ -188,10 +234,15 @@ export class ConnectionsService {
             providerAccountId: credential.accountId,
             accountLabel: credential.accountLabel,
             credentialPlaintext: JSON.stringify(credential),
+            grantedScopes: credential.grantedScopes,
+            actionFamilies: policy.actionFamilies,
             now: new Date(),
           },
         )
       if (completed.outcome !== 'completed') {
+        await provider
+          .revokeCredential(credential, AbortSignal.timeout(5_000))
+          .catch(() => undefined)
         return authorizationResultUrl(request, 'failed')
       }
       return authorizationResultUrl(request, 'connected')

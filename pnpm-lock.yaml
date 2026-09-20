@@ -435,6 +435,9 @@ importers:
       '@linea/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@linea/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
       '@linea/db':
         specifier: workspace:*
         version: link:../../packages/db

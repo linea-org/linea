@@ -17,10 +17,12 @@ export type ConnectionProviderCredential = {
   accessToken: string
   refreshToken: string | null
   expiresAt: string | null
+  grantedScopes: string[]
 }
 
 export interface ConnectionOAuthProvider {
   readonly provider: string
+  authorizationScopes(actionFamilies: readonly string[]): readonly string[]
   createAuthorizationUrl(
     input: CreateConnectionAuthorizationUrlInput,
   ): Promise<string> | string

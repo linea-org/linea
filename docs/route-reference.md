@@ -81,20 +81,9 @@ Body:
       "format": "uri",
       "maxLength": 2000,
       "type": "string"
-    },
-    "scopes": {
-      "items": {
-        "maxLength": 200,
-        "minLength": 1,
-        "pattern": "^[A-Za-z0-9._:/-]+$",
-        "type": "string"
-      },
-      "maxItems": 50,
-      "minItems": 1,
-      "type": "array"
     }
   },
-  "required": ["provider", "returnUri", "scopes"],
+  "required": ["provider", "returnUri"],
   "type": "object"
 }
 ```

@@ -28,11 +28,19 @@ export function parseConnectionProviderCredential(
   ) {
     throw new Error('Stored provider credential is invalid')
   }
+  if (
+    !('grantedScopes' in parsed) ||
+    !Array.isArray(parsed.grantedScopes) ||
+    !parsed.grantedScopes.every((scope) => typeof scope === 'string')
+  ) {
+    throw new Error('Stored provider credential is invalid')
+  }
   return {
     accountId: parsed.accountId,
     accountLabel: parsed.accountLabel,
     accessToken: parsed.accessToken,
     refreshToken: parsed.refreshToken,
     expiresAt: parsed.expiresAt,
+    grantedScopes: parsed.grantedScopes,
   }
 }

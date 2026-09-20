@@ -67,6 +67,15 @@ export class ConnectionCredentialsService {
     if (!provider) throw new Error('Connection provider unavailable')
     try {
       const refreshed = await provider.refreshCredential(current)
+      if (
+        connection.scopes.some(
+          (scope) => !refreshed.grantedScopes.includes(scope),
+        )
+      ) {
+        throw new ConnectionProviderInvalidGrantError(
+          'Reauthorization required',
+        )
+      }
       const rotated = await repositories.connection.rotateConnectionCredential(
         db,
         owner,
