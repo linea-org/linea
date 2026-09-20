@@ -213,10 +213,18 @@ export class ConnectionsService {
         (candidate) => candidate.provider === providerName,
       )
       if (!providerPolicy) return authorizationResultUrl(request, 'failed')
-      const requiredScopes =
-        providerName === 'github'
-          ? githubAuthorizationScopes(providerPolicy.actionFamilies)
-          : request.scopes
+      let requiredScopes: string[]
+      if (providerName === 'github') {
+        try {
+          requiredScopes = githubAuthorizationScopes(
+            providerPolicy.actionFamilies,
+          )
+        } catch {
+          return authorizationResultUrl(request, 'failed')
+        }
+      } else {
+        requiredScopes = request.scopes
+      }
       if (
         requiredScopes.length !== request.scopes.length ||
         requiredScopes.some((scope, index) => scope !== request.scopes[index])

@@ -144,12 +144,12 @@ export async function completeConnectionAuthorizationRequest(
       const providerPolicy = authority?.connectorAccessPolicy.providers.find(
         (candidate) => candidate.provider === request.provider
       )
+      if (!providerPolicy) return { outcome: "invalid" }
       if (
         !authority?.enabled ||
         authority.subjectStatus !== "verified" ||
         authority.sessionRevokedAt ||
         authority.sessionExpiresAt <= input.now ||
-        !providerPolicy ||
         providerPolicy.actionFamilies.length !== input.actionFamilies.length ||
         providerPolicy.actionFamilies.some(
           (family, index) => family !== input.actionFamilies[index]

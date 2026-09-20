@@ -125,7 +125,6 @@ async function repositoryRef(
 
 async function reconcilePullRequest(
   input: z.infer<typeof parametersSchema>,
-  preconditions: z.infer<typeof preconditionsSchema>,
   accessToken: string,
   marker: string,
   signal?: AbortSignal
@@ -146,13 +145,30 @@ async function reconcilePullRequest(
     .array(providerPullRequestSchema)
     .max(20)
     .parse(await githubResponseJson(response))
-  const match = pullRequests.find(
-    (pullRequest) =>
-      pullRequest.body?.includes(marker) &&
-      pullRequest.head.sha === preconditions.expectedHeadSha &&
-      pullRequest.base.sha === preconditions.expectedBaseSha
+  const match = pullRequests.find((pullRequest) =>
+    pullRequest.body?.includes(marker)
   )
   return match ? normalizedPullRequest(match) : undefined
+}
+
+async function recoverAmbiguousPullRequest(
+  input: z.infer<typeof parametersSchema>,
+  accessToken: string,
+  marker: string,
+  signal?: AbortSignal
+) {
+  try {
+    const reconciled = await reconcilePullRequest(
+      input,
+      accessToken,
+      marker,
+      signal
+    )
+    if (reconciled) return reconciled
+  } catch {
+    throw new GithubProviderError(true)
+  }
+  throw new GithubProviderError(true)
 }
 
 function parameters(envelope: ActionIntentEnvelope) {
@@ -176,7 +192,7 @@ export const githubCreatePullRequestOperation: ConnectorSideEffectOperation =
     preconditionsSchema,
     resultSchema,
     providerErrorSchema,
-    retrySafety: "provider_idempotency",
+    retrySafety: "none",
     normalize(rawInput) {
       const input = inputSchema.parse(rawInput)
       return {
@@ -255,11 +271,10 @@ export const githubCreatePullRequestOperation: ConnectorSideEffectOperation =
       signal
     ) {
       const input = parametersSchema.parse(rawParameters)
-      const preconditions = preconditionsSchema.parse(rawPreconditions)
+      preconditionsSchema.parse(rawPreconditions)
       const marker = actionMarker(invocationIdempotencyKey)
       const reconciled = await reconcilePullRequest(
         input,
-        preconditions,
         credential.accessToken,
         marker,
         signal
@@ -286,7 +301,12 @@ export const githubCreatePullRequestOperation: ConnectorSideEffectOperation =
           }
         )
       } catch {
-        throw new GithubProviderError(true)
+        return recoverAmbiguousPullRequest(
+          input,
+          credential.accessToken,
+          marker,
+          signal
+        )
       }
       if (response.ok) {
         try {
@@ -294,14 +314,26 @@ export const githubCreatePullRequestOperation: ConnectorSideEffectOperation =
             providerPullRequestSchema.parse(await githubResponseJson(response))
           )
         } catch {
-          throw new GithubProviderError(true)
+          return recoverAmbiguousPullRequest(
+            input,
+            credential.accessToken,
+            marker,
+            signal
+          )
         }
       }
-      if (response.status === 422 || response.status >= 500) {
+      if (response.status >= 500) {
+        return recoverAmbiguousPullRequest(
+          input,
+          credential.accessToken,
+          marker,
+          signal
+        )
+      }
+      if (response.status === 422) {
         try {
           const afterFailure = await reconcilePullRequest(
             input,
-            preconditions,
             credential.accessToken,
             marker,
             signal
@@ -311,7 +343,7 @@ export const githubCreatePullRequestOperation: ConnectorSideEffectOperation =
           throw new GithubProviderError(true)
         }
       }
-      throw new GithubProviderError(response.status >= 500)
+      throw new GithubProviderError(false)
     },
     normalizeProviderError: normalizeGithubProviderError,
   })

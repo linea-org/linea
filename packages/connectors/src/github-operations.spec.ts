@@ -421,6 +421,10 @@ describe("GitHub Connector Operations", () => {
       base: "main",
     })
     createdPullRequestState = "closed"
+    repositoryVersion = {
+      head: "3".repeat(40),
+      base: "4".repeat(40),
+    }
     await expect(
       githubCreatePullRequestOperation.execute(
         normalized.parameters,
@@ -444,8 +448,6 @@ describe("GitHub Connector Operations", () => {
     expect(JSON.stringify(pullCreates[0]?.body)).not.toContain(
       "pull-idempotency-key"
     )
-    expect(githubCreatePullRequestOperation.retrySafety).toBe(
-      "provider_idempotency"
-    )
+    expect(githubCreatePullRequestOperation.retrySafety).toBe("none")
   })
 })

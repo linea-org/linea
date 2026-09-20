@@ -315,6 +315,44 @@ describe('OAuth Connections', () => {
       scopes: ['read:user'],
       credentialVersion: initial.credentialVersion,
     })
+    const unsupportedPolicy = await startAuthorization(['read:user'])
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['profile'],
+            },
+            {
+              provider: 'github',
+              actionFamilies: [],
+              maxScopes: ['read:user', 'repo'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    const unsupportedProviderResponse = await fetch(unsupportedPolicy, {
+      redirect: 'manual',
+    })
+    const unsupportedCallback =
+      unsupportedProviderResponse.headers.get('location')
+    if (!unsupportedCallback)
+      throw new Error('Provider callback location is missing')
+    const unsupportedCompleted = await fetch(unsupportedCallback, {
+      redirect: 'manual',
+    })
+    expect(unsupportedCompleted.status).toBe(302)
+    const unsupportedReturned = unsupportedCompleted.headers.get('location')
+    if (!unsupportedReturned)
+      throw new Error('Application return location is missing')
+    expect(new URL(unsupportedReturned).searchParams.get('status')).toBe(
+      'failed',
+    )
     await pool.query(
       'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
       [
