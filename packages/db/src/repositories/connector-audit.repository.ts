@@ -2,6 +2,7 @@ import {
   and,
   desc,
   eq,
+  getTableColumns,
   gt,
   inArray,
   isNull,
@@ -198,7 +199,13 @@ export function listOperatorFacts(
   }
 ): Promise<ConnectorAuditFact[]> {
   return db
-    .select()
+    .select({
+      ...getTableColumns(connectorAuditFacts),
+      content:
+        sql<ConnectorAuditContent | null>`CASE WHEN ${connectorAuditFacts.contentExpiresAt} > ${input.now} THEN ${connectorAuditFacts.content} ELSE NULL END`.as(
+          "content"
+        ),
+    })
     .from(connectorAuditFacts)
     .where(
       and(
@@ -243,7 +250,13 @@ export function listEndUserFacts(
   }
 ): Promise<ConnectorAuditFact[]> {
   return db
-    .select()
+    .select({
+      ...getTableColumns(connectorAuditFacts),
+      content:
+        sql<ConnectorAuditContent | null>`CASE WHEN ${connectorAuditFacts.contentExpiresAt} > ${input.now} THEN ${connectorAuditFacts.content} ELSE NULL END`.as(
+          "content"
+        ),
+    })
     .from(connectorAuditFacts)
     .where(
       and(

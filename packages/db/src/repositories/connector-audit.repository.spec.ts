@@ -130,6 +130,47 @@ describe("connector audit repository", () => {
     })
   })
 
+  it("redacts expired content at read time before retention cleanup", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const fixture = await createAuditFixture(tx, {
+        workspaceId: organization.id,
+        suffix: randomUUID(),
+        contentRetentionDays: 1,
+      })
+      const now = new Date("2026-09-20T00:00:00.000Z")
+      await recordConnectionFact(tx, {
+        connection: fixture.connection,
+        factType: "connection.created",
+        occurredAt: new Date("2026-09-18T00:00:00.000Z"),
+        outcome: "active",
+        content: { accountLabel: "Expired identifying label" },
+      })
+      const [stored] = await tx
+        .select()
+        .from(connectorAuditFacts)
+        .where(eq(connectorAuditFacts.applicationId, fixture.application.id))
+      expect(stored?.content).toEqual({
+        accountLabel: "Expired identifying label",
+      })
+      const [operatorFact] = await listOperatorFacts(tx, {
+        workspaceId: organization.id,
+        applicationId: fixture.application.id,
+        limit: 10,
+        now,
+      })
+      const [endUserFact] = await listEndUserFacts(tx, {
+        workspaceId: organization.id,
+        applicationId: fixture.application.id,
+        externalSubjectId: fixture.subject.id,
+        limit: 10,
+        now,
+      })
+      expect(operatorFact?.content).toBeNull()
+      expect(endUserFact?.content).toBeNull()
+    })
+  })
+
   it("erases retained content before deleting one-year evidence", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)

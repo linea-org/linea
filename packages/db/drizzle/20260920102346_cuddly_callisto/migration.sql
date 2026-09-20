@@ -35,6 +35,10 @@ ALTER TABLE "connector_audit_facts" ADD CONSTRAINT "connector_audit_facts_subjec
 ALTER TABLE "action_intents" DROP CONSTRAINT "action_intents_outcome_check", ADD CONSTRAINT "action_intents_outcome_check" CHECK ("content_erased_at" IS NOT NULL OR (("status" = 'succeeded') = ("normalized_result" IS NOT NULL) AND ("status" IN ('failed', 'stale', 'outcome_unknown')) = ("normalized_error" IS NOT NULL)));
 --> statement-breakpoint
 CREATE OR REPLACE FUNCTION prevent_action_intent_snapshot_mutation() RETURNS trigger AS $$
+DECLARE
+	immutable_error_code CONSTANT text := '55000';
+	redacted_content CONSTANT jsonb := '{"redacted":true}'::jsonb;
+	redacted_key CONSTANT text := 'redacted';
 BEGIN
 	IF OLD.workspace_id IS DISTINCT FROM NEW.workspace_id
 		OR OLD.application_id IS DISTINCT FROM NEW.application_id
@@ -51,13 +55,13 @@ BEGIN
 		OR OLD.canonical_digest IS DISTINCT FROM NEW.canonical_digest
 		OR OLD.invocation_idempotency_key IS DISTINCT FROM NEW.invocation_idempotency_key
 		OR OLD.created_at IS DISTINCT FROM NEW.created_at THEN
-		RAISE EXCEPTION 'Action Intent snapshots are immutable' USING ERRCODE = '55000';
+		RAISE EXCEPTION 'Action Intent snapshots are immutable' USING ERRCODE = immutable_error_code;
 	END IF;
 	IF OLD.content_erased_at IS NULL AND NEW.content_erased_at IS NOT NULL THEN
 		IF NEW.status NOT IN ('succeeded', 'failed', 'stale', 'rejected', 'cancelled', 'outcome_unknown')
-			OR NEW.target IS DISTINCT FROM '{"redacted":true}'::jsonb
-			OR NEW.normalized_parameters IS DISTINCT FROM '{"redacted":true}'::jsonb
-			OR NEW.provider_preconditions IS DISTINCT FROM '{"redacted":true}'::jsonb
+			OR NEW.target IS DISTINCT FROM redacted_content
+			OR NEW.normalized_parameters IS DISTINCT FROM redacted_content
+			OR NEW.provider_preconditions IS DISTINCT FROM redacted_content
 			OR NEW.safe_display IS DISTINCT FROM '{"title":"Content expired"}'::jsonb
 			OR NEW.canonical_envelope IS DISTINCT FROM jsonb_build_object(
 				'version', 1,
@@ -65,13 +69,13 @@ BEGIN
 				'connectionId', NEW.connection_id::text,
 				'connector', NEW.connector,
 				'operation', NEW.operation_id,
-				'target', jsonb_build_object('redacted', true),
-				'parameters', jsonb_build_object('redacted', true),
-				'providerPreconditions', jsonb_build_object('redacted', true)
+				'target', jsonb_build_object(redacted_key, true),
+				'parameters', jsonb_build_object(redacted_key, true),
+				'providerPreconditions', jsonb_build_object(redacted_key, true)
 			)
 			OR NEW.normalized_result IS NOT NULL
 			OR NEW.normalized_error IS NOT NULL THEN
-			RAISE EXCEPTION 'Action Intent retention redaction is invalid' USING ERRCODE = '55000';
+			RAISE EXCEPTION 'Action Intent retention redaction is invalid' USING ERRCODE = immutable_error_code;
 		END IF;
 	ELSIF OLD.content_erased_at IS DISTINCT FROM NEW.content_erased_at
 		OR OLD.target IS DISTINCT FROM NEW.target
@@ -86,7 +90,7 @@ BEGIN
 				OR OLD.normalized_error IS DISTINCT FROM NEW.normalized_error
 			)
 		) THEN
-		RAISE EXCEPTION 'Action Intent snapshots are immutable' USING ERRCODE = '55000';
+		RAISE EXCEPTION 'Action Intent snapshots are immutable' USING ERRCODE = immutable_error_code;
 	END IF;
 	RETURN NEW;
 END;
