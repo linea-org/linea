@@ -318,8 +318,8 @@ describe("Google Connector Operations", () => {
   it("sends the exact Gmail intent and reconciles an ambiguous response", async () => {
     const input = {
       to: ["to@example.com"],
-      cc: [],
-      bcc: [],
+      cc: ["cc@example.com"],
+      bcc: ["bcc@example.com"],
       subject: "Exact subject",
       textBody: "Exact private body",
     }
@@ -337,19 +337,29 @@ describe("Google Connector Operations", () => {
       labelIds: [],
     })
     expect(gmailRaw).toContain("To: to@example.com")
+    expect(gmailRaw).toContain("Cc: cc@example.com")
+    expect(gmailRaw).toContain("Bcc: bcc@example.com")
     expect(gmailRaw).toContain(Buffer.from(input.textBody).toString("base64"))
-    expect(
-      googleGmailSendMessageOperation.display({
-        version: 1,
-        operationRevision: "1",
-        connectionId: "connection",
-        connector: "google",
-        operation: googleGmailSendMessageOperation.id,
-        target: normalized.target,
-        parameters: normalized.parameters,
-        providerPreconditions: normalized.providerPreconditions,
-      })
-    ).not.toEqual(expect.objectContaining({ textBody: input.textBody }))
+    const display = googleGmailSendMessageOperation.display({
+      version: 1,
+      operationRevision: "1",
+      connectionId: "connection",
+      connector: "google",
+      operation: googleGmailSendMessageOperation.id,
+      target: normalized.target,
+      parameters: normalized.parameters,
+      providerPreconditions: normalized.providerPreconditions,
+    })
+    expect(display).toEqual({
+      title: "Send Gmail message",
+      details: {
+        To: "to@example.com",
+        Cc: "cc@example.com",
+        Bcc: "bcc@example.com",
+        Subject: "Exact subject",
+      },
+    })
+    expect(JSON.stringify(display)).not.toContain(input.textBody)
     gmailMalformedResponse = true
     await expect(
       googleGmailSendMessageOperation.execute(

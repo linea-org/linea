@@ -188,6 +188,8 @@ export const googleGmailSendMessageOperation: ConnectorSideEffectOperation =
         title: "Send Gmail message",
         details: Object.freeze({
           To: escapeSafeDisplayText(parameters.to.join(", ")),
+          Cc: escapeSafeDisplayText(parameters.cc.join(", ")),
+          Bcc: escapeSafeDisplayText(parameters.bcc.join(", ")),
           Subject: escapeSafeDisplayText(parameters.subject),
         }),
       })
