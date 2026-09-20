@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import {
   actionIntents,
@@ -231,7 +231,12 @@ describe("connector audit repository", () => {
       const [retained] = await tx
         .select()
         .from(connectorAuditFacts)
-        .where(eq(connectorAuditFacts.factType, "connection.created"))
+        .where(
+          and(
+            eq(connectorAuditFacts.applicationId, fixture.application.id),
+            eq(connectorAuditFacts.factType, "connection.created")
+          )
+        )
       expect(retained).toMatchObject({
         content: null,
         outcome: "active",
@@ -264,7 +269,12 @@ describe("connector audit repository", () => {
       expect(
         await applyRetention(tx, new Date("2026-09-20T00:00:00.001Z"))
       ).toMatchObject({ factsDeleted: 2 })
-      expect(await tx.select().from(connectorAuditFacts)).toEqual([])
+      expect(
+        await tx
+          .select()
+          .from(connectorAuditFacts)
+          .where(eq(connectorAuditFacts.applicationId, fixture.application.id))
+      ).toEqual([])
     })
   })
 
@@ -302,7 +312,10 @@ describe("connector audit repository", () => {
         actor.id
       )
       expect(erased?.auditReference).not.toBe(fixture.subject.auditReference)
-      const facts = await tx.select().from(connectorAuditFacts)
+      const facts = await tx
+        .select()
+        .from(connectorAuditFacts)
+        .where(eq(connectorAuditFacts.applicationId, fixture.application.id))
       expect(facts.length).toBeGreaterThan(0)
       expect(
         facts.every(({ externalSubjectId }) => externalSubjectId === null)
@@ -341,7 +354,12 @@ describe("connector audit repository", () => {
       const events = await tx
         .select()
         .from(outboxMessages)
-        .where(eq(outboxMessages.eventType, "connection.revoked"))
+        .where(
+          and(
+            eq(outboxMessages.applicationId, fixture.application.id),
+            eq(outboxMessages.eventType, "connection.revoked")
+          )
+        )
       expect(events).toHaveLength(1)
       expect(events[0]?.payload).toEqual({
         connectionId: fixture.connection.id,
@@ -383,9 +401,12 @@ describe("connector audit repository", () => {
         .select()
         .from(connectorAuditFacts)
         .where(
-          eq(
-            connectorAuditFacts.factType,
-            "connection.revocation_payload_destroyed"
+          and(
+            eq(connectorAuditFacts.connectionId, fixture.connection.id),
+            eq(
+              connectorAuditFacts.factType,
+              "connection.revocation_payload_destroyed"
+            )
           )
         )
       expect(delivery?.credentialEncrypted).toBeNull()
