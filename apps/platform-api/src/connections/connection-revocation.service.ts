@@ -18,6 +18,7 @@ const CLAIM_LEASE_MS = 30_000
 const HEARTBEAT_INTERVAL_MS = 10_000
 const PROVIDER_TIMEOUT_MS = 20_000
 const MAXIMUM_RETRY_DELAY_MS = 60_000
+const AUTHORIZATION_RESULT_RETENTION_MS = 24 * 60 * 60 * 1_000
 
 @Injectable()
 export class ConnectionRevocationService
@@ -56,7 +57,7 @@ export class ConnectionRevocationService
       await repositories.connection.deleteExpiredRevocationDeliveries(db, now)
       await repositories.connection.deleteExpiredConnectionAuthorizationRequests(
         db,
-        now,
+        new Date(now.getTime() - AUTHORIZATION_RESULT_RETENTION_MS),
       )
     } catch (error) {
       this.logger.error(

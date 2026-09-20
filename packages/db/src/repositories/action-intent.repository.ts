@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, lt, or, sql } from "drizzle-orm"
+import { and, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm"
 import {
   actionIntents,
   applications,
@@ -48,6 +48,8 @@ export type CreateActionIntentResult =
       approvalRequest: ApprovalRequest
     }
   | { outcome: "idempotency_conflict" }
+  | { outcome: "connection_reauthorization_required" }
+  | { outcome: "connection_scope_insufficient" }
   | { outcome: "authority_invalid" }
 
 function sameInvocation(
@@ -133,6 +135,29 @@ export async function createActionIntent(
     const providerPolicy = application?.connectorAccessPolicy.providers.find(
       (candidate) => candidate.provider === input.connector
     )
+    const connectionOwned = Boolean(
+      execution?.applicationId &&
+      execution.externalSubjectRecordId &&
+      connection?.workspaceId === input.workspaceId &&
+      connection.applicationId === execution.applicationId &&
+      connection.externalSubjectId === execution.externalSubjectRecordId &&
+      connection.provider === input.connector
+    )
+    if (connectionOwned && connection?.status === "reauthorization_required") {
+      return { outcome: "connection_reauthorization_required" }
+    }
+    if (
+      connectionOwned &&
+      connection?.status === "active" &&
+      (input.requiredScopes.some(
+        (scope) => !connection.scopes.includes(scope)
+      ) ||
+        input.requiredScopes.some(
+          (scope) => !providerPolicy?.maxScopes.includes(scope)
+        ))
+    ) {
+      return { outcome: "connection_scope_insufficient" }
+    }
     if (
       !execution?.applicationId ||
       !execution.externalSubjectRecordId ||
@@ -805,5 +830,50 @@ export async function findPendingActionIntents(
       )
     )
     .orderBy(desc(actionIntents.createdAt), desc(actionIntents.id))
+    .limit(input.limit)
+}
+
+export type TerminalActionIntentCursor = { occurredAt: Date; id: string }
+
+export function findTerminalActionIntents(
+  db: DbClient,
+  input: {
+    workspaceId: string
+    applicationId: string
+    externalSubjectId: string
+    connectionId: string
+    limit: number
+    cursor?: TerminalActionIntentCursor
+  }
+): Promise<ActionIntent[]> {
+  return db
+    .select()
+    .from(actionIntents)
+    .where(
+      and(
+        eq(actionIntents.workspaceId, input.workspaceId),
+        eq(actionIntents.applicationId, input.applicationId),
+        eq(actionIntents.externalSubjectId, input.externalSubjectId),
+        eq(actionIntents.connectionId, input.connectionId),
+        inArray(actionIntents.status, [
+          "succeeded",
+          "failed",
+          "stale",
+          "rejected",
+          "cancelled",
+          "outcome_unknown",
+        ]),
+        input.cursor
+          ? or(
+              lt(actionIntents.updatedAt, input.cursor.occurredAt),
+              and(
+                eq(actionIntents.updatedAt, input.cursor.occurredAt),
+                lt(actionIntents.id, input.cursor.id)
+              )
+            )
+          : undefined
+      )
+    )
+    .orderBy(desc(actionIntents.updatedAt), desc(actionIntents.id))
     .limit(input.limit)
 }

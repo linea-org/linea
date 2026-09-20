@@ -521,6 +521,7 @@ describe("browser end-user client", () => {
 
   it("starts, lists, inspects, and revokes Connections", async () => {
     const connectionId = "50000000-0000-4000-8000-000000000005"
+    const authorizationId = "60000000-0000-4000-8000-000000000006"
     const connection = {
       id: connectionId,
       provider: "test",
@@ -537,14 +538,52 @@ describe("browser end-user client", () => {
       if (path === "/v1/user/connections/authorizations") {
         return jsonResponse(
           {
-            authorizationId: "60000000-0000-4000-8000-000000000006",
+            authorizationId,
             authorizationUrl: "https://provider.example/authorize",
           },
           201
         )
       }
+      if (path === `/v1/user/connections/authorizations/${authorizationId}`) {
+        return jsonResponse({
+          id: authorizationId,
+          provider: "test",
+          scopes: ["profile"],
+          status: "succeeded",
+          connectionId,
+          createdAt: "2026-09-18T00:00:00.000Z",
+          expiresAt: "2026-09-18T00:05:00.000Z",
+          completedAt: "2026-09-18T00:01:00.000Z",
+        })
+      }
       if (path === "/v1/user/connections") {
-        return jsonResponse({ data: [connection] })
+        return jsonResponse({ data: [connection], nextCursor: null })
+      }
+      if (path === `/v1/user/connections/${connectionId}/authorizations`) {
+        return jsonResponse(
+          {
+            authorizationId,
+            authorizationUrl: "https://provider.example/upgrade",
+          },
+          201
+        )
+      }
+      if (path === `/v1/user/connections/${connectionId}/uses`) {
+        return jsonResponse({
+          data: [
+            {
+              id: "70000000-0000-4000-8000-000000000007",
+              connectionId,
+              executionId,
+              actionIntentId: null,
+              operation: "deterministic.read",
+              classification: "read",
+              outcome: "succeeded",
+              occurredAt: "2026-09-18T00:02:00.000Z",
+            },
+          ],
+          nextCursor: null,
+        })
       }
       if (path === `/v1/user/connections/${connectionId}`) {
         return jsonResponse(
@@ -571,10 +610,32 @@ describe("browser end-user client", () => {
     })
     await expect(client.listConnections()).resolves.toEqual({
       data: [connection],
+      nextCursor: null,
     })
+    await expect(
+      client.getConnectionAuthorization(authorizationId)
+    ).resolves.toMatchObject({ status: "succeeded", connectionId })
     await expect(client.getConnection(connectionId)).resolves.toEqual(
       connection
     )
+    await expect(
+      client.startConnectionScopeUpgrade(connectionId, {
+        returnUri: "https://app.example/connections/callback",
+        scopes: ["profile", "write"],
+      })
+    ).resolves.toMatchObject({
+      authorizationUrl: "https://provider.example/upgrade",
+    })
+    await expect(
+      client.listConnectionUses(connectionId)
+    ).resolves.toMatchObject({
+      data: [
+        expect.objectContaining({
+          operation: "deterministic.read",
+          outcome: "succeeded",
+        }),
+      ],
+    })
     await expect(client.revokeConnection(connectionId)).resolves.toMatchObject({
       id: connectionId,
       status: "revoked",

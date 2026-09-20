@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, isNull, lt, lte, or, sql } from "drizzle-orm"
 import {
   applications,
+  connectionReadUses,
   connectionAuthorizationRequests,
   connectionRevocationDeliveries,
   connections,
@@ -10,6 +11,7 @@ import {
   externalSubjects,
   type Connection,
   type ConnectionAuthorizationRequest,
+  type ConnectionReadUse,
   type ConnectionRevocationDelivery,
 } from "../schema/index.js"
 import { encryptCredential } from "../credential-encryption.js"
@@ -28,6 +30,7 @@ type CreateAuthorizationInput = {
   stateHash: string
   codeVerifierEncrypted: string
   expiresAt: Date
+  targetConnectionId?: string
 }
 
 export type CreateConnectionAuthorizationResult =
@@ -35,6 +38,8 @@ export type CreateConnectionAuthorizationResult =
   | { outcome: "application_unavailable" }
   | { outcome: "provider_denied" }
   | { outcome: "scope_denied" }
+  | { outcome: "connection_unavailable" }
+  | { outcome: "connection_scope_insufficient" }
   | { outcome: "return_uri_denied" }
 
 export type ClaimConnectionAuthorizationResult =
@@ -153,7 +158,7 @@ export async function completeConnectionAuthorizationRequest(
       ) {
         return { outcome: "invalid" }
       }
-      const [existing] = await tx
+      const [accountConnection] = await tx
         .select()
         .from(connections)
         .where(
@@ -167,6 +172,30 @@ export async function completeConnectionAuthorizationRequest(
           )
         )
         .for("update")
+      const [targetConnection] = request.targetConnectionId
+        ? await tx
+            .select()
+            .from(connections)
+            .where(
+              and(
+                eq(connections.id, request.targetConnectionId),
+                eq(connections.workspaceId, request.workspaceId),
+                eq(connections.applicationId, request.applicationId),
+                eq(connections.externalSubjectId, request.externalSubjectId),
+                eq(connections.provider, request.provider),
+                sql`${connections.status} <> 'revoked'`
+              )
+            )
+            .for("update")
+        : [undefined]
+      if (
+        request.targetConnectionId &&
+        (!targetConnection ||
+          targetConnection.providerAccountId !== input.providerAccountId)
+      ) {
+        return { outcome: "invalid" }
+      }
+      const existing = targetConnection ?? accountConnection
       const connectionId = existing?.id ?? input.connectionId
       const credentialEncrypted = encryptCredential(input.credentialPlaintext, {
         workspaceId: request.workspaceId,
@@ -207,11 +236,38 @@ export async function completeConnectionAuthorizationRequest(
             .returning()
       await tx
         .update(connectionAuthorizationRequests)
-        .set({ completedAt: input.now })
+        .set({
+          completedAt: input.now,
+          outcome: "succeeded",
+          resultConnectionId: connection.id,
+          codeVerifierEncrypted: null,
+        })
         .where(eq(connectionAuthorizationRequests.id, request.id))
       return { outcome: "completed", connection }
     }
   )
+}
+
+export async function failConnectionAuthorizationRequest(
+  db: DbClient,
+  input: { authorizationRequestId: string; claimedAt: Date; completedAt: Date }
+): Promise<boolean> {
+  const [request] = await db
+    .update(connectionAuthorizationRequests)
+    .set({
+      completedAt: input.completedAt,
+      outcome: "failed",
+      codeVerifierEncrypted: null,
+    })
+    .where(
+      and(
+        eq(connectionAuthorizationRequests.id, input.authorizationRequestId),
+        eq(connectionAuthorizationRequests.claimedAt, input.claimedAt),
+        isNull(connectionAuthorizationRequests.completedAt)
+      )
+    )
+    .returning({ id: connectionAuthorizationRequests.id })
+  return Boolean(request)
 }
 
 type ConnectionOwner = {
@@ -250,6 +306,107 @@ export async function getConnection(
     .from(connections)
     .where(ownedConnection(owner, connectionId))
   return connection
+}
+
+export async function getConnectionAuthorizationRequest(
+  db: DbClient,
+  owner: ConnectionOwner,
+  authorizationRequestId: string
+): Promise<ConnectionAuthorizationRequest | undefined> {
+  const [request] = await db
+    .select()
+    .from(connectionAuthorizationRequests)
+    .where(
+      and(
+        eq(connectionAuthorizationRequests.id, authorizationRequestId),
+        eq(connectionAuthorizationRequests.workspaceId, owner.workspaceId),
+        eq(connectionAuthorizationRequests.applicationId, owner.applicationId),
+        eq(
+          connectionAuthorizationRequests.externalSubjectId,
+          owner.externalSubjectId
+        )
+      )
+    )
+  return request
+}
+
+export type ConnectionCursor = { createdAt: Date; id: string }
+
+export function findConnections(
+  db: DbClient,
+  input: ConnectionOwner & { limit: number; cursor?: ConnectionCursor }
+): Promise<Connection[]> {
+  return db
+    .select()
+    .from(connections)
+    .where(
+      and(
+        ownedConnection(input),
+        input.cursor
+          ? or(
+              lt(connections.createdAt, input.cursor.createdAt),
+              and(
+                eq(connections.createdAt, input.cursor.createdAt),
+                lt(connections.id, input.cursor.id)
+              )
+            )
+          : undefined
+      )
+    )
+    .orderBy(desc(connections.createdAt), desc(connections.id))
+    .limit(input.limit)
+}
+
+export async function recordConnectionReadUse(
+  db: DbClient,
+  input: {
+    workspaceId: string
+    applicationId: string
+    externalSubjectId: string
+    connectionId: string
+    executionId: string
+    operationId: string
+    outcome: "succeeded" | "failed"
+    occurredAt: Date
+  }
+): Promise<ConnectionReadUse> {
+  const [use] = await db.insert(connectionReadUses).values(input).returning()
+  if (!use) throw new Error("Connection read use was not recorded")
+  return use
+}
+
+export type ConnectionUseCursor = { occurredAt: Date; id: string }
+
+export function findConnectionReadUses(
+  db: DbClient,
+  input: ConnectionOwner & {
+    connectionId: string
+    limit: number
+    cursor?: ConnectionUseCursor
+  }
+): Promise<ConnectionReadUse[]> {
+  return db
+    .select()
+    .from(connectionReadUses)
+    .where(
+      and(
+        eq(connectionReadUses.workspaceId, input.workspaceId),
+        eq(connectionReadUses.applicationId, input.applicationId),
+        eq(connectionReadUses.externalSubjectId, input.externalSubjectId),
+        eq(connectionReadUses.connectionId, input.connectionId),
+        input.cursor
+          ? or(
+              lt(connectionReadUses.occurredAt, input.cursor.occurredAt),
+              and(
+                eq(connectionReadUses.occurredAt, input.cursor.occurredAt),
+                lt(connectionReadUses.id, input.cursor.id)
+              )
+            )
+          : undefined
+      )
+    )
+    .orderBy(desc(connectionReadUses.occurredAt), desc(connectionReadUses.id))
+    .limit(input.limit)
 }
 
 export async function getConnectorReadAuthority(
@@ -329,14 +486,14 @@ export async function revokeConnection(
   connectionId: string,
   input: {
     expectedCredentialVersion: number
-    deliveryId: string
-    revocationCredentialEncrypted: string
+    deliveryId?: string
+    revocationCredentialEncrypted?: string
     actorEndUserSessionId: string
     expiresAt: Date
     now: Date
   }
 ): Promise<
-  | { outcome: "revoked"; connection: Connection; deliveryId: string }
+  | { outcome: "revoked"; connection: Connection; deliveryId?: string }
   | { outcome: "not_found" }
   | { outcome: "conflict" }
 > {
@@ -352,7 +509,7 @@ export async function revokeConnection(
       .where(
         and(
           ownedConnection(owner, connectionId),
-          eq(connections.status, "active"),
+          sql`${connections.status} <> 'revoked'`,
           eq(connections.credentialVersion, input.expectedCredentialVersion)
         )
       )
@@ -371,15 +528,17 @@ export async function revokeConnection(
       },
       cancelledAt: input.now,
     })
-    await tx.insert(connectionRevocationDeliveries).values({
-      id: input.deliveryId,
-      workspaceId: owner.workspaceId,
-      connectionId,
-      provider: connection.provider,
-      credentialEncrypted: input.revocationCredentialEncrypted,
-      expiresAt: input.expiresAt,
-      createdAt: input.now,
-    })
+    if (input.deliveryId && input.revocationCredentialEncrypted) {
+      await tx.insert(connectionRevocationDeliveries).values({
+        id: input.deliveryId,
+        workspaceId: owner.workspaceId,
+        connectionId,
+        provider: connection.provider,
+        credentialEncrypted: input.revocationCredentialEncrypted,
+        expiresAt: input.expiresAt,
+        createdAt: input.now,
+      })
+    }
     return { outcome: "revoked", connection, deliveryId: input.deliveryId }
   })
 }
@@ -626,6 +785,29 @@ export async function createConnectionAuthorizationRequest(
     if (!provider) return { outcome: "provider_denied" }
     if (input.scopes.some((scope) => !provider.maxScopes.includes(scope))) {
       return { outcome: "scope_denied" }
+    }
+    if (input.targetConnectionId) {
+      const [connection] = await tx
+        .select()
+        .from(connections)
+        .where(
+          and(
+            ownedConnection(input, input.targetConnectionId),
+            eq(connections.provider, input.provider),
+            sql`${connections.status} <> 'revoked'`
+          )
+        )
+        .for("share")
+      if (!connection) return { outcome: "connection_unavailable" }
+      if (connection.scopes.some((scope) => !input.scopes.includes(scope))) {
+        return { outcome: "connection_scope_insufficient" }
+      }
+      if (
+        connection.status === "active" &&
+        input.scopes.every((scope) => connection.scopes.includes(scope))
+      ) {
+        return { outcome: "connection_scope_insufficient" }
+      }
     }
     const [request] = await tx
       .insert(connectionAuthorizationRequests)

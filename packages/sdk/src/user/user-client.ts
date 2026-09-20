@@ -6,10 +6,12 @@ import {
   createEndUserSessionOperation,
   decideEndUserApprovalRequestOperation,
   exchangeEndUserAuthorizationOperation,
+  getConnectionAuthorizationOperation,
   getConnectionOperation,
   getEndUserApprovalRequestOperation,
   getEndUserConversationOperation,
   getEndUserExecutionOperation,
+  listConnectionUsesOperation,
   listEndUserApprovalRequestsOperation,
   listPendingActionIntentsOperation,
   listEndUserConversationsOperation,
@@ -18,6 +20,7 @@ import {
   revokeEndUserSessionOperation,
   revokeConnectionOperation,
   startConnectionAuthorizationOperation,
+  startConnectionScopeUpgradeOperation,
   startEndUserAuthorizationOperation,
   startEndUserExecutionOperation,
   streamEndUserEventsOperation,
@@ -26,19 +29,24 @@ import type {
   ApprovalDecision,
   ApprovalRequest,
   Connection,
+  ConnectionAuthorization,
   ConnectionAuthorizationResponse,
+  ConnectionUse,
   ConversationProjection,
   CreateEndUserConversation,
   CreateMessage,
   DecideApprovalRequest,
   EndUserAuthorizationResponse,
   ListApprovalRequestsQuery,
+  ListConnectionUsesQuery,
+  ListConnectionsQuery,
   ListPendingActionIntentsQuery,
   MessageProjection,
   PendingActionIntent,
   PublicExecution,
   StartEndUserExecution,
   StartConnectionAuthorization,
+  StartConnectionScopeUpgrade,
 } from "@linea/protocol/resources"
 import type { PaginatedResponse, PaginationQuery } from "@linea/protocol/shared"
 import { LineaExecutionHandle } from "./execution-handle.js"
@@ -310,12 +318,32 @@ export class LineaUserClient {
     )
   }
 
-  listConnections(): Promise<{ data: Connection[] }> {
+  getConnectionAuthorization(
+    authorizationId: string
+  ): Promise<ConnectionAuthorization> {
+    const path = this.path(
+      getConnectionAuthorizationOperation.path,
+      "authorizationId",
+      authorizationId
+    )
+    return this.authorizedJson(
+      getConnectionAuthorizationOperation.method,
+      path,
+      undefined,
+      getConnectionAuthorizationOperation.response.body
+    )
+  }
+
+  listConnections(
+    query: Partial<ListConnectionsQuery> = {}
+  ): Promise<PaginatedResponse<Connection>> {
+    const parsed = listConnectionsOperation.request.query.parse(query)
     return this.authorizedJson(
       listConnectionsOperation.method,
       listConnectionsOperation.path,
       undefined,
-      listConnectionsOperation.response.body
+      listConnectionsOperation.response.body,
+      parsed
     )
   }
 
@@ -330,6 +358,43 @@ export class LineaUserClient {
       path,
       undefined,
       getConnectionOperation.response.body
+    )
+  }
+
+  startConnectionScopeUpgrade(
+    connectionId: string,
+    input: StartConnectionScopeUpgrade
+  ): Promise<ConnectionAuthorizationResponse> {
+    const path = this.path(
+      startConnectionScopeUpgradeOperation.path,
+      "connectionId",
+      connectionId
+    )
+    const body = startConnectionScopeUpgradeOperation.request.body.parse(input)
+    return this.authorizedJson(
+      startConnectionScopeUpgradeOperation.method,
+      path,
+      body,
+      startConnectionScopeUpgradeOperation.response.body
+    )
+  }
+
+  listConnectionUses(
+    connectionId: string,
+    query: Partial<ListConnectionUsesQuery> = {}
+  ): Promise<PaginatedResponse<ConnectionUse>> {
+    const path = this.path(
+      listConnectionUsesOperation.path,
+      "connectionId",
+      connectionId
+    )
+    const parsed = listConnectionUsesOperation.request.query.parse(query)
+    return this.authorizedJson(
+      listConnectionUsesOperation.method,
+      path,
+      undefined,
+      listConnectionUsesOperation.response.body,
+      parsed
     )
   }
 

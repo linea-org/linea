@@ -15,15 +15,33 @@ import {
   type Connection as StoredConnection,
   type ConnectionAuthorizationRequest as StoredConnectionAuthorizationRequest,
 } from '@linea/db'
-import { connectionStatusSchema } from '@linea/protocol/resources'
+import {
+  connectionAuthorizationStatusSchema,
+  connectionStatusSchema,
+} from '@linea/protocol/resources'
 import type {
   Connection as PublicConnection,
+  ConnectionAuthorization,
   ConnectionAuthorizationResponse,
+  ConnectionUse,
   ConnectionOAuthCallback,
+  ListConnectionUsesQuery,
+  ListConnectionsQuery,
   StartConnectionAuthorization,
+  StartConnectionScopeUpgrade,
 } from '@linea/protocol/resources'
 import { publicError } from '../auth/public-error'
 import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.guard'
+import {
+  decodeConnectionCursor,
+  decodeConnectionUseCursor,
+  encodeConnectionCursor,
+  encodeConnectionUseCursor,
+} from '../public-runtime/public-pagination'
+import {
+  actionIntentUseProjection,
+  connectionReadUseProjection,
+} from './connection-use.projections'
 import {
   CONNECTION_OAUTH_PROVIDERS,
   type ConnectionOAuthProvider,
@@ -144,6 +162,87 @@ export class ConnectionsService {
     }
   }
 
+  async startScopeUpgrade(
+    principal: EndUserPrincipal,
+    connectionId: string,
+    input: StartConnectionScopeUpgrade,
+  ): Promise<ConnectionAuthorizationResponse> {
+    const connection = await repositories.connection.getConnection(
+      db,
+      principal,
+      connectionId,
+    )
+    if (!connection || connection.status === 'revoked') {
+      throw new NotFoundException(
+        publicError('resource_not_found', 'Connection not found'),
+      )
+    }
+    const provider = this.providers.find(
+      (candidate) => candidate.provider === connection.provider,
+    )
+    if (!provider) {
+      throw new ServiceUnavailableException(
+        publicError('service_unavailable', 'Connection provider unavailable'),
+      )
+    }
+    const id = randomUUID()
+    const state = opaqueValue()
+    const codeVerifier = opaqueValue()
+    const result =
+      await repositories.connection.createConnectionAuthorizationRequest(db, {
+        id,
+        workspaceId: principal.workspaceId,
+        applicationId: principal.applicationId,
+        externalSubjectId: principal.externalSubjectId,
+        endUserSessionId: principal.sessionId,
+        provider: connection.provider,
+        scopes: input.scopes,
+        returnUri: input.returnUri,
+        stateHash: hash(state),
+        codeVerifierEncrypted: encryptCredential(codeVerifier, {
+          workspaceId: principal.workspaceId,
+          applicationId: principal.applicationId,
+          externalSubjectId: principal.externalSubjectId,
+          recordId: id,
+          provider: connection.provider,
+        }),
+        expiresAt: new Date(Date.now() + AUTHORIZATION_LIFETIME_MS),
+        targetConnectionId: connection.id,
+      })
+    if (result.outcome === 'connection_unavailable') {
+      throw new NotFoundException(
+        publicError('resource_not_found', 'Connection not found'),
+      )
+    }
+    if (result.outcome === 'connection_scope_insufficient') {
+      throw new ForbiddenException(
+        publicError(
+          'connection_scope_insufficient',
+          'Scope upgrade must preserve current scopes and add new authority',
+        ),
+      )
+    }
+    if (result.outcome === 'application_unavailable') {
+      throw new ServiceUnavailableException(
+        publicError('service_unavailable', 'Application unavailable'),
+      )
+    }
+    if (result.outcome !== 'created') {
+      throw new ForbiddenException(
+        publicError('scope_denied', 'Connection authorization denied'),
+      )
+    }
+    return {
+      authorizationId: result.request.id,
+      authorizationUrl: await provider.createAuthorizationUrl({
+        redirectUri: callbackUrl(connection.provider),
+        state,
+        codeChallenge: challenge(codeVerifier),
+        scopes: input.scopes,
+      }),
+    }
+  }
+
   async completeAuthorization(
     providerName: string,
     input: ConnectionOAuthCallback,
@@ -171,7 +270,14 @@ export class ConnectionsService {
         recordId: request.id,
         provider: request.provider,
       }
-      if ('error' in input) return authorizationResultUrl(request, 'failed')
+      if ('error' in input) {
+        await this.failAuthorization(request, claimedAt)
+        return authorizationResultUrl(request, 'failed')
+      }
+      if (!request.codeVerifierEncrypted) {
+        await this.failAuthorization(request, claimedAt)
+        return authorizationResultUrl(request, 'failed')
+      }
       const credential = await provider.exchangeAuthorizationCode({
         code: input.code,
         redirectUri: callbackUrl(providerName),
@@ -192,22 +298,68 @@ export class ConnectionsService {
           },
         )
       if (completed.outcome !== 'completed') {
+        await this.failAuthorization(request, claimedAt)
         return authorizationResultUrl(request, 'failed')
       }
       return authorizationResultUrl(request, 'connected')
     } catch {
+      await this.failAuthorization(request, claimedAt)
       return authorizationResultUrl(request, 'failed')
+    }
+  }
+
+  async getAuthorization(
+    principal: EndUserPrincipal,
+    authorizationId: string,
+  ): Promise<ConnectionAuthorization> {
+    const request =
+      await repositories.connection.getConnectionAuthorizationRequest(
+        db,
+        principal,
+        authorizationId,
+      )
+    if (!request) {
+      throw new NotFoundException(
+        publicError('resource_not_found', 'Connection authorization not found'),
+      )
+    }
+    const status = connectionAuthorizationStatusSchema.parse(
+      request.outcome
+        ? request.outcome
+        : request.expiresAt <= new Date()
+          ? 'expired'
+          : 'pending',
+    )
+    return {
+      id: request.id,
+      provider: request.provider,
+      scopes: request.scopes,
+      status,
+      connectionId: request.resultConnectionId,
+      createdAt: request.createdAt.toISOString(),
+      expiresAt: request.expiresAt.toISOString(),
+      completedAt: request.completedAt?.toISOString() ?? null,
     }
   }
 
   async list(
     principal: EndUserPrincipal,
-  ): Promise<{ data: PublicConnection[] }> {
-    const connections = await repositories.connection.listConnections(
-      db,
-      principal,
-    )
-    return { data: connections.map(publicConnection) }
+    query: ListConnectionsQuery,
+  ): Promise<{ data: PublicConnection[]; nextCursor: string | null }> {
+    const connections = await repositories.connection.findConnections(db, {
+      ...principal,
+      limit: query.limit + 1,
+      cursor: decodeConnectionCursor(query.cursor),
+    })
+    const page = connections.slice(0, query.limit)
+    const last = page.at(-1)
+    return {
+      data: page.map(publicConnection),
+      nextCursor:
+        connections.length > query.limit && last
+          ? encodeConnectionCursor(last)
+          : null,
+    }
   }
 
   async get(
@@ -236,22 +388,35 @@ export class ConnectionsService {
       principal,
       connectionId,
     )
-    if (!current?.credentialEncrypted || current.status !== 'active') {
+    if (!current || current.status === 'revoked') {
       throw new NotFoundException(
         publicError('resource_not_found', 'Connection not found'),
       )
     }
-    const credential = parseConnectionProviderCredential(
-      decryptCredential(current.credentialEncrypted, {
-        workspaceId: current.workspaceId,
-        applicationId: current.applicationId,
-        externalSubjectId: current.externalSubjectId,
-        recordId: current.id,
-        provider: current.provider,
-      }),
-    )
-    const deliveryId = randomUUID()
     const now = new Date()
+    const deliveryId = current.credentialEncrypted ? randomUUID() : undefined
+    const revocationCredentialEncrypted = current.credentialEncrypted
+      ? encryptCredential(
+          JSON.stringify(
+            parseConnectionProviderCredential(
+              decryptCredential(current.credentialEncrypted, {
+                workspaceId: current.workspaceId,
+                applicationId: current.applicationId,
+                externalSubjectId: current.externalSubjectId,
+                recordId: current.id,
+                provider: current.provider,
+              }),
+            ),
+          ),
+          {
+            workspaceId: current.workspaceId,
+            applicationId: current.applicationId,
+            externalSubjectId: current.externalSubjectId,
+            recordId: deliveryId ?? current.id,
+            provider: `${current.provider}:revocation`,
+          },
+        )
+      : undefined
     const revoked = await repositories.connection.revokeConnection(
       db,
       principal,
@@ -259,16 +424,7 @@ export class ConnectionsService {
       {
         expectedCredentialVersion: current.credentialVersion,
         deliveryId,
-        revocationCredentialEncrypted: encryptCredential(
-          JSON.stringify(credential),
-          {
-            workspaceId: current.workspaceId,
-            applicationId: current.applicationId,
-            externalSubjectId: current.externalSubjectId,
-            recordId: deliveryId,
-            provider: `${current.provider}:revocation`,
-          },
-        ),
+        revocationCredentialEncrypted,
         actorEndUserSessionId: principal.sessionId,
         expiresAt: new Date(now.getTime() + REVOCATION_LIFETIME_MS),
         now,
@@ -285,5 +441,65 @@ export class ConnectionsService {
       )
     }
     return publicConnection(revoked.connection)
+  }
+
+  async listUses(
+    principal: EndUserPrincipal,
+    connectionId: string,
+    query: ListConnectionUsesQuery,
+  ): Promise<{ data: ConnectionUse[]; nextCursor: string | null }> {
+    if (
+      !(await repositories.connection.getConnection(
+        db,
+        principal,
+        connectionId,
+      ))
+    ) {
+      throw new NotFoundException(
+        publicError('resource_not_found', 'Connection not found'),
+      )
+    }
+    const cursor = decodeConnectionUseCursor(query.cursor)
+    const input = {
+      ...principal,
+      connectionId,
+      limit: query.limit + 1,
+      cursor,
+    }
+    const [reads, intents] = await Promise.all([
+      repositories.connection.findConnectionReadUses(db, input),
+      repositories.actionIntent.findTerminalActionIntents(db, input),
+    ])
+    const uses = [
+      ...reads.map(connectionReadUseProjection),
+      ...intents.map(actionIntentUseProjection),
+    ].sort((left, right) =>
+      right.occurredAt === left.occurredAt
+        ? right.id.localeCompare(left.id)
+        : right.occurredAt.localeCompare(left.occurredAt),
+    )
+    const page = uses.slice(0, query.limit)
+    const last = page.at(-1)
+    return {
+      data: page,
+      nextCursor:
+        uses.length > query.limit && last
+          ? encodeConnectionUseCursor({
+              occurredAt: new Date(last.occurredAt),
+              id: last.id,
+            })
+          : null,
+    }
+  }
+
+  private async failAuthorization(
+    request: StoredConnectionAuthorizationRequest,
+    claimedAt: Date,
+  ): Promise<void> {
+    await repositories.connection.failConnectionAuthorizationRequest(db, {
+      authorizationRequestId: request.id,
+      claimedAt,
+      completedAt: new Date(),
+    })
   }
 }

@@ -22,6 +22,12 @@ export type { LineaUserStorage } from "./state-store.js"
 export type {
   ApprovalDecision,
   ApprovalRequest,
+  Connection,
+  ConnectionAuthorization,
+  ConnectionAuthorizationResponse,
+  ConnectionUse,
+  ListConnectionsQuery,
+  ListConnectionUsesQuery,
   PendingActionIntent,
   ListPendingActionIntentsQuery,
   ConversationProjection,
@@ -31,6 +37,8 @@ export type {
   EndUserAuthorizationResponse,
   MessageProjection,
   PublicExecution,
+  StartConnectionAuthorization,
+  StartConnectionScopeUpgrade,
   StartEndUserExecution,
 } from "@linea/protocol/resources"
 export type {

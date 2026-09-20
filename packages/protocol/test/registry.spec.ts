@@ -34,8 +34,11 @@ describe("operation registry", () => {
   it("publishes the public protocol", () => {
     expect(operationRegistry.map(({ operationId }) => operationId)).toEqual([
       "startConnectionAuthorization",
+      "getConnectionAuthorization",
       "listConnections",
       "getConnection",
+      "startConnectionScopeUpgrade",
+      "listConnectionUses",
       "revokeConnection",
       "startEndUserAuthorization",
       "exchangeEndUserAuthorization",
@@ -97,6 +100,17 @@ describe("operation registry", () => {
       listMessages.response.body.safeParse({ data: [], nextCursor: null })
         .success
     ).toBe(true)
+    for (const operationId of ["listConnections", "listConnectionUses"]) {
+      const operation = operationRegistry.find(
+        (candidate) => candidate.operationId === operationId
+      )
+      if (!operation) throw new Error(`${operationId} is missing`)
+      expect(operation.request.query.parse({})).toEqual({ limit: 20 })
+      expect(
+        operation.response.body.safeParse({ data: [], nextCursor: null })
+          .success
+      ).toBe(true)
+    }
   })
 
   it("publishes the end-user Approval Request contract", () => {

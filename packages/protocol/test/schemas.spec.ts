@@ -232,6 +232,8 @@ describe("public protocol schemas", () => {
       "decision_conflict",
       "idempotency_conflict",
       "conversation_identity_conflict",
+      "connection_reauthorization_required",
+      "connection_scope_insufficient",
       "event_cursor_expired",
       "execution_not_cancellable",
       "workflow_binding_not_found",

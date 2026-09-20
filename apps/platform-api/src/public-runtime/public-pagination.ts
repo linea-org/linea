@@ -15,6 +15,14 @@ const actionIntentCursorSchema = z.strictObject({
   createdAt: z.iso.datetime({ offset: true }),
   id: z.string().uuid(),
 })
+const connectionCursorSchema = z.strictObject({
+  createdAt: z.iso.datetime({ offset: true }),
+  id: z.string().uuid(),
+})
+const connectionUseCursorSchema = z.strictObject({
+  occurredAt: z.iso.datetime({ offset: true }),
+  id: z.string().uuid(),
+})
 const webhookDeliveryCursorSchema = z.strictObject({
   createdAt: z.iso.datetime({ offset: true }),
   id: z.string().uuid(),
@@ -32,6 +40,16 @@ export type PublicApprovalRequestCursor = {
 
 export type PublicActionIntentCursor = {
   createdAt: Date
+  id: string
+}
+
+export type PublicConnectionCursor = {
+  createdAt: Date
+  id: string
+}
+
+export type PublicConnectionUseCursor = {
+  occurredAt: Date
   id: string
 }
 
@@ -124,6 +142,40 @@ export function decodeActionIntentCursor(
   const decoded = decodeCursor(cursor, actionIntentCursorSchema)
   return decoded
     ? { createdAt: new Date(decoded.createdAt), id: decoded.id }
+    : undefined
+}
+
+export function encodeConnectionCursor(cursor: PublicConnectionCursor): string {
+  return encodeCursor({
+    createdAt: cursor.createdAt.toISOString(),
+    id: cursor.id,
+  })
+}
+
+export function decodeConnectionCursor(
+  cursor: string | undefined,
+): PublicConnectionCursor | undefined {
+  const decoded = decodeCursor(cursor, connectionCursorSchema)
+  return decoded
+    ? { createdAt: new Date(decoded.createdAt), id: decoded.id }
+    : undefined
+}
+
+export function encodeConnectionUseCursor(
+  cursor: PublicConnectionUseCursor,
+): string {
+  return encodeCursor({
+    occurredAt: cursor.occurredAt.toISOString(),
+    id: cursor.id,
+  })
+}
+
+export function decodeConnectionUseCursor(
+  cursor: string | undefined,
+): PublicConnectionUseCursor | undefined {
+  const decoded = decodeCursor(cursor, connectionUseCursorSchema)
+  return decoded
+    ? { occurredAt: new Date(decoded.occurredAt), id: decoded.id }
     : undefined
 }
 

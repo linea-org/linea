@@ -6,12 +6,19 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import {
   startConnectionAuthorizationSchema,
+  listConnectionsQuerySchema,
+  listConnectionUsesQuerySchema,
+  startConnectionScopeUpgradeSchema,
+  type ListConnectionsQuery,
+  type ListConnectionUsesQuery,
   type StartConnectionAuthorization,
+  type StartConnectionScopeUpgrade,
 } from '@linea/protocol/resources'
 import { CurrentEndUser } from '../end-user-sessions/current-end-user.decorator'
 import {
@@ -36,9 +43,41 @@ export class ConnectionsController {
     return this.connections.startAuthorization(principal, body)
   }
 
+  @Get('authorizations/:authorizationId')
+  getAuthorization(
+    @CurrentEndUser() principal: EndUserPrincipal,
+    @Param('authorizationId', ParseUUIDPipe) authorizationId: string,
+  ) {
+    return this.connections.getAuthorization(principal, authorizationId)
+  }
+
   @Get()
-  list(@CurrentEndUser() principal: EndUserPrincipal) {
-    return this.connections.list(principal)
+  list(
+    @CurrentEndUser() principal: EndUserPrincipal,
+    @Query(new PublicValidationPipe(listConnectionsQuerySchema))
+    query: ListConnectionsQuery,
+  ) {
+    return this.connections.list(principal, query)
+  }
+
+  @Post(':connectionId/authorizations')
+  startScopeUpgrade(
+    @CurrentEndUser() principal: EndUserPrincipal,
+    @Param('connectionId', ParseUUIDPipe) connectionId: string,
+    @Body(new PublicValidationPipe(startConnectionScopeUpgradeSchema))
+    body: StartConnectionScopeUpgrade,
+  ) {
+    return this.connections.startScopeUpgrade(principal, connectionId, body)
+  }
+
+  @Get(':connectionId/uses')
+  listUses(
+    @CurrentEndUser() principal: EndUserPrincipal,
+    @Param('connectionId', ParseUUIDPipe) connectionId: string,
+    @Query(new PublicValidationPipe(listConnectionUsesQuerySchema))
+    query: ListConnectionUsesQuery,
+  ) {
+    return this.connections.listUses(principal, connectionId, query)
   }
 
   @Get(':connectionId')

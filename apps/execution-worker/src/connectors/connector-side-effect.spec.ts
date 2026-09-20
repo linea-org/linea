@@ -683,6 +683,39 @@ describe("exact Action Intent consent", () => {
     }
   })
 
+  it.each([
+    ["reauthorization_required", "connection_reauthorization_required"],
+    ["scope_insufficient", "connection_scope_insufficient"],
+  ])(
+    "returns the stable %s error before creating an intent",
+    async (boundary, code) => {
+      const fixture = await createFixture()
+      try {
+        if (boundary === "reauthorization_required") {
+          await pool.query(
+            "UPDATE connections SET status = 'reauthorization_required', credential_encrypted = NULL WHERE id = $1",
+            [fixture.connectionId]
+          )
+        } else {
+          await pool.query("UPDATE connections SET scopes = $1 WHERE id = $2", [
+            ["profile"],
+            fixture.connectionId,
+          ])
+        }
+        await expect(invoke(fixture)).rejects.toMatchObject({
+          code,
+        } satisfies Partial<ConnectorGatewayError>)
+        const intentCount = await pool.query<{ count: string }>(
+          "SELECT count(*) FROM action_intents WHERE execution_id = $1",
+          [fixture.executionId]
+        )
+        expect(intentCount.rows[0]?.count).toBe("0")
+      } finally {
+        await removeWorkspace(fixture.workspaceId)
+      }
+    }
+  )
+
   it("lets only one duplicate worker dispatch the approved side effect", async () => {
     const fixture = await createFixture()
     try {
