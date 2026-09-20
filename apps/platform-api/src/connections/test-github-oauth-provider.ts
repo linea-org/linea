@@ -8,167 +8,223 @@ import { createGithubOAuthProvider } from './github-oauth-provider'
 
 type Account = { id: number; login: string }
 
+type TestGithubProviderState = {
+  codes: Map<string, { challenge: string; scopes: string[]; account: Account }>
+  accessTokens: Map<string, Account>
+  refreshTokens: Map<string, { account: Account; scopes: string[] }>
+  revokedAccounts: Set<number>
+  account: Account
+  nextGrantedScopes: string[] | undefined
+  rejectNextRefresh: boolean
+  rejectNextRevocation: boolean
+}
+
+function respond(
+  response: ServerResponse,
+  status: number,
+  value?: unknown,
+): void {
+  response.writeHead(status, { 'content-type': 'application/json' })
+  response.end(value === undefined ? undefined : JSON.stringify(value))
+}
+
+function handleAuthorization(
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+  state: TestGithubProviderState,
+): boolean {
+  if (request.method !== 'GET' || url.pathname !== '/login/oauth/authorize') {
+    return false
+  }
+  if (required(url, 'client_id') !== 'github-client') {
+    respond(response, 401, { error: 'bad_client' })
+    return true
+  }
+  const redirectUri = required(url, 'redirect_uri')
+  const code = randomUUID()
+  const requestedScopes = required(url, 'scope')
+    .split(' ')
+    .filter((scope) => scope !== 'offline_access')
+  state.codes.set(code, {
+    challenge: required(url, 'code_challenge'),
+    scopes: state.nextGrantedScopes ?? requestedScopes,
+    account: state.account,
+  })
+  state.nextGrantedScopes = undefined
+  const callback = new URL(redirectUri)
+  callback.searchParams.set('code', code)
+  callback.searchParams.set('state', required(url, 'state'))
+  response.writeHead(302, { location: callback.toString() }).end()
+  return true
+}
+
+function rotateRefreshToken(
+  response: ServerResponse,
+  parameters: URLSearchParams,
+  state: TestGithubProviderState,
+): void {
+  const current = state.refreshTokens.get(parameters.get('refresh_token') ?? '')
+  if (!current || state.rejectNextRefresh) {
+    state.rejectNextRefresh = false
+    respond(response, 400, { error: 'bad_refresh_secret' })
+    return
+  }
+  const accessToken = `gho_${randomUUID()}`
+  const refreshToken = `ghr_${randomUUID()}`
+  state.accessTokens.set(accessToken, current.account)
+  state.refreshTokens.set(refreshToken, current)
+  respond(response, 200, {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires_in: 3600,
+    refresh_token_expires_in: 7200,
+    scope: current.scopes.join(','),
+    token_type: 'bearer',
+  })
+}
+
+function exchangeAuthorizationCode(
+  response: ServerResponse,
+  parameters: URLSearchParams,
+  state: TestGithubProviderState,
+): void {
+  const code = parameters.get('code') ?? ''
+  const authorization = state.codes.get(code)
+  const verifier = parameters.get('code_verifier') ?? ''
+  const challenge = createHash('sha256').update(verifier).digest('base64url')
+  if (!authorization || authorization.challenge !== challenge) {
+    respond(response, 400, { error: 'bad_code_secret' })
+    return
+  }
+  state.codes.delete(code)
+  const accessToken = `gho_${randomUUID()}`
+  const refreshToken = `ghr_${randomUUID()}`
+  state.accessTokens.set(accessToken, authorization.account)
+  state.refreshTokens.set(refreshToken, {
+    account: authorization.account,
+    scopes: authorization.scopes,
+  })
+  respond(response, 200, {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires_in: 3600,
+    refresh_token_expires_in: 7200,
+    scope: authorization.scopes.join(','),
+    token_type: 'bearer',
+  })
+}
+
+async function handleTokenExchange(
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+  state: TestGithubProviderState,
+): Promise<boolean> {
+  if (
+    request.method !== 'POST' ||
+    url.pathname !== '/login/oauth/access_token'
+  ) {
+    return false
+  }
+  const parameters = new URLSearchParams(await readBody(request))
+  if (
+    parameters.get('client_id') !== 'github-client' ||
+    parameters.get('client_secret') !== 'github-client-secret'
+  ) {
+    respond(response, 401, { error: 'bad_client' })
+    return true
+  }
+  if (parameters.get('grant_type') === 'refresh_token') {
+    rotateRefreshToken(response, parameters, state)
+    return true
+  }
+  exchangeAuthorizationCode(response, parameters, state)
+  return true
+}
+
+function handleAccount(
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+  state: TestGithubProviderState,
+): boolean {
+  if (request.method !== 'GET' || url.pathname !== '/user') return false
+  const token = request.headers.authorization?.replace(/^Bearer /, '')
+  const tokenAccount = token ? state.accessTokens.get(token) : undefined
+  if (!tokenAccount) {
+    respond(response, 401, { message: 'bad_access_secret' })
+    return true
+  }
+  respond(response, 200, {
+    id: tokenAccount.id,
+    login: tokenAccount.login,
+    token_echo: token,
+  })
+  return true
+}
+
+async function handleRevocation(
+  request: IncomingMessage,
+  response: ServerResponse,
+  url: URL,
+  state: TestGithubProviderState,
+): Promise<boolean> {
+  if (
+    request.method !== 'DELETE' ||
+    url.pathname !== '/applications/github-client/token'
+  ) {
+    return false
+  }
+  const expectedAuthorization = `Basic ${Buffer.from(
+    'github-client:github-client-secret',
+  ).toString('base64')}`
+  if (request.headers.authorization !== expectedAuthorization) {
+    respond(response, 401, { message: 'bad_client_secret' })
+    return true
+  }
+  if (state.rejectNextRevocation) {
+    state.rejectNextRevocation = false
+    respond(response, 503, { message: 'revocation_secret' })
+    return true
+  }
+  const parsed: unknown = JSON.parse(await readBody(request))
+  const token =
+    parsed &&
+    typeof parsed === 'object' &&
+    'access_token' in parsed &&
+    typeof parsed.access_token === 'string'
+      ? parsed.access_token
+      : ''
+  const tokenAccount = state.accessTokens.get(token)
+  if (!tokenAccount) {
+    respond(response, 404, { message: 'missing' })
+    return true
+  }
+  state.accessTokens.delete(token)
+  state.revokedAccounts.add(tokenAccount.id)
+  response.writeHead(204).end()
+  return true
+}
+
 export async function startTestGithubOAuthProvider() {
-  const codes = new Map<
-    string,
-    { challenge: string; scopes: string[]; account: Account }
-  >()
-  const accessTokens = new Map<string, Account>()
-  const refreshTokens = new Map<
-    string,
-    { account: Account; scopes: string[] }
-  >()
-  const revokedAccounts = new Set<number>()
-  let account = { id: 123456, login: 'octocat' }
-  let nextGrantedScopes: string[] | undefined
-  let rejectNextRefresh = false
-  let rejectNextRevocation = false
-  const respond = (
-    response: ServerResponse,
-    status: number,
-    value?: unknown,
-  ) => {
-    response.writeHead(status, { 'content-type': 'application/json' })
-    response.end(value === undefined ? undefined : JSON.stringify(value))
+  const state: TestGithubProviderState = {
+    codes: new Map(),
+    accessTokens: new Map(),
+    refreshTokens: new Map(),
+    revokedAccounts: new Set(),
+    account: { id: 123456, login: 'octocat' },
+    nextGrantedScopes: undefined,
+    rejectNextRefresh: false,
+    rejectNextRevocation: false,
   }
   const server = createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1')
-      if (
-        request.method === 'GET' &&
-        url.pathname === '/login/oauth/authorize'
-      ) {
-        if (required(url, 'client_id') !== 'github-client') {
-          respond(response, 401, { error: 'bad_client' })
-          return
-        }
-        const redirectUri = required(url, 'redirect_uri')
-        const code = randomUUID()
-        const requestedScopes = required(url, 'scope')
-          .split(' ')
-          .filter((scope) => scope !== 'offline_access')
-        codes.set(code, {
-          challenge: required(url, 'code_challenge'),
-          scopes: nextGrantedScopes ?? requestedScopes,
-          account,
-        })
-        nextGrantedScopes = undefined
-        const callback = new URL(redirectUri)
-        callback.searchParams.set('code', code)
-        callback.searchParams.set('state', required(url, 'state'))
-        response.writeHead(302, { location: callback.toString() }).end()
-        return
-      }
-      if (
-        request.method === 'POST' &&
-        url.pathname === '/login/oauth/access_token'
-      ) {
-        const parameters = new URLSearchParams(await readBody(request))
-        if (
-          parameters.get('client_id') !== 'github-client' ||
-          parameters.get('client_secret') !== 'github-client-secret'
-        ) {
-          respond(response, 401, { error: 'bad_client' })
-          return
-        }
-        if (parameters.get('grant_type') === 'refresh_token') {
-          const current = refreshTokens.get(
-            parameters.get('refresh_token') ?? '',
-          )
-          if (!current || rejectNextRefresh) {
-            rejectNextRefresh = false
-            respond(response, 400, { error: 'bad_refresh_secret' })
-            return
-          }
-          const accessToken = `gho_${randomUUID()}`
-          const refreshToken = `ghr_${randomUUID()}`
-          accessTokens.set(accessToken, current.account)
-          refreshTokens.set(refreshToken, current)
-          respond(response, 200, {
-            access_token: accessToken,
-            refresh_token: refreshToken,
-            expires_in: 3600,
-            refresh_token_expires_in: 7200,
-            scope: current.scopes.join(','),
-            token_type: 'bearer',
-          })
-          return
-        }
-        const authorization = codes.get(parameters.get('code') ?? '')
-        const verifier = parameters.get('code_verifier') ?? ''
-        const challenge = createHash('sha256')
-          .update(verifier)
-          .digest('base64url')
-        if (!authorization || authorization.challenge !== challenge) {
-          respond(response, 400, { error: 'bad_code_secret' })
-          return
-        }
-        codes.delete(parameters.get('code') ?? '')
-        const accessToken = `gho_${randomUUID()}`
-        const refreshToken = `ghr_${randomUUID()}`
-        accessTokens.set(accessToken, authorization.account)
-        refreshTokens.set(refreshToken, {
-          account: authorization.account,
-          scopes: authorization.scopes,
-        })
-        respond(response, 200, {
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          expires_in: 3600,
-          refresh_token_expires_in: 7200,
-          scope: authorization.scopes.join(','),
-          token_type: 'bearer',
-        })
-        return
-      }
-      if (request.method === 'GET' && url.pathname === '/user') {
-        const token = request.headers.authorization?.replace(/^Bearer /, '')
-        const tokenAccount = token ? accessTokens.get(token) : undefined
-        if (!tokenAccount) {
-          respond(response, 401, { message: 'bad_access_secret' })
-          return
-        }
-        respond(response, 200, {
-          id: tokenAccount.id,
-          login: tokenAccount.login,
-          token_echo: token,
-        })
-        return
-      }
-      if (
-        request.method === 'DELETE' &&
-        url.pathname === '/applications/github-client/token'
-      ) {
-        const expectedAuthorization = `Basic ${Buffer.from(
-          'github-client:github-client-secret',
-        ).toString('base64')}`
-        if (request.headers.authorization !== expectedAuthorization) {
-          respond(response, 401, { message: 'bad_client_secret' })
-          return
-        }
-        if (rejectNextRevocation) {
-          rejectNextRevocation = false
-          respond(response, 503, { message: 'revocation_secret' })
-          return
-        }
-        const parsed: unknown = JSON.parse(await readBody(request))
-        const token =
-          parsed &&
-          typeof parsed === 'object' &&
-          'access_token' in parsed &&
-          typeof parsed.access_token === 'string'
-            ? parsed.access_token
-            : ''
-        const tokenAccount = accessTokens.get(token)
-        if (!tokenAccount) {
-          respond(response, 404, { message: 'missing' })
-          return
-        }
-        accessTokens.delete(token)
-        revokedAccounts.add(tokenAccount.id)
-        response.writeHead(204).end()
-        return
-      }
+      if (handleAuthorization(request, response, url, state)) return
+      if (await handleTokenExchange(request, response, url, state)) return
+      if (handleAccount(request, response, url, state)) return
+      if (await handleRevocation(request, response, url, state)) return
       respond(response, 404, { message: 'missing' })
     })().catch(() => respond(response, 500, { message: 'provider_failed' }))
   })
@@ -187,19 +243,19 @@ export async function startTestGithubOAuthProvider() {
       apiBaseUrl: baseUrl,
     }),
     grantNextScopes(scopes: string[]) {
-      nextGrantedScopes = scopes
+      state.nextGrantedScopes = scopes
     },
     rejectNextRefresh() {
-      rejectNextRefresh = true
+      state.rejectNextRefresh = true
     },
     rejectNextRevocation() {
-      rejectNextRevocation = true
+      state.rejectNextRevocation = true
     },
     selectAccount(id: number, login: string) {
-      account = { id, login }
+      state.account = { id, login }
     },
     wasAccountRevoked(id: number) {
-      return revokedAccounts.has(id)
+      return state.revokedAccounts.has(id)
     },
     close: () =>
       new Promise<void>((resolve, reject) => {

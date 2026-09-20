@@ -2,13 +2,13 @@ import type { ConnectionProviderCredential } from './connection-oauth-provider'
 
 function parseScopes(value: unknown): string[] {
   if (!Array.isArray(value)) {
-    throw new Error('Stored provider credential is invalid')
+    throw new TypeError('Stored provider credential is invalid')
   }
   const scopes: string[] = []
   for (const value_ of value) {
     const scope: unknown = value_
     if (typeof scope !== 'string') {
-      throw new Error('Stored provider credential is invalid')
+      throw new TypeError('Stored provider credential is invalid')
     }
     scopes.push(scope)
   }
