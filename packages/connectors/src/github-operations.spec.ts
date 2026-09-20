@@ -297,8 +297,8 @@ describe("GitHub Connector Operations", () => {
       repository: "widgets",
       title: "  Create this  ",
       body: "Create this",
-      labels: ["bug"],
-      assignees: ["octocat"],
+      labels: ["éclair", "Zulu", "alpha", "éclair"],
+      assignees: ["octocat", "Alpha", "octocat"],
     })
     expect(normalized).toEqual({
       target: { owner: "acme", repository: "widgets" },
@@ -307,8 +307,8 @@ describe("GitHub Connector Operations", () => {
         repository: "widgets",
         title: "Create this",
         body: "Create this",
-        labels: ["bug"],
-        assignees: ["octocat"],
+        labels: ["Zulu", "alpha", "éclair"],
+        assignees: ["Alpha", "octocat"],
       },
       providerPreconditions: {},
     })
@@ -356,6 +356,10 @@ describe("GitHub Connector Operations", () => {
     })
   })
   it("revalidates pull request refs and reconciles an ambiguous create", async () => {
+    repositoryVersion = {
+      head: "a".repeat(40),
+      base: "b".repeat(40),
+    }
     const normalized = githubCreatePullRequestOperation.normalize({
       owner: "acme",
       repository: "widgets",
@@ -364,6 +368,10 @@ describe("GitHub Connector Operations", () => {
       head: "feature",
       base: "main",
       draft: false,
+      expectedHeadSha: repositoryVersion.head.toUpperCase(),
+      expectedBaseSha: repositoryVersion.base.toUpperCase(),
+    })
+    expect(normalized.providerPreconditions).toEqual({
       expectedHeadSha: repositoryVersion.head,
       expectedBaseSha: repositoryVersion.base,
     })
@@ -400,8 +408,8 @@ describe("GitHub Connector Operations", () => {
       )
     ).resolves.toBe(false)
     repositoryVersion = {
-      head: "1111111111111111111111111111111111111111",
-      base: "2222222222222222222222222222222222222222",
+      head: "a".repeat(40),
+      base: "b".repeat(40),
     }
     await expect(
       githubCreatePullRequestOperation.execute(

@@ -16,7 +16,10 @@ export const githubBranchSchema = z
   .min(1)
   .max(255)
   .regex(/^[A-Za-z0-9._/-]+$/)
-export const githubShaSchema = z.string().regex(/^[a-f0-9]{40}$/i)
+export const githubShaSchema = z
+  .string()
+  .regex(/^[a-f0-9]{40}$/i)
+  .transform((value) => value.toLowerCase())
 
 export class GithubProviderError extends Error {
   constructor(

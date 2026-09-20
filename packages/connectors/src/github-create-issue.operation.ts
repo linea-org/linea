@@ -24,9 +24,7 @@ const issueFields = {
   labels: z
     .array(z.string().min(1).max(50))
     .max(5)
-    .transform((labels) =>
-      [...new Set(labels)].sort((left, right) => left.localeCompare(right))
-    ),
+    .transform((labels) => [...new Set(labels)].sort()),
   assignees: z
     .array(
       z
@@ -36,9 +34,7 @@ const issueFields = {
         .regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/)
     )
     .max(5)
-    .transform((assignees) =>
-      [...new Set(assignees)].sort((left, right) => left.localeCompare(right))
-    ),
+    .transform((assignees) => [...new Set(assignees)].sort()),
 }
 const inputSchema = z.strictObject(issueFields)
 const parametersSchema = z.strictObject(issueFields)
