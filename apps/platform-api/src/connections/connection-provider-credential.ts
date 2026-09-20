@@ -17,6 +17,7 @@ function parseScopes(value: unknown): string[] {
 
 export function parseConnectionProviderCredential(
   value: string,
+  legacyScopes: string[],
 ): ConnectionProviderCredential {
   const parsed: unknown = JSON.parse(value)
   if (!parsed || typeof parsed !== 'object') {
@@ -43,15 +44,15 @@ export function parseConnectionProviderCredential(
   ) {
     throw new Error('Stored provider credential is invalid')
   }
-  if (!('grantedScopes' in parsed)) {
-    throw new Error('Stored provider credential is invalid')
-  }
   return {
     accountId: parsed.accountId,
     accountLabel: parsed.accountLabel,
     accessToken: parsed.accessToken,
     refreshToken: parsed.refreshToken,
     expiresAt: parsed.expiresAt,
-    grantedScopes: parseScopes(parsed.grantedScopes),
+    grantedScopes:
+      'grantedScopes' in parsed
+        ? parseScopes(parsed.grantedScopes)
+        : parseScopes(legacyScopes),
   }
 }

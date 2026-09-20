@@ -24,6 +24,7 @@ let repositoryVersion = {
 }
 let createdIssue = false
 let createdPullRequest = false
+let createdPullRequestState: "open" | "closed" = "open"
 let loseNextIssueResponse = false
 let createdPullRequestBody = ""
 
@@ -149,10 +150,15 @@ describe("GitHub Connector Operations", () => {
           request.method === "GET" &&
           url.pathname === "/repos/acme/widgets/pulls"
         ) {
+          const requestedState = url.searchParams.get("state")
+          const visible =
+            createdPullRequest &&
+            (requestedState === "all" ||
+              requestedState === createdPullRequestState)
           json(
             response,
             200,
-            createdPullRequest
+            visible
               ? [
                   {
                     id: 501,
@@ -160,7 +166,7 @@ describe("GitHub Connector Operations", () => {
                     number: 7,
                     title: "Ship it",
                     body: createdPullRequestBody,
-                    state: "open",
+                    state: createdPullRequestState,
                     html_url: "https://github.test/acme/widgets/pull/7",
                     draft: false,
                     head: { ref: "feature", sha: repositoryVersion.head },
@@ -414,12 +420,27 @@ describe("GitHub Connector Operations", () => {
       head: "feature",
       base: "main",
     })
+    createdPullRequestState = "closed"
+    await expect(
+      githubCreatePullRequestOperation.execute(
+        normalized.parameters,
+        normalized.providerPreconditions,
+        credential,
+        "pull-idempotency-key"
+      )
+    ).resolves.toMatchObject({ number: 7, state: "closed" })
     const pullCreates = requests.filter(
       (request) =>
         request.method === "POST" &&
         request.path === "/repos/acme/widgets/pulls"
     )
     expect(pullCreates).toHaveLength(1)
+    expect(
+      requests
+        .filter((request) => request.path === "/repos/acme/widgets/pulls")
+        .at(-1)
+        ?.query.get("state")
+    ).toBe("all")
     expect(JSON.stringify(pullCreates[0]?.body)).not.toContain(
       "pull-idempotency-key"
     )

@@ -204,6 +204,25 @@ export class ConnectionsService {
         provider: request.provider,
       }
       if ('error' in input) return authorizationResultUrl(request, 'failed')
+      const application = await repositories.application.getApplicationById(
+        db,
+        request.workspaceId,
+        request.applicationId,
+      )
+      const providerPolicy = application?.connectorAccessPolicy.providers.find(
+        (candidate) => candidate.provider === providerName,
+      )
+      if (!providerPolicy) return authorizationResultUrl(request, 'failed')
+      const requiredScopes =
+        providerName === 'github'
+          ? githubAuthorizationScopes(providerPolicy.actionFamilies)
+          : request.scopes
+      if (
+        requiredScopes.length !== request.scopes.length ||
+        requiredScopes.some((scope, index) => scope !== request.scopes[index])
+      ) {
+        return authorizationResultUrl(request, 'failed')
+      }
       const credential = await provider.exchangeAuthorizationCode({
         code: input.code,
         redirectUri: callbackUrl(providerName),
@@ -221,6 +240,8 @@ export class ConnectionsService {
             providerAccountId: credential.accountId,
             accountLabel: credential.accountLabel,
             grantedScopes: credential.grantedScopes,
+            actionFamilies: providerPolicy.actionFamilies,
+            requiredScopes,
             credentialPlaintext: JSON.stringify(credential),
             now: new Date(),
           },
@@ -283,6 +304,7 @@ export class ConnectionsService {
         recordId: current.id,
         provider: current.provider,
       }),
+      current.scopes,
     )
     const deliveryId = randomUUID()
     const now = new Date()

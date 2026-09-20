@@ -133,7 +133,7 @@ async function reconcilePullRequest(
   const url = githubUrl(
     `${repositoryPath(input.owner, input.repository)}/pulls`
   )
-  url.searchParams.set("state", "open")
+  url.searchParams.set("state", "all")
   url.searchParams.set("head", `${input.owner}:${input.head}`)
   url.searchParams.set("base", input.base)
   url.searchParams.set("per_page", "20")

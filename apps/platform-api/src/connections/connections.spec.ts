@@ -193,7 +193,7 @@ describe('OAuth Connections', () => {
   })
 
   it('expands GitHub scopes through a new ceremony without changing Connection identity', async () => {
-    const authorize = async (scopes: string[]) => {
+    const startAuthorization = async (scopes: string[]) => {
       const path = '/v1/user/connections/authorizations'
       const started = await request(baseUrl)
         .post(path)
@@ -213,6 +213,9 @@ describe('OAuth Connections', () => {
       expect(providerUrl.searchParams.get('scope')).toBe(
         [...scopes, 'offline_access'].join(' '),
       )
+      return providerUrl
+    }
+    const completeAuthorization = async (providerUrl: URL) => {
       const providerResponse = await fetch(providerUrl, { redirect: 'manual' })
       const callback = providerResponse.headers.get('location')
       if (!callback) throw new Error('Provider callback location is missing')
@@ -227,6 +230,8 @@ describe('OAuth Connections', () => {
         externalSubjectId,
       })
     }
+    const authorize = async (scopes: string[]) =>
+      completeAuthorization(await startAuthorization(scopes))
     const deniedPath = '/v1/user/connections/authorizations'
     const overScoped = await request(baseUrl)
       .post(deniedPath)
@@ -246,6 +251,69 @@ describe('OAuth Connections', () => {
       providerAccountId: '123456',
       accountLabel: 'octocat',
       scopes: ['read:user'],
+    })
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['profile'],
+            },
+            {
+              provider: 'github',
+              actionFamilies: ['repositories', 'issues', 'pull_requests'],
+              maxScopes: ['read:user', 'repo'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    const staleExpansion = await startAuthorization(['read:user', 'repo'])
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['profile'],
+            },
+            {
+              provider: 'github',
+              actionFamilies: ['repositories'],
+              maxScopes: ['read:user', 'repo'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    const staleProviderResponse = await fetch(staleExpansion, {
+      redirect: 'manual',
+    })
+    const staleCallback = staleProviderResponse.headers.get('location')
+    if (!staleCallback) throw new Error('Provider callback location is missing')
+    const staleCompleted = await fetch(staleCallback, { redirect: 'manual' })
+    const staleReturned = staleCompleted.headers.get('location')
+    if (!staleReturned)
+      throw new Error('Application return location is missing')
+    expect(new URL(staleReturned).searchParams.get('status')).toBe('failed')
+    const unchanged = (
+      await repositories.connection.listConnections(db, {
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+      })
+    ).find((connection) => connection.provider === 'github')
+    expect(unchanged).toMatchObject({
+      id: initial.id,
+      scopes: ['read:user'],
+      credentialVersion: initial.credentialVersion,
     })
     await pool.query(
       'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
@@ -539,6 +607,7 @@ describe('OAuth Connections', () => {
     const expired = {
       ...parseConnectionProviderCredential(
         decryptCredential(beforeRefresh.credentialEncrypted, context),
+        beforeRefresh.scopes,
       ),
       expiresAt: '2000-01-01T00:00:00.000Z',
     }
@@ -697,6 +766,7 @@ describe('OAuth Connections', () => {
     const expired = {
       ...parseConnectionProviderCredential(
         decryptCredential(stored.credentialEncrypted, context),
+        stored.scopes,
       ),
       expiresAt: '2000-01-01T00:00:00.000Z',
     }

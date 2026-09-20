@@ -74,6 +74,8 @@ export async function completeConnectionAuthorizationRequest(
     providerAccountId: string
     accountLabel: string
     grantedScopes: string[]
+    actionFamilies: string[]
+    requiredScopes: string[]
     credentialPlaintext: string
     now: Date
   }
@@ -148,11 +150,19 @@ export async function completeConnectionAuthorizationRequest(
         authority.sessionRevokedAt ||
         authority.sessionExpiresAt <= input.now ||
         !providerPolicy ||
+        providerPolicy.actionFamilies.length !== input.actionFamilies.length ||
+        providerPolicy.actionFamilies.some(
+          (family, index) => family !== input.actionFamilies[index]
+        ) ||
+        request.scopes.length !== input.requiredScopes.length ||
+        request.scopes.some(
+          (scope, index) => scope !== input.requiredScopes[index]
+        ) ||
         request.scopes.some(
           (scope) => !providerPolicy.maxScopes.includes(scope)
         ) ||
-        request.scopes.length !== input.grantedScopes.length ||
-        request.scopes.some(
+        input.requiredScopes.length !== input.grantedScopes.length ||
+        input.requiredScopes.some(
           (scope, index) => scope !== input.grantedScopes[index]
         ) ||
         input.grantedScopes.some(

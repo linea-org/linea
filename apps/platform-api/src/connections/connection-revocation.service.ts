@@ -97,6 +97,7 @@ export class ConnectionRevocationService
           recordId: delivery.id,
           provider: `${delivery.provider}:revocation`,
         }),
+        connection.scopes,
       )
       const controller = new AbortController()
       this.activeAbortController = controller

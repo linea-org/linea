@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { ConnectionProviderInvalidGrantError } from './connection-oauth-provider'
+import { parseConnectionProviderCredential } from './connection-provider-credential'
 import { githubAuthorizationScopes } from './github-oauth-provider'
 import { startTestGithubOAuthProvider } from './test-github-oauth-provider'
 
@@ -51,6 +52,19 @@ describe('GitHub OAuth provider', () => {
     expect(credential.accessToken).toMatch(/^gho_/)
     expect(credential.refreshToken).toMatch(/^ghr_/)
     expect(credential.expiresAt).not.toBeNull()
+  })
+  it('uses Connection scopes for credentials written before grant metadata existed', () => {
+    const credential = parseConnectionProviderCredential(
+      JSON.stringify({
+        accountId: '123456',
+        accountLabel: 'octocat',
+        accessToken: 'legacy-access-token',
+        refreshToken: 'legacy-refresh-token',
+        expiresAt: null,
+      }),
+      ['legacy-scope'],
+    )
+    expect(credential.grantedScopes).toEqual(['legacy-scope'])
   })
   it('derives only the scopes required by enabled GitHub action families', () => {
     expect(githubAuthorizationScopes(['repositories'])).toEqual(['read:user'])
