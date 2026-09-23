@@ -1,7 +1,7 @@
 import '@linea/config/env'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import { pool } from '@linea/db'
@@ -80,7 +80,7 @@ describe('Connections and Action Consent launch tracer', () => {
   let executionWorker: Worker | undefined
   let googleConnectionId: string
   let githubConnectionId: string
-  let rateLimitKeys: string[]
+  let rateLimitStartBucket: number
 
   beforeAll(async () => {
     google = await startTestGoogleProvider()
@@ -92,10 +92,7 @@ describe('Connections and Action Consent launch tracer', () => {
     })
     process.env.GOOGLE_CONNECTOR_API_BASE_URL = apiProvider.baseUrl
     process.env.GITHUB_API_BASE_URL = apiProvider.baseUrl
-    const rateLimits = await pool.query<{ key: string }>(
-      'SELECT key FROM end_user_authorization_rate_limits',
-    )
-    rateLimitKeys = rateLimits.rows.map((row) => row.key)
+    rateLimitStartBucket = Math.floor(Date.now() / 60_000)
     fixture = await createConnectionsLaunchFixture()
     const moduleRef = await Test.createTestingModule({
       imports: [ConnectionsModule, PublicRuntimeModule],
@@ -117,13 +114,21 @@ describe('Connections and Action Consent launch tracer', () => {
     if (google) await google.close()
     if (github) await github.close()
     if (apiProvider) await apiProvider.close()
-    if (rateLimitKeys) {
+    if (fixture) {
+      const lastBucket = Math.floor(Date.now() / 60_000)
+      const rateLimitKeys = Array.from(
+        { length: lastBucket - rateLimitStartBucket + 1 },
+        (_, offset) =>
+          createHash('sha256')
+            .update(
+              `runtime:execution:${fixture.primary.externalSubjectId}:${rateLimitStartBucket + offset}`,
+            )
+            .digest('hex'),
+      )
       await pool.query(
-        'DELETE FROM end_user_authorization_rate_limits WHERE NOT (key = ANY($1::text[]))',
+        'DELETE FROM end_user_authorization_rate_limits WHERE key = ANY($1::text[])',
         [rateLimitKeys],
       )
-    }
-    if (fixture) {
       await pool.query(
         'DELETE FROM approval_requests WHERE workspace_id = $1',
         [fixture.workspaceId],
