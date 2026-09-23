@@ -142,6 +142,7 @@ export const connectionRevocationDeliveries = snakeCase.table(
     externalSubjectId: uuid().notNull(),
     connectionId: uuid(),
     provider: text().notNull(),
+    providerAccountId: text(),
     credentialEncrypted: text(),
     expiresAt: timestamp({ withTimezone: true }).notNull(),
     availableAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -158,6 +159,10 @@ export const connectionRevocationDeliveries = snakeCase.table(
       table.deliveredAt,
       table.availableAt,
       table.expiresAt
+    ),
+    index("connection_revocation_deliveries_account_idx").on(
+      table.provider,
+      table.providerAccountId
     ),
     foreignKey({
       name: "connection_revocation_deliveries_connection_fkey",

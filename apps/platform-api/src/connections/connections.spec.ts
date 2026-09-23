@@ -38,6 +38,7 @@ import { parseConnectionProviderCredential } from './connection-provider-credent
 import { ConnectionRevocationService } from './connection-revocation.service'
 import { ConnectionsModule } from './connections.module'
 import { startTestGoogleProvider } from './test-google-provider'
+import { googleOAuthProviderFromEnvironment } from './google-oauth-provider'
 import { startTestGithubOAuthProvider } from './test-github-oauth-provider'
 import { startTestOAuthProvider } from './test-oauth-provider'
 
@@ -606,6 +607,148 @@ describe('OAuth Connections', () => {
       }),
     )
   }, 15_000)
+
+  it('keeps a new Google authorization safe from an older pending revocation', async () => {
+    google.selectAccount(
+      'reconnected-google-subject',
+      'reconnected@example.com',
+    )
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [JSON.stringify(connectorPolicy(['gmail_read'])), applicationId],
+    )
+    const path = '/v1/user/connections/authorizations'
+    const authorize = async () => {
+      const started = await request(baseUrl)
+        .post(path)
+        .set('Authorization', `DPoP ${accessToken}`)
+        .set('DPoP', await createProof('POST', `${baseUrl}${path}`))
+        .send({
+          provider: 'google',
+          returnUri: 'http://127.0.0.1:4173/connections/callback',
+        })
+      const authorization = responseBody(
+        started,
+        connectionAuthorizationResponseSchema,
+      )
+      const granted = await fetch(authorization.authorizationUrl, {
+        redirect: 'manual',
+      })
+      const callback = granted.headers.get('location')
+      if (!callback) throw new Error('Google callback location is missing')
+      const completed = await fetch(callback, { redirect: 'manual' })
+      return new URL(completed.headers.get('location') ?? '').searchParams.get(
+        'status',
+      )
+    }
+    await expect(authorize()).resolves.toBe('connected')
+    const initial = (
+      await repositories.connection.listConnections(db, {
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+      })
+    ).find(
+      ({ provider, providerAccountId }) =>
+        provider === 'google' &&
+        providerAccountId === 'reconnected-google-subject',
+    )
+    if (!initial) throw new Error('Expected Google Connection')
+    const getPath = `/v1/user/connections/${initial.id}`
+    const revoked = await request(baseUrl)
+      .delete(getPath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('DELETE', `${baseUrl}${getPath}`))
+    expect(responseBody(revoked, connectionSchema).status).toBe('revoked')
+    const pending = await db.query.connectionRevocationDeliveries.findFirst({
+      where: { connectionId: initial.id },
+    })
+    expect(pending?.credentialEncrypted).not.toBeNull()
+    await expect(authorize()).resolves.toBe('connected')
+    expect(
+      await db.query.connectionRevocationDeliveries.findFirst({
+        where: { id: pending?.id },
+      }),
+    ).toBeUndefined()
+    await app.get(ConnectionRevocationService).poll()
+    const active = (
+      await repositories.connection.listConnections(db, {
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+      })
+    ).find(
+      ({ providerAccountId, status }) =>
+        providerAccountId === 'reconnected-google-subject' &&
+        status === 'active',
+    )
+    if (!active) throw new Error('Expected active Google Connection')
+    const resolved = await app
+      .get(ConnectionCredentialsService)
+      .resolve(
+        { sessionId, workspaceId, applicationId, externalSubjectId },
+        active.id,
+      )
+    expect(resolved.accountId).toBe('reconnected-google-subject')
+    const activePath = `/v1/user/connections/${active.id}`
+    const revokedAgain = await request(baseUrl)
+      .delete(activePath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('DELETE', `${baseUrl}${activePath}`))
+    expect(responseBody(revokedAgain, connectionSchema).status).toBe('revoked')
+    await pool.query(
+      `UPDATE connection_revocation_deliveries SET claimed_by = $1, claim_expires_at = $2 WHERE connection_id = $3`,
+      ['in-flight-worker', new Date(Date.now() + 30_000), active.id],
+    )
+    await expect(authorize()).resolves.toBe('failed')
+    const refused = (
+      await repositories.connection.listConnections(db, {
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+      })
+    ).find(
+      ({ providerAccountId, status }) =>
+        providerAccountId === 'reconnected-google-subject' &&
+        status === 'active',
+    )
+    expect(refused).toBeUndefined()
+  }, 15_000)
+
+  it('rejects configured Google OAuth endpoints without HTTPS', () => {
+    const endpointNames = [
+      'GOOGLE_CONNECTOR_AUTHORIZATION_URL',
+      'GOOGLE_CONNECTOR_TOKEN_URL',
+      'GOOGLE_CONNECTOR_USERINFO_URL',
+      'GOOGLE_CONNECTOR_REVOCATION_URL',
+    ] as const
+    const priorEndpoints = endpointNames.map((name) => process.env[name])
+    const priorClientId = process.env.GOOGLE_CONNECTOR_CLIENT_ID
+    const priorClientSecret = process.env.GOOGLE_CONNECTOR_CLIENT_SECRET
+    try {
+      process.env.GOOGLE_CONNECTOR_CLIENT_ID = 'test-client'
+      process.env.GOOGLE_CONNECTOR_CLIENT_SECRET = 'test-secret'
+      for (const name of endpointNames) {
+        process.env[name] = 'http://127.0.0.1:4000/insecure'
+        expect(() => googleOAuthProviderFromEnvironment()).toThrow(
+          'Google OAuth endpoints must use HTTPS',
+        )
+        delete process.env[name]
+      }
+    } finally {
+      endpointNames.forEach((name, index) => {
+        const previous = priorEndpoints[index]
+        if (previous === undefined) delete process.env[name]
+        else process.env[name] = previous
+      })
+      if (priorClientId === undefined)
+        delete process.env.GOOGLE_CONNECTOR_CLIENT_ID
+      else process.env.GOOGLE_CONNECTOR_CLIENT_ID = priorClientId
+      if (priorClientSecret === undefined)
+        delete process.env.GOOGLE_CONNECTOR_CLIENT_SECRET
+      else process.env.GOOGLE_CONNECTOR_CLIENT_SECRET = priorClientSecret
+    }
+  })
 
   it('enforces the Application scope and return-origin caps', async () => {
     const path = '/v1/user/connections/authorizations'

@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { readBoundedJsonResponse } from "./bounded-response.js"
+import { googleEndpointUrl } from "./google-endpoint.js"
 
 const MAXIMUM_GOOGLE_RESPONSE_BYTES = 1_000_000
 
@@ -14,7 +15,10 @@ export class GoogleProviderError extends Error {
 
 export function googleApiUrl(path: string): URL {
   const baseUrl = process.env.GOOGLE_CONNECTOR_API_BASE_URL
-  return new URL(path, baseUrl ?? "https://www.googleapis.com")
+  return new URL(
+    path,
+    googleEndpointUrl(baseUrl ?? "https://www.googleapis.com")
+  )
 }
 
 async function boundedJson(response: Response): Promise<unknown> {
@@ -43,6 +47,7 @@ export async function googleJson<T>(
   try {
     response = await fetch(url, {
       method: input.method ?? "GET",
+      redirect: "error",
       headers: {
         authorization: `Bearer ${input.accessToken}`,
         ...(input.body === undefined

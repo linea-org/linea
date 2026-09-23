@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { readBoundedJsonResponse } from "./bounded-response.js"
 import type { ConnectorReadCredential } from "./connector-read-operation.js"
+import { googleEndpointUrl } from "./google-endpoint.js"
 import { normalizeGoogleGrantedScopes } from "./google-scopes.js"
 
 const storedGoogleCredentialSchema = z
@@ -44,10 +45,13 @@ export async function refreshGoogleCredential(
     throw new Error("Google Connector credential refresh is unavailable")
   }
   const response = await fetch(
-    process.env.GOOGLE_CONNECTOR_TOKEN_URL ??
-      "https://oauth2.googleapis.com/token",
+    googleEndpointUrl(
+      process.env.GOOGLE_CONNECTOR_TOKEN_URL ??
+        "https://oauth2.googleapis.com/token"
+    ),
     {
       method: "POST",
+      redirect: "error",
       signal: AbortSignal.timeout(20_000),
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({

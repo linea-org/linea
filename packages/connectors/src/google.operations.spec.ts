@@ -12,7 +12,7 @@ import {
   GoogleRefreshInvalidGrantError,
   refreshGoogleCredential,
 } from "./google-credential-refresh.js"
-import { GoogleProviderError } from "./google-http.js"
+import { googleApiUrl, googleJson, GoogleProviderError } from "./google-http.js"
 import {
   GOOGLE_ACTION_SCOPES,
   normalizeGoogleGrantedScopes,
@@ -66,6 +66,9 @@ describe("Google Connector Operations", () => {
   let gmailReadCount = 0
   let calendarCreateAmbiguous = true
   let calendarPatchCount = 0
+  let redirectToken = false
+  let redirectGmail = false
+  let redirectedRequests = 0
   let lastCalendarPatch: unknown
   const events = new Map<string, StoredEvent>()
 
@@ -73,7 +76,16 @@ describe("Google Connector Operations", () => {
     server = createServer((request, response) => {
       const run = async (): Promise<void> => {
         const url = new URL(request.url ?? "/", "http://127.0.0.1")
+        if (url.pathname === "/credential-leak") {
+          redirectedRequests += 1
+          response.writeHead(200).end()
+          return
+        }
         if (request.method === "POST" && url.pathname === "/token") {
+          if (redirectToken) {
+            response.writeHead(307, { location: "/credential-leak" }).end()
+            return
+          }
           const input = new URLSearchParams(await requestText(request))
           if (input.get("refresh_token") === "invalid") {
             response
@@ -101,6 +113,10 @@ describe("Google Connector Operations", () => {
           request.method === "GET" &&
           url.pathname === "/gmail/v1/users/me/messages"
         ) {
+          if (redirectGmail) {
+            response.writeHead(307, { location: "/credential-leak" }).end()
+            return
+          }
           gmailReadCount += 1
           if (gmailReconciliationFailure) {
             response.writeHead(401).end()
@@ -357,6 +373,49 @@ describe("Google Connector Operations", () => {
     await expect(
       refreshGoogleCredential({ ...current, refreshToken: "invalid" })
     ).rejects.toBeInstanceOf(GoogleRefreshInvalidGrantError)
+  })
+
+  it("rejects remote HTTP endpoints and credential-bearing redirects", async () => {
+    const apiBaseUrl = process.env.GOOGLE_CONNECTOR_API_BASE_URL
+    const tokenUrl = process.env.GOOGLE_CONNECTOR_TOKEN_URL
+    if (!apiBaseUrl || !tokenUrl)
+      throw new Error("Google test provider is missing")
+    const current = {
+      accountId: "google-account",
+      accountLabel: "account@example.com",
+      accessToken: "expired-access-token",
+      refreshToken: "current-refresh-token",
+      expiresAt: "2000-01-01T00:00:00.000Z",
+      grantedScopes: ["scope:one"],
+    }
+    try {
+      process.env.GOOGLE_CONNECTOR_API_BASE_URL = "http://google.example.test"
+      expect(() => googleApiUrl("/gmail/v1/users/me/messages")).toThrow(
+        "Google endpoint must use HTTPS"
+      )
+      process.env.GOOGLE_CONNECTOR_TOKEN_URL =
+        "http://google.example.test/token"
+      await expect(refreshGoogleCredential(current)).rejects.toThrow(
+        "Google endpoint must use HTTPS"
+      )
+      process.env.GOOGLE_CONNECTOR_API_BASE_URL = apiBaseUrl
+      process.env.GOOGLE_CONNECTOR_TOKEN_URL = tokenUrl
+      redirectToken = true
+      await expect(refreshGoogleCredential(current)).rejects.toThrow()
+      redirectToken = false
+      redirectGmail = true
+      await expect(
+        googleJson(googleApiUrl("/gmail/v1/users/me/messages"), z.unknown(), {
+          accessToken: credential.accessToken,
+        })
+      ).rejects.toBeInstanceOf(GoogleProviderError)
+      expect(redirectedRequests).toBe(0)
+    } finally {
+      redirectToken = false
+      redirectGmail = false
+      process.env.GOOGLE_CONNECTOR_API_BASE_URL = apiBaseUrl
+      process.env.GOOGLE_CONNECTOR_TOKEN_URL = tokenUrl
+    }
   })
 
   it("sends the exact Gmail intent and reconciles an ambiguous response", async () => {

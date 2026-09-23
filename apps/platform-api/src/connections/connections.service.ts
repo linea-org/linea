@@ -245,6 +245,7 @@ export class ConnectionsService {
         applicationId: request.applicationId,
         externalSubjectId: request.externalSubjectId,
         provider: request.provider,
+        providerAccountId: credential.accountId,
         credentialEncrypted: encryptCredential(JSON.stringify(credential), {
           workspaceId: request.workspaceId,
           applicationId: request.applicationId,

@@ -79,6 +79,18 @@ export type CompleteConnectionAuthorizationResult =
   | { outcome: "completed"; connection: Connection }
   | { outcome: "invalid" }
 
+async function lockGoogleGrant(
+  db: DbClient,
+  provider: string,
+  providerAccountId: string
+): Promise<void> {
+  if (provider === "google") {
+    await db.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`${provider}:${providerAccountId}`}, 0))`
+    )
+  }
+}
+
 export async function completeConnectionAuthorizationRequest(
   db: DbClient,
   input: {
@@ -183,6 +195,81 @@ export async function completeConnectionAuthorizationRequest(
         grantedScopes.some((scope) => !providerPolicy.maxScopes.includes(scope))
       ) {
         return { outcome: "invalid" }
+      }
+      await lockGoogleGrant(tx, request.provider, input.providerAccountId)
+      if (request.provider === "google") {
+        const deliveries = await tx
+          .select()
+          .from(connectionRevocationDeliveries)
+          .where(
+            and(
+              eq(connectionRevocationDeliveries.provider, request.provider),
+              or(
+                eq(
+                  connectionRevocationDeliveries.providerAccountId,
+                  input.providerAccountId
+                ),
+                and(
+                  isNull(connectionRevocationDeliveries.providerAccountId),
+                  eq(
+                    connectionRevocationDeliveries.workspaceId,
+                    request.workspaceId
+                  ),
+                  eq(
+                    connectionRevocationDeliveries.applicationId,
+                    request.applicationId
+                  ),
+                  eq(
+                    connectionRevocationDeliveries.externalSubjectId,
+                    request.externalSubjectId
+                  )
+                )
+              )
+            )
+          )
+          .for("update")
+        if (
+          deliveries.some(
+            (delivery) =>
+              delivery.id !== input.revocationDeliveryId &&
+              (delivery.claimedBy ||
+                (delivery.deliveredAt
+                  ? delivery.deliveredAt >= request.createdAt
+                  : delivery.lastAttemptAt &&
+                    delivery.lastAttemptAt >= request.createdAt))
+          )
+        ) {
+          return { outcome: "invalid" }
+        }
+        const pendingIds = deliveries
+          .filter(
+            (delivery) =>
+              delivery.id !== input.revocationDeliveryId &&
+              !delivery.deliveredAt
+          )
+          .map((delivery) => delivery.id)
+        if (pendingIds.length > 0) {
+          for (const delivery of deliveries) {
+            if (!pendingIds.includes(delivery.id) || !delivery.connectionId) {
+              continue
+            }
+            const [revoked] = await tx
+              .select()
+              .from(connections)
+              .where(eq(connections.id, delivery.connectionId))
+            if (revoked) {
+              await recordConnectionFact(tx, {
+                connection: revoked,
+                factType: "connection.revocation_payload_destroyed",
+                occurredAt: input.now,
+                outcome: "superseded",
+              })
+            }
+          }
+          await tx
+            .delete(connectionRevocationDeliveries)
+            .where(inArray(connectionRevocationDeliveries.id, pendingIds))
+        }
       }
       const [existing] = await tx
         .select()
@@ -403,6 +490,16 @@ export async function revokeConnection(
   | { outcome: "conflict" }
 > {
   return db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({
+        provider: connections.provider,
+        providerAccountId: connections.providerAccountId,
+      })
+      .from(connections)
+      .where(ownedConnection(owner, connectionId))
+    if (current) {
+      await lockGoogleGrant(tx, current.provider, current.providerAccountId)
+    }
     const [connection] = await tx
       .update(connections)
       .set({
@@ -440,6 +537,7 @@ export async function revokeConnection(
       externalSubjectId: owner.externalSubjectId,
       connectionId,
       provider: connection.provider,
+      providerAccountId: connection.providerAccountId,
       credentialEncrypted: input.revocationCredentialEncrypted,
       expiresAt: input.expiresAt,
       createdAt: input.now,
@@ -514,6 +612,7 @@ export async function stageAuthorizationCredentialRevocation(
     applicationId: string
     externalSubjectId: string
     provider: string
+    providerAccountId: string
     credentialEncrypted: string
     availableAt: Date
     expiresAt: Date
@@ -527,6 +626,7 @@ export async function stageAuthorizationCredentialRevocation(
     externalSubjectId: input.externalSubjectId,
     connectionId: null,
     provider: input.provider,
+    providerAccountId: input.providerAccountId,
     credentialEncrypted: input.credentialEncrypted,
     availableAt: input.availableAt,
     expiresAt: input.expiresAt,

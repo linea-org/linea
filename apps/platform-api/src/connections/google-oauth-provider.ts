@@ -80,6 +80,7 @@ export class GoogleOAuthProvider implements ConnectionOAuthProvider {
   }): Promise<ConnectionProviderCredential> {
     const tokenResponse = await fetch(this.config.tokenUrl, {
       method: 'POST',
+      redirect: 'error',
       signal: AbortSignal.timeout(20_000),
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -97,6 +98,7 @@ export class GoogleOAuthProvider implements ConnectionOAuthProvider {
       throw new Error('Google token response is incomplete')
     }
     const accountResponse = await fetch(this.config.userInfoUrl, {
+      redirect: 'error',
       signal: AbortSignal.timeout(20_000),
       headers: { authorization: `Bearer ${token.access_token}` },
     })
@@ -127,6 +129,7 @@ export class GoogleOAuthProvider implements ConnectionOAuthProvider {
     }
     const response = await fetch(this.config.tokenUrl, {
       method: 'POST',
+      redirect: 'error',
       signal: AbortSignal.timeout(20_000),
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -162,6 +165,7 @@ export class GoogleOAuthProvider implements ConnectionOAuthProvider {
   ): Promise<void> {
     const response = await fetch(this.config.revocationUrl, {
       method: 'POST',
+      redirect: 'error',
       signal,
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -176,7 +180,7 @@ export function googleOAuthProviderFromEnvironment(): GoogleOAuthProvider | null
   const clientId = process.env.GOOGLE_CONNECTOR_CLIENT_ID
   const clientSecret = process.env.GOOGLE_CONNECTOR_CLIENT_SECRET
   if (!clientId || !clientSecret) return null
-  return new GoogleOAuthProvider({
+  const config = {
     clientId,
     clientSecret,
     authorizationUrl:
@@ -191,5 +195,16 @@ export function googleOAuthProviderFromEnvironment(): GoogleOAuthProvider | null
     revocationUrl:
       process.env.GOOGLE_CONNECTOR_REVOCATION_URL ??
       'https://oauth2.googleapis.com/revoke',
-  })
+  }
+  for (const endpoint of [
+    config.authorizationUrl,
+    config.tokenUrl,
+    config.userInfoUrl,
+    config.revocationUrl,
+  ]) {
+    if (new URL(endpoint).protocol !== 'https:') {
+      throw new Error('Google OAuth endpoints must use HTTPS')
+    }
+  }
+  return new GoogleOAuthProvider(config)
 }
