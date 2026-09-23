@@ -272,6 +272,36 @@ describe('OAuth Connections', () => {
             },
             {
               provider: 'github',
+              actionFamilies: ['repositories'],
+              maxScopes: ['read:user', 'repo'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    const invalidUpgradePath = `/v1/user/connections/${initial.id}/authorizations`
+    const invalidUpgrade = await request(baseUrl)
+      .post(invalidUpgradePath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${invalidUpgradePath}`))
+      .send({
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+        scopes: ['read:user', 'repo'],
+      })
+    expect(invalidUpgrade.status).toBe(403)
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['profile'],
+            },
+            {
+              provider: 'github',
               actionFamilies: ['repositories', 'issues', 'pull_requests'],
               maxScopes: ['read:user', 'repo'],
             },

@@ -215,6 +215,37 @@ export class ConnectionsService {
         publicError('service_unavailable', 'Connection provider unavailable'),
       )
     }
+    if (connection.provider === 'github') {
+      const application = await repositories.application.getApplicationById(
+        db,
+        principal.workspaceId,
+        principal.applicationId,
+      )
+      const providerPolicy = application?.connectorAccessPolicy.providers.find(
+        (candidate) => candidate.provider === 'github',
+      )
+      let requiredScopes: string[]
+      try {
+        requiredScopes = githubAuthorizationScopes(
+          providerPolicy?.actionFamilies ?? [],
+        )
+      } catch {
+        throw new ForbiddenException(
+          publicError('scope_denied', 'Connection authorization denied'),
+        )
+      }
+      if (
+        requiredScopes.some(
+          (scope) => !providerPolicy?.maxScopes.includes(scope),
+        ) ||
+        requiredScopes.length !== input.scopes.length ||
+        requiredScopes.some((scope, index) => scope !== input.scopes[index])
+      ) {
+        throw new ForbiddenException(
+          publicError('scope_denied', 'Connection authorization denied'),
+        )
+      }
+    }
     const id = randomUUID()
     const state = opaqueValue()
     const codeVerifier = opaqueValue()

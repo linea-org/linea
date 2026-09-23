@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "a52c809b-1153-4d27-b919-4702e6e05a08",
+  "id": "ae7bdec8-939b-461d-8a0d-58087bcde76e",
   "prevIds": [
-    "3a98ade2-6318-40a8-8bee-791654ebafca"
+    "aa4fb9ee-d185-409a-9439-d9f84df2f7de"
   ],
   "ddl": [
     {
@@ -327,6 +327,7 @@
         "conversations:read",
         "conversations:write",
         "events:read",
+        "audit:read",
         "webhooks:read"
       ],
       "name": "application_key_scope",
@@ -339,6 +340,30 @@
         "closed"
       ],
       "name": "conversation_status",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "values": [
+        "connection.created",
+        "connection.refreshed",
+        "connection.credential_rotated",
+        "connection.reauthorization_required",
+        "connection.revoked",
+        "connection.revocation_payload_destroyed",
+        "action_intent.created",
+        "action_intent.consent_approved",
+        "action_intent.consent_rejected",
+        "action_intent.ready",
+        "action_intent.executing",
+        "action_intent.succeeded",
+        "action_intent.failed",
+        "action_intent.stale",
+        "action_intent.rejected",
+        "action_intent.cancelled",
+        "action_intent.outcome_unknown"
+      ],
+      "name": "connector_audit_fact_type",
       "entityType": "enums",
       "schema": "public"
     },
@@ -710,6 +735,12 @@
     {
       "isRlsEnabled": false,
       "name": "connections",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "connector_audit_facts",
       "entityType": "tables",
       "schema": "public"
     },
@@ -5451,6 +5482,19 @@
     {
       "type": "timestamp with time zone",
       "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "content_erased_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "action_intents"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "now()",
@@ -6600,6 +6644,19 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "last_failure_class",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connection_revocation_deliveries"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "claimed_by",
       "entityType": "columns",
       "schema": "public",
@@ -6825,6 +6882,253 @@
       "entityType": "columns",
       "schema": "public",
       "table": "connections"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "workspace_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "application_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "external_subject_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "subject_reference",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "connection_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "action_intent_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "decision_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "connector_audit_fact_type",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "fact_type",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "provider",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "operation_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "outcome",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "failure_class",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "content",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "content_expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "content_erased_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "audit_expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "occurred_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connector_audit_facts"
     },
     {
       "type": "uuid",
@@ -11878,6 +12182,118 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "workspace_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "occurred_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "connector_audit_facts_workspace_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "application_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "occurred_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "connector_audit_facts_application_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "external_subject_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "occurred_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "connector_audit_facts_subject_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "content_expires_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "audit_expires_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "connector_audit_facts_retention_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "actor_kind",
           "isExpression": false,
           "asc": true,
@@ -14542,6 +14958,44 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "name": "connector_audit_facts_application_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "external_subject_id",
+        "workspace_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "external_subjects",
+      "columnsTo": [
+        "id",
+        "workspace_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "connector_audit_facts_subject_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "application_id",
+        "workspace_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "applications",
+      "columnsTo": [
+        "id",
+        "workspace_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "public_idempotency_records_application_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -15523,6 +15977,16 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "connector_audit_facts_pkey",
+      "schema": "public",
+      "table": "connector_audit_facts",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "public_idempotency_records_pkey",
       "schema": "public",
       "table": "public_idempotency_records",
@@ -15899,7 +16363,7 @@
       "table": "action_intents"
     },
     {
-      "value": "(\"status\" = 'succeeded') = (\"normalized_result\" IS NOT NULL) AND (\"status\" IN ('failed', 'stale', 'outcome_unknown')) = (\"normalized_error\" IS NOT NULL)",
+      "value": "\"content_erased_at\" IS NOT NULL OR ((\"status\" = 'succeeded') = (\"normalized_result\" IS NOT NULL) AND (\"status\" IN ('failed', 'stale', 'outcome_unknown')) = (\"normalized_error\" IS NOT NULL))",
       "name": "action_intents_outcome_check",
       "entityType": "checks",
       "schema": "public",
@@ -16016,6 +16480,20 @@
       "entityType": "checks",
       "schema": "public",
       "table": "connections"
+    },
+    {
+      "value": "\"content_expires_at\" <= \"audit_expires_at\"",
+      "name": "connector_audit_facts_expiry_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "connector_audit_facts"
+    },
+    {
+      "value": "(\"content_erased_at\" IS NULL) OR (\"content\" IS NULL)",
+      "name": "connector_audit_facts_content_state_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "connector_audit_facts"
     },
     {
       "value": "\"attempts\" >= 0",
