@@ -977,7 +977,7 @@ Body:
       "type": "array"
     }
   },
-  "required": ["provider", "returnUri", "scopes"],
+  "required": ["provider", "returnUri"],
   "type": "object"
 }
 ```

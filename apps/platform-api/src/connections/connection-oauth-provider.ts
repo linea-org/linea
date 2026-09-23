@@ -23,6 +23,7 @@ export type ConnectionProviderCredential = {
 
 export interface ConnectionOAuthProvider {
   readonly provider: string
+  authorizationScopes(actionFamilies: readonly string[]): readonly string[]
   createAuthorizationUrl(
     input: CreateConnectionAuthorizationUrlInput,
   ): Promise<string> | string

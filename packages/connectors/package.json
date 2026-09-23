@@ -8,7 +8,8 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --exclude src/github-live.smoke.spec.ts",
+    "test": "vitest run --exclude src/google.live.spec.ts --exclude src/github-live.smoke.spec.ts",
+    "test:google-live": "vitest run src/google.live.spec.ts",
     "test:github:live": "vitest run src/github-live.smoke.spec.ts"
   },
   "dependencies": {

@@ -569,7 +569,6 @@ describe("browser end-user client", () => {
       client.startConnectionAuthorization({
         provider: "test",
         returnUri: "https://app.example/connections/callback",
-        scopes: ["profile"],
       })
     ).resolves.toMatchObject({
       authorizationUrl: "https://provider.example/authorize",

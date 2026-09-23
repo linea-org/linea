@@ -137,6 +137,9 @@ export function createGithubOAuthProvider(
 ): ConnectionOAuthProvider {
   return Object.freeze<ConnectionOAuthProvider>({
     provider: 'github',
+    authorizationScopes(actionFamilies) {
+      return githubAuthorizationScopes([...actionFamilies])
+    },
     createAuthorizationUrl(input) {
       const url = new URL('/login/oauth/authorize', configuration.oauthBaseUrl)
       url.searchParams.set('client_id', configuration.clientId)

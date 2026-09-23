@@ -1,5 +1,6 @@
 import {
   decryptCredential,
+  encryptCredential,
   repositories,
   type ActionIntent,
   type Database,
@@ -21,6 +22,12 @@ import {
   type NormalizedSideEffect,
 } from "./connector-side-effect-operation.js"
 import { validateSafeDisplay } from "./safe-display.js"
+import {
+  connectorCredential,
+  GoogleRefreshInvalidGrantError,
+  parseStoredGoogleCredential,
+  refreshGoogleCredential,
+} from "./google-credential-refresh.js"
 
 const storedCredentialSchema = z
   .object({
@@ -171,7 +178,11 @@ export class ConnectorGateway {
     ) {
       throw new ConnectorGatewayError()
     }
-    const credential = this.resolveCredential(authority.connection)
+    const resolvedCredential = this.resolveCredential(authority.connection)
+    const credential =
+      resolvedCredential instanceof Promise
+        ? await resolvedCredential
+        : resolvedCredential
     if (credential.accountId !== authority.connection.providerAccountId) {
       throw new ConnectorGatewayError()
     }
@@ -399,7 +410,11 @@ export class ConnectorGateway {
     }
     let credential: ConnectorReadCredential
     try {
-      credential = this.resolveCredential(claimed.connection)
+      const resolvedCredential = this.resolveCredential(claimed.connection)
+      credential =
+        resolvedCredential instanceof Promise
+          ? await resolvedCredential
+          : resolvedCredential
     } catch {
       const dispatchMayHaveReachedProvider = Boolean(
         claimed.intent.dispatchStartedAt
@@ -646,27 +661,104 @@ export class ConnectorGateway {
     externalSubjectId: string
     provider: string
     credentialEncrypted: string | null
-  }): ConnectorReadCredential {
+    credentialVersion: number
+    scopes: string[]
+  }): ConnectorReadCredential | Promise<ConnectorReadCredential> {
     if (!connection.credentialEncrypted) throw new ConnectorGatewayError()
     try {
-      const credential = storedCredentialSchema.parse(
-        JSON.parse(
-          decryptCredential(connection.credentialEncrypted, {
-            workspaceId: connection.workspaceId,
-            applicationId: connection.applicationId,
-            externalSubjectId: connection.externalSubjectId,
-            recordId: connection.id,
-            provider: connection.provider,
-          })
-        )
+      const context = {
+        workspaceId: connection.workspaceId,
+        applicationId: connection.applicationId,
+        externalSubjectId: connection.externalSubjectId,
+        recordId: connection.id,
+        provider: connection.provider,
+      }
+      const parsed: unknown = JSON.parse(
+        decryptCredential(connection.credentialEncrypted, context)
       )
+      const credential = storedCredentialSchema.parse(parsed)
+      const refreshMargin = connection.provider === "google" ? 60_000 : 0
       if (
-        credential.expiresAt &&
-        Date.parse(credential.expiresAt) <= Date.now()
+        !credential.expiresAt ||
+        Date.parse(credential.expiresAt) > Date.now() + refreshMargin
       ) {
+        return { ...credential, scopes: connection.scopes }
+      }
+      if (connection.provider !== "google") throw new ConnectorGatewayError()
+      const googleCredential = parseStoredGoogleCredential(parsed)
+      return this.refreshGoogleConnection(connection, context, googleCredential)
+    } catch (error) {
+      if (error instanceof ConnectorGatewayError) throw error
+      throw new ConnectorGatewayError()
+    }
+  }
+
+  private async refreshGoogleConnection(
+    connection: {
+      id: string
+      workspaceId: string
+      applicationId: string
+      externalSubjectId: string
+      provider: string
+      credentialVersion: number
+      scopes: string[]
+    },
+    context: {
+      workspaceId: string
+      applicationId: string
+      externalSubjectId: string
+      recordId: string
+      provider: string
+    },
+    credential: ReturnType<typeof parseStoredGoogleCredential>
+  ): Promise<ConnectorReadCredential> {
+    let refreshed
+    try {
+      refreshed = await refreshGoogleCredential(credential)
+    } catch (error) {
+      if (error instanceof GoogleRefreshInvalidGrantError) {
+        await repositories.connection.requireConnectionReauthorization(
+          this.db,
+          connection,
+          connection.id,
+          connection.credentialVersion,
+          new Date()
+        )
+      }
+      throw new ConnectorGatewayError()
+    }
+    try {
+      if (
+        connection.scopes.some(
+          (scope) => !refreshed.grantedScopes.includes(scope)
+        )
+      ) {
+        await repositories.connection.requireConnectionReauthorization(
+          this.db,
+          connection,
+          connection.id,
+          connection.credentialVersion,
+          new Date()
+        )
         throw new ConnectorGatewayError()
       }
-      return credential
+      const rotated = await repositories.connection.rotateConnectionCredential(
+        this.db,
+        connection,
+        connection.id,
+        connection.credentialVersion,
+        encryptCredential(JSON.stringify(refreshed), context),
+        new Date()
+      )
+      if (rotated) return connectorCredential(refreshed, connection.scopes)
+      const latest = await repositories.connection.getConnection(
+        this.db,
+        connection,
+        connection.id
+      )
+      if (latest?.status !== "active") throw new ConnectorGatewayError()
+      const resolved = this.resolveCredential(latest)
+      return resolved instanceof Promise ? await resolved : resolved
     } catch (error) {
       if (error instanceof ConnectorGatewayError) throw error
       throw new ConnectorGatewayError()

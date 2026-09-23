@@ -338,14 +338,27 @@ describe("connector audit repository", () => {
         content: { accountLabel: fixture.connection.accountLabel },
       })
       const payloadId = randomUUID()
-      await tx.insert(connectionRevocationDeliveries).values({
-        id: payloadId,
-        workspaceId: organization.id,
-        connectionId: fixture.connection.id,
-        provider: fixture.connection.provider,
-        credentialEncrypted: secretMarker,
-        expiresAt: new Date(Date.now() + 60_000),
-      })
+      await tx.insert(connectionRevocationDeliveries).values([
+        {
+          id: payloadId,
+          workspaceId: organization.id,
+          applicationId: fixture.application.id,
+          externalSubjectId: fixture.subject.id,
+          connectionId: fixture.connection.id,
+          provider: fixture.connection.provider,
+          credentialEncrypted: secretMarker,
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+        {
+          workspaceId: organization.id,
+          applicationId: fixture.application.id,
+          externalSubjectId: fixture.subject.id,
+          connectionId: null,
+          provider: fixture.connection.provider,
+          credentialEncrypted: secretMarker,
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+      ])
       const erased = await eraseExternalSubject(
         tx,
         organization.id,
@@ -390,7 +403,12 @@ describe("connector audit repository", () => {
         await tx
           .select()
           .from(connectionRevocationDeliveries)
-          .where(eq(connectionRevocationDeliveries.id, payloadId))
+          .where(
+            eq(
+              connectionRevocationDeliveries.externalSubjectId,
+              fixture.subject.id
+            )
+          )
       ).toEqual([])
       const events = await tx
         .select()
@@ -421,6 +439,8 @@ describe("connector audit repository", () => {
       await tx.insert(connectionRevocationDeliveries).values({
         id: deliveryId,
         workspaceId: organization.id,
+        applicationId: fixture.application.id,
+        externalSubjectId: fixture.subject.id,
         connectionId: fixture.connection.id,
         provider: fixture.connection.provider,
         credentialEncrypted: secretMarker,

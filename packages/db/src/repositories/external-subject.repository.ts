@@ -310,26 +310,22 @@ export async function eraseExternalSubject(
       ...revokedConnections,
       ...alreadyRevokedConnections,
     ]
-    const pendingPayloads =
-      subjectConnections.length === 0
-        ? []
-        : await tx
-            .select()
-            .from(connectionRevocationDeliveries)
-            .where(
-              and(
-                inArray(
-                  connectionRevocationDeliveries.connectionId,
-                  subjectConnections.map(({ id }) => id)
-                ),
-                isNotNull(connectionRevocationDeliveries.credentialEncrypted)
-              )
-            )
-            .for("update")
+    const pendingPayloads = await tx
+      .select()
+      .from(connectionRevocationDeliveries)
+      .where(
+        and(
+          eq(connectionRevocationDeliveries.workspaceId, workspaceId),
+          eq(connectionRevocationDeliveries.externalSubjectId, existing.id),
+          isNotNull(connectionRevocationDeliveries.credentialEncrypted)
+        )
+      )
+      .for("update")
     const connectionsById = new Map(
       subjectConnections.map((connection) => [connection.id, connection])
     )
     for (const payload of pendingPayloads) {
+      if (!payload.connectionId) continue
       const connection = connectionsById.get(payload.connectionId)
       if (!connection) throw new Error("Revocation Connection is missing")
       await recordConnectionFact(tx, {

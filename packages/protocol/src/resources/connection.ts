@@ -23,7 +23,8 @@ export const startConnectionAuthorizationSchema = z.strictObject({
     .max(50)
     .transform((scopes) =>
       [...new Set(scopes)].sort((left, right) => left.localeCompare(right))
-    ),
+    )
+    .optional(),
 })
 
 export const connectionAuthorizationResponseSchema = z.strictObject({

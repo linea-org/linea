@@ -27,11 +27,12 @@ import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.gua
 import {
   CONNECTION_OAUTH_PROVIDERS,
   type ConnectionOAuthProvider,
+  type ConnectionProviderCredential,
 } from './connection-oauth-provider'
 import { parseConnectionProviderCredential } from './connection-provider-credential'
-import { githubAuthorizationScopes } from './github-oauth-provider'
 
 const AUTHORIZATION_LIFETIME_MS = 5 * 60 * 1000
+const AUTHORIZATION_CLEANUP_DELAY_MS = 5 * 60 * 1000
 const REVOCATION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000
 
 function opaqueValue(): string {
@@ -101,36 +102,36 @@ export class ConnectionsService {
         publicError('service_unavailable', 'Connection provider unavailable'),
       )
     }
-    if (input.provider === 'github') {
-      const application = await repositories.application.getApplicationById(
-        db,
-        principal.workspaceId,
-        principal.applicationId,
+    const policy =
+      await repositories.connection.getConnectionAuthorizationPolicy(db, {
+        workspaceId: principal.workspaceId,
+        applicationId: principal.applicationId,
+        externalSubjectId: principal.externalSubjectId,
+        provider: input.provider,
+      })
+    if (!policy) {
+      throw new ForbiddenException(
+        publicError('scope_denied', 'Connection authorization denied'),
       )
-      const providerPolicy = application?.connectorAccessPolicy.providers.find(
-        (candidate) => candidate.provider === 'github',
-      )
-      let requiredScopes: string[]
-      try {
-        requiredScopes = githubAuthorizationScopes(
-          providerPolicy?.actionFamilies ?? [],
-        )
-      } catch {
-        throw new ForbiddenException(
-          publicError('scope_denied', 'Connection authorization denied'),
-        )
-      }
+    }
+    let scopes: string[]
+    try {
+      scopes = [
+        ...new Set(provider.authorizationScopes(policy.actionFamilies)),
+      ].sort((left, right) => left.localeCompare(right))
       if (
-        requiredScopes.some(
-          (scope) => !providerPolicy?.maxScopes.includes(scope),
-        ) ||
-        requiredScopes.length !== input.scopes.length ||
-        requiredScopes.some((scope, index) => scope !== input.scopes[index])
+        scopes.length === 0 ||
+        scopes.some((scope) => !policy.maxScopes.includes(scope)) ||
+        (input.scopes !== undefined &&
+          (scopes.length !== input.scopes.length ||
+            scopes.some((scope, index) => scope !== input.scopes?.[index])))
       ) {
-        throw new ForbiddenException(
-          publicError('scope_denied', 'Connection authorization denied'),
-        )
+        throw new Error('Provider scopes exceed policy')
       }
+    } catch {
+      throw new ForbiddenException(
+        publicError('scope_denied', 'Connection authorization denied'),
+      )
     }
     const id = randomUUID()
     const state = opaqueValue()
@@ -143,7 +144,8 @@ export class ConnectionsService {
         externalSubjectId: principal.externalSubjectId,
         endUserSessionId: principal.sessionId,
         provider: input.provider,
-        scopes: input.scopes,
+        actionFamilies: policy.actionFamilies,
+        scopes,
         returnUri: input.returnUri,
         stateHash: hash(state),
         codeVerifierEncrypted: encryptCredential(codeVerifier, {
@@ -171,7 +173,7 @@ export class ConnectionsService {
         redirectUri: callbackUrl(input.provider),
         state,
         codeChallenge: challenge(codeVerifier),
-        scopes: input.scopes,
+        scopes,
       }),
     }
   }
@@ -195,6 +197,8 @@ export class ConnectionsService {
       throw new BadRequestException('Invalid authorization')
     }
     const request = claimed.request
+    let credential: ConnectionProviderCredential | undefined
+    let revocationStaged = false
     try {
       const context = {
         workspaceId: request.workspaceId,
@@ -204,39 +208,60 @@ export class ConnectionsService {
         provider: request.provider,
       }
       if ('error' in input) return authorizationResultUrl(request, 'failed')
-      const application = await repositories.application.getApplicationById(
-        db,
-        request.workspaceId,
-        request.applicationId,
-      )
-      const providerPolicy = application?.connectorAccessPolicy.providers.find(
-        (candidate) => candidate.provider === providerName,
-      )
-      if (!providerPolicy) return authorizationResultUrl(request, 'failed')
-      let requiredScopes: string[]
-      if (providerName === 'github') {
-        try {
-          requiredScopes = githubAuthorizationScopes(
-            providerPolicy.actionFamilies,
-          )
-        } catch {
-          return authorizationResultUrl(request, 'failed')
-        }
-      } else {
-        requiredScopes = request.scopes
+      const policy =
+        await repositories.connection.getConnectionAuthorizationPolicy(db, {
+          workspaceId: request.workspaceId,
+          applicationId: request.applicationId,
+          externalSubjectId: request.externalSubjectId,
+          provider: providerName,
+        })
+      if (!policy) return authorizationResultUrl(request, 'failed')
+      let currentScopes: string[]
+      try {
+        currentScopes = [
+          ...new Set(provider.authorizationScopes(policy.actionFamilies)),
+        ].sort((left, right) => left.localeCompare(right))
+      } catch {
+        return authorizationResultUrl(request, 'failed')
       }
       if (
-        requiredScopes.length !== request.scopes.length ||
-        requiredScopes.some((scope, index) => scope !== request.scopes[index])
+        currentScopes.length !== request.scopes.length ||
+        currentScopes.some((scope, index) => scope !== request.scopes[index]) ||
+        currentScopes.some((scope) => !policy.maxScopes.includes(scope))
       ) {
         return authorizationResultUrl(request, 'failed')
       }
-      const credential = await provider.exchangeAuthorizationCode({
+      credential = await provider.exchangeAuthorizationCode({
         code: input.code,
         redirectUri: callbackUrl(providerName),
         codeVerifier: decryptCredential(request.codeVerifierEncrypted, context),
         scopes: request.scopes,
       })
+      const revocationDeliveryId = randomUUID()
+      const revocationStagedAt = new Date()
+      await repositories.connection.stageAuthorizationCredentialRevocation(db, {
+        id: revocationDeliveryId,
+        workspaceId: request.workspaceId,
+        applicationId: request.applicationId,
+        externalSubjectId: request.externalSubjectId,
+        provider: request.provider,
+        providerAccountId: credential.accountId,
+        credentialEncrypted: encryptCredential(JSON.stringify(credential), {
+          workspaceId: request.workspaceId,
+          applicationId: request.applicationId,
+          externalSubjectId: request.externalSubjectId,
+          recordId: revocationDeliveryId,
+          provider: `${request.provider}:revocation`,
+        }),
+        availableAt: new Date(
+          revocationStagedAt.getTime() + AUTHORIZATION_CLEANUP_DELAY_MS,
+        ),
+        expiresAt: new Date(
+          revocationStagedAt.getTime() + REVOCATION_LIFETIME_MS,
+        ),
+        now: revocationStagedAt,
+      })
+      revocationStaged = true
       const connectionId = randomUUID()
       const completed =
         await repositories.connection.completeConnectionAuthorizationRequest(
@@ -247,10 +272,11 @@ export class ConnectionsService {
             connectionId,
             providerAccountId: credential.accountId,
             accountLabel: credential.accountLabel,
-            grantedScopes: credential.grantedScopes,
-            actionFamilies: providerPolicy.actionFamilies,
-            requiredScopes,
             credentialPlaintext: JSON.stringify(credential),
+            revocationDeliveryId,
+            grantedScopes: credential.grantedScopes,
+            actionFamilies: policy.actionFamilies,
+            requiredScopes: currentScopes,
             now: new Date(),
           },
         )
@@ -259,6 +285,16 @@ export class ConnectionsService {
       }
       return authorizationResultUrl(request, 'connected')
     } catch {
+      if (credential && !revocationStaged) {
+        try {
+          await provider.revokeCredential(
+            credential,
+            AbortSignal.timeout(5_000),
+          )
+        } catch {
+          return authorizationResultUrl(request, 'failed')
+        }
+      }
       return authorizationResultUrl(request, 'failed')
     }
   }
