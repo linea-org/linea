@@ -35,11 +35,6 @@ import { startConnectorApiProvider } from './connections-launch-provider'
 jest.setTimeout(60_000)
 
 type Worker = { process: ChildProcess; output: string[] }
-type RateLimitSnapshot = {
-  key: string
-  requestCount: number
-  expiresAt: Date
-}
 
 function startWorker(name: 'background-worker' | 'execution-worker'): Worker {
   const worker = spawn(
@@ -59,11 +54,8 @@ function startWorker(name: 'background-worker' | 'execution-worker'): Worker {
 }
 
 async function stopWorker(worker: Worker | undefined): Promise<void> {
-  if (
-    !worker ||
-    worker.process.exitCode !== null ||
-    worker.process.signalCode !== null
-  )
+  if (!worker) return
+  if (worker.process.exitCode !== null || worker.process.signalCode !== null)
     return
   await new Promise<void>((resolve) => {
     worker.process.once('exit', () => resolve())
@@ -88,7 +80,7 @@ describe('Connections and Action Consent launch tracer', () => {
   let executionWorker: Worker | undefined
   let googleConnectionId: string
   let githubConnectionId: string
-  let rateLimitBaseline: Map<string, RateLimitSnapshot>
+  let rateLimitKeys: string[]
 
   beforeAll(async () => {
     google = await startTestGoogleProvider()
@@ -100,10 +92,10 @@ describe('Connections and Action Consent launch tracer', () => {
     })
     process.env.GOOGLE_CONNECTOR_API_BASE_URL = apiProvider.baseUrl
     process.env.GITHUB_API_BASE_URL = apiProvider.baseUrl
-    const rateLimits = await pool.query<RateLimitSnapshot>(
-      'SELECT key, request_count AS "requestCount", expires_at AS "expiresAt" FROM end_user_authorization_rate_limits',
+    const rateLimits = await pool.query<{ key: string }>(
+      'SELECT key FROM end_user_authorization_rate_limits',
     )
-    rateLimitBaseline = new Map(rateLimits.rows.map((row) => [row.key, row]))
+    rateLimitKeys = rateLimits.rows.map((row) => row.key)
     fixture = await createConnectionsLaunchFixture()
     const moduleRef = await Test.createTestingModule({
       imports: [ConnectionsModule, PublicRuntimeModule],
@@ -125,29 +117,11 @@ describe('Connections and Action Consent launch tracer', () => {
     if (google) await google.close()
     if (github) await github.close()
     if (apiProvider) await apiProvider.close()
-    if (rateLimitBaseline) {
-      const rateLimits = await pool.query<RateLimitSnapshot>(
-        'SELECT key, request_count AS "requestCount", expires_at AS "expiresAt" FROM end_user_authorization_rate_limits',
+    if (rateLimitKeys) {
+      await pool.query(
+        'DELETE FROM end_user_authorization_rate_limits WHERE NOT (key = ANY($1::text[]))',
+        [rateLimitKeys],
       )
-      for (const current of rateLimits.rows) {
-        const baseline = rateLimitBaseline.get(current.key)
-        if (
-          baseline?.requestCount === current.requestCount &&
-          baseline.expiresAt.getTime() === current.expiresAt.getTime()
-        )
-          continue
-        if (baseline) {
-          await pool.query(
-            'UPDATE end_user_authorization_rate_limits SET request_count = $2, expires_at = $3 WHERE key = $1',
-            [baseline.key, baseline.requestCount, baseline.expiresAt],
-          )
-        } else {
-          await pool.query(
-            'DELETE FROM end_user_authorization_rate_limits WHERE key = $1',
-            [current.key],
-          )
-        }
-      }
     }
     if (fixture) {
       await pool.query(
@@ -333,9 +307,9 @@ describe('Connections and Action Consent launch tracer', () => {
       .get(pendingPath)
       .set(await sessionHeaders(baseUrl, fixture.primary, 'GET', pendingPath))
       .expect(200)
-    const [intent] = paginatedResponseSchema(pendingActionIntentSchema)
+    const intent = paginatedResponseSchema(pendingActionIntentSchema)
       .parse(pending.body)
-      .data.filter((item) => item.executionId === githubExecution.id)
+      .data.find((item) => item.executionId === githubExecution.id)
     if (!intent) throw new Error('Pending GitHub Action Intent was not listed')
     expect(JSON.stringify(intent)).not.toMatch(/gho_|rawProviderSecret/)
     expect(
