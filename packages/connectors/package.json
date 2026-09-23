@@ -8,7 +8,8 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --exclude src/github-live.smoke.spec.ts",
+    "test:github:live": "vitest run src/github-live.smoke.spec.ts"
   },
   "dependencies": {
     "@linea/db": "workspace:*",
@@ -20,7 +21,7 @@
     "eslint": "^9",
     "tsup": "^8.5.0",
     "typescript": "^6",
-    "vitest": "^3"
+    "vitest": "^4.1.11"
   },
   "exports": {
     ".": {

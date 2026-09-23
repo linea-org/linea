@@ -17,6 +17,7 @@ import {
   type NormalizedConnectorError,
 } from "../schema/index.js"
 import { createApprovalRequest } from "./approval-request.repository.js"
+import { recordActionIntentFact } from "./connector-audit.repository.js"
 import { createPublicEvent } from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
 
@@ -336,6 +337,12 @@ export async function createActionIntent(
       })
       .returning()
     if (intent) {
+      await recordActionIntentFact(tx, {
+        intent,
+        factType: "action_intent.created",
+        occurredAt: intent.createdAt,
+        outcome: "awaiting_consent",
+      })
       return { outcome: "created", intent, approvalRequest }
     }
     const raced = await findInvokedActionIntent(tx, input)
@@ -392,17 +399,32 @@ export async function rejectActionIntent(
   db: DbClient,
   actionIntentId: string
 ): Promise<ActionIntent | undefined> {
-  const [intent] = await db
-    .update(actionIntents)
-    .set({ status: "rejected", updatedAt: new Date() })
-    .where(
-      and(
-        eq(actionIntents.id, actionIntentId),
-        eq(actionIntents.status, "awaiting_consent")
+  return db.transaction(async (tx) => {
+    const now = new Date()
+    const [intent] = await tx
+      .update(actionIntents)
+      .set({ status: "rejected", updatedAt: now })
+      .where(
+        and(
+          eq(actionIntents.id, actionIntentId),
+          eq(actionIntents.status, "awaiting_consent")
+        )
       )
-    )
-    .returning()
-  return intent
+      .returning()
+    if (!intent) return undefined
+    const [decision] = await tx
+      .select({ id: approvalDecisions.id })
+      .from(approvalDecisions)
+      .where(eq(approvalDecisions.approvalRequestId, intent.approvalRequestId))
+    await recordActionIntentFact(tx, {
+      intent,
+      factType: "action_intent.rejected",
+      occurredAt: now,
+      decisionId: decision?.id,
+      outcome: "rejected",
+    })
+    return intent
+  })
 }
 
 export type ClaimApprovedActionIntentResult =
@@ -458,6 +480,55 @@ function activeExecutionClaim(
   )
 }
 
+async function failRecoveredActionIntent(
+  tx: DbClient,
+  intent: ActionIntent,
+  input: ClaimApprovedActionIntentInput,
+  priorClaimId: string
+): Promise<ClaimApprovedActionIntentResult> {
+  const outcomeUnknown = intent.dispatchStartedAt !== null
+  const [failed] = await tx
+    .update(actionIntents)
+    .set({
+      status: outcomeUnknown ? "outcome_unknown" : "failed",
+      executionClaimId: input.executionClaimId,
+      normalizedError: {
+        code: outcomeUnknown ? "outcome_unknown" : "authorization_revoked",
+        message: outcomeUnknown
+          ? "Connector provider outcome could not be reconciled"
+          : "Connector authority became unavailable",
+        outcomeUnknown,
+      },
+      updatedAt: input.now,
+    })
+    .where(
+      and(
+        eq(actionIntents.id, intent.id),
+        eq(actionIntents.status, "executing"),
+        eq(actionIntents.executionClaimId, priorClaimId)
+      )
+    )
+    .returning()
+  if (!failed) return { outcome: "in_progress", intent }
+  await createPublicEvent(tx, {
+    workspaceId: failed.workspaceId,
+    applicationId: failed.applicationId,
+    externalSubjectId: failed.externalSubjectId,
+    eventType: "action_intent.failed",
+    data: { actionIntentId: failed.id, executionId: failed.executionId },
+  })
+  await recordActionIntentFact(tx, {
+    intent: failed,
+    factType: outcomeUnknown
+      ? "action_intent.outcome_unknown"
+      : "action_intent.failed",
+    occurredAt: input.now,
+    outcome: failed.status,
+    failureClass: failed.normalizedError?.code,
+  })
+  return { outcome: "terminal", intent: failed }
+}
+
 async function recoverExecutingActionIntent(
   tx: DbClient,
   authority: LockedActionIntentAuthority,
@@ -486,38 +557,7 @@ async function recoverExecutingActionIntent(
     throw new Error("Executing Action Intent has no execution claim")
   }
   if (!authorityValid) {
-    const outcomeUnknown = intent.dispatchStartedAt !== null
-    const [failed] = await tx
-      .update(actionIntents)
-      .set({
-        status: outcomeUnknown ? "outcome_unknown" : "failed",
-        executionClaimId: input.executionClaimId,
-        normalizedError: {
-          code: outcomeUnknown ? "outcome_unknown" : "authorization_revoked",
-          message: outcomeUnknown
-            ? "Connector provider outcome could not be reconciled"
-            : "Connector authority became unavailable",
-          outcomeUnknown,
-        },
-        updatedAt: input.now,
-      })
-      .where(
-        and(
-          eq(actionIntents.id, intent.id),
-          eq(actionIntents.status, "executing"),
-          eq(actionIntents.executionClaimId, priorClaimId)
-        )
-      )
-      .returning()
-    if (!failed) return { outcome: "in_progress", intent }
-    await createPublicEvent(tx, {
-      workspaceId: failed.workspaceId,
-      applicationId: failed.applicationId,
-      externalSubjectId: failed.externalSubjectId,
-      eventType: "action_intent.failed",
-      data: { actionIntentId: failed.id, executionId: failed.executionId },
-    })
-    return { outcome: "terminal", intent: failed }
+    return failRecoveredActionIntent(tx, intent, input, priorClaimId)
   }
   const [recovered] = await tx
     .update(actionIntents)
@@ -568,6 +608,77 @@ function currentIntentApproval(
     decision.actorExternalSubjectId === intent.externalSubjectId &&
     decision.reason === "human"
   )
+}
+
+async function cancelUnauthorizedActionIntent(
+  tx: DbClient,
+  intent: ActionIntent,
+  now: Date
+): Promise<ClaimApprovedActionIntentResult> {
+  const [cancelled] = await tx
+    .update(actionIntents)
+    .set({ status: "cancelled", updatedAt: now })
+    .where(
+      and(
+        eq(actionIntents.id, intent.id),
+        or(
+          eq(actionIntents.status, "awaiting_consent"),
+          eq(actionIntents.status, "ready")
+        )
+      )
+    )
+    .returning()
+  if (cancelled) {
+    await recordActionIntentFact(tx, {
+      intent: cancelled,
+      factType: "action_intent.cancelled",
+      occurredAt: now,
+      outcome: "cancelled",
+    })
+  }
+  return { outcome: "cancelled", intent: cancelled ?? intent }
+}
+
+async function claimReadyActionIntent(
+  tx: DbClient,
+  intent: ActionIntent,
+  connection: Connection,
+  input: ClaimApprovedActionIntentInput
+): Promise<ClaimApprovedActionIntentResult> {
+  if (intent.status === "awaiting_consent") {
+    const [ready] = await tx
+      .update(actionIntents)
+      .set({ status: "ready", updatedAt: input.now })
+      .where(eq(actionIntents.id, intent.id))
+      .returning()
+    if (ready) {
+      await recordActionIntentFact(tx, {
+        intent: ready,
+        factType: "action_intent.ready",
+        occurredAt: input.now,
+        outcome: "ready",
+      })
+    }
+  }
+  const [claimed] = await tx
+    .update(actionIntents)
+    .set({
+      status: "executing",
+      executionClaimId: input.executionClaimId,
+      updatedAt: input.now,
+    })
+    .where(
+      and(eq(actionIntents.id, intent.id), eq(actionIntents.status, "ready"))
+    )
+    .returning()
+  if (!claimed) return { outcome: "in_progress", intent }
+  await recordActionIntentFact(tx, {
+    intent: claimed,
+    factType: "action_intent.executing",
+    occurredAt: input.now,
+    outcome: "executing",
+  })
+  return { outcome: "claimed", intent: claimed, connection }
 }
 
 export async function claimApprovedActionIntent(
@@ -652,41 +763,11 @@ export async function claimApprovedActionIntent(
       currentIntentApproval(intent, request, decision) &&
       activeExecutionClaim(execution, input)
     if (!authorityValid) {
-      const [cancelled] = await tx
-        .update(actionIntents)
-        .set({ status: "cancelled", updatedAt: input.now })
-        .where(
-          and(
-            eq(actionIntents.id, intent.id),
-            or(
-              eq(actionIntents.status, "awaiting_consent"),
-              eq(actionIntents.status, "ready")
-            )
-          )
-        )
-        .returning()
-      return { outcome: "cancelled", intent: cancelled ?? intent }
+      return cancelUnauthorizedActionIntent(tx, intent, input.now)
     }
-    if (intent.status === "awaiting_consent") {
-      await tx
-        .update(actionIntents)
-        .set({ status: "ready", updatedAt: input.now })
-        .where(eq(actionIntents.id, intent.id))
-    }
-    const [claimed] = await tx
-      .update(actionIntents)
-      .set({
-        status: "executing",
-        executionClaimId: input.executionClaimId,
-        updatedAt: input.now,
-      })
-      .where(
-        and(eq(actionIntents.id, intent.id), eq(actionIntents.status, "ready"))
-      )
-      .returning()
-    return claimed
-      ? { outcome: "claimed", intent: claimed, connection }
-      : { outcome: "in_progress", intent }
+    if (!connection)
+      throw new Error("Authorized Action Intent has no Connection")
+    return claimReadyActionIntent(tx, intent, connection, input)
   })
 }
 
@@ -790,6 +871,12 @@ export async function completeActionIntent(
         executionId: intent.executionId,
       },
     })
+    await recordActionIntentFact(tx, {
+      intent,
+      factType: "action_intent.succeeded",
+      occurredAt: input.completedAt,
+      outcome: "succeeded",
+    })
     return intent
   })
 }
@@ -839,6 +926,13 @@ export async function failActionIntent(
         actionIntentId: intent.id,
         executionId: intent.executionId,
       },
+    })
+    await recordActionIntentFact(tx, {
+      intent,
+      factType: `action_intent.${input.status}`,
+      occurredAt: input.failedAt,
+      outcome: input.status,
+      failureClass: input.error.code,
     })
     return intent
   })

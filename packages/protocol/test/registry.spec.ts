@@ -33,6 +33,9 @@ function operation(
 describe("operation registry", () => {
   it("publishes the public protocol", () => {
     expect(operationRegistry.map(({ operationId }) => operationId)).toEqual([
+      "listApplicationConnectorAuditEvents",
+      "listWorkspaceConnectorAuditEvents",
+      "listEndUserConnectorAuditEvents",
       "startConnectionAuthorization",
       "getConnectionAuthorization",
       "listConnections",

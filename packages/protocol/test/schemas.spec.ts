@@ -243,6 +243,6 @@ describe("public protocol schemas", () => {
       "action_intent_stale",
       "rate_limited",
     ])
-    expect(applicationKeyScopes).toHaveLength(8)
+    expect(applicationKeyScopes).toHaveLength(9)
   })
 })

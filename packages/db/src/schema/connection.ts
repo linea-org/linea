@@ -198,6 +198,7 @@ export const connectionRevocationDeliveries = snakeCase.table(
     availableAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     attemptCount: integer().default(0).notNull(),
     lastAttemptAt: timestamp({ withTimezone: true }),
+    lastFailureClass: text(),
     claimedBy: text(),
     claimExpiresAt: timestamp({ withTimezone: true }),
     deliveredAt: timestamp({ withTimezone: true }),

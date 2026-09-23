@@ -7,6 +7,7 @@ import {
   type ApprovalRequest,
 } from "../schema/index.js"
 import { createPublicEvent } from "./outbox-message.repository.js"
+import { recordActionIntentFact } from "./connector-audit.repository.js"
 import type { DbClient } from "./types.js"
 
 type ActionIntentCancellationScope =
@@ -118,6 +119,14 @@ export async function cancelNonExecutingActionIntents(
       )
     )
     .returning()
+  for (const intent of cancelled) {
+    await recordActionIntentFact(tx, {
+      intent,
+      factType: "action_intent.cancelled",
+      occurredAt: input.cancelledAt,
+      outcome: "cancelled",
+    })
+  }
   const requests = await tx
     .update(approvalRequests)
     .set({

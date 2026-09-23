@@ -1,4 +1,7 @@
-import { applicationKeyScopeSchema } from '@linea/protocol/resources'
+import {
+  applicationKeyScopes,
+  applicationKeyScopeSchema,
+} from '@linea/protocol/resources'
 import { z } from 'zod'
 
 export const createApplicationKeySchema = z.strictObject({
@@ -6,7 +9,7 @@ export const createApplicationKeySchema = z.strictObject({
   scopes: z
     .array(applicationKeyScopeSchema)
     .min(1)
-    .max(8)
+    .max(applicationKeyScopes.length)
     .refine((scopes) => new Set(scopes).size === scopes.length, {
       message: 'Scopes must be unique',
     }),

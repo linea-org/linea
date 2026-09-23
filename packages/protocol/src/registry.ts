@@ -50,6 +50,11 @@ import {
   startConnectionAuthorizationOperation,
   startConnectionScopeUpgradeOperation,
 } from "./operations/connections"
+import {
+  listApplicationConnectorAuditEventsOperation,
+  listEndUserConnectorAuditEventsOperation,
+  listWorkspaceConnectorAuditEventsOperation,
+} from "./operations/connector-audit"
 
 function routeIdentity(operation: OperationDefinition): string {
   const path = operation.path.replace(/\{[^/{}]+\}/g, "{}")
@@ -91,6 +96,18 @@ export function createOperationRegistry<
 }
 
 export const operationRegistry = createOperationRegistry([
+  registerOperation(
+    listApplicationConnectorAuditEventsOperation,
+    operationMetadata.listApplicationConnectorAuditEvents
+  ),
+  registerOperation(
+    listWorkspaceConnectorAuditEventsOperation,
+    operationMetadata.listWorkspaceConnectorAuditEvents
+  ),
+  registerOperation(
+    listEndUserConnectorAuditEventsOperation,
+    operationMetadata.listEndUserConnectorAuditEvents
+  ),
   registerOperation(
     startConnectionAuthorizationOperation,
     operationMetadata.startConnectionAuthorization

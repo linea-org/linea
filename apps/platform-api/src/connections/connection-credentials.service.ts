@@ -34,6 +34,7 @@ function credential(connection: Connection): ConnectionProviderCredential {
       connection.credentialEncrypted,
       encryptionContext(connection),
     ),
+    connection.scopes,
   )
 }
 

@@ -9,6 +9,7 @@ export type ExchangeConnectionAuthorizationCodeInput = {
   code: string
   redirectUri: string
   codeVerifier: string
+  scopes: string[]
 }
 
 export type ConnectionProviderCredential = {
@@ -17,9 +18,6 @@ export type ConnectionProviderCredential = {
   accessToken: string
   refreshToken: string | null
   expiresAt: string | null
-}
-
-export type ConnectionAuthorizationCredential = ConnectionProviderCredential & {
   grantedScopes: string[]
 }
 
@@ -30,7 +28,7 @@ export interface ConnectionOAuthProvider {
   ): Promise<string> | string
   exchangeAuthorizationCode(
     input: ExchangeConnectionAuthorizationCodeInput,
-  ): Promise<ConnectionAuthorizationCredential>
+  ): Promise<ConnectionProviderCredential>
   refreshCredential(
     credential: ConnectionProviderCredential,
   ): Promise<ConnectionProviderCredential>
