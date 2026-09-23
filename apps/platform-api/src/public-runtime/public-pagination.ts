@@ -19,6 +19,10 @@ const webhookDeliveryCursorSchema = z.strictObject({
   createdAt: z.iso.datetime({ offset: true }),
   id: z.string().uuid(),
 })
+const connectorAuditCursorSchema = z.strictObject({
+  occurredAt: z.iso.datetime({ offset: true }),
+  id: z.string().uuid(),
+})
 
 export type PublicConversationCursor = {
   lastActivityAt: Date
@@ -37,6 +41,11 @@ export type PublicActionIntentCursor = {
 
 export type PublicWebhookDeliveryCursor = {
   createdAt: Date
+  id: string
+}
+
+export type PublicConnectorAuditCursor = {
+  occurredAt: Date
   id: string
 }
 
@@ -142,5 +151,23 @@ export function decodeWebhookDeliveryCursor(
   const decoded = decodeCursor(cursor, webhookDeliveryCursorSchema)
   return decoded
     ? { createdAt: new Date(decoded.createdAt), id: decoded.id }
+    : undefined
+}
+
+export function encodeConnectorAuditCursor(
+  cursor: PublicConnectorAuditCursor,
+): string {
+  return encodeCursor({
+    occurredAt: cursor.occurredAt.toISOString(),
+    id: cursor.id,
+  })
+}
+
+export function decodeConnectorAuditCursor(
+  cursor: string | undefined,
+): PublicConnectorAuditCursor | undefined {
+  const decoded = decodeCursor(cursor, connectorAuditCursorSchema)
+  return decoded
+    ? { occurredAt: new Date(decoded.occurredAt), id: decoded.id }
     : undefined
 }

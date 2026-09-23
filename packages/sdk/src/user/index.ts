@@ -29,6 +29,7 @@ export type {
   CreateMessage,
   DecideApprovalRequest,
   EndUserAuthorizationResponse,
+  EndUserConnectorAuditEvent,
   MessageProjection,
   PublicExecution,
   StartEndUserExecution,

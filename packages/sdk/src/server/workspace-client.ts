@@ -5,6 +5,7 @@ import {
   getRegressionRunOperation,
   listRegressionCasesOperation,
   listRegressionRunsOperation,
+  listWorkspaceConnectorAuditEventsOperation,
   triggerRegressionRunOperation,
 } from "@linea/protocol/operations"
 import type {
@@ -16,7 +17,10 @@ import type {
   RegressionRun,
   RegressionRunDetail,
   TriggerRegressionRun,
+  OperatorConnectorAuditEvent,
+  WorkspaceConnectorAuditQuery,
 } from "@linea/protocol/resources"
+import type { PaginatedResponse } from "@linea/protocol/shared"
 import { LineaClient } from "../client.js"
 import type { WorkspaceKey } from "./credentials.js"
 import { ServerTransport } from "./transport.js"
@@ -111,5 +115,14 @@ export class LineaWorkspaceClient extends LineaClient {
     return this.serverTransport.execute(getRegressionRunOperation, {
       path: { workflowId, id: regressionRunId },
     })
+  }
+
+  listAuditEvents(
+    query: Partial<WorkspaceConnectorAuditQuery> = {}
+  ): Promise<PaginatedResponse<OperatorConnectorAuditEvent>> {
+    return this.serverTransport.execute(
+      listWorkspaceConnectorAuditEventsOperation,
+      { path: {}, query }
+    )
   }
 }

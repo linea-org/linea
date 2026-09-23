@@ -370,8 +370,10 @@ describe("External Subject repository", () => {
       expect(erased).toMatchObject({
         issuerSubject: null,
         status: "erased",
-        auditReference: created.value.subject.auditReference,
       })
+      expect(erased?.auditReference).not.toBe(
+        created.value.subject.auditReference
+      )
       expect(
         await findExternalSubjectByIdentity(
           tx,
@@ -397,7 +399,7 @@ describe("External Subject repository", () => {
         .select()
         .from(auditLogs)
         .where(eq(auditLogs.action, "external_subject.erased"))
-      expect(audit?.resourceId).toBe(created.value.subject.auditReference)
+      expect(audit?.resourceId).toBe(erased?.auditReference)
       expect(JSON.stringify(audit)).not.toContain("erase-me")
       expect(JSON.stringify(audit)).not.toContain("sensitive-reference")
     })

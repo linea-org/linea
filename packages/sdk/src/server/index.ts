@@ -13,3 +13,7 @@ export {
   LineaWorkspaceClient,
   type LineaWorkspaceClientOptions,
 } from "./workspace-client.js"
+export type {
+  OperatorConnectorAuditEvent,
+  WorkspaceConnectorAuditQuery,
+} from "@linea/protocol/resources"
