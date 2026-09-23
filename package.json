@@ -14,6 +14,8 @@
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "test:launch": "node scripts/first-launch-gate.mjs",
+    "test:connections-launch": "node scripts/connections-launch-gate.mjs",
+    "test:connections-smoke": "node scripts/connections-provider-smoke.mjs",
     "db:up": "pnpm --filter @linea/db db:up",
     "db:down": "pnpm --filter @linea/db db:down",
     "db:logs": "pnpm --filter @linea/db db:logs",
@@ -26,6 +28,7 @@
     "demo": "pnpm --filter @linea/platform-api demo"
   },
   "devDependencies": {
+    "dotenv": "17.4.2",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "turbo": "^2.9.18",

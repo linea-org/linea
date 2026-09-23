@@ -15,9 +15,10 @@ const repository = resolve(import.meta.dirname, "../../..")
 const temporary = mkdtempSync(join(tmpdir(), "linea-sdk-browser-"))
 const pnpmCli = process.env.npm_execpath
 if (!pnpmCli) throw new Error("pnpm executable path is unavailable")
-const pnpmCommand = pnpmCli.endsWith(".exe") ? pnpmCli : process.execPath
+const pnpmIsJavaScript = /\.(?:c|m)?js$/.test(pnpmCli)
+const pnpmCommand = pnpmIsJavaScript ? process.execPath : pnpmCli
 const pnpmArguments = (arguments_) =>
-  pnpmCli.endsWith(".exe") ? arguments_ : [pnpmCli, ...arguments_]
+  pnpmIsJavaScript ? [pnpmCli, ...arguments_] : arguments_
 try {
   execFileSync(
     pnpmCommand,
