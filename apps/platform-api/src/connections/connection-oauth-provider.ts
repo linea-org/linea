@@ -19,6 +19,10 @@ export type ConnectionProviderCredential = {
   expiresAt: string | null
 }
 
+export type ConnectionAuthorizationCredential = ConnectionProviderCredential & {
+  grantedScopes: string[]
+}
+
 export interface ConnectionOAuthProvider {
   readonly provider: string
   createAuthorizationUrl(
@@ -26,7 +30,7 @@ export interface ConnectionOAuthProvider {
   ): Promise<string> | string
   exchangeAuthorizationCode(
     input: ExchangeConnectionAuthorizationCodeInput,
-  ): Promise<ConnectionProviderCredential>
+  ): Promise<ConnectionAuthorizationCredential>
   refreshCredential(
     credential: ConnectionProviderCredential,
   ): Promise<ConnectionProviderCredential>

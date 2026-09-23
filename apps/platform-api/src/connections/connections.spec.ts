@@ -69,6 +69,7 @@ describe('OAuth Connections', () => {
   let key: ProofKey
   let externalSubjectId: string
   let sessionId: string
+  let crossWorkspaceId: string | undefined
   let provider: Awaited<ReturnType<typeof startTestOAuthProvider>>
 
   beforeAll(async () => {
@@ -161,6 +162,11 @@ describe('OAuth Connections', () => {
     if (provider) await provider.close()
     if (workspaceId) {
       await pool.query('DELETE FROM organizations WHERE id = $1', [workspaceId])
+    }
+    if (crossWorkspaceId) {
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        crossWorkspaceId,
+      ])
     }
     await pool.end()
     delete process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY
@@ -453,6 +459,7 @@ describe('OAuth Connections', () => {
     expect(list.status).toBe(200)
     const listBody = responseBody(list, connectionsResponseSchema)
     expect(listBody.data).toHaveLength(1)
+    expect(listBody).not.toHaveProperty('nextCursor')
     expect(listBody.data[0]).toMatchObject({
       provider: 'test',
       providerAccountId: 'account-one',
@@ -465,6 +472,11 @@ describe('OAuth Connections', () => {
     const connectionId = listBody.data[0]?.id
     if (!connectionId) throw new Error('Expected a listed Connection')
     expect(authorizationBody.connectionId).toBe(connectionId)
+    expect(
+      await db.query.connectionAuthorizationRequests.findFirst({
+        where: { id: startedBody.authorizationId },
+      }),
+    ).toMatchObject({ endUserSessionId: null })
     const secondToken = `lnu_${randomUUID().replaceAll('-', '')}`
     const secondNonce = randomUUID()
     const secondKey = await proofKey()
@@ -806,6 +818,85 @@ describe('OAuth Connections', () => {
     expect(publicErrorResponseSchema.parse(unchanged.body).error.code).toBe(
       'connection_scope_insufficient',
     )
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['profile', 'write', 'archive'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    provider.selectAccount('account-one', 'Test Account')
+    const mismatched = await request(baseUrl)
+      .post(upgradePath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${upgradePath}`))
+      .send({
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+        scopes: ['profile', 'write', 'archive'],
+      })
+    expect(mismatched.status).toBe(201)
+    const mismatchedBody = responseBody(
+      mismatched,
+      connectionAuthorizationResponseSchema,
+    )
+    const mismatchedProvider = await fetch(mismatchedBody.authorizationUrl, {
+      redirect: 'manual',
+    })
+    const mismatchedCallback = mismatchedProvider.headers.get('location')
+    if (!mismatchedCallback) throw new Error('Provider callback is missing')
+    const mismatchedResult = await fetch(mismatchedCallback, {
+      redirect: 'manual',
+    })
+    const mismatchedLocation = mismatchedResult.headers.get('location')
+    if (!mismatchedLocation) throw new Error('Application return is missing')
+    expect(new URL(mismatchedLocation).searchParams.get('status')).toBe(
+      'failed',
+    )
+    provider.selectAccount('account-two', 'Second Test Account')
+    provider.grantNextAuthorizationScopes(['profile', 'write'])
+    const partialGrant = await request(baseUrl)
+      .post(upgradePath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${upgradePath}`))
+      .send({
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+        scopes: ['profile', 'write', 'archive'],
+      })
+    expect(partialGrant.status).toBe(201)
+    const partialGrantBody = responseBody(
+      partialGrant,
+      connectionAuthorizationResponseSchema,
+    )
+    const partialProvider = await fetch(partialGrantBody.authorizationUrl, {
+      redirect: 'manual',
+    })
+    const partialCallback = partialProvider.headers.get('location')
+    if (!partialCallback) throw new Error('Provider callback is missing')
+    const partialResult = await fetch(partialCallback, { redirect: 'manual' })
+    const partialLocation = partialResult.headers.get('location')
+    if (!partialLocation) throw new Error('Application return is missing')
+    expect(new URL(partialLocation).searchParams.get('status')).toBe('failed')
+    const afterRejectedUpgrades = await request(baseUrl)
+      .get(`/v1/user/connections/${secondAccount.id}`)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set(
+        'DPoP',
+        await createProof(
+          'GET',
+          `${baseUrl}/v1/user/connections/${secondAccount.id}`,
+        ),
+      )
+    expect(
+      responseBody(afterRejectedUpgrades, connectionSchema).scopes,
+    ).toEqual(['profile', 'write'])
   })
 
   it('keeps credentials decryptable across concurrent callbacks', async () => {
@@ -889,7 +980,6 @@ describe('OAuth Connections', () => {
     expect(secondPage.data).toHaveLength(1)
     expect(secondPage.data[0]?.id).not.toBe(firstPage.data[0]?.id)
   })
-
   it('does not expose Connections across Applications or subjects', async () => {
     const authorizationPath = '/v1/user/connections/authorizations'
     const started = await request(baseUrl)
@@ -948,7 +1038,46 @@ describe('OAuth Connections', () => {
       applicationId,
       externalSubjectId: otherSubject.id,
     })
+    const [crossWorkspace] = await db
+      .insert(schema.organizations)
+      .values({
+        name: 'Cross-workspace Connections test',
+        slug: `cross-workspace-connections-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    crossWorkspaceId = crossWorkspace.id
+    const [crossApplication] = await db
+      .insert(schema.applications)
+      .values({
+        workspaceId: crossWorkspace.id,
+        environment: 'dev',
+        displayName: 'Cross-workspace Connections application',
+        allowedBrowserOrigins: ['http://127.0.0.1:4175'],
+        allowedRedirectOrigins: ['http://127.0.0.1:4175'],
+        oidcIssuer: 'https://identity.example.com',
+        oidcClientId: `cross-workspace-connections-${suffix}`,
+        oidcAudience: `cross-workspace-connections-${suffix}`,
+        oidcJwksUrl: 'https://identity.example.com/jwks',
+      })
+      .returning()
+    const [crossSubject] = await db
+      .insert(schema.externalSubjects)
+      .values({
+        workspaceId: crossWorkspace.id,
+        issuer: 'https://identity.example.com',
+        issuerSubject: `connections-cross-workspace-subject-${suffix}`,
+        status: 'verified',
+        verifiedAt: new Date(),
+      })
+      .returning()
+    await db.insert(schema.externalSubjectApplications).values({
+      workspaceId: crossWorkspace.id,
+      applicationId: crossApplication.id,
+      externalSubjectId: crossSubject.id,
+    })
     const createSession = async (
+      scopedWorkspaceId: string,
       scopedApplicationId: string,
       scopedSubjectId: string,
     ) => {
@@ -956,7 +1085,7 @@ describe('OAuth Connections', () => {
       const scopedNonce = randomUUID()
       const scopedKey = await proofKey()
       await db.insert(schema.endUserSessions).values({
-        workspaceId,
+        workspaceId: scopedWorkspaceId,
         applicationId: scopedApplicationId,
         externalSubjectId: scopedSubjectId,
         tokenHash: hexHash(scopedToken),
@@ -969,12 +1098,19 @@ describe('OAuth Connections', () => {
     const listPath = '/v1/user/connections'
     for (const scoped of [
       {
+        workspaceId,
         applicationId: otherApplication.id,
         externalSubjectId,
       },
-      { applicationId, externalSubjectId: otherSubject.id },
+      { workspaceId, applicationId, externalSubjectId: otherSubject.id },
+      {
+        workspaceId: crossWorkspace.id,
+        applicationId: crossApplication.id,
+        externalSubjectId: crossSubject.id,
+      },
     ]) {
       const session = await createSession(
+        scoped.workspaceId,
         scoped.applicationId,
         scoped.externalSubjectId,
       )
@@ -1012,6 +1148,40 @@ describe('OAuth Connections', () => {
           )
         expect(hidden.status).toBe(404)
       }
+      const upgradePath = `/v1/user/connections/${ownConnectionId}/authorizations`
+      const hiddenUpgrade = await request(baseUrl)
+        .post(upgradePath)
+        .set('Authorization', `DPoP ${session.token}`)
+        .set(
+          'DPoP',
+          await createProofFor(
+            'POST',
+            `${baseUrl}${upgradePath}`,
+            session.token,
+            session.nonce,
+            session.key,
+          ),
+        )
+        .send({
+          returnUri: 'http://127.0.0.1:4173/connections/callback',
+          scopes: ['profile', 'write'],
+        })
+      expect(hiddenUpgrade.status).toBe(404)
+      const revokePath = `/v1/user/connections/${ownConnectionId}`
+      const hiddenRevoke = await request(baseUrl)
+        .delete(revokePath)
+        .set('Authorization', `DPoP ${session.token}`)
+        .set(
+          'DPoP',
+          await createProofFor(
+            'DELETE',
+            `${baseUrl}${revokePath}`,
+            session.token,
+            session.nonce,
+            session.key,
+          ),
+        )
+      expect(hiddenRevoke.status).toBe(404)
     }
   })
 

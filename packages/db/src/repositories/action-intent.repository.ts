@@ -62,6 +62,143 @@ function sameInvocation(
   )
 }
 
+function findInvokedActionIntent(
+  db: DbClient,
+  input: CreateActionIntentInput
+): Promise<ActionIntent | undefined> {
+  return db
+    .select()
+    .from(actionIntents)
+    .where(
+      and(
+        eq(actionIntents.executionId, input.executionId),
+        eq(actionIntents.nodeId, input.nodeId),
+        eq(
+          actionIntents.invocationIdempotencyKey,
+          input.invocationIdempotencyKey
+        )
+      )
+    )
+    .then(([intent]) => intent)
+}
+
+type ConnectionAuthorityInput = {
+  workspaceId: string
+  applicationId: string
+  externalSubjectId: string
+  provider: string
+  actionFamily: string
+  requiredScopes: readonly string[]
+}
+
+function connectionAuthorityBoundary(
+  connection: Connection | undefined,
+  application: typeof applications.$inferSelect | undefined,
+  input: ConnectionAuthorityInput
+):
+  | "authorized"
+  | "invalid"
+  | "reauthorization_required"
+  | "scope_insufficient" {
+  const providerPolicy = application?.connectorAccessPolicy.providers.find(
+    (candidate) => candidate.provider === input.provider
+  )
+  const connectionOwned = Boolean(
+    connection?.workspaceId === input.workspaceId &&
+    connection.applicationId === input.applicationId &&
+    connection.externalSubjectId === input.externalSubjectId &&
+    connection.provider === input.provider
+  )
+  if (connectionOwned && connection?.status === "reauthorization_required") {
+    return "reauthorization_required"
+  }
+  const connectionMissingScope = input.requiredScopes.some(
+    (scope) => !connection?.scopes.includes(scope)
+  )
+  const policyAllowsScopes = input.requiredScopes.every((scope) =>
+    providerPolicy?.maxScopes.includes(scope)
+  )
+  const policyAllowsAction =
+    providerPolicy?.actionFamilies.includes(input.actionFamily) === true
+  if (
+    connectionOwned &&
+    connection?.status === "active" &&
+    policyAllowsAction &&
+    policyAllowsScopes &&
+    connectionMissingScope
+  ) {
+    return "scope_insufficient"
+  }
+  if (
+    application?.enabled !== true ||
+    connection?.status !== "active" ||
+    connection.credentialEncrypted === null ||
+    !connectionOwned ||
+    !policyAllowsAction ||
+    connectionMissingScope ||
+    !policyAllowsScopes
+  ) {
+    return "invalid"
+  }
+  return "authorized"
+}
+
+async function replayActionIntent(
+  db: DbClient,
+  intent: ActionIntent,
+  approvalRequest: ApprovalRequest | undefined,
+  input: CreateActionIntentInput
+): Promise<CreateActionIntentResult> {
+  if (!sameInvocation(intent, input)) {
+    return { outcome: "idempotency_conflict" }
+  }
+  const [connection] = await db
+    .select()
+    .from(connections)
+    .where(
+      and(
+        eq(connections.id, intent.connectionId),
+        eq(connections.workspaceId, intent.workspaceId),
+        eq(connections.applicationId, intent.applicationId),
+        eq(connections.externalSubjectId, intent.externalSubjectId),
+        eq(connections.provider, input.connector)
+      )
+    )
+  const [application] = await db
+    .select()
+    .from(applications)
+    .where(
+      and(
+        eq(applications.id, intent.applicationId),
+        eq(applications.workspaceId, intent.workspaceId)
+      )
+    )
+  const boundary = connectionAuthorityBoundary(connection, application, {
+    workspaceId: intent.workspaceId,
+    applicationId: intent.applicationId,
+    externalSubjectId: intent.externalSubjectId,
+    provider: input.connector,
+    actionFamily: input.actionFamily,
+    requiredScopes: input.requiredScopes,
+  })
+  if (boundary === "reauthorization_required") {
+    return { outcome: "connection_reauthorization_required" }
+  }
+  if (boundary === "scope_insufficient") {
+    return { outcome: "connection_scope_insufficient" }
+  }
+  const [storedApprovalRequest] = approvalRequest
+    ? [approvalRequest]
+    : await db
+        .select()
+        .from(approvalRequests)
+        .where(eq(approvalRequests.id, intent.approvalRequestId))
+  if (!storedApprovalRequest) {
+    throw new Error("Action Intent is missing its Approval Request")
+  }
+  return { outcome: "replay", intent, approvalRequest: storedApprovalRequest }
+}
+
 export async function createActionIntent(
   db: DbClient,
   input: CreateActionIntentInput
@@ -71,32 +208,8 @@ export async function createActionIntent(
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
     )
-    const [existing] = await tx
-      .select()
-      .from(actionIntents)
-      .where(
-        and(
-          eq(actionIntents.executionId, input.executionId),
-          eq(actionIntents.nodeId, input.nodeId),
-          eq(
-            actionIntents.invocationIdempotencyKey,
-            input.invocationIdempotencyKey
-          )
-        )
-      )
-    if (existing) {
-      if (!sameInvocation(existing, input)) {
-        return { outcome: "idempotency_conflict" }
-      }
-      const [approvalRequest] = await tx
-        .select()
-        .from(approvalRequests)
-        .where(eq(approvalRequests.id, existing.approvalRequestId))
-      if (!approvalRequest) {
-        throw new Error("Action Intent is missing its Approval Request")
-      }
-      return { outcome: "replay", intent: existing, approvalRequest }
-    }
+    const existing = await findInvokedActionIntent(tx, input)
+    if (existing) return replayActionIntent(tx, existing, undefined, input)
     const [executionSnapshot] = await tx
       .select()
       .from(executions)
@@ -132,62 +245,38 @@ export async function createActionIntent(
       .from(executions)
       .where(eq(executions.id, executionSnapshot.id))
       .for("update")
-    const providerPolicy = application?.connectorAccessPolicy.providers.find(
-      (candidate) => candidate.provider === input.connector
-    )
-    const connectionOwned = Boolean(
-      execution?.applicationId &&
-      execution.externalSubjectRecordId &&
-      connection?.workspaceId === input.workspaceId &&
-      connection.applicationId === execution.applicationId &&
-      connection.externalSubjectId === execution.externalSubjectRecordId &&
-      connection.provider === input.connector
-    )
-    if (connectionOwned && connection?.status === "reauthorization_required") {
+    const authority = connectionAuthorityBoundary(connection, application, {
+      workspaceId: input.workspaceId,
+      applicationId: executionSnapshot.applicationId,
+      externalSubjectId: executionSnapshot.externalSubjectRecordId,
+      provider: input.connector,
+      actionFamily: input.actionFamily,
+      requiredScopes: input.requiredScopes,
+    })
+    if (authority === "reauthorization_required") {
       return { outcome: "connection_reauthorization_required" }
     }
-    if (
-      connectionOwned &&
-      connection?.status === "active" &&
-      (input.requiredScopes.some(
-        (scope) => !connection.scopes.includes(scope)
-      ) ||
-        input.requiredScopes.some(
-          (scope) => !providerPolicy?.maxScopes.includes(scope)
-        ))
-    ) {
+    if (authority === "scope_insufficient") {
       return { outcome: "connection_scope_insufficient" }
     }
     if (
+      authority !== "authorized" ||
       !execution?.applicationId ||
       !execution.externalSubjectRecordId ||
       execution.status !== "running" ||
-      subject?.status !== "verified" ||
-      application?.enabled !== true ||
-      connection?.status !== "active" ||
-      connection.credentialEncrypted === null ||
-      connection.workspaceId !== input.workspaceId ||
-      connection.applicationId !== execution.applicationId ||
-      connection.externalSubjectId !== execution.externalSubjectRecordId ||
-      connection.provider !== input.connector ||
-      providerPolicy?.actionFamilies.includes(input.actionFamily) !== true ||
-      input.requiredScopes.some(
-        (scope) => !connection.scopes.includes(scope)
-      ) ||
-      input.requiredScopes.some(
-        (scope) => !providerPolicy.maxScopes.includes(scope)
-      )
+      subject?.status !== "verified"
     ) {
       return { outcome: "authority_invalid" }
     }
+    const { applicationId, externalSubjectRecordId } = execution
     let approvalRequest = await createApprovalRequest(tx, {
       workspaceId: input.workspaceId,
-      applicationId: execution.applicationId,
+      applicationId,
       workflowId: execution.workflowId,
       executionId: execution.id,
       nodeId: input.nodeId,
       audience: "external_subject",
-      externalSubjectId: execution.externalSubjectRecordId,
+      externalSubjectId: externalSubjectRecordId,
       conversationId: execution.conversationId,
       display: input.safeDisplay,
       expiresAt: input.expiresAt,
@@ -211,31 +300,16 @@ export async function createActionIntent(
       approvalRequest.timeoutAction !== "auto_reject" ||
       approvalRequest.actionIntentDigest !== input.canonicalDigest
     ) {
-      const [conflicting] = await tx
-        .select()
-        .from(actionIntents)
-        .where(
-          and(
-            eq(actionIntents.executionId, input.executionId),
-            eq(actionIntents.nodeId, input.nodeId),
-            eq(
-              actionIntents.invocationIdempotencyKey,
-              input.invocationIdempotencyKey
-            )
-          )
-        )
-      return conflicting &&
-        approvalRequest &&
-        sameInvocation(conflicting, input)
-        ? { outcome: "replay", intent: conflicting, approvalRequest }
-        : { outcome: "idempotency_conflict" }
+      const conflicting = await findInvokedActionIntent(tx, input)
+      if (!conflicting) return { outcome: "idempotency_conflict" }
+      return replayActionIntent(tx, conflicting, approvalRequest, input)
     }
     const [intent] = await tx
       .insert(actionIntents)
       .values({
         workspaceId: input.workspaceId,
-        applicationId: execution.applicationId,
-        externalSubjectId: execution.externalSubjectRecordId,
+        applicationId,
+        externalSubjectId: externalSubjectRecordId,
         connectionId: input.connectionId,
         workflowId: execution.workflowId,
         executionId: execution.id,
@@ -264,23 +338,9 @@ export async function createActionIntent(
     if (intent) {
       return { outcome: "created", intent, approvalRequest }
     }
-    const [raced] = await tx
-      .select()
-      .from(actionIntents)
-      .where(
-        and(
-          eq(actionIntents.executionId, input.executionId),
-          eq(actionIntents.nodeId, input.nodeId),
-          eq(
-            actionIntents.invocationIdempotencyKey,
-            input.invocationIdempotencyKey
-          )
-        )
-      )
+    const raced = await findInvokedActionIntent(tx, input)
     if (!raced) throw new Error("Action Intent conflict did not resolve")
-    return sameInvocation(raced, input)
-      ? { outcome: "replay", intent: raced, approvalRequest }
-      : { outcome: "idempotency_conflict" }
+    return replayActionIntent(tx, raced, approvalRequest, input)
   })
 }
 
@@ -482,23 +542,16 @@ function currentIntentAuthority(
   subject: typeof externalSubjects.$inferSelect | undefined,
   input: ClaimApprovedActionIntentInput
 ): boolean {
-  const providerPolicy = application?.connectorAccessPolicy.providers.find(
-    (candidate) => candidate.provider === input.provider
-  )
-  return Boolean(
+  return (
     subject?.status === "verified" &&
-    application?.enabled === true &&
-    connection?.status === "active" &&
-    connection.credentialEncrypted !== null &&
-    connection.workspaceId === intent.workspaceId &&
-    connection.applicationId === intent.applicationId &&
-    connection.externalSubjectId === intent.externalSubjectId &&
-    connection.provider === input.provider &&
-    providerPolicy?.actionFamilies.includes(input.actionFamily) === true &&
-    input.requiredScopes.every((scope) => connection.scopes.includes(scope)) &&
-    input.requiredScopes.every((scope) =>
-      providerPolicy.maxScopes.includes(scope)
-    )
+    connectionAuthorityBoundary(connection, application, {
+      workspaceId: intent.workspaceId,
+      applicationId: intent.applicationId,
+      externalSubjectId: intent.externalSubjectId,
+      provider: input.provider,
+      actionFamily: input.actionFamily,
+      requiredScopes: input.requiredScopes,
+    }) === "authorized"
   )
 }
 

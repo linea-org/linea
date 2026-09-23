@@ -78,6 +78,7 @@ export async function completeConnectionAuthorizationRequest(
     connectionId: string
     providerAccountId: string
     accountLabel: string
+    grantedScopes: string[]
     credentialPlaintext: string
     now: Date
   }
@@ -93,7 +94,8 @@ export async function completeConnectionAuthorizationRequest(
         .for("update")
       if (
         request?.claimedAt?.getTime() !== input.claimedAt.getTime() ||
-        request?.completedAt
+        request?.completedAt ||
+        !request.endUserSessionId
       ) {
         return { outcome: "invalid" }
       }
@@ -154,7 +156,10 @@ export async function completeConnectionAuthorizationRequest(
         !providerPolicy ||
         request.scopes.some(
           (scope) => !providerPolicy.maxScopes.includes(scope)
-        )
+        ) ||
+        input.grantedScopes.length !== request.scopes.length ||
+        request.scopes.some((scope) => !input.grantedScopes.includes(scope)) ||
+        input.grantedScopes.some((scope) => !request.scopes.includes(scope))
       ) {
         return { outcome: "invalid" }
       }
@@ -190,12 +195,16 @@ export async function completeConnectionAuthorizationRequest(
         : [undefined]
       if (
         request.targetConnectionId &&
-        (!targetConnection ||
-          targetConnection.providerAccountId !== input.providerAccountId)
+        targetConnection?.providerAccountId !== input.providerAccountId
       ) {
         return { outcome: "invalid" }
       }
       const existing = targetConnection ?? accountConnection
+      if (
+        existing?.scopes.some((scope) => !input.grantedScopes.includes(scope))
+      ) {
+        return { outcome: "invalid" }
+      }
       const connectionId = existing?.id ?? input.connectionId
       const credentialEncrypted = encryptCredential(input.credentialPlaintext, {
         workspaceId: request.workspaceId,
@@ -210,7 +219,7 @@ export async function completeConnectionAuthorizationRequest(
             .set({
               accountLabel: input.accountLabel,
               status: "active",
-              scopes: request.scopes,
+              scopes: input.grantedScopes,
               credentialEncrypted,
               credentialVersion: sql`${connections.credentialVersion} + 1`,
               updatedAt: input.now,
@@ -228,7 +237,7 @@ export async function completeConnectionAuthorizationRequest(
               providerAccountId: input.providerAccountId,
               accountLabel: input.accountLabel,
               status: "active",
-              scopes: request.scopes,
+              scopes: input.grantedScopes,
               credentialEncrypted,
               createdAt: input.now,
               updatedAt: input.now,
@@ -241,6 +250,7 @@ export async function completeConnectionAuthorizationRequest(
           outcome: "succeeded",
           resultConnectionId: connection.id,
           codeVerifierEncrypted: null,
+          endUserSessionId: null,
         })
         .where(eq(connectionAuthorizationRequests.id, request.id))
       return { outcome: "completed", connection }
@@ -258,6 +268,7 @@ export async function failConnectionAuthorizationRequest(
       completedAt: input.completedAt,
       outcome: "failed",
       codeVerifierEncrypted: null,
+      endUserSessionId: null,
     })
     .where(
       and(

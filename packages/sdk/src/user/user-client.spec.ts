@@ -534,7 +534,7 @@ describe("browser end-user client", () => {
       updatedAt: "2026-09-18T00:00:00.000Z",
       revokedAt: null,
     }
-    const { client } = await authenticatedClient((path, init) => {
+    const { client } = await authenticatedClient((path, init, url) => {
       if (path === "/v1/user/connections/authorizations") {
         return jsonResponse(
           {
@@ -557,7 +557,11 @@ describe("browser end-user client", () => {
         })
       }
       if (path === "/v1/user/connections") {
-        return jsonResponse({ data: [connection], nextCursor: null })
+        return jsonResponse(
+          url.searchParams.has("limit")
+            ? { data: [connection], nextCursor: null }
+            : { data: [connection] }
+        )
       }
       if (path === `/v1/user/connections/${connectionId}/authorizations`) {
         return jsonResponse(
@@ -609,6 +613,9 @@ describe("browser end-user client", () => {
       authorizationUrl: "https://provider.example/authorize",
     })
     await expect(client.listConnections()).resolves.toEqual({
+      data: [connection],
+    })
+    await expect(client.listConnections({ limit: 1 })).resolves.toEqual({
       data: [connection],
       nextCursor: null,
     })

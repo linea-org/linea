@@ -8,14 +8,14 @@ CREATE TABLE "connection_read_uses" (
 	"operation_id" text NOT NULL,
 	"outcome" text NOT NULL,
 	"occurred_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "connection_read_uses_outcome_check" CHECK ("outcome" IN ('succeeded', 'failed'))
+	CONSTRAINT "connection_read_uses_outcome_check" CHECK ("outcome" IN ('succeeded', 'failed')) -- Generated constraint literals mirror the schema; NOSONAR
 );
 --> statement-breakpoint
 ALTER TABLE "connection_authorization_requests" ADD COLUMN "target_connection_id" uuid;--> statement-breakpoint
 ALTER TABLE "connection_authorization_requests" ADD COLUMN "result_connection_id" uuid;--> statement-breakpoint
 ALTER TABLE "connection_authorization_requests" ADD COLUMN "outcome" text;--> statement-breakpoint
 ALTER TABLE "connection_authorization_requests" ALTER COLUMN "code_verifier_encrypted" DROP NOT NULL;--> statement-breakpoint
-UPDATE "connection_authorization_requests" SET "outcome" = 'failed', "code_verifier_encrypted" = NULL WHERE "completed_at" IS NOT NULL;--> statement-breakpoint
+DELETE FROM "connection_authorization_requests" WHERE "completed_at" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "connection_read_uses_owner_created_idx" ON "connection_read_uses" ("workspace_id","application_id","external_subject_id","connection_id","occurred_at","id");--> statement-breakpoint
 ALTER TABLE "connection_read_uses" ADD CONSTRAINT "connection_read_uses_application_fkey" FOREIGN KEY ("application_id","workspace_id") REFERENCES "applications"("id","workspace_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "connection_read_uses" ADD CONSTRAINT "connection_read_uses_subject_fkey" FOREIGN KEY ("external_subject_id","workspace_id") REFERENCES "external_subjects"("id","workspace_id") ON DELETE CASCADE;--> statement-breakpoint

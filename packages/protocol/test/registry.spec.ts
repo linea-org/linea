@@ -105,11 +105,18 @@ describe("operation registry", () => {
         (candidate) => candidate.operationId === operationId
       )
       if (!operation) throw new Error(`${operationId} is missing`)
-      expect(operation.request.query.parse({})).toEqual({ limit: 20 })
+      expect(operation.request.query.parse({})).toEqual(
+        operationId === "listConnections" ? {} : { limit: 20 }
+      )
       expect(
         operation.response.body.safeParse({ data: [], nextCursor: null })
           .success
       ).toBe(true)
+      if (operationId === "listConnections") {
+        expect(operation.response.body.safeParse({ data: [] }).success).toBe(
+          true
+        )
+      }
     }
   })
 

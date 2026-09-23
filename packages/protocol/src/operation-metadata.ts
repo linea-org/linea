@@ -70,7 +70,7 @@ export const operationMetadata = {
     caller: userCaller,
     idempotency: none,
     rateLimit: platformProtection,
-    pagination: none,
+    pagination: cursorPagination,
     events: none,
     adapter: adapter(
       "apps/platform-api/src/connections/connections.controller.ts",

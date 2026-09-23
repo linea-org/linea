@@ -1,8 +1,9 @@
 import { z } from "zod"
 import {
-  paginatedResponseSchema,
+  paginationLimitSchema,
   paginationQuerySchema,
 } from "../shared/pagination"
+import { cursorSchema } from "../shared/cursor"
 import { identifierSchema } from "../shared/identifier"
 import { timestampSchema } from "../shared/timestamp"
 
@@ -90,16 +91,21 @@ export const connectionSchema = z.strictObject({
   providerAccountId: z.string().min(1).max(500),
   accountLabel: z.string().min(1).max(500),
   status: connectionStatusSchema,
-  scopes: z.array(connectionScopeSchema),
+  scopes: z.array(connectionScopeSchema).max(50),
   credentialVersion: z.number().int().positive(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
   revokedAt: timestampSchema.nullable(),
 })
 
-export const listConnectionsQuerySchema = paginationQuerySchema
-export const connectionsResponseSchema =
-  paginatedResponseSchema(connectionSchema)
+export const listConnectionsQuerySchema = z.strictObject({
+  cursor: cursorSchema.optional(),
+  limit: paginationLimitSchema.optional(),
+})
+export const connectionsResponseSchema = z.strictObject({
+  data: z.array(connectionSchema),
+  nextCursor: cursorSchema.nullable().optional(),
+})
 
 export const connectionUseClassificationSchema = z.enum(["read", "side_effect"])
 
@@ -141,6 +147,7 @@ export type ConnectionOAuthCallback = z.infer<
   typeof connectionOAuthCallbackSchema
 >
 export type Connection = z.infer<typeof connectionSchema>
+export type ConnectionsResponse = z.infer<typeof connectionsResponseSchema>
 export type ListConnectionsQuery = z.infer<typeof listConnectionsQuerySchema>
 export type ConnectionUse = z.infer<typeof connectionUseSchema>
 export type ListConnectionUsesQuery = z.infer<

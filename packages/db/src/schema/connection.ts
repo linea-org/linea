@@ -22,7 +22,7 @@ export const connectionAuthorizationRequests = snakeCase.table(
     workspaceId: uuid().notNull(),
     applicationId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
-    endUserSessionId: uuid().notNull(),
+    endUserSessionId: uuid(),
     provider: text().notNull(),
     scopes: text().array().notNull(),
     returnUri: text().notNull(),
@@ -53,19 +53,9 @@ export const connectionAuthorizationRequests = snakeCase.table(
     }).onDelete("cascade"),
     foreignKey({
       name: "connection_authorization_requests_session_fkey",
-      columns: [
-        table.endUserSessionId,
-        table.workspaceId,
-        table.applicationId,
-        table.externalSubjectId,
-      ],
-      foreignColumns: [
-        endUserSessions.id,
-        endUserSessions.workspaceId,
-        endUserSessions.applicationId,
-        endUserSessions.externalSubjectId,
-      ],
-    }).onDelete("cascade"),
+      columns: [table.endUserSessionId],
+      foreignColumns: [endUserSessions.id],
+    }).onDelete("set null"),
     check(
       "connection_authorization_requests_scopes_check",
       sql`cardinality(${table.scopes}) > 0`

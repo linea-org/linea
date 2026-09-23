@@ -1,0 +1,2 @@
+ALTER TABLE "connection_authorization_requests" ALTER COLUMN "end_user_session_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "connection_authorization_requests" DROP CONSTRAINT "connection_authorization_requests_session_fkey", ADD CONSTRAINT "connection_authorization_requests_session_fkey" FOREIGN KEY ("end_user_session_id") REFERENCES "end_user_sessions"("id") ON DELETE SET NULL;

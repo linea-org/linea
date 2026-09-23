@@ -31,6 +31,7 @@ import type {
   Connection,
   ConnectionAuthorization,
   ConnectionAuthorizationResponse,
+  ConnectionsResponse,
   ConnectionUse,
   ConversationProjection,
   CreateEndUserConversation,
@@ -336,7 +337,7 @@ export class LineaUserClient {
 
   listConnections(
     query: Partial<ListConnectionsQuery> = {}
-  ): Promise<PaginatedResponse<Connection>> {
+  ): Promise<ConnectionsResponse> {
     const parsed = listConnectionsOperation.request.query.parse(query)
     return this.authorizedJson(
       listConnectionsOperation.method,

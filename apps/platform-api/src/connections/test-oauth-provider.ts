@@ -13,6 +13,7 @@ type TestOAuthProvider = {
   adapter: ConnectionOAuthProvider
   rejectNextRefresh(): void
   rejectNextRevocation(): void
+  grantNextAuthorizationScopes(scopes: string[]): void
   selectAccount(accountId: string, accountLabel: string): void
   wasAccountRevoked(accountId: string): boolean
   close(): Promise<void>
@@ -27,7 +28,12 @@ function requiredParameter(url: URL, name: string): string {
 export async function startTestOAuthProvider(): Promise<TestOAuthProvider> {
   const authorizationChallenges = new Map<
     string,
-    { challenge: string; accountId: string; accountLabel: string }
+    {
+      challenge: string
+      accountId: string
+      accountLabel: string
+      scopes: string[]
+    }
   >()
   const accessTokens = new Map<
     string,
@@ -40,6 +46,7 @@ export async function startTestOAuthProvider(): Promise<TestOAuthProvider> {
   const revokedAccounts = new Set<string>()
   let rejectNextRefresh = false
   let rejectNextRevocation = false
+  let nextAuthorizationScopes: string[] | undefined
   let selectedAccount = {
     accountId: 'account-one',
     accountLabel: 'Test Account',
@@ -48,10 +55,13 @@ export async function startTestOAuthProvider(): Promise<TestOAuthProvider> {
     const redirectUri = requiredParameter(url, 'redirect_uri')
     const state = requiredParameter(url, 'state')
     const codeChallenge = requiredParameter(url, 'code_challenge')
-    requiredParameter(url, 'scope')
+    const requestedScopes = requiredParameter(url, 'scope').split(' ')
+    const scopes = nextAuthorizationScopes ?? requestedScopes
+    nextAuthorizationScopes = undefined
     const code = randomUUID()
     authorizationChallenges.set(code, {
       challenge: codeChallenge,
+      scopes,
       ...selectedAccount,
     })
     const callback = new URL(redirectUri)
@@ -108,6 +118,7 @@ export async function startTestOAuthProvider(): Promise<TestOAuthProvider> {
         access_token: accessToken,
         refresh_token: refreshToken,
         expires_in: 3600,
+        scope: authorization.scopes.join(' '),
       }),
     )
   }
@@ -213,6 +224,9 @@ export async function startTestOAuthProvider(): Promise<TestOAuthProvider> {
         if (!tokenResponse.ok) throw new Error('Provider token exchange failed')
         const token: unknown = await tokenResponse.json()
         if (!isTokenResponse(token)) throw new Error('Invalid token response')
+        if (typeof token.scope !== 'string') {
+          throw new Error('Invalid token scope response')
+        }
         const accountResponse = await fetch(new URL('/account', baseUrl), {
           headers: { authorization: `Bearer ${token.access_token}` },
         })
@@ -230,6 +244,7 @@ export async function startTestOAuthProvider(): Promise<TestOAuthProvider> {
           expiresAt: new Date(
             Date.now() + token.expires_in * 1000,
           ).toISOString(),
+          grantedScopes: token.scope.split(' ').filter(Boolean),
         }
       },
       async refreshCredential(credential) {
@@ -276,6 +291,9 @@ export async function startTestOAuthProvider(): Promise<TestOAuthProvider> {
     rejectNextRevocation: () => {
       rejectNextRevocation = true
     },
+    grantNextAuthorizationScopes: (scopes) => {
+      nextAuthorizationScopes = scopes
+    },
     selectAccount: (accountId, accountLabel) => {
       selectedAccount = { accountId, accountLabel }
     },
@@ -302,6 +320,7 @@ function isTokenResponse(value: unknown): value is {
   access_token: string
   refresh_token: string
   expires_in: number
+  scope?: string
 } {
   if (!value || typeof value !== 'object') return false
   return (
@@ -310,7 +329,8 @@ function isTokenResponse(value: unknown): value is {
     'refresh_token' in value &&
     typeof value.refresh_token === 'string' &&
     'expires_in' in value &&
-    typeof value.expires_in === 'number'
+    typeof value.expires_in === 'number' &&
+    (!('scope' in value) || typeof value.scope === 'string')
   )
 }
 

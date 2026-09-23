@@ -174,10 +174,14 @@ export class ConnectorGateway {
     }
     if (
       operation.requiredScopes.some(
-        (scope) => !authority.connection.scopes.includes(scope)
-      ) ||
-      operation.requiredScopes.some(
         (scope) => !authority.providerPolicy.maxScopes.includes(scope)
+      )
+    ) {
+      throw new ConnectorGatewayError()
+    }
+    if (
+      operation.requiredScopes.some(
+        (scope) => !authority.connection.scopes.includes(scope)
       )
     ) {
       throw new ConnectorGatewayError(
@@ -195,52 +199,38 @@ export class ConnectorGateway {
     } catch {
       throw new ConnectorGatewayError("Connector input is invalid")
     }
+    let output: unknown
     try {
       const result = await operation.execute(
         validatedInput,
         credential,
         input.signal
       )
-      const output = operation.outputSchema.parse(result)
-      await this.recordReadUse(
-        authority.connection,
-        input,
-        operation.id,
-        "succeeded"
-      )
-      return output
+      output = operation.outputSchema.parse(result)
     } catch {
-      await this.recordReadUse(
-        authority.connection,
-        input,
-        operation.id,
-        "failed"
-      )
+      await repositories.connection.recordConnectionReadUse(this.db, {
+        workspaceId: authority.connection.workspaceId,
+        applicationId: authority.connection.applicationId,
+        externalSubjectId: authority.connection.externalSubjectId,
+        connectionId: authority.connection.id,
+        executionId: input.executionId,
+        operationId: operation.id,
+        outcome: "failed",
+        occurredAt: new Date(),
+      })
       throw new ConnectorGatewayError(operation.providerErrorMessage)
     }
-  }
-
-  private async recordReadUse(
-    connection: {
-      workspaceId: string
-      applicationId: string
-      externalSubjectId: string
-      id: string
-    },
-    input: { executionId: string },
-    operationId: string,
-    outcome: "succeeded" | "failed"
-  ): Promise<void> {
     await repositories.connection.recordConnectionReadUse(this.db, {
-      workspaceId: connection.workspaceId,
-      applicationId: connection.applicationId,
-      externalSubjectId: connection.externalSubjectId,
-      connectionId: connection.id,
+      workspaceId: authority.connection.workspaceId,
+      applicationId: authority.connection.applicationId,
+      externalSubjectId: authority.connection.externalSubjectId,
+      connectionId: authority.connection.id,
       executionId: input.executionId,
-      operationId,
-      outcome,
+      operationId: operation.id,
+      outcome: "succeeded",
       occurredAt: new Date(),
     })
+    return output
   }
 
   private async executeSideEffect(

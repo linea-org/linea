@@ -365,6 +365,10 @@ describe('end-user Approval Request API', () => {
   let fixture: Fixture
 
   beforeAll(async () => {
+    process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY = 'test-v1'
+    process.env.CONNECTION_CREDENTIAL_KEYS = JSON.stringify({
+      'test-v1': Buffer.alloc(32, 9).toString('base64'),
+    })
     fixture = await createFixture()
     const moduleRef = await Test.createTestingModule({
       controllers: [EndUserRuntimeController, ConnectionsController],
@@ -381,7 +385,6 @@ describe('end-user Approval Request API', () => {
     await app.listen(0)
     baseUrl = await app.getUrl()
   })
-
   afterAll(async () => {
     await pool.query('DELETE FROM approval_requests WHERE workspace_id = $1', [
       fixture.workspaceId,
@@ -391,6 +394,8 @@ describe('end-user Approval Request API', () => {
     ])
     await app.close()
     await pool.end()
+    delete process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY
+    delete process.env.CONNECTION_CREDENTIAL_KEYS
   })
 
   async function headers(

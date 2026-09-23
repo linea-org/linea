@@ -62,6 +62,16 @@ function encodeCursor(value: unknown): string {
   return Buffer.from(JSON.stringify(value)).toString('base64url')
 }
 
+function encodeCreatedAtCursor(cursor: {
+  createdAt: Date
+  id: string
+}): string {
+  return encodeCursor({
+    createdAt: cursor.createdAt.toISOString(),
+    id: cursor.id,
+  })
+}
+
 function decodeCursor<T>(cursor: string | undefined, schema: ZodType<T>) {
   if (!cursor) return undefined
   let decoded: unknown
@@ -130,10 +140,7 @@ export function decodeApprovalRequestCursor(
 export function encodeActionIntentCursor(
   cursor: PublicActionIntentCursor,
 ): string {
-  return encodeCursor({
-    ...cursor,
-    createdAt: cursor.createdAt.toISOString(),
-  })
+  return encodeCreatedAtCursor(cursor)
 }
 
 export function decodeActionIntentCursor(
@@ -146,10 +153,7 @@ export function decodeActionIntentCursor(
 }
 
 export function encodeConnectionCursor(cursor: PublicConnectionCursor): string {
-  return encodeCursor({
-    createdAt: cursor.createdAt.toISOString(),
-    id: cursor.id,
-  })
+  return encodeCreatedAtCursor(cursor)
 }
 
 export function decodeConnectionCursor(
@@ -182,10 +186,7 @@ export function decodeConnectionUseCursor(
 export function encodeWebhookDeliveryCursor(
   cursor: PublicWebhookDeliveryCursor,
 ): string {
-  return encodeCursor({
-    createdAt: cursor.createdAt.toISOString(),
-    id: cursor.id,
-  })
+  return encodeCreatedAtCursor(cursor)
 }
 
 export function decodeWebhookDeliveryCursor(

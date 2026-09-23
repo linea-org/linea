@@ -341,7 +341,7 @@ List the End User's Application-scoped Connections.
 - Method and path: `GET /v1/user/connections`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
-- Pagination or event resumption: None.
+- Pagination or event resumption: Cursor pagination through limit and cursor query parameters.
 - Emitted events/webhooks: None.
 - SDK method: `LineaUserClient.listConnections` from `@linea/sdk/user`
 
@@ -370,7 +370,6 @@ Query parameters:
       "type": "string"
     },
     "limit": {
-      "default": 20,
       "maximum": 100,
       "minimum": 1,
       "type": "integer"
@@ -472,6 +471,7 @@ Status: `200`
               "pattern": "^[A-Za-z0-9._:/-]+$",
               "type": "string"
             },
+            "maxItems": 50,
             "type": "array"
           },
           "status": {
@@ -514,7 +514,7 @@ Status: `200`
       ]
     }
   },
-  "required": ["data", "nextCursor"],
+  "required": ["data"],
   "type": "object"
 }
 ```
@@ -675,6 +675,7 @@ Status: `200`
         "pattern": "^[A-Za-z0-9._:/-]+$",
         "type": "string"
       },
+      "maxItems": 50,
       "type": "array"
     },
     "status": {
@@ -1220,6 +1221,7 @@ Status: `200`
         "pattern": "^[A-Za-z0-9._:/-]+$",
         "type": "string"
       },
+      "maxItems": 50,
       "type": "array"
     },
     "status": {

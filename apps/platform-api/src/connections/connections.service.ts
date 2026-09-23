@@ -18,11 +18,13 @@ import {
 import {
   connectionAuthorizationStatusSchema,
   connectionStatusSchema,
+  connectionUseSchema,
 } from '@linea/protocol/resources'
 import type {
   Connection as PublicConnection,
   ConnectionAuthorization,
   ConnectionAuthorizationResponse,
+  ConnectionsResponse,
   ConnectionUse,
   ConnectionOAuthCallback,
   ListConnectionUsesQuery,
@@ -38,10 +40,6 @@ import {
   encodeConnectionCursor,
   encodeConnectionUseCursor,
 } from '../public-runtime/public-pagination'
-import {
-  actionIntentUseProjection,
-  connectionReadUseProjection,
-} from './connection-use.projections'
 import {
   CONNECTION_OAUTH_PROVIDERS,
   type ConnectionOAuthProvider,
@@ -278,11 +276,12 @@ export class ConnectionsService {
         await this.failAuthorization(request, claimedAt)
         return authorizationResultUrl(request, 'failed')
       }
-      const credential = await provider.exchangeAuthorizationCode({
+      const authorization = await provider.exchangeAuthorizationCode({
         code: input.code,
         redirectUri: callbackUrl(providerName),
         codeVerifier: decryptCredential(request.codeVerifierEncrypted, context),
       })
+      const { grantedScopes, ...credential } = authorization
       const connectionId = randomUUID()
       const completed =
         await repositories.connection.completeConnectionAuthorizationRequest(
@@ -291,8 +290,9 @@ export class ConnectionsService {
             authorizationRequestId: request.id,
             claimedAt,
             connectionId,
-            providerAccountId: credential.accountId,
-            accountLabel: credential.accountLabel,
+            providerAccountId: authorization.accountId,
+            accountLabel: authorization.accountLabel,
+            grantedScopes,
             credentialPlaintext: JSON.stringify(credential),
             now: new Date(),
           },
@@ -323,13 +323,13 @@ export class ConnectionsService {
         publicError('resource_not_found', 'Connection authorization not found'),
       )
     }
-    const status = connectionAuthorizationStatusSchema.parse(
-      request.outcome
-        ? request.outcome
-        : request.expiresAt <= new Date()
-          ? 'expired'
-          : 'pending',
-    )
+    let authorizationStatus = request.outcome
+    if (!authorizationStatus) {
+      authorizationStatus =
+        request.expiresAt <= new Date() ? 'expired' : 'pending'
+    }
+    const status =
+      connectionAuthorizationStatusSchema.parse(authorizationStatus)
     return {
       id: request.id,
       provider: request.provider,
@@ -345,18 +345,26 @@ export class ConnectionsService {
   async list(
     principal: EndUserPrincipal,
     query: ListConnectionsQuery,
-  ): Promise<{ data: PublicConnection[]; nextCursor: string | null }> {
+  ): Promise<ConnectionsResponse> {
+    if (query.limit === undefined && query.cursor === undefined) {
+      const connections = await repositories.connection.listConnections(
+        db,
+        principal,
+      )
+      return { data: connections.map(publicConnection) }
+    }
+    const limit = query.limit ?? 20
     const connections = await repositories.connection.findConnections(db, {
       ...principal,
-      limit: query.limit + 1,
+      limit: limit + 1,
       cursor: decodeConnectionCursor(query.cursor),
     })
-    const page = connections.slice(0, query.limit)
+    const page = connections.slice(0, limit)
     const last = page.at(-1)
     return {
       data: page.map(publicConnection),
       nextCursor:
-        connections.length > query.limit && last
+        connections.length > limit && last
           ? encodeConnectionCursor(last)
           : null,
     }
@@ -471,8 +479,30 @@ export class ConnectionsService {
       repositories.actionIntent.findTerminalActionIntents(db, input),
     ])
     const uses = [
-      ...reads.map(connectionReadUseProjection),
-      ...intents.map(actionIntentUseProjection),
+      ...reads.map((use) =>
+        connectionUseSchema.parse({
+          id: use.id,
+          connectionId: use.connectionId,
+          executionId: use.executionId,
+          actionIntentId: null,
+          operation: use.operationId,
+          classification: 'read',
+          outcome: use.outcome,
+          occurredAt: use.occurredAt.toISOString(),
+        }),
+      ),
+      ...intents.map((intent) =>
+        connectionUseSchema.parse({
+          id: intent.id,
+          connectionId: intent.connectionId,
+          executionId: intent.executionId,
+          actionIntentId: intent.id,
+          operation: intent.operationId,
+          classification: 'side_effect',
+          outcome: intent.status,
+          occurredAt: intent.updatedAt.toISOString(),
+        }),
+      ),
     ].sort((left, right) =>
       right.occurredAt === left.occurredAt
         ? right.id.localeCompare(left.id)

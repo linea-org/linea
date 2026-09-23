@@ -5625,7 +5625,6 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 20,
               "maximum": 100,
               "minimum": 1,
               "type": "integer"
@@ -5713,6 +5712,7 @@
                               "pattern": "^[A-Za-z0-9._:/-]+$",
                               "type": "string"
                             },
+                            "maxItems": 50,
                             "type": "array"
                           },
                           "status": {
@@ -5759,7 +5759,7 @@
                       ]
                     }
                   },
-                  "required": ["data", "nextCursor"],
+                  "required": ["data"],
                   "type": "object"
                 }
               }
@@ -5968,6 +5968,7 @@
                         "pattern": "^[A-Za-z0-9._:/-]+$",
                         "type": "string"
                       },
+                      "maxItems": 50,
                       "type": "array"
                     },
                     "status": {
@@ -6227,6 +6228,7 @@
                         "pattern": "^[A-Za-z0-9._:/-]+$",
                         "type": "string"
                       },
+                      "maxItems": 50,
                       "type": "array"
                     },
                     "status": {
