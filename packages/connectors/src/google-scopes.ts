@@ -10,6 +10,21 @@ export const GOOGLE_ACTION_SCOPES = Object.freeze({
 
 export type GoogleActionFamily = keyof typeof GOOGLE_ACTION_SCOPES
 
+export function normalizeGoogleGrantedScopes(value: string): string[] {
+  return [
+    ...new Set(
+      value
+        .split(" ")
+        .filter(Boolean)
+        .map((scope) =>
+          scope === "https://www.googleapis.com/auth/userinfo.email"
+            ? "email"
+            : scope
+        )
+    ),
+  ].sort((left, right) => left.localeCompare(right))
+}
+
 export function googleAuthorizationScopes(
   actionFamilies: readonly string[]
 ): readonly string[] {

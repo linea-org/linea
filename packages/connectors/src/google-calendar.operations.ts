@@ -53,6 +53,11 @@ const providerEventSchema = z
     updated: z.string().max(100).optional(),
   })
   .strip()
+const listProviderEventSchema = providerEventSchema.omit({
+  description: true,
+  location: true,
+  attendees: true,
+})
 const eventResultSchema = z.strictObject({
   eventId: z.string().min(1).max(1024),
   etag: z.string().min(1).max(1024),
@@ -84,7 +89,7 @@ const calendarListInputSchema = z
   })
 const calendarListResponseSchema = z
   .object({
-    items: z.array(providerEventSchema).max(100).default([]),
+    items: z.array(listProviderEventSchema).max(100).default([]),
     nextPageToken: z.string().max(2000).optional(),
   })
   .strip()
@@ -97,19 +102,36 @@ const calendarCreateInputSchema = z
   .strict()
 const calendarCreateParametersSchema = calendarCreateInputSchema
 const calendarCreatePreconditionsSchema = z.strictObject({})
+const updateEventShape = {
+  summary: eventInputShape.summary.optional(),
+  description: z.string().max(10_000).optional(),
+  location: z.string().max(1000).optional(),
+  start: eventInputShape.start.optional(),
+  end: eventInputShape.end.optional(),
+  attendees: z.array(emailSchema).max(100).optional(),
+}
 const calendarUpdateInputSchema = z
   .object({
     calendarId: z.string().min(1).max(1024),
     eventId: z.string().min(1).max(1024),
     expectedEtag: z.string().min(1).max(1024),
-    ...eventInputShape,
+    ...updateEventShape,
   })
   .strict()
-const calendarUpdateParametersSchema = z.strictObject({
-  calendarId: z.string().min(1).max(1024),
-  eventId: z.string().min(1).max(1024),
-  ...eventInputShape,
-})
+  .refine(
+    (input) => Object.keys(updateEventShape).some((key) => key in input),
+    "Calendar update requires a changed field"
+  )
+const calendarUpdateParametersSchema = z
+  .strictObject({
+    calendarId: z.string().min(1).max(1024),
+    eventId: z.string().min(1).max(1024),
+    ...updateEventShape,
+  })
+  .refine(
+    (input) => Object.keys(updateEventShape).some((key) => key in input),
+    "Calendar update requires a changed field"
+  )
 const calendarUpdatePreconditionsSchema = z.strictObject({
   expectedEtag: z.string().min(1).max(1024),
 })
@@ -118,7 +140,7 @@ function eventTime(value: z.infer<typeof providerDateTimeSchema>): string {
   return value.dateTime ?? value.date ?? ""
 }
 
-function eventResult(event: z.infer<typeof providerEventSchema>) {
+function eventResult(event: z.infer<typeof listProviderEventSchema>) {
   return {
     eventId: event.id,
     etag: event.etag,
@@ -131,36 +153,53 @@ function eventResult(event: z.infer<typeof providerEventSchema>) {
   }
 }
 
-function eventBody(parameters: z.infer<typeof calendarCreateParametersSchema>) {
+function eventBody(
+  parameters:
+    | z.infer<typeof calendarCreateParametersSchema>
+    | z.infer<typeof calendarUpdateParametersSchema>
+) {
   return {
     summary: parameters.summary,
     description: parameters.description,
     location: parameters.location,
     start: parameters.start,
     end: parameters.end,
-    attendees: parameters.attendees.map((email) => ({ email })),
+    attendees: parameters.attendees?.map((email) => ({ email })),
   }
 }
 
 function sameEvent(
   event: z.infer<typeof providerEventSchema>,
-  parameters: z.infer<typeof calendarCreateParametersSchema>
+  parameters:
+    | z.infer<typeof calendarCreateParametersSchema>
+    | z.infer<typeof calendarUpdateParametersSchema>
 ): boolean {
   return (
-    event.summary === parameters.summary &&
-    event.description === parameters.description &&
-    event.location === parameters.location &&
-    eventTime(event.start) === parameters.start.dateTime &&
-    (event.start.timeZone ?? "") === (parameters.start.timeZone ?? "") &&
-    eventTime(event.end) === parameters.end.dateTime &&
-    (event.end.timeZone ?? "") === (parameters.end.timeZone ?? "") &&
-    event.attendees
-      .map(({ email }) => email)
-      .sort((left, right) => left.localeCompare(right))
-      .join("\0") ===
-      [...parameters.attendees]
+    (parameters.summary === undefined ||
+      event.summary === parameters.summary) &&
+    (parameters.description === undefined ||
+      event.description === parameters.description) &&
+    (parameters.location === undefined ||
+      event.location === parameters.location) &&
+    (parameters.start === undefined ||
+      (Date.parse(eventTime(event.start)) ===
+        Date.parse(parameters.start.dateTime) &&
+        (parameters.start.timeZone === undefined ||
+          event.start.timeZone === parameters.start.timeZone))) &&
+    (parameters.end === undefined ||
+      (Date.parse(eventTime(event.end)) ===
+        Date.parse(parameters.end.dateTime) &&
+        (parameters.end.timeZone === undefined ||
+          event.end.timeZone === parameters.end.timeZone))) &&
+    (parameters.attendees === undefined ||
+      event.attendees
+        .map(({ email }) => email.toLowerCase())
         .sort((left, right) => left.localeCompare(right))
-        .join("\0")
+        .join("\0") ===
+        parameters.attendees
+          .map((email) => email.toLowerCase())
+          .sort((left, right) => left.localeCompare(right))
+          .join("\0"))
   )
 }
 
@@ -187,7 +226,9 @@ async function getEvent(
 async function reconcileEvent(
   calendarId: string,
   eventId: string,
-  parameters: z.infer<typeof calendarCreateParametersSchema>,
+  parameters:
+    | z.infer<typeof calendarCreateParametersSchema>
+    | z.infer<typeof calendarUpdateParametersSchema>,
   accessToken: string
 ) {
   let event: z.infer<typeof providerEventSchema>
@@ -341,19 +382,11 @@ export const googleCalendarUpdateEventOperation: ConnectorSideEffectOperation =
     retrySafety: "none",
     normalize(rawInput) {
       const input = calendarUpdateInputSchema.parse(rawInput)
+      const { expectedEtag, ...parameters } = input
       return {
         target: { calendarId: input.calendarId, eventId: input.eventId },
-        parameters: {
-          calendarId: input.calendarId,
-          eventId: input.eventId,
-          summary: input.summary,
-          description: input.description,
-          location: input.location,
-          start: input.start,
-          end: input.end,
-          attendees: input.attendees,
-        },
-        providerPreconditions: { expectedEtag: input.expectedEtag },
+        parameters,
+        providerPreconditions: { expectedEtag },
       }
     },
     display(envelope) {
@@ -362,9 +395,15 @@ export const googleCalendarUpdateEventOperation: ConnectorSideEffectOperation =
         title: "Update Google Calendar event",
         details: Object.freeze({
           Calendar: escapeSafeDisplayText(parameters.calendarId),
-          Event: escapeSafeDisplayText(parameters.summary),
-          Start: parameters.start.dateTime,
-          End: parameters.end.dateTime,
+          ...(parameters.summary === undefined
+            ? {}
+            : { Event: escapeSafeDisplayText(parameters.summary) }),
+          ...(parameters.start === undefined
+            ? {}
+            : { Start: parameters.start.dateTime }),
+          ...(parameters.end === undefined
+            ? {}
+            : { End: parameters.end.dateTime }),
         }),
       })
     },

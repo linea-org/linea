@@ -12,6 +12,13 @@ import {
 type Account = { id: string; email: string }
 type Grant = { account: Account; challenge: string; scopes: string[] }
 type Token = { account: Account; scopes: string[] }
+const GOOGLE_EMAIL_SCOPE = 'https://www.googleapis.com/auth/userinfo.email'
+
+function grantedScopes(scopes: string[]): string {
+  return scopes
+    .map((scope) => (scope === 'email' ? GOOGLE_EMAIL_SCOPE : scope))
+    .join(' ')
+}
 
 function parameter(url: URL, name: string): string {
   const value = url.searchParams.get(name)
@@ -73,7 +80,7 @@ export async function startTestGoogleProvider() {
           access_token: accessToken,
           refresh_token: refreshToken,
           expires_in: 3600,
-          scope: current.scopes.join(' '),
+          scope: grantedScopes(current.scopes),
         }),
       )
       return
@@ -98,7 +105,7 @@ export async function startTestGoogleProvider() {
         access_token: accessToken,
         refresh_token: refreshToken,
         expires_in: 3600,
-        scope: scopes.join(' '),
+        scope: grantedScopes(scopes),
       }),
     )
   }
@@ -130,8 +137,20 @@ export async function startTestGoogleProvider() {
       response.writeHead(503).end()
       return
     }
-    const removed = refreshTokens.delete(input.get('token') ?? '')
-    response.writeHead(removed ? 204 : 400).end()
+    const tokenValue = input.get('token') ?? ''
+    const current =
+      refreshTokens.get(tokenValue) ?? accessTokens.get(tokenValue)
+    if (!current) {
+      response.writeHead(400).end()
+      return
+    }
+    for (const [value, token] of refreshTokens) {
+      if (token.account.id === current.account.id) refreshTokens.delete(value)
+    }
+    for (const [value, token] of accessTokens) {
+      if (token.account.id === current.account.id) accessTokens.delete(value)
+    }
+    response.writeHead(204).end()
   }
   const server = createServer((request, response) => {
     const run = async (): Promise<void> => {

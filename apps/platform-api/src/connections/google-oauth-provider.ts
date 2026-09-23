@@ -1,5 +1,6 @@
 import {
   googleAuthorizationScopes,
+  normalizeGoogleGrantedScopes,
   readBoundedJsonResponse,
 } from '@linea/connectors'
 import { z } from 'zod'
@@ -40,9 +41,7 @@ async function responseJson(response: Response): Promise<unknown> {
 }
 
 function scopes(value: string | undefined, fallback: string[]): string[] {
-  return [...new Set((value?.split(' ') ?? fallback).filter(Boolean))].sort(
-    (left, right) => left.localeCompare(right),
-  )
+  return value ? normalizeGoogleGrantedScopes(value) : fallback
 }
 
 export class GoogleOAuthProvider implements ConnectionOAuthProvider {
@@ -81,6 +80,7 @@ export class GoogleOAuthProvider implements ConnectionOAuthProvider {
   }): Promise<ConnectionProviderCredential> {
     const tokenResponse = await fetch(this.config.tokenUrl, {
       method: 'POST',
+      signal: AbortSignal.timeout(20_000),
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         client_id: this.config.clientId,
@@ -97,6 +97,7 @@ export class GoogleOAuthProvider implements ConnectionOAuthProvider {
       throw new Error('Google token response is incomplete')
     }
     const accountResponse = await fetch(this.config.userInfoUrl, {
+      signal: AbortSignal.timeout(20_000),
       headers: { authorization: `Bearer ${token.access_token}` },
     })
     if (!accountResponse.ok) throw new Error('Google account lookup failed')
@@ -126,6 +127,7 @@ export class GoogleOAuthProvider implements ConnectionOAuthProvider {
     }
     const response = await fetch(this.config.tokenUrl, {
       method: 'POST',
+      signal: AbortSignal.timeout(20_000),
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         client_id: this.config.clientId,

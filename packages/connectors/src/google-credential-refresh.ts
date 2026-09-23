@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { readBoundedJsonResponse } from "./bounded-response.js"
 import type { ConnectorReadCredential } from "./connector-read-operation.js"
+import { normalizeGoogleGrantedScopes } from "./google-scopes.js"
 
 const storedGoogleCredentialSchema = z
   .object({
@@ -47,6 +48,7 @@ export async function refreshGoogleCredential(
       "https://oauth2.googleapis.com/token",
     {
       method: "POST",
+      signal: AbortSignal.timeout(20_000),
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         client_id: clientId,
@@ -76,19 +78,19 @@ export async function refreshGoogleCredential(
     refreshToken: token.refresh_token ?? credential.refreshToken,
     expiresAt: new Date(Date.now() + token.expires_in * 1000).toISOString(),
     grantedScopes: token.scope
-      ? [...new Set(token.scope.split(" ").filter(Boolean))].sort(
-          (left, right) => left.localeCompare(right)
-        )
+      ? normalizeGoogleGrantedScopes(token.scope)
       : credential.grantedScopes,
   }
 }
 
 export function connectorCredential(
-  credential: StoredGoogleCredential
+  credential: StoredGoogleCredential,
+  scopes: readonly string[]
 ): ConnectorReadCredential {
   return {
     accountId: credential.accountId,
     accessToken: credential.accessToken,
     expiresAt: credential.expiresAt,
+    scopes,
   }
 }

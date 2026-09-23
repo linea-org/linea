@@ -21,7 +21,17 @@ describe("live Google smoke", () => {
   const accessToken = environment("GOOGLE_LIVE_ACCESS_TOKEN")
   const recipient = environment("GOOGLE_LIVE_GMAIL_RECIPIENT")
   const calendarId = environment("GOOGLE_LIVE_CALENDAR_ID")
-  const credential = { accountId: "live", accessToken, expiresAt: null }
+  const credential = {
+    accountId: "live",
+    accessToken,
+    expiresAt: null,
+    scopes: [
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/gmail.send",
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/calendar.events",
+    ],
+  }
   let eventId: string | undefined
 
   afterAll(async () => {

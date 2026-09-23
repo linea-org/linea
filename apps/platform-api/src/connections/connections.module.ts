@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common'
 import { EndUserSessionsModule } from '../end-user-sessions/end-user-sessions.module'
 import { ConnectionOAuthCallbackController } from './connection-oauth-callback.controller'
-import { CONNECTION_OAUTH_PROVIDERS } from './connection-oauth-provider'
+import {
+  CONNECTION_OAUTH_PROVIDERS,
+  type ConnectionOAuthProvider,
+} from './connection-oauth-provider'
 import { ConnectionsController } from './connections.controller'
 import { ConnectionsService } from './connections.service'
 import { ConnectionCredentialsService } from './connection-credentials.service'
@@ -12,7 +15,9 @@ import { githubOAuthProviderFromEnvironment } from './github-oauth-provider'
 function connectionOAuthProviders() {
   const google = googleOAuthProviderFromEnvironment()
   const github = githubOAuthProviderFromEnvironment()
-  return [google, github].filter((provider) => provider !== null)
+  return [google, github].filter(
+    (provider): provider is ConnectionOAuthProvider => provider != null,
+  )
 }
 
 @Module({

@@ -480,6 +480,43 @@ describe('OAuth Connections', () => {
         GOOGLE_ACTION_SCOPES.calendar_update,
       ]),
     )
+    if (!expanded?.credentialEncrypted) {
+      throw new Error('Expected Google credential')
+    }
+    const encryptionContext = {
+      workspaceId,
+      applicationId,
+      externalSubjectId,
+      recordId: expanded.id,
+      provider: 'google',
+    }
+    const beforeRefresh = parseConnectionProviderCredential(
+      decryptCredential(expanded.credentialEncrypted, encryptionContext),
+      expanded.scopes,
+    )
+    await repositories.connection.rotateConnectionCredential(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      expanded.id,
+      expanded.credentialVersion,
+      encryptCredential(
+        JSON.stringify({
+          ...beforeRefresh,
+          expiresAt: new Date(Date.now() + 30_000).toISOString(),
+        }),
+        encryptionContext,
+      ),
+      new Date(),
+    )
+    const refreshed = await app
+      .get(ConnectionCredentialsService)
+      .resolve(
+        { sessionId, workspaceId, applicationId, externalSubjectId },
+        expanded.id,
+      )
+    expect(refreshed.accessToken).not.toBe(beforeRefresh.accessToken)
+    expect(refreshed.refreshToken).not.toBe(beforeRefresh.refreshToken)
+    expect(google.refreshCount()).toBe(1)
     await replaceGoogleFamilies(googleActionFamilies)
     google.denyScopeOnce(GOOGLE_ACTION_SCOPES.gmail_send)
     await expect(authorize()).resolves.toBe('failed')
@@ -488,7 +525,7 @@ describe('OAuth Connections', () => {
       { workspaceId, applicationId, externalSubjectId },
       initial.id,
     )
-    expect(denied?.credentialVersion).toBe(expanded?.credentialVersion)
+    expect(denied?.credentialVersion).toBe(expanded.credentialVersion + 2)
     const stagedRevocation =
       await db.query.connectionRevocationDeliveries.findFirst({
         where: {
@@ -506,38 +543,44 @@ describe('OAuth Connections', () => {
       })
     expect(completedRevocation?.credentialEncrypted).toBeNull()
     expect(completedRevocation?.deliveredAt).toBeInstanceOf(Date)
-    if (!denied?.credentialEncrypted) {
+    if (!denied?.credentialEncrypted)
       throw new Error('Expected Google credential')
-    }
-    const encryptionContext = {
-      workspaceId,
-      applicationId,
-      externalSubjectId,
-      recordId: denied.id,
-      provider: 'google',
-    }
-    const beforeRefresh = parseConnectionProviderCredential(
-      decryptCredential(denied.credentialEncrypted, encryptionContext),
-      denied.scopes,
-    )
-    const expired = { ...beforeRefresh, expiresAt: '2000-01-01T00:00:00.000Z' }
     await repositories.connection.rotateConnectionCredential(
       db,
       { workspaceId, applicationId, externalSubjectId },
       denied.id,
       denied.credentialVersion,
-      encryptCredential(JSON.stringify(expired), encryptionContext),
+      encryptCredential(
+        JSON.stringify({
+          ...refreshed,
+          expiresAt: '2000-01-01T00:00:00.000Z',
+        }),
+        encryptionContext,
+      ),
       new Date(),
     )
-    const refreshed = await app
-      .get(ConnectionCredentialsService)
-      .resolve(
-        { sessionId, workspaceId, applicationId, externalSubjectId },
-        denied.id,
-      )
-    expect(refreshed.accessToken).not.toBe(beforeRefresh.accessToken)
-    expect(refreshed.refreshToken).not.toBe(beforeRefresh.refreshToken)
+    await expect(
+      app
+        .get(ConnectionCredentialsService)
+        .resolve(
+          { sessionId, workspaceId, applicationId, externalSubjectId },
+          denied.id,
+        ),
+    ).rejects.toBeInstanceOf(ConnectionProviderInvalidGrantError)
     expect(google.refreshCount()).toBe(1)
+    const invalidated = await repositories.connection.getConnection(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      denied.id,
+    )
+    expect(invalidated?.status).toBe('reauthorization_required')
+    await expect(authorize()).resolves.toBe('connected')
+    const reauthorized = await repositories.connection.getConnection(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      denied.id,
+    )
+    expect(reauthorized?.status).toBe('active')
     google.failNextRevocation()
     const getPath = `/v1/user/connections/${denied.id}`
     const revoked = await request(baseUrl)

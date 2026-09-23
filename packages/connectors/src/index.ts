@@ -34,6 +34,7 @@ export {
   GOOGLE_ACTION_SCOPES,
   GOOGLE_IDENTITY_SCOPES,
   googleAuthorizationScopes,
+  normalizeGoogleGrantedScopes,
   type GoogleActionFamily,
 } from "./google-scopes.js"
 export { githubCreateIssueOperation } from "./github-create-issue.operation.js"

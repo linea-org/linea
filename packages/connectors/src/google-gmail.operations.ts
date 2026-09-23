@@ -230,6 +230,9 @@ export const googleGmailSendMessageOperation: ConnectorSideEffectOperation =
         ) {
           throw error
         }
+        if (!credential.scopes.includes(GOOGLE_ACTION_SCOPES.gmail_read)) {
+          throw new GoogleProviderError(undefined, true)
+        }
         return reconcileGmailSend(
           credential.accessToken,
           messageId,

@@ -217,6 +217,7 @@ describe("GitHub Connector Operations", () => {
     accountId: "1234",
     accessToken: "github-access-secret",
     expiresAt: null,
+    scopes: ["read:user", "repo"],
   }
   it("returns a bounded repository page without raw provider fields or headers", async () => {
     expect(githubListRepositoriesOperation).toMatchObject({

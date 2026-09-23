@@ -59,7 +59,10 @@ export class ConnectionCredentialsService {
       throw new ConnectionProviderInvalidGrantError('Reauthorization required')
     }
     const current = credential(connection)
-    if (!current.expiresAt || Date.parse(current.expiresAt) > now.getTime()) {
+    if (
+      !current.expiresAt ||
+      Date.parse(current.expiresAt) > now.getTime() + 60_000
+    ) {
       return current
     }
     const provider = this.providers.find(

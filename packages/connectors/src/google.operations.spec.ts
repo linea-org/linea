@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server } from "node:http"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { z } from "zod"
 import { googleCalendarCreateEventOperation } from "./google-calendar.operations.js"
 import { googleCalendarListEventsOperation } from "./google-calendar.operations.js"
 import { googleCalendarUpdateEventOperation } from "./google-calendar.operations.js"
@@ -12,11 +13,16 @@ import {
   refreshGoogleCredential,
 } from "./google-credential-refresh.js"
 import { GoogleProviderError } from "./google-http.js"
+import {
+  GOOGLE_ACTION_SCOPES,
+  normalizeGoogleGrantedScopes,
+} from "./google-scopes.js"
 
 const credential = {
   accountId: "google-account",
   accessToken: "private-google-access-token",
   expiresAt: null,
+  scopes: Object.values(GOOGLE_ACTION_SCOPES),
 }
 const eventInput = {
   calendarId: "primary",
@@ -57,8 +63,10 @@ describe("Google Connector Operations", () => {
   let gmailSendAmbiguous = true
   let gmailMalformedResponse = false
   let gmailReconciliationFailure = false
+  let gmailReadCount = 0
   let calendarCreateAmbiguous = true
   let calendarPatchCount = 0
+  let lastCalendarPatch: unknown
   const events = new Map<string, StoredEvent>()
 
   beforeAll(async () => {
@@ -93,6 +101,7 @@ describe("Google Connector Operations", () => {
           request.method === "GET" &&
           url.pathname === "/gmail/v1/users/me/messages"
         ) {
+          gmailReadCount += 1
           if (gmailReconciliationFailure) {
             response.writeHead(401).end()
             return
@@ -181,7 +190,19 @@ describe("Google Connector Operations", () => {
               response.writeHead(409).end()
               return
             }
-            events.set(body.id, event)
+            events.set(
+              body.id,
+              calendarCreateAmbiguous
+                ? {
+                    ...event,
+                    start: { dateTime: "2026-10-01T06:00:00-04:00" },
+                    end: { dateTime: "2026-10-01T07:00:00-04:00" },
+                    attendees: event.attendees.map(({ email }) => ({
+                      email: email.toUpperCase(),
+                    })),
+                  }
+                : event
+            )
             if (calendarCreateAmbiguous) {
               calendarCreateAmbiguous = false
               response.writeHead(504).end()
@@ -208,6 +229,7 @@ describe("Google Connector Operations", () => {
               | "end"
               | "attendees"
             >
+            lastCalendarPatch = patch
             const event = {
               ...current,
               ...patch,
@@ -278,6 +300,18 @@ describe("Google Connector Operations", () => {
       htmlLink: "https://calendar.example/events/read-event",
       updated: "2026-10-01T08:00:00.000Z",
     })
+    events.set("large-event", {
+      ...eventInput,
+      description: "x".repeat(11_000),
+      attendees: Array.from({ length: 101 }, (_, index) => ({
+        email: `guest-${index}@example.com`,
+      })),
+      id: "large-event",
+      etag: '"large-v1"',
+      status: "confirmed",
+      htmlLink: "https://calendar.example/events/large-event",
+      updated: "2026-10-01T08:00:00.000Z",
+    })
     const calendar = await googleCalendarListEventsOperation.execute(
       {
         calendarId: "primary",
@@ -291,9 +325,19 @@ describe("Google Connector Operations", () => {
     expect(calendar).toEqual(
       expect.objectContaining({ nextPageToken: "calendar-next" })
     )
+    const listed = z
+      .object({ events: z.array(z.object({ eventId: z.string() })) })
+      .parse(calendar)
+    expect(listed.events.map(({ eventId }) => eventId)).toContain("large-event")
+    events.delete("large-event")
   })
 
   it("rotates Google access and refresh tokens and rejects invalid grants", async () => {
+    expect(
+      normalizeGoogleGrantedScopes(
+        "openid https://www.googleapis.com/auth/userinfo.email email"
+      )
+    ).toEqual(["email", "openid"])
     const current = {
       accountId: "google-account",
       accountLabel: "account@example.com",
@@ -382,6 +426,18 @@ describe("Google Connector Operations", () => {
       )
     ).rejects.toMatchObject({ outcomeUnknown: true })
     gmailReconciliationFailure = false
+    gmailSendAmbiguous = true
+    const readCount = gmailReadCount
+    await expect(
+      googleGmailSendMessageOperation.execute(
+        normalized.parameters,
+        normalized.providerPreconditions,
+        { ...credential, scopes: [GOOGLE_ACTION_SCOPES.gmail_send] },
+        "gmail-send-only",
+        undefined
+      )
+    ).rejects.toMatchObject({ outcomeUnknown: true })
+    expect(gmailReadCount).toBe(readCount)
   })
 
   it("reconciles Calendar creates with a deterministic provider id", async () => {
@@ -439,6 +495,33 @@ describe("Google Connector Operations", () => {
       expect.objectContaining({ summary: "Updated planning", etag: '"v2"' })
     )
     expect(calendarPatchCount).toBe(1)
+    const summaryOnly = googleCalendarUpdateEventOperation.normalize({
+      calendarId: "primary",
+      eventId,
+      expectedEtag: '"v2"',
+      summary: "Summary only",
+    })
+    await googleCalendarUpdateEventOperation.execute(
+      summaryOnly.parameters,
+      summaryOnly.providerPreconditions,
+      credential,
+      "calendar-summary-only",
+      undefined
+    )
+    expect(lastCalendarPatch).toEqual({ summary: "Summary only" })
+    expect(events.get(eventId)).toMatchObject({
+      summary: "Summary only",
+      description: eventInput.description,
+      location: eventInput.location,
+      attendees: eventInput.attendees.map((email) => ({ email })),
+    })
+    expect(() =>
+      googleCalendarUpdateEventOperation.normalize({
+        calendarId: "primary",
+        eventId,
+        expectedEtag: '"v2"',
+      })
+    ).toThrow()
   })
 
   it("redacts provider failures and marks ambiguous outcomes honestly", () => {

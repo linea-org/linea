@@ -4,6 +4,7 @@ export type ConnectorReadCredential = {
   accountId: string
   accessToken: string
   expiresAt: string | null
+  scopes: readonly string[]
 }
 
 export interface ConnectorReadOperation {

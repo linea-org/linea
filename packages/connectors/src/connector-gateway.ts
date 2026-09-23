@@ -677,11 +677,12 @@ export class ConnectorGateway {
         decryptCredential(connection.credentialEncrypted, context)
       )
       const credential = storedCredentialSchema.parse(parsed)
+      const refreshMargin = connection.provider === "google" ? 60_000 : 0
       if (
         !credential.expiresAt ||
-        Date.parse(credential.expiresAt) > Date.now()
+        Date.parse(credential.expiresAt) > Date.now() + refreshMargin
       ) {
-        return credential
+        return { ...credential, scopes: connection.scopes }
       }
       if (connection.provider !== "google") throw new ConnectorGatewayError()
       const googleCredential = parseStoredGoogleCredential(parsed)
@@ -749,7 +750,7 @@ export class ConnectorGateway {
         encryptCredential(JSON.stringify(refreshed), context),
         new Date()
       )
-      if (rotated) return connectorCredential(refreshed)
+      if (rotated) return connectorCredential(refreshed, connection.scopes)
       const latest = await repositories.connection.getConnection(
         this.db,
         connection,
