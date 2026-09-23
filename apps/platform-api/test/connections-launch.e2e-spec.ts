@@ -415,6 +415,12 @@ describe('Connections and Action Consent launch tracer', () => {
       .set(await sessionHeaders(baseUrl, fixture.primary, 'DELETE', path))
       .expect(200)
     expect(connectionSchema.parse(revoked.body).status).toBe('revoked')
+    const stored = await pool.query<{ credential_encrypted: string | null }>(
+      'SELECT credential_encrypted FROM connections WHERE id = $1',
+      [githubConnectionId],
+    )
+    expect(stored.rows).toHaveLength(1)
+    expect(stored.rows[0]?.credential_encrypted).toBeNull()
     const execution = await startExecution(
       fixture.primary,
       fixture.githubWorkflowId,
