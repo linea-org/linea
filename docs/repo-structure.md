@@ -1,258 +1,254 @@
-# Repo structure
+# Repository structure
 
-Status of the repo as of this writing:
+This document describes the current ownership and dependency seams in the
+monorepo. Product direction belongs in `product-vision.md`; strategic
+sequencing belongs in `roadmap.md`.
 
-- `apps/web` is real. Auth flows, workspace onboarding, invitations, and the `w/$slug` workspace shell.
-- `apps/platform-api` is a Nest skeleton: bootstrap, health check, and `/me`. No feature modules yet.
-- `apps/background-worker`, `apps/execution-worker`, and `apps/run-gateway` are empty folders with a bare `package.json`.
-- `packages/auth`, `ui`, `config`, and `types` are built and in use. `ui` carries the full shadcn component set.
-- `packages/db` has a schema and two applied migrations, covering authentication only: users, sessions, organizations, members, invitations, audit log, notifications. None of the runtime tables described below exist yet.
-- `packages/ai` is scaffolded with lint and tsconfig wiring and empty `src/` folders for providers and key resolution, but no provider code.
-- `packages/runtime`, `connectors`, `sandbox-provider`, `queue`, `sdk`, and `sdk-react` are bare `package.json` stubs with no `src/`.
-- `packages/kb` does not exist in the workspace at all.
+## Top-level layout
 
-Linea owns knowledge-base storage as the default path, with connectors layered on top as an additional source rather than a replacement. `packages/kb` below covers the owned side.
+```text
+apps/
+  web/
+  platform-api/
+  execution-worker/
+  background-worker/
+  mobile/
+  docs/
+  run-gateway/
 
-The node registry lives inside `runtime` rather than as its own package. Reasoning below.
-
-This doc proposes the internal `src/` layout for the three unstarted apps, the AI, node-registry, and KB package gaps, and how each piece pulls from the rest of `packages/*`. For the order this gets built in, see `roadmap.md`, and for the first slice specifically, `poc-phase-0.md`.
-
-## Convention carried over from platform-api
-
-`platform-api` is a standard Nest app: `nest-cli.json`, `src/main.ts` bootstrapping a root `AppModule`, feature modules under `src/<feature>/`, `tsconfig.build.json` for prod builds, Jest configured inline in `package.json`. The three new apps follow the same shape — Nest as the framework even for `run-gateway` and `background-worker`, which aren't HTTP-first, since Nest's module/provider system is worth keeping consistent across all four apps even where the entrypoint isn't a REST controller. `execution-worker` and `background-worker` bootstrap with `NestFactory.createApplicationContext()` instead of a full HTTP server; `run-gateway` runs Nest's HTTP adapter since it does serve requests (the sandbox's only door in).
-
-## execution-worker
-
-Runs the workflow graph in-process for a run's full duration. Owns the interpreter loop, one handler per node type, checkpointing, and the one call out to `run-gateway` when a code node is hit.
-
-```
-apps/execution-worker/
-├── src/
-│   ├── main.ts                    # bootstrap, no HTTP listener — pulls jobs off queue-redis
-│   ├── app.module.ts
-│   ├── runs/
-│   │   ├── runs.module.ts
-│   │   ├── runs.consumer.ts       # queue consumer: workflow-execution queue
-│   │   ├── runs.service.ts        # claims a run, holds it for its lifecycle
-│   │   └── run-lease.service.ts   # heartbeat + lease renewal while a run is held
-│   ├── graph/
-│   │   ├── graph.module.ts
-│   │   ├── interpreter.service.ts # walks the workflow JSON step by step
-│   │   │                          # (imports the shared walker from @linea/runtime,
-│   │   │                          #  this is the app-side driver around it)
-│   │   └── nodes/
-│   │       ├── http.node.ts
-│   │       ├── transform.node.ts
-│   │       ├── branch.node.ts
-│   │       ├── integration.node.ts  # calls @linea/connectors directly, no sandbox
-│   │       ├── kb.node.ts           # calls @linea/kb (owned storage, the default)
-│   │       │                        # and/or @linea/connectors if the workspace
-│   │       │                        # has an external source configured too
-│   │       ├── ai.node.ts           # proxied through run-gateway
-│   │       └── code.node.ts         # the one node type that calls run-gateway
-│   │                                # for a sandbox
-│   ├── checkpoints/
-│   │   ├── checkpoints.module.ts
-│   │   └── checkpoints.service.ts # writes checkpoints + execution_steps via @linea/db, resume-from-last-checkpoint logic
-│   ├── gateway-client/
-│   │   ├── gateway-client.module.ts
-│   │   └── gateway-client.service.ts # the one outbound call to run-gateway, code nodes only
-│   └── health/
-│       └── health.controller.ts   # liveness/readiness only, not a real API surface
-├── test/
-├── nest-cli.json
-├── package.json
-├── tsconfig.json
-└── tsconfig.build.json
+packages/
+  protocol/
+  sdk/
+  sdk-react/
+  runtime/
+  connectors/
+  ai/
+  db/
+  queue/
+  auth/
+  ui/
+  config/
+  types/
+  sandbox-provider/
 ```
 
-Depends on (`workspace:*`): `@linea/db`, `@linea/runtime`, `@linea/kb`, `@linea/connectors`, `@linea/queue`, `@linea/auth`, `@linea/config`.
+Apps are independently deployable entry points. An app must not import from
+another app. Anything needed by more than one app belongs in `packages/*`.
 
-Notably does **not** depend on `@linea/sandbox-provider` — it never talks to a sandbox directly, only through `run-gateway`'s HTTP surface via `gateway-client`.
+## Applications
 
-## run-gateway
+### `apps/web`
 
-The only door into a sandbox. A real HTTP service (unlike the other two), since it's what a sandbox calls back into. Claims/wipes sandboxes for code nodes and plugin actions, verifies run-scoped tokens, proxies AI provider calls.
+The TanStack Start workspace application. It owns workspace onboarding,
+workflow catalog and graph authoring, execution and replay inspection,
+regression management, settings, provider configuration, and other operator
+views. It consumes browser-safe package entry points and HTTP clients; it does
+not import server implementations.
 
-```
-apps/run-gateway/
-├── src/
-│   ├── main.ts                     # HTTP listener — this is the door
-│   ├── app.module.ts
-│   ├── tokens/
-│   │   ├── tokens.module.ts
-│   │   ├── tokens.service.ts       # issues + verifies run-scoped gateway tokens
-│   │   └── token.guard.ts          # Nest guard, applied to every route below
-│   ├── sandbox/
-│   │   ├── sandbox.module.ts
-│   │   ├── sandbox.controller.ts   # POST /sandbox/claim, /sandbox/:id/result
-│   │   ├── sandbox-pool.service.ts # warm pool for code-node + plugin sandboxes
-│   │   └── wipe.service.ts         # enforces the wipe rule between tenants
-│   ├── ai-proxy/
-│   │   ├── ai-proxy.module.ts
-│   │   ├── ai-proxy.controller.ts  # POST /ai/complete — resolves keys, never
-│   │   │                           # forwards them into the sandbox response
-│   │   └── provider-key.service.ts
-│   ├── plugins/
-│   │   ├── plugins.module.ts
-│   │   ├── plugins.controller.ts   # third-party plugin action dispatch
-│   │   └── plugin-pool.service.ts  # separate, workspace-scoped pool from
-│   │                               # the code-node pool above
-│   └── health/
-│       └── health.controller.ts
-├── test/
-├── nest-cli.json
-├── package.json
-├── tsconfig.json
-└── tsconfig.build.json
-```
+### `apps/platform-api`
 
-Depends on: `@linea/db`, `@linea/sandbox-provider`, `@linea/auth`, `@linea/config`. Does **not** depend on `@linea/connectors` — integration and KB calls never reach a sandbox, so `run-gateway` has no reason to know connectors exist.
+The NestJS HTTP application for both workspace and public `/v1` interfaces.
+It owns authentication guards, workspace administration, workflow and version
+management, execution starts and reads, Applications, External Subjects,
+End-User Sessions, Conversations, approvals, Connections, Action Intents,
+events, webhooks, audit projections, and OpenAPI publication.
 
-## background-worker
+It persists authoritative state before dispatching asynchronous work. The API
+does not execute workflow graphs or deliver background effects itself.
 
-Everything async that isn't dispatch. One consumer module per queue it drains, stateless, scales with queue depth.
+### `apps/execution-worker`
 
-```
-apps/background-worker/
-├── src/
-│   ├── main.ts                    # bootstrap, no HTTP listener — pulls from queue-redis
-│   ├── app.module.ts
-│   ├── memory/
-│   │   ├── memory.module.ts
-│   │   ├── memory-extract.consumer.ts  # memory-extract queue
-│   │   └── memory-extract.service.ts   # extract, confidence check, secret
-│   │                                   # filter, embed, dedupe, store
-│   ├── schedules/
-│   │   ├── schedules.module.ts
-│   │   └── schedule-firing.service.ts  # cron-style polling, enqueues
-│   │                                   # workflow-execution jobs
-│   ├── events/
-│   │   ├── events.module.ts
-│   │   └── control-plane-event.consumer.ts # relays audit/usage/notification
-│   │                                        # events back to platform-api
-│   ├── cleanup/
-│   │   ├── cleanup.module.ts
-│   │   └── checkpoint-cleanup.consumer.ts  # checkpoint-cleanup queue
-│   └── health/
-│       └── health.controller.ts
-├── test/
-├── nest-cli.json
-├── package.json
-├── tsconfig.json
-└── tsconfig.build.json
-```
+Claims queued executions, interprets published workflow graphs, invokes node
+handlers, renews execution leases, persists checkpoints and step records, and
+resumes work after waits, approvals, consent, or process failure.
 
-Depends on: `@linea/db`, `@linea/queue`, `@linea/ai`, `@linea/kb`, `@linea/auth`, `@linea/config`. Does not depend on `@linea/runtime`, `@linea/connectors`, or `@linea/sandbox-provider` — it never executes a workflow or touches a sandbox, only background jobs against Postgres and outbound provider calls for embedding/extraction. `@linea/kb` is here for the `kb-embed.consumer.ts` module described under `packages/kb` below.
+Node behavior belongs here while node schemas and presentation metadata belong
+in `packages/runtime`. Connector nodes enter external providers only through
+`packages/connectors`.
 
-## packages/ai — the missing provider registry
+### `apps/background-worker`
 
-Every AI and embedding call in the design is proxied and key-resolved server-side: `run-gateway`'s `ai-proxy` module resolves keys and calls providers on a code node's or workflow's behalf, and `background-worker`'s `memory-extract` consumer calls a small model plus an embedding model during capture. Right now nothing owns "which providers exist, which models each one offers, and how to call them uniformly" — that logic would otherwise get duplicated between those two apps, which is exactly the kind of thing that belongs in `packages/*`, not copy-pasted twice.
+Owns work that is asynchronous but is not graph interpretation: due schedules,
+transactional-outbox dispatch, signed webhook delivery, push notifications,
+provider-revocation delivery, and conversation analysis.
 
-```
-packages/ai/
-├── src/
-│   ├── registry.ts              # the shared registry: provider × model × version ×
-│   │                             # output size × normalization, keyed explicitly —
-│   │                             # never just a bare model name (same rule the KB
-│   │                             # design already applies to embedding models)
-│   ├── providers/
-│   │   ├── provider.interface.ts  # complete(), embed() — one shape every
-│   │   │                          # provider adapter implements
-│   │   ├── anthropic.provider.ts
-│   │   ├── openai.provider.ts
-│   │   └── google.provider.ts
-│   ├── key-resolution/
-│   │   └── key-resolver.ts      # resolves a workspace's own key vs. Linea's,
-│   │                             # never returns the raw key to a caller outside
-│   │                             # run-gateway's process boundary
-│   └── index.ts
-├── package.json
-└── tsconfig.json
-```
+### `apps/mobile`
 
-Depends on: `@linea/db` (to read a workspace's stored provider connection), `@linea/config`.
+The Expo workspace-member client for monitoring executions, notifications,
+signals, and workspace-audience approvals. It is an operational client, not a
+second workflow authoring implementation.
 
-Used by: `run-gateway` (`ai-proxy.controller.ts` calls `registry` + `key-resolver` directly, this is the one place a real key exists at runtime), `background-worker` (`memory-extract.service.ts` calls `registry` for extraction + embedding), and `platform-api` (reads the registry to populate the provider-connection UI, never calls `key-resolver` since it never needs the raw key). `execution-worker` does **not** depend on this package — even its `ai.node.ts` only calls `run-gateway` over HTTP, same as `code.node.ts` does for sandboxes, so no provider key or provider SDK ever loads inside the process actually walking a customer's workflow graph.
+### `apps/docs`
 
-Adding a provider or a same-size model later is one new `registry.ts` entry and, if it's a genuinely new provider, one new file under `providers/` — no changes anywhere it's consumed.
+The Next.js and Fumadocs documentation site. Its deployment workflow is scoped
+to documentation inputs so ordinary code-only commits do not redeploy it.
 
-## packages/kb — owned knowledge-base storage
+### `apps/run-gateway`
 
-The default KB path: upload, chunk, embed, store, search — all owned by Linea. Deliberately scoped down: no partitioning, no reranking, no dedicated-machine local-copy mode, no versioning.
+A reserved package scaffold for the future sandbox execution gateway. It is
+not a shipped runtime dependency today. Do not route connectors, Connections,
+or Action Consent through it; those belong to the Connector Gateway.
 
-```
-packages/kb/
-├── src/
-│   ├── upload/
-│   │   ├── extract.ts            # pulls text from file/plain-text/URL uploads,
-│   │   │                         # 20MB cap, original file discarded after extraction
-│   │   └── chunk.ts               # splits extracted text into ~512-token chunks
-│   ├── embedding/
-│   │   └── embed-batch.ts         # batches ~64 chunks per call, uses @linea/ai's
-│   │                               # registry rather than calling a provider directly
-│   ├── search/
-│   │   └── hybrid-search.ts       # vector similarity + full-text, merged ranking —
-│   │                               # the one search implementation, no reranking yet
-│   ├── store/
-│   │   └── kb.repository.ts       # reads/writes kb_data via @linea/db
-│   └── index.ts
-├── package.json
-└── tsconfig.json
-```
+## Packages
 
-Depends on: `@linea/db` (kb_data schema), `@linea/ai` (embedding calls go through the shared registry, not a bare provider SDK import).
+### `packages/protocol`
 
-Used by: `platform-api` (`upload/` — the dashboard/SDK upload endpoint calls `extract.ts` and `chunk.ts`, then enqueues embedding), `background-worker` (a `kb-embed.consumer.ts` under a `kb/` module, mirroring `memory/memory-extract.consumer.ts`'s shape, drains the `embedding-generate` queue and calls `embed-batch.ts` then `kb.repository.ts`), `execution-worker` (`kb.node.ts` calls `hybrid-search.ts` directly, in-process, no sandbox — same as an integration node). `run-gateway` does not depend on this package; KB search happens inside `execution-worker`, not proxied through the gateway, since it's Linea's own code same as an integration call.
+The canonical public wire contract. It owns public resource schemas,
+operation definitions, error shapes, events, cursors, idempotency inputs, and
+webhook envelopes. The API and SDKs consume the same definitions.
 
-Two of the apps laid out above carry KB pieces as a result: `platform-api` needs an `src/kb/` module (upload controller + chunk trigger), and `background-worker` needs the `kb/kb-embed.consumer.ts` sibling to its `memory/` module, draining `embedding-generate` the same way `memory-extract.consumer.ts` drains `memory-extract`.
+Changes to a public operation must keep protocol schemas, the operation
+registry, generated contracts, controllers, SDK methods, and contract tests in
+sync.
 
-## The node registry — lives in packages/runtime, not its own package
+### `packages/sdk`
 
-`execution-worker`'s `graph/nodes/` folder has one file per node type today, but nothing yet defines the canonical list of node types, their input/output schemas, or which ones are allowed to reach a sandbox. That belongs in `@linea/runtime`, not a separate `packages/nodes` package, for the same reason `token.guard.ts` in `run-gateway` needs to know it too: `runtime` is already the shared contract both `execution-worker` (executes the graph) and `run-gateway` (validates that an incoming code-node call actually matches a real step in a real workflow version) depend on. Splitting the node registry into its own package would mean both of those still need to import it directly, so it's not saving a dependency, only adding a package.
+Typed TypeScript clients over the public protocol:
 
-```
-packages/runtime/
-├── src/
-│   ├── interpreter/
-│   │   └── walker.ts             # the actual step-by-step graph walk,
-│   │                             # execution-worker's interpreter.service.ts
-│   │                             # drives this
-│   ├── nodes/
-│   │   ├── node-registry.ts      # the canonical list: id, input schema, output
-│   │   │                         # schema, and a needsSandbox: boolean flag
-│   │   ├── definitions/
-│   │   │   ├── http.node.ts
-│   │   │   ├── transform.node.ts
-│   │   │   ├── branch.node.ts
-│   │   │   ├── integration.node.ts
-│   │   │   ├── kb.node.ts
-│   │   │   ├── ai.node.ts
-│   │   │   └── code.node.ts      # needsSandbox: true — the only one
-│   │   └── index.ts
-│   ├── workflow-json/
-│   │   └── schema.ts             # the workflow JSON format itself: versioning,
-│   │                             # content hash, the shape execution-worker
-│   │                             # reads and run-gateway's token scoping checks against
-│   └── index.ts
-├── package.json
-└── tsconfig.json
+- trusted server and workspace clients;
+- browser, edge, and native End-User clients;
+- DPoP and session handling;
+- event streaming and authoritative reconciliation;
+- webhook signature verification.
+
+The root and server entry points may handle trusted credentials. The
+`@linea/sdk/user` entry point never accepts workspace or Application secrets.
+
+### `packages/sdk-react`
+
+Headless React providers and hooks over `@linea/sdk/user`, optional approval
+presentation, and the CopilotKit adapter. It does not redefine identity,
+session, transport, Approval Request, Decision, Connection, or consent
+semantics.
+
+### `packages/runtime`
+
+The workflow graph contract and interpreter. Node definitions own schemas,
+labels, icons, fields, and summaries; worker handlers own execution behavior.
+The browser entry point excludes Node-only implementation details.
+
+Adding a normal node type requires its definition, registry entry, worker
+handler, and focused validation and execution tests. Presentation should be
+derived from the definition rather than duplicated in the web app.
+
+### `packages/connectors`
+
+The server-only Connector Gateway and registered Google and GitHub operation
+families. It owns operation input validation, immutable read or side-effect
+classification, required scopes, normalized bounded results, safe display,
+provider preconditions, and redacted provider errors.
+
+The gateway resolves protected credentials and enforces Application,
+Connection, provider-account, External Subject, scope, Action Intent, and
+consent rules. Workflow authors and models cannot downgrade operation
+classification or manufacture Action Intents.
+
+### `packages/ai`
+
+The model registry, Anthropic and OpenAI-compatible provider adapters,
+workspace-first key resolution, shared completion and tool-call shapes, and
+pricing information. Runtime callers select registered model IDs rather than
+inferring a provider from arbitrary strings.
+
+### `packages/db`
+
+The PostgreSQL persistence module. It owns Drizzle schemas, migrations,
+repositories, transaction-compatible repository interfaces, secret and
+Connection credential encryption, and durable records for workflow,
+execution, public-application, connector, audit, regression, notification,
+and analysis features.
+
+Cross-tenant and cross-subject access rules belong in repository queries and
+the calling authorization module, not in UI filtering.
+
+### `packages/queue`
+
+BullMQ connection helpers, queue names, and stable job payload contracts.
+Messages carry durable record identifiers; workers reload authoritative state
+from Postgres instead of treating a Redis payload as the record of truth.
+
+### `packages/auth`
+
+Shared better-auth configuration and branded email delivery used by the web
+workspace and Platform API.
+
+### `packages/ui`
+
+Shared React primitives and design tokens. App-specific workflow behavior does
+not belong here.
+
+### `packages/config` and `packages/types`
+
+Shared lint and TypeScript configuration, plus narrow internal types that do
+not belong to the public protocol or a more specific feature package.
+
+### `packages/sandbox-provider`
+
+A reserved scaffold for future sandbox adapters. No sandbox or arbitrary code
+execution capability is currently shipped.
+
+## Important execution paths
+
+### Workflow execution
+
+```text
+client
+  → Platform API
+  → Postgres execution + outbox state
+  → BullMQ
+  → execution-worker
+  → runtime interpreter
+  → node handlers
+  → execution steps and checkpoints
 ```
 
-A node's definition here is a schema and metadata only, never the actual execution logic — the `graph/nodes/*.node.ts` files inside `execution-worker` (and `run-gateway` for the sandbox side of `code.node.ts`) hold the real implementation, importing the matching entry from `node-registry.ts` to validate inputs/outputs against and to check `needsSandbox` before deciding whether to call out. This keeps the registry a single source of truth for "what node types exist" while letting the two apps stay the only place actual node behavior runs.
+### Public End-User execution
 
-Adding a new node type going forward means one new file under `runtime/src/nodes/definitions/`, one new file under `execution-worker/src/graph/nodes/`, and — only if `needsSandbox` is true — the matching handler on `run-gateway`'s side. Everything else that reads the registry (the dashboard's node palette, via `platform-api`) picks up the new type automatically.
+```text
+Operator OIDC provider
+  → client-side authorization code + PKCE
+  → DPoP-bound End-User Session
+  → Application-scoped /v1 operation
+  → Workflow Contract binding
+  → normal durable execution path
+```
 
-## Shared shape across all three
+### Connector side effect
 
-- `nest-cli.json` in each, same as `platform-api`, even for the two apps with no HTTP surface — keeps `nest build` and the module/provider DI pattern consistent everywhere.
-- `tsconfig.json` extends `@linea/config`'s base config rather than repeating compiler options.
-- `test/` holds e2e specs; unit specs live next to the file they test as `*.spec.ts`, same as `platform-api`.
-- `health/health.controller.ts` (or a bare liveness check for the two non-HTTP apps) in all three, since the hosting layer needs a consistent way to know each fleet is alive regardless of whether it serves real traffic.
-- None of the three should import from each other directly. Anything two of them need in common belongs in a `packages/*` package, not a cross-app import — that's the boundary Turborepo's task graph and the deploy-independence goal both depend on.
+```text
+connector node
+  → Connector Gateway
+  → immutable Action Intent
+  → external-subject Approval Request
+  → immutable Decision
+  → atomic execution claim
+  → provider adapter
+  → bounded result + audit fact + public event
+```
 
-## What's still a stub and needs the same treatment later
+## Dependency rules
 
-`packages/db/src` has an auth schema but none of the runtime tables — that's the actual next step before any of the three apps above can do real work, since `checkpoints.service.ts`, `memory-extract.service.ts`, `kb.repository.ts`, and `token.guard.ts` all read/write through it. The schema needs the execution tables (`workflows`, `workflow_versions`, `executions`, `execution_steps`, `checkpoints`, `schedules`, `secrets`, `api_keys`), and later a `kb_data` piece for documents, chunks, and vectors. `packages/connectors`, `sandbox-provider`, `queue`, `sdk`, and `sdk-react` are all empty `package.json` stubs with no `src/` — each needs its own internal structure written up the same way this doc did for the three apps and for `ai`/`runtime`/`kb` above, once `packages/db`'s schema exists to build against. `packages/ai` is scaffolded and ready for provider/registry code to land. `packages/kb` doesn't exist in the workspace yet at all and needs scaffolding (`mkdir -p packages/kb/src/{upload,embedding,search,store}`, plus a `package.json` following `packages/db`'s shape) before any code lands in it.
+1. Apps do not import from apps.
+2. Browser code uses browser-safe package exports only.
+3. Public wire shapes live in `packages/protocol`, not in an SDK or controller.
+4. Node presentation metadata lives with the node definition in
+   `packages/runtime`.
+5. Protected provider credentials are resolved only inside trusted server
+   modules.
+6. Connector side effects pass through the Connector Gateway and exact-intent
+   consent; an Approval node is not an authorization substitute.
+7. Postgres is authoritative for durable work. Queues carry identifiers and
+   may be redelivered.
+8. Native execution records remain distinguishable from any future imported
+   observed trace because only native work is replayable.
 
-`roadmap.md` sequences all of the above into phases, `poc-phase-0.md` specifies which of these pieces land first and to what standard, and `execution-architecture.md` specifies the runtime schema itself — every table above named as still-missing, in full column and index detail.
+## Capabilities not present yet
+
+- Owned document ingestion, chunking, embeddings, vector retrieval, and RAG.
+- A production `packages/kb` module.
+- Sandboxed customer code and a production Run Gateway.
+- Arbitrary or user-supplied MCP servers.
+- A production multi-agent or subagent runtime.
+
+Add these only through dedicated issues with explicit identity, authority,
+retention, observability, and launch-gate acceptance criteria.

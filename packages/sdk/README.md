@@ -1,8 +1,9 @@
 # @linea/sdk
 
-A minimal Node client for the Linea platform API: trigger a workflow, read
-back its execution, and read signals. This is a v0 — it wraps today's
-existing `/v1` REST endpoints exactly as they are, nothing more.
+Typed clients for Linea's public `/v1` protocol. The package contains separate
+entry points for trusted servers, browser/native End Users, legacy
+workspace-level operations, and webhook verification. Each entry point keeps
+its credential and runtime assumptions explicit.
 
 ## ⚠️ The root entry point is server-side only
 
@@ -194,7 +195,7 @@ no native 64-bit integer type). Convert before doing arithmetic:
 const dollars = Number(BigInt(execution.costMicros)) / 1_000_000
 ```
 
-## Known v0 limitations
+## Current limitations
 
 - No retry/backoff — a failed request is never automatically retried.
   Retrying a non-idempotent call like `triggerWorkflow` risks a duplicate
@@ -204,5 +205,5 @@ const dollars = Number(BigInt(execution.costMicros)) / 1_000_000
   workflow.
 - `listExecutions`' `total` field is informational only (e.g. for display);
   use `hasMore` to decide whether to keep paginating.
-- Node-only — no browser/edge build target (see the security note above for
-  why that's intentional, not a gap).
+- The root and server entry points are intentionally server-only. Browser,
+  edge, and native callers use `@linea/sdk/user`.

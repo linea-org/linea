@@ -4,6 +4,15 @@ Companion to `product-vision.md` (what Linea is and who it's for) and
 `repo-structure.md` (how the monorepo is laid out). This doc answers a third
 question: in what order do we build it, and how do we know a phase is done.
 
+> **Implementation status:** this document preserves the strategic sequencing
+> and exit criteria, not a live feature checklist. Durable execution, the
+> builder, replay and regression, public Applications and SDKs, mobile
+> monitoring, Connections, Action Consent, and Google/GitHub provider families
+> have shipped ahead of parts of the original sequence. The owned knowledge
+> base, production RAG, sandboxed code execution, and OTLP ingest remain future
+> work. GitHub issues and merged launch gates are authoritative for current
+> implementation status.
+
 ## Working assumptions
 
 These drive every estimate below. If one changes, the estimates change.
