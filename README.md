@@ -1,100 +1,211 @@
-# Linea
+<div align="center">
+  <h1>Linea</h1>
+  <p><strong>The runtime and control plane for production agents.</strong></p>
+  <p>
+    <a href="https://github.com/linea-org/linea/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/linea-org/linea/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" /></a>
+    <a href="https://github.com/linea-org/linea/blob/main/LICENSE"><img alt="Apache 2.0 license" src="https://img.shields.io/github/license/linea-org/linea?style=flat-square" /></a>
+    <a href="https://github.com/linea-org/linea/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/linea-org/linea?style=flat-square" /></a>
+    <a href="https://github.com/linea-org/linea/issues"><img alt="Contributions welcome" src="https://img.shields.io/badge/contributions-welcome-brightgreen?style=flat-square" /></a>
+    <img alt="Status: pre-1.0" src="https://img.shields.io/badge/status-pre--1.0-orange?style=flat-square" />
+  </p>
+  <p>
+    <a href="https://www.getlinea.app">Website</a> ·
+    <a href="https://docs.getlinea.app">Documentation</a> ·
+    <a href="https://platform.getlinea.app">Start building</a> ·
+    <a href="CONTRIBUTING.md">Contributing</a> ·
+    <a href="https://discord.gg/7FWR97VkBD">Discord</a>
+  </p>
+</div>
 
-Linea is an AI workflow orchestration platform: build, run, and manage
-automations that combine AI models, tools, and integrations.
+![Linea workspace dashboard showing workflows, signals, and recent executions](.github/assets/linea-dashboard.png)
 
-**Status: early and under active development.** The monorepo's foundations
-(auth, workspace onboarding, role-based access) are in place; the workflow
-builder and execution engine are being built out. Expect gaps and breaking
-changes. If you're looking for a finished product, this isn't it yet — if
-you'd like to help build one, contributions are welcome.
+Linea is a durable AI workflow platform for building, operating, and embedding
+automations that combine models, data, human decisions, and governed external
+actions.
+
+Workflows run as versioned graphs on queue-backed workers. Executions persist
+their progress, checkpoints, usage, and step history so they can recover from
+process failure, pause for people or time, replay individual steps, and feed
+regression suites.
+
+**Status: pre-1.0 and under active development.** The workflow builder,
+durable runtime, public application protocol, SDKs, approvals, Connections,
+Action Consent, and Google and GitHub connector families are implemented.
+Interfaces may still change before a stable release. Owned knowledge-base and
+RAG infrastructure, arbitrary MCP tools, and sandboxed code execution are not
+currently shipped.
+
+## Contents
+
+- [What Linea supports](#what-linea-supports)
+- [Architecture](#architecture)
+- [Quick start](#quick-start)
+- [Run the example workflow](#run-the-example-workflow)
+- [Verify the public launch boundaries](#verify-the-public-launch-boundaries)
+- [Monorepo layout](#monorepo-layout)
+- [SDKs](#sdks)
+- [Contributing](#contributing)
+
+## What Linea supports
+
+- Visual authoring for versioned workflow graphs with manual, API, webhook,
+  schedule, and chat entry points.
+- Durable Postgres and BullMQ execution with checkpoints, leases, waits,
+  approvals, cancellation, crash recovery, and step replay.
+- AI completions, structured extraction, tool-calling loops, usage and cost
+  accounting, and regression testing from saved executions and conversations.
+- Public Applications with immutable Workflow Contracts, scoped Application
+  keys, External Subjects, Conversations, and DPoP-bound End-User Sessions.
+- Server, browser, native, React, webhook-verification, and optional CopilotKit
+  SDK surfaces built over the same versioned `/v1` protocol.
+- Application-scoped Google and GitHub Connections with encrypted credentials,
+  provider-account isolation, registered operations, and bounded results.
+- Exact-intent consent for connector side effects through immutable Action
+  Intents, existing Approval Requests and Decisions, redacted audit views, and
+  revocation enforcement.
+- Realtime execution updates, transactional event delivery, signed webhooks,
+  notifications, signals, and mobile monitoring and approvals.
+
+## Architecture
+
+```mermaid
+flowchart TD
+  clients["Web workspace<br/>Mobile<br/>Public SDKs"] --> api["Platform API"]
+  api --> postgres[("PostgreSQL<br/>Transactional outbox")]
+  postgres --> queues["BullMQ / Redis queues"]
+  queues --> execution["Execution worker"]
+  queues --> background["Background worker"]
+  execution --> runtime["Workflow runtime"]
+  execution --> providers["AI providers"]
+  execution --> gateway["Connector Gateway"]
+  background --> services["Schedules<br/>Webhooks<br/>Notifications<br/>Analysis"]
+```
+
+The shared protocol and runtime registries keep browser-safe contracts
+separate from server-only execution, credentials, and authorization. External
+provider writes are enforced by the Connector Gateway rather than by optional
+workflow branches.
 
 ## Stack
 
-TanStack Start + React 19 + Tailwind/shadcn on the frontend, NestJS on the
-backend, PostgreSQL (pgvector) with Drizzle ORM, better-auth for
-email/password and Google/GitHub OAuth, Resend for email, pnpm workspaces +
-Turborepo for the monorepo.
+- React 19, TanStack Start, Tailwind CSS, and `@linea/ui`
+- NestJS APIs and workers
+- PostgreSQL with Drizzle ORM and pgvector available for future knowledge work
+- Redis and BullMQ
+- better-auth for workspace authentication
+- Anthropic and OpenAI-compatible model providers
+- pnpm workspaces and Turborepo
 
 ## Quick start
 
-**Prerequisites:** Node.js 20+, pnpm 10+, Docker
+**Prerequisites:** Node.js 20+, pnpm 10.33+, and Docker.
 
 ```bash
-# 1. Install
 pnpm install
 
-# 2. Start Postgres
 pnpm db:up
+pnpm queue:up
 
-# 3. Configure environment
 cp .env.example .env
-# fill in BETTER_AUTH_SECRET, RESEND_API_KEY, and (optionally) OAuth keys
-
-# 4. Push the database schema
 pnpm db:migrate
 
-# 5. Start the apps
 pnpm dev
 ```
 
-Web runs at http://localhost:3001, the API at http://localhost:3000
-(health check at `/v1/health`), and the documentation site at
-http://localhost:3002.
+At minimum, replace the development placeholders for
+`BETTER_AUTH_SECRET`, `SECRETS_ENCRYPTION_KEY`,
+`CONNECTION_CREDENTIAL_KEYS`, and any email or provider integration you want
+to exercise. The complete variable guide is in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full setup guide, project
-layout, and environment variable reference.
+The web workspace runs at <http://localhost:3001>, the Platform API at
+<http://localhost:3000>, its health check at
+<http://localhost:3000/v1/health>, and the documentation site at
+<http://localhost:3002>.
 
-## Run the demo
+## Run the example workflow
 
-Once `pnpm dev` is up, see the whole system work end to end — a workflow that
-calls a public API, branches, and calls a real AI model, run through the actual
-execution engine and queue:
+With `pnpm dev` running, configure at least one of
+`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, or `XAI_API_KEY`, then
+run:
 
 ```bash
-# Needs at least one of these set in .env — the demo picks whichever is available
-# ANTHROPIC_API_KEY / OPENAI_API_KEY / GROQ_API_KEY / XAI_API_KEY
 pnpm demo
 ```
 
-It finds-or-creates a demo workspace and workflow (safe to run repeatedly — it
-reuses them rather than duplicating), triggers a real execution, and prints the
-step-by-step trace as it completes. See [`examples/pending-todo.workflow.json`](examples/pending-todo.workflow.json)
-for the workflow itself.
+The command finds or creates its workspace and workflow, starts a real queued
+execution, and prints the step trace. The graph is stored in
+[`examples/pending-todo.workflow.json`](examples/pending-todo.workflow.json).
+
+## Verify the public launch boundaries
+
+The required launch gates use local deterministic providers while exercising
+the real API, Postgres, Redis, queues, workers, SDK packages, and public
+contracts:
+
+```bash
+pnpm test:launch
+pnpm test:connections-launch
+```
+
+Credentialed Google and GitHub smoke tests are intentionally separate from
+required CI:
+
+```bash
+pnpm test:connections-smoke
+```
 
 ## Monorepo layout
 
-```
-linea/
-├── apps/
-│   ├── platform-api/       # NestJS backend
-│   ├── web/                # TanStack Start frontend
-│   ├── docs/               # Next.js/Fumadocs documentation site
-│   ├── execution-worker/   # workflow execution runtime
-│   ├── background-worker/  # schedule firing
-│   └── run-gateway/        # not yet built
-└── packages/
-    ├── auth/       # better-auth config + email
-    ├── db/         # Drizzle schema, client, migrations
-    ├── ui/         # shared React component library (shadcn)
-    ├── ai/         # AI provider integration (Anthropic, OpenAI, Groq, xAI)
-    ├── runtime/    # workflow JSON schema, node registry, graph walker
-    ├── queue/      # BullMQ wrapper — workflow-execution queue
-    ├── config/     # shared eslint/tsconfig
-    └── types/      # shared TypeScript types
+```text
+apps/
+  web/                workspace dashboard and workflow builder
+  platform-api/       workspace and public /v1 HTTP interfaces
+  execution-worker/   graph execution, checkpoints, replay, and connectors
+  background-worker/  schedules, outbox delivery, notifications, and analysis
+  mobile/             Expo operator monitoring and approvals
+  docs/               Next.js and Fumadocs documentation site
+  run-gateway/        reserved scaffold for future sandbox execution
+
+packages/
+  protocol/           public resources, operations, events, and errors
+  sdk/                server, end-user, and webhook TypeScript clients
+  sdk-react/          headless React hooks and CopilotKit adapter
+  runtime/            workflow schemas, node registry, and graph interpreter
+  connectors/         Connector Gateway and Google/GitHub operations
+  ai/                 provider registry, adapters, key resolution, and pricing
+  db/                 Drizzle schemas, repositories, encryption, and migrations
+  queue/              BullMQ queues and dispatch contracts
+  auth/               better-auth configuration and email delivery
+  ui/                 shared React primitives and design tokens
+  config/             shared lint and TypeScript configuration
+  types/              shared internal TypeScript types
+  sandbox-provider/   reserved scaffold for future sandbox implementations
 ```
 
-A few `packages/*` and `apps/*` above are scaffolded but not yet implemented —
-check the individual `package.json` in each before assuming functionality
-exists.
+See [docs/repo-structure.md](docs/repo-structure.md) for ownership and
+dependency rules, [docs/product-vision.md](docs/product-vision.md) for product
+direction, and [docs/roadmap.md](docs/roadmap.md) for strategic sequencing.
+
+## SDKs
+
+- [`@linea/sdk`](packages/sdk/README.md) provides trusted server clients,
+  browser/native End-User sessions, and webhook verification.
+- [`@linea/sdk-react`](packages/sdk-react/README.md) provides headless React
+  hooks, optional approval presentation, and the CopilotKit adapter.
+- `@linea/protocol` is the canonical public wire contract consumed by the API
+  and both SDK packages.
+
+These packages are currently workspace-internal and are not published to npm.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, coding conventions, and the
-PR process. Please also read our [Code of Conduct](CODE_OF_CONDUCT.md).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, repository conventions, and
+the pull-request process, followed by the mandatory coding rules in
+[AGENTS.md](AGENTS.md). Participation is governed by our
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
-Found a security issue? See [SECURITY.md](SECURITY.md) rather than opening a
-public issue.
+Report vulnerabilities through [SECURITY.md](SECURITY.md), not a public issue.
 
 ## License
 

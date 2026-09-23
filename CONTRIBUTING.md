@@ -41,25 +41,29 @@ persists in named volumes across restarts. `pnpm db:down` or
 cp .env.example .env
 ```
 
-There's a single `.env` at the repo root shared by both apps. Fill in:
+There's a single `.env` at the repo root shared by the local apps and workers.
+Fill in:
 
-| Variable                                                                | Required | Where to get it                                                                                  |
-| ----------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`                                                          | Yes      | Defaults to the Docker Postgres above, no change needed locally                                  |
-| `REDIS_URL`                                                             | Yes      | Defaults to the Docker Redis above, no change needed locally                                     |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GROQ_API_KEY` / `XAI_API_KEY` | No       | Only needed to actually call that provider's models via an AI node — see `packages/ai/MODULE.md` |
-| `BETTER_AUTH_SECRET`                                                    | Yes      | Any long random string, e.g. `openssl rand -hex 32`                                              |
-| `BETTER_AUTH_URL`                                                       | Yes      | Defaults to `http://localhost:3001`, no change needed locally                                    |
-| `APP_URL`                                                               | No       | Falls back to `BETTER_AUTH_URL` if unset                                                         |
-| `TRUSTED_ORIGINS`                                                       | No       | Falls back to `APP_URL`/`BETTER_AUTH_URL` if unset                                               |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`                             | No       | Google Cloud Console, only needed to test Google OAuth                                           |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`                             | No       | GitHub OAuth Apps, only needed to test GitHub OAuth                                              |
-| `VITE_API_URL`                                                          | No       | Falls back to `http://localhost:3000` if unset                                                   |
-| `VITE_APP_URL`                                                          | No       | Falls back to `http://localhost:3001` if unset                                                   |
-| `RESEND_API_KEY`                                                        | Yes      | [Resend](https://resend.com) dashboard, needed for any auth email (verification, reset, invites) |
-| `EMAIL_FROM`                                                            | Yes      | The `From` address auth emails send from                                                         |
-| `EMAIL_BRAND_NAME`                                                      | No       | Falls back to `"Linea"` if unset                                                                 |
-| `EMAIL_SUPPORT_EMAIL`                                                   | No       | Omitted from email footers if unset                                                              |
+| Variable                                                                | Required | Purpose                                                                                                     |
+| ----------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                          | Yes      | Defaults to the local Docker Postgres instance                                                              |
+| `REDIS_URL`                                                             | Yes      | Defaults to the local Docker Redis instance                                                                 |
+| `BETTER_AUTH_SECRET`                                                    | Yes      | Long random secret for workspace authentication                                                             |
+| `BETTER_AUTH_URL`                                                       | Yes      | Defaults to `http://localhost:3001`                                                                         |
+| `APP_URL` / `TRUSTED_ORIGINS`                                           | No       | Public application origin and additional trusted origins                                                    |
+| `SECRETS_ENCRYPTION_KEY`                                                | Yes      | Base64-encoded 32-byte AES key for workspace secrets                                                        |
+| `CONNECTION_CREDENTIAL_ACTIVE_KEY`                                      | Yes      | Active version in the Connection credential key ring                                                        |
+| `CONNECTION_CREDENTIAL_KEYS`                                            | Yes      | JSON object mapping Connection key versions to base64-encoded 32-byte AES keys                              |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GROQ_API_KEY` / `XAI_API_KEY` | No       | Required only for live calls to the corresponding AI provider                                               |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`                             | No       | better-auth Google sign-in registration                                                                     |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`                             | No       | better-auth GitHub sign-in registration                                                                     |
+| `GOOGLE_CONNECTOR_CLIENT_ID` / `GOOGLE_CONNECTOR_CLIENT_SECRET`         | No       | Linea-owned Google Connection registration for Gmail and Calendar                                           |
+| `VITE_API_URL` / `VITE_APP_URL`                                         | No       | Browser API and application origins; local defaults are `http://localhost:3000` and `http://localhost:3001` |
+| `RESEND_API_KEY` / `EMAIL_FROM`                                         | Yes      | Auth and invitation email delivery                                                                          |
+| `EMAIL_BRAND_NAME` / `EMAIL_SUPPORT_EMAIL`                              | No       | Email presentation metadata                                                                                 |
+
+The values committed in `.env.example` are development placeholders. Generate
+real encryption keys before storing any non-test secret or Connection.
 
 ### 4. Push the database schema
 
@@ -84,43 +88,40 @@ pnpm dev
 
 ## Project structure
 
-```
+```text
 linea/
 ├── apps/
-│   ├── platform-api/       # NestJS backend
-│   │   └── src/
-│   │       ├── health/     # liveness check
-│   │       └── me/         # current-user endpoint
-│   ├── web/                # TanStack Start frontend
-│   │   └── src/
-│   │       ├── components/ # auth + workspace UI
-│   │       └── routes/     # file-based routes
-│   ├── execution-worker/   # workflow execution runtime — nodes, interpreter, checkpoints
-│   ├── background-worker/  # schedule firing
-│   └── run-gateway/        # stub, not yet built
+│   ├── web/                # workspace dashboard and workflow builder
+│   ├── platform-api/       # workspace and public /v1 HTTP interfaces
+│   ├── execution-worker/   # graph execution, checkpoints, replay, connectors
+│   ├── background-worker/  # schedules, outbox delivery, notifications, analysis
+│   ├── mobile/             # Expo operator monitoring and approvals
+│   ├── docs/               # Next.js and Fumadocs documentation site
+│   └── run-gateway/        # reserved scaffold for future sandbox execution
 └── packages/
-    ├── auth/             # better-auth config, email sending
-    ├── db/               # Drizzle schema, client, repositories, migrations
-    ├── ui/               # shared React component library (shadcn)
-    ├── config/           # shared eslint config + tsconfig base
-    ├── types/            # shared TypeScript types
-    ├── ai/               # provider registry + key resolver (Anthropic, OpenAI, Groq, xAI)
-    ├── runtime/          # workflow JSON schema, node registry, graph walker
-    ├── queue/            # BullMQ wrapper — workflow-execution queue
-    ├── connectors/       # stub, not yet built
-    ├── sandbox-provider/ # stub, not yet built
-    ├── sdk/              # stub, not yet built
-    └── sdk-react/        # stub, not yet built
+    ├── protocol/           # public resources, operations, events, and errors
+    ├── sdk/                # server, End-User, and webhook TypeScript clients
+    ├── sdk-react/          # headless React hooks and CopilotKit adapter
+    ├── runtime/            # workflow schemas, node registry, graph interpreter
+    ├── connectors/         # Connector Gateway and Google/GitHub operations
+    ├── ai/                 # provider registry, adapters, key resolution, pricing
+    ├── db/                 # Drizzle schemas, repositories, encryption, migrations
+    ├── queue/              # BullMQ queues and dispatch contracts
+    ├── auth/               # better-auth configuration and email delivery
+    ├── ui/                 # shared React primitives and design tokens
+    ├── config/             # shared lint and TypeScript configuration
+    ├── types/              # shared internal TypeScript types
+    └── sandbox-provider/   # reserved scaffold for future sandbox implementations
 ```
 
-A "stub" is just a `package.json`, no `src/` yet. "Scaffolded" has lint/tsconfig
-wiring and placeholder folders but no real implementation. Check before
-assuming functionality exists — this list drifts as work lands; if you notice
-it's wrong, fix it in the same PR.
+Apps never import from one another. Shared contracts and behavior belong in
+`packages/*`. The browser imports `@linea/runtime/browser`; server-only graph
+execution remains in the full runtime package and workers.
 
-See [docs/roadmap.md](docs/roadmap.md) for what's planned in each of these,
-[docs/execution-architecture.md](docs/execution-architecture.md) for
-`packages/db`'s schema in detail, and
+See [docs/repo-structure.md](docs/repo-structure.md) for current ownership and
+dependency rules, [docs/roadmap.md](docs/roadmap.md) for strategic sequencing,
+[docs/execution-architecture.md](docs/execution-architecture.md) for the
+execution data model, and
 [docs/documentation-strategy.md](docs/documentation-strategy.md) for how
 documentation itself is organized as the product grows.
 
@@ -138,6 +139,10 @@ pnpm typecheck            # tsc --noEmit across all packages
 pnpm format               # prettier --write across all packages
 pnpm format:check         # prettier --check (non-mutating, what CI runs)
 pnpm test                 # test suites across all packages
+pnpm check:contracts      # verify generated public contracts are current
+pnpm test:launch          # first external-subject approval launch gate
+pnpm test:connections-launch # Connections and Action Consent launch gate
+pnpm test:connections-smoke  # optional live Google/GitHub provider smoke tests
 
 # Database
 pnpm db:up                # start Postgres via Docker
