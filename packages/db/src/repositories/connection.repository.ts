@@ -232,7 +232,8 @@ export async function completeConnectionAuthorizationRequest(
       }
       const existing = targetConnection ?? accountConnection
       if (
-        existing?.scopes.some((scope) => !input.grantedScopes.includes(scope))
+        existing?.status === "active" &&
+        existing.scopes.some((scope) => !input.grantedScopes.includes(scope))
       ) {
         return { outcome: "invalid" }
       }
@@ -342,7 +343,7 @@ export function listConnections(
     .select()
     .from(connections)
     .where(ownedConnection(owner))
-    .orderBy(desc(connections.createdAt))
+    .orderBy(desc(connections.createdAt), desc(connections.id))
 }
 
 export async function getConnection(
@@ -925,7 +926,10 @@ export async function createConnectionAuthorizationRequest(
         )
         .for("share")
       if (!connection) return { outcome: "connection_unavailable" }
-      if (connection.scopes.some((scope) => !input.scopes.includes(scope))) {
+      if (
+        connection.status === "active" &&
+        connection.scopes.some((scope) => !input.scopes.includes(scope))
+      ) {
         return { outcome: "connection_scope_insufficient" }
       }
       if (

@@ -1144,6 +1144,82 @@ describe('OAuth Connections', () => {
     expect(
       responseBody(afterRejectedUpgrades, connectionSchema).scopes,
     ).toEqual(['profile', 'write'])
+    const storedSecondAccount = await repositories.connection.getConnection(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      secondAccount.id,
+    )
+    if (!storedSecondAccount) throw new Error('Expected the second Connection')
+    await repositories.connection.requireConnectionReauthorization(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      storedSecondAccount.id,
+      storedSecondAccount.credentialVersion,
+      new Date(),
+    )
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['profile'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    provider.selectAccount('account-two', 'Second Test Account')
+    const reauthorization = await request(baseUrl)
+      .post(upgradePath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${upgradePath}`))
+      .send({
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+        scopes: ['profile'],
+      })
+    expect(reauthorization.status).toBe(201)
+    const reauthorizationBody = responseBody(
+      reauthorization,
+      connectionAuthorizationResponseSchema,
+    )
+    const reauthorizationProvider = await fetch(
+      reauthorizationBody.authorizationUrl,
+      { redirect: 'manual' },
+    )
+    const reauthorizationCallback =
+      reauthorizationProvider.headers.get('location')
+    if (!reauthorizationCallback)
+      throw new Error('Provider callback is missing')
+    const reauthorizationResult = await fetch(reauthorizationCallback, {
+      redirect: 'manual',
+    })
+    const reauthorizationLocation =
+      reauthorizationResult.headers.get('location')
+    if (!reauthorizationLocation)
+      throw new Error('Application return is missing')
+    expect(new URL(reauthorizationLocation).searchParams.get('status')).toBe(
+      'connected',
+    )
+    const reauthorized = await request(baseUrl)
+      .get(`/v1/user/connections/${secondAccount.id}`)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set(
+        'DPoP',
+        await createProof(
+          'GET',
+          `${baseUrl}/v1/user/connections/${secondAccount.id}`,
+        ),
+      )
+    expect(responseBody(reauthorized, connectionSchema)).toMatchObject({
+      id: secondAccount.id,
+      providerAccountId: 'account-two',
+      status: 'active',
+      scopes: ['profile'],
+    })
   })
 
   it('keeps credentials decryptable across concurrent callbacks', async () => {
@@ -1257,6 +1333,26 @@ describe('OAuth Connections', () => {
     expect(emptyUses.status).toBe(200)
     expect(emptyUses.body).toEqual(omittedUses.body)
   })
+
+  it('orders bounded and unbounded Connection lists identically', async () => {
+    const owner = { workspaceId, applicationId, externalSubjectId }
+    await pool.query(
+      'UPDATE connections SET created_at = $1 WHERE workspace_id = $2 AND application_id = $3 AND external_subject_id = $4',
+      [
+        new Date('2026-09-23T00:00:00.000Z'),
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+      ],
+    )
+    const unbounded = await repositories.connection.listConnections(db, owner)
+    const bounded = await repositories.connection.findConnections(db, {
+      ...owner,
+      limit: unbounded.length + 1,
+    })
+    expect(unbounded.map(({ id }) => id)).toEqual(bounded.map(({ id }) => id))
+  })
+
   it('does not expose Connections across Applications or subjects', async () => {
     const authorizationPath = '/v1/user/connections/authorizations'
     const started = await request(baseUrl)

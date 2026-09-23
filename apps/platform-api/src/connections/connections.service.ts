@@ -118,35 +118,7 @@ export class ConnectionsService {
       )
     }
     if (input.provider === 'github') {
-      const application = await repositories.application.getApplicationById(
-        db,
-        principal.workspaceId,
-        principal.applicationId,
-      )
-      const providerPolicy = application?.connectorAccessPolicy.providers.find(
-        (candidate) => candidate.provider === 'github',
-      )
-      let requiredScopes: string[]
-      try {
-        requiredScopes = githubAuthorizationScopes(
-          providerPolicy?.actionFamilies ?? [],
-        )
-      } catch {
-        throw new ForbiddenException(
-          publicError('scope_denied', 'Connection authorization denied'),
-        )
-      }
-      if (
-        requiredScopes.some(
-          (scope) => !providerPolicy?.maxScopes.includes(scope),
-        ) ||
-        requiredScopes.length !== input.scopes.length ||
-        requiredScopes.some((scope, index) => scope !== input.scopes[index])
-      ) {
-        throw new ForbiddenException(
-          publicError('scope_denied', 'Connection authorization denied'),
-        )
-      }
+      await this.assertGithubScopes(principal, input.scopes)
     }
     const id = randomUUID()
     const state = opaqueValue()
@@ -216,35 +188,7 @@ export class ConnectionsService {
       )
     }
     if (connection.provider === 'github') {
-      const application = await repositories.application.getApplicationById(
-        db,
-        principal.workspaceId,
-        principal.applicationId,
-      )
-      const providerPolicy = application?.connectorAccessPolicy.providers.find(
-        (candidate) => candidate.provider === 'github',
-      )
-      let requiredScopes: string[]
-      try {
-        requiredScopes = githubAuthorizationScopes(
-          providerPolicy?.actionFamilies ?? [],
-        )
-      } catch {
-        throw new ForbiddenException(
-          publicError('scope_denied', 'Connection authorization denied'),
-        )
-      }
-      if (
-        requiredScopes.some(
-          (scope) => !providerPolicy?.maxScopes.includes(scope),
-        ) ||
-        requiredScopes.length !== input.scopes.length ||
-        requiredScopes.some((scope, index) => scope !== input.scopes[index])
-      ) {
-        throw new ForbiddenException(
-          publicError('scope_denied', 'Connection authorization denied'),
-        )
-      }
+      await this.assertGithubScopes(principal, input.scopes)
     }
     const id = randomUUID()
     const state = opaqueValue()
@@ -629,5 +573,40 @@ export class ConnectionsService {
       claimedAt,
       completedAt: new Date(),
     })
+  }
+
+  private async assertGithubScopes(
+    principal: EndUserPrincipal,
+    scopes: string[],
+  ): Promise<void> {
+    const application = await repositories.application.getApplicationById(
+      db,
+      principal.workspaceId,
+      principal.applicationId,
+    )
+    const providerPolicy = application?.connectorAccessPolicy.providers.find(
+      (candidate) => candidate.provider === 'github',
+    )
+    let requiredScopes: string[]
+    try {
+      requiredScopes = githubAuthorizationScopes(
+        providerPolicy?.actionFamilies ?? [],
+      )
+    } catch {
+      throw new ForbiddenException(
+        publicError('scope_denied', 'Connection authorization denied'),
+      )
+    }
+    if (
+      requiredScopes.some(
+        (scope) => !providerPolicy?.maxScopes.includes(scope),
+      ) ||
+      requiredScopes.length !== scopes.length ||
+      requiredScopes.some((scope, index) => scope !== scopes[index])
+    ) {
+      throw new ForbiddenException(
+        publicError('scope_denied', 'Connection authorization denied'),
+      )
+    }
   }
 }
