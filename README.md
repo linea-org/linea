@@ -38,20 +38,17 @@ currently shipped.
 
 ## Architecture
 
-```text
-Web workspace / Mobile / Public SDKs
-                  |
-             Platform API
-                  |
-      Postgres + transactional outbox
-                  |
-          BullMQ / Redis queues
-             /           \
-Execution worker     Background worker
-       |                    |
-Workflow runtime      schedules, webhooks,
-AI providers          notifications, analysis
-Connector Gateway
+```mermaid
+flowchart TD
+  clients["Web workspace<br/>Mobile<br/>Public SDKs"] --> api["Platform API"]
+  api --> postgres[("PostgreSQL<br/>Transactional outbox")]
+  postgres --> queues["BullMQ / Redis queues"]
+  queues --> execution["Execution worker"]
+  queues --> background["Background worker"]
+  execution --> runtime["Workflow runtime"]
+  execution --> providers["AI providers"]
+  execution --> gateway["Connector Gateway"]
+  background --> services["Schedules<br/>Webhooks<br/>Notifications<br/>Analysis"]
 ```
 
 The shared protocol and runtime registries keep browser-safe contracts
