@@ -19,6 +19,7 @@ describe.skipIf(!enabled)("live GitHub compatibility", () => {
       accountId: "live",
       accessToken: token,
       expiresAt: null,
+      scopes: ["read:user", "repo"],
     }
     const repositories = await githubListRepositoriesOperation.execute(
       { visibility: "public", page: 1, perPage: 10 },

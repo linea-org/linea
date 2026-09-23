@@ -3,6 +3,10 @@ import { createHash, randomUUID } from 'node:crypto'
 import { Logger, type INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import {
+  GOOGLE_ACTION_SCOPES,
+  googleAuthorizationScopes,
+} from '@linea/connectors'
+import {
   db,
   decryptCredential,
   encryptCredential,
@@ -35,6 +39,8 @@ import { ConnectionCredentialsService } from './connection-credentials.service'
 import { parseConnectionProviderCredential } from './connection-provider-credential'
 import { ConnectionRevocationService } from './connection-revocation.service'
 import { ConnectionsModule } from './connections.module'
+import { startTestGoogleProvider } from './test-google-provider'
+import { googleOAuthProviderFromEnvironment } from './google-oauth-provider'
 import { startTestGithubOAuthProvider } from './test-github-oauth-provider'
 import { startTestOAuthProvider } from './test-oauth-provider'
 
@@ -42,6 +48,37 @@ type ProofKey = { privateKey: KeyLike; publicJwk: JWK }
 type Schema<T> = { parse(value: unknown): T }
 
 const parseJson: (value: string) => unknown = JSON.parse
+const googleActionFamilies = [
+  'gmail_read',
+  'gmail_send',
+  'calendar_read',
+  'calendar_create',
+  'calendar_update',
+] as const
+
+function connectorPolicy(
+  enabledGoogleFamilies: readonly string[] = googleActionFamilies,
+) {
+  return {
+    providers: [
+      {
+        provider: 'test',
+        actionFamilies: ['test'],
+        maxScopes: ['profile'],
+      },
+      {
+        provider: 'google',
+        actionFamilies: [...enabledGoogleFamilies],
+        maxScopes: [...googleAuthorizationScopes(googleActionFamilies)],
+      },
+      {
+        provider: 'github',
+        actionFamilies: ['repositories'],
+        maxScopes: ['read:user', 'repo'],
+      },
+    ],
+  }
+}
 
 function responseBody<T>(response: { text: string }, schema: Schema<T>): T {
   return schema.parse(parseJson(response.text))
@@ -72,10 +109,12 @@ describe('OAuth Connections', () => {
   let sessionId: string
   let crossWorkspaceId: string | undefined
   let provider: Awaited<ReturnType<typeof startTestOAuthProvider>>
+  let google: Awaited<ReturnType<typeof startTestGoogleProvider>>
   let githubProvider: Awaited<ReturnType<typeof startTestGithubOAuthProvider>>
 
   beforeAll(async () => {
     provider = await startTestOAuthProvider()
+    google = await startTestGoogleProvider()
     githubProvider = await startTestGithubOAuthProvider()
     process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY = 'test-v1'
     process.env.CONNECTION_CREDENTIAL_KEYS = JSON.stringify({
@@ -103,20 +142,7 @@ describe('OAuth Connections', () => {
         oidcClientId: 'connections-client',
         oidcAudience: 'connections-client',
         oidcJwksUrl: 'https://identity.example.com/jwks',
-        connectorAccessPolicy: {
-          providers: [
-            {
-              provider: 'test',
-              actionFamilies: ['test'],
-              maxScopes: ['profile'],
-            },
-            {
-              provider: 'github',
-              actionFamilies: ['repositories'],
-              maxScopes: ['read:user', 'repo'],
-            },
-          ],
-        },
+        connectorAccessPolicy: connectorPolicy(),
       })
       .returning()
     applicationId = application.id
@@ -156,7 +182,7 @@ describe('OAuth Connections', () => {
       imports: [ConnectionsModule],
     })
       .overrideProvider(CONNECTION_OAUTH_PROVIDERS)
-      .useValue([provider.adapter, githubProvider.adapter])
+      .useValue([provider.adapter, google.adapter, githubProvider.adapter])
       .compile()
     app = moduleRef.createNestApplication()
     app.setGlobalPrefix('v1')
@@ -168,6 +194,7 @@ describe('OAuth Connections', () => {
   afterAll(async () => {
     if (app) await app.close()
     if (provider) await provider.close()
+    if (google) await google.close()
     if (githubProvider) await githubProvider.close()
     if (workspaceId) {
       await pool.query('DELETE FROM organizations WHERE id = $1', [workspaceId])
@@ -192,7 +219,6 @@ describe('OAuth Connections', () => {
       .send({
         provider: 'test',
         returnUri: 'http://127.0.0.1:4173/connections/callback',
-        scopes: ['profile'],
       })
     expect(response.status).toBe(201)
     const body = responseBody(response, connectionAuthorizationResponseSchema)
@@ -428,27 +454,384 @@ describe('OAuth Connections', () => {
     await pool.query('DELETE FROM connections WHERE id = $1', [initial.id])
   })
 
-  it('enforces the Application scope and return-origin caps', async () => {
+  it('connects Google by stable identity and expands scopes only through a new ceremony', async () => {
     const path = '/v1/user/connections/authorizations'
-    for (const body of [
-      {
-        provider: 'test',
-        returnUri: 'http://127.0.0.1:4173/connections/callback',
-        scopes: ['admin'],
-      },
-      {
-        provider: 'test',
-        returnUri: 'https://attacker.example/connections/callback',
-        scopes: ['profile'],
-      },
-    ]) {
-      const response = await request(baseUrl)
+    const replaceGoogleFamilies = async (families: readonly string[]) => {
+      await pool.query(
+        'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+        [JSON.stringify(connectorPolicy(families)), applicationId],
+      )
+    }
+    const authorize = async () => {
+      const started = await request(baseUrl)
         .post(path)
         .set('Authorization', `DPoP ${accessToken}`)
         .set('DPoP', await createProof('POST', `${baseUrl}${path}`))
-        .send(body)
-      expect(response.status).toBe(403)
+        .send({
+          provider: 'google',
+          returnUri: 'http://127.0.0.1:4173/connections/callback',
+        })
+      const authorization = responseBody(
+        started,
+        connectionAuthorizationResponseSchema,
+      )
+      const providerResponse = await fetch(authorization.authorizationUrl, {
+        redirect: 'manual',
+      })
+      const callback = providerResponse.headers.get('location')
+      if (!callback) throw new Error('Google callback location is missing')
+      const completed = await fetch(callback, { redirect: 'manual' })
+      const location = completed.headers.get('location')
+      if (!location) throw new Error('Application return location is missing')
+      return new URL(location).searchParams.get('status')
     }
+    google.selectAccount('stable-google-subject', 'stable@example.com')
+    await replaceGoogleFamilies(['gmail_read'])
+    await expect(authorize()).resolves.toBe('connected')
+    expect(
+      google.requestedScopes().sort((left, right) => left.localeCompare(right)),
+    ).toEqual(
+      [...googleAuthorizationScopes(['gmail_read'])].sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    )
+    const initial = (
+      await repositories.connection.listConnections(db, {
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+      })
+    ).find(({ provider }) => provider === 'google')
+    if (!initial) throw new Error('Expected Google Connection')
+    await replaceGoogleFamilies(['gmail_read', 'calendar_update'])
+    await expect(authorize()).resolves.toBe('connected')
+    const expanded = await repositories.connection.getConnection(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      initial.id,
+    )
+    expect(expanded).toEqual(
+      expect.objectContaining({
+        id: initial.id,
+        providerAccountId: 'stable-google-subject',
+        accountLabel: 'stable@example.com',
+        credentialVersion: initial.credentialVersion + 1,
+      }),
+    )
+    expect(expanded?.scopes).toEqual(
+      expect.arrayContaining([
+        GOOGLE_ACTION_SCOPES.gmail_read,
+        GOOGLE_ACTION_SCOPES.calendar_update,
+      ]),
+    )
+    if (!expanded?.credentialEncrypted) {
+      throw new Error('Expected Google credential')
+    }
+    const encryptionContext = {
+      workspaceId,
+      applicationId,
+      externalSubjectId,
+      recordId: expanded.id,
+      provider: 'google',
+    }
+    const beforeRefresh = parseConnectionProviderCredential(
+      decryptCredential(expanded.credentialEncrypted, encryptionContext),
+      expanded.scopes,
+    )
+    await repositories.connection.rotateConnectionCredential(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      expanded.id,
+      expanded.credentialVersion,
+      encryptCredential(
+        JSON.stringify({
+          ...beforeRefresh,
+          expiresAt: new Date(Date.now() + 30_000).toISOString(),
+        }),
+        encryptionContext,
+      ),
+      new Date(),
+    )
+    const refreshed = await app
+      .get(ConnectionCredentialsService)
+      .resolve(
+        { sessionId, workspaceId, applicationId, externalSubjectId },
+        expanded.id,
+      )
+    expect(refreshed.accessToken).not.toBe(beforeRefresh.accessToken)
+    expect(refreshed.refreshToken).not.toBe(beforeRefresh.refreshToken)
+    expect(google.refreshCount()).toBe(1)
+    await replaceGoogleFamilies(googleActionFamilies)
+    google.denyScopeOnce(GOOGLE_ACTION_SCOPES.gmail_send)
+    await expect(authorize()).resolves.toBe('failed')
+    const denied = await repositories.connection.getConnection(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      initial.id,
+    )
+    expect(denied?.credentialVersion).toBe(expanded.credentialVersion + 2)
+    const stagedRevocation =
+      await db.query.connectionRevocationDeliveries.findFirst({
+        where: {
+          provider: 'google',
+          connectionId: { isNull: true },
+          deliveredAt: { isNull: true },
+        },
+      })
+    expect(stagedRevocation?.credentialEncrypted).not.toBeNull()
+    const revocations = app.get(ConnectionRevocationService)
+    await revocations.poll(new Date(Date.now() + 6 * 60 * 1000))
+    const completedRevocation =
+      await db.query.connectionRevocationDeliveries.findFirst({
+        where: { id: stagedRevocation?.id },
+      })
+    expect(completedRevocation?.credentialEncrypted).toBeNull()
+    expect(completedRevocation?.deliveredAt).toBeInstanceOf(Date)
+    if (!denied?.credentialEncrypted)
+      throw new Error('Expected Google credential')
+    await repositories.connection.rotateConnectionCredential(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      denied.id,
+      denied.credentialVersion,
+      encryptCredential(
+        JSON.stringify({
+          ...refreshed,
+          expiresAt: '2000-01-01T00:00:00.000Z',
+        }),
+        encryptionContext,
+      ),
+      new Date(),
+    )
+    await expect(
+      app
+        .get(ConnectionCredentialsService)
+        .resolve(
+          { sessionId, workspaceId, applicationId, externalSubjectId },
+          denied.id,
+        ),
+    ).rejects.toBeInstanceOf(ConnectionProviderInvalidGrantError)
+    expect(google.refreshCount()).toBe(1)
+    const invalidated = await repositories.connection.getConnection(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      denied.id,
+    )
+    expect(invalidated?.status).toBe('reauthorization_required')
+    await expect(authorize()).resolves.toBe('connected')
+    const reauthorized = await repositories.connection.getConnection(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      denied.id,
+    )
+    expect(reauthorized?.status).toBe('active')
+    google.failNextRevocation()
+    const getPath = `/v1/user/connections/${denied.id}`
+    const revoked = await request(baseUrl)
+      .delete(getPath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('DELETE', `${baseUrl}${getPath}`))
+    expect(responseBody(revoked, connectionSchema).status).toBe('revoked')
+    await revocations.poll()
+    const failed = await db.query.connectionRevocationDeliveries.findFirst({
+      where: { connectionId: denied.id },
+    })
+    expect(failed).toEqual(
+      expect.objectContaining({ attemptCount: 1, deliveredAt: null }),
+    )
+    await revocations.poll(new Date(Date.now() + 2_000))
+    const delivered = await db.query.connectionRevocationDeliveries.findFirst({
+      where: { connectionId: denied.id },
+    })
+    expect(delivered).toEqual(
+      expect.objectContaining({
+        attemptCount: 2,
+        credentialEncrypted: null,
+      }),
+    )
+  }, 15_000)
+
+  it('keeps a new Google authorization safe from an older pending revocation', async () => {
+    google.selectAccount(
+      'reconnected-google-subject',
+      'reconnected@example.com',
+    )
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [JSON.stringify(connectorPolicy(['gmail_read'])), applicationId],
+    )
+    const path = '/v1/user/connections/authorizations'
+    const authorize = async () => {
+      const started = await request(baseUrl)
+        .post(path)
+        .set('Authorization', `DPoP ${accessToken}`)
+        .set('DPoP', await createProof('POST', `${baseUrl}${path}`))
+        .send({
+          provider: 'google',
+          returnUri: 'http://127.0.0.1:4173/connections/callback',
+        })
+      const authorization = responseBody(
+        started,
+        connectionAuthorizationResponseSchema,
+      )
+      const granted = await fetch(authorization.authorizationUrl, {
+        redirect: 'manual',
+      })
+      const callback = granted.headers.get('location')
+      if (!callback) throw new Error('Google callback location is missing')
+      const completed = await fetch(callback, { redirect: 'manual' })
+      return new URL(completed.headers.get('location') ?? '').searchParams.get(
+        'status',
+      )
+    }
+    await expect(authorize()).resolves.toBe('connected')
+    const initial = (
+      await repositories.connection.listConnections(db, {
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+      })
+    ).find(
+      ({ provider, providerAccountId }) =>
+        provider === 'google' &&
+        providerAccountId === 'reconnected-google-subject',
+    )
+    if (!initial) throw new Error('Expected Google Connection')
+    const getPath = `/v1/user/connections/${initial.id}`
+    const revoked = await request(baseUrl)
+      .delete(getPath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('DELETE', `${baseUrl}${getPath}`))
+    expect(responseBody(revoked, connectionSchema).status).toBe('revoked')
+    const pending = await db.query.connectionRevocationDeliveries.findFirst({
+      where: { connectionId: initial.id },
+    })
+    expect(pending?.credentialEncrypted).not.toBeNull()
+    await expect(authorize()).resolves.toBe('connected')
+    expect(
+      await db.query.connectionRevocationDeliveries.findFirst({
+        where: { id: pending?.id },
+      }),
+    ).toBeUndefined()
+    await app.get(ConnectionRevocationService).poll()
+    const active = (
+      await repositories.connection.listConnections(db, {
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+      })
+    ).find(
+      ({ providerAccountId, status }) =>
+        providerAccountId === 'reconnected-google-subject' &&
+        status === 'active',
+    )
+    if (!active) throw new Error('Expected active Google Connection')
+    const resolved = await app
+      .get(ConnectionCredentialsService)
+      .resolve(
+        { sessionId, workspaceId, applicationId, externalSubjectId },
+        active.id,
+      )
+    expect(resolved.accountId).toBe('reconnected-google-subject')
+    const activePath = `/v1/user/connections/${active.id}`
+    const revokedAgain = await request(baseUrl)
+      .delete(activePath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('DELETE', `${baseUrl}${activePath}`))
+    expect(responseBody(revokedAgain, connectionSchema).status).toBe('revoked')
+    await pool.query(
+      `UPDATE connection_revocation_deliveries SET claimed_by = $1, claim_expires_at = $2 WHERE connection_id = $3`,
+      ['in-flight-worker', new Date(Date.now() + 30_000), active.id],
+    )
+    await expect(authorize()).resolves.toBe('failed')
+    const refused = (
+      await repositories.connection.listConnections(db, {
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+      })
+    ).find(
+      ({ providerAccountId, status }) =>
+        providerAccountId === 'reconnected-google-subject' &&
+        status === 'active',
+    )
+    expect(refused).toBeUndefined()
+  }, 15_000)
+
+  it('rejects configured Google OAuth endpoints without HTTPS', () => {
+    const endpointNames = [
+      'GOOGLE_CONNECTOR_AUTHORIZATION_URL',
+      'GOOGLE_CONNECTOR_TOKEN_URL',
+      'GOOGLE_CONNECTOR_USERINFO_URL',
+      'GOOGLE_CONNECTOR_REVOCATION_URL',
+    ] as const
+    const priorEndpoints = endpointNames.map((name) => process.env[name])
+    const priorClientId = process.env.GOOGLE_CONNECTOR_CLIENT_ID
+    const priorClientSecret = process.env.GOOGLE_CONNECTOR_CLIENT_SECRET
+    try {
+      process.env.GOOGLE_CONNECTOR_CLIENT_ID = 'test-client'
+      process.env.GOOGLE_CONNECTOR_CLIENT_SECRET = 'test-secret'
+      for (const name of endpointNames) {
+        process.env[name] = 'http://127.0.0.1:4000/insecure'
+        expect(() => googleOAuthProviderFromEnvironment()).toThrow(
+          'Google OAuth endpoints must use HTTPS',
+        )
+        delete process.env[name]
+      }
+    } finally {
+      endpointNames.forEach((name, index) => {
+        const previous = priorEndpoints[index]
+        if (previous === undefined) delete process.env[name]
+        else process.env[name] = previous
+      })
+      if (priorClientId === undefined)
+        delete process.env.GOOGLE_CONNECTOR_CLIENT_ID
+      else process.env.GOOGLE_CONNECTOR_CLIENT_ID = priorClientId
+      if (priorClientSecret === undefined)
+        delete process.env.GOOGLE_CONNECTOR_CLIENT_SECRET
+      else process.env.GOOGLE_CONNECTOR_CLIENT_SECRET = priorClientSecret
+    }
+  })
+
+  it('enforces the Application scope and return-origin caps', async () => {
+    const path = '/v1/user/connections/authorizations'
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['different:scope'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    const scopeDenied = await request(baseUrl)
+      .post(path)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${path}`))
+      .send({
+        provider: 'test',
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+      })
+    expect(scopeDenied.status).toBe(403)
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [JSON.stringify(connectorPolicy()), applicationId],
+    )
+    const returnUriDenied = await request(baseUrl)
+      .post(path)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${path}`))
+      .send({
+        provider: 'test',
+        returnUri: 'https://attacker.example/connections/callback',
+      })
+    expect(returnUriDenied.status).toBe(403)
   })
 
   it('returns only a bounded failure result after a claimed callback fails', async () => {
@@ -460,7 +843,6 @@ describe('OAuth Connections', () => {
       .send({
         provider: 'test',
         returnUri: 'http://127.0.0.1:4173/connections/callback',
-        scopes: ['profile'],
       })
     const startedBody = responseBody(
       started,
@@ -488,10 +870,11 @@ describe('OAuth Connections', () => {
       startedBody.authorizationId,
     )
     expect(returned.searchParams.get('status')).toBe('failed')
-    expect([...returned.searchParams.keys()].sort()).toEqual([
-      'authorizationId',
-      'status',
-    ])
+    expect(
+      [...returned.searchParams.keys()].sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    ).toEqual(['authorizationId', 'status'])
     const resultPath = `/v1/user/connections/authorizations/${startedBody.authorizationId}`
     const result = await request(baseUrl)
       .get(resultPath)
@@ -514,7 +897,6 @@ describe('OAuth Connections', () => {
       .send({
         provider: 'test',
         returnUri: 'http://127.0.0.1:4173/connections/callback',
-        scopes: ['profile'],
       })
     const startedBody = responseBody(
       started,
@@ -540,10 +922,11 @@ describe('OAuth Connections', () => {
       startedBody.authorizationId,
     )
     expect(returned.searchParams.get('status')).toBe('failed')
-    expect([...returned.searchParams.keys()].sort()).toEqual([
-      'authorizationId',
-      'status',
-    ])
+    expect(
+      [...returned.searchParams.keys()].sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    ).toEqual(['authorizationId', 'status'])
   })
 
   it('rechecks current Application policy before storing a credential', async () => {
@@ -555,7 +938,6 @@ describe('OAuth Connections', () => {
       .send({
         provider: 'test',
         returnUri: 'http://127.0.0.1:4173/connections/callback',
-        scopes: ['profile'],
       })
     const startedBody = responseBody(
       started,
@@ -579,18 +961,7 @@ describe('OAuth Connections', () => {
     } finally {
       await pool.query(
         'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
-        [
-          JSON.stringify({
-            providers: [
-              {
-                provider: 'test',
-                actionFamilies: ['test'],
-                maxScopes: ['profile'],
-              },
-            ],
-          }),
-          applicationId,
-        ],
+        [JSON.stringify(connectorPolicy()), applicationId],
       )
     }
     const stored = await db.query.connections.findFirst({
@@ -634,7 +1005,6 @@ describe('OAuth Connections', () => {
       .send({
         provider: 'test',
         returnUri: 'http://127.0.0.1:4173/connections/callback',
-        scopes: ['profile'],
       })
     const startedBody = responseBody(
       started,
@@ -695,9 +1065,12 @@ describe('OAuth Connections', () => {
       .set('DPoP', await createProof('GET', `${baseUrl}${listPath}`))
     expect(list.status).toBe(200)
     const listBody = responseBody(list, connectionsResponseSchema)
-    expect(listBody.data).toHaveLength(1)
     expect(listBody).not.toHaveProperty('nextCursor')
-    expect(listBody.data[0]).toMatchObject({
+    const testConnections = listBody.data.filter(
+      ({ provider }) => provider === 'test',
+    )
+    expect(testConnections).toHaveLength(1)
+    expect(testConnections[0]).toMatchObject({
       provider: 'test',
       providerAccountId: 'account-one',
       accountLabel: 'Test Account',
@@ -706,7 +1079,7 @@ describe('OAuth Connections', () => {
     })
     expect(JSON.stringify(listBody)).not.toContain('test-access')
     expect(JSON.stringify(listBody)).not.toContain('test-refresh')
-    const connectionId = listBody.data[0]?.id
+    const connectionId = testConnections[0]?.id
     if (!connectionId) throw new Error('Expected a listed Connection')
     expect(authorizationBody.connectionId).toBe(connectionId)
     expect(
@@ -861,6 +1234,8 @@ describe('OAuth Connections', () => {
     await db.insert(schema.connectionRevocationDeliveries).values({
       id: expiredDeliveryId,
       workspaceId,
+      applicationId,
+      externalSubjectId,
       connectionId,
       provider: 'test',
       credentialEncrypted: encryptCredential('expired-revocation', {
@@ -890,7 +1265,6 @@ describe('OAuth Connections', () => {
       .send({
         provider: 'test',
         returnUri: 'http://127.0.0.1:4173/connections/callback',
-        scopes: ['profile'],
       })
     const startedBody = responseBody(
       started,
@@ -973,7 +1347,6 @@ describe('OAuth Connections', () => {
       .send({
         provider: 'test',
         returnUri: 'http://127.0.0.1:4173/connections/callback',
-        scopes: ['profile'],
       })
     const startedBody = responseBody(
       started,
@@ -1008,7 +1381,7 @@ describe('OAuth Connections', () => {
           providers: [
             {
               provider: 'test',
-              actionFamilies: ['test'],
+              actionFamilies: ['test', 'write'],
               maxScopes: ['profile', 'write'],
             },
           ],
@@ -1072,7 +1445,7 @@ describe('OAuth Connections', () => {
           providers: [
             {
               provider: 'test',
-              actionFamilies: ['test'],
+              actionFamilies: ['test', 'write', 'archive'],
               maxScopes: ['profile', 'write', 'archive'],
             },
           ],
@@ -1234,7 +1607,6 @@ describe('OAuth Connections', () => {
           .send({
             provider: 'test',
             returnUri: 'http://127.0.0.1:4173/connections/callback',
-            scopes: ['profile'],
           })
         return responseBody(response, connectionAuthorizationResponseSchema)
       }),

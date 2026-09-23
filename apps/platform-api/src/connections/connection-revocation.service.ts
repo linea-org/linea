@@ -80,7 +80,7 @@ export class ConnectionRevocationService
       Awaited<ReturnType<ConnectionRevocationService['claim']>>
     >,
   ): Promise<void> {
-    const { delivery, connection } = claimed
+    const delivery = claimed
     const provider = this.providers.find(
       (candidate) => candidate.provider === delivery.provider,
     )
@@ -96,13 +96,13 @@ export class ConnectionRevocationService
       }
       const credential = parseConnectionProviderCredential(
         decryptCredential(delivery.credentialEncrypted, {
-          workspaceId: connection.workspaceId,
-          applicationId: connection.applicationId,
-          externalSubjectId: connection.externalSubjectId,
+          workspaceId: delivery.workspaceId,
+          applicationId: delivery.applicationId,
+          externalSubjectId: delivery.externalSubjectId,
           recordId: delivery.id,
           provider: `${delivery.provider}:revocation`,
         }),
-        connection.scopes,
+        [],
       )
       const controller = new AbortController()
       this.activeAbortController = controller

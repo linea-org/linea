@@ -27,6 +27,7 @@
     "@linea/ai": "workspace:*",
     "@linea/auth": "workspace:*",
     "@linea/config": "workspace:*",
+    "@linea/connectors": "workspace:*",
     "@linea/db": "workspace:*",
     "@linea/queue": "workspace:*",
     "@linea/protocol": "workspace:*",

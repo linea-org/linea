@@ -39,6 +39,7 @@ type CreateAuthorizationInput = {
   externalSubjectId: string
   endUserSessionId: string
   provider: string
+  actionFamilies: string[]
   scopes: string[]
   returnUri: string
   stateHash: string
@@ -84,6 +85,97 @@ export type CompleteConnectionAuthorizationResult =
   | { outcome: "completed"; connection: Connection }
   | { outcome: "invalid" }
 
+async function lockGoogleGrant(
+  db: DbClient,
+  provider: string,
+  providerAccountId: string
+): Promise<void> {
+  if (provider === "google") {
+    const grantKey = `${provider}:${providerAccountId}`
+    await db.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${grantKey}, 0))`
+    )
+  }
+}
+
+async function fenceGoogleRevocations(
+  db: DbClient,
+  request: ConnectionAuthorizationRequest,
+  providerAccountId: string,
+  currentDeliveryId: string,
+  now: Date
+): Promise<boolean> {
+  if (request.provider !== "google") return true
+  await lockGoogleGrant(db, request.provider, providerAccountId)
+  const deliveries = await db
+    .select()
+    .from(connectionRevocationDeliveries)
+    .where(
+      and(
+        eq(connectionRevocationDeliveries.provider, request.provider),
+        or(
+          eq(
+            connectionRevocationDeliveries.providerAccountId,
+            providerAccountId
+          ),
+          and(
+            isNull(connectionRevocationDeliveries.providerAccountId),
+            eq(connectionRevocationDeliveries.workspaceId, request.workspaceId),
+            eq(
+              connectionRevocationDeliveries.applicationId,
+              request.applicationId
+            ),
+            eq(
+              connectionRevocationDeliveries.externalSubjectId,
+              request.externalSubjectId
+            )
+          )
+        )
+      )
+    )
+    .for("update")
+  if (
+    deliveries.some(
+      (delivery) =>
+        delivery.id !== currentDeliveryId &&
+        (delivery.claimedBy ||
+          (delivery.deliveredAt
+            ? delivery.deliveredAt >= request.createdAt
+            : delivery.lastAttemptAt &&
+              delivery.lastAttemptAt >= request.createdAt))
+    )
+  ) {
+    return false
+  }
+  const pending = deliveries.filter(
+    (delivery) => delivery.id !== currentDeliveryId && !delivery.deliveredAt
+  )
+  for (const delivery of pending) {
+    if (!delivery.connectionId) continue
+    const [revoked] = await db
+      .select()
+      .from(connections)
+      .where(eq(connections.id, delivery.connectionId))
+    if (revoked) {
+      await recordConnectionFact(db, {
+        connection: revoked,
+        factType: "connection.revocation_payload_destroyed",
+        occurredAt: now,
+        outcome: "superseded",
+      })
+    }
+  }
+  if (pending.length > 0) {
+    await db.delete(connectionRevocationDeliveries).where(
+      inArray(
+        connectionRevocationDeliveries.id,
+        pending.map((delivery) => delivery.id)
+      )
+    )
+  }
+  return true
+}
+
 export async function completeConnectionAuthorizationRequest(
   db: DbClient,
   input: {
@@ -96,9 +188,13 @@ export async function completeConnectionAuthorizationRequest(
     actionFamilies: string[]
     requiredScopes: string[]
     credentialPlaintext: string
+    revocationDeliveryId: string
     now: Date
   }
 ): Promise<CompleteConnectionAuthorizationResult> {
+  const grantedScopes = [...new Set(input.grantedScopes)].sort((left, right) =>
+    left.localeCompare(right)
+  )
   return db.transaction(
     async (tx): Promise<CompleteConnectionAuthorizationResult> => {
       const [request] = await tx
@@ -170,10 +266,7 @@ export async function completeConnectionAuthorizationRequest(
         authority.subjectStatus !== "verified" ||
         authority.sessionRevokedAt ||
         authority.sessionExpiresAt <= input.now ||
-        providerPolicy.actionFamilies.length !== input.actionFamilies.length ||
-        providerPolicy.actionFamilies.some(
-          (family, index) => family !== input.actionFamilies[index]
-        ) ||
+        !sameValues(providerPolicy.actionFamilies, input.actionFamilies) ||
         request.scopes.length !== input.requiredScopes.length ||
         request.scopes.some(
           (scope, index) => scope !== input.requiredScopes[index]
@@ -181,16 +274,22 @@ export async function completeConnectionAuthorizationRequest(
         request.scopes.some(
           (scope) => !providerPolicy.maxScopes.includes(scope)
         ) ||
-        input.requiredScopes.length !== input.grantedScopes.length ||
+        input.requiredScopes.length !== grantedScopes.length ||
         input.requiredScopes.some(
-          (scope) => !input.grantedScopes.includes(scope)
+          (scope, index) => scope !== grantedScopes[index]
         ) ||
-        input.grantedScopes.some(
-          (scope) => !input.requiredScopes.includes(scope)
-        ) ||
-        input.grantedScopes.some(
-          (scope) => !providerPolicy.maxScopes.includes(scope)
-        )
+        grantedScopes.some((scope) => !providerPolicy.maxScopes.includes(scope))
+      ) {
+        return { outcome: "invalid" }
+      }
+      if (
+        !(await fenceGoogleRevocations(
+          tx,
+          request,
+          input.providerAccountId,
+          input.revocationDeliveryId,
+          input.now
+        ))
       ) {
         return { outcome: "invalid" }
       }
@@ -285,6 +384,30 @@ export async function completeConnectionAuthorizationRequest(
           endUserSessionId: null,
         })
         .where(eq(connectionAuthorizationRequests.id, request.id))
+      const [cancelledRevocation] = await tx
+        .delete(connectionRevocationDeliveries)
+        .where(
+          and(
+            eq(connectionRevocationDeliveries.id, input.revocationDeliveryId),
+            eq(connectionRevocationDeliveries.workspaceId, request.workspaceId),
+            eq(
+              connectionRevocationDeliveries.applicationId,
+              request.applicationId
+            ),
+            eq(
+              connectionRevocationDeliveries.externalSubjectId,
+              request.externalSubjectId
+            ),
+            eq(connectionRevocationDeliveries.provider, request.provider),
+            isNull(connectionRevocationDeliveries.connectionId),
+            isNull(connectionRevocationDeliveries.claimedBy),
+            isNull(connectionRevocationDeliveries.deliveredAt)
+          )
+        )
+        .returning({ id: connectionRevocationDeliveries.id })
+      if (!cancelledRevocation) {
+        throw new Error("Authorization credential cleanup was already claimed")
+      }
       await recordConnectionFact(tx, {
         connection,
         factType: existing ? "connection.refreshed" : "connection.created",
@@ -548,6 +671,16 @@ export async function revokeConnection(
   | { outcome: "conflict" }
 > {
   return db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({
+        provider: connections.provider,
+        providerAccountId: connections.providerAccountId,
+      })
+      .from(connections)
+      .where(ownedConnection(owner, connectionId))
+    if (current) {
+      await lockGoogleGrant(tx, current.provider, current.providerAccountId)
+    }
     const [connection] = await tx
       .update(connections)
       .set({
@@ -582,8 +715,11 @@ export async function revokeConnection(
       await tx.insert(connectionRevocationDeliveries).values({
         id: input.deliveryId,
         workspaceId: owner.workspaceId,
+        applicationId: owner.applicationId,
+        externalSubjectId: owner.externalSubjectId,
         connectionId,
         provider: connection.provider,
+        providerAccountId: connection.providerAccountId,
         credentialEncrypted: input.revocationCredentialEncrypted,
         expiresAt: input.expiresAt,
         createdAt: input.now,
@@ -614,9 +750,7 @@ export async function claimRevocationDelivery(
     now: Date
     claimExpiresAt: Date
   }
-): Promise<
-  { delivery: ConnectionRevocationDelivery; connection: Connection } | undefined
-> {
+): Promise<ConnectionRevocationDelivery | undefined> {
   return db.transaction(async (tx) => {
     const [candidate] = await tx
       .select({ id: connectionRevocationDeliveries.id })
@@ -649,12 +783,37 @@ export async function claimRevocationDelivery(
       })
       .where(eq(connectionRevocationDeliveries.id, candidate.id))
       .returning()
-    const [connection] = await tx
-      .select()
-      .from(connections)
-      .where(eq(connections.id, delivery.connectionId))
-    if (!connection) throw new Error("Revocation Connection is missing")
-    return { delivery, connection }
+    return delivery
+  })
+}
+
+export async function stageAuthorizationCredentialRevocation(
+  db: DbClient,
+  input: {
+    id: string
+    workspaceId: string
+    applicationId: string
+    externalSubjectId: string
+    provider: string
+    providerAccountId: string
+    credentialEncrypted: string
+    availableAt: Date
+    expiresAt: Date
+    now: Date
+  }
+): Promise<void> {
+  await db.insert(connectionRevocationDeliveries).values({
+    id: input.id,
+    workspaceId: input.workspaceId,
+    applicationId: input.applicationId,
+    externalSubjectId: input.externalSubjectId,
+    connectionId: null,
+    provider: input.provider,
+    providerAccountId: input.providerAccountId,
+    credentialEncrypted: input.credentialEncrypted,
+    availableAt: input.availableAt,
+    expiresAt: input.expiresAt,
+    createdAt: input.now,
   })
 }
 
@@ -680,17 +839,19 @@ export async function completeRevocationDelivery(
       )
       .returning()
     if (!delivery) return false
-    const [connection] = await tx
-      .select()
-      .from(connections)
-      .where(eq(connections.id, delivery.connectionId))
-    if (!connection) throw new Error("Revocation Connection is missing")
-    await recordConnectionFact(tx, {
-      connection,
-      factType: "connection.revocation_payload_destroyed",
-      occurredAt: input.deliveredAt,
-      outcome: "delivered",
-    })
+    if (delivery.connectionId) {
+      const [connection] = await tx
+        .select()
+        .from(connections)
+        .where(eq(connections.id, delivery.connectionId))
+      if (!connection) throw new Error("Revocation Connection is missing")
+      await recordConnectionFact(tx, {
+        connection,
+        factType: "connection.revocation_payload_destroyed",
+        occurredAt: input.deliveredAt,
+        outcome: "delivered",
+      })
+    }
     return true
   })
 }
@@ -752,7 +913,7 @@ export async function deleteExpiredRevocationDeliveries(
         connection: connections,
       })
       .from(connectionRevocationDeliveries)
-      .innerJoin(
+      .leftJoin(
         connections,
         eq(connections.id, connectionRevocationDeliveries.connectionId)
       )
@@ -764,13 +925,15 @@ export async function deleteExpiredRevocationDeliveries(
       )
       .for("update", { of: connectionRevocationDeliveries })
     for (const { delivery, connection } of expired) {
-      await recordConnectionFact(tx, {
-        connection,
-        factType: "connection.revocation_payload_destroyed",
-        occurredAt: now,
-        outcome: "expired",
-        failureClass: delivery.lastFailureClass ?? "not_delivered",
-      })
+      if (connection) {
+        await recordConnectionFact(tx, {
+          connection,
+          factType: "connection.revocation_payload_destroyed",
+          occurredAt: now,
+          outcome: "expired",
+          failureClass: delivery.lastFailureClass ?? "not_delivered",
+        })
+      }
     }
     if (expired.length === 0) return 0
     const deleted = await tx
@@ -910,6 +1073,9 @@ export async function createConnectionAuthorizationRequest(
       (candidate) => candidate.provider === input.provider
     )
     if (!provider) return { outcome: "provider_denied" }
+    if (!sameValues(provider.actionFamilies, input.actionFamilies)) {
+      return { outcome: "provider_denied" }
+    }
     if (input.scopes.some((scope) => !provider.maxScopes.includes(scope))) {
       return { outcome: "scope_denied" }
     }
@@ -941,8 +1107,72 @@ export async function createConnectionAuthorizationRequest(
     }
     const [request] = await tx
       .insert(connectionAuthorizationRequests)
-      .values(input)
+      .values({
+        id: input.id,
+        workspaceId: input.workspaceId,
+        applicationId: input.applicationId,
+        externalSubjectId: input.externalSubjectId,
+        endUserSessionId: input.endUserSessionId,
+        provider: input.provider,
+        targetConnectionId: input.targetConnectionId,
+        scopes: input.scopes,
+        returnUri: input.returnUri,
+        stateHash: input.stateHash,
+        codeVerifierEncrypted: input.codeVerifierEncrypted,
+        expiresAt: input.expiresAt,
+      })
       .returning()
     return { outcome: "created", request }
   })
+}
+
+function sameValues(
+  left: readonly string[],
+  right: readonly string[]
+): boolean {
+  const sortedLeft = [...left].sort((first, second) =>
+    first.localeCompare(second)
+  )
+  const sortedRight = [...right].sort((first, second) =>
+    first.localeCompare(second)
+  )
+  return (
+    sortedLeft.length === sortedRight.length &&
+    sortedLeft.every((value, index) => value === sortedRight[index])
+  )
+}
+
+export async function getConnectionAuthorizationPolicy(
+  db: DbClient,
+  input: {
+    workspaceId: string
+    applicationId: string
+    externalSubjectId: string
+    provider: string
+  }
+): Promise<{ actionFamilies: string[]; maxScopes: string[] } | undefined> {
+  const [application] = await db
+    .select({ policy: applications.connectorAccessPolicy })
+    .from(applications)
+    .innerJoin(
+      externalSubjectApplications,
+      and(
+        eq(externalSubjectApplications.applicationId, applications.id),
+        eq(externalSubjectApplications.workspaceId, applications.workspaceId),
+        eq(
+          externalSubjectApplications.externalSubjectId,
+          input.externalSubjectId
+        )
+      )
+    )
+    .where(
+      and(
+        eq(applications.id, input.applicationId),
+        eq(applications.workspaceId, input.workspaceId),
+        eq(applications.enabled, true)
+      )
+    )
+  return application?.policy.providers.find(
+    (provider) => provider.provider === input.provider
+  )
 }

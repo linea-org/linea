@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ae7bdec8-939b-461d-8a0d-58087bcde76e",
+  "id": "16b2a276-00c4-4897-a5c5-6d2f21a3a64d",
   "prevIds": [
-    "aa4fb9ee-d185-409a-9439-d9f84df2f7de"
+    "f9a6716a-64f2-40b1-98f3-bac92bfe6909"
   ],
   "ddl": [
     {
@@ -6553,6 +6553,32 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "application_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connection_revocation_deliveries"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "external_subject_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connection_revocation_deliveries"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "connection_id",
       "entityType": "columns",
       "schema": "public",
@@ -6567,6 +6593,19 @@
       "generated": null,
       "identity": null,
       "name": "provider",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "connection_revocation_deliveries"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "provider_account_id",
       "entityType": "columns",
       "schema": "public",
       "table": "connection_revocation_deliveries"
@@ -12070,6 +12109,34 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "provider",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "provider_account_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "connection_revocation_deliveries_account_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "connection_revocation_deliveries"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "workspace_id",
           "isExpression": false,
           "asc": true,
@@ -14902,6 +14969,44 @@
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "connection_revocation_deliveries_connection_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "connection_revocation_deliveries"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "application_id",
+        "workspace_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "applications",
+      "columnsTo": [
+        "id",
+        "workspace_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "connection_revocation_deliveries_application_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "connection_revocation_deliveries"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "external_subject_id",
+        "workspace_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "external_subjects",
+      "columnsTo": [
+        "id",
+        "workspace_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "connection_revocation_deliveries_subject_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "connection_revocation_deliveries"
