@@ -1,9 +1,10 @@
 import { spawnSync } from "node:child_process"
 
 const pnpmCli = process.env.npm_execpath
-const pnpmCommand = pnpmCli?.endsWith(".exe") ? pnpmCli : process.execPath
+const pnpmIsJavaScript = /\.(?:c|m)?js$/.test(pnpmCli ?? "")
+const pnpmCommand = pnpmIsJavaScript ? process.execPath : pnpmCli
 const pnpmArguments = (arguments_) =>
-  pnpmCli?.endsWith(".exe") ? arguments_ : [pnpmCli, ...arguments_]
+  pnpmIsJavaScript ? [pnpmCli, ...arguments_] : arguments_
 const providers = [
   [
     "Google",

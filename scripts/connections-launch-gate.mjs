@@ -1,13 +1,13 @@
 import { spawnSync } from "node:child_process"
-import { existsSync } from "node:fs"
+import { config as loadEnv } from "dotenv"
 
-if (existsSync(".env") && (!process.env.DATABASE_URL || !process.env.REDIS_URL))
-  process.loadEnvFile(".env")
+loadEnv({ quiet: true })
 
 const pnpmCli = process.env.npm_execpath
-const pnpmCommand = pnpmCli?.endsWith(".exe") ? pnpmCli : process.execPath
+const pnpmIsJavaScript = /\.(?:c|m)?js$/.test(pnpmCli ?? "")
+const pnpmCommand = pnpmIsJavaScript ? process.execPath : pnpmCli
 const pnpmArguments = (arguments_) =>
-  pnpmCli?.endsWith(".exe") ? arguments_ : [pnpmCli, ...arguments_]
+  pnpmIsJavaScript ? [pnpmCli, ...arguments_] : arguments_
 const checks = [
   ["format", ["format:check"]],
   ["lint", ["exec", "turbo", "lint", "--force"]],

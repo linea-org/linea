@@ -28,6 +28,7 @@
     "demo": "pnpm --filter @linea/platform-api demo"
   },
   "devDependencies": {
+    "dotenv": "17.4.2",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "turbo": "^2.9.18",
