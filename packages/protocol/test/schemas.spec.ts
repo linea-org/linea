@@ -10,6 +10,7 @@ import {
   exchangeEndUserAuthorizationSchema,
   eventEnvelopeSchema,
   idempotencyHeadersSchema,
+  listConnectionsQuerySchema,
   paginatedResponseSchema,
   paginationQuerySchema,
   publicErrorCodes,
@@ -26,6 +27,8 @@ import {
 describe("public protocol schemas", () => {
   it("parses identifiers, pagination, idempotency, resources, events, and errors", () => {
     expect(paginationQuerySchema.parse({ limit: "25" })).toEqual({ limit: 25 })
+    expect(paginationQuerySchema.parse({ cursor: "" })).toEqual({ limit: 20 })
+    expect(listConnectionsQuerySchema.parse({ cursor: "" })).toEqual({})
     expect(
       paginatedResponseSchema(resourceReferenceSchema).parse({
         data: [{ id: "execution_123", type: "execution" }],
@@ -232,6 +235,8 @@ describe("public protocol schemas", () => {
       "decision_conflict",
       "idempotency_conflict",
       "conversation_identity_conflict",
+      "connection_reauthorization_required",
+      "connection_scope_insufficient",
       "event_cursor_expired",
       "execution_not_cancellable",
       "workflow_binding_not_found",

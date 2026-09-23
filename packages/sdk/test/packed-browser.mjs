@@ -88,6 +88,15 @@ try {
   if (!bundle.includes("/v1/user/approval-requests")) {
     throw new Error("Packed browser example omitted the public approval route")
   }
+  for (const route of [
+    "/v1/user/connections/authorizations/{authorizationId}",
+    "/v1/user/connections/{connectionId}/authorizations",
+    "/v1/user/connections/{connectionId}/uses",
+  ]) {
+    if (!bundle.includes(route)) {
+      throw new Error(`Packed browser example omitted ${route}`)
+    }
+  }
 } finally {
   rmSync(temporary, { recursive: true, force: true })
 }

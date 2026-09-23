@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core"
 import { applications } from "./application.js"
 import { endUserSessions } from "./end-user-session.js"
+import { executions } from "./execution.js"
 import { externalSubjects } from "./external-subject.js"
 
 export const connectionAuthorizationRequests = snakeCase.table(
@@ -21,12 +22,15 @@ export const connectionAuthorizationRequests = snakeCase.table(
     workspaceId: uuid().notNull(),
     applicationId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
-    endUserSessionId: uuid().notNull(),
+    endUserSessionId: uuid(),
     provider: text().notNull(),
     scopes: text().array().notNull(),
     returnUri: text().notNull(),
     stateHash: text().notNull(),
-    codeVerifierEncrypted: text().notNull(),
+    codeVerifierEncrypted: text(),
+    targetConnectionId: uuid(),
+    resultConnectionId: uuid(),
+    outcome: text(),
     expiresAt: timestamp({ withTimezone: true }).notNull(),
     claimedAt: timestamp({ withTimezone: true }),
     completedAt: timestamp({ withTimezone: true }),
@@ -49,22 +53,20 @@ export const connectionAuthorizationRequests = snakeCase.table(
     }).onDelete("cascade"),
     foreignKey({
       name: "connection_authorization_requests_session_fkey",
-      columns: [
-        table.endUserSessionId,
-        table.workspaceId,
-        table.applicationId,
-        table.externalSubjectId,
-      ],
-      foreignColumns: [
-        endUserSessions.id,
-        endUserSessions.workspaceId,
-        endUserSessions.applicationId,
-        endUserSessions.externalSubjectId,
-      ],
-    }).onDelete("cascade"),
+      columns: [table.endUserSessionId],
+      foreignColumns: [endUserSessions.id],
+    }).onDelete("set null"),
     check(
       "connection_authorization_requests_scopes_check",
       sql`cardinality(${table.scopes}) > 0`
+    ),
+    check(
+      "connection_authorization_requests_outcome_check",
+      sql`${table.outcome} IS NULL OR ${table.outcome} IN ('succeeded', 'failed')`
+    ),
+    check(
+      "connection_authorization_requests_completion_check",
+      sql`(${table.completedAt} IS NULL AND ${table.outcome} IS NULL AND ${table.resultConnectionId} IS NULL) OR (${table.completedAt} IS NOT NULL AND ${table.outcome} = 'failed' AND ${table.resultConnectionId} IS NULL) OR (${table.completedAt} IS NOT NULL AND ${table.outcome} = 'succeeded' AND ${table.resultConnectionId} IS NOT NULL)`
     ),
   ]
 )
@@ -132,6 +134,57 @@ export const connections = snakeCase.table(
 )
 
 export type Connection = typeof connections.$inferSelect
+
+export const connectionReadUses = snakeCase.table(
+  "connection_read_uses",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    workspaceId: uuid().notNull(),
+    applicationId: uuid().notNull(),
+    externalSubjectId: uuid().notNull(),
+    connectionId: uuid().notNull(),
+    executionId: uuid().notNull(),
+    operationId: text().notNull(),
+    outcome: text().notNull(),
+    occurredAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("connection_read_uses_owner_created_idx").on(
+      table.workspaceId,
+      table.applicationId,
+      table.externalSubjectId,
+      table.connectionId,
+      table.occurredAt,
+      table.id
+    ),
+    foreignKey({
+      name: "connection_read_uses_application_fkey",
+      columns: [table.applicationId, table.workspaceId],
+      foreignColumns: [applications.id, applications.workspaceId],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "connection_read_uses_subject_fkey",
+      columns: [table.externalSubjectId, table.workspaceId],
+      foreignColumns: [externalSubjects.id, externalSubjects.workspaceId],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "connection_read_uses_connection_fkey",
+      columns: [table.connectionId, table.workspaceId],
+      foreignColumns: [connections.id, connections.workspaceId],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "connection_read_uses_execution_fkey",
+      columns: [table.executionId, table.workspaceId],
+      foreignColumns: [executions.id, executions.workspaceId],
+    }).onDelete("cascade"),
+    check(
+      "connection_read_uses_outcome_check",
+      sql`${table.outcome} IN ('succeeded', 'failed')`
+    ),
+  ]
+)
+
+export type ConnectionReadUse = typeof connectionReadUses.$inferSelect
 
 export const connectionRevocationDeliveries = snakeCase.table(
   "connection_revocation_deliveries",

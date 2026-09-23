@@ -24,8 +24,10 @@ import {
 } from 'jose-v5'
 import request from 'supertest'
 import type { App } from 'supertest/types'
+import { publicErrorResponseSchema } from '@linea/protocol/errors'
 import {
   connectionAuthorizationResponseSchema,
+  connectionAuthorizationSchema,
   connectionSchema,
   connectionsResponseSchema,
 } from '@linea/protocol/resources'
@@ -105,6 +107,7 @@ describe('OAuth Connections', () => {
   let key: ProofKey
   let externalSubjectId: string
   let sessionId: string
+  let crossWorkspaceId: string | undefined
   let provider: Awaited<ReturnType<typeof startTestOAuthProvider>>
   let google: Awaited<ReturnType<typeof startTestGoogleProvider>>
   let githubProvider: Awaited<ReturnType<typeof startTestGithubOAuthProvider>>
@@ -196,6 +199,11 @@ describe('OAuth Connections', () => {
     if (workspaceId) {
       await pool.query('DELETE FROM organizations WHERE id = $1', [workspaceId])
     }
+    if (crossWorkspaceId) {
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        crossWorkspaceId,
+      ])
+    }
     await pool.end()
     delete process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY
     delete process.env.CONNECTION_CREDENTIAL_KEYS
@@ -278,6 +286,41 @@ describe('OAuth Connections', () => {
       accountLabel: 'octocat',
       scopes: ['read:user'],
     })
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['profile'],
+            },
+            {
+              provider: 'github',
+              actionFamilies: ['repositories'],
+              maxScopes: ['read:user', 'repo'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    const invalidUpgradePath = `/v1/user/connections/${initial.id}/authorizations`
+    const invalidUpgrade = await request(baseUrl)
+      .post(invalidUpgradePath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${invalidUpgradePath}`))
+      .send({
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+        scopes: ['read:user', 'repo'],
+      })
+    expect(invalidUpgrade.status).toBe(403)
+    expect(
+      await db.query.connectionAuthorizationRequests.findFirst({
+        where: { targetConnectionId: initial.id },
+      }),
+    ).toBeUndefined()
     await pool.query(
       'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
       [
@@ -832,6 +875,17 @@ describe('OAuth Connections', () => {
         left.localeCompare(right),
       ),
     ).toEqual(['authorizationId', 'status'])
+    const resultPath = `/v1/user/connections/authorizations/${startedBody.authorizationId}`
+    const result = await request(baseUrl)
+      .get(resultPath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('GET', `${baseUrl}${resultPath}`))
+    expect(result.status).toBe(200)
+    expect(responseBody(result, connectionAuthorizationSchema)).toMatchObject({
+      id: startedBody.authorizationId,
+      status: 'failed',
+      connectionId: null,
+    })
   })
 
   it('completes an OAuth denial with a bounded failure redirect', async () => {
@@ -933,7 +987,7 @@ describe('OAuth Connections', () => {
       returnUri: 'http://127.0.0.1:4173/connections/callback',
       stateHash: hexHash(randomUUID()),
       codeVerifierEncrypted: 'expired',
-      expiresAt: new Date(Date.now() - 1_000),
+      expiresAt: new Date(Date.now() - 25 * 60 * 60_000),
     })
     await app.get(ConnectionRevocationService).poll()
     const expired = await db.query.connectionAuthorizationRequests.findFirst({
@@ -978,6 +1032,32 @@ describe('OAuth Connections', () => {
       startedBody.authorizationId,
     )
     expect(returned.searchParams.get('status')).toBe('connected')
+    const authorizationPath = `/v1/user/connections/authorizations/${startedBody.authorizationId}`
+    const authorization = await request(baseUrl)
+      .get(authorizationPath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('GET', `${baseUrl}${authorizationPath}`))
+    expect(authorization.status).toBe(200)
+    const authorizationBody = responseBody(
+      authorization,
+      connectionAuthorizationSchema,
+    )
+    expect(authorizationBody).toMatchObject({
+      id: startedBody.authorizationId,
+      provider: 'test',
+      scopes: ['profile'],
+      status: 'succeeded',
+    })
+    expect(Object.keys(authorizationBody).sort()).toEqual([
+      'completedAt',
+      'connectionId',
+      'createdAt',
+      'expiresAt',
+      'id',
+      'provider',
+      'scopes',
+      'status',
+    ])
     const listPath = '/v1/user/connections'
     const list = await request(baseUrl)
       .get(listPath)
@@ -985,6 +1065,7 @@ describe('OAuth Connections', () => {
       .set('DPoP', await createProof('GET', `${baseUrl}${listPath}`))
     expect(list.status).toBe(200)
     const listBody = responseBody(list, connectionsResponseSchema)
+    expect(listBody).not.toHaveProperty('nextCursor')
     const testConnections = listBody.data.filter(
       ({ provider }) => provider === 'test',
     )
@@ -1000,6 +1081,42 @@ describe('OAuth Connections', () => {
     expect(JSON.stringify(listBody)).not.toContain('test-refresh')
     const connectionId = testConnections[0]?.id
     if (!connectionId) throw new Error('Expected a listed Connection')
+    expect(authorizationBody.connectionId).toBe(connectionId)
+    expect(
+      await db.query.connectionAuthorizationRequests.findFirst({
+        where: { id: startedBody.authorizationId },
+      }),
+    ).toMatchObject({ endUserSessionId: null })
+    const secondToken = `lnu_${randomUUID().replaceAll('-', '')}`
+    const secondNonce = randomUUID()
+    const secondKey = await proofKey()
+    await db.insert(schema.endUserSessions).values({
+      workspaceId,
+      applicationId,
+      externalSubjectId,
+      tokenHash: hexHash(secondToken),
+      proofJkt: await calculateJwkThumbprint(secondKey.publicJwk, 'sha256'),
+      nonceHash: hexHash(secondNonce),
+      expiresAt: new Date(Date.now() + 10 * 60_000),
+    })
+    const secondSessionAuthorization = await request(baseUrl)
+      .get(authorizationPath)
+      .set('Authorization', `DPoP ${secondToken}`)
+      .set(
+        'DPoP',
+        await createProofFor(
+          'GET',
+          `${baseUrl}${authorizationPath}`,
+          secondToken,
+          secondNonce,
+          secondKey,
+        ),
+      )
+    expect(secondSessionAuthorization.status).toBe(200)
+    expect(
+      responseBody(secondSessionAuthorization, connectionAuthorizationSchema)
+        .connectionId,
+    ).toBe(connectionId)
     const beforeRefresh = await repositories.connection.getConnection(
       db,
       { workspaceId, applicationId, externalSubjectId },
@@ -1252,6 +1369,230 @@ describe('OAuth Connections', () => {
     ).data.map(({ providerAccountId }) => providerAccountId)
     expect(providerAccountIds).toContain('account-one')
     expect(providerAccountIds).toContain('account-two')
+    const secondAccount = responseBody(
+      listed,
+      connectionsResponseSchema,
+    ).data.find(({ providerAccountId }) => providerAccountId === 'account-two')
+    if (!secondAccount) throw new Error('Expected the second provider account')
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test', 'write'],
+              maxScopes: ['profile', 'write'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    const upgradePath = `/v1/user/connections/${secondAccount.id}/authorizations`
+    const upgrade = await request(baseUrl)
+      .post(upgradePath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${upgradePath}`))
+      .send({
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+        scopes: ['profile', 'write'],
+      })
+    expect(upgrade.status).toBe(201)
+    const upgradeBody = responseBody(
+      upgrade,
+      connectionAuthorizationResponseSchema,
+    )
+    const providerUpgrade = await fetch(upgradeBody.authorizationUrl, {
+      redirect: 'manual',
+    })
+    const upgradeCallback = providerUpgrade.headers.get('location')
+    if (!upgradeCallback) throw new Error('Provider callback is missing')
+    expect((await fetch(upgradeCallback, { redirect: 'manual' })).status).toBe(
+      302,
+    )
+    const upgraded = await request(baseUrl)
+      .get(`/v1/user/connections/${secondAccount.id}`)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set(
+        'DPoP',
+        await createProof(
+          'GET',
+          `${baseUrl}/v1/user/connections/${secondAccount.id}`,
+        ),
+      )
+    expect(responseBody(upgraded, connectionSchema)).toMatchObject({
+      id: secondAccount.id,
+      providerAccountId: 'account-two',
+      scopes: ['profile', 'write'],
+    })
+    const unchanged = await request(baseUrl)
+      .post(upgradePath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${upgradePath}`))
+      .send({
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+        scopes: ['profile', 'write'],
+      })
+    expect(unchanged.status).toBe(403)
+    expect(publicErrorResponseSchema.parse(unchanged.body).error.code).toBe(
+      'connection_scope_insufficient',
+    )
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test', 'write', 'archive'],
+              maxScopes: ['profile', 'write', 'archive'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    provider.selectAccount('account-one', 'Test Account')
+    const mismatched = await request(baseUrl)
+      .post(upgradePath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${upgradePath}`))
+      .send({
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+        scopes: ['profile', 'write', 'archive'],
+      })
+    expect(mismatched.status).toBe(201)
+    const mismatchedBody = responseBody(
+      mismatched,
+      connectionAuthorizationResponseSchema,
+    )
+    const mismatchedProvider = await fetch(mismatchedBody.authorizationUrl, {
+      redirect: 'manual',
+    })
+    const mismatchedCallback = mismatchedProvider.headers.get('location')
+    if (!mismatchedCallback) throw new Error('Provider callback is missing')
+    const mismatchedResult = await fetch(mismatchedCallback, {
+      redirect: 'manual',
+    })
+    const mismatchedLocation = mismatchedResult.headers.get('location')
+    if (!mismatchedLocation) throw new Error('Application return is missing')
+    expect(new URL(mismatchedLocation).searchParams.get('status')).toBe(
+      'failed',
+    )
+    provider.selectAccount('account-two', 'Second Test Account')
+    provider.grantNextAuthorizationScopes(['profile', 'write'])
+    const partialGrant = await request(baseUrl)
+      .post(upgradePath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${upgradePath}`))
+      .send({
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+        scopes: ['profile', 'write', 'archive'],
+      })
+    expect(partialGrant.status).toBe(201)
+    const partialGrantBody = responseBody(
+      partialGrant,
+      connectionAuthorizationResponseSchema,
+    )
+    const partialProvider = await fetch(partialGrantBody.authorizationUrl, {
+      redirect: 'manual',
+    })
+    const partialCallback = partialProvider.headers.get('location')
+    if (!partialCallback) throw new Error('Provider callback is missing')
+    const partialResult = await fetch(partialCallback, { redirect: 'manual' })
+    const partialLocation = partialResult.headers.get('location')
+    if (!partialLocation) throw new Error('Application return is missing')
+    expect(new URL(partialLocation).searchParams.get('status')).toBe('failed')
+    const afterRejectedUpgrades = await request(baseUrl)
+      .get(`/v1/user/connections/${secondAccount.id}`)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set(
+        'DPoP',
+        await createProof(
+          'GET',
+          `${baseUrl}/v1/user/connections/${secondAccount.id}`,
+        ),
+      )
+    expect(
+      responseBody(afterRejectedUpgrades, connectionSchema).scopes,
+    ).toEqual(['profile', 'write'])
+    const storedSecondAccount = await repositories.connection.getConnection(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      secondAccount.id,
+    )
+    if (!storedSecondAccount) throw new Error('Expected the second Connection')
+    await repositories.connection.requireConnectionReauthorization(
+      db,
+      { workspaceId, applicationId, externalSubjectId },
+      storedSecondAccount.id,
+      storedSecondAccount.credentialVersion,
+      new Date(),
+    )
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['profile'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    provider.selectAccount('account-two', 'Second Test Account')
+    const reauthorization = await request(baseUrl)
+      .post(upgradePath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${upgradePath}`))
+      .send({
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+        scopes: ['profile'],
+      })
+    expect(reauthorization.status).toBe(201)
+    const reauthorizationBody = responseBody(
+      reauthorization,
+      connectionAuthorizationResponseSchema,
+    )
+    const reauthorizationProvider = await fetch(
+      reauthorizationBody.authorizationUrl,
+      { redirect: 'manual' },
+    )
+    const reauthorizationCallback =
+      reauthorizationProvider.headers.get('location')
+    if (!reauthorizationCallback)
+      throw new Error('Provider callback is missing')
+    const reauthorizationResult = await fetch(reauthorizationCallback, {
+      redirect: 'manual',
+    })
+    const reauthorizationLocation =
+      reauthorizationResult.headers.get('location')
+    if (!reauthorizationLocation)
+      throw new Error('Application return is missing')
+    expect(new URL(reauthorizationLocation).searchParams.get('status')).toBe(
+      'connected',
+    )
+    const reauthorized = await request(baseUrl)
+      .get(`/v1/user/connections/${secondAccount.id}`)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set(
+        'DPoP',
+        await createProof(
+          'GET',
+          `${baseUrl}/v1/user/connections/${secondAccount.id}`,
+        ),
+      )
+    expect(responseBody(reauthorized, connectionSchema)).toMatchObject({
+      id: secondAccount.id,
+      providerAccountId: 'account-two',
+      status: 'active',
+      scopes: ['profile'],
+    })
   })
 
   it('keeps credentials decryptable across concurrent callbacks', async () => {
@@ -1314,7 +1655,99 @@ describe('OAuth Connections', () => {
     )
   })
 
+  it('paginates Connections with opaque cursors', async () => {
+    const firstPath = '/v1/user/connections?limit=1'
+    const first = await request(baseUrl)
+      .get(firstPath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('GET', `${baseUrl}${firstPath}`))
+    expect(first.status).toBe(200)
+    const firstPage = responseBody(first, connectionsResponseSchema)
+    expect(firstPage.data).toHaveLength(1)
+    expect(firstPage.nextCursor).not.toBeNull()
+    const secondPath = `/v1/user/connections?limit=1&cursor=${firstPage.nextCursor}`
+    const second = await request(baseUrl)
+      .get(secondPath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('GET', `${baseUrl}${secondPath}`))
+    expect(second.status).toBe(200)
+    const secondPage = responseBody(second, connectionsResponseSchema)
+    expect(secondPage.data).toHaveLength(1)
+    expect(secondPage.data[0]?.id).not.toBe(firstPage.data[0]?.id)
+    const listPath = '/v1/user/connections'
+    const emptyListPath = `${listPath}?cursor=`
+    const [omittedList, emptyList] = await Promise.all([
+      request(baseUrl)
+        .get(listPath)
+        .set('Authorization', `DPoP ${accessToken}`)
+        .set('DPoP', await createProof('GET', `${baseUrl}${listPath}`)),
+      request(baseUrl)
+        .get(emptyListPath)
+        .set('Authorization', `DPoP ${accessToken}`)
+        .set('DPoP', await createProof('GET', `${baseUrl}${emptyListPath}`)),
+    ])
+    expect(emptyList.status).toBe(200)
+    expect(emptyList.body).toEqual(omittedList.body)
+    const connectionId = firstPage.data[0]?.id
+    if (!connectionId) throw new Error('Expected a paginated Connection')
+    const usesPath = `/v1/user/connections/${connectionId}/uses`
+    const emptyUsesPath = `${usesPath}?cursor=`
+    const [omittedUses, emptyUses] = await Promise.all([
+      request(baseUrl)
+        .get(usesPath)
+        .set('Authorization', `DPoP ${accessToken}`)
+        .set('DPoP', await createProof('GET', `${baseUrl}${usesPath}`)),
+      request(baseUrl)
+        .get(emptyUsesPath)
+        .set('Authorization', `DPoP ${accessToken}`)
+        .set('DPoP', await createProof('GET', `${baseUrl}${emptyUsesPath}`)),
+    ])
+    expect(emptyUses.status).toBe(200)
+    expect(emptyUses.body).toEqual(omittedUses.body)
+  })
+
+  it('orders bounded and unbounded Connection lists identically', async () => {
+    const owner = { workspaceId, applicationId, externalSubjectId }
+    await pool.query(
+      'UPDATE connections SET created_at = $1 WHERE workspace_id = $2 AND application_id = $3 AND external_subject_id = $4',
+      [
+        new Date('2026-09-23T00:00:00.000Z'),
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+      ],
+    )
+    const unbounded = await repositories.connection.listConnections(db, owner)
+    const bounded = await repositories.connection.findConnections(db, {
+      ...owner,
+      limit: unbounded.length + 1,
+    })
+    expect(unbounded.map(({ id }) => id)).toEqual(bounded.map(({ id }) => id))
+  })
+
   it('does not expose Connections across Applications or subjects', async () => {
+    const authorizationPath = '/v1/user/connections/authorizations'
+    const started = await request(baseUrl)
+      .post(authorizationPath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${authorizationPath}`))
+      .send({
+        provider: 'test',
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+        scopes: ['profile'],
+      })
+    const authorizationId = responseBody(
+      started,
+      connectionAuthorizationResponseSchema,
+    ).authorizationId
+    const ownListPath = '/v1/user/connections?limit=1'
+    const ownList = await request(baseUrl)
+      .get(ownListPath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('GET', `${baseUrl}${ownListPath}`))
+    const ownConnectionId = responseBody(ownList, connectionsResponseSchema)
+      .data[0]?.id
+    if (!ownConnectionId) throw new Error('Expected an owned Connection')
     const suffix = randomUUID()
     const [otherApplication] = await db
       .insert(schema.applications)
@@ -1350,7 +1783,46 @@ describe('OAuth Connections', () => {
       applicationId,
       externalSubjectId: otherSubject.id,
     })
+    const [crossWorkspace] = await db
+      .insert(schema.organizations)
+      .values({
+        name: 'Cross-workspace Connections test',
+        slug: `cross-workspace-connections-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    crossWorkspaceId = crossWorkspace.id
+    const [crossApplication] = await db
+      .insert(schema.applications)
+      .values({
+        workspaceId: crossWorkspace.id,
+        environment: 'dev',
+        displayName: 'Cross-workspace Connections application',
+        allowedBrowserOrigins: ['http://127.0.0.1:4175'],
+        allowedRedirectOrigins: ['http://127.0.0.1:4175'],
+        oidcIssuer: 'https://identity.example.com',
+        oidcClientId: `cross-workspace-connections-${suffix}`,
+        oidcAudience: `cross-workspace-connections-${suffix}`,
+        oidcJwksUrl: 'https://identity.example.com/jwks',
+      })
+      .returning()
+    const [crossSubject] = await db
+      .insert(schema.externalSubjects)
+      .values({
+        workspaceId: crossWorkspace.id,
+        issuer: 'https://identity.example.com',
+        issuerSubject: `connections-cross-workspace-subject-${suffix}`,
+        status: 'verified',
+        verifiedAt: new Date(),
+      })
+      .returning()
+    await db.insert(schema.externalSubjectApplications).values({
+      workspaceId: crossWorkspace.id,
+      applicationId: crossApplication.id,
+      externalSubjectId: crossSubject.id,
+    })
     const createSession = async (
+      scopedWorkspaceId: string,
       scopedApplicationId: string,
       scopedSubjectId: string,
     ) => {
@@ -1358,7 +1830,7 @@ describe('OAuth Connections', () => {
       const scopedNonce = randomUUID()
       const scopedKey = await proofKey()
       await db.insert(schema.endUserSessions).values({
-        workspaceId,
+        workspaceId: scopedWorkspaceId,
         applicationId: scopedApplicationId,
         externalSubjectId: scopedSubjectId,
         tokenHash: hexHash(scopedToken),
@@ -1371,12 +1843,19 @@ describe('OAuth Connections', () => {
     const listPath = '/v1/user/connections'
     for (const scoped of [
       {
+        workspaceId,
         applicationId: otherApplication.id,
         externalSubjectId,
       },
-      { applicationId, externalSubjectId: otherSubject.id },
+      { workspaceId, applicationId, externalSubjectId: otherSubject.id },
+      {
+        workspaceId: crossWorkspace.id,
+        applicationId: crossApplication.id,
+        externalSubjectId: crossSubject.id,
+      },
     ]) {
       const session = await createSession(
+        scoped.workspaceId,
         scoped.applicationId,
         scoped.externalSubjectId,
       )
@@ -1394,6 +1873,60 @@ describe('OAuth Connections', () => {
           ),
         )
       expect(responseBody(listed, connectionsResponseSchema).data).toEqual([])
+      for (const hiddenPath of [
+        `/v1/user/connections/authorizations/${authorizationId}`,
+        `/v1/user/connections/${ownConnectionId}`,
+        `/v1/user/connections/${ownConnectionId}/uses`,
+      ]) {
+        const hidden = await request(baseUrl)
+          .get(hiddenPath)
+          .set('Authorization', `DPoP ${session.token}`)
+          .set(
+            'DPoP',
+            await createProofFor(
+              'GET',
+              `${baseUrl}${hiddenPath}`,
+              session.token,
+              session.nonce,
+              session.key,
+            ),
+          )
+        expect(hidden.status).toBe(404)
+      }
+      const upgradePath = `/v1/user/connections/${ownConnectionId}/authorizations`
+      const hiddenUpgrade = await request(baseUrl)
+        .post(upgradePath)
+        .set('Authorization', `DPoP ${session.token}`)
+        .set(
+          'DPoP',
+          await createProofFor(
+            'POST',
+            `${baseUrl}${upgradePath}`,
+            session.token,
+            session.nonce,
+            session.key,
+          ),
+        )
+        .send({
+          returnUri: 'http://127.0.0.1:4173/connections/callback',
+          scopes: ['profile', 'write'],
+        })
+      expect(hiddenUpgrade.status).toBe(404)
+      const revokePath = `/v1/user/connections/${ownConnectionId}`
+      const hiddenRevoke = await request(baseUrl)
+        .delete(revokePath)
+        .set('Authorization', `DPoP ${session.token}`)
+        .set(
+          'DPoP',
+          await createProofFor(
+            'DELETE',
+            `${baseUrl}${revokePath}`,
+            session.token,
+            session.nonce,
+            session.key,
+          ),
+        )
+      expect(hiddenRevoke.status).toBe(404)
     }
   })
 

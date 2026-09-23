@@ -651,7 +651,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it.each([
     ["human rejection", "human"],
     ["timeout rejection", "timeout"],
@@ -703,6 +702,109 @@ describe("exact Action Intent consent", () => {
     }
   })
 
+  it.each([
+    ["reauthorization_required", "connection_reauthorization_required"],
+    ["scope_insufficient", "connection_scope_insufficient"],
+  ])(
+    "returns the stable %s error before creating an intent",
+    async (boundary, code) => {
+      const fixture = await createFixture()
+      try {
+        if (boundary === "reauthorization_required") {
+          await pool.query(
+            "UPDATE connections SET status = 'reauthorization_required', credential_encrypted = NULL WHERE id = $1",
+            [fixture.connectionId]
+          )
+        } else {
+          await pool.query("UPDATE connections SET scopes = $1 WHERE id = $2", [
+            ["profile"],
+            fixture.connectionId,
+          ])
+        }
+        await expect(invoke(fixture)).rejects.toMatchObject({
+          code,
+        } satisfies Partial<ConnectorGatewayError>)
+        const intentCount = await pool.query<{ count: string }>(
+          "SELECT count(*) FROM action_intents WHERE execution_id = $1",
+          [fixture.executionId]
+        )
+        expect(intentCount.rows[0]?.count).toBe("0")
+      } finally {
+        await removeWorkspace(fixture.workspaceId)
+      }
+    }
+  )
+  it.each([
+    ["reauthorization_required", "connection_reauthorization_required"],
+    ["scope_insufficient", "connection_scope_insufficient"],
+  ])(
+    "revalidates the stable %s error on intent replay",
+    async (boundary, code) => {
+      const fixture = await createFixture()
+      try {
+        await invoke(fixture)
+        if (boundary === "reauthorization_required") {
+          await pool.query(
+            "UPDATE connections SET status = 'reauthorization_required', credential_encrypted = NULL WHERE id = $1",
+            [fixture.connectionId]
+          )
+        } else {
+          await pool.query("UPDATE connections SET scopes = $1 WHERE id = $2", [
+            ["profile"],
+            fixture.connectionId,
+          ])
+        }
+        await expect(invoke(fixture)).rejects.toMatchObject({
+          code,
+        } satisfies Partial<ConnectorGatewayError>)
+      } finally {
+        await removeWorkspace(fixture.workspaceId)
+      }
+    }
+  )
+  it("preserves a terminal success after the Connection requires reauthorization", async () => {
+    const fixture = await createFixture()
+    try {
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      const completed = await invoke(fixture)
+      await pool.query(
+        "UPDATE connections SET status = 'reauthorization_required', credential_encrypted = NULL WHERE id = $1",
+        [fixture.connectionId]
+      )
+      await expect(invoke(fixture)).resolves.toEqual(completed)
+      expect(
+        provider.requests.filter(({ method }) => method === "PUT")
+      ).toHaveLength(1)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+  it("does not classify an Application policy denial as missing Connection scopes", async () => {
+    const fixture = await createFixture()
+    try {
+      await pool.query(
+        "UPDATE applications SET connector_access_policy = $1 WHERE id = $2",
+        [
+          JSON.stringify({
+            providers: [
+              {
+                provider: "test",
+                actionFamilies: ["test"],
+                maxScopes: ["profile"],
+              },
+            ],
+          }),
+          fixture.applicationId,
+        ]
+      )
+      await expect(invoke(fixture)).rejects.toMatchObject({
+        code: "connector_rejected",
+      } satisfies Partial<ConnectorGatewayError>)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
   it("lets only one duplicate worker dispatch the approved side effect", async () => {
     const fixture = await createFixture()
     try {

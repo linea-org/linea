@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import {
   db,
+  encryptCredential,
   pool,
   repositories,
   applications,
@@ -20,6 +21,7 @@ import { publicErrorResponseSchema } from '@linea/protocol/errors'
 import {
   approvalDecisionSchema,
   approvalRequestSchema,
+  connectionUseSchema,
   pendingActionIntentSchema,
 } from '@linea/protocol/resources'
 import { paginatedResponseSchema } from '@linea/protocol/shared'
@@ -34,6 +36,9 @@ import {
 import request from 'supertest'
 import type { App } from 'supertest/types'
 import { EndUserSessionGuard } from '../end-user-sessions/end-user-session.guard'
+import { ConnectionsController } from '../connections/connections.controller'
+import { CONNECTION_OAUTH_PROVIDERS } from '../connections/connection-oauth-provider'
+import { ConnectionsService } from '../connections/connections.service'
 import { EndUserEventStreamService } from './end-user-event-stream.service'
 import { EndUserRuntimeController } from './end-user-runtime.controller'
 import { PublicRuntimeService } from './public-runtime.service'
@@ -267,9 +272,30 @@ async function createPendingActionIntent(
       accountLabel: 'Safe account label',
       status: 'active',
       scopes: ['write:resources'],
-      credentialEncrypted: 'credential-must-not-leak',
+      credentialEncrypted: 'pending',
     })
     .returning()
+  const credentialEncrypted = encryptCredential(
+    JSON.stringify({
+      accountId: connection.providerAccountId,
+      accountLabel: connection.accountLabel,
+      accessToken: 'credential-must-not-leak',
+      refreshToken: null,
+      expiresAt: null,
+      scopes: connection.scopes,
+    }),
+    {
+      workspaceId: connection.workspaceId,
+      applicationId: connection.applicationId,
+      externalSubjectId: connection.externalSubjectId,
+      recordId: connection.id,
+      provider: connection.provider,
+    },
+  )
+  await pool.query(
+    'UPDATE connections SET credential_encrypted = $1 WHERE id = $2',
+    [credentialEncrypted, connection.id],
+  )
   const target = { resourceId: 'resource-one' }
   const normalizedParameters = {
     resourceId: 'resource-one',
@@ -339,13 +365,19 @@ describe('end-user Approval Request API', () => {
   let fixture: Fixture
 
   beforeAll(async () => {
+    process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY = 'test-v1'
+    process.env.CONNECTION_CREDENTIAL_KEYS = JSON.stringify({
+      'test-v1': Buffer.alloc(32, 9).toString('base64'),
+    })
     fixture = await createFixture()
     const moduleRef = await Test.createTestingModule({
-      controllers: [EndUserRuntimeController],
+      controllers: [EndUserRuntimeController, ConnectionsController],
       providers: [
         PublicRuntimeService,
         EndUserEventStreamService,
         EndUserSessionGuard,
+        ConnectionsService,
+        { provide: CONNECTION_OAUTH_PROVIDERS, useValue: [] },
       ],
     }).compile()
     app = moduleRef.createNestApplication()
@@ -353,7 +385,6 @@ describe('end-user Approval Request API', () => {
     await app.listen(0)
     baseUrl = await app.getUrl()
   })
-
   afterAll(async () => {
     await pool.query('DELETE FROM approval_requests WHERE workspace_id = $1', [
       fixture.workspaceId,
@@ -363,6 +394,8 @@ describe('end-user Approval Request API', () => {
     ])
     await app.close()
     await pool.end()
+    delete process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY
+    delete process.env.CONNECTION_CREDENTIAL_KEYS
   })
 
   async function headers(
@@ -452,6 +485,92 @@ describe('end-user Approval Request API', () => {
     expect(body.data[0]).not.toHaveProperty('canonicalDigest')
     expect(body.data[0]).not.toHaveProperty('providerPreconditions')
     expect(body.data[0]).not.toHaveProperty('normalizedParameters')
+  })
+
+  it('reconciles revocation into bounded terminal use for every same-subject session', async () => {
+    const subject = fixture.subjects[0]
+    const pending = await createPendingActionIntent(fixture, subject)
+    const usesPath = `/v1/user/connections/${pending.intent.connectionId}/uses`
+    for (const outsider of [
+      fixture.subjects[1].sessions[0],
+      fixture.crossApplicationSubject.sessions[0],
+    ]) {
+      const hidden = await request(baseUrl)
+        .get(usesPath)
+        .set(await headers(outsider, 'GET', usesPath))
+      expect(hidden.status).toBe(404)
+    }
+    const connectionPath = `/v1/user/connections/${pending.intent.connectionId}`
+    const revoked = await request(baseUrl)
+      .delete(connectionPath)
+      .set(await headers(subject.sessions[1], 'DELETE', connectionPath))
+    expect(revoked.status).toBe(200)
+    expect(revoked.body).toMatchObject({
+      id: pending.intent.connectionId,
+      status: 'revoked',
+    })
+    const pendingPath = '/v1/user/action-intents'
+    const pendingAfter = await request(baseUrl)
+      .get(pendingPath)
+      .set(await headers(subject.sessions[0], 'GET', pendingPath))
+    expect(pendingAfter.status).toBe(200)
+    expect(
+      paginatedResponseSchema(pendingActionIntentSchema)
+        .parse(pendingAfter.body)
+        .data.some(({ id }) => id === pending.intent.id),
+    ).toBe(false)
+    const approvalPath = `/v1/user/approval-requests/${pending.approvalRequest.id}`
+    const approval = await request(baseUrl)
+      .get(approvalPath)
+      .set(await headers(subject.sessions[1], 'GET', approvalPath))
+    expect(approval.status).toBe(200)
+    expect(approvalRequestSchema.parse(approval.body).status).toBe('cancelled')
+    const readOutcomes: Array<'succeeded' | 'failed'> = ['succeeded', 'failed']
+    for (const [index, outcome] of readOutcomes.entries()) {
+      await repositories.connection.recordConnectionReadUse(db, {
+        workspaceId: fixture.workspaceId,
+        applicationId: fixture.applicationId,
+        externalSubjectId: subject.id,
+        connectionId: pending.intent.connectionId,
+        executionId: pending.intent.executionId,
+        operationId: 'deterministic.read',
+        outcome,
+        occurredAt: new Date(Date.now() + (index + 1) * 1_000),
+      })
+    }
+    const firstPath = `${usesPath}?limit=2`
+    const first = await request(baseUrl)
+      .get(firstPath)
+      .set(await headers(subject.sessions[0], 'GET', firstPath))
+    expect(first.status).toBe(200)
+    const firstPage = paginatedResponseSchema(connectionUseSchema).parse(
+      first.body,
+    )
+    expect(firstPage.data).toHaveLength(2)
+    expect(firstPage.nextCursor).not.toBeNull()
+    const secondPath = `${usesPath}?limit=2&cursor=${firstPage.nextCursor}`
+    const second = await request(baseUrl)
+      .get(secondPath)
+      .set(await headers(subject.sessions[1], 'GET', secondPath))
+    expect(second.status).toBe(200)
+    const secondPage = paginatedResponseSchema(connectionUseSchema).parse(
+      second.body,
+    )
+    expect(secondPage.nextCursor).toBeNull()
+    const body = [...firstPage.data, ...secondPage.data]
+    const use = body.find(({ id }) => id === pending.intent.id)
+    expect(use).toMatchObject({
+      id: pending.intent.id,
+      connectionId: pending.intent.connectionId,
+      executionId: pending.intent.executionId,
+      actionIntentId: pending.intent.id,
+      operation: 'deterministic.update',
+      classification: 'side_effect',
+      outcome: 'cancelled',
+    })
+    expect(typeof use?.occurredAt).toBe('string')
+    expect(JSON.stringify(body)).not.toContain('canonical-secret')
+    expect(JSON.stringify(body)).not.toContain('credential-must-not-leak')
   })
 
   it('accepts a Decision from a second current session and replays it', async () => {

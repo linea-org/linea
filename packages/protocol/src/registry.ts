@@ -42,10 +42,13 @@ import {
   triggerRegressionRunOperation,
 } from "./operations/workspace-regressions"
 import {
+  getConnectionAuthorizationOperation,
   getConnectionOperation,
+  listConnectionUsesOperation,
   listConnectionsOperation,
   revokeConnectionOperation,
   startConnectionAuthorizationOperation,
+  startConnectionScopeUpgradeOperation,
 } from "./operations/connections"
 import {
   listApplicationConnectorAuditEventsOperation,
@@ -110,10 +113,22 @@ export const operationRegistry = createOperationRegistry([
     operationMetadata.startConnectionAuthorization
   ),
   registerOperation(
+    getConnectionAuthorizationOperation,
+    operationMetadata.getConnectionAuthorization
+  ),
+  registerOperation(
     listConnectionsOperation,
     operationMetadata.listConnections
   ),
   registerOperation(getConnectionOperation, operationMetadata.getConnection),
+  registerOperation(
+    startConnectionScopeUpgradeOperation,
+    operationMetadata.startConnectionScopeUpgrade
+  ),
+  registerOperation(
+    listConnectionUsesOperation,
+    operationMetadata.listConnectionUses
+  ),
   registerOperation(
     revokeConnectionOperation,
     operationMetadata.revokeConnection

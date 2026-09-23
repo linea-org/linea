@@ -161,22 +161,40 @@ export class ConnectorGateway {
         connectionId: input.connectionId,
       }
     )
-    if (authority?.connection.status !== "active") {
+    if (!authority) {
+      throw new ConnectorGatewayError()
+    }
+    if (authority.connection.status === "reauthorization_required") {
+      throw new ConnectorGatewayError(
+        "Connection requires reauthorization",
+        "connection_reauthorization_required"
+      )
+    }
+    if (authority.connection.status !== "active") {
       throw new ConnectorGatewayError()
     }
     if (
       authority.connection.provider !== operation.provider ||
-      !authority.providerPolicy.actionFamilies.includes(
-        operation.actionFamily
-      ) ||
-      operation.requiredScopes.some(
-        (scope) => !authority.connection.scopes.includes(scope)
-      ) ||
+      !authority.providerPolicy.actionFamilies.includes(operation.actionFamily)
+    ) {
+      throw new ConnectorGatewayError()
+    }
+    if (
       operation.requiredScopes.some(
         (scope) => !authority.providerPolicy.maxScopes.includes(scope)
       )
     ) {
       throw new ConnectorGatewayError()
+    }
+    if (
+      operation.requiredScopes.some(
+        (scope) => !authority.connection.scopes.includes(scope)
+      )
+    ) {
+      throw new ConnectorGatewayError(
+        "Connection needs additional scopes",
+        "connection_scope_insufficient"
+      )
     }
     const resolvedCredential = this.resolveCredential(authority.connection)
     const credential =
@@ -192,16 +210,38 @@ export class ConnectorGateway {
     } catch {
       throw new ConnectorGatewayError("Connector input is invalid")
     }
+    let output: unknown
     try {
       const result = await operation.execute(
         validatedInput,
         credential,
         input.signal
       )
-      return operation.outputSchema.parse(result)
+      output = operation.outputSchema.parse(result)
     } catch {
+      await repositories.connection.recordConnectionReadUse(this.db, {
+        workspaceId: authority.connection.workspaceId,
+        applicationId: authority.connection.applicationId,
+        externalSubjectId: authority.connection.externalSubjectId,
+        connectionId: authority.connection.id,
+        executionId: input.executionId,
+        operationId: operation.id,
+        outcome: "failed",
+        occurredAt: new Date(),
+      })
       throw new ConnectorGatewayError(operation.providerErrorMessage)
     }
+    await repositories.connection.recordConnectionReadUse(this.db, {
+      workspaceId: authority.connection.workspaceId,
+      applicationId: authority.connection.applicationId,
+      externalSubjectId: authority.connection.externalSubjectId,
+      connectionId: authority.connection.id,
+      executionId: input.executionId,
+      operationId: operation.id,
+      outcome: "succeeded",
+      occurredAt: new Date(),
+    })
+    return output
   }
 
   private async executeSideEffect(
@@ -241,6 +281,18 @@ export class ConnectorGateway {
     }
     if (created.outcome === "authority_invalid") {
       throw new ConnectorGatewayError()
+    }
+    if (created.outcome === "connection_reauthorization_required") {
+      throw new ConnectorGatewayError(
+        "Connection requires reauthorization",
+        created.outcome
+      )
+    }
+    if (created.outcome === "connection_scope_insufficient") {
+      throw new ConnectorGatewayError(
+        "Connection needs additional scopes",
+        created.outcome
+      )
     }
     const consent = await repositories.actionIntent.getActionIntentConsent(
       this.db,

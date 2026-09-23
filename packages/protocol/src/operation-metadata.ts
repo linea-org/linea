@@ -91,12 +91,25 @@ export const operationMetadata = {
     ),
     sdk: userSdk("startConnectionAuthorization"),
   },
+  getConnectionAuthorization: {
+    purpose: "Inspect the bounded result of provider authorization.",
+    caller: userCaller,
+    idempotency: none,
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/connections.controller.ts",
+      "getAuthorization"
+    ),
+    sdk: userSdk("getConnectionAuthorization"),
+  },
   listConnections: {
     purpose: "List the End User's Application-scoped Connections.",
     caller: userCaller,
     idempotency: none,
     rateLimit: platformProtection,
-    pagination: none,
+    pagination: cursorPagination,
     events: none,
     adapter: adapter(
       "apps/platform-api/src/connections/connections.controller.ts",
@@ -116,6 +129,33 @@ export const operationMetadata = {
       "get"
     ),
     sdk: userSdk("getConnection"),
+  },
+  startConnectionScopeUpgrade: {
+    purpose:
+      "Start explicit provider authorization for a Connection scope upgrade or reauthorization.",
+    caller: userCaller,
+    idempotency: none,
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/connections.controller.ts",
+      "startScopeUpgrade"
+    ),
+    sdk: userSdk("startConnectionScopeUpgrade"),
+  },
+  listConnectionUses: {
+    purpose: "List recent redacted terminal uses of one Connection.",
+    caller: userCaller,
+    idempotency: none,
+    rateLimit: platformProtection,
+    pagination: cursorPagination,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/connections.controller.ts",
+      "listUses"
+    ),
+    sdk: userSdk("listConnectionUses"),
   },
   revokeConnection: {
     purpose: "Revoke one End User Connection and remove its active credential.",

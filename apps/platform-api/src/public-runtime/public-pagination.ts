@@ -15,6 +15,14 @@ const actionIntentCursorSchema = z.strictObject({
   createdAt: z.iso.datetime({ offset: true }),
   id: z.string().uuid(),
 })
+const connectionCursorSchema = z.strictObject({
+  createdAt: z.iso.datetime({ offset: true }),
+  id: z.string().uuid(),
+})
+const connectionUseCursorSchema = z.strictObject({
+  occurredAt: z.iso.datetime({ offset: true }),
+  id: z.string().uuid(),
+})
 const webhookDeliveryCursorSchema = z.strictObject({
   createdAt: z.iso.datetime({ offset: true }),
   id: z.string().uuid(),
@@ -39,6 +47,16 @@ export type PublicActionIntentCursor = {
   id: string
 }
 
+export type PublicConnectionCursor = {
+  createdAt: Date
+  id: string
+}
+
+export type PublicConnectionUseCursor = {
+  occurredAt: Date
+  id: string
+}
+
 export type PublicWebhookDeliveryCursor = {
   createdAt: Date
   id: string
@@ -51,6 +69,26 @@ export type PublicConnectorAuditCursor = {
 
 function encodeCursor(value: unknown): string {
   return Buffer.from(JSON.stringify(value)).toString('base64url')
+}
+
+function encodeCreatedAtCursor(cursor: {
+  createdAt: Date
+  id: string
+}): string {
+  return encodeCursor({
+    createdAt: cursor.createdAt.toISOString(),
+    id: cursor.id,
+  })
+}
+
+function encodeOccurredAtCursor(cursor: {
+  occurredAt: Date
+  id: string
+}): string {
+  return encodeCursor({
+    occurredAt: cursor.occurredAt.toISOString(),
+    id: cursor.id,
+  })
 }
 
 function decodeCursor<T>(cursor: string | undefined, schema: ZodType<T>) {
@@ -121,10 +159,7 @@ export function decodeApprovalRequestCursor(
 export function encodeActionIntentCursor(
   cursor: PublicActionIntentCursor,
 ): string {
-  return encodeCursor({
-    ...cursor,
-    createdAt: cursor.createdAt.toISOString(),
-  })
+  return encodeCreatedAtCursor(cursor)
 }
 
 export function decodeActionIntentCursor(
@@ -136,13 +171,38 @@ export function decodeActionIntentCursor(
     : undefined
 }
 
+export function encodeConnectionCursor(cursor: PublicConnectionCursor): string {
+  return encodeCreatedAtCursor(cursor)
+}
+
+export function decodeConnectionCursor(
+  cursor: string | undefined,
+): PublicConnectionCursor | undefined {
+  const decoded = decodeCursor(cursor, connectionCursorSchema)
+  return decoded
+    ? { createdAt: new Date(decoded.createdAt), id: decoded.id }
+    : undefined
+}
+
+export function encodeConnectionUseCursor(
+  cursor: PublicConnectionUseCursor,
+): string {
+  return encodeOccurredAtCursor(cursor)
+}
+
+export function decodeConnectionUseCursor(
+  cursor: string | undefined,
+): PublicConnectionUseCursor | undefined {
+  const decoded = decodeCursor(cursor, connectionUseCursorSchema)
+  return decoded
+    ? { occurredAt: new Date(decoded.occurredAt), id: decoded.id }
+    : undefined
+}
+
 export function encodeWebhookDeliveryCursor(
   cursor: PublicWebhookDeliveryCursor,
 ): string {
-  return encodeCursor({
-    createdAt: cursor.createdAt.toISOString(),
-    id: cursor.id,
-  })
+  return encodeCreatedAtCursor(cursor)
 }
 
 export function decodeWebhookDeliveryCursor(
@@ -157,10 +217,7 @@ export function decodeWebhookDeliveryCursor(
 export function encodeConnectorAuditCursor(
   cursor: PublicConnectorAuditCursor,
 ): string {
-  return encodeCursor({
-    occurredAt: cursor.occurredAt.toISOString(),
-    id: cursor.id,
-  })
+  return encodeOccurredAtCursor(cursor)
 }
 
 export function decodeConnectorAuditCursor(

@@ -1031,6 +1031,187 @@ await client.startConnectionAuthorization(/* typed arguments */)
 
 Not shown for browser/native credentials.
 
+<!-- operation:getConnectionAuthorization -->
+
+## getConnectionAuthorization
+
+Inspect the bounded result of provider authorization.
+
+- Caller plane: `end_user`
+- Intended caller: An End User's browser or native application.
+- Authentication: end_user_session
+- Method and path: `GET /v1/user/connections/authorizations/{authorizationId}`
+- Idempotency: None.
+- Rate limits: No operation-specific limit; platform protections apply.
+- Pagination or event resumption: None.
+- Emitted events/webhooks: None.
+- SDK method: `LineaUserClient.getConnectionAuthorization` from `@linea/sdk/user`
+
+### Request
+
+Path parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "authorizationId": {
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "type": "string"
+    }
+  },
+  "required": ["authorizationId"],
+  "type": "object"
+}
+```
+
+Query parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {},
+  "type": "object"
+}
+```
+
+Header parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "authorization": {
+      "pattern": "^DPoP .*",
+      "type": "string"
+    },
+    "dpop": {
+      "maxLength": 8192,
+      "minLength": 1,
+      "type": "string"
+    },
+    "origin": {
+      "format": "uri",
+      "type": "string"
+    }
+  },
+  "required": ["authorization", "dpop"],
+  "type": "object"
+}
+```
+
+Body:
+
+None.
+
+### Response
+
+Status: `200`
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "completedAt": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "connectionId": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "createdAt": {
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+      "type": "string"
+    },
+    "expiresAt": {
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+      "type": "string"
+    },
+    "id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "type": "string"
+    },
+    "provider": {
+      "maxLength": 64,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "type": "string"
+    },
+    "scopes": {
+      "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9._:/-]+$",
+        "type": "string"
+      },
+      "maxItems": 50,
+      "type": "array"
+    },
+    "status": {
+      "enum": ["pending", "succeeded", "failed", "expired"],
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "provider",
+    "scopes",
+    "status",
+    "connectionId",
+    "createdAt",
+    "expiresAt",
+    "completedAt"
+  ],
+  "type": "object"
+}
+```
+
+### Stable errors
+
+| Code                    | Status | Retryability                |
+| ----------------------- | -----: | --------------------------- |
+| `validation_failed`     |    400 | not automatically retryable |
+| `authentication_failed` |    401 | not automatically retryable |
+| `session_expired`       |    401 | not automatically retryable |
+| `session_revoked`       |    401 | not automatically retryable |
+| `proof_invalid`         |    401 | not automatically retryable |
+| `resource_not_found`    |    404 | not automatically retryable |
+
+### TypeScript
+
+```ts
+import { LineaUserClient } from "@linea/sdk/user"
+
+await client.getConnectionAuthorization(/* typed arguments */)
+```
+
+### cURL
+
+Not shown for browser/native credentials.
+
 <!-- operation:listConnections -->
 
 ## listConnections
@@ -1043,7 +1224,7 @@ List the End User's Application-scoped Connections.
 - Method and path: `GET /v1/user/connections`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
-- Pagination or event resumption: None.
+- Pagination or event resumption: Cursor pagination through limit and cursor query parameters.
 - Emitted events/webhooks: None.
 - SDK method: `LineaUserClient.listConnections` from `@linea/sdk/user`
 
@@ -1064,7 +1245,19 @@ Query parameters:
 ```json
 {
   "additionalProperties": false,
-  "properties": {},
+  "properties": {
+    "cursor": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "type": "string"
+    },
+    "limit": {
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
   "type": "object"
 }
 ```
@@ -1161,6 +1354,7 @@ Status: `200`
               "pattern": "^[A-Za-z0-9._:/-]+$",
               "type": "string"
             },
+            "maxItems": 50,
             "type": "array"
           },
           "status": {
@@ -1188,6 +1382,19 @@ Status: `200`
         "type": "object"
       },
       "type": "array"
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "maxLength": 2048,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": ["data"],
@@ -1351,6 +1558,7 @@ Status: `200`
         "pattern": "^[A-Za-z0-9._:/-]+$",
         "type": "string"
       },
+      "maxItems": 50,
       "type": "array"
     },
     "status": {
@@ -1396,6 +1604,367 @@ Status: `200`
 import { LineaUserClient } from "@linea/sdk/user"
 
 await client.getConnection(/* typed arguments */)
+```
+
+### cURL
+
+Not shown for browser/native credentials.
+
+<!-- operation:startConnectionScopeUpgrade -->
+
+## startConnectionScopeUpgrade
+
+Start explicit provider authorization for a Connection scope upgrade or reauthorization.
+
+- Caller plane: `end_user`
+- Intended caller: An End User's browser or native application.
+- Authentication: end_user_session
+- Method and path: `POST /v1/user/connections/{connectionId}/authorizations`
+- Idempotency: None.
+- Rate limits: No operation-specific limit; platform protections apply.
+- Pagination or event resumption: None.
+- Emitted events/webhooks: None.
+- SDK method: `LineaUserClient.startConnectionScopeUpgrade` from `@linea/sdk/user`
+
+### Request
+
+Path parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "connectionId": {
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "type": "string"
+    }
+  },
+  "required": ["connectionId"],
+  "type": "object"
+}
+```
+
+Query parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {},
+  "type": "object"
+}
+```
+
+Header parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "authorization": {
+      "pattern": "^DPoP .*",
+      "type": "string"
+    },
+    "dpop": {
+      "maxLength": 8192,
+      "minLength": 1,
+      "type": "string"
+    },
+    "origin": {
+      "format": "uri",
+      "type": "string"
+    }
+  },
+  "required": ["authorization", "dpop"],
+  "type": "object"
+}
+```
+
+Body:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "returnUri": {
+      "format": "uri",
+      "maxLength": 2000,
+      "type": "string"
+    },
+    "scopes": {
+      "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9._:/-]+$",
+        "type": "string"
+      },
+      "maxItems": 50,
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": ["returnUri", "scopes"],
+  "type": "object"
+}
+```
+
+### Response
+
+Status: `201`
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "authorizationId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "type": "string"
+    },
+    "authorizationUrl": {
+      "format": "uri",
+      "type": "string"
+    }
+  },
+  "required": ["authorizationId", "authorizationUrl"],
+  "type": "object"
+}
+```
+
+### Stable errors
+
+| Code                            | Status | Retryability                |
+| ------------------------------- | -----: | --------------------------- |
+| `validation_failed`             |    400 | not automatically retryable |
+| `authentication_failed`         |    401 | not automatically retryable |
+| `session_expired`               |    401 | not automatically retryable |
+| `session_revoked`               |    401 | not automatically retryable |
+| `proof_invalid`                 |    401 | not automatically retryable |
+| `resource_not_found`            |    404 | not automatically retryable |
+| `connection_scope_insufficient` |    403 | not automatically retryable |
+| `scope_denied`                  |    403 | not automatically retryable |
+| `service_unavailable`           |    503 | retryable                   |
+
+### TypeScript
+
+```ts
+import { LineaUserClient } from "@linea/sdk/user"
+
+await client.startConnectionScopeUpgrade(/* typed arguments */)
+```
+
+### cURL
+
+Not shown for browser/native credentials.
+
+<!-- operation:listConnectionUses -->
+
+## listConnectionUses
+
+List recent redacted terminal uses of one Connection.
+
+- Caller plane: `end_user`
+- Intended caller: An End User's browser or native application.
+- Authentication: end_user_session
+- Method and path: `GET /v1/user/connections/{connectionId}/uses`
+- Idempotency: None.
+- Rate limits: No operation-specific limit; platform protections apply.
+- Pagination or event resumption: Cursor pagination through limit and cursor query parameters.
+- Emitted events/webhooks: None.
+- SDK method: `LineaUserClient.listConnectionUses` from `@linea/sdk/user`
+
+### Request
+
+Path parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "connectionId": {
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "type": "string"
+    }
+  },
+  "required": ["connectionId"],
+  "type": "object"
+}
+```
+
+Query parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "cursor": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "type": "string"
+    },
+    "limit": {
+      "default": 20,
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}
+```
+
+Header parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "authorization": {
+      "pattern": "^DPoP .*",
+      "type": "string"
+    },
+    "dpop": {
+      "maxLength": 8192,
+      "minLength": 1,
+      "type": "string"
+    },
+    "origin": {
+      "format": "uri",
+      "type": "string"
+    }
+  },
+  "required": ["authorization", "dpop"],
+  "type": "object"
+}
+```
+
+Body:
+
+None.
+
+### Response
+
+Status: `200`
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "actionIntentId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "classification": {
+            "enum": ["read", "side_effect"],
+            "type": "string"
+          },
+          "connectionId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "type": "string"
+          },
+          "executionId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "operation": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "succeeded",
+              "failed",
+              "stale",
+              "rejected",
+              "cancelled",
+              "outcome_unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "connectionId",
+          "executionId",
+          "actionIntentId",
+          "operation",
+          "classification",
+          "outcome",
+          "occurredAt"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "maxLength": 2048,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": ["data", "nextCursor"],
+  "type": "object"
+}
+```
+
+### Stable errors
+
+| Code                    | Status | Retryability                |
+| ----------------------- | -----: | --------------------------- |
+| `validation_failed`     |    400 | not automatically retryable |
+| `authentication_failed` |    401 | not automatically retryable |
+| `session_expired`       |    401 | not automatically retryable |
+| `session_revoked`       |    401 | not automatically retryable |
+| `proof_invalid`         |    401 | not automatically retryable |
+| `resource_not_found`    |    404 | not automatically retryable |
+| `rate_limited`          |    429 | retryable                   |
+
+### TypeScript
+
+```ts
+import { LineaUserClient } from "@linea/sdk/user"
+
+await client.listConnectionUses(/* typed arguments */)
 ```
 
 ### cURL
@@ -1535,6 +2104,7 @@ Status: `200`
         "pattern": "^[A-Za-z0-9._:/-]+$",
         "type": "string"
       },
+      "maxItems": 50,
       "type": "array"
     },
     "status": {

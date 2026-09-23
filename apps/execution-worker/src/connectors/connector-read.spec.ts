@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto"
 import { createServer, type IncomingMessage, type Server } from "node:http"
 import {
   ConnectorGateway,
+  ConnectorGatewayError,
   connectorOperationRegistry,
   type ConnectorOperationRegistry,
 } from "@linea/connectors"
@@ -356,6 +357,52 @@ describe("classified Connector reads", () => {
       })
       expect(workflowState).not.toContain(fixture.accessToken)
       expect(workflowState).not.toContain("rawProviderField")
+      await expect(
+        repositories.connection.findConnectionReadUses(db, {
+          workspaceId: fixture.workspaceId,
+          applicationId: fixture.applicationId,
+          externalSubjectId: fixture.externalSubjectId,
+          connectionId: fixture.connectionId,
+          limit: 10,
+        })
+      ).resolves.toEqual([
+        expect.objectContaining({
+          executionId: fixture.executionId,
+          operationId: "deterministic.read",
+          outcome: "succeeded",
+        }),
+      ])
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+
+  it.each([
+    ["reauthorization_required", "connection_reauthorization_required"],
+    ["scope_insufficient", "connection_scope_insufficient"],
+  ])("returns the stable %s error", async (boundary, code) => {
+    const fixture = await createFixture({})
+    try {
+      if (boundary === "reauthorization_required") {
+        await pool.query(
+          "UPDATE connections SET status = 'reauthorization_required', credential_encrypted = NULL WHERE id = $1",
+          [fixture.connectionId]
+        )
+      } else {
+        await pool.query("UPDATE connections SET scopes = $1 WHERE id = $2", [
+          ["profile"],
+          fixture.connectionId,
+        ])
+      }
+      await expect(
+        new ConnectorGateway(db, connectorOperationRegistry).executeRead({
+          executionId: fixture.executionId,
+          workspaceId: fixture.workspaceId,
+          connectionId: fixture.connectionId,
+          operationId: "deterministic.read",
+          operationInput: { resourceId: "record-one" },
+        })
+      ).rejects.toMatchObject({ code } satisfies Partial<ConnectorGatewayError>)
     } finally {
       await removeWorkspace(fixture.workspaceId)
     }
