@@ -1,4 +1,23 @@
-# Linea
+<div align="center">
+  <h1>Linea</h1>
+  <p><strong>The runtime and control plane for production agents.</strong></p>
+  <p>
+    <a href="https://github.com/linea-org/linea/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/linea-org/linea/ci.yml?branch=main&amp;style=flat-square&amp;label=CI" /></a>
+    <a href="https://github.com/linea-org/linea/blob/main/LICENSE"><img alt="Apache 2.0 license" src="https://img.shields.io/github/license/linea-org/linea?style=flat-square" /></a>
+    <a href="https://github.com/linea-org/linea/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/linea-org/linea?style=flat-square" /></a>
+    <a href="https://github.com/linea-org/linea/issues"><img alt="Contributions welcome" src="https://img.shields.io/badge/contributions-welcome-brightgreen?style=flat-square" /></a>
+    <img alt="Status: pre-1.0" src="https://img.shields.io/badge/status-pre--1.0-orange?style=flat-square" />
+  </p>
+  <p>
+    <a href="https://www.getlinea.app">Website</a> ·
+    <a href="https://docs.getlinea.app">Documentation</a> ·
+    <a href="https://platform.getlinea.app">Start building</a> ·
+    <a href="CONTRIBUTING.md">Contributing</a> ·
+    <a href="https://discord.gg/7FWR97VkBD">Discord</a>
+  </p>
+</div>
+
+![Linea workspace dashboard showing workflows, signals, and recent executions](.github/assets/linea-dashboard.png)
 
 Linea is a durable AI workflow platform for building, operating, and embedding
 automations that combine models, data, human decisions, and governed external
@@ -15,6 +34,17 @@ Action Consent, and Google and GitHub connector families are implemented.
 Interfaces may still change before a stable release. Owned knowledge-base and
 RAG infrastructure, arbitrary MCP tools, and sandboxed code execution are not
 currently shipped.
+
+## Contents
+
+- [What Linea supports](#what-linea-supports)
+- [Architecture](#architecture)
+- [Quick start](#quick-start)
+- [Run the example workflow](#run-the-example-workflow)
+- [Verify the public launch boundaries](#verify-the-public-launch-boundaries)
+- [Monorepo layout](#monorepo-layout)
+- [SDKs](#sdks)
+- [Contributing](#contributing)
 
 ## What Linea supports
 
