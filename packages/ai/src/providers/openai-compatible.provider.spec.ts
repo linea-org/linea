@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
 
 const create = vi.fn()
-const OpenAIConstructor = vi.fn().mockImplementation(() => ({
-  chat: { completions: { create } },
-}))
+// Vitest 4 only lets `new` call a mock whose implementation is a function or class, not an arrow.
+const OpenAIConstructor = vi.fn().mockImplementation(function () {
+  return { chat: { completions: { create } } }
+})
 
 vi.mock("openai", () => ({
   default: OpenAIConstructor,
