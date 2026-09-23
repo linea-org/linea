@@ -1,6 +1,6 @@
 import '@linea/config/env'
 import { createHash, randomUUID } from 'node:crypto'
-import type { INestApplication } from '@nestjs/common'
+import { Logger, type INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import {
   GOOGLE_ACTION_SCOPES,
@@ -38,6 +38,7 @@ import { parseConnectionProviderCredential } from './connection-provider-credent
 import { ConnectionRevocationService } from './connection-revocation.service'
 import { ConnectionsModule } from './connections.module'
 import { startTestGoogleProvider } from './test-google-provider'
+import { startTestGithubOAuthProvider } from './test-github-oauth-provider'
 import { startTestOAuthProvider } from './test-oauth-provider'
 
 type ProofKey = { privateKey: KeyLike; publicJwk: JWK }
@@ -66,6 +67,11 @@ function connectorPolicy(
         provider: 'google',
         actionFamilies: [...enabledGoogleFamilies],
         maxScopes: [...googleAuthorizationScopes(googleActionFamilies)],
+      },
+      {
+        provider: 'github',
+        actionFamilies: ['repositories'],
+        maxScopes: ['read:user', 'repo'],
       },
     ],
   }
@@ -100,10 +106,12 @@ describe('OAuth Connections', () => {
   let sessionId: string
   let provider: Awaited<ReturnType<typeof startTestOAuthProvider>>
   let google: Awaited<ReturnType<typeof startTestGoogleProvider>>
+  let githubProvider: Awaited<ReturnType<typeof startTestGithubOAuthProvider>>
 
   beforeAll(async () => {
     provider = await startTestOAuthProvider()
     google = await startTestGoogleProvider()
+    githubProvider = await startTestGithubOAuthProvider()
     process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY = 'test-v1'
     process.env.CONNECTION_CREDENTIAL_KEYS = JSON.stringify({
       'test-v1': Buffer.alloc(32, 7).toString('base64'),
@@ -170,7 +178,7 @@ describe('OAuth Connections', () => {
       imports: [ConnectionsModule],
     })
       .overrideProvider(CONNECTION_OAUTH_PROVIDERS)
-      .useValue([provider.adapter, google.adapter])
+      .useValue([provider.adapter, google.adapter, githubProvider.adapter])
       .compile()
     app = moduleRef.createNestApplication()
     app.setGlobalPrefix('v1')
@@ -183,6 +191,7 @@ describe('OAuth Connections', () => {
     if (app) await app.close()
     if (provider) await provider.close()
     if (google) await google.close()
+    if (githubProvider) await githubProvider.close()
     if (workspaceId) {
       await pool.query('DELETE FROM organizations WHERE id = $1', [workspaceId])
     }
@@ -206,6 +215,199 @@ describe('OAuth Connections', () => {
     const body = responseBody(response, connectionAuthorizationResponseSchema)
     expect(typeof body.authorizationId).toBe('string')
     expect(body.authorizationUrl).toContain('/authorize')
+  })
+
+  it('expands GitHub scopes through a new ceremony without changing Connection identity', async () => {
+    const startAuthorization = async (scopes: string[]) => {
+      const path = '/v1/user/connections/authorizations'
+      const started = await request(baseUrl)
+        .post(path)
+        .set('Authorization', `DPoP ${accessToken}`)
+        .set('DPoP', await createProof('POST', `${baseUrl}${path}`))
+        .send({
+          provider: 'github',
+          returnUri: 'http://127.0.0.1:4173/connections/callback',
+          scopes,
+        })
+      expect(started.status).toBe(201)
+      const authorization = responseBody(
+        started,
+        connectionAuthorizationResponseSchema,
+      )
+      const providerUrl = new URL(authorization.authorizationUrl)
+      expect(providerUrl.searchParams.get('scope')).toBe(
+        [...scopes, 'offline_access'].join(' '),
+      )
+      return providerUrl
+    }
+    const completeAuthorization = async (providerUrl: URL) => {
+      const providerResponse = await fetch(providerUrl, { redirect: 'manual' })
+      const callback = providerResponse.headers.get('location')
+      if (!callback) throw new Error('Provider callback location is missing')
+      const completed = await fetch(callback, { redirect: 'manual' })
+      expect(completed.status).toBe(302)
+      const returned = completed.headers.get('location')
+      if (!returned) throw new Error('Application return location is missing')
+      expect(new URL(returned).searchParams.get('status')).toBe('connected')
+      return repositories.connection.listConnections(db, {
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+      })
+    }
+    const authorize = async (scopes: string[]) =>
+      completeAuthorization(await startAuthorization(scopes))
+    const deniedPath = '/v1/user/connections/authorizations'
+    const overScoped = await request(baseUrl)
+      .post(deniedPath)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${deniedPath}`))
+      .send({
+        provider: 'github',
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+        scopes: ['repo'],
+      })
+    expect(overScoped.status).toBe(403)
+    const initial = (await authorize(['read:user'])).find(
+      (connection) => connection.provider === 'github',
+    )
+    if (!initial) throw new Error('Expected GitHub Connection')
+    expect(initial).toMatchObject({
+      providerAccountId: '123456',
+      accountLabel: 'octocat',
+      scopes: ['read:user'],
+    })
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['profile'],
+            },
+            {
+              provider: 'github',
+              actionFamilies: ['repositories', 'issues', 'pull_requests'],
+              maxScopes: ['read:user', 'repo'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    const staleExpansion = await startAuthorization(['read:user', 'repo'])
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['profile'],
+            },
+            {
+              provider: 'github',
+              actionFamilies: ['repositories'],
+              maxScopes: ['read:user', 'repo'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    const staleProviderResponse = await fetch(staleExpansion, {
+      redirect: 'manual',
+    })
+    const staleCallback = staleProviderResponse.headers.get('location')
+    if (!staleCallback) throw new Error('Provider callback location is missing')
+    const staleCompleted = await fetch(staleCallback, { redirect: 'manual' })
+    const staleReturned = staleCompleted.headers.get('location')
+    if (!staleReturned)
+      throw new Error('Application return location is missing')
+    expect(new URL(staleReturned).searchParams.get('status')).toBe('failed')
+    const unchanged = (
+      await repositories.connection.listConnections(db, {
+        workspaceId,
+        applicationId,
+        externalSubjectId,
+      })
+    ).find((connection) => connection.provider === 'github')
+    expect(unchanged).toMatchObject({
+      id: initial.id,
+      scopes: ['read:user'],
+      credentialVersion: initial.credentialVersion,
+    })
+    const unsupportedPolicy = await startAuthorization(['read:user'])
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['profile'],
+            },
+            {
+              provider: 'github',
+              actionFamilies: [],
+              maxScopes: ['read:user', 'repo'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    const unsupportedProviderResponse = await fetch(unsupportedPolicy, {
+      redirect: 'manual',
+    })
+    const unsupportedCallback =
+      unsupportedProviderResponse.headers.get('location')
+    if (!unsupportedCallback)
+      throw new Error('Provider callback location is missing')
+    const unsupportedCompleted = await fetch(unsupportedCallback, {
+      redirect: 'manual',
+    })
+    expect(unsupportedCompleted.status).toBe(302)
+    const unsupportedReturned = unsupportedCompleted.headers.get('location')
+    if (!unsupportedReturned)
+      throw new Error('Application return location is missing')
+    expect(new URL(unsupportedReturned).searchParams.get('status')).toBe(
+      'failed',
+    )
+    await pool.query(
+      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      [
+        JSON.stringify({
+          providers: [
+            {
+              provider: 'test',
+              actionFamilies: ['test'],
+              maxScopes: ['profile'],
+            },
+            {
+              provider: 'github',
+              actionFamilies: ['repositories', 'issues', 'pull_requests'],
+              maxScopes: ['read:user', 'repo'],
+            },
+          ],
+        }),
+        applicationId,
+      ],
+    )
+    const expanded = (await authorize(['read:user', 'repo'])).find(
+      (connection) => connection.provider === 'github',
+    )
+    expect(expanded).toMatchObject({
+      id: initial.id,
+      providerAccountId: '123456',
+      scopes: ['read:user', 'repo'],
+      credentialVersion: initial.credentialVersion + 1,
+    })
+    await pool.query('DELETE FROM connections WHERE id = $1', [initial.id])
   })
 
   it('connects Google by stable identity and expands scopes only through a new ceremony', async () => {
@@ -316,6 +518,7 @@ describe('OAuth Connections', () => {
     }
     const beforeRefresh = parseConnectionProviderCredential(
       decryptCredential(denied.credentialEncrypted, encryptionContext),
+      denied.scopes,
     )
     const expired = { ...beforeRefresh, expiresAt: '2000-01-01T00:00:00.000Z' }
     await repositories.connection.rotateConnectionCredential(
@@ -629,6 +832,7 @@ describe('OAuth Connections', () => {
     const expired = {
       ...parseConnectionProviderCredential(
         decryptCredential(beforeRefresh.credentialEncrypted, context),
+        beforeRefresh.scopes,
       ),
       expiresAt: '2000-01-01T00:00:00.000Z',
     }
@@ -699,7 +903,15 @@ describe('OAuth Connections', () => {
     expect(pendingDelivery?.attemptCount).toBe(0)
     expect(pendingDelivery?.deliveredAt).toBeNull()
     const revocations = app.get(ConnectionRevocationService)
+    const warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined)
     await revocations.poll()
+    const warnings = JSON.stringify(warn.mock.calls)
+    warn.mockRestore()
+    expect(warnings).toContain('provider_error')
+    expect(warnings).not.toContain(revocationEncrypted)
+    expect(warnings).not.toContain('Provider revocation failed')
     const failedDelivery =
       await db.query.connectionRevocationDeliveries.findFirst({
         where: { connectionId },
@@ -788,6 +1000,7 @@ describe('OAuth Connections', () => {
     const expired = {
       ...parseConnectionProviderCredential(
         decryptCredential(stored.credentialEncrypted, context),
+        stored.scopes,
       ),
       expiresAt: '2000-01-01T00:00:00.000Z',
     }

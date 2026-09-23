@@ -121,7 +121,10 @@ export class ConnectionsService {
       ].sort((left, right) => left.localeCompare(right))
       if (
         scopes.length === 0 ||
-        scopes.some((scope) => !policy.maxScopes.includes(scope))
+        scopes.some((scope) => !policy.maxScopes.includes(scope)) ||
+        (input.scopes !== undefined &&
+          (scopes.length !== input.scopes.length ||
+            scopes.some((scope, index) => scope !== input.scopes?.[index])))
       ) {
         throw new Error('Provider scopes exceed policy')
       }
@@ -213,12 +216,18 @@ export class ConnectionsService {
           provider: providerName,
         })
       if (!policy) return authorizationResultUrl(request, 'failed')
-      const currentScopes = [
-        ...new Set(provider.authorizationScopes(policy.actionFamilies)),
-      ].sort((left, right) => left.localeCompare(right))
+      let currentScopes: string[]
+      try {
+        currentScopes = [
+          ...new Set(provider.authorizationScopes(policy.actionFamilies)),
+        ].sort((left, right) => left.localeCompare(right))
+      } catch {
+        return authorizationResultUrl(request, 'failed')
+      }
       if (
         currentScopes.length !== request.scopes.length ||
-        currentScopes.some((scope, index) => scope !== request.scopes[index])
+        currentScopes.some((scope, index) => scope !== request.scopes[index]) ||
+        currentScopes.some((scope) => !policy.maxScopes.includes(scope))
       ) {
         return authorizationResultUrl(request, 'failed')
       }
@@ -226,6 +235,7 @@ export class ConnectionsService {
         code: input.code,
         redirectUri: callbackUrl(providerName),
         codeVerifier: decryptCredential(request.codeVerifierEncrypted, context),
+        scopes: request.scopes,
       })
       const revocationDeliveryId = randomUUID()
       const revocationStagedAt = new Date()
@@ -265,6 +275,7 @@ export class ConnectionsService {
             revocationDeliveryId,
             grantedScopes: credential.grantedScopes,
             actionFamilies: policy.actionFamilies,
+            requiredScopes: currentScopes,
             now: new Date(),
           },
         )
@@ -336,6 +347,7 @@ export class ConnectionsService {
         recordId: current.id,
         provider: current.provider,
       }),
+      current.scopes,
     )
     const deliveryId = randomUUID()
     const now = new Date()

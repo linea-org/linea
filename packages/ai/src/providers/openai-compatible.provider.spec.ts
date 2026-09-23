@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest"
 
 const create = vi.fn()
-const OpenAIConstructor = vi.fn().mockImplementation(() => ({
-  chat: { completions: { create } },
-}))
+const OpenAIConstructor = vi.fn().mockImplementation(function () {
+  return { chat: { completions: { create } } }
+})
 
 vi.mock("openai", () => ({
   default: OpenAIConstructor,

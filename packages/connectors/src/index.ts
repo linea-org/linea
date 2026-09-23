@@ -30,13 +30,21 @@ export {
   googleGmailListMessagesOperation,
   googleGmailSendMessageOperation,
 } from "./google-gmail.operations.js"
-export { escapeSafeDisplayText, validateSafeDisplay } from "./safe-display.js"
 export {
   GOOGLE_ACTION_SCOPES,
   GOOGLE_IDENTITY_SCOPES,
   googleAuthorizationScopes,
   type GoogleActionFamily,
 } from "./google-scopes.js"
+export { githubCreateIssueOperation } from "./github-create-issue.operation.js"
+export { githubCreatePullRequestOperation } from "./github-create-pull-request.operation.js"
+export { githubListIssuesOperation } from "./github-list-issues.operation.js"
+export { githubListRepositoriesOperation } from "./github-list-repositories.operation.js"
+export { escapeSafeDisplayText, validateSafeDisplay } from "./safe-display.js"
+import { githubCreateIssueOperation } from "./github-create-issue.operation.js"
+import { githubCreatePullRequestOperation } from "./github-create-pull-request.operation.js"
+import { githubListIssuesOperation } from "./github-list-issues.operation.js"
+import { githubListRepositoriesOperation } from "./github-list-repositories.operation.js"
 import { deterministicReadOperation } from "./deterministic-read.operation.js"
 import { deterministicSideEffectOperation } from "./deterministic-side-effect.operation.js"
 import {
@@ -57,4 +65,8 @@ export const connectorOperationRegistry = Object.freeze({
   [googleCalendarListEventsOperation.id]: googleCalendarListEventsOperation,
   [googleCalendarCreateEventOperation.id]: googleCalendarCreateEventOperation,
   [googleCalendarUpdateEventOperation.id]: googleCalendarUpdateEventOperation,
+  [githubListRepositoriesOperation.id]: githubListRepositoriesOperation,
+  [githubListIssuesOperation.id]: githubListIssuesOperation,
+  [githubCreateIssueOperation.id]: githubCreateIssueOperation,
+  [githubCreatePullRequestOperation.id]: githubCreatePullRequestOperation,
 })

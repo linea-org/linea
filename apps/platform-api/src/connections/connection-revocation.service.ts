@@ -58,10 +58,9 @@ export class ConnectionRevocationService
         db,
         now,
       )
-    } catch (error) {
-      this.logger.error(
-        `Connection revocation poll failed: ${error instanceof Error ? error.message : String(error)}`,
-      )
+      await repositories.connectorAudit.applyRetention(db, now)
+    } catch {
+      this.logger.error('Connection revocation poll failed')
     } finally {
       this.polling = false
     }
@@ -84,9 +83,14 @@ export class ConnectionRevocationService
     const provider = this.providers.find(
       (candidate) => candidate.provider === delivery.provider,
     )
+    let failureClass = 'provider_error'
     try {
-      if (!provider) throw new Error('Connection provider unavailable')
+      if (!provider) {
+        failureClass = 'provider_unavailable'
+        throw new Error('Connection provider unavailable')
+      }
       if (!delivery.credentialEncrypted) {
+        failureClass = 'payload_unavailable'
         throw new Error('Revocation credential is unavailable')
       }
       const credential = parseConnectionProviderCredential(
@@ -97,6 +101,7 @@ export class ConnectionRevocationService
           recordId: delivery.id,
           provider: `${delivery.provider}:revocation`,
         }),
+        [],
       )
       const controller = new AbortController()
       this.activeAbortController = controller
@@ -110,10 +115,8 @@ export class ConnectionRevocationService
           .then((renewed) => {
             if (!renewed) controller.abort()
           })
-          .catch((error: unknown) => {
-            this.logger.error(
-              `Connection revocation lease renewal failed: ${error instanceof Error ? error.message : String(error)}`,
-            )
+          .catch(() => {
+            this.logger.error('Connection revocation lease renewal failed')
             controller.abort()
           })
       }, HEARTBEAT_INTERVAL_MS)
@@ -137,6 +140,12 @@ export class ConnectionRevocationService
         })
       if (!completed) throw new Error('Connection revocation claim was lost')
     } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.name === 'AbortError' || error.name === 'TimeoutError')
+      ) {
+        failureClass = 'timeout'
+      }
       const delay = Math.min(
         2 ** Math.min(delivery.attemptCount - 1, 16) * 1_000,
         MAXIMUM_RETRY_DELAY_MS,
@@ -145,9 +154,10 @@ export class ConnectionRevocationService
         deliveryId: delivery.id,
         claimedBy: this.workerId,
         retryAt: new Date(Date.now() + delay),
+        failureClass,
       })
       this.logger.warn(
-        `Connection revocation delivery ${delivery.id} failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Connection revocation delivery ${delivery.id} failed (${failureClass})`,
       )
     }
   }

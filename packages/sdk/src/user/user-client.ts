@@ -11,6 +11,7 @@ import {
   getEndUserConversationOperation,
   getEndUserExecutionOperation,
   listEndUserApprovalRequestsOperation,
+  listEndUserConnectorAuditEventsOperation,
   listPendingActionIntentsOperation,
   listEndUserConversationsOperation,
   listEndUserMessagesOperation,
@@ -32,6 +33,7 @@ import type {
   CreateMessage,
   DecideApprovalRequest,
   EndUserAuthorizationResponse,
+  EndUserConnectorAuditEvent,
   ListApprovalRequestsQuery,
   ListPendingActionIntentsQuery,
   MessageProjection,
@@ -469,6 +471,20 @@ export class LineaUserClient {
       listPendingActionIntentsOperation.path,
       undefined,
       listPendingActionIntentsOperation.response.body,
+      parsed
+    )
+  }
+
+  listAuditEvents(
+    query: Partial<PaginationQuery> = {}
+  ): Promise<PaginatedResponse<EndUserConnectorAuditEvent>> {
+    const parsed =
+      listEndUserConnectorAuditEventsOperation.request.query.parse(query)
+    return this.authorizedJson(
+      listEndUserConnectorAuditEventsOperation.method,
+      listEndUserConnectorAuditEventsOperation.path,
+      undefined,
+      listEndUserConnectorAuditEventsOperation.response.body,
       parsed
     )
   }

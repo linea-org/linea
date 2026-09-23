@@ -1,8 +1,12 @@
 import type { ExternalSubjectMetadata } from "@linea/protocol/resources"
-import { and, eq, isNull } from "drizzle-orm"
+import { randomUUID } from "node:crypto"
+import { and, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm"
 import {
   applications,
   auditLogs,
+  connectionRevocationDeliveries,
+  connections,
+  connectorAuditFacts,
   endUserSessions,
   externalSubjectApplications,
   externalSubjects,
@@ -11,6 +15,8 @@ import {
 } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.repository.js"
+import { recordConnectionFact } from "./connector-audit.repository.js"
+import { createPublicEvent } from "./outbox-message.repository.js"
 
 export type ExternalSubjectProjection = {
   subject: ExternalSubject
@@ -259,17 +265,106 @@ export async function eraseExternalSubject(
       .for("update")
     if (!existing || existing.status === "erased") return existing
     const now = new Date()
+    const auditReference = randomUUID()
     await cancelNonExecutingActionIntents(tx, {
       workspaceId,
       scope: { kind: "external_subject", id: existing.id },
       actor: { kind: "workspace_member", id: actorUserId },
       cancelledAt: now,
     })
+    const revokedConnections = await tx
+      .update(connections)
+      .set({
+        providerAccountId: sql`concat('erased:', ${auditReference}::text, ':', ${connections.id}::text)`,
+        accountLabel: "Erased subject",
+        status: "revoked",
+        credentialEncrypted: null,
+        revokedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(connections.workspaceId, workspaceId),
+          eq(connections.externalSubjectId, existing.id),
+          ne(connections.status, "revoked")
+        )
+      )
+      .returning()
+    const alreadyRevokedConnections = await tx
+      .update(connections)
+      .set({
+        providerAccountId: sql`concat('erased:', ${auditReference}::text, ':', ${connections.id}::text)`,
+        accountLabel: "Erased subject",
+        credentialEncrypted: null,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(connections.workspaceId, workspaceId),
+          eq(connections.externalSubjectId, existing.id),
+          eq(connections.status, "revoked")
+        )
+      )
+      .returning()
+    const subjectConnections = [
+      ...revokedConnections,
+      ...alreadyRevokedConnections,
+    ]
+    const pendingPayloads = await tx
+      .select()
+      .from(connectionRevocationDeliveries)
+      .where(
+        and(
+          eq(connectionRevocationDeliveries.workspaceId, workspaceId),
+          eq(connectionRevocationDeliveries.externalSubjectId, existing.id),
+          isNotNull(connectionRevocationDeliveries.credentialEncrypted)
+        )
+      )
+      .for("update")
+    const connectionsById = new Map(
+      subjectConnections.map((connection) => [connection.id, connection])
+    )
+    for (const payload of pendingPayloads) {
+      if (!payload.connectionId) continue
+      const connection = connectionsById.get(payload.connectionId)
+      if (!connection) throw new Error("Revocation Connection is missing")
+      await recordConnectionFact(tx, {
+        connection,
+        factType: "connection.revocation_payload_destroyed",
+        occurredAt: now,
+        outcome: "subject_erased",
+        failureClass: "subject_erased",
+      })
+    }
+    if (pendingPayloads.length > 0) {
+      await tx.delete(connectionRevocationDeliveries).where(
+        inArray(
+          connectionRevocationDeliveries.id,
+          pendingPayloads.map(({ id }) => id)
+        )
+      )
+    }
+    for (const connection of revokedConnections) {
+      await recordConnectionFact(tx, {
+        connection,
+        factType: "connection.revoked",
+        occurredAt: now,
+        outcome: "subject_erased",
+      })
+      await createPublicEvent(tx, {
+        workspaceId: connection.workspaceId,
+        applicationId: connection.applicationId,
+        externalSubjectId: connection.externalSubjectId,
+        eventType: "connection.revoked",
+        data: { connectionId: connection.id },
+      })
+    }
     const [subject] = await tx
       .update(externalSubjects)
       .set({
         issuerSubject: null,
         status: "erased",
+        auditReference,
         disabledAt: existing.disabledAt ?? now,
         erasedAt: now,
         updatedAt: now,
@@ -283,6 +378,25 @@ export async function eraseExternalSubject(
         and(
           eq(endUserSessions.externalSubjectId, subject.id),
           isNull(endUserSessions.revokedAt)
+        )
+      )
+    await tx
+      .update(connectorAuditFacts)
+      .set({
+        externalSubjectId: null,
+        subjectReference: auditReference,
+        content: null,
+        contentErasedAt: now,
+      })
+      .where(eq(connectorAuditFacts.externalSubjectId, existing.id))
+    await tx
+      .update(auditLogs)
+      .set({ resourceId: auditReference, actorExternalSubjectId: null })
+      .where(
+        and(
+          eq(auditLogs.workspaceId, workspaceId),
+          eq(auditLogs.resource, "external_subject"),
+          eq(auditLogs.resourceId, existing.auditReference)
         )
       )
     await tx

@@ -9,6 +9,7 @@ export type ExchangeConnectionAuthorizationCodeInput = {
   code: string
   redirectUri: string
   codeVerifier: string
+  scopes: string[]
 }
 
 export type ConnectionProviderCredential = {

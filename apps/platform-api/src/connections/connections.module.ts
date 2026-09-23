@@ -7,6 +7,13 @@ import { ConnectionsService } from './connections.service'
 import { ConnectionCredentialsService } from './connection-credentials.service'
 import { ConnectionRevocationService } from './connection-revocation.service'
 import { googleOAuthProviderFromEnvironment } from './google-oauth-provider'
+import { githubOAuthProviderFromEnvironment } from './github-oauth-provider'
+
+function connectionOAuthProviders() {
+  const google = googleOAuthProviderFromEnvironment()
+  const github = githubOAuthProviderFromEnvironment()
+  return [google, github].filter((provider) => provider !== null)
+}
 
 @Module({
   imports: [EndUserSessionsModule],
@@ -17,10 +24,7 @@ import { googleOAuthProviderFromEnvironment } from './google-oauth-provider'
     ConnectionRevocationService,
     {
       provide: CONNECTION_OAUTH_PROVIDERS,
-      useFactory: () => {
-        const google = googleOAuthProviderFromEnvironment()
-        return google ? [google] : []
-      },
+      useFactory: connectionOAuthProviders,
     },
   ],
   exports: [ConnectionCredentialsService],

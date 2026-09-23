@@ -245,7 +245,7 @@ export async function startTestOAuthProvider(): Promise<TestOAuthProvider> {
           expiresAt: new Date(
             Date.now() + token.expires_in * 1000,
           ).toISOString(),
-          grantedScopes: token.scope.split(' '),
+          grantedScopes: input.scopes,
         }
       },
       async refreshCredential(credential) {

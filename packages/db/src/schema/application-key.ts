@@ -19,6 +19,7 @@ const applicationKeyScopeValues = [
   "conversations:read",
   "conversations:write",
   "events:read",
+  "audit:read",
   "webhooks:read",
 ] satisfies typeof applicationKeyScopes
 

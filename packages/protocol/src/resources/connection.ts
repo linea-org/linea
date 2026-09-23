@@ -17,6 +17,14 @@ export const connectionScopeSchema = z
 export const startConnectionAuthorizationSchema = z.strictObject({
   provider: connectionProviderSchema,
   returnUri: z.url().max(2000),
+  scopes: z
+    .array(connectionScopeSchema)
+    .min(1)
+    .max(50)
+    .transform((scopes) =>
+      [...new Set(scopes)].sort((left, right) => left.localeCompare(right))
+    )
+    .optional(),
 })
 
 export const connectionAuthorizationResponseSchema = z.strictObject({
