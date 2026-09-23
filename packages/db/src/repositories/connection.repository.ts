@@ -85,10 +85,89 @@ async function lockGoogleGrant(
   providerAccountId: string
 ): Promise<void> {
   if (provider === "google") {
+    const grantKey = `${provider}:${providerAccountId}`
     await db.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${`${provider}:${providerAccountId}`}, 0))`
+      sql`select pg_advisory_xact_lock(hashtextextended(${grantKey}, 0))`
     )
   }
+}
+
+async function fenceGoogleRevocations(
+  db: DbClient,
+  request: ConnectionAuthorizationRequest,
+  providerAccountId: string,
+  currentDeliveryId: string,
+  now: Date
+): Promise<boolean> {
+  if (request.provider !== "google") return true
+  await lockGoogleGrant(db, request.provider, providerAccountId)
+  const deliveries = await db
+    .select()
+    .from(connectionRevocationDeliveries)
+    .where(
+      and(
+        eq(connectionRevocationDeliveries.provider, request.provider),
+        or(
+          eq(
+            connectionRevocationDeliveries.providerAccountId,
+            providerAccountId
+          ),
+          and(
+            isNull(connectionRevocationDeliveries.providerAccountId),
+            eq(connectionRevocationDeliveries.workspaceId, request.workspaceId),
+            eq(
+              connectionRevocationDeliveries.applicationId,
+              request.applicationId
+            ),
+            eq(
+              connectionRevocationDeliveries.externalSubjectId,
+              request.externalSubjectId
+            )
+          )
+        )
+      )
+    )
+    .for("update")
+  if (
+    deliveries.some(
+      (delivery) =>
+        delivery.id !== currentDeliveryId &&
+        (delivery.claimedBy ||
+          (delivery.deliveredAt
+            ? delivery.deliveredAt >= request.createdAt
+            : delivery.lastAttemptAt &&
+              delivery.lastAttemptAt >= request.createdAt))
+    )
+  ) {
+    return false
+  }
+  const pending = deliveries.filter(
+    (delivery) => delivery.id !== currentDeliveryId && !delivery.deliveredAt
+  )
+  for (const delivery of pending) {
+    if (!delivery.connectionId) continue
+    const [revoked] = await db
+      .select()
+      .from(connections)
+      .where(eq(connections.id, delivery.connectionId))
+    if (revoked) {
+      await recordConnectionFact(db, {
+        connection: revoked,
+        factType: "connection.revocation_payload_destroyed",
+        occurredAt: now,
+        outcome: "superseded",
+      })
+    }
+  }
+  if (pending.length > 0) {
+    await db.delete(connectionRevocationDeliveries).where(
+      inArray(
+        connectionRevocationDeliveries.id,
+        pending.map((delivery) => delivery.id)
+      )
+    )
+  }
+  return true
 }
 
 export async function completeConnectionAuthorizationRequest(
@@ -196,80 +275,16 @@ export async function completeConnectionAuthorizationRequest(
       ) {
         return { outcome: "invalid" }
       }
-      await lockGoogleGrant(tx, request.provider, input.providerAccountId)
-      if (request.provider === "google") {
-        const deliveries = await tx
-          .select()
-          .from(connectionRevocationDeliveries)
-          .where(
-            and(
-              eq(connectionRevocationDeliveries.provider, request.provider),
-              or(
-                eq(
-                  connectionRevocationDeliveries.providerAccountId,
-                  input.providerAccountId
-                ),
-                and(
-                  isNull(connectionRevocationDeliveries.providerAccountId),
-                  eq(
-                    connectionRevocationDeliveries.workspaceId,
-                    request.workspaceId
-                  ),
-                  eq(
-                    connectionRevocationDeliveries.applicationId,
-                    request.applicationId
-                  ),
-                  eq(
-                    connectionRevocationDeliveries.externalSubjectId,
-                    request.externalSubjectId
-                  )
-                )
-              )
-            )
-          )
-          .for("update")
-        if (
-          deliveries.some(
-            (delivery) =>
-              delivery.id !== input.revocationDeliveryId &&
-              (delivery.claimedBy ||
-                (delivery.deliveredAt
-                  ? delivery.deliveredAt >= request.createdAt
-                  : delivery.lastAttemptAt &&
-                    delivery.lastAttemptAt >= request.createdAt))
-          )
-        ) {
-          return { outcome: "invalid" }
-        }
-        const pendingIds = deliveries
-          .filter(
-            (delivery) =>
-              delivery.id !== input.revocationDeliveryId &&
-              !delivery.deliveredAt
-          )
-          .map((delivery) => delivery.id)
-        if (pendingIds.length > 0) {
-          for (const delivery of deliveries) {
-            if (!pendingIds.includes(delivery.id) || !delivery.connectionId) {
-              continue
-            }
-            const [revoked] = await tx
-              .select()
-              .from(connections)
-              .where(eq(connections.id, delivery.connectionId))
-            if (revoked) {
-              await recordConnectionFact(tx, {
-                connection: revoked,
-                factType: "connection.revocation_payload_destroyed",
-                occurredAt: input.now,
-                outcome: "superseded",
-              })
-            }
-          }
-          await tx
-            .delete(connectionRevocationDeliveries)
-            .where(inArray(connectionRevocationDeliveries.id, pendingIds))
-        }
+      if (
+        !(await fenceGoogleRevocations(
+          tx,
+          request,
+          input.providerAccountId,
+          input.revocationDeliveryId,
+          input.now
+        ))
+      ) {
+        return { outcome: "invalid" }
       }
       const [existing] = await tx
         .select()
