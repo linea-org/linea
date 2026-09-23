@@ -4,7 +4,10 @@ import { cursorSchema, type Cursor } from "./cursor"
 export const paginationLimitSchema = z.coerce.number().int().min(1).max(100)
 
 export const paginationQuerySchema = z.strictObject({
-  cursor: cursorSchema.optional(),
+  cursor: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    cursorSchema.optional()
+  ),
   limit: paginationLimitSchema.default(20),
 })
 

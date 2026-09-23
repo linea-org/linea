@@ -1191,6 +1191,36 @@ describe('OAuth Connections', () => {
     const secondPage = responseBody(second, connectionsResponseSchema)
     expect(secondPage.data).toHaveLength(1)
     expect(secondPage.data[0]?.id).not.toBe(firstPage.data[0]?.id)
+    const listPath = '/v1/user/connections'
+    const emptyListPath = `${listPath}?cursor=`
+    const [omittedList, emptyList] = await Promise.all([
+      request(baseUrl)
+        .get(listPath)
+        .set('Authorization', `DPoP ${accessToken}`)
+        .set('DPoP', await createProof('GET', `${baseUrl}${listPath}`)),
+      request(baseUrl)
+        .get(emptyListPath)
+        .set('Authorization', `DPoP ${accessToken}`)
+        .set('DPoP', await createProof('GET', `${baseUrl}${emptyListPath}`)),
+    ])
+    expect(emptyList.status).toBe(200)
+    expect(emptyList.body).toEqual(omittedList.body)
+    const connectionId = firstPage.data[0]?.id
+    if (!connectionId) throw new Error('Expected a paginated Connection')
+    const usesPath = `/v1/user/connections/${connectionId}/uses`
+    const emptyUsesPath = `${usesPath}?cursor=`
+    const [omittedUses, emptyUses] = await Promise.all([
+      request(baseUrl)
+        .get(usesPath)
+        .set('Authorization', `DPoP ${accessToken}`)
+        .set('DPoP', await createProof('GET', `${baseUrl}${usesPath}`)),
+      request(baseUrl)
+        .get(emptyUsesPath)
+        .set('Authorization', `DPoP ${accessToken}`)
+        .set('DPoP', await createProof('GET', `${baseUrl}${emptyUsesPath}`)),
+    ])
+    expect(emptyUses.status).toBe(200)
+    expect(emptyUses.body).toEqual(omittedUses.body)
   })
   it('does not expose Connections across Applications or subjects', async () => {
     const authorizationPath = '/v1/user/connections/authorizations'

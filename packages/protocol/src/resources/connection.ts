@@ -98,8 +98,7 @@ export const connectionSchema = z.strictObject({
   revokedAt: timestampSchema.nullable(),
 })
 
-export const listConnectionsQuerySchema = z.strictObject({
-  cursor: cursorSchema.optional(),
+export const listConnectionsQuerySchema = paginationQuerySchema.extend({
   limit: paginationLimitSchema.optional(),
 })
 export const connectionsResponseSchema = z.strictObject({

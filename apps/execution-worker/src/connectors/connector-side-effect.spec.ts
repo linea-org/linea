@@ -762,6 +762,24 @@ describe("exact Action Intent consent", () => {
       }
     }
   )
+  it("preserves a terminal success after the Connection requires reauthorization", async () => {
+    const fixture = await createFixture()
+    try {
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      const completed = await invoke(fixture)
+      await pool.query(
+        "UPDATE connections SET status = 'reauthorization_required', credential_encrypted = NULL WHERE id = $1",
+        [fixture.connectionId]
+      )
+      await expect(invoke(fixture)).resolves.toEqual(completed)
+      expect(
+        provider.requests.filter(({ method }) => method === "PUT")
+      ).toHaveLength(1)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
   it("does not classify an Application policy denial as missing Connection scopes", async () => {
     const fixture = await createFixture()
     try {

@@ -153,40 +153,42 @@ async function replayActionIntent(
   if (!sameInvocation(intent, input)) {
     return { outcome: "idempotency_conflict" }
   }
-  const [connection] = await db
-    .select()
-    .from(connections)
-    .where(
-      and(
-        eq(connections.id, intent.connectionId),
-        eq(connections.workspaceId, intent.workspaceId),
-        eq(connections.applicationId, intent.applicationId),
-        eq(connections.externalSubjectId, intent.externalSubjectId),
-        eq(connections.provider, input.connector)
+  if (intent.status === "awaiting_consent" || intent.status === "ready") {
+    const [connection] = await db
+      .select()
+      .from(connections)
+      .where(
+        and(
+          eq(connections.id, intent.connectionId),
+          eq(connections.workspaceId, intent.workspaceId),
+          eq(connections.applicationId, intent.applicationId),
+          eq(connections.externalSubjectId, intent.externalSubjectId),
+          eq(connections.provider, input.connector)
+        )
       )
-    )
-  const [application] = await db
-    .select()
-    .from(applications)
-    .where(
-      and(
-        eq(applications.id, intent.applicationId),
-        eq(applications.workspaceId, intent.workspaceId)
+    const [application] = await db
+      .select()
+      .from(applications)
+      .where(
+        and(
+          eq(applications.id, intent.applicationId),
+          eq(applications.workspaceId, intent.workspaceId)
+        )
       )
-    )
-  const boundary = connectionAuthorityBoundary(connection, application, {
-    workspaceId: intent.workspaceId,
-    applicationId: intent.applicationId,
-    externalSubjectId: intent.externalSubjectId,
-    provider: input.connector,
-    actionFamily: input.actionFamily,
-    requiredScopes: input.requiredScopes,
-  })
-  if (boundary === "reauthorization_required") {
-    return { outcome: "connection_reauthorization_required" }
-  }
-  if (boundary === "scope_insufficient") {
-    return { outcome: "connection_scope_insufficient" }
+    const boundary = connectionAuthorityBoundary(connection, application, {
+      workspaceId: intent.workspaceId,
+      applicationId: intent.applicationId,
+      externalSubjectId: intent.externalSubjectId,
+      provider: input.connector,
+      actionFamily: input.actionFamily,
+      requiredScopes: input.requiredScopes,
+    })
+    if (boundary === "reauthorization_required") {
+      return { outcome: "connection_reauthorization_required" }
+    }
+    if (boundary === "scope_insufficient") {
+      return { outcome: "connection_scope_insufficient" }
+    }
   }
   const [storedApprovalRequest] = approvalRequest
     ? [approvalRequest]

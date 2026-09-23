@@ -81,6 +81,16 @@ function encodeCreatedAtCursor(cursor: {
   })
 }
 
+function encodeOccurredAtCursor(cursor: {
+  occurredAt: Date
+  id: string
+}): string {
+  return encodeCursor({
+    occurredAt: cursor.occurredAt.toISOString(),
+    id: cursor.id,
+  })
+}
+
 function decodeCursor<T>(cursor: string | undefined, schema: ZodType<T>) {
   if (!cursor) return undefined
   let decoded: unknown
@@ -177,10 +187,7 @@ export function decodeConnectionCursor(
 export function encodeConnectionUseCursor(
   cursor: PublicConnectionUseCursor,
 ): string {
-  return encodeCursor({
-    occurredAt: cursor.occurredAt.toISOString(),
-    id: cursor.id,
-  })
+  return encodeOccurredAtCursor(cursor)
 }
 
 export function decodeConnectionUseCursor(
@@ -210,10 +217,7 @@ export function decodeWebhookDeliveryCursor(
 export function encodeConnectorAuditCursor(
   cursor: PublicConnectorAuditCursor,
 ): string {
-  return encodeCursor({
-    occurredAt: cursor.occurredAt.toISOString(),
-    id: cursor.id,
-  })
+  return encodeOccurredAtCursor(cursor)
 }
 
 export function decodeConnectorAuditCursor(

@@ -225,7 +225,7 @@ export async function startTestOAuthProvider(): Promise<TestOAuthProvider> {
         const token: unknown = await tokenResponse.json()
         if (!isTokenResponse(token)) throw new Error('Invalid token response')
         if (typeof token.scope !== 'string') {
-          throw new Error('Invalid token scope response')
+          throw new TypeError('Invalid token scope response')
         }
         const accountResponse = await fetch(new URL('/account', baseUrl), {
           headers: { authorization: `Bearer ${token.access_token}` },
