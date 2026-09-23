@@ -380,7 +380,6 @@ describe("browser end-user client", () => {
     )
     pauseNextWrite = true
     const successfulRequest = client.listConversations()
-    // Proof signing finishes in no fixed order, so wait for the first request to reach fetch before sending the second.
     await successfulRequestSent.promise
     const terminalRequest = client.listConversations()
     successfulResponse.resolve(

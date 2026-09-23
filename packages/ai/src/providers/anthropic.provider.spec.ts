@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 
 const create = vi.fn()
-// Vitest 4 only lets `new` call a mock whose implementation is a function or class, not an arrow.
 const AnthropicConstructor = vi.fn().mockImplementation(function () {
   return { messages: { create } }
 })
