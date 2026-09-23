@@ -290,6 +290,11 @@ describe('OAuth Connections', () => {
         scopes: ['read:user', 'repo'],
       })
     expect(invalidUpgrade.status).toBe(403)
+    expect(
+      await db.query.connectionAuthorizationRequests.findFirst({
+        where: { targetConnectionId: initial.id },
+      }),
+    ).toBeUndefined()
     await pool.query(
       'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
       [
