@@ -368,14 +368,19 @@ describe("browser end-user client", () => {
     }
     const successfulResponse = deferred<Response>()
     const terminalResponse = deferred<Response>()
+    const successfulRequestSent = deferred<void>()
     let request = 0
     const { client } = await authenticatedClient(
-      () =>
-        request++ === 0 ? successfulResponse.promise : terminalResponse.promise,
+      () => {
+        if (request++ > 0) return terminalResponse.promise
+        successfulRequestSent.resolve()
+        return successfulResponse.promise
+      },
       { storage, proofKeys: platform.proofKeys }
     )
     pauseNextWrite = true
     const successfulRequest = client.listConversations()
+    await successfulRequestSent.promise
     const terminalRequest = client.listConversations()
     successfulResponse.resolve(
       jsonResponse({ data: [], nextCursor: null }, 200, {

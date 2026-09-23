@@ -45,7 +45,7 @@
     "react-dom": "^19.2.6",
     "tsup": "^8.5.0",
     "typescript": "^6",
-    "vitest": "^3",
+    "vitest": "^4.1.11",
     "zod": "^4.4.3"
   },
   "exports": {

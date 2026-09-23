@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest"
 
 const create = vi.fn()
-const AnthropicConstructor = vi.fn().mockImplementation(() => ({
-  messages: { create },
-}))
+const AnthropicConstructor = vi.fn().mockImplementation(function () {
+  return { messages: { create } }
+})
 
 vi.mock("@anthropic-ai/sdk", () => ({
   default: AnthropicConstructor,
