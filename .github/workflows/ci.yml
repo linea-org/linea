@@ -151,7 +151,7 @@ jobs:
         run: pnpm test
 
   launch-gate:
-    name: First-launch approval gate
+    name: Connections and Action Consent launch gate
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -195,8 +195,8 @@ jobs:
       - name: Run database migrations
         run: pnpm db:migrate
 
-      - name: Run first-launch approval gate
-        run: pnpm test:launch
+      - name: Run Connections and Action Consent launch gate
+        run: pnpm test:connections-launch
 
   build:
     name: Build

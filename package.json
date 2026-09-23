@@ -14,6 +14,8 @@
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "test:launch": "node scripts/first-launch-gate.mjs",
+    "test:connections-launch": "node scripts/connections-launch-gate.mjs",
+    "test:connections-smoke": "node scripts/connections-provider-smoke.mjs",
     "db:up": "pnpm --filter @linea/db db:up",
     "db:down": "pnpm --filter @linea/db db:down",
     "db:logs": "pnpm --filter @linea/db db:logs",
