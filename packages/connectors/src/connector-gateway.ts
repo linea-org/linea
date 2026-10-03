@@ -304,17 +304,24 @@ export class ConnectorGateway {
           "Connector invocation idempotency conflict",
           "idempotency_conflict"
         )
-      return this.resolveSideEffectConsent(operation, input, existing)
+      if (
+        existing.intent.status !== "awaiting_consent" &&
+        existing.intent.status !== "ready"
+      )
+        return this.resolveSideEffectConsent(operation, input, existing)
     }
-    const authority = await repositories.connection.getConnectorReadAuthority(
-      this.db,
-      {
-        workspaceId: input.workspaceId,
-        executionId: input.executionId,
-        connectionId: input.connectionId,
-      }
-    )
-    if (!authority) throw new ConnectorGatewayError()
+    const authorizationKind = existing
+      ? existing.intent.connectionAccessGrantId
+        ? "github_app_installation"
+        : "delegated_user"
+      : (
+          await repositories.connection.getConnectorReadAuthority(this.db, {
+            workspaceId: input.workspaceId,
+            executionId: input.executionId,
+            connectionId: input.connectionId,
+          })
+        )?.connection.authorizationKind
+    if (!authorizationKind) throw new ConnectorGatewayError()
     const created = await repositories.actionIntent.createActionIntent(
       this.db,
       {
@@ -324,10 +331,7 @@ export class ConnectorGateway {
         connectionId: input.connectionId,
         connector: operation.provider,
         actionFamily: operation.actionFamily,
-        requiredScopes: requiredConnectionScopes(
-          operation,
-          authority.connection.authorizationKind
-        ),
+        requiredScopes: requiredConnectionScopes(operation, authorizationKind),
         operationId: operation.id,
         operationRevision: operation.revision,
         target: normalized.target,
