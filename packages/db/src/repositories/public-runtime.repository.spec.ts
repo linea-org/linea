@@ -1,15 +1,17 @@
+import { fixtureIssuer } from "./test-utils.js"
+import { getTestApplicationId } from "./test-utils.js"
 import { randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import {
-  applications,
-  applicationKeys,
+  environments,
+  environmentKeys,
   auditLogs,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   workflows,
 } from "../schema/index.js"
-import { putApplicationWorkflowBinding } from "./application-workflow-binding.repository.js"
+import { putEnvironmentWorkflowBinding } from "./environment-workflow-binding.repository.js"
 import { hashPublicRequest } from "./public-idempotency.repository.js"
 import {
   cancelPublicExecution,
@@ -30,9 +32,10 @@ import {
 
 async function createRuntimeFixture(tx: Transaction) {
   const { organization, workflow } = await createTestFixtures(tx)
-  const [application] = await tx
-    .insert(applications)
+  const [environment] = await tx
+    .insert(environments)
     .values({
+      applicationId: await getTestApplicationId(tx, organization.id),
       workspaceId: organization.id,
       environment: "production",
       displayName: "Customer portal",
@@ -44,15 +47,15 @@ async function createRuntimeFixture(tx: Transaction) {
       oidcJwksUrl: "https://identity.example.com/jwks.json",
     })
     .returning()
-  const [applicationKey] = await tx
-    .insert(applicationKeys)
+  const [environmentKey] = await tx
+    .insert(environmentKeys)
     .values({
       workspaceId: organization.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       name: "Runtime key",
       scopes: ["executions:cancel"],
       hashedKey: randomUUID(),
-      keyPrefix: "lin_app_test",
+      keyPrefix: "lin_env_test",
     })
     .returning()
   const contract = await createWorkflowContractRevision(
@@ -85,13 +88,14 @@ async function createRuntimeFixture(tx: Transaction) {
     workflowContractRevisionId: contract.revision.id,
   })
   await publishWorkflowVersion(tx, workflow.id, version.id)
-  await putApplicationWorkflowBinding(
+  await putEnvironmentWorkflowBinding(
     tx,
     organization.id,
-    application.id,
+    environment.id,
     workflow.id,
     {
       workflowContractRevisionId: contract.revision.id,
+      workflowVersionId: version.id,
       allowBackendStart: true,
       allowEndUserStart: true,
       enabled: true,
@@ -102,37 +106,37 @@ async function createRuntimeFixture(tx: Transaction) {
     .values([
       {
         workspaceId: organization.id,
-        issuer: application.oidcIssuer,
+        issuer: fixtureIssuer(environment),
         issuerSubject: "customer-1",
         status: "verified",
         verifiedAt: new Date(),
       },
       {
         workspaceId: organization.id,
-        issuer: application.oidcIssuer,
+        issuer: fixtureIssuer(environment),
         issuerSubject: "customer-2",
         status: "verified",
         verifiedAt: new Date(),
       },
     ])
     .returning()
-  await tx.insert(externalSubjectApplications).values([
+  await tx.insert(externalSubjectEnvironments).values([
     {
       workspaceId: organization.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       externalSubjectId: subject.id,
     },
     {
       workspaceId: organization.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       externalSubjectId: otherSubject.id,
     },
   ])
   return {
     workspaceId: organization.id,
     workflowId: workflow.id,
-    applicationId: application.id,
-    applicationKeyId: applicationKey.id,
+    environmentId: environment.id,
+    environmentKeyId: environmentKey.id,
     subjectId: subject.id,
     otherSubjectId: otherSubject.id,
     versionId: version.id,
@@ -163,14 +167,14 @@ describe("public runtime repository", () => {
         await getPublicConversation(
           tx,
           fixture.workspaceId,
-          fixture.applicationId,
+          fixture.environmentId,
           fixture.otherSubjectId,
           conversation.id
         )
       ).toBeUndefined()
       const message = await createPublicMessage(tx, {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         externalSubjectId: fixture.subjectId,
         conversationId: conversation.id,
         content: "hello",
@@ -183,7 +187,7 @@ describe("public runtime repository", () => {
       expect(message.outcome).toBe("created")
       const secondMessage = await createPublicMessage(tx, {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         externalSubjectId: fixture.subjectId,
         conversationId: conversation.id,
         content: "second",
@@ -195,7 +199,7 @@ describe("public runtime repository", () => {
       })
       const thirdMessage = await createPublicMessage(tx, {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         externalSubjectId: fixture.subjectId,
         conversationId: conversation.id,
         content: "third",
@@ -215,7 +219,7 @@ describe("public runtime repository", () => {
       const latestMessages = await listPublicMessages(
         tx,
         fixture.workspaceId,
-        fixture.applicationId,
+        fixture.environmentId,
         fixture.subjectId,
         conversation.id,
         2,
@@ -228,7 +232,7 @@ describe("public runtime repository", () => {
       const olderMessages = await listPublicMessages(
         tx,
         fixture.workspaceId,
-        fixture.applicationId,
+        fixture.environmentId,
         fixture.subjectId,
         conversation.id,
         2,
@@ -238,7 +242,7 @@ describe("public runtime repository", () => {
       const otherMessages = await listPublicMessages(
         tx,
         fixture.workspaceId,
-        fixture.applicationId,
+        fixture.environmentId,
         fixture.otherSubjectId,
         conversation.id,
         100,
@@ -247,7 +251,7 @@ describe("public runtime repository", () => {
       expect(otherMessages).toBeUndefined()
       const execution = await startPublicExecution(tx, {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         externalSubjectId: fixture.subjectId,
         workflowId: fixture.workflowId,
         conversationId: conversation.id,
@@ -267,14 +271,13 @@ describe("public runtime repository", () => {
       })
     })
   })
-
   it("returns the original Execution for an identical retry and rejects changed input", async () => {
     await withRollback(async (tx) => {
       const fixture = await createRuntimeFixture(tx)
-      const actor = { kind: "application_key" as const, id: randomUUID() }
+      const actor = { kind: "environment_key" as const, id: randomUUID() }
       const base = {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         externalSubjectId: fixture.subjectId,
         workflowId: fixture.workflowId,
         startKind: "backend" as const,
@@ -308,7 +311,6 @@ describe("public runtime repository", () => {
       expect(conflict).toEqual({ outcome: "idempotency_conflict" })
     })
   })
-
   it("rejects a Conversation owned by another subject when starting", async () => {
     await withRollback(async (tx) => {
       const fixture = await createRuntimeFixture(tx)
@@ -329,7 +331,7 @@ describe("public runtime repository", () => {
       const resultActorId = randomUUID()
       const result = await startPublicExecution(tx, {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         externalSubjectId: fixture.subjectId,
         workflowId: fixture.workflowId,
         conversationId: conversation.conversation.id,
@@ -344,7 +346,7 @@ describe("public runtime repository", () => {
       expect(result).toEqual({ outcome: "resource_not_found" })
       const repeated = await startPublicExecution(tx, {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         externalSubjectId: fixture.subjectId,
         workflowId: fixture.workflowId,
         conversationId: conversation.conversation.id,
@@ -359,14 +361,13 @@ describe("public runtime repository", () => {
       expect(repeated).toEqual({ outcome: "resource_not_found" })
     })
   })
-
   it("rejects Contract-invalid input consistently across retries", async () => {
     await withRollback(async (tx) => {
       const fixture = await createRuntimeFixture(tx)
       const actorId = randomUUID()
       const input: Parameters<typeof startPublicExecution>[1] = {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         externalSubjectId: fixture.subjectId,
         workflowId: fixture.workflowId,
         startKind: "end_user",
@@ -385,7 +386,6 @@ describe("public runtime repository", () => {
       })
     })
   })
-
   it("rejects an archived Workflow even when its binding remains enabled", async () => {
     await withRollback(async (tx) => {
       const fixture = await createRuntimeFixture(tx)
@@ -395,13 +395,13 @@ describe("public runtime repository", () => {
         .where(eq(workflows.id, fixture.workflowId))
       const result = await startPublicExecution(tx, {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         externalSubjectId: fixture.subjectId,
         workflowId: fixture.workflowId,
         startKind: "backend",
         triggerPayload: { prompt: "hello" },
         idempotency: {
-          actor: { kind: "application_key", id: randomUUID() },
+          actor: { kind: "environment_key", id: randomUUID() },
           key: "archived-workflow",
           requestHash: hashPublicRequest({ prompt: "hello" }),
         },
@@ -409,19 +409,18 @@ describe("public runtime repository", () => {
       expect(result).toEqual({ outcome: "workflow_start_not_allowed" })
     })
   })
-
-  it("cancels only nonterminal Executions in the key's Application", async () => {
+  it("cancels only nonterminal Executions in the key's Environment", async () => {
     await withRollback(async (tx) => {
       const fixture = await createRuntimeFixture(tx)
       const started = await startPublicExecution(tx, {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         externalSubjectId: fixture.subjectId,
         workflowId: fixture.workflowId,
         startKind: "backend",
         triggerPayload: { prompt: "hello" },
         idempotency: {
-          actor: { kind: "application_key", id: randomUUID() },
+          actor: { kind: "environment_key", id: randomUUID() },
           key: "cancel-me",
           requestHash: hashPublicRequest({ prompt: "hello" }),
         },
@@ -431,12 +430,12 @@ describe("public runtime repository", () => {
       const cancelled = await cancelPublicExecution(
         tx,
         fixture.workspaceId,
-        fixture.applicationId,
+        fixture.environmentId,
         started.execution.id,
         {
           actor: {
-            kind: "application_key",
-            id: fixture.applicationKeyId,
+            kind: "environment_key",
+            id: fixture.environmentKeyId,
           },
           key: "cancel-execution",
           requestHash: hashPublicRequest({
@@ -447,12 +446,12 @@ describe("public runtime repository", () => {
       const repeated = await cancelPublicExecution(
         tx,
         fixture.workspaceId,
-        fixture.applicationId,
+        fixture.environmentId,
         started.execution.id,
         {
           actor: {
-            kind: "application_key",
-            id: fixture.applicationKeyId,
+            kind: "environment_key",
+            id: fixture.environmentKeyId,
           },
           key: "cancel-execution",
           requestHash: hashPublicRequest({
@@ -466,7 +465,7 @@ describe("public runtime repository", () => {
         await getPublicExecution(
           tx,
           fixture.workspaceId,
-          fixture.applicationId,
+          fixture.environmentId,
           undefined,
           started.execution.id
         )
@@ -478,7 +477,7 @@ describe("public runtime repository", () => {
       expect(audits).toHaveLength(1)
       expect(audits[0]).toMatchObject({
         action: "execution.cancelled",
-        actorApplicationKeyId: fixture.applicationKeyId,
+        actorEnvironmentKeyId: fixture.environmentKeyId,
       })
     })
   })

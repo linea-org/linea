@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -18,9 +19,9 @@ describe("TranscriptFlaggersService.sweep", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Transcript Flaggers Test Workflow",
         slug: `transcript-flaggers-workflow-${suffix}`,
@@ -37,7 +38,6 @@ describe("TranscriptFlaggersService.sweep", () => {
         trigger: "manual",
         triggerPayload: {},
       })
-
       await db.insert(schema.executionSteps).values([
         {
           executionId: execution.id,
@@ -75,16 +75,13 @@ describe("TranscriptFlaggersService.sweep", () => {
           output: { text: "Here's the answer you asked for." },
         },
       ])
-
       const service = new TranscriptFlaggersService()
       await service.sweep()
-
       const allFlags = await db.select().from(schema.flags)
       const executionFlags = allFlags.filter(
         (f) => f.executionId === execution.id
       )
       const flagTypes = executionFlags.map((f) => f.flagType).sort()
-
       expect(flagTypes).toEqual(["refusal", "tool_error"])
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
@@ -92,7 +89,6 @@ describe("TranscriptFlaggersService.sweep", () => {
       ])
     }
   })
-
   it("persists one repeated_replay flag per original step, even as the replay count keeps growing", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -103,9 +99,9 @@ describe("TranscriptFlaggersService.sweep", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Transcript Flaggers Escalation Test Workflow",
         slug: `transcript-flaggers-escalation-workflow-${suffix}`,
@@ -137,7 +133,6 @@ describe("TranscriptFlaggersService.sweep", () => {
           output: { text: "hello" },
         })
         .returning()
-
       async function insertReplay() {
         await db.insert(schema.executionSteps).values({
           executionId: execution.id,
@@ -153,25 +148,20 @@ describe("TranscriptFlaggersService.sweep", () => {
           replayedFromStepId: original.id,
         })
       }
-
       const service = new TranscriptFlaggersService()
-
       // First sweep: 3 replays, crosses the threshold.
       await insertReplay()
       await insertReplay()
       await insertReplay()
       await service.sweep()
-
       // Second sweep: the count has grown — must not create a second flag for the same step.
       await insertReplay()
       await service.sweep()
-
       const allFlags = await db.select().from(schema.flags)
       const repeatedReplayFlags = allFlags.filter(
         (f) =>
           f.executionId === execution.id && f.flagType === "repeated_replay"
       )
-
       expect(repeatedReplayFlags).toHaveLength(1)
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [

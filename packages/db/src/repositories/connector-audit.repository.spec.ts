@@ -1,14 +1,16 @@
+import { configureTestEnvironment } from "./test-utils.js"
+import { createApplication } from "./application.repository.js"
+import { fixtureIssuer } from "./test-utils.js"
 import { randomUUID } from "node:crypto"
 import { and, eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import {
   actionIntents,
-  applications,
   approvalRequests,
   connectionRevocationDeliveries,
   connections,
   connectorAuditFacts,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   executions,
   outboxMessages,
@@ -33,41 +35,47 @@ async function createAuditFixture(
   tx: DbClient,
   input: { workspaceId: string; suffix: string; contentRetentionDays?: number }
 ) {
-  const [application] = await tx
-    .insert(applications)
-    .values({
-      workspaceId: input.workspaceId,
-      environment: "production",
-      displayName: `Audit ${input.suffix}`,
-      allowedBrowserOrigins: ["https://app.example.com"],
-      allowedRedirectOrigins: ["https://app.example.com"],
-      contentRetentionDays: input.contentRetentionDays ?? 30,
-      oidcIssuer: `https://identity-${input.suffix}.example.com`,
-      oidcClientId: `audit-${input.suffix}`,
-      oidcAudience: "linea",
-      oidcJwksUrl: `https://identity-${input.suffix}.example.com/jwks.json`,
-    })
-    .returning()
+  const environment = await configureTestEnvironment(tx, {
+    applicationId: (
+      await createApplication(tx, {
+        workspaceId: input.workspaceId,
+        name: "Other",
+        slug: crypto.randomUUID(),
+      })
+    ).id,
+    workspaceId: input.workspaceId,
+    environment: "production",
+    displayName: `Audit ${input.suffix}`,
+    allowedBrowserOrigins: ["https://app.example.com"],
+    allowedRedirectOrigins: ["https://app.example.com"],
+    contentRetentionDays: input.contentRetentionDays ?? 30,
+    oidcIssuer: `https://identity-${input.suffix}.example.com`,
+    oidcClientId: `audit-${input.suffix}`,
+    oidcAudience: "linea",
+    oidcJwksUrl: `https://identity-${input.suffix}.example.com/jwks.json`,
+  })
+  if (!fixtureIssuer(environment))
+    throw new Error("Fixture identity trust missing")
   const [subject] = await tx
     .insert(externalSubjects)
     .values({
       workspaceId: input.workspaceId,
-      issuer: application.oidcIssuer,
+      issuer: fixtureIssuer(environment),
       issuerSubject: `subject-${input.suffix}`,
       status: "verified",
       verifiedAt: new Date(),
     })
     .returning()
-  await tx.insert(externalSubjectApplications).values({
+  await tx.insert(externalSubjectEnvironments).values({
     workspaceId: input.workspaceId,
-    applicationId: application.id,
+    environmentId: environment.id,
     externalSubjectId: subject.id,
   })
   const [connection] = await tx
     .insert(connections)
     .values({
       workspaceId: input.workspaceId,
-      applicationId: application.id,
+      environmentId: environment.id,
       externalSubjectId: subject.id,
       provider: "github",
       providerAccountId: `account-${input.suffix}`,
@@ -77,11 +85,11 @@ async function createAuditFixture(
       credentialEncrypted: secretMarker,
     })
     .returning()
-  return { application, subject, connection }
+  return { environment, subject, connection }
 }
 
 describe("connector audit repository", () => {
-  it("isolates workspace, Application, and End-User audiences", async () => {
+  it("isolates workspace, Environment, and End-User audiences", async () => {
     await withRollback(async (tx) => {
       const { organization } = await createTestFixtures(tx)
       const first = await createAuditFixture(tx, {
@@ -107,29 +115,28 @@ describe("connector audit repository", () => {
         limit: 10,
         now,
       })
-      const applicationFacts = await listOperatorFacts(tx, {
+      const environmentFacts = await listOperatorFacts(tx, {
         workspaceId: organization.id,
-        applicationId: first.application.id,
+        environmentId: first.environment.id,
         limit: 10,
         now,
       })
       const endUserFacts = await listEndUserFacts(tx, {
         workspaceId: organization.id,
-        applicationId: first.application.id,
+        environmentId: first.environment.id,
         externalSubjectId: first.subject.id,
         limit: 10,
         now,
       })
       expect(workspaceFacts).toHaveLength(2)
       expect(
-        applicationFacts.map(({ applicationId }) => applicationId)
-      ).toEqual([first.application.id])
+        environmentFacts.map(({ environmentId }) => environmentId)
+      ).toEqual([first.environment.id])
       expect(
         endUserFacts.map(({ externalSubjectId }) => externalSubjectId)
       ).toEqual([first.subject.id])
     })
   })
-
   it("redacts expired content at read time before retention cleanup", async () => {
     await withRollback(async (tx) => {
       const { organization } = await createTestFixtures(tx)
@@ -149,19 +156,19 @@ describe("connector audit repository", () => {
       const [stored] = await tx
         .select()
         .from(connectorAuditFacts)
-        .where(eq(connectorAuditFacts.applicationId, fixture.application.id))
+        .where(eq(connectorAuditFacts.environmentId, fixture.environment.id))
       expect(stored?.content).toEqual({
         accountLabel: "Expired identifying label",
       })
       const [operatorFact] = await listOperatorFacts(tx, {
         workspaceId: organization.id,
-        applicationId: fixture.application.id,
+        environmentId: fixture.environment.id,
         limit: 10,
         now,
       })
       const [endUserFact] = await listEndUserFacts(tx, {
         workspaceId: organization.id,
-        applicationId: fixture.application.id,
+        environmentId: fixture.environment.id,
         externalSubjectId: fixture.subject.id,
         limit: 10,
         now,
@@ -170,7 +177,6 @@ describe("connector audit repository", () => {
       expect(endUserFact?.content).toBeNull()
     })
   })
-
   it("erases retained content before deleting one-year evidence", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -193,7 +199,7 @@ describe("connector audit repository", () => {
           workspaceId: organization.id,
           workflowId: workflow.id,
           workflowVersionId: version.id,
-          applicationId: fixture.application.id,
+          environmentId: fixture.environment.id,
           externalSubjectRecordId: fixture.subject.id,
           trigger: "api",
           environment: "production",
@@ -205,7 +211,7 @@ describe("connector audit repository", () => {
         .insert(approvalRequests)
         .values({
           workspaceId: organization.id,
-          applicationId: fixture.application.id,
+          environmentId: fixture.environment.id,
           workflowId: workflow.id,
           executionId: execution.id,
           nodeId: "audit-retention",
@@ -232,7 +238,7 @@ describe("connector audit repository", () => {
         .insert(actionIntents)
         .values({
           workspaceId: organization.id,
-          applicationId: fixture.application.id,
+          environmentId: fixture.environment.id,
           externalSubjectId: fixture.subject.id,
           connectionId: fixture.connection.id,
           workflowId: workflow.id,
@@ -274,7 +280,7 @@ describe("connector audit repository", () => {
         .from(connectorAuditFacts)
         .where(
           and(
-            eq(connectorAuditFacts.applicationId, fixture.application.id),
+            eq(connectorAuditFacts.environmentId, fixture.environment.id),
             eq(connectorAuditFacts.factType, "connection.created")
           )
         )
@@ -314,11 +320,10 @@ describe("connector audit repository", () => {
         await tx
           .select()
           .from(connectorAuditFacts)
-          .where(eq(connectorAuditFacts.applicationId, fixture.application.id))
+          .where(eq(connectorAuditFacts.environmentId, fixture.environment.id))
       ).toEqual([])
     })
   })
-
   it("rotates to a new pseudonym and removes identifying subject content", async () => {
     await withRollback(async (tx) => {
       const { organization } = await createTestFixtures(tx)
@@ -342,7 +347,7 @@ describe("connector audit repository", () => {
         {
           id: payloadId,
           workspaceId: organization.id,
-          applicationId: fixture.application.id,
+          environmentId: fixture.environment.id,
           externalSubjectId: fixture.subject.id,
           connectionId: fixture.connection.id,
           provider: fixture.connection.provider,
@@ -351,7 +356,7 @@ describe("connector audit repository", () => {
         },
         {
           workspaceId: organization.id,
-          applicationId: fixture.application.id,
+          environmentId: fixture.environment.id,
           externalSubjectId: fixture.subject.id,
           connectionId: null,
           provider: fixture.connection.provider,
@@ -369,7 +374,7 @@ describe("connector audit repository", () => {
       const facts = await tx
         .select()
         .from(connectorAuditFacts)
-        .where(eq(connectorAuditFacts.applicationId, fixture.application.id))
+        .where(eq(connectorAuditFacts.environmentId, fixture.environment.id))
       expect(facts.length).toBeGreaterThan(0)
       expect(
         facts.every(({ externalSubjectId }) => externalSubjectId === null)
@@ -415,7 +420,7 @@ describe("connector audit repository", () => {
         .from(outboxMessages)
         .where(
           and(
-            eq(outboxMessages.applicationId, fixture.application.id),
+            eq(outboxMessages.environmentId, fixture.environment.id),
             eq(outboxMessages.eventType, "connection.revoked")
           )
         )
@@ -427,7 +432,6 @@ describe("connector audit repository", () => {
       expect(JSON.stringify(facts)).not.toContain(secretMarker)
     })
   })
-
   it("audits revocation payload destruction without retaining its secret", async () => {
     await withRollback(async (tx) => {
       const { organization } = await createTestFixtures(tx)
@@ -439,7 +443,7 @@ describe("connector audit repository", () => {
       await tx.insert(connectionRevocationDeliveries).values({
         id: deliveryId,
         workspaceId: organization.id,
-        applicationId: fixture.application.id,
+        environmentId: fixture.environment.id,
         externalSubjectId: fixture.subject.id,
         connectionId: fixture.connection.id,
         provider: fixture.connection.provider,

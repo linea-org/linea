@@ -7,8 +7,10 @@ icon: Network
 ## Identity model
 
 An **Operator** is the workspace customer that builds and operates workflows.
-An **Application** is one deployed product boundary through which those
-workflows reach End Users. Staging and production are separate Applications.
+An **Application** is the customer product that owns Workflow definitions. Each
+Application has fixed Development and Production **Environments**. Deployments,
+keys, identity trust, Connections, secrets, and runtime resources belong to an
+Environment.
 
 An **External Subject** is Linea&apos;s canonical representation of an End User
 within a workspace and identity issuer. It is not a Linea account or workspace
@@ -17,7 +19,7 @@ member.
 ```mermaid
 flowchart LR
   Member[Workspace member] -->|member session| Control[Control plane]
-  Backend[Operator backend] -->|Application Key| App[Application boundary]
+  Backend[Operator backend] -->|Environment Key| App[Environment boundary]
   App -->|trusted issuer| Subject[External Subject]
   Browser[End-user client] -->|End-User Session and DPoP| UserAPI[End-user API]
   Subject --> Browser
@@ -31,18 +33,18 @@ flowchart LR
 | Credential       | Can                                                         | Cannot                                                    |
 | ---------------- | ----------------------------------------------------------- | --------------------------------------------------------- |
 | Member session   | Perform actions allowed by the workspace role               | Act as an external End User                               |
-| Workspace Key    | Use explicitly granted workspace operations                 | Substitute for an Application Key or End-User Session     |
-| Application Key  | Access one Application&apos;s server-side runtime resources | Cross Applications or change identity trust configuration |
-| End-User Session | Act within its subject, Application, audience, and scopes   | Administer the workspace or act for another subject       |
+| Workspace Key    | Use explicitly granted workspace operations                 | Substitute for an Environment Key or End-User Session     |
+| Environment Key  | Access one Environment&apos;s server-side runtime resources | Cross Environments or change identity trust configuration |
+| End-User Session | Act within its subject, Environment, audience, and scopes   | Administer the workspace or act for another subject       |
 
 ## Data boundary
 
 Repositories accept workspace identity as part of their query contract. Where a
 child identifier could be guessed or replayed, composite ownership constraints
-prevent it from escaping the parent workspace or Application.
+prevent it from escaping the parent workspace, Application, or Environment.
 
 <Callout type="warn" title="Never move secrets into the client">
-  Application Keys, Workspace Keys, provider credentials, and connector refresh
+  Environment Keys, Workspace Keys, provider credentials, and connector refresh
   tokens remain server-side. A browser receives only the narrow End-User Session
   capability intended for that boundary.
 </Callout>

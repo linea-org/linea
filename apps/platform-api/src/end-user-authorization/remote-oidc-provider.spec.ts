@@ -10,7 +10,7 @@ import {
 import {
   OidcIdentityVerificationError,
   OidcProviderUnavailableError,
-  type OidcApplicationConfiguration,
+  type OidcEnvironmentConfiguration,
 } from './oidc-provider'
 import { RemoteOidcProvider } from './remote-oidc-provider'
 
@@ -49,10 +49,9 @@ async function identityToken(
 describe('RemoteOidcProvider', () => {
   let server: Server
   let issuer: string
-  let configuration: OidcApplicationConfiguration
+  let configuration: OidcEnvironmentConfiguration
   let token = ''
   let keys: JWK[] = []
-
   beforeEach(async () => {
     server = createServer((request, response) => {
       response.setHeader('content-type', 'application/json')
@@ -98,14 +97,12 @@ describe('RemoteOidcProvider', () => {
     token = ''
     keys = []
   })
-
   afterEach(
     () =>
       new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()))
       }),
   )
-
   it('builds a client-direct Authorization Code with S256 PKCE request', async () => {
     const url = new URL(
       await new RemoteOidcProvider().createAuthorizationUrl(configuration, {
@@ -126,7 +123,6 @@ describe('RemoteOidcProvider', () => {
       code_challenge_method: 'S256',
     })
   })
-
   it('rejects cleartext non-loopback providers in development', async () => {
     await expect(
       new RemoteOidcProvider().createAuthorizationUrl(
@@ -144,7 +140,6 @@ describe('RemoteOidcProvider', () => {
       ),
     ).rejects.toBeInstanceOf(OidcProviderUnavailableError)
   })
-
   it('validates claims and refreshes configured JWKS after rotation', async () => {
     const firstKey = await signingKey('first')
     const secondKey = await signingKey('second')
@@ -174,7 +169,6 @@ describe('RemoteOidcProvider', () => {
       provider.exchangeAuthorizationCode(configuration, input),
     ).resolves.toEqual({ issuerSubject: 'customer-123' })
   })
-
   it.each([
     [
       'issuer',

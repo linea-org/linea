@@ -1,3 +1,6 @@
+import { fixtureIssuer } from '@linea/db/testing'
+import { configureTestEnvironment } from '@linea/db/testing'
+import { getTestApplicationId } from '@linea/db/testing'
 import '@linea/config/env'
 import { createHash, randomUUID } from 'node:crypto'
 import { Logger, type INestApplication } from '@nestjs/common'
@@ -101,7 +104,7 @@ describe('OAuth Connections', () => {
   let app: INestApplication<App>
   let baseUrl: string
   let workspaceId: string
-  let applicationId: string
+  let environmentId: string
   let accessToken: string
   let nonce: string
   let key: ProofKey
@@ -111,7 +114,6 @@ describe('OAuth Connections', () => {
   let provider: Awaited<ReturnType<typeof startTestOAuthProvider>>
   let google: Awaited<ReturnType<typeof startTestGoogleProvider>>
   let githubProvider: Awaited<ReturnType<typeof startTestGithubOAuthProvider>>
-
   beforeAll(async () => {
     provider = await startTestOAuthProvider()
     google = await startTestGoogleProvider()
@@ -130,36 +132,34 @@ describe('OAuth Connections', () => {
       })
       .returning()
     workspaceId = workspace.id
-    const [application] = await db
-      .insert(schema.applications)
-      .values({
-        workspaceId,
-        environment: 'dev',
-        displayName: 'Connections application',
-        allowedBrowserOrigins: ['http://127.0.0.1:4173'],
-        allowedRedirectOrigins: ['http://127.0.0.1:4173'],
-        oidcIssuer: 'https://identity.example.com',
-        oidcClientId: 'connections-client',
-        oidcAudience: 'connections-client',
-        oidcJwksUrl: 'https://identity.example.com/jwks',
-        connectorAccessPolicy: connectorPolicy(),
-      })
-      .returning()
-    applicationId = application.id
+    const environment = await configureTestEnvironment(db, {
+      applicationId: await getTestApplicationId(db, workspaceId),
+      workspaceId,
+      environment: 'dev',
+      displayName: 'Connections environment',
+      allowedBrowserOrigins: ['http://127.0.0.1:4173'],
+      allowedRedirectOrigins: ['http://127.0.0.1:4173'],
+      oidcIssuer: 'https://identity.example.com',
+      oidcClientId: 'connections-client',
+      oidcAudience: 'connections-client',
+      oidcJwksUrl: 'https://identity.example.com/jwks',
+      connectorAccessPolicy: connectorPolicy(),
+    })
+    environmentId = environment.id
     const [subject] = await db
       .insert(schema.externalSubjects)
       .values({
         workspaceId,
-        issuer: application.oidcIssuer,
+        issuer: fixtureIssuer(environment),
         issuerSubject: 'connections-subject',
         status: 'verified',
         verifiedAt: new Date(),
       })
       .returning()
     externalSubjectId = subject.id
-    await db.insert(schema.externalSubjectApplications).values({
+    await db.insert(schema.externalSubjectEnvironments).values({
       workspaceId,
-      applicationId,
+      environmentId,
       externalSubjectId: subject.id,
     })
     accessToken = `lnu_${randomUUID().replaceAll('-', '')}`
@@ -169,7 +169,7 @@ describe('OAuth Connections', () => {
       .insert(schema.endUserSessions)
       .values({
         workspaceId,
-        applicationId,
+        environmentId,
         externalSubjectId: subject.id,
         tokenHash: hexHash(accessToken),
         proofJkt: await calculateJwkThumbprint(key.publicJwk, 'sha256'),
@@ -190,13 +190,16 @@ describe('OAuth Connections', () => {
     baseUrl = await app.getUrl()
     process.env.CONNECTION_OAUTH_CALLBACK_BASE_URL = baseUrl
   })
-
   afterAll(async () => {
     if (app) await app.close()
     if (provider) await provider.close()
     if (google) await google.close()
     if (githubProvider) await githubProvider.close()
     if (workspaceId) {
+      await pool.query(
+        'DELETE FROM connector_audit_facts WHERE workspace_id = $1',
+        [workspaceId],
+      )
       await pool.query('DELETE FROM organizations WHERE id = $1', [workspaceId])
     }
     if (crossWorkspaceId) {
@@ -209,7 +212,6 @@ describe('OAuth Connections', () => {
     delete process.env.CONNECTION_CREDENTIAL_KEYS
     delete process.env.CONNECTION_OAUTH_CALLBACK_BASE_URL
   })
-
   it('starts provider authorization for the authenticated End User', async () => {
     const path = '/v1/user/connections/authorizations'
     const response = await request(baseUrl)
@@ -225,7 +227,6 @@ describe('OAuth Connections', () => {
     expect(typeof body.authorizationId).toBe('string')
     expect(body.authorizationUrl).toContain('/authorize')
   })
-
   it('expands GitHub scopes through a new ceremony without changing Connection identity', async () => {
     const startAuthorization = async (scopes: string[]) => {
       const path = '/v1/user/connections/authorizations'
@@ -256,11 +257,11 @@ describe('OAuth Connections', () => {
       const completed = await fetch(callback, { redirect: 'manual' })
       expect(completed.status).toBe(302)
       const returned = completed.headers.get('location')
-      if (!returned) throw new Error('Application return location is missing')
+      if (!returned) throw new Error('Environment return location is missing')
       expect(new URL(returned).searchParams.get('status')).toBe('connected')
       return repositories.connection.listConnections(db, {
         workspaceId,
-        applicationId,
+        environmentId,
         externalSubjectId,
       })
     }
@@ -287,7 +288,7 @@ describe('OAuth Connections', () => {
       scopes: ['read:user'],
     })
     await pool.query(
-      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
       [
         JSON.stringify({
           providers: [
@@ -303,7 +304,7 @@ describe('OAuth Connections', () => {
             },
           ],
         }),
-        applicationId,
+        environmentId,
       ],
     )
     const invalidUpgradePath = `/v1/user/connections/${initial.id}/authorizations`
@@ -322,7 +323,7 @@ describe('OAuth Connections', () => {
       }),
     ).toBeUndefined()
     await pool.query(
-      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
       [
         JSON.stringify({
           providers: [
@@ -338,12 +339,12 @@ describe('OAuth Connections', () => {
             },
           ],
         }),
-        applicationId,
+        environmentId,
       ],
     )
     const staleExpansion = await startAuthorization(['read:user', 'repo'])
     await pool.query(
-      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
       [
         JSON.stringify({
           providers: [
@@ -359,7 +360,7 @@ describe('OAuth Connections', () => {
             },
           ],
         }),
-        applicationId,
+        environmentId,
       ],
     )
     const staleProviderResponse = await fetch(staleExpansion, {
@@ -370,12 +371,12 @@ describe('OAuth Connections', () => {
     const staleCompleted = await fetch(staleCallback, { redirect: 'manual' })
     const staleReturned = staleCompleted.headers.get('location')
     if (!staleReturned)
-      throw new Error('Application return location is missing')
+      throw new Error('Environment return location is missing')
     expect(new URL(staleReturned).searchParams.get('status')).toBe('failed')
     const unchanged = (
       await repositories.connection.listConnections(db, {
         workspaceId,
-        applicationId,
+        environmentId,
         externalSubjectId,
       })
     ).find((connection) => connection.provider === 'github')
@@ -386,7 +387,7 @@ describe('OAuth Connections', () => {
     })
     const unsupportedPolicy = await startAuthorization(['read:user'])
     await pool.query(
-      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
       [
         JSON.stringify({
           providers: [
@@ -402,7 +403,7 @@ describe('OAuth Connections', () => {
             },
           ],
         }),
-        applicationId,
+        environmentId,
       ],
     )
     const unsupportedProviderResponse = await fetch(unsupportedPolicy, {
@@ -418,12 +419,12 @@ describe('OAuth Connections', () => {
     expect(unsupportedCompleted.status).toBe(302)
     const unsupportedReturned = unsupportedCompleted.headers.get('location')
     if (!unsupportedReturned)
-      throw new Error('Application return location is missing')
+      throw new Error('Environment return location is missing')
     expect(new URL(unsupportedReturned).searchParams.get('status')).toBe(
       'failed',
     )
     await pool.query(
-      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
       [
         JSON.stringify({
           providers: [
@@ -439,7 +440,7 @@ describe('OAuth Connections', () => {
             },
           ],
         }),
-        applicationId,
+        environmentId,
       ],
     )
     const expanded = (await authorize(['read:user', 'repo'])).find(
@@ -453,13 +454,12 @@ describe('OAuth Connections', () => {
     })
     await pool.query('DELETE FROM connections WHERE id = $1', [initial.id])
   })
-
   it('connects Google by stable identity and expands scopes only through a new ceremony', async () => {
     const path = '/v1/user/connections/authorizations'
     const replaceGoogleFamilies = async (families: readonly string[]) => {
       await pool.query(
-        'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
-        [JSON.stringify(connectorPolicy(families)), applicationId],
+        'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
+        [JSON.stringify(connectorPolicy(families)), environmentId],
       )
     }
     const authorize = async () => {
@@ -482,7 +482,7 @@ describe('OAuth Connections', () => {
       if (!callback) throw new Error('Google callback location is missing')
       const completed = await fetch(callback, { redirect: 'manual' })
       const location = completed.headers.get('location')
-      if (!location) throw new Error('Application return location is missing')
+      if (!location) throw new Error('Environment return location is missing')
       return new URL(location).searchParams.get('status')
     }
     google.selectAccount('stable-google-subject', 'stable@example.com')
@@ -498,7 +498,7 @@ describe('OAuth Connections', () => {
     const initial = (
       await repositories.connection.listConnections(db, {
         workspaceId,
-        applicationId,
+        environmentId,
         externalSubjectId,
       })
     ).find(({ provider }) => provider === 'google')
@@ -507,7 +507,7 @@ describe('OAuth Connections', () => {
     await expect(authorize()).resolves.toBe('connected')
     const expanded = await repositories.connection.getConnection(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       initial.id,
     )
     expect(expanded).toEqual(
@@ -529,7 +529,7 @@ describe('OAuth Connections', () => {
     }
     const encryptionContext = {
       workspaceId,
-      applicationId,
+      environmentId,
       externalSubjectId,
       recordId: expanded.id,
       provider: 'google',
@@ -540,7 +540,7 @@ describe('OAuth Connections', () => {
     )
     await repositories.connection.rotateConnectionCredential(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       expanded.id,
       expanded.credentialVersion,
       encryptCredential(
@@ -555,7 +555,7 @@ describe('OAuth Connections', () => {
     const refreshed = await app
       .get(ConnectionCredentialsService)
       .resolve(
-        { sessionId, workspaceId, applicationId, externalSubjectId },
+        { sessionId, workspaceId, environmentId, externalSubjectId },
         expanded.id,
       )
     expect(refreshed.accessToken).not.toBe(beforeRefresh.accessToken)
@@ -566,7 +566,7 @@ describe('OAuth Connections', () => {
     await expect(authorize()).resolves.toBe('failed')
     const denied = await repositories.connection.getConnection(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       initial.id,
     )
     expect(denied?.credentialVersion).toBe(expanded.credentialVersion + 2)
@@ -591,7 +591,7 @@ describe('OAuth Connections', () => {
       throw new Error('Expected Google credential')
     await repositories.connection.rotateConnectionCredential(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       denied.id,
       denied.credentialVersion,
       encryptCredential(
@@ -607,21 +607,21 @@ describe('OAuth Connections', () => {
       app
         .get(ConnectionCredentialsService)
         .resolve(
-          { sessionId, workspaceId, applicationId, externalSubjectId },
+          { sessionId, workspaceId, environmentId, externalSubjectId },
           denied.id,
         ),
     ).rejects.toBeInstanceOf(ConnectionProviderInvalidGrantError)
     expect(google.refreshCount()).toBe(1)
     const invalidated = await repositories.connection.getConnection(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       denied.id,
     )
     expect(invalidated?.status).toBe('reauthorization_required')
     await expect(authorize()).resolves.toBe('connected')
     const reauthorized = await repositories.connection.getConnection(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       denied.id,
     )
     expect(reauthorized?.status).toBe('active')
@@ -650,15 +650,14 @@ describe('OAuth Connections', () => {
       }),
     )
   }, 15_000)
-
   it('keeps a new Google authorization safe from an older pending revocation', async () => {
     google.selectAccount(
       'reconnected-google-subject',
       'reconnected@example.com',
     )
     await pool.query(
-      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
-      [JSON.stringify(connectorPolicy(['gmail_read'])), applicationId],
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
+      [JSON.stringify(connectorPolicy(['gmail_read'])), environmentId],
     )
     const path = '/v1/user/connections/authorizations'
     const authorize = async () => {
@@ -688,7 +687,7 @@ describe('OAuth Connections', () => {
     const initial = (
       await repositories.connection.listConnections(db, {
         workspaceId,
-        applicationId,
+        environmentId,
         externalSubjectId,
       })
     ).find(
@@ -717,7 +716,7 @@ describe('OAuth Connections', () => {
     const active = (
       await repositories.connection.listConnections(db, {
         workspaceId,
-        applicationId,
+        environmentId,
         externalSubjectId,
       })
     ).find(
@@ -729,7 +728,7 @@ describe('OAuth Connections', () => {
     const resolved = await app
       .get(ConnectionCredentialsService)
       .resolve(
-        { sessionId, workspaceId, applicationId, externalSubjectId },
+        { sessionId, workspaceId, environmentId, externalSubjectId },
         active.id,
       )
     expect(resolved.accountId).toBe('reconnected-google-subject')
@@ -747,7 +746,7 @@ describe('OAuth Connections', () => {
     const refused = (
       await repositories.connection.listConnections(db, {
         workspaceId,
-        applicationId,
+        environmentId,
         externalSubjectId,
       })
     ).find(
@@ -757,7 +756,6 @@ describe('OAuth Connections', () => {
     )
     expect(refused).toBeUndefined()
   }, 15_000)
-
   it('rejects configured Google OAuth endpoints without HTTPS', () => {
     const endpointNames = [
       'GOOGLE_CONNECTOR_AUTHORIZATION_URL',
@@ -792,11 +790,10 @@ describe('OAuth Connections', () => {
       else process.env.GOOGLE_CONNECTOR_CLIENT_SECRET = priorClientSecret
     }
   })
-
-  it('enforces the Application scope and return-origin caps', async () => {
+  it('enforces the Environment scope and return-origin caps', async () => {
     const path = '/v1/user/connections/authorizations'
     await pool.query(
-      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
       [
         JSON.stringify({
           providers: [
@@ -807,7 +804,7 @@ describe('OAuth Connections', () => {
             },
           ],
         }),
-        applicationId,
+        environmentId,
       ],
     )
     const scopeDenied = await request(baseUrl)
@@ -820,8 +817,8 @@ describe('OAuth Connections', () => {
       })
     expect(scopeDenied.status).toBe(403)
     await pool.query(
-      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
-      [JSON.stringify(connectorPolicy()), applicationId],
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
+      [JSON.stringify(connectorPolicy()), environmentId],
     )
     const returnUriDenied = await request(baseUrl)
       .post(path)
@@ -833,7 +830,6 @@ describe('OAuth Connections', () => {
       })
     expect(returnUriDenied.status).toBe(403)
   })
-
   it('returns only a bounded failure result after a claimed callback fails', async () => {
     const path = '/v1/user/connections/authorizations'
     const started = await request(baseUrl)
@@ -861,7 +857,7 @@ describe('OAuth Connections', () => {
     const failed = await fetch(callback, { redirect: 'manual' })
     expect(failed.status).toBe(302)
     const location = failed.headers.get('location')
-    if (!location) throw new Error('Application return location is missing')
+    if (!location) throw new Error('Environment return location is missing')
     const returned = new URL(location)
     expect(`${returned.origin}${returned.pathname}`).toBe(
       'http://127.0.0.1:4173/connections/callback',
@@ -887,7 +883,6 @@ describe('OAuth Connections', () => {
       connectionId: null,
     })
   })
-
   it('completes an OAuth denial with a bounded failure redirect', async () => {
     const path = '/v1/user/connections/authorizations'
     const started = await request(baseUrl)
@@ -916,7 +911,7 @@ describe('OAuth Connections', () => {
     const denied = await fetch(callback, { redirect: 'manual' })
     expect(denied.status).toBe(302)
     const location = denied.headers.get('location')
-    if (!location) throw new Error('Application return location is missing')
+    if (!location) throw new Error('Environment return location is missing')
     const returned = new URL(location)
     expect(returned.searchParams.get('authorizationId')).toBe(
       startedBody.authorizationId,
@@ -928,8 +923,7 @@ describe('OAuth Connections', () => {
       ),
     ).toEqual(['authorizationId', 'status'])
   })
-
-  it('rechecks current Application policy before storing a credential', async () => {
+  it('rechecks current Environment policy before storing a credential', async () => {
     const path = '/v1/user/connections/authorizations'
     const started = await request(baseUrl)
       .post(path)
@@ -949,37 +943,36 @@ describe('OAuth Connections', () => {
     const callback = providerResponse.headers.get('location')
     if (!callback) throw new Error('Provider callback location is missing')
     await pool.query(
-      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
-      [JSON.stringify({ providers: [] }), applicationId],
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
+      [JSON.stringify({ providers: [] }), environmentId],
     )
     try {
       const completed = await fetch(callback, { redirect: 'manual' })
       expect(completed.status).toBe(302)
       const location = completed.headers.get('location')
-      if (!location) throw new Error('Application return location is missing')
+      if (!location) throw new Error('Environment return location is missing')
       expect(new URL(location).searchParams.get('status')).toBe('failed')
     } finally {
       await pool.query(
-        'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
-        [JSON.stringify(connectorPolicy()), applicationId],
+        'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
+        [JSON.stringify(connectorPolicy()), environmentId],
       )
     }
     const stored = await db.query.connections.findFirst({
       where: {
-        applicationId,
+        environmentId,
         externalSubjectId,
         providerAccountId: 'account-one',
       },
     })
     expect(stored).toBeUndefined()
   })
-
   it('deletes expired authorization metadata during the recovery sweep', async () => {
     const authorizationId = randomUUID()
     await db.insert(schema.connectionAuthorizationRequests).values({
       id: authorizationId,
       workspaceId,
-      applicationId,
+      environmentId,
       externalSubjectId,
       endUserSessionId: sessionId,
       provider: 'test',
@@ -995,7 +988,6 @@ describe('OAuth Connections', () => {
     })
     expect(expired).toBeUndefined()
   })
-
   it('terminates the provider callback at Linea and returns a bounded result', async () => {
     const path = '/v1/user/connections/authorizations'
     const started = await request(baseUrl)
@@ -1023,7 +1015,7 @@ describe('OAuth Connections', () => {
     expect(callbackResponse.status).toBe(302)
     const returnLocation = callbackResponse.headers.get('location')
     if (!returnLocation)
-      throw new Error('Application return location is missing')
+      throw new Error('Environment return location is missing')
     const returned = new URL(returnLocation)
     expect(`${returned.origin}${returned.pathname}`).toBe(
       'http://127.0.0.1:4173/connections/callback',
@@ -1092,7 +1084,7 @@ describe('OAuth Connections', () => {
     const secondKey = await proofKey()
     await db.insert(schema.endUserSessions).values({
       workspaceId,
-      applicationId,
+      environmentId,
       externalSubjectId,
       tokenHash: hexHash(secondToken),
       proofJkt: await calculateJwkThumbprint(secondKey.publicJwk, 'sha256'),
@@ -1119,7 +1111,7 @@ describe('OAuth Connections', () => {
     ).toBe(connectionId)
     const beforeRefresh = await repositories.connection.getConnection(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       connectionId,
     )
     if (!beforeRefresh?.credentialEncrypted) {
@@ -1127,7 +1119,7 @@ describe('OAuth Connections', () => {
     }
     const context = {
       workspaceId,
-      applicationId,
+      environmentId,
       externalSubjectId,
       recordId: connectionId,
       provider: 'test',
@@ -1141,7 +1133,7 @@ describe('OAuth Connections', () => {
     }
     await repositories.connection.rotateConnectionCredential(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       connectionId,
       beforeRefresh.credentialVersion,
       encryptCredential(JSON.stringify(expired), context),
@@ -1150,13 +1142,13 @@ describe('OAuth Connections', () => {
     const refreshed = await app
       .get(ConnectionCredentialsService)
       .resolve(
-        { sessionId, workspaceId, applicationId, externalSubjectId },
+        { sessionId, workspaceId, environmentId, externalSubjectId },
         connectionId,
       )
     expect(refreshed.accessToken).not.toBe(expired.accessToken)
     const afterRefresh = await repositories.connection.getConnection(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       connectionId,
     )
     expect(afterRefresh?.credentialVersion).toBe(
@@ -1197,7 +1189,7 @@ describe('OAuth Connections', () => {
     expect(() =>
       decryptCredential(revocationEncrypted, {
         workspaceId,
-        applicationId,
+        environmentId,
         externalSubjectId,
         recordId: connectionId,
         provider: 'test',
@@ -1234,13 +1226,13 @@ describe('OAuth Connections', () => {
     await db.insert(schema.connectionRevocationDeliveries).values({
       id: expiredDeliveryId,
       workspaceId,
-      applicationId,
+      environmentId,
       externalSubjectId,
       connectionId,
       provider: 'test',
       credentialEncrypted: encryptCredential('expired-revocation', {
         workspaceId,
-        applicationId,
+        environmentId,
         externalSubjectId,
         recordId: expiredDeliveryId,
         provider: 'test:revocation',
@@ -1255,7 +1247,6 @@ describe('OAuth Connections', () => {
       }),
     ).toBeUndefined()
   })
-
   it('transitions an invalid refresh grant without an unbounded retry', async () => {
     const path = '/v1/user/connections/authorizations'
     const started = await request(baseUrl)
@@ -1287,7 +1278,7 @@ describe('OAuth Connections', () => {
     if (!active) throw new Error('Expected an active Connection')
     const stored = await repositories.connection.getConnection(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       active.id,
     )
     if (!stored?.credentialEncrypted) {
@@ -1295,7 +1286,7 @@ describe('OAuth Connections', () => {
     }
     const context = {
       workspaceId,
-      applicationId,
+      environmentId,
       externalSubjectId,
       recordId: active.id,
       provider: 'test',
@@ -1309,7 +1300,7 @@ describe('OAuth Connections', () => {
     }
     await repositories.connection.rotateConnectionCredential(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       active.id,
       stored.credentialVersion,
       encryptCredential(JSON.stringify(expired), context),
@@ -1320,13 +1311,13 @@ describe('OAuth Connections', () => {
       app
         .get(ConnectionCredentialsService)
         .resolve(
-          { sessionId, workspaceId, applicationId, externalSubjectId },
+          { sessionId, workspaceId, environmentId, externalSubjectId },
           active.id,
         ),
     ).rejects.toBeInstanceOf(ConnectionProviderInvalidGrantError)
     const reauthorizationRequired = await repositories.connection.getConnection(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       active.id,
     )
     expect(reauthorizationRequired).toEqual(
@@ -1336,7 +1327,6 @@ describe('OAuth Connections', () => {
       }),
     )
   })
-
   it('keeps multiple stable provider accounts isolated for one subject', async () => {
     provider.selectAccount('account-two', 'Second Test Account')
     const path = '/v1/user/connections/authorizations'
@@ -1375,7 +1365,7 @@ describe('OAuth Connections', () => {
     ).data.find(({ providerAccountId }) => providerAccountId === 'account-two')
     if (!secondAccount) throw new Error('Expected the second provider account')
     await pool.query(
-      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
       [
         JSON.stringify({
           providers: [
@@ -1386,7 +1376,7 @@ describe('OAuth Connections', () => {
             },
           ],
         }),
-        applicationId,
+        environmentId,
       ],
     )
     const upgradePath = `/v1/user/connections/${secondAccount.id}/authorizations`
@@ -1439,7 +1429,7 @@ describe('OAuth Connections', () => {
       'connection_scope_insufficient',
     )
     await pool.query(
-      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
       [
         JSON.stringify({
           providers: [
@@ -1450,7 +1440,7 @@ describe('OAuth Connections', () => {
             },
           ],
         }),
-        applicationId,
+        environmentId,
       ],
     )
     provider.selectAccount('account-one', 'Test Account')
@@ -1476,7 +1466,7 @@ describe('OAuth Connections', () => {
       redirect: 'manual',
     })
     const mismatchedLocation = mismatchedResult.headers.get('location')
-    if (!mismatchedLocation) throw new Error('Application return is missing')
+    if (!mismatchedLocation) throw new Error('Environment return is missing')
     expect(new URL(mismatchedLocation).searchParams.get('status')).toBe(
       'failed',
     )
@@ -1502,7 +1492,7 @@ describe('OAuth Connections', () => {
     if (!partialCallback) throw new Error('Provider callback is missing')
     const partialResult = await fetch(partialCallback, { redirect: 'manual' })
     const partialLocation = partialResult.headers.get('location')
-    if (!partialLocation) throw new Error('Application return is missing')
+    if (!partialLocation) throw new Error('Environment return is missing')
     expect(new URL(partialLocation).searchParams.get('status')).toBe('failed')
     const afterRejectedUpgrades = await request(baseUrl)
       .get(`/v1/user/connections/${secondAccount.id}`)
@@ -1519,19 +1509,19 @@ describe('OAuth Connections', () => {
     ).toEqual(['profile', 'write'])
     const storedSecondAccount = await repositories.connection.getConnection(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       secondAccount.id,
     )
     if (!storedSecondAccount) throw new Error('Expected the second Connection')
     await repositories.connection.requireConnectionReauthorization(
       db,
-      { workspaceId, applicationId, externalSubjectId },
+      { workspaceId, environmentId, externalSubjectId },
       storedSecondAccount.id,
       storedSecondAccount.credentialVersion,
       new Date(),
     )
     await pool.query(
-      'UPDATE applications SET connector_access_policy = $1 WHERE id = $2',
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
       [
         JSON.stringify({
           providers: [
@@ -1542,7 +1532,7 @@ describe('OAuth Connections', () => {
             },
           ],
         }),
-        applicationId,
+        environmentId,
       ],
     )
     provider.selectAccount('account-two', 'Second Test Account')
@@ -1573,7 +1563,7 @@ describe('OAuth Connections', () => {
     const reauthorizationLocation =
       reauthorizationResult.headers.get('location')
     if (!reauthorizationLocation)
-      throw new Error('Application return is missing')
+      throw new Error('Environment return is missing')
     expect(new URL(reauthorizationLocation).searchParams.get('status')).toBe(
       'connected',
     )
@@ -1594,7 +1584,6 @@ describe('OAuth Connections', () => {
       scopes: ['profile'],
     })
   })
-
   it('keeps credentials decryptable across concurrent callbacks', async () => {
     provider.selectAccount('account-concurrent', 'Concurrent Test Account')
     const path = '/v1/user/connections/authorizations'
@@ -1625,14 +1614,14 @@ describe('OAuth Connections', () => {
     expect(completed.every(({ status }) => status === 302)).toBe(true)
     const results = completed.map((response) => {
       const location = response.headers.get('location')
-      if (!location) throw new Error('Application return location is missing')
+      if (!location) throw new Error('Environment return location is missing')
       return new URL(location).searchParams.get('status')
     })
     expect(results).toContain('connected')
     const active = (
       await repositories.connection.listConnections(db, {
         workspaceId,
-        applicationId,
+        environmentId,
         externalSubjectId,
       })
     ).filter(
@@ -1647,14 +1636,13 @@ describe('OAuth Connections', () => {
       app
         .get(ConnectionCredentialsService)
         .resolve(
-          { sessionId, workspaceId, applicationId, externalSubjectId },
+          { sessionId, workspaceId, environmentId, externalSubjectId },
           connection.id,
         ),
     ).resolves.toEqual(
       expect.objectContaining({ accountId: 'account-concurrent' }),
     )
   })
-
   it('paginates Connections with opaque cursors', async () => {
     const firstPath = '/v1/user/connections?limit=1'
     const first = await request(baseUrl)
@@ -1705,15 +1693,14 @@ describe('OAuth Connections', () => {
     expect(emptyUses.status).toBe(200)
     expect(emptyUses.body).toEqual(omittedUses.body)
   })
-
   it('orders bounded and unbounded Connection lists identically', async () => {
-    const owner = { workspaceId, applicationId, externalSubjectId }
+    const owner = { workspaceId, environmentId, externalSubjectId }
     await pool.query(
-      'UPDATE connections SET created_at = $1 WHERE workspace_id = $2 AND application_id = $3 AND external_subject_id = $4',
+      'UPDATE connections SET created_at = $1 WHERE workspace_id = $2 AND environment_id = $3 AND external_subject_id = $4',
       [
         new Date('2026-09-23T00:00:00.000Z'),
         workspaceId,
-        applicationId,
+        environmentId,
         externalSubjectId,
       ],
     )
@@ -1724,8 +1711,7 @@ describe('OAuth Connections', () => {
     })
     expect(unbounded.map(({ id }) => id)).toEqual(bounded.map(({ id }) => id))
   })
-
-  it('does not expose Connections across Applications or subjects', async () => {
+  it('does not expose Connections across Environments or subjects', async () => {
     const authorizationPath = '/v1/user/connections/authorizations'
     const started = await request(baseUrl)
       .post(authorizationPath)
@@ -1749,23 +1735,27 @@ describe('OAuth Connections', () => {
       .data[0]?.id
     if (!ownConnectionId) throw new Error('Expected an owned Connection')
     const suffix = randomUUID()
-    const [otherApplication] = await db
-      .insert(schema.applications)
-      .values({
-        workspaceId,
-        environment: 'dev',
-        displayName: 'Other Connections application',
-        allowedBrowserOrigins: ['http://127.0.0.1:4174'],
-        allowedRedirectOrigins: ['http://127.0.0.1:4174'],
-        oidcIssuer: 'https://identity.example.com',
-        oidcClientId: `other-connections-${suffix}`,
-        oidcAudience: `other-connections-${suffix}`,
-        oidcJwksUrl: 'https://identity.example.com/jwks',
-      })
-      .returning()
-    await db.insert(schema.externalSubjectApplications).values({
+    const otherEnvironment = await configureTestEnvironment(db, {
+      applicationId: (
+        await repositories.application.createApplication(db, {
+          workspaceId: workspaceId,
+          name: 'Other product',
+          slug: crypto.randomUUID(),
+        })
+      ).id,
       workspaceId,
-      applicationId: otherApplication.id,
+      environment: 'dev',
+      displayName: 'Other Connections environment',
+      allowedBrowserOrigins: ['http://127.0.0.1:4174'],
+      allowedRedirectOrigins: ['http://127.0.0.1:4174'],
+      oidcIssuer: 'https://identity.example.com',
+      oidcClientId: `other-connections-${suffix}`,
+      oidcAudience: `other-connections-${suffix}`,
+      oidcJwksUrl: 'https://identity.example.com/jwks',
+    })
+    await db.insert(schema.externalSubjectEnvironments).values({
+      workspaceId,
+      environmentId: otherEnvironment.id,
       externalSubjectId,
     })
     const [otherSubject] = await db
@@ -1778,9 +1768,9 @@ describe('OAuth Connections', () => {
         verifiedAt: new Date(),
       })
       .returning()
-    await db.insert(schema.externalSubjectApplications).values({
+    await db.insert(schema.externalSubjectEnvironments).values({
       workspaceId,
-      applicationId,
+      environmentId,
       externalSubjectId: otherSubject.id,
     })
     const [crossWorkspace] = await db
@@ -1792,20 +1782,18 @@ describe('OAuth Connections', () => {
       })
       .returning()
     crossWorkspaceId = crossWorkspace.id
-    const [crossApplication] = await db
-      .insert(schema.applications)
-      .values({
-        workspaceId: crossWorkspace.id,
-        environment: 'dev',
-        displayName: 'Cross-workspace Connections application',
-        allowedBrowserOrigins: ['http://127.0.0.1:4175'],
-        allowedRedirectOrigins: ['http://127.0.0.1:4175'],
-        oidcIssuer: 'https://identity.example.com',
-        oidcClientId: `cross-workspace-connections-${suffix}`,
-        oidcAudience: `cross-workspace-connections-${suffix}`,
-        oidcJwksUrl: 'https://identity.example.com/jwks',
-      })
-      .returning()
+    const crossEnvironment = await configureTestEnvironment(db, {
+      applicationId: await getTestApplicationId(db, crossWorkspace.id),
+      workspaceId: crossWorkspace.id,
+      environment: 'dev',
+      displayName: 'Cross-workspace Connections environment',
+      allowedBrowserOrigins: ['http://127.0.0.1:4175'],
+      allowedRedirectOrigins: ['http://127.0.0.1:4175'],
+      oidcIssuer: 'https://identity.example.com',
+      oidcClientId: `cross-workspace-connections-${suffix}`,
+      oidcAudience: `cross-workspace-connections-${suffix}`,
+      oidcJwksUrl: 'https://identity.example.com/jwks',
+    })
     const [crossSubject] = await db
       .insert(schema.externalSubjects)
       .values({
@@ -1816,14 +1804,14 @@ describe('OAuth Connections', () => {
         verifiedAt: new Date(),
       })
       .returning()
-    await db.insert(schema.externalSubjectApplications).values({
+    await db.insert(schema.externalSubjectEnvironments).values({
       workspaceId: crossWorkspace.id,
-      applicationId: crossApplication.id,
+      environmentId: crossEnvironment.id,
       externalSubjectId: crossSubject.id,
     })
     const createSession = async (
       scopedWorkspaceId: string,
-      scopedApplicationId: string,
+      scopedEnvironmentId: string,
       scopedSubjectId: string,
     ) => {
       const scopedToken = `lnu_${randomUUID().replaceAll('-', '')}`
@@ -1831,7 +1819,7 @@ describe('OAuth Connections', () => {
       const scopedKey = await proofKey()
       await db.insert(schema.endUserSessions).values({
         workspaceId: scopedWorkspaceId,
-        applicationId: scopedApplicationId,
+        environmentId: scopedEnvironmentId,
         externalSubjectId: scopedSubjectId,
         tokenHash: hexHash(scopedToken),
         proofJkt: await calculateJwkThumbprint(scopedKey.publicJwk, 'sha256'),
@@ -1844,19 +1832,19 @@ describe('OAuth Connections', () => {
     for (const scoped of [
       {
         workspaceId,
-        applicationId: otherApplication.id,
+        environmentId: otherEnvironment.id,
         externalSubjectId,
       },
-      { workspaceId, applicationId, externalSubjectId: otherSubject.id },
+      { workspaceId, environmentId, externalSubjectId: otherSubject.id },
       {
         workspaceId: crossWorkspace.id,
-        applicationId: crossApplication.id,
+        environmentId: crossEnvironment.id,
         externalSubjectId: crossSubject.id,
       },
     ]) {
       const session = await createSession(
         scoped.workspaceId,
-        scoped.applicationId,
+        scoped.environmentId,
         scoped.externalSubjectId,
       )
       const listed = await request(baseUrl)
@@ -1929,11 +1917,9 @@ describe('OAuth Connections', () => {
       expect(hiddenRevoke.status).toBe(404)
     }
   })
-
   async function createProof(method: string, url: string): Promise<string> {
     return createProofFor(method, url, accessToken, nonce, key)
   }
-
   async function createProofFor(
     method: string,
     url: string,

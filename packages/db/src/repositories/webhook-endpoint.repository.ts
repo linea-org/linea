@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm"
 import {
-  applications,
+  environments,
   auditLogs,
   webhookDeliveries,
   webhookEndpoints,
@@ -12,30 +12,30 @@ export async function createWebhookEndpoint(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     url: string
     currentSecretEncrypted: string
     actorUserId: string
   }
 ): Promise<WebhookEndpoint | undefined> {
   return db.transaction(async (tx) => {
-    const [application] = await tx
-      .select({ id: applications.id })
-      .from(applications)
+    const [environment] = await tx
+      .select({ id: environments.id })
+      .from(environments)
       .where(
         and(
-          eq(applications.id, input.applicationId),
-          eq(applications.workspaceId, input.workspaceId),
-          eq(applications.enabled, true)
+          eq(environments.id, input.environmentId),
+          eq(environments.workspaceId, input.workspaceId),
+          eq(environments.enabled, true)
         )
       )
       .for("key share")
-    if (!application) return undefined
+    if (!environment) return undefined
     const [webhook] = await tx
       .insert(webhookEndpoints)
       .values({
         workspaceId: input.workspaceId,
-        applicationId: input.applicationId,
+        environmentId: input.environmentId,
         url: input.url,
         currentSecretEncrypted: input.currentSecretEncrypted,
       })
@@ -46,7 +46,7 @@ export async function createWebhookEndpoint(
       action: "webhook.created",
       resource: "webhook",
       resourceId: webhook.id,
-      metadata: { applicationId: input.applicationId, url: input.url },
+      metadata: { environmentId: input.environmentId, url: input.url },
     })
     return webhook
   })
@@ -55,7 +55,7 @@ export async function createWebhookEndpoint(
 export function listWebhookEndpoints(
   db: DbClient,
   workspaceId: string,
-  applicationId: string
+  environmentId: string
 ): Promise<WebhookEndpoint[]> {
   return db
     .select()
@@ -63,7 +63,7 @@ export function listWebhookEndpoints(
     .where(
       and(
         eq(webhookEndpoints.workspaceId, workspaceId),
-        eq(webhookEndpoints.applicationId, applicationId),
+        eq(webhookEndpoints.environmentId, environmentId),
         isNull(webhookEndpoints.disabledAt)
       )
     )
@@ -74,7 +74,7 @@ export async function updateWebhookEndpoint(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     webhookId: string
     url: string
     actorUserId: string
@@ -87,7 +87,7 @@ export async function updateWebhookEndpoint(
       .where(
         and(
           eq(webhookEndpoints.id, input.webhookId),
-          eq(webhookEndpoints.applicationId, input.applicationId),
+          eq(webhookEndpoints.environmentId, input.environmentId),
           eq(webhookEndpoints.workspaceId, input.workspaceId),
           isNull(webhookEndpoints.disabledAt)
         )
@@ -100,7 +100,7 @@ export async function updateWebhookEndpoint(
       action: "webhook.updated",
       resource: "webhook",
       resourceId: webhook.id,
-      metadata: { applicationId: input.applicationId, url: input.url },
+      metadata: { environmentId: input.environmentId, url: input.url },
     })
     return webhook
   })
@@ -110,7 +110,7 @@ export async function rotateWebhookSecret(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     webhookId: string
     currentSecretEncrypted: string
     previousSecretExpiresAt: Date
@@ -128,7 +128,7 @@ export async function rotateWebhookSecret(
       .where(
         and(
           eq(webhookEndpoints.id, input.webhookId),
-          eq(webhookEndpoints.applicationId, input.applicationId),
+          eq(webhookEndpoints.environmentId, input.environmentId),
           eq(webhookEndpoints.workspaceId, input.workspaceId),
           isNull(webhookEndpoints.disabledAt)
         )
@@ -172,7 +172,7 @@ export async function rotateWebhookSecret(
       resource: "webhook",
       resourceId: webhook.id,
       metadata: {
-        applicationId: input.applicationId,
+        environmentId: input.environmentId,
         previousSecretExpiresAt: input.previousSecretExpiresAt.toISOString(),
       },
     })
@@ -184,7 +184,7 @@ export async function disableWebhookEndpoint(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     webhookId: string
     actorUserId: string
     now: Date
@@ -197,7 +197,7 @@ export async function disableWebhookEndpoint(
       .where(
         and(
           eq(webhookEndpoints.id, input.webhookId),
-          eq(webhookEndpoints.applicationId, input.applicationId),
+          eq(webhookEndpoints.environmentId, input.environmentId),
           eq(webhookEndpoints.workspaceId, input.workspaceId),
           isNull(webhookEndpoints.disabledAt)
         )
@@ -230,7 +230,7 @@ export async function disableWebhookEndpoint(
       action: "webhook.deleted",
       resource: "webhook",
       resourceId: webhook.id,
-      metadata: { applicationId: input.applicationId },
+      metadata: { environmentId: input.environmentId },
     })
     return webhook
   })

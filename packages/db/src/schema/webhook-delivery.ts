@@ -11,7 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import { organizations } from "./organisation.js"
 import { outboxEventType, outboxMessages } from "./outbox-message.js"
 import { webhookEndpoints } from "./webhook-endpoint.js"
@@ -36,7 +36,7 @@ export const webhookDeliveries = snakeCase.table(
     workspaceId: uuid()
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     webhookId: uuid().notNull(),
     eventId: uuid()
       .notNull()
@@ -61,21 +61,21 @@ export const webhookDeliveries = snakeCase.table(
   },
   (table) => [
     foreignKey({
-      name: "webhook_deliveries_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "webhook_deliveries_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "webhook_deliveries_endpoint_fkey",
-      columns: [table.webhookId, table.applicationId],
-      foreignColumns: [webhookEndpoints.id, webhookEndpoints.applicationId],
+      columns: [table.webhookId, table.environmentId],
+      foreignColumns: [webhookEndpoints.id, webhookEndpoints.environmentId],
     }).onDelete("cascade"),
     uniqueIndex("webhook_deliveries_webhook_event_uidx").on(
       table.webhookId,
       table.eventId
     ),
-    index("webhook_deliveries_application_created_idx").on(
-      table.applicationId,
+    index("webhook_deliveries_environment_created_idx").on(
+      table.environmentId,
       table.createdAt,
       table.id
     ),

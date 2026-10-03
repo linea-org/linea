@@ -1,10 +1,12 @@
+import { fixtureIssuer } from "./test-utils.js"
+import { getTestApplicationId } from "./test-utils.js"
 import { randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db } from "../clients/index.js"
 import {
-  applications,
-  externalSubjectApplications,
+  environments,
+  externalSubjectEnvironments,
   externalSubjects,
   organizations,
   type NewConversation,
@@ -32,6 +34,7 @@ async function createConversationFixtures() {
     })
     .returning()
   const workflow = await createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, workspace.id),
     workspaceId: workspace.id,
     name: "Conversation Workflow",
     slug: `conversation-workflow-${suffix}`,
@@ -41,24 +44,27 @@ async function createConversationFixtures() {
     graph: { nodes: [], edges: [] },
     contentHash: suffix,
   })
-  const [application] = await db
-    .insert(applications)
+  const [environment] = await db
+    .insert(environments)
     .values({
+      applicationId: await getTestApplicationId(db, workspace.id),
       workspaceId: workspace.id,
       environment: "production",
-      displayName: "Customer application",
+      displayName: "Customer environment",
       allowedBrowserOrigins: ["https://app.example.com"],
       allowedRedirectOrigins: ["https://app.example.com"],
       oidcIssuer: "https://identity.example.com",
-      oidcClientId: "customer-application",
+      oidcClientId: "customer-environment",
       oidcAudience: "linea",
       oidcJwksUrl: "https://identity.example.com/jwks.json",
     })
     .returning()
+  if (!fixtureIssuer(environment))
+    throw new Error("Fixture identity trust missing")
   const subjectValues: NewExternalSubject[] = ["subject-a", "subject-b"].map(
     (issuerSubject) => ({
       workspaceId: workspace.id,
-      issuer: application.oidcIssuer,
+      issuer: fixtureIssuer(environment),
       issuerSubject,
       status: "verified",
       verifiedAt: new Date(),
@@ -68,14 +74,14 @@ async function createConversationFixtures() {
     .insert(externalSubjects)
     .values(subjectValues)
     .returning()
-  await db.insert(externalSubjectApplications).values(
+  await db.insert(externalSubjectEnvironments).values(
     subjects.map((subject) => ({
       workspaceId: workspace.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       externalSubjectId: subject.id,
     }))
   )
-  return { workspace, workflow, application, subjects }
+  return { workspace, workflow, environment, subjects }
 }
 
 describe("conversation.repository", () => {
@@ -83,7 +89,7 @@ describe("conversation.repository", () => {
     const fixtures = await createConversationFixtures()
     const identity: NewConversation = {
       workspaceId: fixtures.workspace.id,
-      applicationId: fixtures.application.id,
+      environmentId: fixtures.environment.id,
       workflowId: fixtures.workflow.id,
       externalSubjectId: fixtures.subjects[0].id,
       environment: "production",
@@ -117,7 +123,7 @@ describe("conversation.repository", () => {
       const conversations = await listConversations(
         db,
         fixtures.workspace.id,
-        fixtures.application.id,
+        fixtures.environment.id,
         fixtures.subjects[0].id
       )
       expect(conversations).toHaveLength(2)
@@ -128,7 +134,7 @@ describe("conversation.repository", () => {
       const firstMessages = await listExternalSubjectChatMessages(
         db,
         fixtures.workspace.id,
-        fixtures.application.id,
+        fixtures.environment.id,
         fixtures.subjects[0].id,
         first.conversation.id
       )
@@ -139,7 +145,7 @@ describe("conversation.repository", () => {
         await listExternalSubjectChatMessages(
           db,
           fixtures.workspace.id,
-          fixtures.application.id,
+          fixtures.environment.id,
           fixtures.subjects[1].id,
           first.conversation.id
         )
@@ -150,12 +156,11 @@ describe("conversation.repository", () => {
         .where(eq(organizations.id, fixtures.workspace.id))
     }
   })
-
   it("returns the same external thread only for an identical identity", async () => {
     const fixtures = await createConversationFixtures()
     const input: NewConversation = {
       workspaceId: fixtures.workspace.id,
-      applicationId: fixtures.application.id,
+      environmentId: fixtures.environment.id,
       workflowId: fixtures.workflow.id,
       externalSubjectId: fixtures.subjects[0].id,
       externalThreadKey: "operator-thread-42",
@@ -194,12 +199,11 @@ describe("conversation.repository", () => {
         .where(eq(organizations.id, fixtures.workspace.id))
     }
   })
-
   it("serializes concurrent creation of one external thread key", async () => {
     const fixtures = await createConversationFixtures()
     const input: NewConversation = {
       workspaceId: fixtures.workspace.id,
-      applicationId: fixtures.application.id,
+      environmentId: fixtures.environment.id,
       workflowId: fixtures.workflow.id,
       externalSubjectId: fixtures.subjects[0].id,
       externalThreadKey: "concurrent-thread",
@@ -225,7 +229,7 @@ describe("conversation.repository", () => {
       const conversation = await getConversation(
         db,
         fixtures.workspace.id,
-        fixtures.application.id,
+        fixtures.environment.id,
         fixtures.subjects[0].id,
         conversationId
       )

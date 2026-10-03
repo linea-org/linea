@@ -19,8 +19,23 @@ export type AiProviderKeyStatus = {
 
 @Injectable()
 export class SecretsService {
-  async list(workspaceId: string): Promise<SecretSummary[]> {
-    const secrets = await repositories.secret.listSecrets(db, workspaceId)
+  private async requireEnvironment(
+    workspaceId: string,
+    environmentId: string,
+  ): Promise<void> {
+    const environment = await repositories.environment.getEnvironmentById(
+      db,
+      workspaceId,
+      environmentId,
+    )
+    if (!environment) throw new NotFoundException('Environment not found')
+  }
+  async list(
+    workspaceId: string,
+    environmentId: string,
+  ): Promise<SecretSummary[]> {
+    await this.requireEnvironment(workspaceId, environmentId)
+    const secrets = await repositories.secret.listSecrets(db, environmentId)
     return secrets.map(({ id, key, createdAt, updatedAt }) => ({
       id,
       key,
@@ -31,12 +46,14 @@ export class SecretsService {
 
   async upsert(
     workspaceId: string,
+    environmentId: string,
     key: string,
     input: UpsertSecretDto,
   ): Promise<SecretSummary> {
+    await this.requireEnvironment(workspaceId, environmentId)
     const secret = await repositories.secret.upsertSecret(
       db,
-      workspaceId,
+      environmentId,
       key,
       encryptSecret(input.value),
     )
@@ -48,10 +65,14 @@ export class SecretsService {
     }
   }
 
-  /** configured never reveals the value — just whether this workspace has overridden the platform default for that provider. */
-  async listAiProviders(workspaceId: string): Promise<AiProviderKeyStatus[]> {
+  /** configured never reveals the value — just whether this Environment has overridden the platform default for that provider. */
+  async listAiProviders(
+    workspaceId: string,
+    environmentId: string,
+  ): Promise<AiProviderKeyStatus[]> {
+    await this.requireEnvironment(workspaceId, environmentId)
     const configuredKeys = new Set(
-      (await repositories.secret.listSecrets(db, workspaceId)).map(
+      (await repositories.secret.listSecrets(db, environmentId)).map(
         (secret) => secret.key,
       ),
     )
@@ -63,8 +84,17 @@ export class SecretsService {
     }))
   }
 
-  async delete(workspaceId: string, key: string): Promise<void> {
-    const deleted = await repositories.secret.deleteSecret(db, workspaceId, key)
+  async delete(
+    workspaceId: string,
+    environmentId: string,
+    key: string,
+  ): Promise<void> {
+    await this.requireEnvironment(workspaceId, environmentId)
+    const deleted = await repositories.secret.deleteSecret(
+      db,
+      environmentId,
+      key,
+    )
     if (!deleted) {
       throw new NotFoundException('Secret not found')
     }

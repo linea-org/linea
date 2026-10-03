@@ -16,7 +16,7 @@ import {
 } from "../src/copilotkit.js"
 import { authenticatedClient } from "./authenticated-client.js"
 import { approvalRequest, approvalRequestId, executionId } from "./fixtures.js"
-import { apiBaseUrl, applicationId, server } from "./server.js"
+import { apiBaseUrl, environmentId, server } from "./server.js"
 
 type ToolRender = (input: {
   name: string
@@ -54,7 +54,7 @@ function eventStream(
           type: eventType,
           version: 1,
           createdAt: "2026-09-18T12:02:00.000Z",
-          applicationId,
+          environmentId,
           data: { approvalRequestId, executionId },
         }
         controller.enqueue(
@@ -114,7 +114,6 @@ describe("CopilotKitApprovalAction", () => {
       expect(screen.getByText("pending")).toBeTruthy()
     })
   })
-
   it.each(["approved", "rejected"] as const)(
     "submits the %s Decision through the public user boundary",
     async (outcome) => {
@@ -157,7 +156,6 @@ describe("CopilotKitApprovalAction", () => {
       })
     }
   )
-
   it.each([
     ["approved", "approval_request.decided", "approved"],
     ["rejected", "approval_request.decided", "rejected"],
@@ -187,7 +185,6 @@ describe("CopilotKitApprovalAction", () => {
       })
     }
   )
-
   it("renders reconnecting and reconciles through the public event stream", async () => {
     let eventConnections = 0
     server.use(
@@ -223,7 +220,6 @@ describe("CopilotKitApprovalAction", () => {
       { timeout: 3_000 }
     )
   })
-
   it("renders errors from the public event stream", async () => {
     server.use(
       http.get(`${apiBaseUrl}/v1/user/approval-requests`, () =>
@@ -251,7 +247,6 @@ describe("CopilotKitApprovalAction", () => {
       expect(screen.getByText("error")).toBeTruthy()
     })
   })
-
   it("scopes Decision errors to the Approval Request that failed", async () => {
     const otherApprovalRequestId = "70000000-0000-4000-8000-000000000007"
     const otherRequest = {

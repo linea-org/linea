@@ -11,10 +11,10 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import { executionEnvironment } from "./execution-environment.js"
 import {
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
 } from "./external-subject.js"
 import { organizations } from "./organisation.js"
@@ -32,7 +32,7 @@ export const conversations = snakeCase.table(
     workspaceId: uuid()
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     workflowId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     externalThreadKey: text(),
@@ -57,23 +57,23 @@ export const conversations = snakeCase.table(
       table.workspaceId,
       table.workflowId
     ),
-    uniqueIndex("conversations_id_application_subject_uidx").on(
+    uniqueIndex("conversations_id_environment_subject_uidx").on(
       table.id,
-      table.applicationId,
+      table.environmentId,
       table.externalSubjectId
     ),
-    uniqueIndex("conversations_application_thread_uidx")
-      .on(table.applicationId, table.externalThreadKey)
+    uniqueIndex("conversations_environment_thread_uidx")
+      .on(table.environmentId, table.externalThreadKey)
       .where(sql`${table.externalThreadKey} IS NOT NULL`),
     index("conversations_subject_activity_idx").on(
-      table.applicationId,
+      table.environmentId,
       table.externalSubjectId,
       table.lastActivityAt
     ),
     foreignKey({
-      name: "conversations_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "conversations_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "conversations_workflow_fkey",
@@ -86,11 +86,11 @@ export const conversations = snakeCase.table(
       foreignColumns: [externalSubjects.id, externalSubjects.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
-      name: "conversations_subject_application_fkey",
-      columns: [table.applicationId, table.externalSubjectId],
+      name: "conversations_subject_environment_fkey",
+      columns: [table.environmentId, table.externalSubjectId],
       foreignColumns: [
-        externalSubjectApplications.applicationId,
-        externalSubjectApplications.externalSubjectId,
+        externalSubjectEnvironments.environmentId,
+        externalSubjectEnvironments.externalSubjectId,
       ],
     }).onDelete("cascade"),
     check(

@@ -9,7 +9,7 @@ export function operatorConnectorAuditProjection(fact: ConnectorAuditFact) {
   return operatorConnectorAuditEventSchema.parse({
     id: fact.id,
     type: fact.factType,
-    applicationId: fact.applicationId,
+    environmentId: fact.environmentId,
     subjectReference: fact.subjectReference,
     connectionId: fact.connectionId,
     actionIntentId: fact.actionIntentId,

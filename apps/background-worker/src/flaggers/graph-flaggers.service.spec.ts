@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -18,7 +19,6 @@ describe("GraphFlaggersService.sweep, branch never taken", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph = {
         version: 1,
@@ -35,6 +35,7 @@ describe("GraphFlaggersService.sweep, branch never taken", () => {
         ],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Graph Flaggers Test Workflow",
         slug: `graph-flaggers-workflow-${suffix}`,
@@ -69,16 +70,13 @@ describe("GraphFlaggersService.sweep, branch never taken", () => {
         status: "succeeded",
         output: { branch: "yes" },
       })
-
       const service = new GraphFlaggersService()
       await service.sweep()
-
       const allFlags = await db.select().from(schema.flags)
       const flagRows = allFlags.filter(
         (f) =>
           f.workflowId === workflow.id && f.flagType === "branch_never_taken"
       )
-
       expect(flagRows).toHaveLength(1)
       expect(flagRows[0]?.nodeId).toBe("b1")
       expect(flagRows[0]?.detail).toEqual({ condition: "no" })

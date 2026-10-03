@@ -29,10 +29,12 @@ import { Route as WSlugApprovalsRouteImport } from './routes/w/$slug/approvals'
 import { Route as WSlugWorkflowsIndexRouteImport } from './routes/w/$slug/workflows/index'
 import { Route as WSlugSettingsIndexRouteImport } from './routes/w/$slug/settings/index'
 import { Route as WSlugExecutionsIndexRouteImport } from './routes/w/$slug/executions/index'
+import { Route as WSlugApplicationsIndexRouteImport } from './routes/w/$slug/applications/index'
 import { Route as WSlugWorkflowsWorkflowIdRouteImport } from './routes/w/$slug/workflows/$workflowId'
 import { Route as WSlugSettingsSecretsRouteImport } from './routes/w/$slug/settings/secrets'
 import { Route as WSlugSettingsMembersRouteImport } from './routes/w/$slug/settings/members'
 import { Route as WSlugExecutionsExecutionIdRouteImport } from './routes/w/$slug/executions/$executionId'
+import { Route as WSlugApplicationsApplicationIdRouteImport } from './routes/w/$slug/applications/$applicationId'
 import { Route as WSlugWorkflowsWorkflowIdIndexRouteImport } from './routes/w/$slug/workflows/$workflowId/index'
 import { Route as WSlugWorkflowsWorkflowIdBuilderRouteImport } from './routes/w/$slug/workflows/$workflowId/builder'
 import { Route as WSlugWorkflowsWorkflowIdSignalsSignalIdRouteImport } from './routes/w/$slug/workflows/$workflowId/signals/$signalId'
@@ -141,6 +143,11 @@ const WSlugExecutionsIndexRoute = WSlugExecutionsIndexRouteImport.update({
   path: '/executions/',
   getParentRoute: () => WSlugRoute,
 } as any)
+const WSlugApplicationsIndexRoute = WSlugApplicationsIndexRouteImport.update({
+  id: '/applications/',
+  path: '/applications/',
+  getParentRoute: () => WSlugRoute,
+} as any)
 const WSlugWorkflowsWorkflowIdRoute =
   WSlugWorkflowsWorkflowIdRouteImport.update({
     id: '/workflows/$workflowId',
@@ -161,6 +168,12 @@ const WSlugExecutionsExecutionIdRoute =
   WSlugExecutionsExecutionIdRouteImport.update({
     id: '/executions/$executionId',
     path: '/executions/$executionId',
+    getParentRoute: () => WSlugRoute,
+  } as any)
+const WSlugApplicationsApplicationIdRoute =
+  WSlugApplicationsApplicationIdRouteImport.update({
+    id: '/applications/$applicationId',
+    path: '/applications/$applicationId',
     getParentRoute: () => WSlugRoute,
   } as any)
 const WSlugWorkflowsWorkflowIdIndexRoute =
@@ -218,10 +231,12 @@ export interface FileRoutesByFullPath {
   '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
   '/w/$slug/': typeof WSlugIndexRoute
+  '/w/$slug/applications/$applicationId': typeof WSlugApplicationsApplicationIdRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
   '/w/$slug/settings/secrets': typeof WSlugSettingsSecretsRoute
   '/w/$slug/workflows/$workflowId': typeof WSlugWorkflowsWorkflowIdRouteWithChildren
+  '/w/$slug/applications/': typeof WSlugApplicationsIndexRoute
   '/w/$slug/executions/': typeof WSlugExecutionsIndexRoute
   '/w/$slug/settings/': typeof WSlugSettingsIndexRoute
   '/w/$slug/workflows/': typeof WSlugWorkflowsIndexRoute
@@ -249,9 +264,11 @@ export interface FileRoutesByTo {
   '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
   '/w/$slug': typeof WSlugIndexRoute
+  '/w/$slug/applications/$applicationId': typeof WSlugApplicationsApplicationIdRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
   '/w/$slug/settings/secrets': typeof WSlugSettingsSecretsRoute
+  '/w/$slug/applications': typeof WSlugApplicationsIndexRoute
   '/w/$slug/executions': typeof WSlugExecutionsIndexRoute
   '/w/$slug/settings': typeof WSlugSettingsIndexRoute
   '/w/$slug/workflows': typeof WSlugWorkflowsIndexRoute
@@ -281,10 +298,12 @@ export interface FileRoutesById {
   '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
   '/w/$slug/': typeof WSlugIndexRoute
+  '/w/$slug/applications/$applicationId': typeof WSlugApplicationsApplicationIdRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
   '/w/$slug/settings/secrets': typeof WSlugSettingsSecretsRoute
   '/w/$slug/workflows/$workflowId': typeof WSlugWorkflowsWorkflowIdRouteWithChildren
+  '/w/$slug/applications/': typeof WSlugApplicationsIndexRoute
   '/w/$slug/executions/': typeof WSlugExecutionsIndexRoute
   '/w/$slug/settings/': typeof WSlugSettingsIndexRoute
   '/w/$slug/workflows/': typeof WSlugWorkflowsIndexRoute
@@ -315,10 +334,12 @@ export interface FileRouteTypes {
     | '/w/$slug/approvals'
     | '/w/$slug/notifications'
     | '/w/$slug/'
+    | '/w/$slug/applications/$applicationId'
     | '/w/$slug/executions/$executionId'
     | '/w/$slug/settings/members'
     | '/w/$slug/settings/secrets'
     | '/w/$slug/workflows/$workflowId'
+    | '/w/$slug/applications/'
     | '/w/$slug/executions/'
     | '/w/$slug/settings/'
     | '/w/$slug/workflows/'
@@ -346,9 +367,11 @@ export interface FileRouteTypes {
     | '/w/$slug/approvals'
     | '/w/$slug/notifications'
     | '/w/$slug'
+    | '/w/$slug/applications/$applicationId'
     | '/w/$slug/executions/$executionId'
     | '/w/$slug/settings/members'
     | '/w/$slug/settings/secrets'
+    | '/w/$slug/applications'
     | '/w/$slug/executions'
     | '/w/$slug/settings'
     | '/w/$slug/workflows'
@@ -377,10 +400,12 @@ export interface FileRouteTypes {
     | '/w/$slug/approvals'
     | '/w/$slug/notifications'
     | '/w/$slug/'
+    | '/w/$slug/applications/$applicationId'
     | '/w/$slug/executions/$executionId'
     | '/w/$slug/settings/members'
     | '/w/$slug/settings/secrets'
     | '/w/$slug/workflows/$workflowId'
+    | '/w/$slug/applications/'
     | '/w/$slug/executions/'
     | '/w/$slug/settings/'
     | '/w/$slug/workflows/'
@@ -551,6 +576,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugExecutionsIndexRouteImport
       parentRoute: typeof WSlugRoute
     }
+    '/w/$slug/applications/': {
+      id: '/w/$slug/applications/'
+      path: '/applications'
+      fullPath: '/w/$slug/applications/'
+      preLoaderRoute: typeof WSlugApplicationsIndexRouteImport
+      parentRoute: typeof WSlugRoute
+    }
     '/w/$slug/workflows/$workflowId': {
       id: '/w/$slug/workflows/$workflowId'
       path: '/workflows/$workflowId'
@@ -577,6 +609,13 @@ declare module '@tanstack/react-router' {
       path: '/executions/$executionId'
       fullPath: '/w/$slug/executions/$executionId'
       preLoaderRoute: typeof WSlugExecutionsExecutionIdRouteImport
+      parentRoute: typeof WSlugRoute
+    }
+    '/w/$slug/applications/$applicationId': {
+      id: '/w/$slug/applications/$applicationId'
+      path: '/applications/$applicationId'
+      fullPath: '/w/$slug/applications/$applicationId'
+      preLoaderRoute: typeof WSlugApplicationsApplicationIdRouteImport
       parentRoute: typeof WSlugRoute
     }
     '/w/$slug/workflows/$workflowId/': {
@@ -656,10 +695,12 @@ interface WSlugRouteChildren {
   WSlugApprovalsRoute: typeof WSlugApprovalsRoute
   WSlugNotificationsRoute: typeof WSlugNotificationsRoute
   WSlugIndexRoute: typeof WSlugIndexRoute
+  WSlugApplicationsApplicationIdRoute: typeof WSlugApplicationsApplicationIdRoute
   WSlugExecutionsExecutionIdRoute: typeof WSlugExecutionsExecutionIdRoute
   WSlugSettingsMembersRoute: typeof WSlugSettingsMembersRoute
   WSlugSettingsSecretsRoute: typeof WSlugSettingsSecretsRoute
   WSlugWorkflowsWorkflowIdRoute: typeof WSlugWorkflowsWorkflowIdRouteWithChildren
+  WSlugApplicationsIndexRoute: typeof WSlugApplicationsIndexRoute
   WSlugExecutionsIndexRoute: typeof WSlugExecutionsIndexRoute
   WSlugSettingsIndexRoute: typeof WSlugSettingsIndexRoute
   WSlugWorkflowsIndexRoute: typeof WSlugWorkflowsIndexRoute
@@ -669,10 +710,12 @@ const WSlugRouteChildren: WSlugRouteChildren = {
   WSlugApprovalsRoute: WSlugApprovalsRoute,
   WSlugNotificationsRoute: WSlugNotificationsRoute,
   WSlugIndexRoute: WSlugIndexRoute,
+  WSlugApplicationsApplicationIdRoute: WSlugApplicationsApplicationIdRoute,
   WSlugExecutionsExecutionIdRoute: WSlugExecutionsExecutionIdRoute,
   WSlugSettingsMembersRoute: WSlugSettingsMembersRoute,
   WSlugSettingsSecretsRoute: WSlugSettingsSecretsRoute,
   WSlugWorkflowsWorkflowIdRoute: WSlugWorkflowsWorkflowIdRouteWithChildren,
+  WSlugApplicationsIndexRoute: WSlugApplicationsIndexRoute,
   WSlugExecutionsIndexRoute: WSlugExecutionsIndexRoute,
   WSlugSettingsIndexRoute: WSlugSettingsIndexRoute,
   WSlugWorkflowsIndexRoute: WSlugWorkflowsIndexRoute,

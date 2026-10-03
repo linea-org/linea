@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { resolveKeyName } from "@linea/ai"
@@ -448,6 +449,7 @@ async function runValidation(): Promise<void> {
     .returning()
   try {
     const workflow = await repositories.workflow.createWorkflow(db, {
+      applicationId: await getTestApplicationId(db, workspace.id),
       workspaceId: workspace.id,
       name: "Conversation Analyzer Validation",
       slug: `conversation-analyzer-validation-${suffix}`,

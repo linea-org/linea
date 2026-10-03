@@ -9,7 +9,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import { organizations } from "./organisation.js"
 
 export const webhookEndpoints = snakeCase.table(
@@ -19,7 +19,7 @@ export const webhookEndpoints = snakeCase.table(
     workspaceId: uuid()
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     url: text().notNull(),
     currentSecretEncrypted: text().notNull(),
     previousSecretEncrypted: text(),
@@ -33,16 +33,16 @@ export const webhookEndpoints = snakeCase.table(
   },
   (table) => [
     foreignKey({
-      name: "webhook_endpoints_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "webhook_endpoints_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
-    uniqueIndex("webhook_endpoints_id_application_uidx").on(
+    uniqueIndex("webhook_endpoints_id_environment_uidx").on(
       table.id,
-      table.applicationId
+      table.environmentId
     ),
-    index("webhook_endpoints_application_idx").on(
-      table.applicationId,
+    index("webhook_endpoints_environment_idx").on(
+      table.environmentId,
       table.disabledAt
     ),
     check(

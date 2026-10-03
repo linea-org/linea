@@ -221,7 +221,7 @@ export class ConnectorGateway {
     } catch {
       await repositories.connection.recordConnectionReadUse(this.db, {
         workspaceId: authority.connection.workspaceId,
-        applicationId: authority.connection.applicationId,
+        environmentId: authority.connection.environmentId,
         externalSubjectId: authority.connection.externalSubjectId,
         connectionId: authority.connection.id,
         executionId: input.executionId,
@@ -233,7 +233,7 @@ export class ConnectorGateway {
     }
     await repositories.connection.recordConnectionReadUse(this.db, {
       workspaceId: authority.connection.workspaceId,
-      applicationId: authority.connection.applicationId,
+      environmentId: authority.connection.environmentId,
       externalSubjectId: authority.connection.externalSubjectId,
       connectionId: authority.connection.id,
       executionId: input.executionId,
@@ -709,7 +709,7 @@ export class ConnectorGateway {
   private resolveCredential(connection: {
     id: string
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     provider: string
     credentialEncrypted: string | null
@@ -720,7 +720,7 @@ export class ConnectorGateway {
     try {
       const context = {
         workspaceId: connection.workspaceId,
-        applicationId: connection.applicationId,
+        environmentId: connection.environmentId,
         externalSubjectId: connection.externalSubjectId,
         recordId: connection.id,
         provider: connection.provider,
@@ -749,7 +749,7 @@ export class ConnectorGateway {
     connection: {
       id: string
       workspaceId: string
-      applicationId: string
+      environmentId: string
       externalSubjectId: string
       provider: string
       credentialVersion: number
@@ -757,7 +757,7 @@ export class ConnectorGateway {
     },
     context: {
       workspaceId: string
-      applicationId: string
+      environmentId: string
       externalSubjectId: string
       recordId: string
       provider: string

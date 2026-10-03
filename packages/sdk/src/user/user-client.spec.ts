@@ -7,7 +7,7 @@ import {
   type LineaUserStorage,
 } from "./index.js"
 
-const applicationId = "app_test"
+const environmentId = "app_test"
 const conversationId = "10000000-0000-4000-8000-000000000001"
 const approvalRequestId = "30000000-0000-4000-8000-000000000003"
 const executionId = "40000000-0000-4000-8000-000000000004"
@@ -51,7 +51,7 @@ function authorizationResponse(path: string): Response | undefined {
   if (path === "/v1/user-sessions/exchange") {
     return jsonResponse(
       {
-        applicationId,
+        environmentId,
         externalSubjectId,
         exchangeToken: `lnx_${"e".repeat(32)}`,
         dpopNonce: firstNonce,
@@ -96,7 +96,7 @@ async function authenticatedClient(
     }
   )
   const client = new LineaUserClient({
-    applicationId,
+    environmentId,
     baseUrl: "https://api.example",
     fetch,
     storage: platform?.storage,
@@ -140,7 +140,7 @@ function event(id: string): string {
     type: "approval_request.created",
     version: 1,
     createdAt: "2026-09-18T00:00:00.000Z",
-    applicationId,
+    environmentId,
     data: { approvalRequestId },
   }
   return `id: ${id}\nevent: approval_request.created\ndata: ${JSON.stringify(envelope)}\n\n`
@@ -235,7 +235,6 @@ describe("browser end-user client", () => {
     vi.useRealTimers()
     vi.restoreAllMocks()
   })
-
   it("keeps private key material out of proofs and creates unique replay IDs", async () => {
     const proofs: string[] = []
     const { client } = await authenticatedClient((_path, init) => {
@@ -251,7 +250,6 @@ describe("browser end-user client", () => {
     )
     expect(payloads[0]?.jti).not.toBe(payloads[1]?.jti)
   })
-
   it("surfaces proof replay rejection as the stable proof error", async () => {
     const { client } = await authenticatedClient(() =>
       apiError("proof_invalid", 401)
@@ -262,7 +260,6 @@ describe("browser end-user client", () => {
       status: 401,
     })
   })
-
   it("retries a nonce challenge once with a fresh proof", async () => {
     const proofs: string[] = []
     const challengedNonce = "r".repeat(32)
@@ -284,7 +281,6 @@ describe("browser end-user client", () => {
       decodeJwtPart(proofs[1] ?? "", 1).jti
     )
   })
-
   it("rejects expired local sessions before sending a request", async () => {
     const runtime: (path: string, init: RequestInit) => Response = vi.fn(() =>
       conversationPage()
@@ -297,7 +293,6 @@ describe("browser end-user client", () => {
     })
     expect(runtime).not.toHaveBeenCalled()
   })
-
   it("surfaces terminal conflicts as stable API errors", async () => {
     const { client } = await authenticatedClient(() =>
       apiError("approval_request_already_decided", 409)
@@ -310,7 +305,6 @@ describe("browser end-user client", () => {
       status: 409,
     })
   })
-
   it("retries an ambiguous mutation with the same idempotency key", async () => {
     const idempotencyKeys: string[] = []
     let attempts = 0
@@ -337,7 +331,6 @@ describe("browser end-user client", () => {
     expect(idempotencyKeys).toHaveLength(2)
     expect(idempotencyKeys[0]).toBe(idempotencyKeys[1])
   })
-
   it("revokes and removes opaque session state", async () => {
     const { client } = await authenticatedClient(
       () => new Response(null, { status: 204 })
@@ -348,7 +341,6 @@ describe("browser end-user client", () => {
       code: "session_unavailable",
     })
   })
-
   it("does not restore a cleared session from a concurrent nonce update", async () => {
     const platform = await reactNativePlatform()
     const writeStarted = deferred<void>()
@@ -399,7 +391,6 @@ describe("browser end-user client", () => {
     })
     await expect(client.session()).resolves.toBeUndefined()
   })
-
   it("removes an old proof key without clearing a replacement session", async () => {
     const platform = await reactNativePlatform()
     const revokeStarted = deferred<void>()
@@ -432,13 +423,12 @@ describe("browser end-user client", () => {
     revokeResponse.resolve(new Response(null, { status: 204 }))
     await revoking
     await expect(client.session()).resolves.toMatchObject({
-      applicationId,
+      environmentId,
       externalSubjectId,
     })
     expect(remove).toHaveBeenCalledWith("native-key-0")
     expect(remove).not.toHaveBeenCalledWith("native-key-1")
   })
-
   it("rejects malformed errors without exposing untrusted response fields", async () => {
     const { client } = await authenticatedClient(() =>
       jsonResponse(
@@ -450,7 +440,6 @@ describe("browser end-user client", () => {
       LineaUserProtocolError
     )
   })
-
   it("reconnects with Last-Event-ID and fresh DPoP proof", async () => {
     const eventHeaders: Record<string, string>[] = []
     let connection = 0
@@ -480,7 +469,6 @@ describe("browser end-user client", () => {
     )
     await stream.return(undefined)
   })
-
   it("reconciles pending approvals before dropping an expired cursor", async () => {
     const eventHeaders: Record<string, string>[] = []
     let approvalListUrl: URL | undefined
@@ -523,7 +511,6 @@ describe("browser end-user client", () => {
     )
     await stream.return(undefined)
   })
-
   it("starts, lists, inspects, and revokes Connections", async () => {
     const connectionId = "50000000-0000-4000-8000-000000000005"
     const authorizationId = "60000000-0000-4000-8000-000000000006"
@@ -652,7 +639,6 @@ describe("browser end-user client", () => {
       status: "revoked",
     })
   })
-
   it("lists pending Action Intents through the bounded user contract", async () => {
     const actionIntent = {
       id: "70000000-0000-4000-8000-000000000007",
@@ -677,7 +663,6 @@ describe("browser end-user client", () => {
       nextCursor: null,
     })
   })
-
   it("lists only the bounded End-User audit projection", async () => {
     const auditEvent = {
       id: "10000000-0000-4000-8000-000000000001",
@@ -718,7 +703,7 @@ describe("React Native end-user client", () => {
       }
     )
     const client = new LineaUserClient({
-      applicationId,
+      environmentId,
       baseUrl: "https://api.example",
       fetch,
       crypto: globalThis.crypto,
@@ -734,7 +719,6 @@ describe("React Native end-user client", () => {
     })
     expect(runtime).toHaveBeenCalledOnce()
   })
-
   it("retains authorization and proof-bound sessions across cold starts", async () => {
     const platform = await reactNativePlatform()
     const fetch = vi.fn(async (input: string | URL | Request) => {
@@ -742,7 +726,7 @@ describe("React Native end-user client", () => {
       return authorizationResponse(path) ?? conversationPage()
     })
     const options = {
-      applicationId,
+      environmentId,
       baseUrl: "https://api.example",
       fetch,
       crypto: globalThis.crypto,
@@ -762,7 +746,7 @@ describe("React Native end-user client", () => {
       nextCursor: null,
     })
     await expect(restored.session()).resolves.toMatchObject({
-      applicationId,
+      environmentId,
       externalSubjectId,
     })
   })

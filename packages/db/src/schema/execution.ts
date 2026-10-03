@@ -15,7 +15,7 @@ import {
 import { sql } from "drizzle-orm"
 import { organizations } from "./organisation.js"
 import { users } from "./user.js"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import { conversations } from "./conversation.js"
 import { externalSubjects } from "./external-subject.js"
 import { executionEnvironment } from "./execution-environment.js"
@@ -63,7 +63,7 @@ export const executions = snakeCase.table(
     // Composite FKs below also enforce the workflow/version actually match.
     workflowId: uuid().notNull(),
     workflowVersionId: uuid().notNull(),
-    applicationId: uuid(),
+    environmentId: uuid(),
     workflowContractRevisionId: uuid(),
     externalSubjectRecordId: uuid(),
     conversationId: uuid(),
@@ -128,7 +128,7 @@ export const executions = snakeCase.table(
       table.id,
       table.workspaceId,
       table.workflowId,
-      table.applicationId,
+      table.environmentId,
       table.externalSubjectRecordId
     ),
     foreignKey({
@@ -142,9 +142,9 @@ export const executions = snakeCase.table(
       foreignColumns: [workflowVersions.workflowId, workflowVersions.id],
     }),
     foreignKey({
-      name: "executions_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "executions_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }),
     foreignKey({
       name: "executions_contract_revision_fkey",

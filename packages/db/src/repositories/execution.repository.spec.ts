@@ -1,3 +1,5 @@
+import { publishTestWorkflow as publishWorkflowVersion } from "./test-utils.js"
+import { getTestApplicationId } from "./test-utils.js"
 import { and, eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
@@ -19,7 +21,6 @@ import { createTestFixtures, withRollback } from "./test-utils.js"
 import {
   createWorkflow,
   createWorkflowVersion,
-  publishWorkflowVersion,
   updateWorkflow,
 } from "./workflow.repository.js"
 
@@ -33,9 +34,7 @@ describe("getLeaseOwner", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       expect(await getLeaseOwner(tx, execution.id)).toBeNull()
-
       await startExecution(
         tx,
         execution.id,
@@ -43,7 +42,6 @@ describe("getLeaseOwner", () => {
         new Date(Date.now() - 1_000)
       )
       expect(await getLeaseOwner(tx, execution.id)).toBe("worker-1")
-
       await startExecution(
         tx,
         execution.id,
@@ -65,7 +63,6 @@ describe("startExecution", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       const leaseExpiresAt = new Date(Date.now() + 60_000)
       const claimed = await startExecution(
         tx,
@@ -73,12 +70,10 @@ describe("startExecution", () => {
         "worker-1",
         leaseExpiresAt
       )
-
       expect(claimed?.status).toBe("running")
       expect(claimed?.leasedBy).toBe("worker-1")
     })
   })
-
   it("does not let a second worker claim an already-running execution", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -88,7 +83,6 @@ describe("startExecution", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       const leaseExpiresAt = new Date(Date.now() + 60_000)
       const first = await startExecution(
         tx,
@@ -102,12 +96,10 @@ describe("startExecution", () => {
         "worker-2",
         leaseExpiresAt
       )
-
       expect(first?.leasedBy).toBe("worker-1")
       expect(second).toBeUndefined()
     })
   })
-
   it("does not let a second worker claim a running execution with a live lease", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -117,7 +109,6 @@ describe("startExecution", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       await startExecution(
         tx,
         execution.id,
@@ -130,11 +121,9 @@ describe("startExecution", () => {
         "worker-2",
         new Date(Date.now() + 60_000)
       )
-
       expect(second).toBeUndefined()
     })
   })
-
   it("reclaims a running execution once its lease has expired", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -144,25 +133,21 @@ describe("startExecution", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       await startExecution(
         tx,
         execution.id,
         "worker-1",
         new Date(Date.now() - 1_000)
       )
-
       const reclaimed = await startExecution(
         tx,
         execution.id,
         "worker-2",
         new Date(Date.now() + 60_000)
       )
-
       expect(reclaimed?.leasedBy).toBe("worker-2")
     })
   })
-
   it("cannot claim an execution that failQueuedExecution already marked terminal", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -172,12 +157,10 @@ describe("startExecution", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       const failed = await failQueuedExecution(tx, execution.id, {
         message: "enqueue timed out",
       })
       expect(failed?.status).toBe("failed")
-
       const claimed = await startExecution(
         tx,
         execution.id,
@@ -199,7 +182,6 @@ describe("renewLease", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       // Still queued — renew should be a no-op, not an error.
       await renewLease(
         tx,
@@ -207,7 +189,6 @@ describe("renewLease", () => {
         "worker-1",
         new Date(Date.now() + 60_000)
       )
-
       await startExecution(
         tx,
         execution.id,
@@ -216,12 +197,10 @@ describe("renewLease", () => {
       )
       const newExpiry = new Date(Date.now() + 120_000)
       await renewLease(tx, execution.id, "worker-1", newExpiry)
-
       const [result] = await listExecutions(tx, workflow.id)
       expect(result.leaseExpiresAt?.getTime()).toBe(newExpiry.getTime())
     })
   })
-
   it("does not renew the lease for a worker that lost it to a reclaim", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -231,7 +210,6 @@ describe("renewLease", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       await startExecution(
         tx,
         execution.id,
@@ -244,7 +222,6 @@ describe("renewLease", () => {
         "worker-2",
         new Date(Date.now() + 60_000)
       )
-
       // worker-1 doesn't know it lost the lease and keeps heartbeating.
       const renewed = await renewLease(
         tx,
@@ -253,12 +230,10 @@ describe("renewLease", () => {
         new Date(Date.now() + 999_000)
       )
       expect(renewed).toBeUndefined()
-
       const [result] = await listExecutions(tx, workflow.id)
       expect(result.leasedBy).toBe("worker-2")
     })
   })
-
   it("does not renew a lease that has already expired, even if nobody has reclaimed it yet", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -268,14 +243,12 @@ describe("renewLease", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       await startExecution(
         tx,
         execution.id,
         "worker-1",
         new Date(Date.now() - 1_000)
       )
-
       // Same worker, same identity — but its own lease already lapsed.
       const renewed = await renewLease(
         tx,
@@ -304,7 +277,6 @@ describe("completeExecution", () => {
         "worker-1",
         new Date(Date.now() + 60_000)
       )
-
       const completed = await completeExecution(tx, execution.id, "worker-1", {
         status: "succeeded",
         costMicros: 1_500n,
@@ -312,13 +284,11 @@ describe("completeExecution", () => {
         tokensInput: 100,
         tokensOutput: 50,
       })
-
       expect(completed?.status).toBe("succeeded")
       expect(completed?.costMicros).toBe(1_500n)
       expect(completed?.completedAt).toBeInstanceOf(Date)
     })
   })
-
   it("persists costUnpriced so a partial total is never mistaken for a complete or free one", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -334,7 +304,6 @@ describe("completeExecution", () => {
         "worker-1",
         new Date(Date.now() + 60_000)
       )
-
       const completed = await completeExecution(tx, execution.id, "worker-1", {
         status: "succeeded",
         costMicros: 0n,
@@ -342,12 +311,10 @@ describe("completeExecution", () => {
         tokensInput: 100,
         tokensOutput: 50,
       })
-
       expect(completed?.costMicros).toBe(0n)
       expect(completed?.costUnpriced).toBe(true)
     })
   })
-
   it("leaves costUnpriced null before completion, distinct from a known false", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -357,12 +324,10 @@ describe("completeExecution", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       // Also what a pre-existing row from before this column existed looks like — never treat this the same as a completed, fully-priced execution.
       expect(execution.costUnpriced).toBeNull()
     })
   })
-
   it("does not let a delayed completion overwrite an already-terminal outcome", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -378,7 +343,6 @@ describe("completeExecution", () => {
         "worker-1",
         new Date(Date.now() + 60_000)
       )
-
       const first = await completeExecution(tx, execution.id, "worker-1", {
         status: "succeeded",
         costMicros: 1_500n,
@@ -387,7 +351,6 @@ describe("completeExecution", () => {
         tokensOutput: 50,
       })
       expect(first?.status).toBe("succeeded")
-
       const late = await completeExecution(tx, execution.id, "worker-1", {
         status: "failed",
         error: { message: "timed out" },
@@ -397,13 +360,11 @@ describe("completeExecution", () => {
         tokensOutput: 0,
       })
       expect(late).toBeUndefined()
-
       const [row] = await listExecutions(tx, workflow.id)
       expect(row.status).toBe("succeeded")
       expect(row.costMicros).toBe(1_500n)
     })
   })
-
   it("does not let a worker that lost the lease to a reclaim complete the execution", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -425,7 +386,6 @@ describe("completeExecution", () => {
         "worker-2",
         new Date(Date.now() + 60_000)
       )
-
       // worker-1's in-flight run finishes after losing the lease to worker-2.
       const stale = await completeExecution(tx, execution.id, "worker-1", {
         status: "succeeded",
@@ -435,11 +395,9 @@ describe("completeExecution", () => {
         tokensOutput: 1,
       })
       expect(stale).toBeUndefined()
-
       const [row] = await listExecutions(tx, workflow.id)
       expect(row.status).toBe("running")
       expect(row.leasedBy).toBe("worker-2")
-
       const real = await completeExecution(tx, execution.id, "worker-2", {
         status: "succeeded",
         costMicros: 2_000n,
@@ -451,7 +409,6 @@ describe("completeExecution", () => {
       expect(real?.costMicros).toBe(2_000n)
     })
   })
-
   it("does not complete an execution whose lease already expired, even if nobody has reclaimed it yet", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -461,14 +418,12 @@ describe("completeExecution", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       await startExecution(
         tx,
         execution.id,
         "worker-1",
         new Date(Date.now() - 1_000)
       )
-
       const stale = await completeExecution(tx, execution.id, "worker-1", {
         status: "succeeded",
         costMicros: 1n,
@@ -477,7 +432,6 @@ describe("completeExecution", () => {
         tokensOutput: 1,
       })
       expect(stale).toBeUndefined()
-
       const [row] = await listExecutions(tx, workflow.id)
       expect(row.status).toBe("running")
     })
@@ -494,7 +448,6 @@ describe("failQueuedExecution", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       const failed = await failQueuedExecution(tx, execution.id, {
         message: "failed to enqueue",
       })
@@ -502,7 +455,6 @@ describe("failQueuedExecution", () => {
       expect(failed?.error).toEqual({ message: "failed to enqueue" })
     })
   })
-
   it("does not touch an execution that's already been claimed", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -518,17 +470,14 @@ describe("failQueuedExecution", () => {
         "worker-1",
         new Date(Date.now() + 60_000)
       )
-
       const result = await failQueuedExecution(tx, execution.id, {
         message: "should not apply",
       })
       expect(result).toBeUndefined()
-
       const [row] = await listExecutions(tx, workflow.id)
       expect(row.status).toBe("running")
     })
   })
-
   // Real concurrent connections (not withRollback's shared tx), proving mutual exclusion under genuine Postgres row-locking.
   it("never lets both a fail and a claim win on the same execution, whichever runs first", async () => {
     const { organization, workflow, version } = await db.transaction((tx) =>
@@ -541,7 +490,6 @@ describe("failQueuedExecution", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       const [failResult, claimResult] = await Promise.all([
         failQueuedExecution(db, execution.id, { message: "enqueue timed out" }),
         startExecution(
@@ -551,10 +499,8 @@ describe("failQueuedExecution", () => {
           new Date(Date.now() + 60_000)
         ),
       ])
-
       // Exactly one side won — never both, never neither.
       expect(Boolean(failResult) === Boolean(claimResult)).toBe(false)
-
       const [finalExecution] = await listExecutions(db, workflow.id)
       if (failResult) {
         expect(finalExecution.status).toBe("failed")
@@ -580,7 +526,6 @@ describe("isLeaseValid", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       await startExecution(
         tx,
         execution.id,
@@ -589,7 +534,6 @@ describe("isLeaseValid", () => {
       )
       expect(await isLeaseValid(tx, execution.id, "worker-1")).toBe(true)
       expect(await isLeaseValid(tx, execution.id, "worker-2")).toBe(false)
-
       await renewLease(
         tx,
         execution.id,
@@ -626,7 +570,6 @@ describe("listExecutions", () => {
           createdAt: new Date(),
         })
         .returning()
-
       const results = await listExecutions(tx, workflow.id)
       expect(results.map((e) => e.id)).toEqual([second.id, first.id])
     })
@@ -642,6 +585,7 @@ describe("listWorkspaceExecutions", () => {
         version,
       } = await createTestFixtures(tx)
       const workflowB = await createWorkflow(tx, {
+        applicationId: await getTestApplicationId(tx, organization.id),
         workspaceId: organization.id,
         name: "Second Workflow",
         slug: "second-workflow",
@@ -651,7 +595,6 @@ describe("listWorkspaceExecutions", () => {
         graph: { nodes: [], edges: [] },
         contentHash: "test-hash-b",
       })
-
       const [fromA] = await tx
         .insert(executions)
         .values({
@@ -672,7 +615,6 @@ describe("listWorkspaceExecutions", () => {
           createdAt: new Date(),
         })
         .returning()
-
       const page = await listWorkspaceExecutions(tx, organization.id)
       expect(page.executions.map((e) => e.id)).toEqual([fromB.id, fromA.id])
       expect(page.executions[0].workflowName).toBe("Second Workflow")
@@ -681,7 +623,6 @@ describe("listWorkspaceExecutions", () => {
       expect(page.hasMore).toBe(false)
     })
   })
-
   it("filters by status and by trigger", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -702,13 +643,11 @@ describe("listWorkspaceExecutions", () => {
         trigger: "webhook",
         status: "succeeded",
       })
-
       const queuedOnly = await listWorkspaceExecutions(tx, organization.id, {
         status: "queued",
       })
       expect(queuedOnly.executions.map((e) => e.id)).toEqual([queued.id])
       expect(queuedOnly.total).toBe(1)
-
       const manualOnly = await listWorkspaceExecutions(tx, organization.id, {
         trigger: "manual",
       })
@@ -716,7 +655,6 @@ describe("listWorkspaceExecutions", () => {
       expect(manualOnly.total).toBe(1)
     })
   })
-
   it("does not include executions from another workspace", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -727,13 +665,11 @@ describe("listWorkspaceExecutions", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       const page = await listWorkspaceExecutions(tx, otherOrg.id)
       expect(page.executions).toEqual([])
       expect(page.total).toBe(0)
     })
   })
-
   it("paginates via cursor: total reflects every matching row, hasMore tracks whether another page follows", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -745,14 +681,12 @@ describe("listWorkspaceExecutions", () => {
         createdAt: new Date(Date.now() - i * 1_000),
       }))
       await tx.insert(executions).values(rows)
-
       const firstPage = await listWorkspaceExecutions(tx, organization.id, {
         limit: 2,
       })
       expect(firstPage.executions).toHaveLength(2)
       expect(firstPage.total).toBe(5)
       expect(firstPage.hasMore).toBe(true)
-
       const last = firstPage.executions[firstPage.executions.length - 1]
       const secondPage = await listWorkspaceExecutions(tx, organization.id, {
         limit: 2,
@@ -766,7 +700,6 @@ describe("listWorkspaceExecutions", () => {
           (e) => !firstPage.executions.some((f) => f.id === e.id)
         )
       ).toBe(true)
-
       const secondLast = secondPage.executions[secondPage.executions.length - 1]
       const thirdPage = await listWorkspaceExecutions(tx, organization.id, {
         limit: 2,
@@ -777,7 +710,6 @@ describe("listWorkspaceExecutions", () => {
       expect(thirdPage.hasMore).toBe(false)
     })
   })
-
   it("orders ties on createdAt deterministically, so paging never skips or repeats a row", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -793,7 +725,6 @@ describe("listWorkspaceExecutions", () => {
         createdAt: sameInstant,
       }))
       await tx.insert(executions).values(rows)
-
       const firstPage = await listWorkspaceExecutions(tx, organization.id, {
         limit: 4,
       })
@@ -802,16 +733,13 @@ describe("listWorkspaceExecutions", () => {
         limit: 4,
         cursor: { createdAt: last.createdAt, id: last.id },
       })
-
       const firstIds = firstPage.executions.map((e) => e.id)
       const secondIds = secondPage.executions.map((e) => e.id)
       const combined = [...firstIds, ...secondIds]
-
       expect(new Set(combined).size).toBe(combined.length)
       expect(combined).toHaveLength(6)
     })
   })
-
   it("holds page boundaries fixed against a concurrent insert, unlike OFFSET pagination", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -823,12 +751,10 @@ describe("listWorkspaceExecutions", () => {
         createdAt: new Date(Date.now() - i * 1_000),
       }))
       await tx.insert(executions).values(rows)
-
       const firstPage = await listWorkspaceExecutions(tx, organization.id, {
         limit: 2,
       })
       const last = firstPage.executions[firstPage.executions.length - 1]
-
       // A new execution lands after page 1's query ran but before page 2 is
       // fetched — under OFFSET pagination this shifts every later offset by
       // one. A cursor anchored to a specific row is immune: the new row
@@ -840,12 +766,10 @@ describe("listWorkspaceExecutions", () => {
         trigger: "manual",
         createdAt: new Date(),
       })
-
       const secondPage = await listWorkspaceExecutions(tx, organization.id, {
         limit: 2,
         cursor: { createdAt: last.createdAt, id: last.id },
       })
-
       expect(secondPage.total).toBe(6)
       expect(
         secondPage.executions.every(
@@ -854,7 +778,6 @@ describe("listWorkspaceExecutions", () => {
       ).toBe(true)
     })
   })
-
   it("holds page boundaries fixed against a status change, which a createdAt-only bound can't", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -871,14 +794,12 @@ describe("listWorkspaceExecutions", () => {
           }))
         )
         .returning()
-
       const firstPage = await listWorkspaceExecutions(tx, organization.id, {
         status: "queued",
         limit: 2,
       })
       expect(firstPage.executions).toHaveLength(2)
       const last = firstPage.executions[firstPage.executions.length - 1]
-
       // A row already returned on page 1 (rows[1], between page 1's two
       // rows and the cursor) drops out of the "queued" filter entirely —
       // exactly the case a plain createdAt asOf bound can't stabilize,
@@ -887,13 +808,11 @@ describe("listWorkspaceExecutions", () => {
         .update(executions)
         .set({ status: "running" })
         .where(eq(executions.id, rows[1].id))
-
       const secondPage = await listWorkspaceExecutions(tx, organization.id, {
         status: "queued",
         limit: 2,
         cursor: { createdAt: last.createdAt, id: last.id },
       })
-
       expect(
         secondPage.executions.every(
           (e) => !firstPage.executions.some((f) => f.id === e.id)
@@ -927,14 +846,12 @@ describe("countNewWorkspaceExecutions", () => {
         .returning()
       // rows[0] is newest, rows[3] oldest (desc insertion order above).
       const since = { createdAt: rows[1].createdAt, id: rows[1].id }
-
       const count = await countNewWorkspaceExecutions(tx, organization.id, {
         since,
       })
       expect(count).toBe(1) // only rows[0]
     })
   })
-
   it("counts a row that starts matching a status filter above the cursor — the case forward pagination alone can't surface", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -952,19 +869,16 @@ describe("countNewWorkspaceExecutions", () => {
         )
         .returning()
       const since = { createdAt: rows[1].createdAt, id: rows[1].id }
-
       const before = await countNewWorkspaceExecutions(tx, organization.id, {
         status: "queued",
         since,
       })
       expect(before).toBe(0)
-
       // rows[0] is newer than the cursor and now starts matching "queued".
       await tx
         .update(executions)
         .set({ status: "queued" })
         .where(eq(executions.id, rows[0].id))
-
       const after = await countNewWorkspaceExecutions(tx, organization.id, {
         status: "queued",
         since,
@@ -972,7 +886,6 @@ describe("countNewWorkspaceExecutions", () => {
       expect(after).toBe(1)
     })
   })
-
   it("does not count executions from another workspace", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -987,7 +900,6 @@ describe("countNewWorkspaceExecutions", () => {
           createdAt: new Date(Date.now() - 60_000),
         })
         .returning()
-
       const count = await countNewWorkspaceExecutions(tx, otherOrg.id, {
         since: { createdAt: row.createdAt, id: row.id },
       })
@@ -1001,7 +913,6 @@ describe("triggerWorkflowExecution", () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       await publishWorkflowVersion(tx, workflow.id, version.id)
-
       const byId = await triggerWorkflowExecution(
         tx,
         organization.id,
@@ -1009,11 +920,14 @@ describe("triggerWorkflowExecution", () => {
         { trigger: "manual" }
       )
       expect(byId.outcome).toBe("created")
-
       const bySlug = await triggerWorkflowExecution(
         tx,
         organization.id,
-        { by: "slug", value: workflow.slug },
+        {
+          by: "slug",
+          value: workflow.slug,
+          applicationId: await getTestApplicationId(tx, organization.id),
+        },
         { trigger: "webhook", triggerPayload: { source: "test" } }
       )
       expect(bySlug.outcome).toBe("created")
@@ -1026,12 +940,10 @@ describe("triggerWorkflowExecution", () => {
       }
     })
   })
-
   it("passes through an explicit environment instead of defaulting to dev", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       await publishWorkflowVersion(tx, workflow.id, version.id)
-
       const result = await triggerWorkflowExecution(
         tx,
         organization.id,
@@ -1044,12 +956,10 @@ describe("triggerWorkflowExecution", () => {
       }
     })
   })
-
   it("returns not_found for a workflow that doesn't exist or belongs to another workspace", async () => {
     await withRollback(async (tx) => {
       const { workflow: otherWorkflow } = await createTestFixtures(tx)
       const { organization } = await createTestFixtures(tx)
-
       const result = await triggerWorkflowExecution(
         tx,
         organization.id,
@@ -1059,12 +969,10 @@ describe("triggerWorkflowExecution", () => {
       expect(result.outcome).toBe("not_found")
     })
   })
-
   it("stamps triggeredByUserId and externalSubjectId on the created execution, and upserts an end_subjects row for the latter", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       await publishWorkflowVersion(tx, workflow.id, version.id)
-
       const result = await triggerWorkflowExecution(
         tx,
         organization.id,
@@ -1075,7 +983,6 @@ describe("triggerWorkflowExecution", () => {
       if (result.outcome === "created") {
         expect(result.execution.externalSubjectId).toBe("customer-user-1")
       }
-
       const [endSubject] = await tx
         .select()
         .from(endSubjects)
@@ -1089,12 +996,10 @@ describe("triggerWorkflowExecution", () => {
       expect(endSubject.deletedAt).toBeNull()
     })
   })
-
   it("normalizes an empty-string externalSubjectId to undefined, instead of storing it while skipping the roster upsert", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       await publishWorkflowVersion(tx, workflow.id, version.id)
-
       const result = await triggerWorkflowExecution(
         tx,
         organization.id,
@@ -1107,11 +1012,9 @@ describe("triggerWorkflowExecution", () => {
       }
     })
   })
-
   it("returns unpublished for a workflow with no published version", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
-
       const result = await triggerWorkflowExecution(
         tx,
         organization.id,
@@ -1121,7 +1024,6 @@ describe("triggerWorkflowExecution", () => {
       expect(result.outcome).toBe("unpublished")
     })
   })
-
   it("returns archived for an archived workflow, even with a published version", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
@@ -1129,7 +1031,6 @@ describe("triggerWorkflowExecution", () => {
       await updateWorkflow(tx, organization.id, workflow.id, {
         archivedAt: new Date(),
       })
-
       const result = await triggerWorkflowExecution(
         tx,
         organization.id,
@@ -1139,7 +1040,6 @@ describe("triggerWorkflowExecution", () => {
       expect(result.outcome).toBe("archived")
     })
   })
-
   it("blocks a concurrent archive from committing until the trigger's row lock is released", async () => {
     // Same technique as createWorkflowVersion's lock test: two real
     // connections, since Promise.all doesn't reliably force real overlap.
@@ -1147,16 +1047,13 @@ describe("triggerWorkflowExecution", () => {
       createTestFixtures(tx)
     )
     await publishWorkflowVersion(db, workflow.id, version.id)
-
     const clientA = await pool.connect()
     const clientB = await pool.connect()
-
     try {
       await clientA.query("BEGIN")
       await clientA.query("SELECT id FROM workflows WHERE id = $1 FOR UPDATE", [
         workflow.id,
       ])
-
       await clientB.query("BEGIN")
       let archiveCommitted = false
       const archiveAttempt = clientB
@@ -1166,14 +1063,11 @@ describe("triggerWorkflowExecution", () => {
         .then(() => {
           archiveCommitted = true
         })
-
       await new Promise((resolve) => setTimeout(resolve, 200))
       expect(archiveCommitted).toBe(false)
-
       await clientA.query("COMMIT")
       await archiveAttempt
       expect(archiveCommitted).toBe(true)
-
       await clientB.query("COMMIT")
     } finally {
       await clientA.query("ROLLBACK").catch(() => {})

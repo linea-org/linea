@@ -5,7 +5,7 @@ import { timestampSchema } from "../shared/timestamp"
 const authorizationCodeSchema = z.string().min(20).max(4096)
 
 export const startEndUserAuthorizationSchema = z.strictObject({
-  applicationId: identifierSchema,
+  environmentId: identifierSchema,
   redirectUri: z.url().max(2000),
   codeChallenge: z
     .string()
@@ -18,7 +18,7 @@ export const endUserAuthorizationResponseSchema = z.strictObject({
 })
 
 export const exchangeEndUserAuthorizationSchema = z.strictObject({
-  applicationId: identifierSchema,
+  environmentId: identifierSchema,
   redirectUri: z.url().max(2000),
   code: authorizationCodeSchema,
   state: z
@@ -33,7 +33,7 @@ export const exchangeEndUserAuthorizationSchema = z.strictObject({
 })
 
 export const endUserIdentityExchangeSchema = z.strictObject({
-  applicationId: identifierSchema,
+  environmentId: identifierSchema,
   externalSubjectId: identifierSchema,
   exchangeToken: z.string().startsWith("lnx_"),
   dpopNonce: z.string().min(32).max(256),

@@ -1,3 +1,4 @@
+import { getTestApplicationId } from '@linea/db/testing'
 import '@linea/config/env'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
@@ -19,7 +20,6 @@ async function withOrg(fn: (workspaceId: string) => Promise<void>) {
       createdAt: new Date(),
     })
     .returning()
-
   try {
     await fn(organization.id)
   } finally {
@@ -43,16 +43,17 @@ describe('RegressionRunsService', () => {
       })
       .compile()
     const service = moduleRef.get(RegressionRunsService)
-
     try {
       await withOrg(async (workspaceId) => {
         const suffix = randomUUID()
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, workspaceId),
           workspaceId,
           name: 'Regression Runs Test Workflow',
           slug: `regression-runs-test-${suffix}`,
         })
         const otherWorkflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, workspaceId),
           workspaceId,
           name: 'Regression Runs Test Other Workflow',
           slug: `regression-runs-test-other-${suffix}`,
@@ -62,7 +63,6 @@ describe('RegressionRunsService', () => {
           graph: { nodes: [], edges: [] },
           contentHash: `regression-runs-test-hash-${suffix}`,
         })
-
         const run = await repositories.regressionRun.createRegressionRun(db, {
           workspaceId,
           workflowId: workflow.id,
@@ -94,14 +94,11 @@ describe('RegressionRunsService', () => {
             costMicros: 10n,
           },
         )
-
         const list = await service.list(workspaceId, workflow.id, {})
         expect(list.map((r) => r.id)).toEqual([run.id])
-
         const detail = await service.get(workspaceId, workflow.id, run.id)
         expect(detail.results).toHaveLength(1)
         expect(detail.results[0].status).toBe('passed')
-
         // Not visible under the wrong workflow, even in the same workspace.
         await expect(
           service.get(workspaceId, otherWorkflow.id, run.id),
@@ -111,7 +108,6 @@ describe('RegressionRunsService', () => {
       await moduleRef.close()
     }
   })
-
   it('rejects triggering a run with no published version, and enqueues one once published', async () => {
     const enqueue = jest.fn().mockResolvedValue(undefined)
     const moduleRef = await Test.createTestingModule({
@@ -125,11 +121,11 @@ describe('RegressionRunsService', () => {
       .useValue({ enqueue, onModuleDestroy: () => Promise.resolve() })
       .compile()
     const service = moduleRef.get(RegressionRunsService)
-
     try {
       await withOrg(async (workspaceId) => {
         const suffix = randomUUID()
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, workspaceId),
           workspaceId,
           name: 'Regression Runs Trigger Test Workflow',
           slug: `regression-runs-trigger-test-${suffix}`,
@@ -139,17 +135,14 @@ describe('RegressionRunsService', () => {
           graph: { nodes: [], edges: [] },
           contentHash: `regression-runs-trigger-test-hash-${suffix}`,
         })
-
         await expect(
           service.trigger(workspaceId, workflow.id, {}),
         ).rejects.toThrow()
-
         await repositories.workflow.publishWorkflowVersion(
           db,
           workflow.id,
           version.id,
         )
-
         const result = await service.trigger(workspaceId, workflow.id, {})
         expect(result).toEqual({ queued: true })
         expect(enqueue).toHaveBeenCalledWith({
@@ -163,7 +156,6 @@ describe('RegressionRunsService', () => {
       await moduleRef.close()
     }
   })
-
   it('rejects an explicit workflowVersionId override that does not belong to this workflow, without enqueueing it', async () => {
     const enqueue = jest.fn().mockResolvedValue(undefined)
     const moduleRef = await Test.createTestingModule({
@@ -173,7 +165,6 @@ describe('RegressionRunsService', () => {
       .useValue({ enqueue, onModuleDestroy: () => Promise.resolve() })
       .compile()
     const service = moduleRef.get(RegressionRunsService)
-
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -191,14 +182,15 @@ describe('RegressionRunsService', () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Regression Runs Bad Version Test Workflow',
         slug: `regression-runs-bad-version-test-${suffix}`,
       })
       const otherWorkflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, otherOrganization.id),
         workspaceId: otherOrganization.id,
         name: 'Regression Runs Bad Version Test Other Workflow',
         slug: `regression-runs-bad-version-test-other-${suffix}`,
@@ -211,7 +203,6 @@ describe('RegressionRunsService', () => {
           contentHash: `regression-runs-bad-version-test-hash-${suffix}`,
         },
       )
-
       await expect(
         service.trigger(organization.id, workflow.id, {
           workflowVersionId: otherVersion.id,

@@ -7,23 +7,23 @@ import {
 import { webhookDeliverySchema } from "../webhooks/webhook-envelope"
 import type { OperationDefinition } from "./operation"
 
-const applicationPathSchema = z.strictObject({
-  applicationId: publicRuntimeIdSchema,
+const environmentPathSchema = z.strictObject({
+  environmentId: publicRuntimeIdSchema,
 })
-const applicationHeadersSchema = z.strictObject({
+const environmentHeadersSchema = z.strictObject({
   authorization: z.string().startsWith("Bearer "),
 })
 
 export const listWebhookDeliveriesOperation = {
   operationId: "listWebhookDeliveries",
   method: "GET",
-  path: "/v1/applications/{applicationId}/webhook-deliveries",
+  path: "/v1/environments/{environmentId}/webhook-deliveries",
   plane: "control",
-  auth: { kind: "application_key", scopes: ["webhooks:read"] },
+  auth: { kind: "environment_key", scopes: ["webhooks:read"] },
   request: {
-    path: applicationPathSchema,
+    path: environmentPathSchema,
     query: paginationQuerySchema,
-    headers: applicationHeadersSchema,
+    headers: environmentHeadersSchema,
     body: z.undefined(),
   },
   response: {

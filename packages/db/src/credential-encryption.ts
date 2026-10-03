@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto"
 
 export type CredentialEncryptionContext = {
   workspaceId: string
-  applicationId: string
+  environmentId: string
   externalSubjectId: string
   recordId: string
   provider: string
@@ -50,7 +50,7 @@ function associatedData(context: CredentialEncryptionContext): Buffer {
   return Buffer.from(
     JSON.stringify([
       context.workspaceId,
-      context.applicationId,
+      context.environmentId,
       context.externalSubjectId,
       context.recordId,
       context.provider,

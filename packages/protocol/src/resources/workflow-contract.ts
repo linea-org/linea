@@ -1,6 +1,6 @@
 import { z } from "zod"
 import {
-  applicationIdSchema,
+  environmentIdSchema,
   identifierSchema,
   workflowContractIdSchema,
   workflowIdSchema,
@@ -19,9 +19,11 @@ export const workflowContractRevisionSchema = z.strictObject({
   createdAt: timestampSchema,
 })
 
-export const applicationWorkflowBindingSchema = z.strictObject({
+export const environmentWorkflowBindingSchema = z.strictObject({
   id: identifierSchema,
-  applicationId: applicationIdSchema,
+  environmentId: environmentIdSchema,
+  applicationId: identifierSchema,
+  workflowVersionId: identifierSchema,
   workflowId: workflowIdSchema,
   workflowContractRevisionId: workflowContractIdSchema,
   allowBackendStart: z.boolean(),
@@ -35,6 +37,6 @@ export type JsonSchemaDocument = z.infer<typeof jsonSchemaDocumentSchema>
 export type WorkflowContractRevision = z.infer<
   typeof workflowContractRevisionSchema
 >
-export type ApplicationWorkflowBinding = z.infer<
-  typeof applicationWorkflowBindingSchema
+export type EnvironmentWorkflowBinding = z.infer<
+  typeof environmentWorkflowBindingSchema
 >

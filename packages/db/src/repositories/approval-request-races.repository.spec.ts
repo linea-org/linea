@@ -1,17 +1,19 @@
+import { fixtureIssuer } from "./test-utils.js"
+import { getTestApplicationId } from "./test-utils.js"
 import { randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
 import {
-  applications,
-  applicationKeys,
+  environments,
+  environmentKeys,
   approvalDecisions,
   approvalRequests,
   auditLogs,
   conversations,
   endUserSessions,
   executions,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
 } from "../schema/index.js"
 import {
@@ -28,9 +30,10 @@ import type { Transaction } from "./types.js"
 
 async function createRaceFixture(tx: Transaction) {
   const fixtures = await createTestFixtures(tx)
-  const [application] = await tx
-    .insert(applications)
+  const [environment] = await tx
+    .insert(environments)
     .values({
+      applicationId: await getTestApplicationId(tx, fixtures.organization.id),
       workspaceId: fixtures.organization.id,
       environment: "production",
       displayName: "Customer portal",
@@ -42,37 +45,39 @@ async function createRaceFixture(tx: Transaction) {
       oidcJwksUrl: "https://identity.example.com/jwks.json",
     })
     .returning()
-  const [applicationKey] = await tx
-    .insert(applicationKeys)
+  const [environmentKey] = await tx
+    .insert(environmentKeys)
     .values({
       workspaceId: fixtures.organization.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       name: "Runtime key",
       scopes: ["executions:cancel"],
       hashedKey: randomUUID(),
-      keyPrefix: "lin_app_test",
+      keyPrefix: "lin_env_test",
     })
     .returning()
+  if (!fixtureIssuer(environment))
+    throw new Error("Fixture identity trust missing")
   const [subject] = await tx
     .insert(externalSubjects)
     .values({
       workspaceId: fixtures.organization.id,
-      issuer: application.oidcIssuer,
+      issuer: fixtureIssuer(environment),
       issuerSubject: randomUUID(),
       status: "verified",
       verifiedAt: new Date(),
     })
     .returning()
-  await tx.insert(externalSubjectApplications).values({
+  await tx.insert(externalSubjectEnvironments).values({
     workspaceId: fixtures.organization.id,
-    applicationId: application.id,
+    environmentId: environment.id,
     externalSubjectId: subject.id,
   })
   const [conversation] = await tx
     .insert(conversations)
     .values({
       workspaceId: fixtures.organization.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       workflowId: fixtures.workflow.id,
       externalSubjectId: subject.id,
       environment: "production",
@@ -84,7 +89,7 @@ async function createRaceFixture(tx: Transaction) {
       workspaceId: fixtures.organization.id,
       workflowId: fixtures.workflow.id,
       workflowVersionId: fixtures.version.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       externalSubjectRecordId: subject.id,
       conversationId: conversation.id,
       trigger: "api",
@@ -97,7 +102,7 @@ async function createRaceFixture(tx: Transaction) {
     .values(
       ["first", "replacement"].map((name) => ({
         workspaceId: fixtures.organization.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subject.id,
         tokenHash: `${name}-${randomUUID()}`,
         proofJkt: `${name}-${randomUUID()}`,
@@ -108,8 +113,8 @@ async function createRaceFixture(tx: Transaction) {
     .returning()
   return {
     ...fixtures,
-    application,
-    applicationKey,
+    environment,
+    environmentKey,
     subject,
     conversation,
     execution,
@@ -127,7 +132,7 @@ async function createExternalRequest(
 ) {
   const request = await createApprovalRequest(db, {
     workspaceId: fixture.organization.id,
-    applicationId: fixture.application.id,
+    environmentId: fixture.environment.id,
     workflowId: fixture.workflow.id,
     executionId: fixture.execution.id,
     nodeId: "approval-1",
@@ -150,7 +155,7 @@ function decisionInput(
 ) {
   return {
     workspaceId: fixture.organization.id,
-    applicationId: fixture.application.id,
+    environmentId: fixture.environment.id,
     externalSubjectId: fixture.subject.id,
     endUserSessionId: fixture.sessions[sessionIndex].id,
     approvalRequestId,
@@ -216,7 +221,6 @@ describe("Approval Request terminal races", () => {
       await deleteRaceFixture(fixture)
     }
   })
-
   it("returns an identical Decision across a replacement session and rejects conflicting reuse", async () => {
     const fixture = await db.transaction(createRaceFixture)
     try {
@@ -231,7 +235,7 @@ describe("Approval Request terminal races", () => {
           workspaceId: fixture.organization.id,
           workflowId: fixture.workflow.id,
           workflowVersionId: fixture.version.id,
-          applicationId: fixture.application.id,
+          environmentId: fixture.environment.id,
           externalSubjectRecordId: fixture.subject.id,
           conversationId: fixture.conversation.id,
           trigger: "api",
@@ -241,7 +245,7 @@ describe("Approval Request terminal races", () => {
         .returning()
       const otherRequest = await createApprovalRequest(db, {
         workspaceId: fixture.organization.id,
-        applicationId: fixture.application.id,
+        environmentId: fixture.environment.id,
         workflowId: fixture.workflow.id,
         executionId: otherExecution.id,
         nodeId: "approval-1",
@@ -302,7 +306,6 @@ describe("Approval Request terminal races", () => {
       await deleteRaceFixture(fixture)
     }
   })
-
   it("allows exactly one of two simultaneous human Decisions", async () => {
     const fixture = await db.transaction(createRaceFixture)
     try {
@@ -352,7 +355,6 @@ describe("Approval Request terminal races", () => {
       await deleteRaceFixture(fixture)
     }
   })
-
   it("records one timeout Decision when a human Decision races expiry", async () => {
     const fixture = await db.transaction(createRaceFixture)
     try {
@@ -360,7 +362,7 @@ describe("Approval Request terminal races", () => {
       const expiresAt = new Date("2026-01-01T00:01:00.000Z")
       const request = await createApprovalRequest(db, {
         workspaceId: fixture.organization.id,
-        applicationId: fixture.application.id,
+        environmentId: fixture.environment.id,
         workflowId: fixture.workflow.id,
         executionId: fixture.execution.id,
         nodeId: "approval-1",
@@ -403,7 +405,6 @@ describe("Approval Request terminal races", () => {
       await deleteRaceFixture(fixture)
     }
   })
-
   it("never resumes a cancelled Execution when cancellation races a Decision", async () => {
     const fixture = await db.transaction(createRaceFixture)
     try {
@@ -417,12 +418,12 @@ describe("Approval Request terminal races", () => {
           cancelPublicExecution(
             db,
             fixture.organization.id,
-            fixture.application.id,
+            fixture.environment.id,
             fixture.execution.id,
             {
               actor: {
-                kind: "application_key",
-                id: fixture.applicationKey.id,
+                kind: "environment_key",
+                id: fixture.environmentKey.id,
               },
               key: "cancel",
               requestHash: hashPublicRequest({
@@ -460,13 +461,12 @@ describe("Approval Request terminal races", () => {
       await deleteRaceFixture(fixture)
     }
   })
-
   it("cancels a workspace-audience request owned by a public Execution", async () => {
     const fixture = await db.transaction(createRaceFixture)
     try {
       const request = await createApprovalRequest(db, {
         workspaceId: fixture.organization.id,
-        applicationId: fixture.application.id,
+        environmentId: fixture.environment.id,
         workflowId: fixture.workflow.id,
         executionId: fixture.execution.id,
         nodeId: "approval-1",
@@ -477,10 +477,10 @@ describe("Approval Request terminal races", () => {
       const result = await cancelPublicExecution(
         db,
         fixture.organization.id,
-        fixture.application.id,
+        fixture.environment.id,
         fixture.execution.id,
         {
-          actor: { kind: "application_key", id: fixture.applicationKey.id },
+          actor: { kind: "environment_key", id: fixture.environmentKey.id },
           key: "cancel-workspace-request",
           requestHash: hashPublicRequest({ executionId: fixture.execution.id }),
         }
@@ -495,7 +495,6 @@ describe("Approval Request terminal races", () => {
       await deleteRaceFixture(fixture)
     }
   })
-
   it("returns cancelled for a Decision submitted after cancellation", async () => {
     const fixture = await db.transaction(createRaceFixture)
     try {
@@ -503,10 +502,10 @@ describe("Approval Request terminal races", () => {
       await cancelPublicExecution(
         db,
         fixture.organization.id,
-        fixture.application.id,
+        fixture.environment.id,
         fixture.execution.id,
         {
-          actor: { kind: "application_key", id: fixture.applicationKey.id },
+          actor: { kind: "environment_key", id: fixture.environmentKey.id },
           key: "cancel-before-decision",
           requestHash: hashPublicRequest({ executionId: fixture.execution.id }),
         }
@@ -525,7 +524,6 @@ describe("Approval Request terminal races", () => {
       await deleteRaceFixture(fixture)
     }
   })
-
   it("rejects auto-approval for an Action Consent request", async () => {
     const fixture = await db.transaction(createRaceFixture)
     try {

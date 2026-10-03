@@ -62,7 +62,7 @@ const sharedAuditFields = {
 export const operatorConnectorAuditEventSchema = z.strictObject({
   ...sharedAuditFields,
   type: connectorAuditFactTypeSchema,
-  applicationId: publicRuntimeIdSchema,
+  environmentId: publicRuntimeIdSchema,
   subjectReference: publicRuntimeIdSchema,
   failureClass: z.string().min(1).max(128).nullable(),
 })
@@ -73,7 +73,7 @@ export const endUserConnectorAuditEventSchema = z.strictObject({
 })
 
 export const workspaceConnectorAuditQuerySchema = paginationQuerySchema.extend({
-  applicationId: z.uuid().optional(),
+  environmentId: z.uuid().optional(),
 })
 
 export type OperatorConnectorAuditEvent = z.infer<

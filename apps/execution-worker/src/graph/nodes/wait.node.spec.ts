@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -18,6 +19,7 @@ async function setup() {
     })
     .returning()
   const workflow = await repositories.workflow.createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, organization.id),
     workspaceId: organization.id,
     name: "Wait Node Test Workflow",
     slug: `wait-node-workflow-${suffix}`,
@@ -46,7 +48,6 @@ describe("WaitNode", () => {
         executionId: execution.id,
         nodeId: "wait-1",
       }
-
       await expect(
         node.execute(
           { mode: "duration", amount: 5, unit: "minutes" },
@@ -54,7 +55,6 @@ describe("WaitNode", () => {
           context
         )
       ).rejects.toThrow("Execution paused at node wait-1")
-
       const timer = await repositories.waitTimer.getWaitTimer(
         db,
         organization.id,
@@ -62,7 +62,6 @@ describe("WaitNode", () => {
         "wait-1"
       )
       expect(timer).toMatchObject({ fired: false })
-
       // Second visit (a resumed run re-entering the same node) — still not fired, pauses again without creating a duplicate row.
       await expect(
         node.execute(
@@ -77,7 +76,6 @@ describe("WaitNode", () => {
       ])
     }
   })
-
   it("resolves to the resumedAt output once the timer has fired", async () => {
     const { organization, execution } = await setup()
     try {
@@ -87,7 +85,6 @@ describe("WaitNode", () => {
         executionId: execution.id,
         nodeId: "wait-1",
       }
-
       await expect(
         node.execute(
           { mode: "duration", amount: 1, unit: "seconds" },
@@ -95,7 +92,6 @@ describe("WaitNode", () => {
           context
         )
       ).rejects.toThrow()
-
       // Forces only this specific row due — not a database-wide pumped-forward "now", which would
       // also claim and permanently fire any concurrently running test's own legitimately-not-yet-
       // due timer and corrupt its state. Then drains at the real current time (claimAndResolveDueWaitTimer
@@ -113,7 +109,6 @@ describe("WaitNode", () => {
         drainResult =
           await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
       }
-
       const firedTimer = await repositories.waitTimer.getWaitTimer(
         db,
         organization.id,
@@ -121,7 +116,6 @@ describe("WaitNode", () => {
         "wait-1"
       )
       expect(firedTimer?.fired).toBe(true)
-
       const output = await node.execute(
         { mode: "duration", amount: 1, unit: "seconds" },
         undefined,
@@ -136,7 +130,6 @@ describe("WaitNode", () => {
       ])
     }
   })
-
   it("computes resumeAt from an explicit until timestamp", async () => {
     const { organization, execution } = await setup()
     try {
@@ -147,11 +140,9 @@ describe("WaitNode", () => {
         nodeId: "wait-1",
       }
       const until = "2099-01-01T00:00:00.000Z"
-
       await expect(
         node.execute({ mode: "until", until }, undefined, context)
       ).rejects.toThrow("Execution paused at node wait-1")
-
       const timer = await repositories.waitTimer.getWaitTimer(
         db,
         organization.id,
@@ -165,7 +156,6 @@ describe("WaitNode", () => {
       ])
     }
   })
-
   it("throws a plain error for a missing amount, not a pause", async () => {
     const { organization, execution } = await setup()
     try {
@@ -175,7 +165,6 @@ describe("WaitNode", () => {
         executionId: execution.id,
         nodeId: "wait-1",
       }
-
       await expect(
         node.execute({ mode: "duration" }, undefined, context)
       ).rejects.toThrow('requires a positive "amount"')
@@ -185,7 +174,6 @@ describe("WaitNode", () => {
       ])
     }
   })
-
   it("throws a plain error for an unparseable until timestamp", async () => {
     const { organization, execution } = await setup()
     try {
@@ -195,7 +183,6 @@ describe("WaitNode", () => {
         executionId: execution.id,
         nodeId: "wait-1",
       }
-
       await expect(
         node.execute({ mode: "until", until: "not-a-date" }, undefined, context)
       ).rejects.toThrow("could not parse")

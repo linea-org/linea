@@ -1,7 +1,7 @@
 import { LineaUserClient } from "@linea/sdk/user"
 
 const client = new LineaUserClient({
-  applicationId: "80000000-0000-4000-8000-000000000008",
+  environmentId: "80000000-0000-4000-8000-000000000008",
   baseUrl: "https://api.example",
 })
 

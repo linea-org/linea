@@ -18,7 +18,7 @@ import { parseConnectionProviderCredential } from './connection-provider-credent
 function encryptionContext(connection: Connection) {
   return {
     workspaceId: connection.workspaceId,
-    applicationId: connection.applicationId,
+    environmentId: connection.environmentId,
     externalSubjectId: connection.externalSubjectId,
     recordId: connection.id,
     provider: connection.provider,

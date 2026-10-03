@@ -253,7 +253,8 @@ export class ReplayService {
         undefined,
         undefined,
         undefined,
-        cacheableWorkflowVersionId
+        cacheableWorkflowVersionId,
+        execution.environmentId ?? undefined
       )
       const isModelCall =
         model !== undefined &&

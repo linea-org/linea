@@ -26,6 +26,8 @@ export const workspaceExecutionSchema = z.object({
   workspaceId: z.string(),
   workflowId: z.string(),
   workflowVersionId: z.string(),
+  environmentId: z.string().nullable(),
+  workflowContractRevisionId: z.string().nullable(),
   status: workspaceExecutionStatusSchema,
   origin: workspaceExecutionOriginSchema,
   trigger: workspaceExecutionTriggerSchema,

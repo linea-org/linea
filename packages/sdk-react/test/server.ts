@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw"
 import { setupServer } from "msw/node"
 
 export const apiBaseUrl = "https://api.example"
-export const applicationId = "80000000-0000-4000-8000-000000000008"
+export const environmentId = "80000000-0000-4000-8000-000000000008"
 export const externalSubjectId = "90000000-0000-4000-8000-000000000009"
 export const authorizationState = "s".repeat(43)
 export const firstNonce = "n".repeat(32)
@@ -20,7 +20,7 @@ export const authorizationHandlers = [
   http.post(`${apiBaseUrl}/v1/user-sessions/exchange`, () =>
     HttpResponse.json(
       {
-        applicationId,
+        environmentId,
         externalSubjectId,
         exchangeToken: `lnx_${"e".repeat(32)}`,
         dpopNonce: firstNonce,

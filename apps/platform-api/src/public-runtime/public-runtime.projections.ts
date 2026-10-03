@@ -9,7 +9,7 @@ import type { JsonValue } from '@linea/protocol/shared'
 export function conversationProjection(conversation: Conversation) {
   return conversationSchema.parse({
     id: conversation.id,
-    applicationId: conversation.applicationId,
+    environmentId: conversation.environmentId,
     workflowId: conversation.workflowId,
     externalSubjectId: conversation.externalSubjectId,
     externalThreadKey: conversation.externalThreadKey,
@@ -41,12 +41,12 @@ export function executionProjection(
   execution: Execution,
   output: JsonValue | null,
 ) {
-  if (!execution.applicationId || !execution.externalSubjectRecordId) {
+  if (!execution.environmentId || !execution.externalSubjectRecordId) {
     throw new Error('Public Execution identity is incomplete')
   }
   return publicExecutionSchema.parse({
     id: execution.id,
-    applicationId: execution.applicationId,
+    environmentId: execution.environmentId,
     workflowId: execution.workflowId,
     externalSubjectId: execution.externalSubjectRecordId,
     conversationId: execution.conversationId,

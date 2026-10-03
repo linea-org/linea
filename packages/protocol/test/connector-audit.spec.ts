@@ -8,7 +8,7 @@ import {
 const operatorEvent = {
   id: "10000000-0000-4000-8000-000000000001",
   type: "connection.revoked",
-  applicationId: "20000000-0000-4000-8000-000000000002",
+  environmentId: "20000000-0000-4000-8000-000000000002",
   subjectReference: "30000000-0000-4000-8000-000000000003",
   connectionId: "40000000-0000-4000-8000-000000000004",
   actionIntentId: null,
@@ -61,7 +61,6 @@ describe("connector audit public schemas", () => {
       ).toBe(false)
     }
   })
-
   it("keeps Operator-only fields and transitions out of End-User projections", () => {
     expect(
       operatorConnectorAuditEventSchema.safeParse(operatorEvent).success
@@ -76,14 +75,13 @@ describe("connector audit public schemas", () => {
       }).success
     ).toBe(false)
   })
-
   it("rejects secrets in connection revocation webhooks", () => {
     const envelope = {
       id: "50000000-0000-4000-8000-000000000005",
       type: "connection.revoked",
       version: 1,
       createdAt: "2026-09-20T00:00:00.000Z",
-      applicationId: operatorEvent.applicationId,
+      environmentId: operatorEvent.environmentId,
       data: { connectionId: operatorEvent.connectionId },
     } as const
     expect(webhookEnvelopeSchema.safeParse(envelope).success).toBe(true)

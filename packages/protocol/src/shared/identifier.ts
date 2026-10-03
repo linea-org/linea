@@ -6,7 +6,7 @@ export const identifierSchema = z
   .max(128)
   .regex(/^[A-Za-z0-9_-]+$/)
 
-export const applicationIdSchema = identifierSchema
+export const environmentIdSchema = identifierSchema
 export const workflowIdSchema = identifierSchema
 export const workflowContractIdSchema = identifierSchema
 export const externalSubjectIdSchema = identifierSchema
@@ -19,7 +19,7 @@ export const connectionIdSchema = identifierSchema
 export const eventIdSchema = identifierSchema
 
 export type Identifier = z.infer<typeof identifierSchema>
-export type ApplicationId = z.infer<typeof applicationIdSchema>
+export type EnvironmentId = z.infer<typeof environmentIdSchema>
 export type WorkflowId = z.infer<typeof workflowIdSchema>
 export type WorkflowContractId = z.infer<typeof workflowContractIdSchema>
 export type ExternalSubjectId = z.infer<typeof externalSubjectIdSchema>

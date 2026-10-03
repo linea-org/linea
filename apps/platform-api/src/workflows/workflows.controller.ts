@@ -101,6 +101,14 @@ export class WorkflowsController {
     return this.workflows.createVersion(workspaceId, id, body)
   }
 
+  @Get(':id/versions')
+  listVersions(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('id') id: string,
+  ) {
+    return this.workflows.listVersions(workspaceId, id)
+  }
+
   @Get(':id/versions/:versionId')
   getVersion(
     @CurrentWorkspaceId() workspaceId: string,

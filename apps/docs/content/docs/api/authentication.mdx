@@ -9,15 +9,15 @@ application, and an End User do not have interchangeable authority.
 
 ## Credential selection
 
-| Caller                         | Credential                   | Scope                                                  |
-| ------------------------------ | ---------------------------- | ------------------------------------------------------ |
-| Operator control plane         | Authenticated member session | Workspace role and membership                          |
-| Operator server integration    | Workspace key                | Explicit workspace operations                          |
-| Application backend            | Application key              | One deployed Application and runtime resources         |
-| End-user browser or mobile app | End-User Session             | One subject, Application, audience, and short lifetime |
+| Caller                          | Credential                   | Scope                                                  |
+| ------------------------------- | ---------------------------- | ------------------------------------------------------ |
+| Operator control plane          | Authenticated member session | Workspace role and membership                          |
+| Operator server integration     | Workspace key                | Explicit workspace operations                          |
+| Application Environment backend | Environment key              | One Environment and its runtime resources              |
+| End-user browser or mobile app  | End-User Session             | One subject, Environment, audience, and short lifetime |
 
-Application keys cannot change identity trust configuration or cross into
-another Application. Workspace keys cannot impersonate End Users. An
+Environment keys cannot change identity trust configuration or cross into
+another Environment. Workspace keys cannot impersonate End Users. An
 End-User Session is a short-lived capability, not a Linea account session.
 
 ## End-user authorization
@@ -26,8 +26,8 @@ End-User Session is a short-lived capability, not a Linea account session.
 
 ### Begin authorization
 
-The Application starts an authorization request for an external subject using
-its server-side Application Key.
+The Application backend starts an authorization request for an external subject using
+its server-side Environment Key.
 
 ### Verify identity
 

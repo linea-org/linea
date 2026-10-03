@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import { externalSubjects } from "./external-subject.js"
 
 export const endUserSessions = snakeCase.table(
@@ -18,7 +18,7 @@ export const endUserSessions = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     tokenHash: text().notNull(),
     proofJkt: text().notNull(),
@@ -37,18 +37,18 @@ export const endUserSessions = snakeCase.table(
     uniqueIndex("end_user_sessions_audience_uidx").on(
       table.id,
       table.workspaceId,
-      table.applicationId,
+      table.environmentId,
       table.externalSubjectId
     ),
-    index("end_user_sessions_application_subject_idx").on(
-      table.applicationId,
+    index("end_user_sessions_environment_subject_idx").on(
+      table.environmentId,
       table.externalSubjectId
     ),
     index("end_user_sessions_expiry_idx").on(table.expiresAt),
     foreignKey({
-      name: "end_user_sessions_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "end_user_sessions_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "end_user_sessions_subject_fkey",

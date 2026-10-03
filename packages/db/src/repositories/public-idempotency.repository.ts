@@ -28,8 +28,8 @@ export async function reservePublicRequest(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
-    actorKind: "application_key" | "end_user_session"
+    environmentId: string
+    actorKind: "environment_key" | "end_user_session"
     actorId: string
     operation: string
     idempotencyKey: string

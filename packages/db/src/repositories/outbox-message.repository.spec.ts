@@ -1,10 +1,12 @@
+import { fixtureIssuer } from "./test-utils.js"
+import { getTestApplicationId } from "./test-utils.js"
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
 import {
-  applications,
+  environments,
   executions,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   outboxMessages,
 } from "../schema/index.js"
@@ -32,9 +34,13 @@ describe("outbox message repository", () => {
         attempts: 0,
         payload: { executionId: "00000000-0000-4000-8000-000000000001" },
       })
-      const [application] = await tx
-        .insert(applications)
+      const [environment] = await tx
+        .insert(environments)
         .values({
+          applicationId: await getTestApplicationId(
+            tx,
+            fixture.organization.id
+          ),
           workspaceId: fixture.organization.id,
           environment: "production",
           displayName: "Outbox test",
@@ -46,6 +52,8 @@ describe("outbox message repository", () => {
           oidcJwksUrl: "https://identity.example.com/jwks.json",
         })
         .returning()
+      if (!fixtureIssuer(environment))
+        throw new Error("Fixture identity trust missing")
       const [externalSubject] = await tx
         .insert(externalSubjects)
         .values({
@@ -56,15 +64,15 @@ describe("outbox message repository", () => {
           verifiedAt: new Date(),
         })
         .returning()
-      await tx.insert(externalSubjectApplications).values({
+      await tx.insert(externalSubjectEnvironments).values({
         workspaceId: fixture.organization.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: externalSubject.id,
       })
       await expect(
         createPublicEvent(tx, {
           workspaceId: fixture.organization.id,
-          applicationId: application.id,
+          environmentId: environment.id,
           externalSubjectId: externalSubject.id,
           eventType: "approval_request.created",
           data: { approvalRequestId: "request-1" },
@@ -72,12 +80,11 @@ describe("outbox message repository", () => {
       ).resolves.toMatchObject({
         kind: "public_event",
         eventType: "approval_request.created",
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: externalSubject.id,
       })
     })
   })
-
   it("lets one dispatcher claim a row and reclaims an expired lease", async () => {
     const fixture = await db.transaction((tx) => createTestFixtures(tx))
     try {
@@ -112,7 +119,6 @@ describe("outbox message repository", () => {
       ])
     }
   })
-
   it("fences completion and records retry and poison states", async () => {
     await withRollback(async (tx) => {
       const fixture = await createTestFixtures(tx)
@@ -173,7 +179,6 @@ describe("outbox message repository", () => {
       ])
     })
   })
-
   it("marks a claimed message published exactly once", async () => {
     await withRollback(async (tx) => {
       const fixture = await createTestFixtures(tx)
@@ -210,7 +215,6 @@ describe("outbox message repository", () => {
       ).resolves.toBeUndefined()
     })
   })
-
   it("keeps valid workflow dispatch retryable after repeated failures", async () => {
     await withRollback(async (tx) => {
       const fixture = await createTestFixtures(tx)

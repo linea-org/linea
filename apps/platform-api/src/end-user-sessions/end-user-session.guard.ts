@@ -18,7 +18,7 @@ import {
 export type EndUserPrincipal = {
   sessionId: string
   workspaceId: string
-  applicationId: string
+  environmentId: string
   externalSubjectId: string
 }
 
@@ -74,7 +74,7 @@ export class EndUserSessionGuard implements CanActivate {
     }
     if (
       state.session.revokedAt ||
-      !state.applicationEnabled ||
+      !state.environmentEnabled ||
       state.subjectStatus !== 'verified'
     ) {
       throw new UnauthorizedException(
@@ -113,7 +113,7 @@ export class EndUserSessionGuard implements CanActivate {
     request.endUserPrincipal = {
       sessionId: state.session.id,
       workspaceId: state.session.workspaceId,
-      applicationId: state.session.applicationId,
+      environmentId: state.session.environmentId,
       externalSubjectId: state.session.externalSubjectId,
     }
     return true

@@ -10,7 +10,7 @@ import { bigIntJsonReplacer } from './common/bigint-json-replacer'
 import {
   getTrustedOrigins,
   isTrustedOrigin,
-  usesApplicationOriginPolicy,
+  usesEnvironmentOriginPolicy,
 } from './common/trusted-origin'
 
 function normalizeClientIp(raw: string | undefined) {
@@ -24,14 +24,12 @@ async function bootstrap() {
     bodyParser: false,
   })
   app.setGlobalPrefix(API_PREFIX)
-
   const expressApp = app.getHttpAdapter().getInstance() as {
     set: (key: string, value: unknown) => void
   }
   expressApp.set('trust proxy', 1)
   expressApp.set('json replacer', bigIntJsonReplacer)
   app.useWebSocketAdapter(new IoAdapter(app))
-
   app.use((req: Request, _res: Response, next: NextFunction) => {
     const ip = normalizeClientIp(req.socket.remoteAddress)
     if (!req.headers['x-real-ip']) {
@@ -42,16 +40,13 @@ async function bootstrap() {
     }
     next()
   })
-
   const trustedOrigins = getTrustedOrigins()
-
   app.use(
     helmet({
       contentSecurityPolicy: process.env.NODE_ENV === 'production',
       crossOriginEmbedderPolicy: false,
     }),
   )
-
   app.enableCors(
     (
       request: Request,
@@ -60,7 +55,7 @@ async function bootstrap() {
       const origin = request.headers.origin
       const allowed =
         !origin ||
-        usesApplicationOriginPolicy(request.path) ||
+        usesEnvironmentOriginPolicy(request.path) ||
         isTrustedOrigin(origin, trustedOrigins)
       callback(
         allowed ? null : new Error(`Origin ${origin} not allowed by CORS`),
@@ -88,9 +83,7 @@ async function bootstrap() {
       )
     },
   )
-
   await app.listen(process.env.PORT ?? 3000)
-
   const oauth =
     enabledSocialProviders.length > 0
       ? enabledSocialProviders.join(', ')

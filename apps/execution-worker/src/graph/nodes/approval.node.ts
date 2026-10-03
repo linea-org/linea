@@ -117,7 +117,7 @@ export class ApprovalNode implements NodeHandler {
         db,
         {
           workspaceId: context.workspaceId,
-          applicationId: execution.applicationId,
+          environmentId: execution.environmentId,
           workflowId: execution.workflowId,
           executionId,
           nodeId,

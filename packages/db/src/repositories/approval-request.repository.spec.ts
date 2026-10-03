@@ -1,14 +1,16 @@
+import { fixtureIssuer } from "./test-utils.js"
+import { getTestApplicationId } from "./test-utils.js"
 import { randomUUID } from "node:crypto"
 import { eq, sql } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
 import {
-  applications,
+  environments,
   approvalDecisions,
   approvalRequests,
   conversations,
   executions,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   members,
   organizations,
@@ -55,9 +57,10 @@ async function createWorkspaceExecution(tx: Transaction) {
 
 async function createExternalExecution(tx: Transaction) {
   const fixtures = await createTestFixtures(tx)
-  const [application] = await tx
-    .insert(applications)
+  const [environment] = await tx
+    .insert(environments)
     .values({
+      applicationId: await getTestApplicationId(tx, fixtures.organization.id),
       workspaceId: fixtures.organization.id,
       environment: "production",
       displayName: "Customer portal",
@@ -69,26 +72,28 @@ async function createExternalExecution(tx: Transaction) {
       oidcJwksUrl: "https://identity.example.com/jwks.json",
     })
     .returning()
+  if (!fixtureIssuer(environment))
+    throw new Error("Fixture identity trust missing")
   const [subject] = await tx
     .insert(externalSubjects)
     .values({
       workspaceId: fixtures.organization.id,
-      issuer: application.oidcIssuer,
+      issuer: fixtureIssuer(environment),
       issuerSubject: "subject-" + randomUUID(),
       status: "verified",
       verifiedAt: new Date(),
     })
     .returning()
-  await tx.insert(externalSubjectApplications).values({
+  await tx.insert(externalSubjectEnvironments).values({
     workspaceId: fixtures.organization.id,
-    applicationId: application.id,
+    environmentId: environment.id,
     externalSubjectId: subject.id,
   })
   const [conversation] = await tx
     .insert(conversations)
     .values({
       workspaceId: fixtures.organization.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       workflowId: fixtures.workflow.id,
       externalSubjectId: subject.id,
       environment: "production",
@@ -100,14 +105,14 @@ async function createExternalExecution(tx: Transaction) {
       workspaceId: fixtures.organization.id,
       workflowId: fixtures.workflow.id,
       workflowVersionId: fixtures.version.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       externalSubjectRecordId: subject.id,
       conversationId: conversation.id,
       trigger: "api",
       environment: "production",
     })
     .returning()
-  return { ...fixtures, application, subject, conversation, execution }
+  return { ...fixtures, environment, subject, conversation, execution }
 }
 
 describe("Approval Request repository", () => {
@@ -146,7 +151,6 @@ describe("Approval Request repository", () => {
       ).toEqual([])
     })
   })
-
   it("is idempotent for one Approval node visit", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, execution } =
@@ -168,7 +172,6 @@ describe("Approval Request repository", () => {
       expect(repeated).toBeUndefined()
     })
   })
-
   it("owns an external request by a verified subject and Conversation", async () => {
     await withRollback(async (tx) => {
       const fixtures = await createExternalExecution(tx)
@@ -179,7 +182,7 @@ describe("Approval Request repository", () => {
       )
       const request = await createApprovalRequest(tx, {
         workspaceId: fixtures.organization.id,
-        applicationId: fixtures.application.id,
+        environmentId: fixtures.environment.id,
         workflowId: fixtures.workflow.id,
         executionId: fixtures.execution.id,
         nodeId: "approval-1",
@@ -190,7 +193,7 @@ describe("Approval Request repository", () => {
       })
       if (!request) throw new Error("Approval Request was not created")
       expect(request).toMatchObject({
-        applicationId: fixtures.application.id,
+        environmentId: fixtures.environment.id,
         externalSubjectId: fixtures.subject.id,
         conversationId: fixtures.conversation.id,
       })
@@ -211,13 +214,12 @@ describe("Approval Request repository", () => {
       ).resolves.toBeUndefined()
     })
   })
-
   it("lists only pending requests owned by the external subject", async () => {
     await withRollback(async (tx) => {
       const fixture = await createExternalExecution(tx)
       const request = await createApprovalRequest(tx, {
         workspaceId: fixture.organization.id,
-        applicationId: fixture.application.id,
+        environmentId: fixture.environment.id,
         workflowId: fixture.workflow.id,
         executionId: fixture.execution.id,
         nodeId: "approval-1",
@@ -229,7 +231,7 @@ describe("Approval Request repository", () => {
       if (!request) throw new Error("Approval Request was not created")
       const input = {
         workspaceId: fixture.organization.id,
-        applicationId: fixture.application.id,
+        environmentId: fixture.environment.id,
         externalSubjectId: fixture.subject.id,
       }
       await expect(
@@ -267,7 +269,6 @@ describe("Approval Request repository", () => {
       ).resolves.toEqual([])
     })
   })
-
   it("does not skip requests that differ only below cursor precision", async () => {
     await withRollback(async (tx) => {
       const fixture = await createExternalExecution(tx)
@@ -275,13 +276,13 @@ describe("Approval Request repository", () => {
       const olderId = "00000000-0000-4000-8000-000000000001"
       await tx.execute(sql`
         insert into ${approvalRequests} (
-          id, workspace_id, application_id, workflow_id, execution_id,
+          id, workspace_id, environment_id, workflow_id, execution_id,
           node_id, audience, external_subject_id, conversation_id, display,
           requested_at
         ) values
           (
             ${newerId}::uuid, ${fixture.organization.id}::uuid,
-            ${fixture.application.id}::uuid, ${fixture.workflow.id}::uuid,
+            ${fixture.environment.id}::uuid, ${fixture.workflow.id}::uuid,
             ${fixture.execution.id}::uuid, 'approval-newer',
             'external_subject', ${fixture.subject.id}::uuid,
             ${fixture.conversation.id}::uuid, '{"title":"newer"}'::jsonb,
@@ -289,7 +290,7 @@ describe("Approval Request repository", () => {
           ),
           (
             ${olderId}::uuid, ${fixture.organization.id}::uuid,
-            ${fixture.application.id}::uuid, ${fixture.workflow.id}::uuid,
+            ${fixture.environment.id}::uuid, ${fixture.workflow.id}::uuid,
             ${fixture.execution.id}::uuid, 'approval-older',
             'external_subject', ${fixture.subject.id}::uuid,
             ${fixture.conversation.id}::uuid, '{"title":"older"}'::jsonb,
@@ -298,7 +299,7 @@ describe("Approval Request repository", () => {
       `)
       const first = await findExternalApprovalRequests(tx, {
         workspaceId: fixture.organization.id,
-        applicationId: fixture.application.id,
+        environmentId: fixture.environment.id,
         externalSubjectId: fixture.subject.id,
         status: "pending",
         limit: 1,
@@ -306,7 +307,7 @@ describe("Approval Request repository", () => {
       if (!first[0]) throw new Error("First Approval Request page is empty")
       const second = await findExternalApprovalRequests(tx, {
         workspaceId: fixture.organization.id,
-        applicationId: fixture.application.id,
+        environmentId: fixture.environment.id,
         externalSubjectId: fixture.subject.id,
         status: "pending",
         limit: 1,
@@ -320,7 +321,6 @@ describe("Approval Request repository", () => {
       expect(second[0].request.id).toBe(olderId)
     })
   })
-
   it("rejects an unverified external owner", async () => {
     await withRollback(async (tx) => {
       const fixtures = await createExternalExecution(tx)
@@ -331,7 +331,7 @@ describe("Approval Request repository", () => {
       await expect(
         createApprovalRequest(tx, {
           workspaceId: fixtures.organization.id,
-          applicationId: fixtures.application.id,
+          environmentId: fixtures.environment.id,
           workflowId: fixtures.workflow.id,
           executionId: fixtures.execution.id,
           nodeId: "approval-1",
@@ -343,7 +343,6 @@ describe("Approval Request repository", () => {
       ).rejects.toThrow(/verified owner/)
     })
   })
-
   it("rejects a mismatched external owner at the database boundary", async () => {
     await withRollback(async (tx) => {
       const fixtures = await createExternalExecution(tx)
@@ -351,21 +350,21 @@ describe("Approval Request repository", () => {
         .insert(externalSubjects)
         .values({
           workspaceId: fixtures.organization.id,
-          issuer: fixtures.application.oidcIssuer,
+          issuer: fixtureIssuer(fixtures.environment),
           issuerSubject: "other-" + randomUUID(),
           status: "verified",
           verifiedAt: new Date(),
         })
         .returning()
-      await tx.insert(externalSubjectApplications).values({
+      await tx.insert(externalSubjectEnvironments).values({
         workspaceId: fixtures.organization.id,
-        applicationId: fixtures.application.id,
+        environmentId: fixtures.environment.id,
         externalSubjectId: otherSubject.id,
       })
       await expect(
         tx.insert(approvalRequests).values({
           workspaceId: fixtures.organization.id,
-          applicationId: fixtures.application.id,
+          environmentId: fixtures.environment.id,
           workflowId: fixtures.workflow.id,
           executionId: fixtures.execution.id,
           nodeId: "approval-1",
@@ -377,7 +376,6 @@ describe("Approval Request repository", () => {
       ).rejects.toThrow()
     })
   })
-
   it("stores one immutable workspace Decision and queues the Execution", async () => {
     const { organization, workflow, version } = await db.transaction((tx) =>
       createTestFixtures(tx)
@@ -456,7 +454,6 @@ describe("Approval Request repository", () => {
         .where(eq(organizations.id, organization.id))
     }
   })
-
   it("creates a timeout Decision instead of a timeout outcome", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, execution } =
@@ -487,7 +484,6 @@ describe("Approval Request repository", () => {
       })
     })
   })
-
   it("enforces bounded display and comment snapshots", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, execution } =

@@ -98,7 +98,7 @@ const JUDGE_TOOL: ToolDefinition = {
 
 // An explicit model is required; only implicit selection may fall through to another provider.
 async function resolveJudgeModelAndKey(
-  workspaceId: string,
+  environmentId: string,
   config: Record<string, unknown>
 ): Promise<{ model: string; apiKey: string }> {
   const explicitModel =
@@ -106,12 +106,11 @@ async function resolveJudgeModelAndKey(
   const candidates = explicitModel
     ? [explicitModel]
     : DEFAULT_JUDGE_MODEL_CANDIDATES
-
   const errors: string[] = []
   for (const model of candidates) {
     try {
       const keyName = resolveKeyName(model)
-      const { apiKey } = await resolveApiKey(db, workspaceId, keyName)
+      const { apiKey } = await resolveApiKey(db, environmentId, keyName)
       return { model, apiKey }
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error))
@@ -123,7 +122,7 @@ async function resolveJudgeModelAndKey(
 }
 
 async function evaluateLlmJudge(
-  workspaceId: string,
+  environmentId: string,
   content: string,
   config: Record<string, unknown>
 ): Promise<{
@@ -136,9 +135,8 @@ async function evaluateLlmJudge(
     typeof config.rubric === "string"
       ? config.rubric
       : "Judge whether the content is acceptable."
-  const { model, apiKey } = await resolveJudgeModelAndKey(workspaceId, config)
+  const { model, apiKey } = await resolveJudgeModelAndKey(environmentId, config)
   const provider = resolveProvider(model)
-
   const result = await provider.complete(apiKey, {
     model,
     systemPrompt:
@@ -148,7 +146,6 @@ async function evaluateLlmJudge(
   })
   const costMicros =
     calculateCostMicros(model, result.tokensInput, result.tokensOutput) ?? 0n
-
   const call = result.toolCalls?.find((tc) => tc.name === "report_judgment")
   if (!call) {
     return {
@@ -175,7 +172,7 @@ async function evaluateLlmJudge(
 }
 
 export async function evaluateAssertion(
-  workspaceId: string,
+  environmentId: string,
   output: unknown,
   assertion: Assertion
 ): Promise<AssertionResult> {
@@ -190,12 +187,11 @@ export async function evaluateAssertion(
       costMicros: 0n,
     }
   }
-
   if (assertion.type === "llm_judge") {
     // One judge failure must not prevent the remaining assertions from producing results.
     let judged: Awaited<ReturnType<typeof evaluateLlmJudge>>
     try {
-      judged = await evaluateLlmJudge(workspaceId, text, assertion.config)
+      judged = await evaluateLlmJudge(environmentId, text, assertion.config)
     } catch (error) {
       return {
         type: assertion.type,
@@ -213,7 +209,6 @@ export async function evaluateAssertion(
       costMicros: judged.costMicros,
     }
   }
-
   let passed: boolean
   switch (assertion.type) {
     case "contains":
@@ -246,7 +241,7 @@ export type GradeOutcome = {
 
 // Empty assertion lists pass because the case makes no claims to disprove.
 export async function gradeOutput(
-  workspaceId: string,
+  environmentId: string,
   output: unknown,
   assertions: Assertion[]
 ): Promise<GradeOutcome> {
@@ -255,7 +250,7 @@ export async function gradeOutput(
   }
   const details = await Promise.all(
     assertions.map((assertion) =>
-      evaluateAssertion(workspaceId, output, assertion)
+      evaluateAssertion(environmentId, output, assertion)
     )
   )
   const passed = details.every((d) => d.passed)

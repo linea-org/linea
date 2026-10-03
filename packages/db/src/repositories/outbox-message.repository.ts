@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, lte, or, sql } from "drizzle-orm"
 import type { EventType } from "@linea/protocol/events"
 import type { JsonValue } from "@linea/protocol/shared"
 import {
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   outboxMessages,
   type OutboxMessage,
 } from "../schema/index.js"
@@ -27,7 +27,7 @@ export async function createPublicEvent(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId?: string
     eventType: EventType
     data: Record<string, JsonValue>
@@ -36,14 +36,14 @@ export async function createPublicEvent(
   return db.transaction(async (tx) => {
     if (input.externalSubjectId) {
       const [audience] = await tx
-        .select({ applicationId: externalSubjectApplications.applicationId })
-        .from(externalSubjectApplications)
+        .select({ environmentId: externalSubjectEnvironments.environmentId })
+        .from(externalSubjectEnvironments)
         .where(
           and(
-            eq(externalSubjectApplications.workspaceId, input.workspaceId),
-            eq(externalSubjectApplications.applicationId, input.applicationId),
+            eq(externalSubjectEnvironments.workspaceId, input.workspaceId),
+            eq(externalSubjectEnvironments.environmentId, input.environmentId),
             eq(
-              externalSubjectApplications.externalSubjectId,
+              externalSubjectEnvironments.externalSubjectId,
               input.externalSubjectId
             )
           )
@@ -55,7 +55,7 @@ export async function createPublicEvent(
       .insert(outboxMessages)
       .values({
         workspaceId: input.workspaceId,
-        applicationId: input.applicationId,
+        environmentId: input.environmentId,
         externalSubjectId: input.externalSubjectId,
         kind: "public_event",
         eventType: input.eventType,

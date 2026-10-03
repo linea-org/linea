@@ -60,7 +60,7 @@ export class ExtractNode implements NodeHandler {
     const extractionSchema = parseExtractionSchema(parsed.schema)
     const provider = resolveProvider(parsed.model)
     const keyName = resolveKeyName(parsed.model)
-    const { apiKey } = await resolveApiKey(db, context.workspaceId, keyName)
+    const { apiKey } = await resolveApiKey(db, context.environmentId, keyName)
     const result = await provider.complete(apiKey, {
       model: parsed.model,
       systemPrompt:

@@ -38,11 +38,30 @@ export class WorkflowsService {
     workspaceId: string,
     input: CreateWorkflowDto,
   ): Promise<Workflow> {
-    return repositories.workflow.createWorkflow(db, {
+    const application = await repositories.application.getApplicationById(
+      db,
       workspaceId,
-      name: input.name,
-      slug: input.slug,
-      description: input.description,
+      input.applicationId,
+    )
+    if (!application) throw new NotFoundException('Application not found')
+    return db.transaction(async (tx) => {
+      const workflow = await repositories.workflow.createWorkflow(tx, {
+        applicationId: application.id,
+        workspaceId,
+        name: input.name,
+        slug: input.slug,
+        description: input.description,
+      })
+      const contract =
+        await repositories.workflowContract.createWorkflowContractRevision(
+          tx,
+          workspaceId,
+          workflow.id,
+          { inputSchema: { type: 'object' }, outputSchema: {} },
+        )
+      if (contract.outcome !== 'created')
+        throw new Error('Workflow contract creation failed')
+      return workflow
     })
   }
 
@@ -141,7 +160,6 @@ export class WorkflowsService {
   ): Promise<WorkflowVersion> {
     // Confirms the workflow belongs to this workspace before touching its versions.
     await this.get(workspaceId, workflowId)
-
     if (input.workflowContractRevisionId) {
       const revision =
         await repositories.workflowContract.getWorkflowContractRevision(
@@ -154,7 +172,6 @@ export class WorkflowsService {
         throw new NotFoundException('Workflow Contract not found')
       }
     }
-
     try {
       validateGraphStructure(input.graph)
       assertNoReservedNodeIds(input.graph)
@@ -164,14 +181,37 @@ export class WorkflowsService {
       }
       throw error
     }
-
+    const [defaultContract] =
+      await repositories.workflowContract.listWorkflowContractRevisions(
+        db,
+        workspaceId,
+        workflowId,
+      )
+    const workflowContractRevisionId =
+      input.workflowContractRevisionId ?? defaultContract?.id
+    if (!workflowContractRevisionId)
+      throw new BadRequestException(
+        'Create an input/output contract before saving a version',
+      )
     return repositories.workflow.createWorkflowVersion(db, {
       workflowId,
       graph: input.graph,
       contentHash: hashWorkflowGraph(input.graph),
       message: input.message,
-      workflowContractRevisionId: input.workflowContractRevisionId,
+      workflowContractRevisionId,
     })
+  }
+
+  async listVersions(
+    workspaceId: string,
+    workflowId: string,
+  ): Promise<WorkflowVersion[]> {
+    await this.get(workspaceId, workflowId)
+    return repositories.workflow.listWorkflowVersions(
+      db,
+      workspaceId,
+      workflowId,
+    )
   }
 
   async getVersion(
@@ -180,7 +220,6 @@ export class WorkflowsService {
     versionId: string,
   ): Promise<WorkflowVersion> {
     await this.get(workspaceId, workflowId)
-
     const version = await repositories.workflow.getWorkflowVersionById(
       db,
       versionId,
@@ -197,7 +236,6 @@ export class WorkflowsService {
     versionId: string,
   ): Promise<Workflow> {
     await this.get(workspaceId, workflowId)
-
     const version = await repositories.workflow.getWorkflowVersionById(
       db,
       versionId,
@@ -205,7 +243,6 @@ export class WorkflowsService {
     if (!version || version.workflowId !== workflowId) {
       throw new NotFoundException('Workflow version not found')
     }
-
     const published = await repositories.workflow.publishWorkflowVersion(
       db,
       workflowId,

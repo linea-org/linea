@@ -1,12 +1,12 @@
+import { configureTestEnvironment } from '@linea/db/testing'
 import '@linea/config/env'
 import { createHash, randomUUID } from 'node:crypto'
 import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import {
-  applications,
   db,
   endUserSessions,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   organizations,
   outboxMessages,
@@ -39,7 +39,7 @@ type SessionFixture = {
 type SubjectFixture = { id: string; session: SessionFixture }
 type Fixture = {
   workspaceId: string
-  applicationId: string
+  environmentId: string
   subjects: [SubjectFixture, SubjectFixture]
 }
 
@@ -72,7 +72,7 @@ async function createProofKey(): Promise<ProofKey> {
 }
 
 async function createSession(
-  fixture: Pick<Fixture, 'workspaceId' | 'applicationId'>,
+  fixture: Pick<Fixture, 'workspaceId' | 'environmentId'>,
   externalSubjectId: string,
 ): Promise<SessionFixture> {
   const token = `lnu_${randomUUID().replaceAll('-', '')}`
@@ -82,7 +82,7 @@ async function createSession(
     .insert(endUserSessions)
     .values({
       workspaceId: fixture.workspaceId,
-      applicationId: fixture.applicationId,
+      environmentId: fixture.environmentId,
       externalSubjectId,
       tokenHash: hexHash(token),
       proofJkt: await calculateJwkThumbprint(key.publicJwk, 'sha256'),
@@ -102,9 +102,15 @@ async function createFixture(): Promise<Fixture> {
       createdAt: new Date(),
     })
     .returning()
-  const [application] = await db
-    .insert(applications)
-    .values({
+  const environment = await configureTestEnvironment(db, {
+    applicationId: (
+      await repositories.application.createApplication(db, {
+        workspaceId: organization.id,
+        name: 'Portal',
+        slug: randomUUID(),
+      })
+    ).id,
+    ...{
       workspaceId: organization.id,
       environment: 'production',
       displayName: 'Event client',
@@ -114,8 +120,8 @@ async function createFixture(): Promise<Fixture> {
       oidcClientId: 'events',
       oidcAudience: 'linea',
       oidcJwksUrl: 'https://identity.example.com/jwks.json',
-    })
-    .returning()
+    },
+  })
   const subjects = await db
     .insert(externalSubjects)
     .values([
@@ -135,16 +141,16 @@ async function createFixture(): Promise<Fixture> {
       },
     ])
     .returning()
-  await db.insert(externalSubjectApplications).values(
+  await db.insert(externalSubjectEnvironments).values(
     subjects.map((subject) => ({
       workspaceId: organization.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       externalSubjectId: subject.id,
     })),
   )
   const base = {
     workspaceId: organization.id,
-    applicationId: application.id,
+    environmentId: environment.id,
   }
   const first = subjects[0]
   const second = subjects[1]
@@ -187,7 +193,7 @@ async function createEvent(
 ) {
   return repositories.outboxMessage.createPublicEvent(db, {
     workspaceId: fixture.workspaceId,
-    applicationId: fixture.applicationId,
+    environmentId: fixture.environmentId,
     externalSubjectId: subject.id,
     eventType,
     data: {
@@ -202,7 +208,6 @@ describe('end-user event stream', () => {
   let app: INestApplication<App>
   let baseUrl: string
   let fixture: Fixture
-
   beforeAll(async () => {
     fixture = await createFixture()
     const moduleRef = await Test.createTestingModule({
@@ -218,7 +223,6 @@ describe('end-user event stream', () => {
     await app.listen(0)
     baseUrl = await app.getUrl()
   })
-
   afterAll(async () => {
     await app.close()
     await pool.query('DELETE FROM organizations WHERE id = $1', [
@@ -226,7 +230,6 @@ describe('end-user event stream', () => {
     ])
     await pool.end()
   })
-
   async function openStream(
     subject: SubjectFixture,
     path: string,
@@ -241,7 +244,6 @@ describe('end-user event stream', () => {
     })
     return response
   }
-
   async function readEvents(response: Response, count: number) {
     if (!response.body) throw new Error('Event stream body is missing')
     const reader = response.body.getReader()
@@ -268,7 +270,6 @@ describe('end-user event stream', () => {
       await reader.cancel()
     }
   }
-
   it('streams only safe events for the authenticated subject and filters', async () => {
     const conversationId = randomUUID()
     const own = await createEvent(
@@ -298,13 +299,12 @@ describe('end-user event stream', () => {
     expect(events[0]).toMatchObject({
       id: own.id,
       type: 'approval_request.created',
-      applicationId: fixture.applicationId,
+      environmentId: fixture.environmentId,
     })
     expect(events[0]?.data).not.toHaveProperty('externalSubjectId')
     expect(events[0]?.data).not.toHaveProperty('input')
     expect(events[0]?.data).not.toHaveProperty('token')
   })
-
   it('resumes exclusively after the last event without duplicates', async () => {
     const conversationId = randomUUID()
     const first = await createEvent(
@@ -330,7 +330,6 @@ describe('end-user event stream', () => {
     const resumedEvents = await readEvents(resumed, 1)
     expect(resumedEvents.map((event) => event.id)).toEqual([second.id])
   })
-
   it('drains event lag across multiple database pages', async () => {
     const conversationId = randomUUID()
     const inserted = await db
@@ -340,7 +339,7 @@ describe('end-user event stream', () => {
           { length: 105 },
           (_, index): typeof outboxMessages.$inferInsert => ({
             workspaceId: fixture.workspaceId,
-            applicationId: fixture.applicationId,
+            environmentId: fixture.environmentId,
             externalSubjectId: fixture.subjects[0].id,
             kind: 'public_event',
             eventType: 'approval_request.created',
@@ -360,7 +359,6 @@ describe('end-user event stream', () => {
       inserted.map((event) => event.id),
     )
   })
-
   it('rejects expired and cross-subject cursors', async () => {
     const event = await createEvent(
       fixture,
@@ -384,8 +382,7 @@ describe('end-user event stream', () => {
       publicErrorResponseSchema.parse(await expired.json()).error.code,
     ).toBe('event_cursor_expired')
   })
-
-  it('limits each Application subject to three simultaneous streams', async () => {
+  it('limits each Environment subject to three simultaneous streams', async () => {
     const path = `/v1/user/events?conversationId=${randomUUID()}`
     const streams = await Promise.all([
       openStream(fixture.subjects[0], path),
@@ -405,7 +402,6 @@ describe('end-user event stream', () => {
       }
     }
   })
-
   it('stops a full-page backlog after session revocation', async () => {
     const conversationId = randomUUID()
     const inserted = await db
@@ -415,7 +411,7 @@ describe('end-user event stream', () => {
           { length: 1_000 },
           (): typeof outboxMessages.$inferInsert => ({
             workspaceId: fixture.workspaceId,
-            applicationId: fixture.applicationId,
+            environmentId: fixture.environmentId,
             externalSubjectId: fixture.subjects[1].id,
             kind: 'public_event',
             eventType: 'approval_request.created',

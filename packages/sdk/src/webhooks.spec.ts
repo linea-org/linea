@@ -19,7 +19,6 @@ describe("verifyWebhookSignature", () => {
   const timestamp = String(now.getTime() / 1_000)
   const eventId = "event-1"
   const body = Buffer.from('{"message":"café"}', "utf8")
-
   it("verifies the exact request bytes", () => {
     const result = verifyWebhookSignature({
       body,
@@ -47,7 +46,6 @@ describe("verifyWebhookSignature", () => {
       })
     ).toEqual({ valid: false })
   })
-
   it("accepts the previous secret only during its grace period", () => {
     const previousSignature = signature("previous", timestamp, eventId, body)
     expect(
@@ -77,7 +75,6 @@ describe("verifyWebhookSignature", () => {
       })
     ).toEqual({ valid: false })
   })
-
   it("rejects timestamps outside the bounded tolerance", () => {
     expect(
       verifyWebhookSignature({
@@ -110,13 +107,12 @@ describe("verifyWebhook", () => {
     type: "execution.completed",
     version: 1,
     createdAt: now.toISOString(),
-    applicationId: "application-1",
+    environmentId: "environment-1",
     data: {
       executionId: "00000000-0000-4000-8000-000000000001",
       status: "succeeded",
     },
   }
-
   function input(body: Uint8Array, id = eventId) {
     return {
       body,
@@ -130,7 +126,6 @@ describe("verifyWebhook", () => {
       timestampToleranceSeconds: 300,
     }
   }
-
   it("returns the typed envelope after verifying its exact bytes", () => {
     const body = Buffer.from(JSON.stringify(envelope))
     expect(verifyWebhook(input(body))).toEqual({
@@ -139,7 +134,6 @@ describe("verifyWebhook", () => {
       envelope,
     })
   })
-
   it("gives receivers a stable verified event ID for retry deduplication", () => {
     const body = Buffer.from(JSON.stringify(envelope))
     const handled = new Set<string>()
@@ -155,7 +149,6 @@ describe("verifyWebhook", () => {
     expect(effects).toBe(1)
     expect(handled).toEqual(new Set([eventId]))
   })
-
   it("rejects an event ID that does not match the signed envelope", () => {
     const body = Buffer.from(JSON.stringify(envelope))
     expect(verifyWebhook(input(body, "event-2"))).toEqual({
@@ -163,7 +156,6 @@ describe("verifyWebhook", () => {
       reason: "event_id_mismatch",
     })
   })
-
   it("rejects unsupported envelope versions and event data", () => {
     for (const candidate of [
       { ...envelope, version: 2 },
@@ -182,7 +174,6 @@ describe("verifyWebhook", () => {
       })
     }
   })
-
   it("rejects malformed event IDs and invalid JSON", () => {
     const invalidJson = Buffer.from("{")
     expect(verifyWebhook(input(invalidJson))).toEqual({

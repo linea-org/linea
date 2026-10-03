@@ -23,7 +23,7 @@ runtimes, and React Native. It never accepts an API key.
 import { LineaUserClient } from "@linea/sdk/user"
 
 const client = new LineaUserClient({
-  applicationId: "app_123",
+  environmentId: "env_123",
   baseUrl: "https://api.linea.example",
 })
 
@@ -105,7 +105,7 @@ const client = new LineaClient({
 ### Trigger a workflow and read its execution
 
 ```ts
-const execution = await client.triggerWorkflow("my-workflow-slug", {
+const execution = await client.triggerWorkflow("env_123", "my-workflow-slug", {
   customerId: "cus_123",
 })
 

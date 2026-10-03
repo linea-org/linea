@@ -11,7 +11,7 @@ and independently scoped capabilities, not one all-powerful token.
 ## Core invariants
 
 1. Every tenant-owned read and write is scoped to a workspace.
-2. Application and Workspace Keys have different authority and are not substitutes.
+2. Environment and Workspace Keys have different authority and are not substitutes.
 3. End-User Sessions are short-lived, subject-bound, audience-bound capabilities.
 4. Public browser requests prove possession with DPoP and enforce trusted origins.
 5. Approval ownership follows the approver identity, not an ephemeral browser session.
@@ -25,14 +25,16 @@ connector enforcement is not part of the current release.
 ```mermaid
 flowchart TB
   Workspace[Workspace control plane]
-  Application[Application boundary]
+  Application[Customer Application]
+  Environment[Development or Production]
   Subject[External Subject]
   Session[End-User Session and DPoP key]
   Execution[Workflow execution]
   Connector[Connector gateway]
   Service[External service]
   Workspace -->|configures| Application
-  Application -->|provisions| Subject
+  Application -->|contains| Environment
+  Environment -->|provisions| Subject
   Subject -->|authorizes| Session
   Session -->|scoped interaction| Execution
   Execution -.->|planned Action Intent| Connector

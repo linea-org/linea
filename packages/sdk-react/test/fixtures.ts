@@ -4,7 +4,7 @@ import type {
   MessageProjection,
   PublicExecution,
 } from "@linea/sdk/user"
-import { applicationId, externalSubjectId } from "./server.js"
+import { environmentId, externalSubjectId } from "./server.js"
 
 export const conversationId = "10000000-0000-4000-8000-000000000001"
 export const messageId = "20000000-0000-4000-8000-000000000002"
@@ -13,7 +13,7 @@ export const executionId = "40000000-0000-4000-8000-000000000004"
 
 export const conversation: ConversationProjection = {
   id: conversationId,
-  applicationId,
+  environmentId,
   workflowId: "50000000-0000-4000-8000-000000000005",
   externalSubjectId,
   externalThreadKey: null,
@@ -40,7 +40,7 @@ export const message: MessageProjection = {
 
 export const execution: PublicExecution = {
   id: executionId,
-  applicationId,
+  environmentId,
   workflowId: "50000000-0000-4000-8000-000000000005",
   externalSubjectId,
   conversationId,

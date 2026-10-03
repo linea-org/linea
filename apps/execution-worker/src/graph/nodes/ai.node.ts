@@ -228,11 +228,9 @@ export class AiNode implements NodeHandler {
       memorySubjectPath: config.memorySubjectPath,
       memoryNamespace: config.memoryNamespace,
     })
-
     const provider = resolveProvider(parsed.model)
     const keyName = resolveKeyName(parsed.model)
-    const { apiKey } = await resolveApiKey(db, context.workspaceId, keyName)
-
+    const { apiKey } = await resolveApiKey(db, context.environmentId, keyName)
     // leasedBy is required here (not just executionId/nodeId) so a saved-progress write can be
     // fenced against the execution's lease at commit time, not just checked at call time.
     const nodeKey =
@@ -250,7 +248,6 @@ export class AiNode implements NodeHandler {
           nodeKey.nodeId
         )
       : undefined
-
     const tools: ToolDefinition[] | undefined = parsed.tools?.map((tool) => ({
       name: tool.name,
       description: tool.description,
@@ -260,13 +257,11 @@ export class AiNode implements NodeHandler {
       (parsed.tools ?? []).map((tool) => [tool.name, tool])
     )
     const maxIterations = parsed.maxIterations ?? DEFAULT_MAX_ITERATIONS
-
     let conversation: ConversationTurn[]
     let nextPrompt: string | undefined
     let startIteration: number
     let tokensInput: number
     let tokensOutput: number
-
     if (savedProgress) {
       // A crash previously interrupted this exact node execution — pick up the saved
       // conversation instead of restarting it from the original prompt, since the provider
@@ -331,9 +326,7 @@ export class AiNode implements NodeHandler {
       tokensInput = 0
       tokensOutput = 0
     }
-
     const toolCallOccurrences = rebuildOccurrenceCounts(conversation)
-
     // Resumed mid-iteration: progress is only saved right after the assistant's tool-calls turn
     // is pushed, before any of those calls run — so a saved conversation ending in one always
     // means those specific calls (each idempotent via the ledger) still need resolving.
@@ -351,7 +344,6 @@ export class AiNode implements NodeHandler {
         )
       }
     }
-
     // Computed once here (not inside the loop below), and only ever folded into nextPrompt — see
     // below for why — so a multi-iteration tool-calling run sends the identical content on every
     // completion call instead of re-querying/re-concatenating it.
@@ -422,7 +414,6 @@ export class AiNode implements NodeHandler {
         this.logger.warn(`Agent node: skipping memory recall — ${message}`)
       }
     }
-
     for (
       let iteration = startIteration;
       iteration < maxIterations;
@@ -440,12 +431,10 @@ export class AiNode implements NodeHandler {
       })
       tokensInput += result.tokensInput
       tokensOutput += result.tokensOutput
-
       if (nextPrompt !== undefined) {
         conversation.push({ role: "user", content: nextPrompt })
       }
       nextPrompt = undefined
-
       if (!result.toolCalls || result.toolCalls.length === 0) {
         // Left in place, not deleted: this step's checkpoint isn't written until after execute()
         // returns, and deleting here would leave a crash in that gap with neither a checkpoint
@@ -457,7 +446,6 @@ export class AiNode implements NodeHandler {
           tokensOutput,
         })
       }
-
       conversation.push({ role: "assistant", toolCalls: result.toolCalls })
       // The write itself is lease-fenced (see saveAiNodeProgress) — this local check is just an
       // early exit, skipping a DB round trip we already know the fencing would reject.
@@ -483,7 +471,6 @@ export class AiNode implements NodeHandler {
         )
       }
     }
-
     throw new Error(
       `AI node exceeded maxIterations (${maxIterations}) without a final answer`
     )

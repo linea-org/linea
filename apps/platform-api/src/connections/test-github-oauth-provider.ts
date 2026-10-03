@@ -172,7 +172,7 @@ async function handleRevocation(
 ): Promise<boolean> {
   if (
     request.method !== 'DELETE' ||
-    url.pathname !== '/applications/github-client/token'
+    url.pathname !== '/environments/github-client/token'
   ) {
     return false
   }

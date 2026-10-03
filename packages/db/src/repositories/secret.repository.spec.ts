@@ -1,83 +1,92 @@
+import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
+import { organizations } from "../schema/index.js"
+import { createApplication } from "./application.repository.js"
+import { listEnvironments } from "./environment.repository.js"
 import {
   deleteSecret,
   getSecret,
   listSecrets,
   upsertSecret,
 } from "./secret.repository.js"
-import { createTestFixtures, withRollback } from "./test-utils.js"
+import { withRollback } from "./test-utils.js"
+import type { Transaction } from "./types.js"
 
-describe("upsertSecret", () => {
-  it("creates a secret and then overwrites it on the same key", async () => {
+async function fixture(tx: Transaction) {
+  const [workspace] = await tx
+    .insert(organizations)
+    .values({ name: "Secrets", slug: randomUUID(), createdAt: new Date() })
+    .returning()
+  const application = await createApplication(tx, {
+    workspaceId: workspace.id,
+    name: "Support",
+    slug: "support",
+  })
+  const targets = await listEnvironments(tx, workspace.id, application.id)
+  const development = targets.find(
+    (environment) => environment.environment === "dev"
+  )
+  const production = targets.find(
+    (environment) => environment.environment === "production"
+  )
+  if (!development || !production)
+    throw new Error("Application Environments missing")
+  return { workspace, application, development, production }
+}
+
+describe("Environment secrets", () => {
+  it("isolates the same secret name between Development and Production", async () => {
     await withRollback(async (tx) => {
-      const { organization } = await createTestFixtures(tx)
-
-      await upsertSecret(tx, organization.id, "API_KEY", "encrypted-v1")
-      const first = await getSecret(tx, organization.id, "API_KEY")
-      expect(first?.encryptedValue).toBe("encrypted-v1")
-
-      await upsertSecret(tx, organization.id, "API_KEY", "encrypted-v2")
-      const second = await getSecret(tx, organization.id, "API_KEY")
-      expect(second?.encryptedValue).toBe("encrypted-v2")
-      expect(second?.id).toBe(first?.id)
+      const f = await fixture(tx)
+      await upsertSecret(tx, f.development.id, "API_KEY", "development-cipher")
+      await upsertSecret(tx, f.production.id, "API_KEY", "production-cipher")
+      expect(await getSecret(tx, f.development.id, "API_KEY")).toMatchObject({
+        encryptedValue: "development-cipher",
+      })
+      expect(await getSecret(tx, f.production.id, "API_KEY")).toMatchObject({
+        encryptedValue: "production-cipher",
+      })
+      const original = await getSecret(tx, f.development.id, "API_KEY")
+      await upsertSecret(tx, f.development.id, "API_KEY", "rotated-cipher")
+      expect(await getSecret(tx, f.development.id, "API_KEY")).toMatchObject({
+        id: original?.id,
+        encryptedValue: "rotated-cipher",
+      })
+      expect(await getSecret(tx, f.production.id, "API_KEY")).toMatchObject({
+        encryptedValue: "production-cipher",
+      })
     })
   })
-
-  it("scopes secrets by workspace", async () => {
+  it("lists metadata without ciphertext and deletes only the selected Environment", async () => {
     await withRollback(async (tx) => {
-      const { organization } = await createTestFixtures(tx)
-      const { organization: otherOrg } = await createTestFixtures(tx)
-
-      await upsertSecret(tx, organization.id, "API_KEY", "encrypted-v1")
-      const found = await getSecret(tx, otherOrg.id, "API_KEY")
-      expect(found).toBeUndefined()
+      const f = await fixture(tx)
+      for (const target of [f.development, f.production])
+        await upsertSecret(tx, target.id, "API_KEY", "cipher")
+      const list = await listSecrets(tx, f.development.id)
+      expect(list.map((secret) => secret.key)).toEqual(["API_KEY"])
+      expect(list.every((secret) => !("encryptedValue" in secret))).toBe(true)
+      expect(await deleteSecret(tx, f.development.id, "API_KEY")).toMatchObject(
+        { key: "API_KEY" }
+      )
+      expect(
+        await deleteSecret(tx, f.development.id, "API_KEY")
+      ).toBeUndefined()
+      expect(await getSecret(tx, f.production.id, "API_KEY")).toBeDefined()
     })
   })
-})
-
-describe("listSecrets", () => {
-  it("lists keys for a workspace without exposing encryptedValue, scoped by workspace", async () => {
+  it("does not share secrets with another Application in the same Workspace", async () => {
     await withRollback(async (tx) => {
-      const { organization } = await createTestFixtures(tx)
-      const { organization: otherOrg } = await createTestFixtures(tx)
-
-      await upsertSecret(tx, organization.id, "ANTHROPIC_API_KEY", "cipher-a")
-      await upsertSecret(tx, organization.id, "OPENAI_API_KEY", "cipher-b")
-      await upsertSecret(tx, otherOrg.id, "ANTHROPIC_API_KEY", "cipher-c")
-
-      const list = await listSecrets(tx, organization.id)
-      expect(list.map((s) => s.key).sort()).toEqual([
-        "ANTHROPIC_API_KEY",
-        "OPENAI_API_KEY",
-      ])
-      expect(list.every((s) => !("encryptedValue" in s))).toBe(true)
-    })
-  })
-})
-
-describe("deleteSecret", () => {
-  it("removes a secret and returns undefined for a second delete", async () => {
-    await withRollback(async (tx) => {
-      const { organization } = await createTestFixtures(tx)
-      await upsertSecret(tx, organization.id, "API_KEY", "encrypted-v1")
-
-      const deleted = await deleteSecret(tx, organization.id, "API_KEY")
-      expect(deleted?.key).toBe("API_KEY")
-      expect(await getSecret(tx, organization.id, "API_KEY")).toBeUndefined()
-
-      expect(await deleteSecret(tx, organization.id, "API_KEY")).toBeUndefined()
-    })
-  })
-
-  it("does not delete a same-key secret in another workspace", async () => {
-    await withRollback(async (tx) => {
-      const { organization } = await createTestFixtures(tx)
-      const { organization: otherOrg } = await createTestFixtures(tx)
-      await upsertSecret(tx, organization.id, "API_KEY", "encrypted-v1")
-      await upsertSecret(tx, otherOrg.id, "API_KEY", "encrypted-v2")
-
-      await deleteSecret(tx, organization.id, "API_KEY")
-      expect(await getSecret(tx, otherOrg.id, "API_KEY")).toBeDefined()
+      const f = await fixture(tx)
+      const other = await createApplication(tx, {
+        workspaceId: f.workspace.id,
+        name: "Other",
+        slug: "other",
+      })
+      const [environment] = await listEnvironments(tx, f.workspace.id, other.id)
+      await upsertSecret(tx, f.development.id, "API_KEY", "cipher")
+      expect(await getSecret(tx, environment.id, "API_KEY")).toBeUndefined()
+      expect(await listSecrets(tx, environment.id)).toEqual([])
+      expect(await deleteSecret(tx, environment.id, "API_KEY")).toBeUndefined()
     })
   })
 })

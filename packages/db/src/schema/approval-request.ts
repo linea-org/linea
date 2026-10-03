@@ -12,11 +12,11 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import { conversations } from "./conversation.js"
 import { executions } from "./execution.js"
 import {
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
 } from "./external-subject.js"
 import { organizations } from "./organisation.js"
@@ -51,7 +51,7 @@ export const approvalRequests = snakeCase.table(
     workspaceId: uuid()
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    applicationId: uuid(),
+    environmentId: uuid(),
     workflowId: uuid().notNull(),
     executionId: uuid().notNull(),
     nodeId: text().notNull(),
@@ -82,7 +82,7 @@ export const approvalRequests = snakeCase.table(
       table.status
     ),
     index("approval_requests_subject_status_idx").on(
-      table.applicationId,
+      table.environmentId,
       table.externalSubjectId,
       table.status
     ),
@@ -90,9 +90,9 @@ export const approvalRequests = snakeCase.table(
       .on(table.expiresAt)
       .where(sql`${table.status} = 'pending'`),
     foreignKey({
-      name: "approval_requests_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "approval_requests_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }),
     foreignKey({
       name: "approval_requests_workflow_fkey",
@@ -114,14 +114,14 @@ export const approvalRequests = snakeCase.table(
         table.executionId,
         table.workspaceId,
         table.workflowId,
-        table.applicationId,
+        table.environmentId,
         table.externalSubjectId,
       ],
       foreignColumns: [
         executions.id,
         executions.workspaceId,
         executions.workflowId,
-        executions.applicationId,
+        executions.environmentId,
         executions.externalSubjectRecordId,
       ],
     }),
@@ -131,11 +131,11 @@ export const approvalRequests = snakeCase.table(
       foreignColumns: [externalSubjects.id, externalSubjects.workspaceId],
     }),
     foreignKey({
-      name: "approval_requests_subject_application_fkey",
-      columns: [table.applicationId, table.externalSubjectId],
+      name: "approval_requests_subject_environment_fkey",
+      columns: [table.environmentId, table.externalSubjectId],
       foreignColumns: [
-        externalSubjectApplications.applicationId,
-        externalSubjectApplications.externalSubjectId,
+        externalSubjectEnvironments.environmentId,
+        externalSubjectEnvironments.externalSubjectId,
       ],
     }),
     foreignKey({
@@ -151,18 +151,18 @@ export const approvalRequests = snakeCase.table(
       name: "approval_requests_conversation_owner_fkey",
       columns: [
         table.conversationId,
-        table.applicationId,
+        table.environmentId,
         table.externalSubjectId,
       ],
       foreignColumns: [
         conversations.id,
-        conversations.applicationId,
+        conversations.environmentId,
         conversations.externalSubjectId,
       ],
     }),
     check(
       "approval_requests_audience_check",
-      sql`(${table.audience} = 'workspace' AND ${table.externalSubjectId} IS NULL) OR (${table.audience} = 'external_subject' AND ${table.applicationId} IS NOT NULL AND ${table.externalSubjectId} IS NOT NULL AND ${table.approverEmails} IS NULL)`
+      sql`(${table.audience} = 'workspace' AND ${table.externalSubjectId} IS NULL) OR (${table.audience} = 'external_subject' AND ${table.environmentId} IS NOT NULL AND ${table.externalSubjectId} IS NOT NULL AND ${table.approverEmails} IS NULL)`
     ),
     check(
       "approval_requests_status_check",

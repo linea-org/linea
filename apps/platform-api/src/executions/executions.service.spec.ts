@@ -1,3 +1,4 @@
+import { getTestApplicationId, publishTestWorkflow } from '@linea/db/testing'
 import '@linea/config/env'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
@@ -44,7 +45,6 @@ describe('ExecutionsService', () => {
       providers: [ExecutionsService, StepReplayQueueService],
     }).compile()
     const service = moduleRef.get(ExecutionsService)
-
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -54,14 +54,13 @@ describe('ExecutionsService', () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Unpublished Workflow',
         slug: `unpublished-${suffix}`,
       })
-
       await expect(
         service.trigger(organization.id, workflow.id, {}),
       ).rejects.toThrow()
@@ -72,13 +71,11 @@ describe('ExecutionsService', () => {
       ])
     }
   })
-
   it('triggers a published workflow, enqueues it, and lists/gets it back scoped to the workspace', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [ExecutionsService, StepReplayQueueService],
     }).compile()
     const service = moduleRef.get(ExecutionsService)
-
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -103,9 +100,9 @@ describe('ExecutionsService', () => {
         email: `executions-trigger-test-${suffix}@test.dev`,
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Published Workflow',
         slug: `published-${suffix}`,
@@ -115,12 +112,7 @@ describe('ExecutionsService', () => {
         graph,
         contentHash: 'test-hash',
       })
-      await repositories.workflow.publishWorkflowVersion(
-        db,
-        workflow.id,
-        version.id,
-      )
-
+      await publishTestWorkflow(db, workflow.id, version.id)
       const execution = await service.trigger(organization.id, workflow.id, {
         triggerPayload: { hello: 'world' },
       })
@@ -128,7 +120,6 @@ describe('ExecutionsService', () => {
       expect(execution.trigger).toBe('manual')
       expect(execution.environment).toBe('dev')
       expect(execution.triggeredByUserId).toBeNull()
-
       const prodExecution = await service.trigger(
         organization.id,
         workflow.id,
@@ -137,7 +128,6 @@ describe('ExecutionsService', () => {
         },
       )
       expect(prodExecution.environment).toBe('production')
-
       const attributed = await service.trigger(
         organization.id,
         workflow.id,
@@ -146,32 +136,26 @@ describe('ExecutionsService', () => {
       )
       expect(attributed.triggeredByUserId).toBe(member.id)
       expect(attributed.externalSubjectId).toBe('customer-user-1')
-
       const list = await service.list(organization.id, workflow.id)
       expect(list.map((e) => e.id)).toContain(execution.id)
-
       const workspaceList = await service.listWorkspace(organization.id, {})
       expect(workspaceList.executions.map((e) => e.id)).toContain(execution.id)
       expect(workspaceList.executions[0].workflowName).toBe(workflow.name)
       expect(workspaceList.total).toBeGreaterThanOrEqual(1)
-
       const filteredOut = await service.listWorkspace(organization.id, {
         status: 'succeeded',
       })
       expect(filteredOut.executions.map((e) => e.id)).not.toContain(
         execution.id,
       )
-
       expect(
         (await service.listWorkspace(otherOrg.id, {})).executions.map(
           (e) => e.id,
         ),
       ).not.toContain(execution.id)
-
       const found = await service.get(organization.id, execution.id)
       expect(found.execution.id).toBe(execution.id)
       expect(found.steps).toEqual([])
-
       await expect(service.get(otherOrg.id, execution.id)).rejects.toThrow()
     } finally {
       await moduleRef.close()
@@ -182,13 +166,11 @@ describe('ExecutionsService', () => {
       await pool.query('DELETE FROM users WHERE id = $1', [member.id])
     }
   })
-
   it('reports pausedAtNode for an execution paused on a wait timer, and omits it once resolved', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [ExecutionsService, StepReplayQueueService],
     }).compile()
     const service = moduleRef.get(ExecutionsService)
-
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -198,10 +180,8 @@ describe('ExecutionsService', () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       await drainDueWaitTimers()
-
       const waitGraph: WorkflowGraph = {
         version: 1,
         trigger: { type: 'manual' },
@@ -210,6 +190,7 @@ describe('ExecutionsService', () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Paused Workflow',
         slug: `paused-workflow-${suffix}`,
@@ -235,10 +216,8 @@ describe('ExecutionsService', () => {
         nodeId: 'wait-1',
         resumeAt: new Date(Date.now() + 60_000),
       })
-
       const paused = await service.get(organization.id, execution.id)
       expect(paused.pausedAtNode).toEqual({ nodeId: 'wait-1', type: 'wait' })
-
       // Resolved (fired) — no longer paused, so pausedAtNode should disappear. Forces only this
       // specific row due (not a database-wide pumped-forward "now", which would also claim any
       // concurrently running test's own not-yet-due timer and corrupt its state), then drains at
@@ -257,13 +236,11 @@ describe('ExecutionsService', () => {
       ])
     }
   })
-
   it('rejects triggering an archived workflow, even with a published version', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [ExecutionsService, StepReplayQueueService],
     }).compile()
     const service = moduleRef.get(ExecutionsService)
-
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -273,9 +250,9 @@ describe('ExecutionsService', () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Archived Workflow',
         slug: `archived-${suffix}`,
@@ -285,11 +262,7 @@ describe('ExecutionsService', () => {
         graph,
         contentHash: 'test-hash',
       })
-      await repositories.workflow.publishWorkflowVersion(
-        db,
-        workflow.id,
-        version.id,
-      )
+      await publishTestWorkflow(db, workflow.id, version.id)
       await repositories.workflow.updateWorkflow(
         db,
         organization.id,
@@ -298,7 +271,6 @@ describe('ExecutionsService', () => {
           archivedAt: new Date(),
         },
       )
-
       await expect(
         service.trigger(organization.id, workflow.id, {}),
       ).rejects.toThrow()
@@ -309,7 +281,6 @@ describe('ExecutionsService', () => {
       ])
     }
   })
-
   it('commits a queued execution and its dispatch outbox message together', async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -320,9 +291,9 @@ describe('ExecutionsService', () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Enqueue Fail Workflow',
         slug: `enqueue-fail-${suffix}`,
@@ -332,12 +303,7 @@ describe('ExecutionsService', () => {
         graph,
         contentHash: 'test-hash',
       })
-      await repositories.workflow.publishWorkflowVersion(
-        db,
-        workflow.id,
-        version.id,
-      )
-
+      await publishTestWorkflow(db, workflow.id, version.id)
       const unusedStepReplayQueue = {} as StepReplayQueueService
       const service = new ExecutionsService(unusedStepReplayQueue)
       const execution = await service.trigger(organization.id, workflow.id, {})
@@ -357,14 +323,12 @@ describe('ExecutionsService', () => {
       ])
     }
   })
-
   describe('testRun()', () => {
     it('runs the current graph immediately, without a published or committed version', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -374,26 +338,23 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
           name: 'Unpublished Workflow',
           slug: `test-run-unpublished-${suffix}`,
         })
-
         const execution = await service.testRun(organization.id, workflow.id, {
           graph,
         })
         expect(execution.status).toBe('queued')
         expect(execution.environment).toBe('draft')
-
         const versions = await pool.query(
           'SELECT id FROM workflow_versions WHERE workflow_id = $1',
           [workflow.id],
         )
         expect(versions.rows).toHaveLength(1)
-
         const reloaded = await repositories.workflow.getWorkflowById(
           db,
           organization.id,
@@ -407,13 +368,11 @@ describe('ExecutionsService', () => {
         ])
       }
     })
-
     it('rejects a workflow from a different workspace and creates no version row for it', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [owningOrg] = await db
         .insert(schema.organizations)
@@ -431,18 +390,16 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, owningOrg.id),
           workspaceId: owningOrg.id,
           name: 'Victim Workflow',
           slug: `test-run-victim-${suffix}`,
         })
-
         await expect(
           service.testRun(attackerOrg.id, workflow.id, { graph }),
         ).rejects.toThrow()
-
         const versions = await pool.query(
           'SELECT id FROM workflow_versions WHERE workflow_id = $1',
           [workflow.id],
@@ -457,14 +414,12 @@ describe('ExecutionsService', () => {
       }
     })
   })
-
   describe('sendChatMessage() / listChatMessages()', () => {
     it('generates a conversationId on the first turn, reuses it on later turns, and returns them in order', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -474,14 +429,13 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
           name: 'Chat Preview Workflow',
           slug: `chat-preview-${suffix}`,
         })
-
         const first = await service.sendChatMessage(
           organization.id,
           workflow.id,
@@ -498,14 +452,12 @@ describe('ExecutionsService', () => {
           chatMessageId: messagesAfterFirst[0].id,
         })
         expect(first.execution.environment).toBe('draft')
-
         const second = await service.sendChatMessage(
           organization.id,
           workflow.id,
           { graph, message: 'follow up', conversationId: first.conversationId },
         )
         expect(second.conversationId).toBe(first.conversationId)
-
         const messages = await service.listChatMessages(
           organization.id,
           workflow.id,
@@ -513,7 +465,6 @@ describe('ExecutionsService', () => {
         )
         expect(messages.map((m) => m.content)).toEqual(['hello', 'follow up'])
         expect(messages.every((m) => m.role === 'user')).toBe(true)
-
         const conversations = await service.listChatConversations(
           organization.id,
           workflow.id,
@@ -531,13 +482,11 @@ describe('ExecutionsService', () => {
         ])
       }
     })
-
     it('carries externalSubjectId into triggerPayload on every turn, and surfaces it on the conversation list, when provided', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -547,14 +496,13 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
           name: 'Chat Preview Subject Workflow',
           slug: `chat-preview-subject-${suffix}`,
         })
-
         const first = await service.sendChatMessage(
           organization.id,
           workflow.id,
@@ -563,7 +511,6 @@ describe('ExecutionsService', () => {
         expect(first.execution.triggerPayload).toMatchObject({
           externalSubjectId: 'customer-42',
         })
-
         const second = await service.sendChatMessage(
           organization.id,
           workflow.id,
@@ -577,7 +524,6 @@ describe('ExecutionsService', () => {
         expect(second.execution.triggerPayload).toMatchObject({
           externalSubjectId: 'customer-42',
         })
-
         const conversations = await service.listChatConversations(
           organization.id,
           workflow.id,
@@ -593,13 +539,11 @@ describe('ExecutionsService', () => {
         ])
       }
     })
-
     it("pins a conversation's externalSubjectId to what its first turn established, ignoring a different or omitted value on a later turn", async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -609,14 +553,13 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
           name: 'Chat Preview Subject Pinning Workflow',
           slug: `chat-preview-subject-pinning-${suffix}`,
         })
-
         const first = await service.sendChatMessage(
           organization.id,
           workflow.id,
@@ -625,7 +568,6 @@ describe('ExecutionsService', () => {
         expect(first.execution.triggerPayload).toMatchObject({
           externalSubjectId: 'customer-42',
         })
-
         // A different subject on a follow-up must not override the one already established.
         const differentSubject = await service.sendChatMessage(
           organization.id,
@@ -640,7 +582,6 @@ describe('ExecutionsService', () => {
         expect(differentSubject.execution.triggerPayload).toMatchObject({
           externalSubjectId: 'customer-42',
         })
-
         // Omitting it on a follow-up must not drop the established one either.
         const omittedSubject = await service.sendChatMessage(
           organization.id,
@@ -661,13 +602,11 @@ describe('ExecutionsService', () => {
         ])
       }
     })
-
     it('serializes two concurrent first turns for the same new conversation, so they agree on one established subject instead of racing to different ones', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -677,15 +616,14 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
           name: 'Chat Preview Subject Race Workflow',
           slug: `chat-preview-subject-race-${suffix}`,
         })
         const conversationId = randomUUID()
-
         // Both requests target the same brand-new conversationId with different subjects — without
         // acquireConversationLock serializing the read-then-insert, both could read "not found" and
         // each insert with its own subject.
@@ -703,7 +641,6 @@ describe('ExecutionsService', () => {
             externalSubjectId: 'customer-b',
           }),
         ])
-
         const firstSubject = (
           first.execution.triggerPayload as { externalSubjectId?: string }
         ).externalSubjectId
@@ -719,13 +656,11 @@ describe('ExecutionsService', () => {
         ])
       }
     })
-
     it("leaves a conversation's subject unestablished if its first turn had none, even if a later turn tries to introduce one", async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -735,14 +670,13 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
           name: 'Chat Preview No Subject Pinning Workflow',
           slug: `chat-preview-no-subject-pinning-${suffix}`,
         })
-
         const first = await service.sendChatMessage(
           organization.id,
           workflow.id,
@@ -751,7 +685,6 @@ describe('ExecutionsService', () => {
         expect(first.execution.triggerPayload).not.toHaveProperty(
           'externalSubjectId',
         )
-
         const second = await service.sendChatMessage(
           organization.id,
           workflow.id,
@@ -772,13 +705,11 @@ describe('ExecutionsService', () => {
         ])
       }
     })
-
     it('omits externalSubjectId from triggerPayload entirely when not provided', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -788,14 +719,13 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
           name: 'Chat Preview No Subject Workflow',
           slug: `chat-preview-no-subject-${suffix}`,
         })
-
         const first = await service.sendChatMessage(
           organization.id,
           workflow.id,
@@ -804,7 +734,6 @@ describe('ExecutionsService', () => {
         expect(first.execution.triggerPayload).not.toHaveProperty(
           'externalSubjectId',
         )
-
         const conversations = await service.listChatConversations(
           organization.id,
           workflow.id,
@@ -817,13 +746,11 @@ describe('ExecutionsService', () => {
         ])
       }
     })
-
     it('rejects a workflow from a different workspace for both sending and listing', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [owningOrg] = await db
         .insert(schema.organizations)
@@ -841,25 +768,22 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, owningOrg.id),
           workspaceId: owningOrg.id,
           name: 'Victim Chat Workflow',
           slug: `chat-preview-victim-${suffix}`,
         })
-
         await expect(
           service.sendChatMessage(attackerOrg.id, workflow.id, {
             graph,
             message: 'hi',
           }),
         ).rejects.toThrow('Workflow not found')
-
         await expect(
           service.listChatMessages(attackerOrg.id, workflow.id, randomUUID()),
         ).rejects.toThrow('Workflow not found')
-
         await expect(
           service.listChatConversations(attackerOrg.id, workflow.id),
         ).rejects.toThrow('Workflow not found')
@@ -871,13 +795,11 @@ describe('ExecutionsService', () => {
         ])
       }
     })
-
     it('scopes a conversation lookup by workflow, not just workspace', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -887,19 +809,19 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const workflowA = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
           name: 'Workflow A',
           slug: `chat-preview-a-${suffix}`,
         })
         const workflowB = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
           name: 'Workflow B',
           slug: `chat-preview-b-${suffix}`,
         })
-
         const turn = await service.sendChatMessage(
           organization.id,
           workflowA.id,
@@ -908,7 +830,6 @@ describe('ExecutionsService', () => {
             message: "workflow A's secret turn",
           },
         )
-
         // Workflow B, in the same workspace, must not see workflow A's transcript even though
         // it supplies the same conversationId.
         const leaked = await service.listChatMessages(
@@ -917,7 +838,6 @@ describe('ExecutionsService', () => {
           turn.conversationId,
         )
         expect(leaked).toEqual([])
-
         const own = await service.listChatMessages(
           organization.id,
           workflowA.id,
@@ -931,7 +851,6 @@ describe('ExecutionsService', () => {
         ])
       }
     })
-
     it('commits the chat turn, execution, and dispatch message together', async () => {
       const suffix = randomUUID()
       const [organization] = await db
@@ -942,14 +861,13 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
           name: 'Enqueue Fail Chat Workflow',
           slug: `chat-preview-enqueue-fail-${suffix}`,
         })
-
         const unusedStepReplayQueue = {} as StepReplayQueueService
         const service = new ExecutionsService(unusedStepReplayQueue)
         const result = await service.sendChatMessage(
@@ -982,7 +900,6 @@ describe('ExecutionsService', () => {
         ])
       }
     })
-
     it('does not require Redis to accept a chat turn', async () => {
       const suffix = randomUUID()
       const [organization] = await db
@@ -993,14 +910,13 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
           name: 'Racy Enqueue Chat Workflow',
           slug: `chat-preview-racy-enqueue-${suffix}`,
         })
-
         const unusedStepReplayQueue = {} as StepReplayQueueService
         const service = new ExecutionsService(unusedStepReplayQueue)
         await service.sendChatMessage(organization.id, workflow.id, {
@@ -1027,14 +943,12 @@ describe('ExecutionsService', () => {
       }
     })
   })
-
   describe('get()', () => {
     it('computes nodeConfigs from the bound workflow version and replayable from origin/status', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -1044,7 +958,6 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const configuredGraph: WorkflowGraph = {
           version: 1,
@@ -1056,6 +969,7 @@ describe('ExecutionsService', () => {
           edges: [],
         }
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
           name: 'Get Test Workflow',
           slug: `get-test-${suffix}`,
@@ -1071,14 +985,12 @@ describe('ExecutionsService', () => {
           workflowVersionId: version.id,
           trigger: 'manual',
         })
-
         // Not yet terminal — not replayable.
         const beforeTerminal = await service.get(organization.id, execution.id)
         expect(beforeTerminal.nodeConfigs).toEqual({
           n1: { model: 'gpt-5', prompt: 'hi' },
         })
         expect(beforeTerminal.replayable).toBe(false)
-
         await repositories.execution.startExecution(
           db,
           execution.id,
@@ -1097,7 +1009,6 @@ describe('ExecutionsService', () => {
             tokensOutput: 0,
           },
         )
-
         const afterTerminal = await service.get(organization.id, execution.id)
         expect(afterTerminal.replayable).toBe(true)
       } finally {
@@ -1108,11 +1019,11 @@ describe('ExecutionsService', () => {
       }
     })
   })
-
   describe('replayStep()', () => {
     async function setUpTerminalExecutionWithStep(organizationId: string) {
       const suffix = randomUUID()
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organizationId),
         workspaceId: organizationId,
         name: 'Replay Endpoint Test Workflow',
         slug: `replay-endpoint-${suffix}`,
@@ -1146,7 +1057,6 @@ describe('ExecutionsService', () => {
           tokensOutput: 0,
         },
       )
-
       const [step] = await db
         .insert(schema.executionSteps)
         .values({
@@ -1164,16 +1074,13 @@ describe('ExecutionsService', () => {
           output: {},
         })
         .returning()
-
       return { execution, step }
     }
-
     it('enqueues a replay and returns a replayStepId for a valid target', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -1183,12 +1090,10 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const { execution, step } = await setUpTerminalExecutionWithStep(
           organization.id,
         )
-
         const result = await service.replayStep(
           organization.id,
           execution.id,
@@ -1203,13 +1108,11 @@ describe('ExecutionsService', () => {
         ])
       }
     })
-
     it('rejects a non-terminal execution, a missing step, and a replay-of-a-replay', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],
       }).compile()
       const service = moduleRef.get(ExecutionsService)
-
       const suffix = randomUUID()
       const [organization] = await db
         .insert(schema.organizations)
@@ -1219,16 +1122,13 @@ describe('ExecutionsService', () => {
           createdAt: new Date(),
         })
         .returning()
-
       try {
         const { execution, step } = await setUpTerminalExecutionWithStep(
           organization.id,
         )
-
         await expect(
           service.replayStep(organization.id, execution.id, randomUUID(), {}),
         ).rejects.toThrow('Step not found')
-
         const [alreadyAReplay] = await db
           .insert(schema.executionSteps)
           .values({
@@ -1255,10 +1155,10 @@ describe('ExecutionsService', () => {
             {},
           ),
         ).rejects.toThrow('Cannot replay a replay')
-
         const nonTerminalWorkflow = await repositories.workflow.createWorkflow(
           db,
           {
+            applicationId: await getTestApplicationId(db, organization.id),
             workspaceId: organization.id,
             name: 'Non Terminal Workflow',
             slug: `non-terminal-${suffix}`,

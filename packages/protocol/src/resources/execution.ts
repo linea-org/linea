@@ -89,7 +89,7 @@ export const publicExecutionStatusSchema = z.enum([
   "cancelled",
 ])
 
-export const startApplicationExecutionSchema = z.strictObject({
+export const startEnvironmentExecutionSchema = z.strictObject({
   workflowId: publicRuntimeIdSchema,
   externalSubjectId: publicRuntimeIdSchema,
   conversationId: publicRuntimeIdSchema.optional(),
@@ -104,7 +104,7 @@ export const startEndUserExecutionSchema = z.strictObject({
 
 export const publicExecutionSchema = z.strictObject({
   id: publicRuntimeIdSchema,
-  applicationId: publicRuntimeIdSchema,
+  environmentId: publicRuntimeIdSchema,
   workflowId: publicRuntimeIdSchema,
   externalSubjectId: publicRuntimeIdSchema,
   conversationId: publicRuntimeIdSchema.nullable(),
@@ -118,8 +118,8 @@ export const publicExecutionSchema = z.strictObject({
   completedAt: timestampSchema.nullable(),
 })
 
-export type StartApplicationExecution = z.infer<
-  typeof startApplicationExecutionSchema
+export type StartEnvironmentExecution = z.infer<
+  typeof startEnvironmentExecutionSchema
 >
 export type StartEndUserExecution = z.infer<typeof startEndUserExecutionSchema>
 export type PublicExecution = z.infer<typeof publicExecutionSchema>

@@ -4,24 +4,24 @@ import {
   paginationQuerySchema,
   type PaginationQuery,
 } from '@linea/protocol/shared'
-import type { ApplicationPrincipal } from '../auth/application-key.guard'
-import { ApplicationKeyGuard } from '../auth/application-key.guard'
-import { ApplicationScopeGuard } from '../auth/application-scope.guard'
-import { CurrentApplicationPrincipal } from '../auth/current-application-principal.decorator'
-import { RequireApplicationScopes } from '../auth/require-application-scopes.decorator'
+import type { EnvironmentPrincipal } from '../auth/environment-key.guard'
+import { EnvironmentKeyGuard } from '../auth/environment-key.guard'
+import { EnvironmentScopeGuard } from '../auth/environment-scope.guard'
+import { CurrentEnvironmentPrincipal } from '../auth/current-environment-principal.decorator'
+import { RequireEnvironmentScopes } from '../auth/require-environment-scopes.decorator'
 import { PublicValidationPipe } from './public-validation.pipe'
 import { WebhookDeliveriesService } from './webhook-deliveries.service'
 
-@Controller('applications/:applicationId/webhook-deliveries')
+@Controller('environments/:environmentId/webhook-deliveries')
 @OptionalAuth()
-@UseGuards(ApplicationKeyGuard, ApplicationScopeGuard)
+@UseGuards(EnvironmentKeyGuard, EnvironmentScopeGuard)
 export class WebhookDeliveriesController {
   constructor(private readonly deliveries: WebhookDeliveriesService) {}
 
   @Get()
-  @RequireApplicationScopes('webhooks:read')
+  @RequireEnvironmentScopes('webhooks:read')
   list(
-    @CurrentApplicationPrincipal() principal: ApplicationPrincipal,
+    @CurrentEnvironmentPrincipal() principal: EnvironmentPrincipal,
     @Query(new PublicValidationPipe(paginationQuerySchema))
     query: PaginationQuery,
   ) {

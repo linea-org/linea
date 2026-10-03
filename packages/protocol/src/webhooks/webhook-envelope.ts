@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { eventTypeSchema } from "../events/event"
-import { applicationIdSchema, eventIdSchema } from "../shared/identifier"
+import { environmentIdSchema, eventIdSchema } from "../shared/identifier"
 import { timestampSchema } from "../shared/timestamp"
 import { publicRuntimeIdSchema } from "../resources/conversation"
 
@@ -8,7 +8,7 @@ const baseEnvelope = {
   id: eventIdSchema,
   version: z.literal(1),
   createdAt: timestampSchema,
-  applicationId: applicationIdSchema,
+  environmentId: environmentIdSchema,
 }
 const conversationId = publicRuntimeIdSchema.optional()
 const executionDataSchema = z.strictObject({

@@ -12,16 +12,16 @@ import {
 import type { OperationDefinition } from "./operation"
 
 const emptySchema = z.strictObject({})
-const applicationPathSchema = z.strictObject({ applicationId: z.uuid() })
+const environmentPathSchema = z.strictObject({ environmentId: z.uuid() })
 
-export const listApplicationConnectorAuditEventsOperation = {
-  operationId: "listApplicationConnectorAuditEvents",
+export const listEnvironmentConnectorAuditEventsOperation = {
+  operationId: "listEnvironmentConnectorAuditEvents",
   method: "GET",
-  path: "/v1/applications/{applicationId}/audit-events",
+  path: "/v1/environments/{environmentId}/audit-events",
   plane: "control",
-  auth: { kind: "application_key", scopes: ["audit:read"] },
+  auth: { kind: "environment_key", scopes: ["audit:read"] },
   request: {
-    path: applicationPathSchema,
+    path: environmentPathSchema,
     query: paginationQuerySchema,
     headers: emptySchema,
     body: z.undefined(),

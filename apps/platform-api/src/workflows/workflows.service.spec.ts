@@ -1,7 +1,7 @@
 import '@linea/config/env'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
-import { db, pool, schema } from '@linea/db'
+import { db, pool, schema, repositories } from '@linea/db'
 import type { WorkflowGraph } from '@linea/runtime'
 import { RegressionRunQueueService } from '../queue/regression-run-queue.service'
 import { RealtimeTokenService } from '../realtime/realtime-token.service'
@@ -40,7 +40,6 @@ describe('WorkflowsService', () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       await fn(organization.id)
     } finally {
@@ -49,31 +48,32 @@ describe('WorkflowsService', () => {
       ])
     }
   }
-
   it('creates, lists, gets, and updates a workflow, all scoped to the workspace', async () => {
     const moduleRef = await Test.createTestingModule({
       providers,
     }).compile()
     const service = moduleRef.get(WorkflowsService)
-
     await withOrg(async (workspaceId) => {
       const suffix = randomUUID()
       const created = await service.create(workspaceId, {
+        applicationId: (
+          await repositories.application.createApplication(db, {
+            workspaceId,
+            name: 'Test application',
+            slug: randomUUID(),
+          })
+        ).id,
         name: 'Test Workflow',
         slug: `test-${suffix}`,
       })
-
       const fetched = await service.get(workspaceId, created.id)
       expect(fetched.id).toBe(created.id)
-
       const list = await service.list(workspaceId)
       expect(list.map((w) => w.id)).toContain(created.id)
-
       const updated = await service.update(workspaceId, created.id, {
         name: 'Renamed',
       })
       expect(updated.name).toBe('Renamed')
-
       await withOrg(async (otherWorkspaceId) => {
         await expect(
           service.get(otherWorkspaceId, created.id),
@@ -82,20 +82,24 @@ describe('WorkflowsService', () => {
     })
     await moduleRef.close()
   })
-
   it('rejects a structurally invalid graph before it ever reaches the database', async () => {
     const moduleRef = await Test.createTestingModule({
       providers,
     }).compile()
     const service = moduleRef.get(WorkflowsService)
-
     await withOrg(async (workspaceId) => {
       const suffix = randomUUID()
       const workflow = await service.create(workspaceId, {
+        applicationId: (
+          await repositories.application.createApplication(db, {
+            workspaceId,
+            name: 'Test application',
+            slug: randomUUID(),
+          })
+        ).id,
         name: 'Invalid Graph Workflow',
         slug: `invalid-graph-${suffix}`,
       })
-
       const graphWithDuplicateIds: WorkflowGraph = {
         version: 1,
         trigger: { type: 'manual' },
@@ -106,7 +110,6 @@ describe('WorkflowsService', () => {
         ],
         edges: [],
       }
-
       await expect(
         service.createVersion(workspaceId, workflow.id, {
           graph: graphWithDuplicateIds,
@@ -115,20 +118,24 @@ describe('WorkflowsService', () => {
     })
     await moduleRef.close()
   })
-
   it('rejects a graph that uses the reserved resume-event node id', async () => {
     const moduleRef = await Test.createTestingModule({
       providers,
     }).compile()
     const service = moduleRef.get(WorkflowsService)
-
     await withOrg(async (workspaceId) => {
       const suffix = randomUUID()
       const workflow = await service.create(workspaceId, {
+        applicationId: (
+          await repositories.application.createApplication(db, {
+            workspaceId,
+            name: 'Test application',
+            slug: randomUUID(),
+          })
+        ).id,
         name: 'Reserved Node Id Workflow',
         slug: `reserved-node-${suffix}`,
       })
-
       await expect(
         service.createVersion(workspaceId, workflow.id, {
           graph: validGraph('__resumed__'),
@@ -137,40 +144,48 @@ describe('WorkflowsService', () => {
     })
     await moduleRef.close()
   })
-
   it('creates and publishes a version, scoped to the owning workflow', async () => {
     const moduleRef = await Test.createTestingModule({
       providers,
     }).compile()
     const service = moduleRef.get(WorkflowsService)
-
     await withOrg(async (workspaceId) => {
       const suffix = randomUUID()
       const workflowA = await service.create(workspaceId, {
+        applicationId: (
+          await repositories.application.createApplication(db, {
+            workspaceId,
+            name: 'Test application',
+            slug: randomUUID(),
+          })
+        ).id,
         name: 'Workflow A',
         slug: `workflow-a-${suffix}`,
       })
       const workflowB = await service.create(workspaceId, {
+        applicationId: (
+          await repositories.application.createApplication(db, {
+            workspaceId,
+            name: 'Test application',
+            slug: randomUUID(),
+          })
+        ).id,
         name: 'Workflow B',
         slug: `workflow-b-${suffix}`,
       })
-
       const version = await service.createVersion(workspaceId, workflowA.id, {
         graph: validGraph(),
       })
-
       // A version can't be published under the wrong workflow.
       await expect(
         service.publishVersion(workspaceId, workflowB.id, version.id),
       ).rejects.toThrow()
-
       const published = await service.publishVersion(
         workspaceId,
         workflowA.id,
         version.id,
       )
       expect(published.publishedVersionId).toBe(version.id)
-
       // A version can't be read under the wrong workflow, or from another workspace.
       await expect(
         service.getVersion(workspaceId, workflowB.id, version.id),
@@ -181,7 +196,6 @@ describe('WorkflowsService', () => {
         version.id,
       )
       expect(fetched.id).toBe(version.id)
-
       await withOrg(async (otherWorkspaceId) => {
         await expect(
           service.getVersion(otherWorkspaceId, workflowA.id, version.id),
@@ -190,7 +204,6 @@ describe('WorkflowsService', () => {
     })
     await moduleRef.close()
   })
-
   it('enqueues a regression run for the published version, without letting a queue failure fail the publish itself', async () => {
     const enqueue = jest.fn().mockRejectedValue(new Error('redis unreachable'))
     const moduleRef = await Test.createTestingModule({
@@ -200,17 +213,22 @@ describe('WorkflowsService', () => {
       .useValue({ enqueue, onModuleDestroy: () => Promise.resolve() })
       .compile()
     const service = moduleRef.get(WorkflowsService)
-
     await withOrg(async (workspaceId) => {
       const suffix = randomUUID()
       const workflow = await service.create(workspaceId, {
+        applicationId: (
+          await repositories.application.createApplication(db, {
+            workspaceId,
+            name: 'Test application',
+            slug: randomUUID(),
+          })
+        ).id,
         name: 'Regression Enqueue Workflow',
         slug: `regression-enqueue-${suffix}`,
       })
       const version = await service.createVersion(workspaceId, workflow.id, {
         graph: validGraph(),
       })
-
       // enqueue rejects above — publishVersion must still resolve normally.
       const published = await service.publishVersion(
         workspaceId,
@@ -218,7 +236,6 @@ describe('WorkflowsService', () => {
         version.id,
       )
       expect(published.publishedVersionId).toBe(version.id)
-
       expect(enqueue).toHaveBeenCalledWith({
         workspaceId,
         workflowId: workflow.id,
@@ -228,20 +245,24 @@ describe('WorkflowsService', () => {
     })
     await moduleRef.close()
   })
-
   it('saves a draft without validating its structure, scoped to the workspace', async () => {
     const moduleRef = await Test.createTestingModule({
       providers,
     }).compile()
     const service = moduleRef.get(WorkflowsService)
-
     await withOrg(async (workspaceId) => {
       const suffix = randomUUID()
       const workflow = await service.create(workspaceId, {
+        applicationId: (
+          await repositories.application.createApplication(db, {
+            workspaceId,
+            name: 'Test application',
+            slug: randomUUID(),
+          })
+        ).id,
         name: 'Draft Workflow',
         slug: `draft-${suffix}`,
       })
-
       // Missing entryNodeId/trigger, a node with no outgoing edge — invalid per
       // workflowGraphSchema, and that's fine: saveDraft doesn't validate structure.
       const incompleteGraph = { nodes: [{ id: 'n1' }] }
@@ -249,11 +270,9 @@ describe('WorkflowsService', () => {
         graph: incompleteGraph,
       })
       expect(saved.draftGraph).toEqual(incompleteGraph)
-
       const fetched = await service.get(workspaceId, workflow.id)
       expect(fetched.draftGraph).toEqual(incompleteGraph)
       expect(fetched.draftUpdatedAt).toBeInstanceOf(Date)
-
       await withOrg(async (otherWorkspaceId) => {
         await expect(
           service.saveDraft(otherWorkspaceId, workflow.id, {
@@ -264,7 +283,6 @@ describe('WorkflowsService', () => {
     })
     await moduleRef.close()
   })
-
   it('broadcasts a draft save to the workflow room only when a saver is given', async () => {
     const moduleRef = await Test.createTestingModule({
       providers,
@@ -274,19 +292,23 @@ describe('WorkflowsService', () => {
     const broadcast = jest
       .spyOn(gateway, 'broadcastDraftUpdate')
       .mockImplementation(() => undefined)
-
     await withOrg(async (workspaceId) => {
       const suffix = randomUUID()
       const workflow = await service.create(workspaceId, {
+        applicationId: (
+          await repositories.application.createApplication(db, {
+            workspaceId,
+            name: 'Test application',
+            slug: randomUUID(),
+          })
+        ).id,
         name: 'Broadcast Draft Workflow',
         slug: `broadcast-draft-${suffix}`,
       })
-
       await service.saveDraft(workspaceId, workflow.id, {
         graph: { nodes: [] },
       })
       expect(broadcast).not.toHaveBeenCalled()
-
       await service.saveDraft(
         workspaceId,
         workflow.id,
@@ -301,38 +323,39 @@ describe('WorkflowsService', () => {
         }),
       )
     })
-
     broadcast.mockRestore()
     await moduleRef.close()
   })
-
   it('mints a realtime token only for a signed-in session on a workflow in the right workspace', async () => {
     const moduleRef = await Test.createTestingModule({
       providers,
     }).compile()
     const service = moduleRef.get(WorkflowsService)
-
     await withOrg(async (workspaceId) => {
       const suffix = randomUUID()
       const workflow = await service.create(workspaceId, {
+        applicationId: (
+          await repositories.application.createApplication(db, {
+            workspaceId,
+            name: 'Test application',
+            slug: randomUUID(),
+          })
+        ).id,
         name: 'Realtime Token Workflow',
         slug: `realtime-token-${suffix}`,
       })
       const session = {
         user: { id: 'user-1', name: 'Ada Lovelace', image: null },
       } as Parameters<typeof service.mintRealtimeToken>[2]
-
       await expect(
         service.mintRealtimeToken(workspaceId, workflow.id, null),
       ).rejects.toThrow()
-
       const { token } = await service.mintRealtimeToken(
         workspaceId,
         workflow.id,
         session,
       )
       expect(typeof token).toBe('string')
-
       await withOrg(async (otherWorkspaceId) => {
         await expect(
           service.mintRealtimeToken(otherWorkspaceId, workflow.id, session),

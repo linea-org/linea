@@ -39,6 +39,7 @@ export function WorkflowsWidget({
   const queryClient = useQueryClient()
   const createDialog = (
     <WorkflowFormDialog
+      workspaceSlug={slug}
       trigger={
         <Button size="sm">
           <PlusIcon />

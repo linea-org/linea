@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from "react"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { z } from "zod"
 
 import { Button } from "@linea/ui/components/button"
@@ -25,7 +25,17 @@ import { Textarea } from "@linea/ui/components/textarea"
 import { slugify } from "@/lib/auth-redirect"
 import { type WorkflowSummary } from "@/lib/workflows-api"
 
+import { applicationsQueryOptions } from "@/lib/applications-api"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@linea/ui/components/select"
+
 const schema = z.object({
+  applicationId: z.uuid("Select an Application"),
   name: z.string().min(1, "Name is required"),
   slug: z
     .string()
@@ -39,6 +49,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>
 
 type WorkflowFormDialogProps = {
+  workspaceSlug: string
   // Omit trigger for a fully externally-controlled dialog (open/onOpenChange) — e.g. opened from a context menu item, where nesting a DialogTrigger inside a menu item's own click-to-close behavior is unreliable.
   trigger?: ReactElement
   open?: boolean
@@ -51,6 +62,7 @@ type WorkflowFormDialogProps = {
 }
 
 export function WorkflowFormDialog({
+  workspaceSlug,
   trigger,
   open: controlledOpen,
   onOpenChange: setControlledOpen,
@@ -60,10 +72,14 @@ export function WorkflowFormDialog({
   onSubmit,
   onSuccess,
 }: WorkflowFormDialogProps) {
+  const { data: applications = [], error: applicationsError } = useQuery(
+    applicationsQueryOptions(workspaceSlug)
+  )
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const open = controlledOpen ?? uncontrolledOpen
   const setOpen = setControlledOpen ?? setUncontrolledOpen
   const {
+    control,
     register,
     handleSubmit,
     watch,
@@ -72,10 +88,14 @@ export function WorkflowFormDialog({
     reset,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: defaultValues ?? { name: "", slug: "", description: "" },
+    defaultValues: defaultValues ?? {
+      applicationId: "",
+      name: "",
+      slug: "",
+      description: "",
+    },
   })
   const name = watch("name")
-
   const mutation = useMutation({
     mutationFn: onSubmit,
     onSuccess: async (workflow) => {
@@ -84,7 +104,6 @@ export function WorkflowFormDialog({
       await onSuccess(workflow)
     },
   })
-
   return (
     <Dialog
       open={open}
@@ -107,6 +126,39 @@ export function WorkflowFormDialog({
           }}
         >
           <FieldGroup>
+            <Field>
+              <FieldLabel>Application</FieldLabel>
+              <Controller
+                name="applicationId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={!!defaultValues}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an Application" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {applications.map((application) => (
+                        <SelectItem key={application.id} value={application.id}>
+                          {application.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <FieldError>
+                {errors.applicationId?.message ?? applicationsError?.message}
+              </FieldError>
+              {applications.length === 0 && !applicationsError && (
+                <p className="text-sm text-muted-foreground">
+                  Create an Application before adding a Workflow.
+                </p>
+              )}
+            </Field>
             <Field data-invalid={!!errors.name || undefined}>
               <FieldLabel htmlFor="workflow-name">Name</FieldLabel>
               <Input

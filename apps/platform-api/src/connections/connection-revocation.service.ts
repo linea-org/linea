@@ -97,7 +97,7 @@ export class ConnectionRevocationService
       const credential = parseConnectionProviderCredential(
         decryptCredential(delivery.credentialEncrypted, {
           workspaceId: delivery.workspaceId,
-          applicationId: delivery.applicationId,
+          environmentId: delivery.environmentId,
           externalSubjectId: delivery.externalSubjectId,
           recordId: delivery.id,
           provider: `${delivery.provider}:revocation`,

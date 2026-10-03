@@ -123,7 +123,6 @@ function WorkflowDetailPage() {
     isPending: regressionCasesPending,
     isError: regressionCasesErrored,
   } = useQuery(workflowRegressionCasesQueryOptions(slug, workflowId))
-
   const run = useMutation({
     mutationFn: () => triggerExecutionFn({ data: { workflowId } }),
     onSuccess: (execution) => {
@@ -136,12 +135,10 @@ function WorkflowDetailPage() {
       })
     },
   })
-
   const runRegression = useMutation({
     mutationFn: () => triggerRegressionRunFn({ data: { workflowId } }),
     onSuccess: () => setRegressionRunTriggeredAt(new Date().toISOString()),
   })
-
   const archiveCase = useMutation({
     mutationFn: (id: string) =>
       archiveRegressionCaseFn({ data: { workflowId, id } }),
@@ -152,7 +149,6 @@ function WorkflowDetailPage() {
       })
     },
   })
-
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
       <div className="flex items-center justify-between gap-3 pl-1">
@@ -197,17 +193,14 @@ function WorkflowDetailPage() {
           </Button>
         </div>
       </div>
-
       {run.isError && (
         <p className="mt-3 text-xs text-destructive">{run.error.message}</p>
       )}
-
       {workflow.description && (
         <p className="mt-4 max-w-2xl text-xs text-muted-foreground">
           {workflow.description}
         </p>
       )}
-
       <dl className="mt-6 grid max-w-md grid-cols-2 gap-y-3 text-xs">
         <dt className="text-muted-foreground">Created</dt>
         <dd className="text-foreground">
@@ -218,7 +211,6 @@ function WorkflowDetailPage() {
           {new Date(workflow.updatedAt).toLocaleString()}
         </dd>
       </dl>
-
       <Tabs defaultValue="executions" className="mt-10">
         <TabsList>
           <TabsTrigger value="executions">Executions</TabsTrigger>
@@ -355,13 +347,14 @@ function WorkflowDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
-
       <WorkflowFormDialog
+        workspaceSlug={slug}
         open={editOpen}
         onOpenChange={setEditOpen}
         title="Edit workflow"
         submitLabel="Save"
         defaultValues={{
+          applicationId: workflow.applicationId,
           name: workflow.name,
           slug: workflow.slug,
           description: workflow.description ?? "",

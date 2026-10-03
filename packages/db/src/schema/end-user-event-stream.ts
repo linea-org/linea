@@ -5,10 +5,10 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import { endUserSessions } from "./end-user-session.js"
 import {
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
 } from "./external-subject.js"
 
@@ -17,7 +17,7 @@ export const endUserEventStreams = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     sessionId: uuid().notNull(),
     leaseExpiresAt: timestamp({ withTimezone: true }).notNull(),
@@ -25,14 +25,14 @@ export const endUserEventStreams = snakeCase.table(
   },
   (table) => [
     index("end_user_event_streams_subject_lease_idx").on(
-      table.applicationId,
+      table.environmentId,
       table.externalSubjectId,
       table.leaseExpiresAt
     ),
     foreignKey({
-      name: "end_user_event_streams_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "end_user_event_streams_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "end_user_event_streams_subject_fkey",
@@ -40,11 +40,11 @@ export const endUserEventStreams = snakeCase.table(
       foreignColumns: [externalSubjects.id, externalSubjects.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
-      name: "end_user_event_streams_application_subject_fkey",
-      columns: [table.applicationId, table.externalSubjectId],
+      name: "end_user_event_streams_environment_subject_fkey",
+      columns: [table.environmentId, table.externalSubjectId],
       foreignColumns: [
-        externalSubjectApplications.applicationId,
-        externalSubjectApplications.externalSubjectId,
+        externalSubjectEnvironments.environmentId,
+        externalSubjectEnvironments.externalSubjectId,
       ],
     }).onDelete("cascade"),
     foreignKey({
@@ -52,13 +52,13 @@ export const endUserEventStreams = snakeCase.table(
       columns: [
         table.sessionId,
         table.workspaceId,
-        table.applicationId,
+        table.environmentId,
         table.externalSubjectId,
       ],
       foreignColumns: [
         endUserSessions.id,
         endUserSessions.workspaceId,
-        endUserSessions.applicationId,
+        endUserSessions.environmentId,
         endUserSessions.externalSubjectId,
       ],
     }).onDelete("cascade"),

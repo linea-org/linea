@@ -1,3 +1,5 @@
+import { configureTestEnvironment } from '@linea/db/testing'
+import { getTestApplicationId } from '@linea/db/testing'
 import '@linea/config/env'
 import { createHash, randomUUID } from 'node:crypto'
 import type { INestApplication } from '@nestjs/common'
@@ -7,13 +9,12 @@ import {
   encryptCredential,
   pool,
   repositories,
-  applications,
   actionIntents,
   connections,
   conversations,
   endUserSessions,
   executions,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   organizations,
 } from '@linea/db'
@@ -59,11 +60,11 @@ type BaseFixture = {
   workspaceId: string
   workflowId: string
   workflowVersionId: string
-  applicationId: string
+  environmentId: string
 }
 type Fixture = BaseFixture & {
   subjects: SubjectFixture[]
-  crossApplicationSubject: SubjectFixture
+  crossEnvironmentSubject: SubjectFixture
 }
 
 function hexHash(value: string): string {
@@ -91,7 +92,7 @@ async function createSession(input: {
     .insert(endUserSessions)
     .values({
       workspaceId: input.fixture.workspaceId,
-      applicationId: input.fixture.applicationId,
+      environmentId: input.fixture.environmentId,
       externalSubjectId: input.externalSubjectId,
       tokenHash: hexHash(token),
       proofJkt: await calculateJwkThumbprint(key.publicJwk, 'sha256'),
@@ -113,16 +114,16 @@ async function createSubject(fixture: BaseFixture): Promise<SubjectFixture> {
       verifiedAt: new Date(),
     })
     .returning()
-  await db.insert(externalSubjectApplications).values({
+  await db.insert(externalSubjectEnvironments).values({
     workspaceId: fixture.workspaceId,
-    applicationId: fixture.applicationId,
+    environmentId: fixture.environmentId,
     externalSubjectId: subject.id,
   })
   const [conversation] = await db
     .insert(conversations)
     .values({
       workspaceId: fixture.workspaceId,
-      applicationId: fixture.applicationId,
+      environmentId: fixture.environmentId,
       workflowId: fixture.workflowId,
       externalSubjectId: subject.id,
       environment: 'production',
@@ -148,6 +149,7 @@ async function createFixture(): Promise<Fixture> {
     })
     .returning()
   const workflow = await repositories.workflow.createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, organization.id),
     workspaceId: organization.id,
     name: 'Approval API workflow',
     slug: `approval-${randomUUID()}`,
@@ -157,9 +159,15 @@ async function createFixture(): Promise<Fixture> {
     graph: { nodes: [], edges: [] },
     contentHash: randomUUID(),
   })
-  const [application] = await db
-    .insert(applications)
-    .values({
+  const environment = await configureTestEnvironment(db, {
+    applicationId: (
+      await repositories.application.createApplication(db, {
+        workspaceId: organization.id,
+        name: 'Portal',
+        slug: randomUUID(),
+      })
+    ).id,
+    ...{
       workspaceId: organization.id,
       environment: 'production',
       displayName: 'Customer portal',
@@ -169,17 +177,23 @@ async function createFixture(): Promise<Fixture> {
       oidcClientId: 'portal',
       oidcAudience: 'linea',
       oidcJwksUrl: 'https://identity.example.com/jwks.json',
-    })
-    .returning()
+    },
+  })
   const base = {
     workspaceId: organization.id,
     workflowId: workflow.id,
     workflowVersionId: version.id,
-    applicationId: application.id,
+    environmentId: environment.id,
   }
-  const [otherApplication] = await db
-    .insert(applications)
-    .values({
+  const otherEnvironment = await configureTestEnvironment(db, {
+    applicationId: (
+      await repositories.application.createApplication(db, {
+        workspaceId: organization.id,
+        name: 'Portal',
+        slug: randomUUID(),
+      })
+    ).id,
+    ...{
       workspaceId: organization.id,
       environment: 'production',
       displayName: 'Other customer portal',
@@ -189,13 +203,13 @@ async function createFixture(): Promise<Fixture> {
       oidcClientId: 'other-portal',
       oidcAudience: 'linea',
       oidcJwksUrl: 'https://identity.example.com/jwks.json',
-    })
-    .returning()
-  const otherBase = { ...base, applicationId: otherApplication.id }
+    },
+  })
+  const otherBase = { ...base, environmentId: otherEnvironment.id }
   return {
     ...base,
     subjects: [await createSubject(base), await createSubject(base)],
-    crossApplicationSubject: await createSubject(otherBase),
+    crossEnvironmentSubject: await createSubject(otherBase),
   }
 }
 
@@ -214,7 +228,7 @@ async function createApprovalRequest(
       workspaceId: fixture.workspaceId,
       workflowId: fixture.workflowId,
       workflowVersionId: fixture.workflowVersionId,
-      applicationId: fixture.applicationId,
+      environmentId: fixture.environmentId,
       externalSubjectRecordId: subject.id,
       conversationId: subject.conversationId,
       trigger: 'api',
@@ -225,7 +239,7 @@ async function createApprovalRequest(
   const approvalRequest =
     await repositories.approvalRequest.createApprovalRequest(db, {
       workspaceId: fixture.workspaceId,
-      applicationId: fixture.applicationId,
+      environmentId: fixture.environmentId,
       workflowId: fixture.workflowId,
       executionId: execution.id,
       nodeId: `approval-${randomUUID()}`,
@@ -265,7 +279,7 @@ async function createPendingActionIntent(
     .insert(connections)
     .values({
       workspaceId: fixture.workspaceId,
-      applicationId: fixture.applicationId,
+      environmentId: fixture.environmentId,
       externalSubjectId: subject.id,
       provider: 'test',
       providerAccountId: randomUUID(),
@@ -286,7 +300,7 @@ async function createPendingActionIntent(
     }),
     {
       workspaceId: connection.workspaceId,
-      applicationId: connection.applicationId,
+      environmentId: connection.environmentId,
       externalSubjectId: connection.externalSubjectId,
       recordId: connection.id,
       provider: connection.provider,
@@ -317,7 +331,7 @@ async function createPendingActionIntent(
     .insert(actionIntents)
     .values({
       workspaceId: fixture.workspaceId,
-      applicationId: fixture.applicationId,
+      environmentId: fixture.environmentId,
       externalSubjectId: subject.id,
       connectionId: connection.id,
       workflowId: fixture.workflowId,
@@ -363,7 +377,6 @@ describe('end-user Approval Request API', () => {
   let app: INestApplication<App>
   let baseUrl: string
   let fixture: Fixture
-
   beforeAll(async () => {
     process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY = 'test-v1'
     process.env.CONNECTION_CREDENTIAL_KEYS = JSON.stringify({
@@ -389,6 +402,10 @@ describe('end-user Approval Request API', () => {
     await pool.query('DELETE FROM approval_requests WHERE workspace_id = $1', [
       fixture.workspaceId,
     ])
+    await pool.query(
+      'DELETE FROM connector_audit_facts WHERE workspace_id = $1',
+      [fixture.workspaceId],
+    )
     await pool.query('DELETE FROM organizations WHERE id = $1', [
       fixture.workspaceId,
     ])
@@ -397,7 +414,6 @@ describe('end-user Approval Request API', () => {
     delete process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY
     delete process.env.CONNECTION_CREDENTIAL_KEYS
   })
-
   async function headers(
     session: SessionFixture,
     method: string,
@@ -414,7 +430,6 @@ describe('end-user Approval Request API', () => {
       }),
     }
   }
-
   it('polls only pending subject-owned requests with a safe projection', async () => {
     const own = await createApprovalRequest(fixture, fixture.subjects[0])
     await createApprovalRequest(fixture, fixture.subjects[1])
@@ -446,7 +461,6 @@ describe('end-user Approval Request API', () => {
     expect(body.data[0]).not.toHaveProperty('actionIntentDigest')
     expect(body.data[0]).not.toHaveProperty('externalSubjectId')
   })
-
   it('lists only the bounded pending Action Intent projection for its owner', async () => {
     const own = await createPendingActionIntent(fixture, fixture.subjects[0])
     await createPendingActionIntent(fixture, fixture.subjects[1])
@@ -486,14 +500,13 @@ describe('end-user Approval Request API', () => {
     expect(body.data[0]).not.toHaveProperty('providerPreconditions')
     expect(body.data[0]).not.toHaveProperty('normalizedParameters')
   })
-
   it('reconciles revocation into bounded terminal use for every same-subject session', async () => {
     const subject = fixture.subjects[0]
     const pending = await createPendingActionIntent(fixture, subject)
     const usesPath = `/v1/user/connections/${pending.intent.connectionId}/uses`
     for (const outsider of [
       fixture.subjects[1].sessions[0],
-      fixture.crossApplicationSubject.sessions[0],
+      fixture.crossEnvironmentSubject.sessions[0],
     ]) {
       const hidden = await request(baseUrl)
         .get(usesPath)
@@ -529,7 +542,7 @@ describe('end-user Approval Request API', () => {
     for (const [index, outcome] of readOutcomes.entries()) {
       await repositories.connection.recordConnectionReadUse(db, {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         externalSubjectId: subject.id,
         connectionId: pending.intent.connectionId,
         executionId: pending.intent.executionId,
@@ -572,7 +585,6 @@ describe('end-user Approval Request API', () => {
     expect(JSON.stringify(body)).not.toContain('canonical-secret')
     expect(JSON.stringify(body)).not.toContain('credential-must-not-leak')
   })
-
   it('accepts a Decision from a second current session and replays it', async () => {
     const approvalRequest = await createApprovalRequest(
       fixture,
@@ -601,7 +613,6 @@ describe('end-user Approval Request API', () => {
       comment: 'Reviewed',
     })
   })
-
   it('hides cross-subject requests and rejects a copied token', async () => {
     const approvalRequest = await createApprovalRequest(
       fixture,
@@ -611,10 +622,10 @@ describe('end-user Approval Request API', () => {
     const hidden = await request(baseUrl)
       .get(path)
       .set(await headers(fixture.subjects[1].sessions[0], 'GET', path))
-    const crossApplication = await request(baseUrl)
+    const crossEnvironment = await request(baseUrl)
       .get(path)
       .set(
-        await headers(fixture.crossApplicationSubject.sessions[0], 'GET', path),
+        await headers(fixture.crossEnvironmentSubject.sessions[0], 'GET', path),
       )
     const attackerKey = await createProofKey()
     const copied = await request(baseUrl)
@@ -631,16 +642,15 @@ describe('end-user Approval Request API', () => {
     expect(publicErrorResponseSchema.parse(hidden.body).error.code).toBe(
       'approval_request_wrong_subject',
     )
-    expect(crossApplication.status).toBe(404)
+    expect(crossEnvironment.status).toBe(404)
     expect(
-      publicErrorResponseSchema.parse(crossApplication.body).error.code,
+      publicErrorResponseSchema.parse(crossEnvironment.body).error.code,
     ).toBe('approval_request_wrong_subject')
     expect(copied.status).toBe(401)
     expect(publicErrorResponseSchema.parse(copied.body).error.code).toBe(
       'proof_invalid',
     )
   })
-
   it('rejects expired sessions before reading requests', async () => {
     const expired = await createSession({
       fixture,
@@ -660,7 +670,6 @@ describe('end-user Approval Request API', () => {
       'session_expired',
     )
   })
-
   it('replays a committed Decision without duplicating dispatch or public events', async () => {
     const subject = fixture.subjects[0]
     const approvalRequest = await createApprovalRequest(fixture, subject)
@@ -691,8 +700,8 @@ describe('end-user Approval Request API', () => {
       external_subject_id: string
       count: number
     }>(
-      "SELECT event_type, external_subject_id, count(*)::int AS count FROM outbox_messages WHERE application_id = $1 AND payload->>'approvalRequestId' = $2 GROUP BY event_type, external_subject_id",
-      [fixture.applicationId, approvalRequest.id],
+      "SELECT event_type, external_subject_id, count(*)::int AS count FROM outbox_messages WHERE environment_id = $1 AND payload->>'approvalRequestId' = $2 GROUP BY event_type, external_subject_id",
+      [fixture.environmentId, approvalRequest.id],
     )
     expect(publicEvents.rows).toEqual(
       expect.arrayContaining([
@@ -709,7 +718,6 @@ describe('end-user Approval Request API', () => {
       ]),
     )
   })
-
   it('returns stable errors for cancelled, expired, and conflicting Decisions', async () => {
     const subject = fixture.subjects[0]
     const cancelled = await createApprovalRequest(fixture, subject)

@@ -2,16 +2,16 @@ import type { ExternalSubjectMetadata } from "@linea/protocol/resources"
 import { randomUUID } from "node:crypto"
 import { and, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm"
 import {
-  applications,
+  environments,
   auditLogs,
   connectionRevocationDeliveries,
   connections,
   connectorAuditFacts,
   endUserSessions,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   type ExternalSubject,
-  type ExternalSubjectApplication,
+  type ExternalSubjectEnvironment,
 } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.repository.js"
@@ -20,47 +20,48 @@ import { createPublicEvent } from "./outbox-message.repository.js"
 
 export type ExternalSubjectProjection = {
   subject: ExternalSubject
-  application: ExternalSubjectApplication
+  environment: ExternalSubjectEnvironment
 }
 
 export type ProvisionExternalSubjectResult =
   | { outcome: "provisioned"; value: ExternalSubjectProjection }
-  | { outcome: "application_not_found" }
-  | { outcome: "application_disabled" }
+  | { outcome: "environment_not_found" }
+  | { outcome: "environment_disabled" }
   | { outcome: "external_subject_disabled" }
 
 export async function provisionExternalSubject(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     issuerSubject: string
     metadata: ExternalSubjectMetadata
   },
-  actorApplicationKeyId: string
+  actorEnvironmentKeyId: string
 ): Promise<ProvisionExternalSubjectResult> {
   return db.transaction(async (tx): Promise<ProvisionExternalSubjectResult> => {
-    const [application] = await tx
+    const [environment] = await tx
       .select({
-        id: applications.id,
-        enabled: applications.enabled,
-        oidcIssuer: applications.oidcIssuer,
+        id: environments.id,
+        enabled: environments.enabled,
+        oidcIssuer: environments.oidcIssuer,
       })
-      .from(applications)
+      .from(environments)
       .where(
         and(
-          eq(applications.workspaceId, input.workspaceId),
-          eq(applications.id, input.applicationId)
+          eq(environments.workspaceId, input.workspaceId),
+          eq(environments.id, input.environmentId)
         )
       )
       .for("share")
-    if (!application) return { outcome: "application_not_found" }
-    if (!application.enabled) return { outcome: "application_disabled" }
+    if (!environment) return { outcome: "environment_not_found" }
+    if (!environment.enabled || !environment.oidcIssuer)
+      return { outcome: "environment_disabled" }
     const [created] = await tx
       .insert(externalSubjects)
       .values({
         workspaceId: input.workspaceId,
-        issuer: application.oidcIssuer,
+        issuer: environment.oidcIssuer,
         issuerSubject: input.issuerSubject,
       })
       .onConflictDoNothing({
@@ -80,7 +81,7 @@ export async function provisionExternalSubject(
           .where(
             and(
               eq(externalSubjects.workspaceId, input.workspaceId),
-              eq(externalSubjects.issuer, application.oidcIssuer),
+              eq(externalSubjects.issuer, environment.oidcIssuer),
               eq(externalSubjects.issuerSubject, input.issuerSubject)
             )
           )
@@ -94,51 +95,51 @@ export async function provisionExternalSubject(
     if (subject.status === "disabled") {
       return { outcome: "external_subject_disabled" }
     }
-    const [createdSubjectApplication] = await tx
-      .insert(externalSubjectApplications)
+    const [createdSubjectEnvironment] = await tx
+      .insert(externalSubjectEnvironments)
       .values({
         workspaceId: input.workspaceId,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subject.id,
         metadata: input.metadata,
       })
       .onConflictDoNothing({
         target: [
-          externalSubjectApplications.applicationId,
-          externalSubjectApplications.externalSubjectId,
+          externalSubjectEnvironments.environmentId,
+          externalSubjectEnvironments.externalSubjectId,
         ],
       })
       .returning()
-    const subjectApplication =
-      createdSubjectApplication ??
+    const subjectEnvironment =
+      createdSubjectEnvironment ??
       (
         await tx
-          .update(externalSubjectApplications)
+          .update(externalSubjectEnvironments)
           .set({ metadata: input.metadata, updatedAt: new Date() })
           .where(
             and(
-              eq(externalSubjectApplications.applicationId, application.id),
-              eq(externalSubjectApplications.externalSubjectId, subject.id)
+              eq(externalSubjectEnvironments.environmentId, environment.id),
+              eq(externalSubjectEnvironments.externalSubjectId, subject.id)
             )
           )
           .returning()
       )[0]
-    if (!subjectApplication) {
-      throw new Error("External Subject Application link disappeared")
+    if (!subjectEnvironment) {
+      throw new Error("External Subject Environment link disappeared")
     }
-    if (created || createdSubjectApplication) {
+    if (created || createdSubjectEnvironment) {
       await tx.insert(auditLogs).values({
         workspaceId: input.workspaceId,
-        actorApplicationKeyId,
+        actorEnvironmentKeyId,
         action: "external_subject.provisioned",
         resource: "external_subject",
         resourceId: subject.auditReference,
-        metadata: { applicationId: application.id },
+        metadata: { environmentId: environment.id },
       })
     }
     return {
       outcome: "provisioned",
-      value: { subject, application: subjectApplication },
+      value: { subject, environment: subjectEnvironment },
     }
   })
 }
@@ -162,33 +163,33 @@ export async function findExternalSubjectByIdentity(
   return subject
 }
 
-export async function getApplicationExternalSubject(
+export async function getEnvironmentExternalSubject(
   db: DbClient,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   externalSubjectId: string
 ): Promise<ExternalSubjectProjection | undefined> {
   const [result] = await db
     .select({
       subject: externalSubjects,
-      application: externalSubjectApplications,
+      environment: externalSubjectEnvironments,
     })
-    .from(externalSubjectApplications)
+    .from(externalSubjectEnvironments)
     .innerJoin(
       externalSubjects,
       and(
-        eq(externalSubjects.id, externalSubjectApplications.externalSubjectId),
+        eq(externalSubjects.id, externalSubjectEnvironments.externalSubjectId),
         eq(
           externalSubjects.workspaceId,
-          externalSubjectApplications.workspaceId
+          externalSubjectEnvironments.workspaceId
         )
       )
     )
     .where(
       and(
-        eq(externalSubjectApplications.workspaceId, workspaceId),
-        eq(externalSubjectApplications.applicationId, applicationId),
-        eq(externalSubjectApplications.externalSubjectId, externalSubjectId)
+        eq(externalSubjectEnvironments.workspaceId, workspaceId),
+        eq(externalSubjectEnvironments.environmentId, environmentId),
+        eq(externalSubjectEnvironments.externalSubjectId, externalSubjectId)
       )
     )
   return result
@@ -353,7 +354,7 @@ export async function eraseExternalSubject(
       })
       await createPublicEvent(tx, {
         workspaceId: connection.workspaceId,
-        applicationId: connection.applicationId,
+        environmentId: connection.environmentId,
         externalSubjectId: connection.externalSubjectId,
         eventType: "connection.revoked",
         data: { connectionId: connection.id },
@@ -400,12 +401,12 @@ export async function eraseExternalSubject(
         )
       )
     await tx
-      .update(externalSubjectApplications)
+      .update(externalSubjectEnvironments)
       .set({ metadata: {}, updatedAt: now })
       .where(
         and(
-          eq(externalSubjectApplications.workspaceId, workspaceId),
-          eq(externalSubjectApplications.externalSubjectId, existing.id)
+          eq(externalSubjectEnvironments.workspaceId, workspaceId),
+          eq(externalSubjectEnvironments.externalSubjectId, existing.id)
         )
       )
     await tx.insert(auditLogs).values({

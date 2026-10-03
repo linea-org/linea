@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -21,8 +22,8 @@ async function setUpExecutionWithOriginalStep(name: string) {
     .insert(schema.organizations)
     .values({ name, slug: `${name}-${suffix}`, createdAt: new Date() })
     .returning()
-
   const workflow = await repositories.workflow.createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, organization.id),
     workspaceId: organization.id,
     name: "Replay Sweep Workflow",
     slug: `replay-sweep-workflow-${suffix}`,
@@ -56,7 +57,6 @@ async function setUpExecutionWithOriginalStep(name: string) {
       output: { status: 200 },
     })
     .returning()
-
   return { organization, execution, originalStep }
 }
 
@@ -95,7 +95,6 @@ describe("ReplayClaimSweepService", () => {
   it("finalizes a replay claim stale past REPLAY_CLAIM_STALE_MS as failed", async () => {
     const { organization, execution, originalStep } =
       await setUpExecutionWithOriginalStep("Replay Sweep Stale Org")
-
     try {
       const replayId = randomUUID()
       await claimAt(
@@ -106,10 +105,8 @@ describe("ReplayClaimSweepService", () => {
           Date.now() - repositories.executionStep.REPLAY_CLAIM_STALE_MS - 1000
         )
       )
-
       const service = new ReplayClaimSweepService()
       await service.sweep()
-
       const result = await repositories.execution.getExecutionWithSteps(
         db,
         execution.id
@@ -123,18 +120,14 @@ describe("ReplayClaimSweepService", () => {
       ])
     }
   })
-
   it("leaves a non-stale running claim alone", async () => {
     const { organization, execution, originalStep } =
       await setUpExecutionWithOriginalStep("Replay Sweep Fresh Org")
-
     try {
       const replayId = randomUUID()
       await claimAt(replayId, execution, originalStep, new Date())
-
       const service = new ReplayClaimSweepService()
       await service.sweep()
-
       const result = await repositories.execution.getExecutionWithSteps(
         db,
         execution.id
@@ -147,12 +140,10 @@ describe("ReplayClaimSweepService", () => {
       ])
     }
   })
-
   it("leaves an ordinary (non-replay) running step alone", async () => {
     const { organization, execution } = await setUpExecutionWithOriginalStep(
       "Replay Sweep Non-Replay Org"
     )
-
     try {
       const [runningStep] = await db
         .insert(schema.executionSteps)
@@ -171,10 +162,8 @@ describe("ReplayClaimSweepService", () => {
           input: { trigger: "original" },
         })
         .returning()
-
       const service = new ReplayClaimSweepService()
       await service.sweep()
-
       const result = await repositories.execution.getExecutionWithSteps(
         db,
         execution.id

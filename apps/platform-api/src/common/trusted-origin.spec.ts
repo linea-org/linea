@@ -1,6 +1,6 @@
-import { usesApplicationOriginPolicy } from './trusted-origin'
+import { usesEnvironmentOriginPolicy } from './trusted-origin'
 
-describe('usesApplicationOriginPolicy', () => {
+describe('usesEnvironmentOriginPolicy', () => {
   it.each([
     '/v1/user-sessions/authorization',
     '/v1/user-sessions/exchange',
@@ -8,14 +8,13 @@ describe('usesApplicationOriginPolicy', () => {
     '/v1/user-sessions/current',
     '/v1/user/conversations',
     '/v1/user/executions',
-  ])('delegates %s to the Application allowlist', (path) => {
-    expect(usesApplicationOriginPolicy(path)).toBe(true)
+  ])('delegates %s to the Environment allowlist', (path) => {
+    expect(usesEnvironmentOriginPolicy(path)).toBe(true)
   })
-
   it('keeps other routes on the platform allowlist', () => {
-    expect(usesApplicationOriginPolicy('/v1/applications')).toBe(false)
+    expect(usesEnvironmentOriginPolicy('/v1/environments')).toBe(false)
     expect(
-      usesApplicationOriginPolicy('/v1/user-sessions/exchange/extra'),
+      usesEnvironmentOriginPolicy('/v1/user-sessions/exchange/extra'),
     ).toBe(false)
   })
 })

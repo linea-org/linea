@@ -16,19 +16,19 @@ import {
   startEndUserAuthorizationOperation,
 } from "./operations/user-sessions"
 import {
-  cancelApplicationExecutionOperation,
-  createApplicationConversationOperation,
+  cancelEnvironmentExecutionOperation,
+  createEnvironmentConversationOperation,
   createEndUserConversationOperation,
   createEndUserMessageOperation,
-  getApplicationConversationOperation,
-  getApplicationExecutionOperation,
+  getEnvironmentConversationOperation,
+  getEnvironmentExecutionOperation,
   getEndUserConversationOperation,
   getEndUserExecutionOperation,
-  listApplicationConversationsOperation,
+  listEnvironmentConversationsOperation,
   listEndUserConversationsOperation,
   listEndUserMessagesOperation,
-  provisionApplicationSubjectOperation,
-  startApplicationExecutionOperation,
+  provisionEnvironmentSubjectOperation,
+  startEnvironmentExecutionOperation,
   startEndUserExecutionOperation,
 } from "./operations/runtime"
 import { listWebhookDeliveriesOperation } from "./operations/webhooks"
@@ -51,7 +51,7 @@ import {
   startConnectionScopeUpgradeOperation,
 } from "./operations/connections"
 import {
-  listApplicationConnectorAuditEventsOperation,
+  listEnvironmentConnectorAuditEventsOperation,
   listEndUserConnectorAuditEventsOperation,
   listWorkspaceConnectorAuditEventsOperation,
 } from "./operations/connector-audit"
@@ -97,8 +97,8 @@ export function createOperationRegistry<
 
 export const operationRegistry = createOperationRegistry([
   registerOperation(
-    listApplicationConnectorAuditEventsOperation,
-    operationMetadata.listApplicationConnectorAuditEvents
+    listEnvironmentConnectorAuditEventsOperation,
+    operationMetadata.listEnvironmentConnectorAuditEvents
   ),
   registerOperation(
     listWorkspaceConnectorAuditEventsOperation,
@@ -150,32 +150,32 @@ export const operationRegistry = createOperationRegistry([
     operationMetadata.revokeEndUserSession
   ),
   registerOperation(
-    provisionApplicationSubjectOperation,
-    operationMetadata.provisionApplicationSubject
+    provisionEnvironmentSubjectOperation,
+    operationMetadata.provisionEnvironmentSubject
   ),
   registerOperation(
-    createApplicationConversationOperation,
-    operationMetadata.createApplicationConversation
+    createEnvironmentConversationOperation,
+    operationMetadata.createEnvironmentConversation
   ),
   registerOperation(
-    listApplicationConversationsOperation,
-    operationMetadata.listApplicationConversations
+    listEnvironmentConversationsOperation,
+    operationMetadata.listEnvironmentConversations
   ),
   registerOperation(
-    getApplicationConversationOperation,
-    operationMetadata.getApplicationConversation
+    getEnvironmentConversationOperation,
+    operationMetadata.getEnvironmentConversation
   ),
   registerOperation(
-    startApplicationExecutionOperation,
-    operationMetadata.startApplicationExecution
+    startEnvironmentExecutionOperation,
+    operationMetadata.startEnvironmentExecution
   ),
   registerOperation(
-    getApplicationExecutionOperation,
-    operationMetadata.getApplicationExecution
+    getEnvironmentExecutionOperation,
+    operationMetadata.getEnvironmentExecution
   ),
   registerOperation(
-    cancelApplicationExecutionOperation,
-    operationMetadata.cancelApplicationExecution
+    cancelEnvironmentExecutionOperation,
+    operationMetadata.cancelEnvironmentExecution
   ),
   registerOperation(
     createEndUserConversationOperation,

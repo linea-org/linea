@@ -84,7 +84,7 @@ function security(operation) {
   const scheme = {
     workspace_session: "workspaceSession",
     workspace_key: "workspaceKey",
-    application_key: "applicationKey",
+    environment_key: "environmentKey",
     end_user_session: "endUserSession",
   }[operation.auth.kind]
   return [{ [scheme]: operation.auth.scopes }]
@@ -216,10 +216,10 @@ function generateOpenapi() {
       components: {
         schemas,
         securitySchemes: {
-          applicationKey: {
+          environmentKey: {
             type: "http",
             scheme: "bearer",
-            bearerFormat: "Application key",
+            bearerFormat: "Environment key",
           },
           endUserSession: {
             type: "http",
@@ -283,8 +283,8 @@ function curlExample(operation) {
   if (operation.plane !== "control")
     return "Not shown for browser/native credentials."
   const credential =
-    operation.auth.kind === "application_key"
-      ? "$LINEA_APPLICATION_KEY"
+    operation.auth.kind === "environment_key"
+      ? "$LINEA_ENVIRONMENT_KEY"
       : "$LINEA_WORKSPACE_KEY"
   const path = operation.path.replace(
     /\{([^}]+)\}/g,
@@ -437,7 +437,7 @@ function assertDocumentation(operation, documented, routes) {
 }
 
 const sdkSources = {
-  LineaApplicationClient: "packages/sdk/src/server/application-client.ts",
+  LineaEnvironmentClient: "packages/sdk/src/server/environment-client.ts",
   LineaUserClient: "packages/sdk/src/user/user-client.ts",
   LineaWorkspaceClient: "packages/sdk/src/server/workspace-client.ts",
 }

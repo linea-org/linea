@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import { endUserSessions } from "./end-user-session.js"
 import { executions } from "./execution.js"
 import { externalSubjects } from "./external-subject.js"
@@ -20,7 +20,7 @@ export const connectionAuthorizationRequests = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     endUserSessionId: uuid(),
     provider: text().notNull(),
@@ -42,9 +42,9 @@ export const connectionAuthorizationRequests = snakeCase.table(
     ),
     index("connection_authorization_requests_expiry_idx").on(table.expiresAt),
     foreignKey({
-      name: "connection_authorization_requests_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "connection_authorization_requests_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "connection_authorization_requests_subject_fkey",
@@ -79,7 +79,7 @@ export const connections = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     provider: text().notNull(),
     providerAccountId: text().notNull(),
@@ -96,7 +96,7 @@ export const connections = snakeCase.table(
     uniqueIndex("connections_active_ownership_uidx")
       .on(
         table.workspaceId,
-        table.applicationId,
+        table.environmentId,
         table.externalSubjectId,
         table.provider,
         table.providerAccountId
@@ -108,13 +108,13 @@ export const connections = snakeCase.table(
     ),
     index("connections_subject_idx").on(
       table.workspaceId,
-      table.applicationId,
+      table.environmentId,
       table.externalSubjectId
     ),
     foreignKey({
-      name: "connections_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "connections_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "connections_subject_fkey",
@@ -140,7 +140,7 @@ export const connectionReadUses = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     connectionId: uuid().notNull(),
     executionId: uuid().notNull(),
@@ -151,16 +151,16 @@ export const connectionReadUses = snakeCase.table(
   (table) => [
     index("connection_read_uses_owner_created_idx").on(
       table.workspaceId,
-      table.applicationId,
+      table.environmentId,
       table.externalSubjectId,
       table.connectionId,
       table.occurredAt,
       table.id
     ),
     foreignKey({
-      name: "connection_read_uses_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "connection_read_uses_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "connection_read_uses_subject_fkey",
@@ -191,7 +191,7 @@ export const connectionRevocationDeliveries = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     connectionId: uuid(),
     provider: text().notNull(),
@@ -223,9 +223,9 @@ export const connectionRevocationDeliveries = snakeCase.table(
       foreignColumns: [connections.id, connections.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
-      name: "connection_revocation_deliveries_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "connection_revocation_deliveries_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "connection_revocation_deliveries_subject_fkey",

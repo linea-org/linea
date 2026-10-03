@@ -53,18 +53,14 @@ export class LineaClient {
     })
   }
 
-  /**
-   * Triggers a workflow by its slug. `payload` becomes the execution's `triggerPayload`, available
-   * to the workflow's nodes. There is no `environment` parameter — this route always runs the
-   * workflow as `dev` (use the dashboard's own trigger UI for a `production` run).
-   */
   triggerWorkflow(
+    environmentId: string,
     slug: string,
     payload?: Record<string, unknown>
   ): Promise<Execution> {
     return this.request<Execution>({
       method: "POST",
-      path: `/triggers/${encodeURIComponent(slug)}`,
+      path: `/triggers/${encodeURIComponent(environmentId)}/${encodeURIComponent(slug)}`,
       body: payload,
     })
   }

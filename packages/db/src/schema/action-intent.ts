@@ -12,7 +12,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import {
   approvalRequests,
   type ApprovalRequestDisplay,
@@ -55,7 +55,7 @@ export const actionIntents = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     connectionId: uuid().notNull(),
     workflowId: uuid().notNull(),
@@ -93,15 +93,15 @@ export const actionIntents = snakeCase.table(
       table.approvalRequestId
     ),
     index("action_intents_subject_status_idx").on(
-      table.applicationId,
+      table.environmentId,
       table.externalSubjectId,
       table.status,
       table.createdAt
     ),
     foreignKey({
-      name: "action_intents_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "action_intents_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "action_intents_subject_fkey",

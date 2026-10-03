@@ -1,6 +1,6 @@
 import { z } from "zod"
 import type { PublicErrorCode } from "../errors/error-code"
-import type { ApplicationKeyScope } from "../resources/application-key"
+import type { EnvironmentKeyScope } from "../resources/environment-key"
 
 export const httpMethodSchema = z.enum([
   "GET",
@@ -14,7 +14,7 @@ export const operationAuthKindSchema = z.enum([
   "none",
   "workspace_session",
   "workspace_key",
-  "application_key",
+  "environment_key",
   "end_user_session",
 ])
 
@@ -42,11 +42,11 @@ export type OperationDefinition = {
   readonly plane: OperationPlane
   readonly auth:
     | {
-        readonly kind: "application_key"
-        readonly scopes: readonly ApplicationKeyScope[]
+        readonly kind: "environment_key"
+        readonly scopes: readonly EnvironmentKeyScope[]
       }
     | {
-        readonly kind: Exclude<OperationAuthKind, "application_key">
+        readonly kind: Exclude<OperationAuthKind, "environment_key">
         readonly scopes: readonly string[]
       }
   readonly request: OperationRequestSchemas

@@ -1,3 +1,4 @@
+import { getTestApplicationId } from '@linea/db/testing'
 import '@linea/config/env'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
@@ -14,7 +15,6 @@ describe('SignalsService', () => {
       providers: [SignalsService],
     }).compile()
     const service = moduleRef.get(SignalsService)
-
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -32,9 +32,9 @@ describe('SignalsService', () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Signals Test Workflow',
         slug: `signals-test-workflow-${suffix}`,
@@ -58,7 +58,6 @@ describe('SignalsService', () => {
         trigger: 'manual',
         triggerPayload: {},
       })
-
       await repositories.flag.createFlagIfNew(db, {
         workspaceId: organization.id,
         executionId: executionA.id,
@@ -73,23 +72,19 @@ describe('SignalsService', () => {
         flagType: 'retry_storm',
         dedupeKey: `retry_storm:${executionB.id}:n1`,
       })
-
       const signals = await service.list(organization.id)
       expect(signals).toHaveLength(1)
       expect(signals[0]).toMatchObject({ status: 'open', occurrenceCount: 2 })
-
       const detail = await service.get(organization.id, signals[0].id, {
         environment: 'production',
       })
       expect(detail.flags).toHaveLength(2)
-
       // Not visible from another workspace.
       await expect(
         service.get(otherOrg.id, signals[0].id, {
           environment: 'production',
         }),
       ).rejects.toThrow()
-
       const resolved = await service.resolve(organization.id, signals[0].id)
       expect(resolved.resolvedAt).not.toBeNull()
     } finally {
