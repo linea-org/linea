@@ -12,3 +12,7 @@ export * from "./resources/end-user-authorization"
 export * from "./resources/workflow-contract"
 export * from "./resources/workspace-execution"
 export * from "./resources/workspace-signal"
+
+export * from "./resources/shared-connection"
+
+export * from "./resources/connector-access-policy"

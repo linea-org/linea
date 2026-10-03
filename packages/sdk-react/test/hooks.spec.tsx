@@ -1,7 +1,7 @@
-import { renderHook, waitFor } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { http, HttpResponse } from "msw"
 import type { ReactNode } from "react"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
   LineaUserProvider,
   useApprovalRequests,
@@ -36,6 +36,44 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 }
 
 describe("headless React hooks", () => {
+  it("refreshes shared reviewer approvals without requester stream events", async () => {
+    const intervals = vi.spyOn(globalThis, "setInterval")
+    const stream = deferred<Response>()
+    let visible = false
+    server.use(
+      http.get(`${apiBaseUrl}/v1/user/approval-requests`, () =>
+        HttpResponse.json({
+          data: visible ? [approvalRequest("pending")] : [],
+          nextCursor: null,
+        })
+      ),
+      http.get(`${apiBaseUrl}/v1/user/events`, () => stream.promise)
+    )
+    const client = await authenticatedClient()
+    function wrapper({ children }: { children: ReactNode }) {
+      return <LineaUserProvider client={client}>{children}</LineaUserProvider>
+    }
+    const { result, unmount } = renderHook(() => useApprovalRequests(), {
+      wrapper,
+    })
+    await waitFor(() => expect(result.current.connection).toBe("ready"))
+    expect(result.current.pending).toEqual([])
+    visible = true
+    const polling = intervals.mock.calls.find(
+      ([, delay]) => delay === 15000
+    )?.[0]
+    if (typeof polling !== "function")
+      throw new Error("Reviewer polling timer missing")
+    await act(async () => {
+      polling()
+    })
+    await waitFor(() => expect(result.current.pending).toHaveLength(1))
+    unmount()
+    stream.resolve(
+      new HttpResponse("", { headers: { "content-type": "text/event-stream" } })
+    )
+    intervals.mockRestore()
+  })
   it("loads a conversation and sends a message through the public client", async () => {
     server.use(
       http.get(`${apiBaseUrl}/v1/user/conversations/${conversationId}`, () =>
@@ -76,7 +114,6 @@ describe("headless React hooks", () => {
       expect(result.current.messages.at(-1)?.content).toBe("Ship it")
     )
   })
-
   it("loads executions and submits decisions", async () => {
     server.use(
       http.get(`${apiBaseUrl}/v1/user/executions/${executionId}`, () =>
@@ -118,7 +155,6 @@ describe("headless React hooks", () => {
     ).resolves.toMatchObject({ outcome: "approved" })
     expect(decisionHook.result.current.error).toBeUndefined()
   })
-
   it("keeps pending decision state until every overlapping request settles", async () => {
     const secondApprovalRequestId = "a0000000-0000-4000-8000-00000000000a"
     const firstResponse = deferred<Response>()
@@ -185,7 +221,6 @@ describe("headless React hooks", () => {
       expect(result.current.pendingApprovalRequestIds).toEqual([])
     )
   })
-
   it("does not append a completed send to a new conversation", async () => {
     const nextConversationId = "c0000000-0000-4000-8000-00000000000c"
     const sendResponse = deferred<Response>()
@@ -247,7 +282,6 @@ describe("headless React hooks", () => {
     expect(result.current.messages).toEqual([])
     expect(result.current.isSending).toBe(false)
   })
-
   it("ignores approval reconciliation from a previous conversation", async () => {
     const nextConversationId = "c0000000-0000-4000-8000-00000000000c"
     const stalePage = deferred<Response>()
@@ -292,7 +326,6 @@ describe("headless React hooks", () => {
     expect(result.current.requests).toEqual([])
     unmount()
   })
-
   it("reconciles pending approvals from resources after reconnect", async () => {
     let listCalls = 0
     server.use(

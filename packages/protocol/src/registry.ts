@@ -1,3 +1,13 @@
+import {
+  listEnvironmentConnectionsOperation,
+  createGithubInstallationConnectionOperation,
+  getConnectionAuthoritiesOperation,
+  grantConnectionAccessOperation,
+  revokeConnectionAccessOperation,
+  assignConnectionReviewerOperation,
+  revokeConnectionReviewerOperation,
+  revokeSharedConnectionOperation,
+} from "./operations/shared-connections"
 import type { OperationDefinition } from "./operations/operation"
 import type { OperationMetadata } from "./operations/operation-metadata"
 import { registerOperation } from "./operations/operation-metadata"
@@ -96,6 +106,38 @@ export function createOperationRegistry<
 }
 
 export const operationRegistry = createOperationRegistry([
+  registerOperation(
+    listEnvironmentConnectionsOperation,
+    operationMetadata.listEnvironmentConnections
+  ),
+  registerOperation(
+    createGithubInstallationConnectionOperation,
+    operationMetadata.createGithubInstallationConnection
+  ),
+  registerOperation(
+    getConnectionAuthoritiesOperation,
+    operationMetadata.getConnectionAuthorities
+  ),
+  registerOperation(
+    grantConnectionAccessOperation,
+    operationMetadata.grantConnectionAccess
+  ),
+  registerOperation(
+    revokeConnectionAccessOperation,
+    operationMetadata.revokeConnectionAccess
+  ),
+  registerOperation(
+    assignConnectionReviewerOperation,
+    operationMetadata.assignConnectionReviewer
+  ),
+  registerOperation(
+    revokeConnectionReviewerOperation,
+    operationMetadata.revokeConnectionReviewer
+  ),
+  registerOperation(
+    revokeSharedConnectionOperation,
+    operationMetadata.revokeSharedConnection
+  ),
   registerOperation(
     listEnvironmentConnectorAuditEventsOperation,
     operationMetadata.listEnvironmentConnectorAuditEvents

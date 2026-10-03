@@ -1,3 +1,5 @@
+import { EnvironmentConnectionsController } from './environment-connections.controller'
+import { EnvironmentConnectionsService } from './environment-connections.service'
 import { Module } from '@nestjs/common'
 import { EndUserSessionsModule } from '../end-user-sessions/end-user-sessions.module'
 import { ConnectionOAuthCallbackController } from './connection-oauth-callback.controller'
@@ -22,8 +24,13 @@ function connectionOAuthProviders() {
 
 @Module({
   imports: [EndUserSessionsModule],
-  controllers: [ConnectionsController, ConnectionOAuthCallbackController],
+  controllers: [
+    ConnectionsController,
+    ConnectionOAuthCallbackController,
+    EnvironmentConnectionsController,
+  ],
   providers: [
+    EnvironmentConnectionsService,
     ConnectionsService,
     ConnectionCredentialsService,
     ConnectionRevocationService,

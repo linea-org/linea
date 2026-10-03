@@ -68,6 +68,7 @@ export const githubListIssuesOperation: ConnectorReadOperation =
     provider: "github",
     actionFamily: "issues",
     classification: "read",
+    installationPermissions: Object.freeze({ issues: "read" }),
     requiredScopes: Object.freeze(["repo"]),
     providerErrorMessage: "GitHub issue read failed",
     inputSchema,

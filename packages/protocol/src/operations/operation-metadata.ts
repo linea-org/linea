@@ -12,6 +12,7 @@ export type OperationSdkCoverage =
         | "LineaEnvironmentClient"
         | "LineaUserClient"
         | "LineaWorkspaceClient"
+        | "LineaConnectionAdminClient"
       readonly method: string
     }
   | { readonly reason: string }

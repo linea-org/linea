@@ -73,6 +73,7 @@ export const githubCreateIssueOperation: ConnectorSideEffectOperation =
     provider: "github",
     actionFamily: "issues",
     classification: "side_effect",
+    installationPermissions: Object.freeze({ issues: "write" }),
     requiredScopes: Object.freeze(["repo"]),
     inputSchema,
     parametersSchema,

@@ -45,3 +45,5 @@ export * as regressionRun from "./regression-run.repository.js"
 export type { DbClient, Transaction } from "./types.js"
 
 export * as application from "./application.repository.js"
+
+export * as sharedConnection from "./shared-connection.repository.js"

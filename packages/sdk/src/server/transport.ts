@@ -155,7 +155,7 @@ function shouldRetryResponse(
 export class ServerTransport {
   constructor(
     private readonly baseUrl: string,
-    private readonly credential: string
+    private readonly credential: string | { sessionCookie: string }
   ) {}
 
   async execute<TResponse>(
@@ -166,7 +166,9 @@ export class ServerTransport {
     const url = operationUrl(this.baseUrl, endpoint, call.query)
     const headers: Record<string, string> = {
       Accept: "application/json",
-      Authorization: `Bearer ${this.credential}`,
+      ...(typeof this.credential === "string"
+        ? { Authorization: `Bearer ${this.credential}` }
+        : { Cookie: this.credential.sessionCookie }),
     }
     if (call.idempotencyKey) headers["Idempotency-Key"] = call.idempotencyKey
     const body = serializeBody(call.body, headers, endpoint)

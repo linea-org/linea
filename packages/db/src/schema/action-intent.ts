@@ -58,6 +58,7 @@ export const actionIntents = snakeCase.table(
     environmentId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     connectionId: uuid().notNull(),
+    connectionAccessGrantId: uuid(),
     workflowId: uuid().notNull(),
     executionId: uuid().notNull(),
     nodeId: text().notNull(),

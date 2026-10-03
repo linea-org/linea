@@ -1,3 +1,4 @@
+import { LineaConnectionAdminClient } from "./connection-admin-client.js"
 import {
   createServer,
   type IncomingMessage,
@@ -83,6 +84,42 @@ function execution() {
 }
 
 describe("server SDK public HTTP contract", () => {
+  it("administers shared connections with an Operator cookie and never substitutes a machine key", async () => {
+    const envId = "00000000-0000-4000-8000-000000000002"
+    const server = await testServer((request, response) => {
+      expect(request.headers.cookie).toBe("session=operator-test")
+      expect(request.headers.authorization).toBeUndefined()
+      json(response, [])
+    })
+    const client = new LineaConnectionAdminClient({
+      baseUrl: server.baseUrl,
+      environmentId: envId,
+      sessionCookie: "session=operator-test",
+    })
+    expect(await client.listConnections()).toEqual([])
+    expect(server.requests[0]?.url).toBe(
+      `/v1/environments/${envId}/connections`
+    )
+  })
+  it("does not retry a failed installation setup", async () => {
+    const server = await testServer((_request, response) =>
+      json(response, { message: "Provider unavailable" }, 503)
+    )
+    const client = new LineaConnectionAdminClient({
+      baseUrl: server.baseUrl,
+      environmentId: "00000000-0000-4000-8000-000000000002",
+      sessionCookie: "session=operator-test",
+    })
+    await expect(
+      client.createGithubInstallation({
+        appClientId: "123",
+        installationId: 42,
+        privateKey: "test PEM",
+        permissions: { metadata: "read", issues: "read" },
+      })
+    ).rejects.toBeInstanceOf(LineaApiError)
+    expect(server.requests).toHaveLength(1)
+  })
   afterEach(async () => {
     await Promise.all(
       servers

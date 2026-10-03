@@ -186,6 +186,7 @@ export const githubCreatePullRequestOperation: ConnectorSideEffectOperation =
     provider: "github",
     actionFamily: "pull_requests",
     classification: "side_effect",
+    installationPermissions: Object.freeze({ pull_requests: "write" }),
     requiredScopes: Object.freeze(["repo"]),
     inputSchema,
     parametersSchema,

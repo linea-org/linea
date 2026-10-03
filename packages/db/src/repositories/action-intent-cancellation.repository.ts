@@ -12,6 +12,7 @@ import type { DbClient } from "./types.js"
 
 type ActionIntentCancellationScope =
   | { kind: "connection"; id: string }
+  | { kind: "connection_access_grant"; id: string }
   | { kind: "execution"; id: string }
   | { kind: "external_subject"; id: string }
 
@@ -22,6 +23,8 @@ type ActionIntentCancellationActor =
 
 function cancellationScopePredicate(scope: ActionIntentCancellationScope) {
   switch (scope.kind) {
+    case "connection_access_grant":
+      return eq(actionIntents.connectionAccessGrantId, scope.id)
     case "connection":
       return eq(actionIntents.connectionId, scope.id)
     case "execution":

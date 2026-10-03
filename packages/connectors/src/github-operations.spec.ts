@@ -70,6 +70,24 @@ function issueResponse(number: number) {
 }
 
 describe("GitHub Connector Operations", () => {
+  it("filters private installation repositories without stopping mixed-page pagination", async () => {
+    const result = await githubListRepositoriesOperation.execute(
+      { perPage: 2 },
+      {
+        accessToken: "github-access-secret",
+        accountId: "installation:42",
+        expiresAt: null,
+        scopes: ["metadata:read"],
+        installationId: 42,
+      }
+    )
+    expect(result).toMatchObject({
+      repositories: [{ id: "101", private: false }],
+      hasMore: true,
+    })
+    expect(requests.at(-1)?.path).toBe("/installation/repositories")
+    expect(requests.at(-1)?.query.has("visibility")).toBe(false)
+  })
   let baseUrl: string
   let closeProvider: () => Promise<void>
   beforeAll(async () => {
@@ -86,6 +104,29 @@ describe("GitHub Connector Operations", () => {
         })
         if (request.headers.authorization !== "Bearer github-access-secret") {
           json(response, 401, { message: "bad github-access-secret" })
+          return
+        }
+        if (
+          request.method === "GET" &&
+          url.pathname === "/installation/repositories"
+        ) {
+          const repository = {
+            id: 101,
+            name: "widgets",
+            full_name: "acme/widgets",
+            private: false,
+            html_url: "https://github.test/acme/widgets",
+            default_branch: "main",
+            archived: false,
+            updated_at: "2026-09-20T00:00:00Z",
+            owner: { login: "acme" },
+          }
+          json(response, 200, {
+            repositories: [
+              repository,
+              { ...repository, id: 102, private: true },
+            ],
+          })
           return
         }
         if (request.method === "GET" && url.pathname === "/user/repos") {

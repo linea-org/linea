@@ -458,6 +458,33 @@ function ownedConnection(owner: ConnectionOwner, connectionId?: string) {
   )
 }
 
+function visibleConnection(owner: ConnectionOwner, connectionId?: string) {
+  return and(
+    eq(connections.workspaceId, owner.workspaceId),
+    eq(connections.environmentId, owner.environmentId),
+    connectionId ? eq(connections.id, connectionId) : undefined,
+    or(
+      eq(connections.externalSubjectId, owner.externalSubjectId),
+      and(
+        eq(connections.ownership, "environment"),
+        sql`(EXISTS (SELECT 1 FROM connection_access_grants g WHERE g.connection_id = ${connections.id} AND g.external_subject_id = ${owner.externalSubjectId} AND g.revoked_at IS NULL) OR EXISTS (SELECT 1 FROM connection_reviewer_assignments r WHERE r.connection_id = ${connections.id} AND r.external_subject_id = ${owner.externalSubjectId} AND r.revoked_at IS NULL))`
+      )
+    )
+  )
+}
+
+export async function getVisibleConnection(
+  db: DbClient,
+  owner: ConnectionOwner,
+  connectionId: string
+): Promise<Connection | undefined> {
+  const [connection] = await db
+    .select()
+    .from(connections)
+    .where(visibleConnection(owner, connectionId))
+  return connection
+}
+
 export function listConnections(
   db: DbClient,
   owner: ConnectionOwner
@@ -465,7 +492,7 @@ export function listConnections(
   return db
     .select()
     .from(connections)
-    .where(ownedConnection(owner))
+    .where(visibleConnection(owner))
     .orderBy(desc(connections.createdAt), desc(connections.id))
 }
 
@@ -514,7 +541,7 @@ export function findConnections(
     .from(connections)
     .where(
       and(
-        ownedConnection(input),
+        visibleConnection(input),
         input.cursor
           ? or(
               lt(connections.createdAt, input.cursor.createdAt),
@@ -588,6 +615,7 @@ export async function getConnectorReadAuthority(
 ): Promise<
   | {
       connection: Connection
+      externalSubjectId: string
       providerPolicy: {
         provider: string
         actionFamilies: string[]
@@ -599,6 +627,7 @@ export async function getConnectorReadAuthority(
   const [authority] = await db
     .select({
       connection: connections,
+      externalSubjectId: executions.externalSubjectRecordId,
       policy: environments.connectorAccessPolicy,
     })
     .from(executions)
@@ -635,7 +664,13 @@ export async function getConnectorReadAuthority(
         eq(connections.id, input.connectionId),
         eq(connections.workspaceId, executions.workspaceId),
         eq(connections.environmentId, executions.environmentId),
-        eq(connections.externalSubjectId, executions.externalSubjectRecordId)
+        or(
+          eq(connections.externalSubjectId, executions.externalSubjectRecordId),
+          and(
+            eq(connections.ownership, "environment"),
+            sql`EXISTS (SELECT 1 FROM connection_access_grants g WHERE g.connection_id = ${connections.id} AND g.environment_id = ${executions.environmentId} AND g.workspace_id = ${executions.workspaceId} AND g.external_subject_id = ${executions.externalSubjectRecordId} AND g.revoked_at IS NULL)`
+          )
+        )
       )
     )
     .where(
@@ -644,12 +679,16 @@ export async function getConnectorReadAuthority(
         eq(executions.workspaceId, input.workspaceId)
       )
     )
-  if (!authority) return undefined
+  if (!authority?.externalSubjectId) return undefined
   const providerPolicy = authority.policy.providers.find(
     (candidate) => candidate.provider === authority.connection.provider
   )
   return providerPolicy
-    ? { connection: authority.connection, providerPolicy }
+    ? {
+        connection: authority.connection,
+        externalSubjectId: authority.externalSubjectId,
+        providerPolicy,
+      }
     : undefined
 }
 
@@ -735,7 +774,7 @@ export async function revokeConnection(
     await createPublicEvent(tx, {
       workspaceId: connection.workspaceId,
       environmentId: connection.environmentId,
-      externalSubjectId: connection.externalSubjectId,
+      externalSubjectId: owner.externalSubjectId,
       eventType: "connection.revoked",
       data: { connectionId: connection.id },
     })

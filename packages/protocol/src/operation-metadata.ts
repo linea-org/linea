@@ -39,6 +39,149 @@ function workspaceSdk(method: string): OperationSdkCoverage {
 }
 
 export const operationMetadata = {
+  listEnvironmentConnections: {
+    purpose: "List shared Environment Connections.",
+    caller: "A workspace administrator with an Operator session.",
+    idempotency: "None.",
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/environment-connections.controller.ts",
+      "list"
+    ),
+    sdk: {
+      importPath: "@linea/sdk/server",
+      client: "LineaConnectionAdminClient",
+      method: "listConnections",
+    },
+  },
+  createGithubInstallationConnection: {
+    purpose: "Administer shared Connection authority.",
+    caller: "A workspace administrator with an Operator session.",
+    idempotency:
+      "Mutations require recent authentication; revoked authority is never restored.",
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/environment-connections.controller.ts",
+      "createGithubInstallation"
+    ),
+    sdk: {
+      importPath: "@linea/sdk/server",
+      client: "LineaConnectionAdminClient",
+      method: "createGithubInstallation",
+    },
+  },
+  getConnectionAuthorities: {
+    purpose:
+      "Inspect shared Connection requester grants and reviewer assignments.",
+    caller: "A workspace administrator with an Operator session.",
+    idempotency: "None.",
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/environment-connections.controller.ts",
+      "authorities"
+    ),
+    sdk: {
+      importPath: "@linea/sdk/server",
+      client: "LineaConnectionAdminClient",
+      method: "getAuthorities",
+    },
+  },
+  grantConnectionAccess: {
+    purpose: "Administer shared Connection authority.",
+    caller: "A workspace administrator with an Operator session.",
+    idempotency:
+      "Mutations require recent authentication; revoked authority is never restored.",
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/environment-connections.controller.ts",
+      "grant"
+    ),
+    sdk: {
+      importPath: "@linea/sdk/server",
+      client: "LineaConnectionAdminClient",
+      method: "grantAccess",
+    },
+  },
+  revokeConnectionAccess: {
+    purpose: "Administer shared Connection authority.",
+    caller: "A workspace administrator with an Operator session.",
+    idempotency:
+      "Mutations require recent authentication; revoked authority is never restored.",
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/environment-connections.controller.ts",
+      "revokeGrant"
+    ),
+    sdk: {
+      importPath: "@linea/sdk/server",
+      client: "LineaConnectionAdminClient",
+      method: "revokeAccess",
+    },
+  },
+  assignConnectionReviewer: {
+    purpose: "Administer shared Connection authority.",
+    caller: "A workspace administrator with an Operator session.",
+    idempotency:
+      "Mutations require recent authentication; revoked authority is never restored.",
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/environment-connections.controller.ts",
+      "assignReviewer"
+    ),
+    sdk: {
+      importPath: "@linea/sdk/server",
+      client: "LineaConnectionAdminClient",
+      method: "assignReviewer",
+    },
+  },
+  revokeConnectionReviewer: {
+    purpose: "Administer shared Connection authority.",
+    caller: "A workspace administrator with an Operator session.",
+    idempotency:
+      "Mutations require recent authentication; revoked authority is never restored.",
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/environment-connections.controller.ts",
+      "revokeReviewer"
+    ),
+    sdk: {
+      importPath: "@linea/sdk/server",
+      client: "LineaConnectionAdminClient",
+      method: "revokeReviewer",
+    },
+  },
+  revokeSharedConnection: {
+    purpose: "Administer shared Connection authority.",
+    caller: "A workspace administrator with an Operator session.",
+    idempotency:
+      "Mutations require recent authentication; revoked authority is never restored.",
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/environment-connections.controller.ts",
+      "revoke"
+    ),
+    sdk: {
+      importPath: "@linea/sdk/server",
+      client: "LineaConnectionAdminClient",
+      method: "revokeConnection",
+    },
+  },
   listEnvironmentConnectorAuditEvents: {
     purpose: "List redacted connector audit events for one Environment.",
     caller: environmentCaller,

@@ -1030,6 +1030,9 @@ describe("exact Action Intent consent", () => {
       )
       expect(claimed?.outcome).toBe("claimed")
       await repositories.actionIntent.beginActionIntentDispatch(db, {
+        provider: "test",
+        actionFamily: "test",
+        requiredScopes: ["write:resources"],
         actionIntentId: view.intent.id,
         executionClaimId: fixture.executionClaimId,
         now: new Date(),

@@ -437,6 +437,8 @@ function assertDocumentation(operation, documented, routes) {
 }
 
 const sdkSources = {
+  LineaConnectionAdminClient:
+    "packages/sdk/src/server/connection-admin-client.ts",
   LineaEnvironmentClient: "packages/sdk/src/server/environment-client.ts",
   LineaUserClient: "packages/sdk/src/user/user-client.ts",
   LineaWorkspaceClient: "packages/sdk/src/server/workspace-client.ts",

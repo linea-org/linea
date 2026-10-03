@@ -39,6 +39,7 @@ export const approvalDecisions = snakeCase.table(
     actorUserId: uuid().references(() => users.id),
     actorExternalSubjectId: uuid(),
     endUserSessionId: uuid(),
+    reviewerAssignmentId: uuid(),
     reason: approvalDecisionReason().notNull(),
     comment: text(),
     idempotencyKey: text(),

@@ -71,3 +71,11 @@ export const connectorOperationRegistry = Object.freeze({
   [githubCreateIssueOperation.id]: githubCreateIssueOperation,
   [githubCreatePullRequestOperation.id]: githubCreatePullRequestOperation,
 })
+
+export {
+  authorizeGithubInstallation,
+  githubInstallationCredentialSchema,
+  githubInstallationScopes,
+  resolveGithubInstallationCredential,
+  type GithubInstallationCredential,
+} from "./github-installation-credential.js"

@@ -56,8 +56,16 @@ function auditExpiry(occurredAt: Date): Date {
 async function retentionContext(
   tx: DbClient,
   environmentId: string,
-  externalSubjectId: string
-): Promise<{ contentRetentionDays: number; subjectReference: string }> {
+  externalSubjectId: string | null
+): Promise<{ contentRetentionDays: number; subjectReference: string | null }> {
+  if (externalSubjectId === null) {
+    const [environment] = await tx
+      .select({ contentRetentionDays: environments.contentRetentionDays })
+      .from(environments)
+      .where(eq(environments.id, environmentId))
+    if (!environment) throw new Error("Connector audit Environment is missing")
+    return { ...environment, subjectReference: null }
+  }
   const [context] = await tx
     .select({
       contentRetentionDays: environments.contentRetentionDays,

@@ -355,7 +355,7 @@ export async function eraseExternalSubject(
       await createPublicEvent(tx, {
         workspaceId: connection.workspaceId,
         environmentId: connection.environmentId,
-        externalSubjectId: connection.externalSubjectId,
+        externalSubjectId: existing.id,
         eventType: "connection.revoked",
         data: { connectionId: connection.id },
       })

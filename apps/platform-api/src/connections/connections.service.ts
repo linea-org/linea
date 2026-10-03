@@ -1,3 +1,4 @@
+import { publicConnection } from './connection-projection'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import {
   BadRequestException,
@@ -12,12 +13,10 @@ import {
   decryptCredential,
   encryptCredential,
   repositories,
-  type Connection as StoredConnection,
   type ConnectionAuthorizationRequest as StoredConnectionAuthorizationRequest,
 } from '@linea/db'
 import {
   connectionAuthorizationStatusSchema,
-  connectionStatusSchema,
   connectionUseSchema,
 } from '@linea/protocol/resources'
 import type {
@@ -82,21 +81,6 @@ function authorizationResultUrl(
   returnUrl.searchParams.set('authorizationId', request.id)
   returnUrl.searchParams.set('status', status)
   return returnUrl.toString()
-}
-
-function publicConnection(connection: StoredConnection): PublicConnection {
-  return {
-    id: connection.id,
-    provider: connection.provider,
-    providerAccountId: connection.providerAccountId,
-    accountLabel: connection.accountLabel,
-    status: connectionStatusSchema.parse(connection.status),
-    scopes: connection.scopes,
-    credentialVersion: connection.credentialVersion,
-    createdAt: connection.createdAt.toISOString(),
-    updatedAt: connection.updatedAt.toISOString(),
-    revokedAt: connection.revokedAt?.toISOString() ?? null,
-  }
 }
 
 @Injectable()
@@ -456,7 +440,7 @@ export class ConnectionsService {
     principal: EndUserPrincipal,
     connectionId: string,
   ): Promise<PublicConnection> {
-    const connection = await repositories.connection.getConnection(
+    const connection = await repositories.connection.getVisibleConnection(
       db,
       principal,
       connectionId,

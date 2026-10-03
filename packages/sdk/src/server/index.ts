@@ -17,3 +17,8 @@ export type {
   OperatorConnectorAuditEvent,
   WorkspaceConnectorAuditQuery,
 } from "@linea/protocol/resources"
+
+export {
+  LineaConnectionAdminClient,
+  type LineaConnectionAdminClientOptions,
+} from "./connection-admin-client.js"
