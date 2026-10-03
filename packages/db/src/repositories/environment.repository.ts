@@ -139,7 +139,9 @@ export async function updateEnvironmentProfile(
       .returning()
     if (!environment) return undefined
     await recordAudit(tx, environment, actor, "environment.updated", {
-      changedFields: Object.keys(input).sort(),
+      changedFields: Object.keys(input).sort((left, right) =>
+        left.localeCompare(right)
+      ),
     })
     return environment
   })
