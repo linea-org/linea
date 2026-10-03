@@ -131,6 +131,10 @@ describe('Connections and Action Consent launch tracer', () => {
         'DELETE FROM approval_requests WHERE workspace_id = $1',
         [fixture.workspaceId],
       )
+      await pool.query(
+        'DELETE FROM connector_audit_facts WHERE workspace_id = $1',
+        [fixture.workspaceId],
+      )
       await pool.query('DELETE FROM organizations WHERE id = $1', [
         fixture.workspaceId,
       ])
