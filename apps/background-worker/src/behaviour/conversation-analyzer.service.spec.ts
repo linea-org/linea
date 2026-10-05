@@ -28,7 +28,7 @@ jest.mock("@linea/ai", () => ({
 }))
 
 import "@linea/config/env"
-import { randomUUID } from "node:crypto"
+import { randomBytes, randomUUID } from "node:crypto"
 import { db, encryptSecret, pool, repositories, schema } from "@linea/db"
 import {
   ConversationAnalyzerService,
@@ -100,7 +100,9 @@ describe("ConversationAnalyzerService", () => {
       enabled: true,
     })
     const platformKey = process.env.ANTHROPIC_API_KEY
+    const encryptionKey = process.env.SECRETS_ENCRYPTION_KEY
     process.env.ANTHROPIC_API_KEY = "platform-test-key"
+    process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString("base64")
     try {
       const environmentId = await getTestDevelopmentEnvironmentId(
         db,
@@ -150,6 +152,8 @@ describe("ConversationAnalyzerService", () => {
     } finally {
       if (platformKey === undefined) delete process.env.ANTHROPIC_API_KEY
       else process.env.ANTHROPIC_API_KEY = platformKey
+      if (encryptionKey === undefined) delete process.env.SECRETS_ENCRYPTION_KEY
+      else process.env.SECRETS_ENCRYPTION_KEY = encryptionKey
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
