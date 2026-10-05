@@ -4,6 +4,7 @@ export type ConnectorReadCredential = {
   accountId: string
   accessToken: string
   expiresAt: string | null
+  installationId?: number
   scopes: readonly string[]
 }
 
@@ -13,6 +14,7 @@ export interface ConnectorReadOperation {
   readonly actionFamily: string
   readonly classification: "read"
   readonly requiredScopes: readonly string[]
+  readonly installationPermissions?: Readonly<Record<string, "read" | "write">>
   readonly providerErrorMessage: string
   readonly inputSchema: z.ZodType
   readonly outputSchema: z.ZodType

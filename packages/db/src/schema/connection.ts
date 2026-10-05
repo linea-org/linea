@@ -80,7 +80,15 @@ export const connections = snakeCase.table(
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
     environmentId: uuid().notNull(),
-    externalSubjectId: uuid().notNull(),
+    externalSubjectId: uuid(),
+    ownership: text()
+      .$type<"personal" | "environment">()
+      .default("personal")
+      .notNull(),
+    authorizationKind: text()
+      .$type<"delegated_user" | "github_app_installation">()
+      .default("delegated_user")
+      .notNull(),
     provider: text().notNull(),
     providerAccountId: text().notNull(),
     accountLabel: text().notNull(),
@@ -102,6 +110,25 @@ export const connections = snakeCase.table(
         table.providerAccountId
       )
       .where(sql`${table.status} <> 'revoked'`),
+    uniqueIndex("connections_shared_ownership_uidx")
+      .on(
+        table.workspaceId,
+        table.environmentId,
+        table.provider,
+        table.providerAccountId
+      )
+      .where(
+        sql`${table.ownership} = 'environment' AND ${table.status} <> 'revoked'`
+      ),
+    check(
+      "connections_ownership_check",
+      sql`(${table.ownership} = 'personal' AND ${table.externalSubjectId} IS NOT NULL AND ${table.authorizationKind} = 'delegated_user') OR (${table.ownership} = 'environment' AND ${table.externalSubjectId} IS NULL AND ${table.authorizationKind} = 'github_app_installation' AND ${table.provider} = 'github')`
+    ),
+    uniqueIndex("connections_id_environment_workspace_uidx").on(
+      table.id,
+      table.environmentId,
+      table.workspaceId
+    ),
     uniqueIndex("connections_id_workspace_uidx").on(
       table.id,
       table.workspaceId

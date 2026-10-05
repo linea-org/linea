@@ -20,7 +20,7 @@
     "db:down": "pnpm --filter @linea/db db:down",
     "db:logs": "pnpm --filter @linea/db db:logs",
     "db:generate": "pnpm --filter @linea/db db:generate",
-    "db:migrate": "pnpm --filter @linea/db db:migrate",
+    "db:migrate": "pnpm --filter @linea/config build && pnpm --filter @linea/db db:migrate",
     "db:studio": "pnpm --filter @linea/db db:studio",
     "queue:up": "pnpm --filter @linea/queue queue:up",
     "queue:down": "pnpm --filter @linea/queue queue:down",

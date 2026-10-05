@@ -46,7 +46,7 @@ export const connectorAuditFacts = snakeCase.table(
     workspaceId: uuid().notNull(),
     environmentId: uuid().notNull(),
     externalSubjectId: uuid(),
-    subjectReference: uuid().notNull(),
+    subjectReference: uuid(),
     connectionId: uuid().notNull(),
     actionIntentId: uuid(),
     decisionId: uuid(),

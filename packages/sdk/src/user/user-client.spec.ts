@@ -519,6 +519,8 @@ describe("browser end-user client", () => {
       provider: "test",
       providerAccountId: "account-one",
       accountLabel: "Test Account",
+      ownership: "personal",
+      authorizationKind: "delegated_user",
       status: "active",
       scopes: ["profile"],
       credentialVersion: 1,

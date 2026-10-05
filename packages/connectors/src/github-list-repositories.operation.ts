@@ -48,18 +48,23 @@ export const githubListRepositoriesOperation: ConnectorReadOperation =
     provider: "github",
     actionFamily: "repositories",
     classification: "read",
+    installationPermissions: Object.freeze({ metadata: "read" }),
     requiredScopes: Object.freeze(["read:user"]),
     providerErrorMessage: "GitHub repository read failed",
     inputSchema,
     outputSchema,
     async execute(rawInput, credential, signal) {
       const input = inputSchema.parse(rawInput)
-      const url = githubUrl("/user/repos")
-      url.searchParams.set("visibility", input.visibility)
-      url.searchParams.set(
-        "affiliation",
-        "owner,collaborator,organization_member"
+      const url = githubUrl(
+        credential.installationId ? "/installation/repositories" : "/user/repos"
       )
+      if (!credential.installationId)
+        url.searchParams.set("visibility", input.visibility)
+      if (!credential.installationId)
+        url.searchParams.set(
+          "affiliation",
+          "owner,collaborator,organization_member"
+        )
       url.searchParams.set("sort", "updated")
       url.searchParams.set("direction", "desc")
       url.searchParams.set("page", String(input.page))
@@ -69,10 +74,25 @@ export const githubListRepositoriesOperation: ConnectorReadOperation =
         signal: githubRequestSignal(signal),
       })
       if (!response.ok) throw new GithubProviderError(false)
-      const repositories = z
-        .array(providerRepositorySchema)
+      const providerResult = await githubResponseJson(response)
+      const repositoryData = credential.installationId
+        ? z
+            .object({
+              repositories: z
+                .array(
+                  providerRepositorySchema.extend({ private: z.boolean() })
+                )
+                .max(50),
+            })
+            .parse(providerResult).repositories
+        : providerResult
+      const providerRepositories = z
+        .array(providerRepositorySchema.extend({ private: z.boolean() }))
         .max(50)
-        .parse(await githubResponseJson(response))
+        .parse(repositoryData)
+      const repositories = providerRepositories
+        .filter((repository) => !repository.private)
+        .map((repository) => providerRepositorySchema.parse(repository))
         .map((repository) => ({
           id: String(repository.id),
           owner: repository.owner.login,
@@ -88,7 +108,7 @@ export const githubListRepositoriesOperation: ConnectorReadOperation =
         repositories,
         page: input.page,
         perPage: input.perPage,
-        hasMore: repositories.length === input.perPage,
+        hasMore: providerRepositories.length === input.perPage,
       })
     },
   })

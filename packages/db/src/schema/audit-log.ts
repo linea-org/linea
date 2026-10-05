@@ -84,6 +84,12 @@ export const auditAction = pgEnum("audit_action", [
   "webhook.rotated",
 
   // Integrations
+  "connection.shared_created",
+  "connection.shared_revoked",
+  "connection.requester_assigned",
+  "connection.requester_revoked",
+  "connection.reviewer_assigned",
+  "connection.reviewer_revoked",
   "integration.connected",
   "integration.disconnected",
 
@@ -101,6 +107,7 @@ export const auditResource = pgEnum("audit_resource", [
   "environment",
   "environment_key",
   "external_subject",
+  "connection",
   "member",
   "workflow",
   "execution",

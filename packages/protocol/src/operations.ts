@@ -10,3 +10,5 @@ export * from "./operations/user-sessions"
 export * from "./operations/webhooks"
 export * from "./operations/workspace-regressions"
 export * from "./registry"
+
+export * from "./operations/shared-connections"

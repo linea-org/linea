@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
+import { connectorAccessPolicySchema } from "@linea/protocol/resources"
 import { apiFetch } from "./api-fetch"
 
 export const environmentSchema = z.object({
@@ -16,6 +17,7 @@ export const environmentSchema = z.object({
   oidcAudience: z.string().nullable(),
   oidcJwksUrl: z.string().nullable(),
   oidcSubjectClaim: z.string(),
+  connectorAccessPolicy: connectorAccessPolicySchema,
 })
 
 export type EnvironmentSummary = z.infer<typeof environmentSchema>

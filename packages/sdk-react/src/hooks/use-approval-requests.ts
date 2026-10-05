@@ -1,3 +1,4 @@
+import { LineaUserApiError } from "@linea/sdk/user"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ListApprovalRequestsQuery } from "@linea/protocol/resources"
 import type { ApprovalRequest } from "@linea/sdk/user"
@@ -84,13 +85,28 @@ export function useApprovalRequests(
         (request) => request.status === "pending" && !pendingIds.has(request.id)
       )
       const resolved = await Promise.all(
-        stalePending.map((request) => client.getApprovalRequest(request.id))
+        stalePending.map(async (request) => {
+          try {
+            return await client.getApprovalRequest(request.id)
+          } catch (cause) {
+            if (cause instanceof LineaUserApiError && cause.status === 404)
+              return undefined
+            throw cause
+          }
+        })
       )
       const historical = requestsRef.current.filter(
         (request) => request.status !== "pending"
       )
       if (generation.current !== currentGeneration) return
-      replaceRequests(mergeRequests(historical, [...pending, ...resolved]))
+      replaceRequests(
+        mergeRequests(historical, [
+          ...pending,
+          ...resolved.filter(
+            (request): request is ApprovalRequest => request !== undefined
+          ),
+        ])
+      )
     },
     [client, loadPending, replaceRequests]
   )
@@ -154,8 +170,12 @@ export function useApprovalRequests(
         setConnection("error")
       }
     }
+    const polling = setInterval(() => {
+      void refresh()
+    }, 15_000)
     void consume()
     return () => {
+      clearInterval(polling)
       active = false
       generation.current += 1
       controller.abort()

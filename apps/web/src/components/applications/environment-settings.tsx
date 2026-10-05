@@ -1,3 +1,4 @@
+import { EnvironmentConnections } from "./environment-connections"
 import { useForm } from "react-hook-form"
 import { useMutation } from "@tanstack/react-query"
 import { Button } from "@linea/ui/components/button"
@@ -106,6 +107,7 @@ export function EnvironmentSettings({
         workspaceSlug={workspaceSlug}
         environmentId={environment.id}
       />
+      <EnvironmentConnections environment={environment} onSaved={onSaved} />
       <EnvironmentKeys
         workspaceSlug={workspaceSlug}
         environmentId={environment.id}

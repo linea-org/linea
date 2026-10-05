@@ -6,6 +6,8 @@ import {
   auditLogs,
   connectionRevocationDeliveries,
   connections,
+  connectionAccessGrants,
+  connectionReviewerAssignments,
   connectorAuditFacts,
   endUserSessions,
   externalSubjectEnvironments,
@@ -263,16 +265,66 @@ export async function eraseExternalSubject(
           eq(externalSubjects.id, externalSubjectId)
         )
       )
-      .for("update")
+      // Permit revocation audit FK locks while excluding new authority assignments.
+      .for("no key update")
     if (!existing || existing.status === "erased") return existing
     const now = new Date()
     const auditReference = randomUUID()
+    // Grant revocation locks authority before approvals; erasure must use the same order.
+    const requesters = await tx
+      .update(connectionAccessGrants)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          eq(connectionAccessGrants.workspaceId, workspaceId),
+          eq(connectionAccessGrants.externalSubjectId, existing.id),
+          isNull(connectionAccessGrants.revokedAt)
+        )
+      )
+      .returning()
+    const reviewers = await tx
+      .update(connectionReviewerAssignments)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          eq(connectionReviewerAssignments.workspaceId, workspaceId),
+          eq(connectionReviewerAssignments.externalSubjectId, existing.id),
+          isNull(connectionReviewerAssignments.revokedAt)
+        )
+      )
+      .returning()
     await cancelNonExecutingActionIntents(tx, {
       workspaceId,
       scope: { kind: "external_subject", id: existing.id },
       actor: { kind: "workspace_member", id: actorUserId },
       cancelledAt: now,
     })
+    const revokedAuthorities = [
+      ...requesters.map((authorization) => ({
+        authorization,
+        kind: "requester" as const,
+      })),
+      ...reviewers.map((authorization) => ({
+        authorization,
+        kind: "reviewer" as const,
+      })),
+    ]
+    if (revokedAuthorities.length > 0)
+      await tx.insert(auditLogs).values(
+        revokedAuthorities.map<typeof auditLogs.$inferInsert>(
+          ({ authorization, kind }) => ({
+            workspaceId,
+            actorUserId,
+            action: `connection.${kind}_revoked`,
+            resource: "connection",
+            resourceId: authorization.connectionId,
+            metadata: {
+              authorizationId: authorization.id,
+              subjectReference: auditReference,
+            },
+          })
+        )
+      )
     const revokedConnections = await tx
       .update(connections)
       .set({
@@ -355,7 +407,7 @@ export async function eraseExternalSubject(
       await createPublicEvent(tx, {
         workspaceId: connection.workspaceId,
         environmentId: connection.environmentId,
-        externalSubjectId: connection.externalSubjectId,
+        externalSubjectId: existing.id,
         eventType: "connection.revoked",
         data: { connectionId: connection.id },
       })

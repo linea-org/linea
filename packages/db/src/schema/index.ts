@@ -48,3 +48,7 @@ export * from "./webhook-delivery.js"
 export * from "./push-notification.js"
 
 export * from "./application.js"
+
+export * from "./connection-access-grant.js"
+
+export * from "./connection-reviewer-assignment.js"

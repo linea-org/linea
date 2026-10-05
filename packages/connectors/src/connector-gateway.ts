@@ -1,3 +1,8 @@
+import { requiredConnectionScopes } from "./connection-operation-scopes.js"
+import {
+  githubInstallationCredentialSchema,
+  resolveGithubInstallationCredential,
+} from "./github-installation-credential.js"
 import {
   decryptCredential,
   encryptCredential,
@@ -180,16 +185,18 @@ export class ConnectorGateway {
       throw new ConnectorGatewayError()
     }
     if (
-      operation.requiredScopes.some(
-        (scope) => !authority.providerPolicy.maxScopes.includes(scope)
-      )
+      requiredConnectionScopes(
+        operation,
+        authority.connection.authorizationKind
+      ).some((scope) => !authority.providerPolicy.maxScopes.includes(scope))
     ) {
       throw new ConnectorGatewayError()
     }
     if (
-      operation.requiredScopes.some(
-        (scope) => !authority.connection.scopes.includes(scope)
-      )
+      requiredConnectionScopes(
+        operation,
+        authority.connection.authorizationKind
+      ).some((scope) => !authority.connection.scopes.includes(scope))
     ) {
       throw new ConnectorGatewayError(
         "Connection needs additional scopes",
@@ -203,6 +210,34 @@ export class ConnectorGateway {
         : resolvedCredential
     if (credential.accountId !== authority.connection.providerAccountId) {
       throw new ConnectorGatewayError()
+    }
+    if (authority.connection.ownership === "environment") {
+      const current = await repositories.connection.getConnectorReadAuthority(
+        this.db,
+        {
+          workspaceId: input.workspaceId,
+          executionId: input.executionId,
+          connectionId: input.connectionId,
+        }
+      )
+      const requiredScopes = requiredConnectionScopes(
+        operation,
+        authority.connection.authorizationKind
+      )
+      if (
+        current?.connection.status !== "active" ||
+        current.connection.credentialVersion !==
+          authority.connection.credentialVersion ||
+        !current.providerPolicy.actionFamilies.includes(
+          operation.actionFamily
+        ) ||
+        requiredScopes.some(
+          (scope) =>
+            !current.connection.scopes.includes(scope) ||
+            !current.providerPolicy.maxScopes.includes(scope)
+        )
+      )
+        throw new ConnectorGatewayError()
     }
     let validatedInput: unknown
     try {
@@ -222,7 +257,7 @@ export class ConnectorGateway {
       await repositories.connection.recordConnectionReadUse(this.db, {
         workspaceId: authority.connection.workspaceId,
         environmentId: authority.connection.environmentId,
-        externalSubjectId: authority.connection.externalSubjectId,
+        externalSubjectId: authority.externalSubjectId,
         connectionId: authority.connection.id,
         executionId: input.executionId,
         operationId: operation.id,
@@ -234,7 +269,7 @@ export class ConnectorGateway {
     await repositories.connection.recordConnectionReadUse(this.db, {
       workspaceId: authority.connection.workspaceId,
       environmentId: authority.connection.environmentId,
-      externalSubjectId: authority.connection.externalSubjectId,
+      externalSubjectId: authority.externalSubjectId,
       connectionId: authority.connection.id,
       executionId: input.executionId,
       operationId: operation.id,
@@ -250,6 +285,43 @@ export class ConnectorGateway {
   ): Promise<SideEffectExecutionResult> {
     const { normalized, envelope, canonicalDigest, safeDisplay } =
       this.prepareSideEffect(operation, input)
+    const existing = await repositories.actionIntent.getActionIntentConsent(
+      this.db,
+      {
+        workspaceId: input.workspaceId,
+        executionId: input.executionId,
+        nodeId: input.nodeId,
+        invocationIdempotencyKey: input.invocationIdempotencyKey,
+      }
+    )
+    if (existing) {
+      if (
+        existing.intent.canonicalDigest !== canonicalDigest ||
+        existing.intent.connectionId !== input.connectionId
+      )
+        throw new ConnectorGatewayError(
+          "Connector invocation idempotency conflict",
+          "idempotency_conflict"
+        )
+      if (
+        existing.intent.status !== "awaiting_consent" &&
+        existing.intent.status !== "ready"
+      )
+        return this.resolveSideEffectConsent(operation, input, existing)
+    }
+    const existingAuthorizationKind = existing?.intent.connectionAccessGrantId
+      ? "github_app_installation"
+      : "delegated_user"
+    const authorizationKind = existing
+      ? existingAuthorizationKind
+      : (
+          await repositories.connection.getConnectorReadAuthority(this.db, {
+            workspaceId: input.workspaceId,
+            executionId: input.executionId,
+            connectionId: input.connectionId,
+          })
+        )?.connection.authorizationKind
+    if (!authorizationKind) throw new ConnectorGatewayError()
     const created = await repositories.actionIntent.createActionIntent(
       this.db,
       {
@@ -259,7 +331,7 @@ export class ConnectorGateway {
         connectionId: input.connectionId,
         connector: operation.provider,
         actionFamily: operation.actionFamily,
-        requiredScopes: operation.requiredScopes,
+        requiredScopes: requiredConnectionScopes(operation, authorizationKind),
         operationId: operation.id,
         operationRevision: operation.revision,
         target: normalized.target,
@@ -373,7 +445,12 @@ export class ConnectorGateway {
         executionClaimId: input.executionClaimId,
         provider: operation.provider,
         actionFamily: operation.actionFamily,
-        requiredScopes: operation.requiredScopes,
+        requiredScopes: requiredConnectionScopes(
+          operation,
+          consent.intent.connectionAccessGrantId
+            ? "github_app_installation"
+            : "delegated_user"
+        ),
         now: new Date(),
       }
     )
@@ -581,6 +658,14 @@ export class ConnectorGateway {
         await repositories.actionIntent.beginActionIntentDispatch(this.db, {
           actionIntentId: claimed.id,
           executionClaimId,
+          provider: operation.provider,
+          actionFamily: operation.actionFamily,
+          requiredScopes: requiredConnectionScopes(
+            operation,
+            credential.installationId
+              ? "github_app_installation"
+              : "delegated_user"
+          ),
           now: new Date(),
         })
       if (!dispatch) {
@@ -710,11 +795,12 @@ export class ConnectorGateway {
     id: string
     workspaceId: string
     environmentId: string
-    externalSubjectId: string
+    externalSubjectId: string | null
     provider: string
     credentialEncrypted: string | null
     credentialVersion: number
     scopes: string[]
+    authorizationKind: "delegated_user" | "github_app_installation"
   }): ConnectorReadCredential | Promise<ConnectorReadCredential> {
     if (!connection.credentialEncrypted) throw new ConnectorGatewayError()
     try {
@@ -728,6 +814,10 @@ export class ConnectorGateway {
       const parsed: unknown = JSON.parse(
         decryptCredential(connection.credentialEncrypted, context)
       )
+      if (connection.authorizationKind === "github_app_installation")
+        return resolveGithubInstallationCredential(
+          githubInstallationCredentialSchema.parse(parsed)
+        )
       const credential = storedCredentialSchema.parse(parsed)
       const refreshMargin = connection.provider === "google" ? 60_000 : 0
       if (
@@ -736,9 +826,17 @@ export class ConnectorGateway {
       ) {
         return { ...credential, scopes: connection.scopes }
       }
-      if (connection.provider !== "google") throw new ConnectorGatewayError()
+      if (
+        connection.provider !== "google" ||
+        connection.externalSubjectId === null
+      )
+        throw new ConnectorGatewayError()
       const googleCredential = parseStoredGoogleCredential(parsed)
-      return this.refreshGoogleConnection(connection, context, googleCredential)
+      return this.refreshGoogleConnection(
+        { ...connection, externalSubjectId: connection.externalSubjectId },
+        { ...context, externalSubjectId: connection.externalSubjectId },
+        googleCredential
+      )
     } catch (error) {
       if (error instanceof ConnectorGatewayError) throw error
       throw new ConnectorGatewayError()

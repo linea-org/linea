@@ -3,7 +3,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto"
 export type CredentialEncryptionContext = {
   workspaceId: string
   environmentId: string
-  externalSubjectId: string
+  externalSubjectId: string | null
   recordId: string
   provider: string
 }

@@ -16,6 +16,11 @@ import {
   type Execution,
   type NormalizedConnectorError,
 } from "../schema/index.js"
+import {
+  getConnectionRequesterAuthority,
+  getConnectionReviewerAuthority,
+  externalApprovalEligibility,
+} from "./connection-authority.repository.js"
 import { createApprovalRequest } from "./approval-request.repository.js"
 import { recordActionIntentFact } from "./connector-audit.repository.js"
 import { createPublicEvent } from "./outbox-message.repository.js"
@@ -107,7 +112,8 @@ function connectionAuthorityBoundary(
   const connectionOwned = Boolean(
     connection?.workspaceId === input.workspaceId &&
     connection.environmentId === input.environmentId &&
-    connection.externalSubjectId === input.externalSubjectId &&
+    (connection.ownership === "environment" ||
+      connection.externalSubjectId === input.externalSubjectId) &&
     connection.provider === input.provider
   )
   if (connectionOwned && connection?.status === "reauthorization_required") {
@@ -162,7 +168,6 @@ async function replayActionIntent(
           eq(connections.id, intent.connectionId),
           eq(connections.workspaceId, intent.workspaceId),
           eq(connections.environmentId, intent.environmentId),
-          eq(connections.externalSubjectId, intent.externalSubjectId),
           eq(connections.provider, input.connector)
         )
       )
@@ -248,6 +253,13 @@ export async function createActionIntent(
       .from(executions)
       .where(eq(executions.id, executionSnapshot.id))
       .for("update")
+    const requesterAuthority = connection
+      ? await getConnectionRequesterAuthority(
+          tx,
+          connection,
+          executionSnapshot.externalSubjectRecordId
+        )
+      : undefined
     const authority = connectionAuthorityBoundary(connection, environment, {
       workspaceId: input.workspaceId,
       environmentId: executionSnapshot.environmentId,
@@ -263,6 +275,7 @@ export async function createActionIntent(
       return { outcome: "connection_scope_insufficient" }
     }
     if (
+      !requesterAuthority ||
       authority !== "authorized" ||
       !execution?.environmentId ||
       !execution.externalSubjectRecordId ||
@@ -314,6 +327,7 @@ export async function createActionIntent(
         environmentId,
         externalSubjectId: externalSubjectRecordId,
         connectionId: input.connectionId,
+        connectionAccessGrantId: requesterAuthority.grantId,
         workflowId: execution.workflowId,
         executionId: execution.id,
         nodeId: input.nodeId,
@@ -552,8 +566,15 @@ async function recoverExecutingActionIntent(
     return { outcome: "in_progress", intent }
   }
   const authorityValid =
-    currentIntentAuthority(intent, connection, environment, subject, input) &&
-    currentIntentApproval(intent, request, decision)
+    (await currentIntentAuthority(
+      tx,
+      intent,
+      connection,
+      environment,
+      subject,
+      input
+    )) &&
+    (await currentIntentApproval(tx, connection, intent, request, decision))
   const priorClaimId = intent.executionClaimId
   if (!priorClaimId) {
     throw new Error("Executing Action Intent has no execution claim")
@@ -577,14 +598,24 @@ async function recoverExecutingActionIntent(
     : { outcome: "in_progress", intent }
 }
 
-function currentIntentAuthority(
+async function currentIntentAuthority(
+  db: DbClient,
   intent: ActionIntent,
   connection: Connection | undefined,
   environment: typeof environments.$inferSelect | undefined,
   subject: typeof externalSubjects.$inferSelect | undefined,
   input: ClaimApprovedActionIntentInput
-): boolean {
+): Promise<boolean> {
+  const requesterAuthority = connection
+    ? await getConnectionRequesterAuthority(
+        db,
+        connection,
+        intent.externalSubjectId
+      )
+    : undefined
   return (
+    requesterAuthority !== undefined &&
+    requesterAuthority.grantId === intent.connectionAccessGrantId &&
     subject?.status === "verified" &&
     connectionAuthorityBoundary(connection, environment, {
       workspaceId: intent.workspaceId,
@@ -597,17 +628,28 @@ function currentIntentAuthority(
   )
 }
 
-function currentIntentApproval(
+async function currentIntentApproval(
+  db: DbClient,
+  connection: Connection | undefined,
   intent: ActionIntent,
   request: ApprovalRequest | undefined,
   decision: ApprovalDecision | undefined
-): boolean {
+): Promise<boolean> {
+  const reviewerAuthority =
+    connection && decision?.actorExternalSubjectId
+      ? await getConnectionReviewerAuthority(
+          db,
+          connection,
+          decision.actorExternalSubjectId
+        )
+      : undefined
   return Boolean(
+    reviewerAuthority &&
+    reviewerAuthority.reviewerAssignmentId === decision?.reviewerAssignmentId &&
     request?.status === "decided" &&
     request.actionIntentDigest === intent.canonicalDigest &&
     decision?.outcome === "approved" &&
     decision.actorKind === "external_subject" &&
-    decision.actorExternalSubjectId === intent.externalSubjectId &&
     decision.reason === "human"
   )
 }
@@ -699,11 +741,28 @@ export async function claimApprovedActionIntent(
         intent: snapshot,
       }
     }
-    const [subject] = await tx
+    const [decisionSnapshot] = await tx
+      .select()
+      .from(approvalDecisions)
+      .where(
+        eq(approvalDecisions.approvalRequestId, snapshot.approvalRequestId)
+      )
+    if (!decisionSnapshot) return { outcome: "not_ready", intent: snapshot }
+    const subjectIds = [
+      snapshot.externalSubjectId,
+      ...(decisionSnapshot?.actorExternalSubjectId
+        ? [decisionSnapshot.actorExternalSubjectId]
+        : []),
+    ]
+    const lockedSubjects = await tx
       .select()
       .from(externalSubjects)
-      .where(eq(externalSubjects.id, snapshot.externalSubjectId))
+      .where(inArray(externalSubjects.id, subjectIds))
+      .orderBy(externalSubjects.id)
       .for("update")
+    const subject = lockedSubjects.find(
+      (candidate) => candidate.id === snapshot.externalSubjectId
+    )
     const [environment] = await tx
       .select()
       .from(environments)
@@ -761,8 +820,21 @@ export async function claimApprovedActionIntent(
       return { outcome: "not_ready", intent }
     }
     const authorityValid =
-      currentIntentAuthority(intent, connection, environment, subject, input) &&
-      currentIntentApproval(intent, request, decision) &&
+      (await currentIntentAuthority(
+        tx,
+        intent,
+        connection,
+        environment,
+        subject,
+        input
+      )) &&
+      (await currentIntentApproval(
+        tx,
+        connection,
+        intent,
+        request,
+        decision
+      )) &&
       activeExecutionClaim(execution, input)
     if (!authorityValid) {
       return cancelUnauthorizedActionIntent(tx, intent, input.now)
@@ -775,14 +847,86 @@ export async function claimApprovedActionIntent(
 
 export async function beginActionIntentDispatch(
   db: DbClient,
-  input: {
-    actionIntentId: string
-    executionClaimId: string
-    now: Date
-  }
+  input: ClaimApprovedActionIntentInput
 ): Promise<ActionIntent | undefined> {
   return db.transaction(async (tx) => {
+    const [snapshot] = await tx
+      .select()
+      .from(actionIntents)
+      .where(eq(actionIntents.id, input.actionIntentId))
+    if (
+      snapshot?.status !== "executing" ||
+      snapshot.executionClaimId !== input.executionClaimId
+    )
+      return undefined
+    const [decisionSnapshot] = await tx
+      .select()
+      .from(approvalDecisions)
+      .where(
+        eq(approvalDecisions.approvalRequestId, snapshot.approvalRequestId)
+      )
+    const subjectIds = [
+      snapshot.externalSubjectId,
+      ...(decisionSnapshot?.actorExternalSubjectId
+        ? [decisionSnapshot.actorExternalSubjectId]
+        : []),
+    ]
+    const lockedSubjects = await tx
+      .select()
+      .from(externalSubjects)
+      .where(inArray(externalSubjects.id, subjectIds))
+      .orderBy(externalSubjects.id)
+      .for("update")
+    const subject = lockedSubjects.find(
+      (candidate) => candidate.id === snapshot.externalSubjectId
+    )
+    const [environment] = await tx
+      .select()
+      .from(environments)
+      .where(eq(environments.id, snapshot.environmentId))
+      .for("update")
+    const [connection] = await tx
+      .select()
+      .from(connections)
+      .where(eq(connections.id, snapshot.connectionId))
+      .for("update")
+    const [request] = await tx
+      .select()
+      .from(approvalRequests)
+      .where(eq(approvalRequests.id, snapshot.approvalRequestId))
+      .for("update")
+    const [decision] = await tx
+      .select()
+      .from(approvalDecisions)
+      .where(
+        eq(approvalDecisions.approvalRequestId, snapshot.approvalRequestId)
+      )
     if (!(await lockActiveActionIntentExecution(tx, input))) return undefined
+    if (
+      !(await currentIntentAuthority(
+        tx,
+        snapshot,
+        connection,
+        environment,
+        subject,
+        input
+      )) ||
+      !(await currentIntentApproval(
+        tx,
+        connection,
+        snapshot,
+        request,
+        decision
+      ))
+    ) {
+      await failRecoveredActionIntent(
+        tx,
+        snapshot,
+        input,
+        input.executionClaimId
+      )
+      return undefined
+    }
     const [intent] = await tx
       .update(actionIntents)
       .set({
@@ -963,7 +1107,7 @@ export async function findPendingActionIntents(
       and(
         eq(actionIntents.workspaceId, input.workspaceId),
         eq(actionIntents.environmentId, input.environmentId),
-        eq(actionIntents.externalSubjectId, input.externalSubjectId),
+        externalApprovalEligibility(input.externalSubjectId),
         eq(actionIntents.status, "awaiting_consent"),
         eq(approvalRequests.status, "pending"),
         gt(approvalRequests.expiresAt, new Date()),

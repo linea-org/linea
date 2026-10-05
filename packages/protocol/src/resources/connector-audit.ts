@@ -63,7 +63,7 @@ export const operatorConnectorAuditEventSchema = z.strictObject({
   ...sharedAuditFields,
   type: connectorAuditFactTypeSchema,
   environmentId: publicRuntimeIdSchema,
-  subjectReference: publicRuntimeIdSchema,
+  subjectReference: publicRuntimeIdSchema.nullable(),
   failureClass: z.string().min(1).max(128).nullable(),
 })
 

@@ -87,6 +87,10 @@ export const connectionStatusSchema = z.enum([
 ])
 
 export const connectionSchema = z.strictObject({
+  ownership: z.enum(["personal", "environment"]).default("personal"),
+  authorizationKind: z
+    .enum(["delegated_user", "github_app_installation"])
+    .default("delegated_user"),
   id: identifierSchema,
   provider: connectionProviderSchema,
   providerAccountId: z.string().min(1).max(500),

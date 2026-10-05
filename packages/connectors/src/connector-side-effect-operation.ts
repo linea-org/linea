@@ -36,6 +36,7 @@ export interface ConnectorSideEffectOperation {
   readonly actionFamily: string
   readonly classification: "side_effect"
   readonly requiredScopes: readonly string[]
+  readonly installationPermissions?: Readonly<Record<string, "read" | "write">>
   readonly inputSchema: z.ZodType
   readonly parametersSchema: z.ZodType<IJsonValue>
   readonly preconditionsSchema: z.ZodType<IJsonValue>

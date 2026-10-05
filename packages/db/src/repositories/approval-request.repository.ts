@@ -1,4 +1,8 @@
 import {
+  getApprovalReviewerAuthority,
+  externalApprovalEligibility,
+} from "./connection-authority.repository.js"
+import {
   and,
   desc,
   eq,
@@ -186,7 +190,7 @@ function externalApprovalRequestOwner(input: {
     eq(approvalRequests.audience, "external_subject"),
     eq(approvalRequests.workspaceId, input.workspaceId),
     eq(approvalRequests.environmentId, input.environmentId),
-    eq(approvalRequests.externalSubjectId, input.externalSubjectId),
+    externalApprovalEligibility(input.externalSubjectId),
     eq(externalSubjects.status, "verified"),
     eq(environments.enabled, true)
   )
@@ -354,6 +358,7 @@ type RecordDecisionInput = {
   comment?: string | null
   idempotencyKey?: string | null
   decidedAt: Date
+  reviewerAssignmentId?: string | null
 }
 
 function decisionActorIds(actor: DecisionActor): {
@@ -492,6 +497,7 @@ async function recordDecision(
       workspaceId: request.workspaceId,
       approvalRequestId: request.id,
       outcome: input.outcome,
+      reviewerAssignmentId: input.reviewerAssignmentId ?? null,
       actorKind: input.actor.kind,
       ...actorIds,
       reason: input.reason,
@@ -588,15 +594,18 @@ function isIdenticalRetry(
   )
 }
 
-function isExternalRequestOwner(
+async function isExternalRequestOwner(
+  tx: DbClient,
   request: ApprovalRequest | undefined,
   input: DecideExternalApprovalRequestInput
-): request is ApprovalRequest {
+): Promise<boolean> {
   return (
     request?.audience === "external_subject" &&
     request.workspaceId === input.workspaceId &&
     request.environmentId === input.environmentId &&
-    request.externalSubjectId === input.externalSubjectId
+    Boolean(
+      await getApprovalReviewerAuthority(tx, request, input.externalSubjectId)
+    )
   )
 }
 
@@ -656,9 +665,19 @@ export async function decideExternalApprovalRequest(
         .select()
         .from(approvalRequests)
         .where(eq(approvalRequests.id, input.approvalRequestId))
-      if (!isExternalRequestOwner(snapshot, input)) {
+      if (!snapshot || !(await isExternalRequestOwner(tx, snapshot, input))) {
         return { outcome: "wrong_subject" }
       }
+      await tx
+        .select({ id: externalSubjects.id })
+        .from(externalSubjects)
+        .where(eq(externalSubjects.id, input.externalSubjectId))
+        .for("share")
+      await tx
+        .select({ id: environments.id })
+        .from(environments)
+        .where(eq(environments.id, input.environmentId))
+        .for("share")
       const [session] = await tx
         .select({ id: endUserSessions.id })
         .from(endUserSessions)
@@ -688,14 +707,14 @@ export async function decideExternalApprovalRequest(
             eq(externalSubjects.status, "verified")
           )
         )
-        .for("key share")
+        .for("share", { of: endUserSessions })
       if (!session) return { outcome: "session_invalid" }
       const [request] = await tx
         .select()
         .from(approvalRequests)
         .where(eq(approvalRequests.id, input.approvalRequestId))
         .for("update")
-      if (!isExternalRequestOwner(request, input)) {
+      if (!request || !(await isExternalRequestOwner(tx, request, input))) {
         return { outcome: "wrong_subject" }
       }
       if (request.status === "cancelled") return { outcome: "cancelled" }
@@ -732,6 +751,14 @@ export async function decideExternalApprovalRequest(
           externalSubjectId: input.externalSubjectId,
           endUserSessionId: input.endUserSessionId,
         },
+        reviewerAssignmentId:
+          (
+            await getApprovalReviewerAuthority(
+              tx,
+              request,
+              input.externalSubjectId
+            )
+          )?.reviewerAssignmentId ?? null,
         reason: "human",
         comment: input.comment,
         idempotencyKey: input.idempotencyKey,

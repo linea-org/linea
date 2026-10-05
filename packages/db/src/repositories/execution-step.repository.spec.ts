@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { checkpoints, executions, executionSteps } from "../schema/index.js"
 import {
   claimReplayStep,
@@ -395,88 +395,92 @@ describe("claimReplayStep + completeReplayStep", () => {
 })
 
 describe("renewReplayClaim", () => {
-  it("renews a live claim, and the new token is what completeReplayStep must use", async () => {
-    await withRollback(async (tx) => {
-      const { organization, workflow, version } = await createTestFixtures(tx)
-      const [execution] = await tx
-        .insert(executions)
-        .values({
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          workflowVersionId: version.id,
-          trigger: "manual",
+  it.each([0, -1000])(
+    "renews and fences completion when the clock moves %i ms",
+    async (clockOffset) => {
+      await withRollback(async (tx) => {
+        const { organization, workflow, version } = await createTestFixtures(tx)
+        const [execution] = await tx
+          .insert(executions)
+          .values({
+            workspaceId: organization.id,
+            workflowId: workflow.id,
+            workflowVersionId: version.id,
+            trigger: "manual",
+            status: "succeeded",
+          })
+          .returning()
+        const original = await createOriginalStep(
+          tx,
+          execution.id,
+          organization.id
+        )
+        const replayId = "66666666-6666-6666-6666-666666666666"
+        const claimed = expectClaimed(
+          await claimReplayStep(tx, {
+            id: replayId,
+            executionId: execution.id,
+            workspaceId: organization.id,
+            traceId: original.traceId,
+            parentSpanId: original.spanId,
+            nodeId: original.nodeId,
+            name: original.name,
+            sequence: 2,
+            input: original.input,
+            replayedFromStepId: original.id,
+            startedAt: new Date(),
+          })
+        )
+        vi.useFakeTimers({ toFake: ["Date"] })
+        vi.setSystemTime(claimed.claimToken.getTime() + clockOffset)
+        let renewal: Awaited<ReturnType<typeof renewReplayClaim>>
+        try {
+          renewal = await renewReplayClaim(tx, replayId, claimed.claimToken)
+        } finally {
+          vi.useRealTimers()
+        }
+        if (renewal.outcome !== "renewed") {
+          throw new Error(
+            `expected outcome "renewed", got "${renewal.outcome}"`
+          )
+        }
+        const renewedToken = renewal.claimToken
+        expect(renewedToken.getTime()).toBe(claimed.claimToken.getTime() + 1)
+        const [afterRenewal] = await tx
+          .select()
+          .from(executionSteps)
+          .where(eq(executionSteps.id, replayId))
+        expect(afterRenewal.attempt).toBe(1)
+        await completeReplayStep(tx, replayId, claimed.claimToken, {
           status: "succeeded",
+          output: { text: "wrong token" },
+          costMicros: 0n,
+          tokensInput: 0,
+          tokensOutput: 0,
+          endedAt: new Date(),
         })
-        .returning()
-      const original = await createOriginalStep(
-        tx,
-        execution.id,
-        organization.id
-      )
-
-      const replayId = "66666666-6666-6666-6666-666666666666"
-      const claimed = expectClaimed(
-        await claimReplayStep(tx, {
-          id: replayId,
-          executionId: execution.id,
-          workspaceId: organization.id,
-          traceId: original.traceId,
-          parentSpanId: original.spanId,
-          nodeId: original.nodeId,
-          name: original.name,
-          sequence: 2,
-          input: original.input,
-          replayedFromStepId: original.id,
-          startedAt: new Date(),
+        const [afterWrongToken] = await tx
+          .select()
+          .from(executionSteps)
+          .where(eq(executionSteps.id, replayId))
+        expect(afterWrongToken.status).toBe("running")
+        await completeReplayStep(tx, replayId, renewedToken, {
+          status: "succeeded",
+          output: { text: "right token" },
+          costMicros: 0n,
+          tokensInput: 0,
+          tokensOutput: 0,
+          endedAt: new Date(),
         })
-      )
-
-      const renewal = await renewReplayClaim(tx, replayId, claimed.claimToken)
-      if (renewal.outcome !== "renewed") {
-        throw new Error(`expected outcome "renewed", got "${renewal.outcome}"`)
-      }
-      const renewedToken = renewal.claimToken
-      expect(renewedToken).not.toEqual(claimed.claimToken)
-
-      // A renewal is the same owner checking in, not a takeover — attempt must stay 1.
-      const [afterRenewal] = await tx
-        .select()
-        .from(executionSteps)
-        .where(eq(executionSteps.id, replayId))
-      expect(afterRenewal.attempt).toBe(1)
-
-      // Completing with the stale, pre-renewal token must not match — proving the renewed
-      // token, not the original one, is now what fences the eventual completion.
-      await completeReplayStep(tx, replayId, claimed.claimToken, {
-        status: "succeeded",
-        output: { text: "wrong token" },
-        costMicros: 0n,
-        tokensInput: 0,
-        tokensOutput: 0,
-        endedAt: new Date(),
+        const [afterRightToken] = await tx
+          .select()
+          .from(executionSteps)
+          .where(eq(executionSteps.id, replayId))
+        expect(afterRightToken.status).toBe("succeeded")
+        expect(afterRightToken.output).toEqual({ text: "right token" })
       })
-      const [afterWrongToken] = await tx
-        .select()
-        .from(executionSteps)
-        .where(eq(executionSteps.id, replayId))
-      expect(afterWrongToken.status).toBe("running")
-
-      await completeReplayStep(tx, replayId, renewedToken, {
-        status: "succeeded",
-        output: { text: "right token" },
-        costMicros: 0n,
-        tokensInput: 0,
-        tokensOutput: 0,
-        endedAt: new Date(),
-      })
-      const [afterRightToken] = await tx
-        .select()
-        .from(executionSteps)
-        .where(eq(executionSteps.id, replayId))
-      expect(afterRightToken.status).toBe("succeeded")
-      expect(afterRightToken.output).toEqual({ text: "right token" })
-    })
-  })
+    }
+  )
 
   it("returns 'finalized' once the claim completed, since startedAt never moved and no other owner exists", async () => {
     await withRollback(async (tx) => {

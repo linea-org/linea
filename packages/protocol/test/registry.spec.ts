@@ -33,6 +33,14 @@ function operation(
 describe("operation registry", () => {
   it("publishes the public protocol", () => {
     expect(operationRegistry.map(({ operationId }) => operationId)).toEqual([
+      "listEnvironmentConnections",
+      "createGithubInstallationConnection",
+      "getConnectionAuthorities",
+      "grantConnectionAccess",
+      "revokeConnectionAccess",
+      "assignConnectionReviewer",
+      "revokeConnectionReviewer",
+      "revokeSharedConnection",
       "listEnvironmentConnectorAuditEvents",
       "listWorkspaceConnectorAuditEvents",
       "listEndUserConnectorAuditEvents",
