@@ -612,7 +612,7 @@ describe('shared Environment Connection API and Gateway', () => {
       )?.status,
     ).toBe('active')
   })
-  it('locks shared authority before cancelling approvals during subject erasure', async () => {
+  it('keeps erasure compatible with requester revocation approval and Subject locks', async () => {
     const fixture = await approvedWrite()
     const consent = await repositories.actionIntent.getActionIntentConsent(
       db,
@@ -655,6 +655,19 @@ describe('shared Environment Connection API and Gateway', () => {
           throw new Error('Erasure did not wait for the locked grant')
         await new Promise<void>((resolve) => setTimeout(resolve, 10))
       }
+      await holder.query("SET LOCAL lock_timeout = '500ms'")
+      const audit = await holder.query(
+        'INSERT INTO connector_audit_facts (workspace_id, environment_id, external_subject_id, connection_id, fact_type, provider, content_expires_at, audit_expires_at) VALUES ($1,$2,$3,$4,$5,$6,now(),now())',
+        [
+          workspaceId,
+          environmentId,
+          fixture.requester,
+          fixture.connection.id,
+          'action_intent.cancelled',
+          'github',
+        ],
+      )
+      expect(audit.rowCount).toBe(1)
       const approval = await holder.query(
         'SELECT id FROM approval_requests WHERE id=$1 FOR UPDATE NOWAIT',
         [consent.approvalRequest.id],

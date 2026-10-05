@@ -265,7 +265,8 @@ export async function eraseExternalSubject(
           eq(externalSubjects.id, externalSubjectId)
         )
       )
-      .for("update")
+      // Permit revocation audit FK locks while excluding new authority assignments.
+      .for("no key update")
     if (!existing || existing.status === "erased") return existing
     const now = new Date()
     const auditReference = randomUUID()
