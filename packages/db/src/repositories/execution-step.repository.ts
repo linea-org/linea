@@ -14,12 +14,16 @@ async function casClaimStartedAt(
   previousStartedAt: Date,
   bumpAttempt: boolean
 ): Promise<ExecutionStep | undefined> {
+  // The wall clock can repeat or regress; each CAS must advance the fencing token.
+  const startedAt = new Date(
+    Math.max(Date.now(), previousStartedAt.getTime() + 1)
+  )
   const [updated] = await db
     .update(executionSteps)
     .set(
       bumpAttempt
-        ? { startedAt: new Date(), attempt: sql`${executionSteps.attempt} + 1` }
-        : { startedAt: new Date() }
+        ? { startedAt, attempt: sql`${executionSteps.attempt} + 1` }
+        : { startedAt }
     )
     .where(
       and(
