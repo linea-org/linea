@@ -13,7 +13,7 @@ can share the prefix without becoming public API.
 | Surface              | Used by                                          | Credential                           |
 | -------------------- | ------------------------------------------------ | ------------------------------------ |
 | Workspace operations | Operator backends and automation                 | Workspace key                        |
-| Application runtime  | A deployed Operator application backend          | Application key                      |
+| Environment runtime  | An Application backend in one Environment        | Environment key                      |
 | End-user runtime     | Browser or mobile clients acting for an End User | End-User Session with DPoP           |
 | Realtime events      | Operator UI and approved runtime clients         | Surface-specific authenticated token |
 
@@ -35,7 +35,7 @@ flowchart LR
 
 ## Current operation groups
 
-- Applications, keys, workflow bindings, and external subjects
+- Applications, their fixed Environments, keys, deployments, and external subjects
 - Conversations, messages, and executions
 - End-User Session authorization and exchange
 - Approval requests and immutable decisions

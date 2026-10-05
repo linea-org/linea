@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { db, repositories } from '@linea/db'
 import type { WorkspaceConnectorAuditQuery } from '@linea/protocol/resources'
 import type { PaginationQuery } from '@linea/protocol/shared'
-import type { ApplicationPrincipal } from '../auth/application-key.guard'
+import type { EnvironmentPrincipal } from '../auth/environment-key.guard'
 import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.guard'
 import {
   decodeConnectorAuditCursor,
@@ -15,13 +15,13 @@ import {
 
 @Injectable()
 export class ConnectorAuditService {
-  async listApplication(
-    principal: ApplicationPrincipal,
+  async listEnvironment(
+    principal: EnvironmentPrincipal,
     query: PaginationQuery,
   ) {
     return this.listOperator(
       principal.workspaceId,
-      principal.applicationId,
+      principal.environmentId,
       query,
     )
   }
@@ -30,13 +30,13 @@ export class ConnectorAuditService {
     workspaceId: string,
     query: WorkspaceConnectorAuditQuery,
   ) {
-    return this.listOperator(workspaceId, query.applicationId, query)
+    return this.listOperator(workspaceId, query.environmentId, query)
   }
 
   async listEndUser(principal: EndUserPrincipal, query: PaginationQuery) {
     const facts = await repositories.connectorAudit.listEndUserFacts(db, {
       workspaceId: principal.workspaceId,
-      applicationId: principal.applicationId,
+      environmentId: principal.environmentId,
       externalSubjectId: principal.externalSubjectId,
       limit: query.limit + 1,
       cursor: decodeConnectorAuditCursor(query.cursor),
@@ -55,12 +55,12 @@ export class ConnectorAuditService {
 
   private async listOperator(
     workspaceId: string,
-    applicationId: string | undefined,
+    environmentId: string | undefined,
     query: PaginationQuery,
   ) {
     const facts = await repositories.connectorAudit.listOperatorFacts(db, {
       workspaceId,
-      applicationId,
+      environmentId,
       limit: query.limit + 1,
       cursor: decodeConnectorAuditCursor(query.cursor),
       now: new Date(),

@@ -14,9 +14,9 @@ import {
 } from "drizzle-orm/pg-core"
 import { eventTypes } from "@linea/protocol/events"
 import type { JsonValue } from "@linea/protocol/shared"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import {
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
 } from "./external-subject.js"
 import { organizations } from "./organisation.js"
@@ -43,7 +43,7 @@ export const outboxMessages = snakeCase.table(
     workspaceId: uuid()
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    applicationId: uuid(),
+    environmentId: uuid(),
     externalSubjectId: uuid(),
     kind: outboxMessageKind().notNull(),
     eventType: outboxEventType(),
@@ -66,15 +66,15 @@ export const outboxMessages = snakeCase.table(
       table.availableAt,
       table.claimExpiresAt
     ),
-    index("outbox_messages_application_subject_sequence_idx").on(
-      table.applicationId,
+    index("outbox_messages_environment_subject_sequence_idx").on(
+      table.environmentId,
       table.externalSubjectId,
       table.sequence
     ),
     foreignKey({
-      name: "outbox_messages_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "outbox_messages_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "outbox_messages_subject_fkey",
@@ -82,11 +82,11 @@ export const outboxMessages = snakeCase.table(
       foreignColumns: [externalSubjects.id, externalSubjects.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
-      name: "outbox_messages_application_subject_fkey",
-      columns: [table.applicationId, table.externalSubjectId],
+      name: "outbox_messages_environment_subject_fkey",
+      columns: [table.environmentId, table.externalSubjectId],
       foreignColumns: [
-        externalSubjectApplications.applicationId,
-        externalSubjectApplications.externalSubjectId,
+        externalSubjectEnvironments.environmentId,
+        externalSubjectEnvironments.externalSubjectId,
       ],
     }).onDelete("cascade"),
     check("outbox_messages_attempts_check", sql`${table.attempts} >= 0`),
@@ -96,7 +96,7 @@ export const outboxMessages = snakeCase.table(
     ),
     check(
       "outbox_messages_kind_check",
-      sql`(${table.kind} = 'workflow_execution' AND ${table.applicationId} IS NULL AND ${table.externalSubjectId} IS NULL AND ${table.eventType} IS NULL) OR (${table.kind} = 'public_event' AND ${table.applicationId} IS NOT NULL AND ${table.eventType} IS NOT NULL)`
+      sql`(${table.kind} = 'workflow_execution' AND ${table.environmentId} IS NULL AND ${table.externalSubjectId} IS NULL AND ${table.eventType} IS NULL) OR (${table.kind} = 'public_event' AND ${table.environmentId} IS NOT NULL AND ${table.eventType} IS NOT NULL)`
     ),
     check(
       "outbox_messages_claim_check",

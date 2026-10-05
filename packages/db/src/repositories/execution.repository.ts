@@ -1,11 +1,15 @@
 import { and, desc, eq, gt, lt, notInArray, or, sql } from "drizzle-orm"
 import {
+  environments,
+  environmentWorkflowBindings,
+  workflowVersions,
   executions,
   executionSteps,
   workflows,
   type Execution,
   type ExecutionStep,
 } from "../schema/index.js"
+import { getWorkflowEnvironment } from "./environment.repository.js"
 import { upsertEndSubject } from "./end-subject.repository.js"
 import {
   createPublicEvent,
@@ -17,7 +21,7 @@ export type CreateExecutionInput = {
   workspaceId: string
   workflowId: string
   workflowVersionId: string
-  applicationId?: string
+  environmentId?: string
   workflowContractRevisionId?: string
   externalSubjectRecordId?: string
   trigger: Execution["trigger"]
@@ -41,9 +45,20 @@ export async function createExecution(
         externalId: externalSubjectId,
       })
     }
+    const environment = input.environmentId
+      ? undefined
+      : await getWorkflowEnvironment(
+          tx,
+          input.workspaceId,
+          input.workflowId,
+          "dev"
+        )
+    const environmentId = input.environmentId ?? environment?.id
+    if (!environmentId)
+      throw new Error("Workflow Development Environment not found")
     const [execution] = await tx
       .insert(executions)
-      .values({ ...input, externalSubjectId })
+      .values({ ...input, environmentId, externalSubjectId })
       .returning()
     await createWorkflowExecutionMessage(tx, {
       workspaceId: input.workspaceId,
@@ -55,7 +70,7 @@ export async function createExecution(
 
 export type TriggerWorkflowLookup =
   | { by: "id"; value: string }
-  | { by: "slug"; value: string }
+  | { by: "slug"; value: string; applicationId: string }
 
 export type TriggerWorkflowResult =
   | { outcome: "created"; execution: Execution }
@@ -77,6 +92,7 @@ export async function triggerWorkflowExecution(
     trigger: Execution["trigger"]
     triggerPayload?: Record<string, unknown>
     environment?: Execution["environment"]
+    environmentId?: string
     triggeredByUserId?: string
     externalSubjectId?: string
   }
@@ -90,15 +106,57 @@ export async function triggerWorkflowExecution(
           eq(workflows.workspaceId, workspaceId),
           lookup.by === "id"
             ? eq(workflows.id, lookup.value)
-            : eq(workflows.slug, lookup.value)
+            : and(
+                eq(workflows.slug, lookup.value),
+                eq(workflows.applicationId, lookup.applicationId)
+              )
         )
       )
       .for("update")
-
     if (!workflow) return { outcome: "not_found" }
     if (workflow.archivedAt) return { outcome: "archived" }
-    if (!workflow.publishedVersionId) return { outcome: "unpublished" }
-
+    const [deployment] = await tx
+      .select({
+        environmentId: environments.id,
+        environment: environments.environment,
+        workflowVersionId: environmentWorkflowBindings.workflowVersionId,
+        workflowContractRevisionId:
+          environmentWorkflowBindings.workflowContractRevisionId,
+      })
+      .from(environments)
+      .innerJoin(
+        environmentWorkflowBindings,
+        and(
+          eq(environmentWorkflowBindings.environmentId, environments.id),
+          eq(environmentWorkflowBindings.workflowId, workflow.id),
+          eq(environmentWorkflowBindings.enabled, true)
+        )
+      )
+      .innerJoin(
+        workflowVersions,
+        and(
+          eq(
+            workflowVersions.id,
+            environmentWorkflowBindings.workflowVersionId
+          ),
+          sql`${workflowVersions.publishedAt} IS NOT NULL`
+        )
+      )
+      .where(
+        and(
+          eq(environments.workspaceId, workspaceId),
+          eq(environments.applicationId, workflow.applicationId),
+          input.environmentId
+            ? eq(environments.id, input.environmentId)
+            : eq(
+                environments.environment,
+                input.environment === "production" ? "production" : "dev"
+              ),
+          eq(environments.enabled, true)
+        )
+      )
+      .for("share")
+    if (!deployment) return { outcome: "unpublished" }
     // "" is not a meaningful external subject id — normalized to undefined so the end_subjects
     // roster and the execution's own column never disagree about whether one was actually provided.
     const externalSubjectId = input.externalSubjectId || undefined
@@ -108,18 +166,19 @@ export async function triggerWorkflowExecution(
         externalId: externalSubjectId,
       })
     }
-
     const [execution] = await tx
       .insert(executions)
       .values({
         workspaceId,
         workflowId: workflow.id,
-        workflowVersionId: workflow.publishedVersionId,
+        workflowVersionId: deployment.workflowVersionId,
+        workflowContractRevisionId: deployment.workflowContractRevisionId,
+        environmentId: deployment.environmentId,
         trigger: input.trigger,
         triggerPayload: input.triggerPayload,
         triggeredByUserId: input.triggeredByUserId,
         externalSubjectId,
-        ...(input.environment ? { environment: input.environment } : {}),
+        environment: deployment.environment,
       })
       .returning()
     await createWorkflowExecutionMessage(tx, {
@@ -155,10 +214,16 @@ export async function triggerWorkflowExecutionForVersion(
         )
       )
       .for("update")
-
     if (!workflow) return { outcome: "not_found" }
     if (workflow.archivedAt) return { outcome: "archived" }
-
+    const environment = await getWorkflowEnvironment(
+      tx,
+      workspaceId,
+      workflowId,
+      "dev"
+    )
+    if (!environment)
+      throw new Error("Workflow Development Environment not found")
     // "" is not a meaningful external subject id — normalized to undefined so the end_subjects
     // roster and the execution's own column never disagree about whether one was actually provided.
     const externalSubjectId = input.externalSubjectId || undefined
@@ -168,13 +233,13 @@ export async function triggerWorkflowExecutionForVersion(
         externalId: externalSubjectId,
       })
     }
-
     const [execution] = await tx
       .insert(executions)
       .values({
         workspaceId,
         workflowId: workflow.id,
         workflowVersionId: versionId,
+        environmentId: environment.id,
         trigger: input.trigger,
         triggerPayload: input.triggerPayload,
         triggeredByUserId: input.triggeredByUserId,
@@ -280,12 +345,12 @@ export async function completeExecution(
       )
       .returning()
     if (
-      execution?.applicationId &&
+      execution?.environmentId &&
       (execution.status === "succeeded" || execution.status === "failed")
     ) {
       await createPublicEvent(tx, {
         workspaceId: execution.workspaceId,
-        applicationId: execution.applicationId,
+        environmentId: execution.environmentId,
         ...(execution.externalSubjectRecordId
           ? { externalSubjectId: execution.externalSubjectRecordId }
           : {}),
@@ -393,14 +458,12 @@ export async function getExecutionWithSteps(
     .from(executions)
     .where(eq(executions.id, executionId))
   if (!execution) return undefined
-
   // startedAt (not sequence, which resume markers deliberately skew negative), then createdAt to break millisecond ties in real insertion order.
   const steps = await db
     .select()
     .from(executionSteps)
     .where(eq(executionSteps.executionId, executionId))
     .orderBy(executionSteps.startedAt, executionSteps.createdAt)
-
   return { execution, steps }
 }
 
@@ -466,7 +529,6 @@ export async function listWorkspaceExecutions(
         )
       : undefined
   )
-
   const [rows, [{ count }]] = await Promise.all([
     db
       .select({
@@ -485,10 +547,8 @@ export async function listWorkspaceExecutions(
       .from(executions)
       .where(baseWhere),
   ])
-
   const hasMore = rows.length > limit
   const page = hasMore ? rows.slice(0, limit) : rows
-
   return {
     executions: page.map(({ execution, workflowName, workflowSlug }) => ({
       ...execution,
@@ -522,11 +582,9 @@ export async function countNewWorkspaceExecutions(
       )
     )
   )
-
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(executions)
     .where(where)
-
   return count
 }

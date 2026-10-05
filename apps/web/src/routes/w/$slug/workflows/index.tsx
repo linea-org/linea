@@ -107,6 +107,7 @@ function WorkflowsListPage() {
   }
   const createDialog = (
     <WorkflowFormDialog
+      workspaceSlug={slug}
       trigger={
         <Button size="sm">
           <PlusIcon />
@@ -260,11 +261,13 @@ function WorkflowsListPage() {
       )}
       {editingWorkflow && (
         <WorkflowFormDialog
+          workspaceSlug={slug}
           open
           onOpenChange={(open) => !open && setEditingWorkflow(null)}
           title="Edit workflow"
           submitLabel="Save"
           defaultValues={{
+            applicationId: editingWorkflow.applicationId,
             name: editingWorkflow.name,
             slug: editingWorkflow.slug,
             description: editingWorkflow.description ?? "",

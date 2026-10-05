@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -14,8 +15,8 @@ async function createDueWaitTimer(name: string) {
     .insert(schema.organizations)
     .values({ name, slug: `${name}-${suffix}`, createdAt: new Date() })
     .returning()
-
   const workflow = await repositories.workflow.createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, organization.id),
     workspaceId: organization.id,
     name: "Wait Firing Workflow",
     slug: `wait-firing-workflow-${suffix}`,
@@ -41,7 +42,6 @@ async function createDueWaitTimer(name: string) {
     nodeId: "wait-1",
     resumeAt: new Date(Date.now() - 60_000),
   })
-
   return { organization, workflow, execution, waitTimer: waitTimer! }
 }
 
@@ -50,13 +50,11 @@ describe("WaitFiringService", () => {
     const { organization, execution, waitTimer } = await createDueWaitTimer(
       "Wait Firing Test Org"
     )
-
     const queue = new WorkflowQueueService()
     try {
       const service = new WaitFiringService()
       await service.poll()
       await service.poll()
-
       const resolved = await repositories.waitTimer.getWaitTimer(
         db,
         organization.id,
@@ -64,7 +62,6 @@ describe("WaitFiringService", () => {
         "wait-1"
       )
       expect(resolved).toMatchObject({ id: waitTimer.id, fired: true })
-
       const reloaded = await repositories.execution.getExecutionById(
         db,
         execution.id
@@ -77,20 +74,16 @@ describe("WaitFiringService", () => {
       ])
     }
   })
-
   it("fires a due timer exactly once even with two worker instances polling concurrently", async () => {
     const { organization, execution } = await createDueWaitTimer(
       "Wait Firing Concurrency Test Org"
     )
-
     const queueA = new WorkflowQueueService()
     const queueB = new WorkflowQueueService()
     try {
       const serviceA = new WaitFiringService()
       const serviceB = new WaitFiringService()
-
       await Promise.all([serviceA.poll(), serviceB.poll()])
-
       const reloaded = await repositories.execution.getExecutionById(
         db,
         execution.id
@@ -103,7 +96,6 @@ describe("WaitFiringService", () => {
       ])
     }
   })
-
   it("does not fire a timer whose resumeAt has not passed", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -114,9 +106,9 @@ describe("WaitFiringService", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Wait Firing Future Workflow",
         slug: `wait-firing-future-workflow-${suffix}`,
@@ -138,12 +130,10 @@ describe("WaitFiringService", () => {
         nodeId: "wait-1",
         resumeAt: new Date(Date.now() + 60_000),
       })
-
       const queue = new WorkflowQueueService()
       try {
         const service = new WaitFiringService()
         await expect(service.poll()).resolves.toBeUndefined()
-
         const untouched = await repositories.waitTimer.getWaitTimer(
           db,
           organization.id,

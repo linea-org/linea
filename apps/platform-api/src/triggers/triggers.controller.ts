@@ -1,4 +1,11 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
@@ -16,12 +23,13 @@ import { TriggersService } from './triggers.service'
 export class TriggersController {
   constructor(private readonly triggers: TriggersService) {}
 
-  @Post(':slug')
+  @Post(':environmentId/:slug')
   trigger(
     @CurrentWorkspaceId() workspaceId: string,
+    @Param('environmentId', ParseUUIDPipe) environmentId: string,
     @Param('slug') slug: string,
     @Body(new ZodValidationPipe(triggerWebhookSchema)) body: TriggerWebhookDto,
   ) {
-    return this.triggers.trigger(workspaceId, slug, body)
+    return this.triggers.trigger(workspaceId, environmentId, slug, body)
   }
 }

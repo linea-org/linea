@@ -22,6 +22,8 @@ function fixtureExecution(overrides: Partial<Execution> = {}): Execution {
     workspaceId: "ws-1",
     workflowId: "wf-1",
     workflowVersionId: "wfv-1",
+    environmentId: "env-123",
+    workflowContractRevisionId: "contract-1",
     status: "succeeded",
     origin: "native",
     trigger: "webhook",
@@ -55,35 +57,33 @@ describe("LineaClient", () => {
   afterEach(() => {
     vi.restoreAllMocks()
   })
-
   describe("triggerWorkflow", () => {
-    it("POSTs to /v1/triggers/:slug with the payload and returns the Execution", async () => {
+    it("POSTs to /v1/triggers/:environmentId/:slug with the payload and returns the Execution", async () => {
       const fixture = fixtureExecution()
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(fixture))
-
-      const result = await client().triggerWorkflow("my-slug", { foo: "bar" })
-
+      const result = await client().triggerWorkflow("env-123", "my-slug", {
+        foo: "bar",
+      })
       expect(result).toEqual(fixture)
       expect(result.costMicros).toBe("1500")
       const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
-      expect(url).toBe("http://localhost:3000/v1/triggers/my-slug")
+      expect(url).toBe("http://localhost:3000/v1/triggers/env-123/my-slug")
       expect(init.method).toBe("POST")
       expect(init.body).toBe(JSON.stringify({ foo: "bar" }))
     })
-
     it("throws LineaApiError with status 404 for an unknown slug", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
         jsonResponse({ statusCode: 404, message: "Workflow not found" }, 404)
       )
-
-      await expect(client().triggerWorkflow("missing")).rejects.toMatchObject({
+      await expect(
+        client().triggerWorkflow("env-123", "missing")
+      ).rejects.toMatchObject({
         status: 404,
       })
     })
   })
-
   describe("getExecution", () => {
     it("GETs /v1/executions/:id and returns the full detail", async () => {
       const detail: ExecutionDetail = {
@@ -96,25 +96,20 @@ describe("LineaClient", () => {
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(detail))
-
       const result = await client().getExecution("exec-1")
-
       expect(result).toEqual(detail)
       const [url] = fetchSpy.mock.calls[0] as [string]
       expect(url).toBe("http://localhost:3000/v1/executions/exec-1")
     })
-
     it("throws LineaApiError with status 404 when not found", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
         jsonResponse({ statusCode: 404, message: "Execution not found" }, 404)
       )
-
       await expect(client().getExecution("missing")).rejects.toMatchObject({
         status: 404,
       })
     })
   })
-
   describe("listWorkflowExecutions", () => {
     it("GETs /v1/workflows/:id/executions and returns the array", async () => {
       const fixtures = [
@@ -124,19 +119,15 @@ describe("LineaClient", () => {
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(fixtures))
-
       const result = await client().listWorkflowExecutions("wf-1")
-
       expect(result).toEqual(fixtures)
       const [url] = fetchSpy.mock.calls[0] as [string]
       expect(url).toBe("http://localhost:3000/v1/workflows/wf-1/executions")
     })
-
     it("throws LineaApiError with status 404 for an unknown workflow", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
         jsonResponse({ statusCode: 404, message: "Workflow not found" }, 404)
       )
-
       await expect(
         client().listWorkflowExecutions("missing")
       ).rejects.toMatchObject({
@@ -144,7 +135,6 @@ describe("LineaClient", () => {
       })
     })
   })
-
   describe("listExecutions", () => {
     it("builds the query string from status/trigger/cursor and returns the page", async () => {
       const page = {
@@ -157,13 +147,11 @@ describe("LineaClient", () => {
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(page))
-
       const result = await client().listExecutions({
         status: "succeeded",
         trigger: "webhook",
         cursor: "2026-09-05T00:00:00.000Z_exec-0",
       })
-
       expect(result).toEqual(page)
       const [url] = fetchSpy.mock.calls[0] as [string]
       const parsed = new URL(url)
@@ -173,7 +161,6 @@ describe("LineaClient", () => {
         "2026-09-05T00:00:00.000Z_exec-0"
       )
     })
-
     it("round-trips a cursor built from the previous page's last row", async () => {
       const lastRow = {
         ...fixtureExecution({
@@ -191,18 +178,15 @@ describe("LineaClient", () => {
         .mockResolvedValueOnce(
           jsonResponse({ executions: [], hasMore: false, total: 5 })
         )
-
       const first = await client().listExecutions()
       const cursor = nextExecutionsCursor(first.executions[0])
       await client().listExecutions({ cursor })
-
       const [secondUrl] = fetchSpy.mock.calls[1] as [string]
       const parsed = new URL(secondUrl)
       expect(parsed.searchParams.get("cursor")).toBe(
         "2026-09-05T01:00:00.000Z_exec-2"
       )
     })
-
     it("throws LineaApiError with status 400 for a malformed cursor", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
         jsonResponse(
@@ -213,23 +197,19 @@ describe("LineaClient", () => {
           400
         )
       )
-
       await expect(
         client().listExecutions({ cursor: "not-a-cursor" })
       ).rejects.toMatchObject({ status: 400 })
     })
   })
-
   describe("countNewExecutions", () => {
     it("returns the bare number from the response body", async () => {
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(7))
-
       const result = await client().countNewExecutions({
         since: "2026-09-05T00:00:00.000Z_exec-0",
       })
-
       expect(result).toBe(7)
       expect(typeof result).toBe("number")
       const [url] = fetchSpy.mock.calls[0] as [string]
@@ -237,58 +217,47 @@ describe("LineaClient", () => {
         "2026-09-05T00:00:00.000Z_exec-0"
       )
     })
-
     it("throws LineaApiError with status 400 when since is missing", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
         jsonResponse({ statusCode: 400, message: "since is required" }, 400)
       )
-
       // @ts-expect-error deliberately omitting the required param to exercise the error path
       await expect(client().countNewExecutions({})).rejects.toMatchObject({
         status: 400,
       })
     })
   })
-
   describe("listSignals", () => {
     it("GETs /v1/signals with and without a workflowId filter", async () => {
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
         .mockImplementation(() => Promise.resolve(jsonResponse([])))
-
       await client().listSignals()
       expect(fetchSpy.mock.calls[0]?.[0]).toBe(
         "http://localhost:3000/v1/signals"
       )
-
       await client().listSignals({ workflowId: "wf-1" })
       expect(fetchSpy.mock.calls[1]?.[0]).toBe(
         "http://localhost:3000/v1/signals?workflowId=wf-1"
       )
     })
-
     it("throws LineaApiError on a server error", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
         jsonResponse({ statusCode: 500, message: "Internal server error" }, 500)
       )
-
       await expect(client().listSignals()).rejects.toMatchObject({
         status: 500,
       })
     })
   })
-
   describe("getSignalsTrend", () => {
     it("returns the trend point array", async () => {
       const trend = [{ day: "2026-09-01", count: 3 }]
       vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(trend))
-
       const result = await client().getSignalsTrend()
-
       expect(result).toEqual(trend)
     })
   })
-
   describe("getSignal", () => {
     it("returns the full merged detail including dimensions and dimensionScope", async () => {
       const detail: SignalDetailResponse = {
@@ -331,25 +300,20 @@ describe("LineaClient", () => {
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(detail))
-
       const result = await client().getSignal("sig-1", { environment: "draft" })
-
       expect(result).toEqual(detail)
       const [url] = fetchSpy.mock.calls[0] as [string]
       expect(new URL(url).searchParams.get("environment")).toBe("draft")
     })
-
     it("throws LineaApiError with status 404 when not found", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
         jsonResponse({ statusCode: 404, message: "Signal not found" }, 404)
       )
-
       await expect(client().getSignal("missing")).rejects.toMatchObject({
         status: 404,
       })
     })
   })
-
   describe("resolveSignal", () => {
     it("POSTs to /v1/signals/:id/resolve with no body and returns the updated Signal", async () => {
       const signal = {
@@ -366,32 +330,26 @@ describe("LineaClient", () => {
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(signal))
-
       const result = await client().resolveSignal("sig-1")
-
       expect(result).toEqual(signal)
       const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
       expect(url).toBe("http://localhost:3000/v1/signals/sig-1/resolve")
       expect(init.method).toBe("POST")
       expect(init.body).toBeUndefined()
     })
-
     it("throws LineaApiError with status 404 when not found", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValue(
         jsonResponse({ statusCode: 404, message: "Signal not found" }, 404)
       )
-
       await expect(client().resolveSignal("missing")).rejects.toMatchObject({
         status: 404,
       })
     })
   })
-
   it("throws LineaApiError, not a generic error, so callers can branch on .status", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       jsonResponse({ statusCode: 401, message: "Invalid API key" }, 401)
     )
-
     await expect(client().listSignals()).rejects.toBeInstanceOf(LineaApiError)
   })
 })

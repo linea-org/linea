@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -26,9 +27,9 @@ describe("ChatMessageSweepService", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Chat Sweep Workflow",
         slug: `chat-sweep-workflow-${suffix}`,
@@ -60,10 +61,8 @@ describe("ChatMessageSweepService", () => {
       await repositories.execution.failQueuedExecution(db, execution.id, {
         message: "boom",
       })
-
       const service = new ChatMessageSweepService()
       await service.sweep()
-
       const remaining = await repositories.chatMessage.listChatMessages(
         db,
         organization.id,

@@ -1,3 +1,5 @@
+import { configureTestEnvironment } from "@linea/db/testing"
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -34,32 +36,30 @@ async function createOrganization() {
 describe("OutboxDispatcherService", () => {
   it("creates deterministic webhook jobs from the public-event outbox", async () => {
     const organization = await createOrganization()
-    const [application] = await db
-      .insert(schema.applications)
-      .values({
-        workspaceId: organization.id,
-        environment: "dev",
-        displayName: "Webhook Outbox Test",
-        allowedBrowserOrigins: ["http://localhost:3001"],
-        allowedRedirectOrigins: ["http://localhost:3001"],
-        oidcIssuer: "https://issuer.example.com",
-        oidcClientId: "webhook-outbox",
-        oidcAudience: "webhook-outbox",
-        oidcJwksUrl: "https://issuer.example.com/jwks",
-      })
-      .returning()
+    const environment = await configureTestEnvironment(db, {
+      applicationId: await getTestApplicationId(db, organization.id),
+      workspaceId: organization.id,
+      environment: "dev",
+      displayName: "Webhook Outbox Test",
+      allowedBrowserOrigins: ["http://localhost:3001"],
+      allowedRedirectOrigins: ["http://localhost:3001"],
+      oidcIssuer: "https://issuer.example.com",
+      oidcClientId: "webhook-outbox",
+      oidcAudience: "webhook-outbox",
+      oidcJwksUrl: "https://issuer.example.com/jwks",
+    })
     const [endpoint] = await db
       .insert(schema.webhookEndpoints)
       .values({
         workspaceId: organization.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         url: "https://receiver.example/webhook",
         currentSecretEncrypted: "encrypted-test-secret",
       })
       .returning()
     const event = await repositories.outboxMessage.createPublicEvent(db, {
       workspaceId: organization.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       eventType: "execution.completed",
       data: { executionId: randomUUID(), status: "succeeded" },
     })
@@ -76,7 +76,7 @@ describe("OutboxDispatcherService", () => {
       const deliveries =
         await repositories.webhookDelivery.listWebhookDeliveries(db, {
           workspaceId: organization.id,
-          applicationId: application.id,
+          environmentId: environment.id,
           retainedAfter: new Date(0),
           limit: 10,
         })
@@ -102,7 +102,6 @@ describe("OutboxDispatcherService", () => {
       ])
     }
   })
-
   it("recovers crashes before and after queue publication without duplicating the job", async () => {
     const organization = await createOrganization()
     const beforeExecutionId = randomUUID()
@@ -172,7 +171,6 @@ describe("OutboxDispatcherService", () => {
       ])
     }
   })
-
   it("moves a permanently invalid message to an inspectable terminal failure", async () => {
     const organization = await createOrganization()
     const [message] = await db
@@ -205,7 +203,6 @@ describe("OutboxDispatcherService", () => {
       ])
     }
   })
-
   it("keeps ambiguous enqueue failures retryable regardless of attempt count", async () => {
     const organization = await createOrganization()
     const message =

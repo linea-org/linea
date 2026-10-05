@@ -9,7 +9,7 @@ import {
 } from "../shared/pagination"
 import {
   conversationSchema,
-  createApplicationConversationSchema,
+  createEnvironmentConversationSchema,
   createEndUserConversationSchema,
   createMessageSchema,
   messageSchema,
@@ -18,7 +18,7 @@ import {
 import { endUserSessionHeadersSchema } from "../resources/end-user-authorization"
 import {
   publicExecutionSchema,
-  startApplicationExecutionSchema,
+  startEnvironmentExecutionSchema,
   startEndUserExecutionSchema,
 } from "../resources/execution"
 import {
@@ -28,11 +28,11 @@ import {
 import type { OperationDefinition } from "./operation"
 
 const emptySchema = z.strictObject({})
-const applicationPathSchema = z.strictObject({
-  applicationId: publicRuntimeIdSchema,
+const environmentPathSchema = z.strictObject({
+  environmentId: publicRuntimeIdSchema,
 })
 const conversationPathSchema = z.strictObject({
-  applicationId: publicRuntimeIdSchema,
+  environmentId: publicRuntimeIdSchema,
   conversationId: publicRuntimeIdSchema,
 })
 const userConversationPathSchema = z.strictObject({
@@ -41,10 +41,10 @@ const userConversationPathSchema = z.strictObject({
 const executionPathSchema = z.strictObject({
   executionId: publicRuntimeIdSchema,
 })
-const applicationHeadersSchema = z.strictObject({
+const environmentHeadersSchema = z.strictObject({
   authorization: z.string().startsWith("Bearer "),
 })
-const applicationMutationHeadersSchema = applicationHeadersSchema.extend({
+const environmentMutationHeadersSchema = environmentHeadersSchema.extend({
   "idempotency-key": idempotencyKeySchema,
 })
 const endUserMutationHeadersSchema = endUserSessionHeadersSchema.extend({
@@ -72,33 +72,33 @@ const endUserErrors = [
   "proof_invalid",
 ] as const
 
-export const provisionApplicationSubjectOperation = {
-  operationId: "provisionApplicationSubject",
+export const provisionEnvironmentSubjectOperation = {
+  operationId: "provisionEnvironmentSubject",
   method: "POST",
-  path: "/v1/applications/{applicationId}/subjects",
+  path: "/v1/environments/{environmentId}/subjects",
   plane: "control",
-  auth: { kind: "application_key", scopes: ["subjects:provision"] },
+  auth: { kind: "environment_key", scopes: ["subjects:provision"] },
   request: {
-    path: applicationPathSchema,
+    path: environmentPathSchema,
     query: emptySchema,
-    headers: applicationHeadersSchema,
+    headers: environmentHeadersSchema,
     body: provisionExternalSubjectSchema,
   },
   response: { status: 200, body: externalSubjectSchema },
   errors: [...runtimeErrors, "external_subject_disabled", "scope_denied"],
 } as const satisfies OperationDefinition
 
-export const createApplicationConversationOperation = {
-  operationId: "createApplicationConversation",
+export const createEnvironmentConversationOperation = {
+  operationId: "createEnvironmentConversation",
   method: "POST",
-  path: "/v1/applications/{applicationId}/conversations",
+  path: "/v1/environments/{environmentId}/conversations",
   plane: "control",
-  auth: { kind: "application_key", scopes: ["conversations:write"] },
+  auth: { kind: "environment_key", scopes: ["conversations:write"] },
   request: {
-    path: applicationPathSchema,
+    path: environmentPathSchema,
     query: emptySchema,
-    headers: applicationMutationHeadersSchema,
-    body: createApplicationConversationSchema,
+    headers: environmentMutationHeadersSchema,
+    body: createEnvironmentConversationSchema,
   },
   response: { status: 201, body: conversationSchema },
   errors: [
@@ -108,16 +108,16 @@ export const createApplicationConversationOperation = {
   ],
 } as const satisfies OperationDefinition
 
-export const listApplicationConversationsOperation = {
-  operationId: "listApplicationConversations",
+export const listEnvironmentConversationsOperation = {
+  operationId: "listEnvironmentConversations",
   method: "GET",
-  path: "/v1/applications/{applicationId}/conversations",
+  path: "/v1/environments/{environmentId}/conversations",
   plane: "control",
-  auth: { kind: "application_key", scopes: ["conversations:read"] },
+  auth: { kind: "environment_key", scopes: ["conversations:read"] },
   request: {
-    path: applicationPathSchema,
+    path: environmentPathSchema,
     query: paginationQuerySchema,
-    headers: applicationHeadersSchema,
+    headers: environmentHeadersSchema,
     body: z.undefined(),
   },
   response: {
@@ -127,64 +127,64 @@ export const listApplicationConversationsOperation = {
   errors: runtimeErrors,
 } as const satisfies OperationDefinition
 
-export const getApplicationConversationOperation = {
-  operationId: "getApplicationConversation",
+export const getEnvironmentConversationOperation = {
+  operationId: "getEnvironmentConversation",
   method: "GET",
-  path: "/v1/applications/{applicationId}/conversations/{conversationId}",
+  path: "/v1/environments/{environmentId}/conversations/{conversationId}",
   plane: "control",
-  auth: { kind: "application_key", scopes: ["conversations:read"] },
+  auth: { kind: "environment_key", scopes: ["conversations:read"] },
   request: {
     path: conversationPathSchema,
     query: emptySchema,
-    headers: applicationHeadersSchema,
+    headers: environmentHeadersSchema,
     body: z.undefined(),
   },
   response: { status: 200, body: conversationSchema },
   errors: runtimeErrors,
 } as const satisfies OperationDefinition
 
-export const startApplicationExecutionOperation = {
-  operationId: "startApplicationExecution",
+export const startEnvironmentExecutionOperation = {
+  operationId: "startEnvironmentExecution",
   method: "POST",
-  path: "/v1/applications/{applicationId}/executions",
+  path: "/v1/environments/{environmentId}/executions",
   plane: "control",
-  auth: { kind: "application_key", scopes: ["executions:start"] },
+  auth: { kind: "environment_key", scopes: ["executions:start"] },
   request: {
-    path: applicationPathSchema,
+    path: environmentPathSchema,
     query: emptySchema,
-    headers: applicationMutationHeadersSchema,
-    body: startApplicationExecutionSchema,
+    headers: environmentMutationHeadersSchema,
+    body: startEnvironmentExecutionSchema,
   },
   response: { status: 202, body: publicExecutionSchema },
   errors: startErrors,
 } as const satisfies OperationDefinition
 
-export const getApplicationExecutionOperation = {
-  operationId: "getApplicationExecution",
+export const getEnvironmentExecutionOperation = {
+  operationId: "getEnvironmentExecution",
   method: "GET",
   path: "/v1/executions/{executionId}",
   plane: "control",
-  auth: { kind: "application_key", scopes: ["executions:read"] },
+  auth: { kind: "environment_key", scopes: ["executions:read"] },
   request: {
     path: executionPathSchema,
     query: emptySchema,
-    headers: applicationHeadersSchema,
+    headers: environmentHeadersSchema,
     body: z.undefined(),
   },
   response: { status: 200, body: publicExecutionSchema },
   errors: runtimeErrors,
 } as const satisfies OperationDefinition
 
-export const cancelApplicationExecutionOperation = {
-  operationId: "cancelApplicationExecution",
+export const cancelEnvironmentExecutionOperation = {
+  operationId: "cancelEnvironmentExecution",
   method: "POST",
   path: "/v1/executions/{executionId}/cancel",
   plane: "control",
-  auth: { kind: "application_key", scopes: ["executions:cancel"] },
+  auth: { kind: "environment_key", scopes: ["executions:cancel"] },
   request: {
     path: executionPathSchema,
     query: emptySchema,
-    headers: idempotencyHeadersSchema.merge(applicationHeadersSchema),
+    headers: idempotencyHeadersSchema.merge(environmentHeadersSchema),
     body: z.undefined(),
   },
   response: { status: 200, body: publicExecutionSchema },

@@ -1,3 +1,7 @@
+import {
+  getTestApplicationId,
+  getTestDevelopmentEnvironmentId,
+} from "@linea/db/testing"
 import type { CompletionRequest, CompletionResult } from "@linea/ai"
 
 const complete = jest.fn<
@@ -6,7 +10,10 @@ const complete = jest.fn<
 >()
 const resolveProvider = jest.fn(() => ({ complete }))
 const resolveKeyName = jest.fn(() => "ANTHROPIC_API_KEY")
-const resolveApiKey = jest.fn(() => Promise.resolve({ apiKey: "secret" }))
+const resolveApiKey = jest.fn<
+  ReturnType<typeof import("@linea/ai").resolveApiKey>,
+  Parameters<typeof import("@linea/ai").resolveApiKey>
+>(() => Promise.resolve({ apiKey: "secret", source: "platform" }))
 const calculateCostMicros = jest.fn(() => 42n)
 const providers = [
   { id: "anthropic", label: "Anthropic", keyName: "ANTHROPIC_API_KEY" },
@@ -22,11 +29,14 @@ jest.mock("@linea/ai", () => ({
 
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
-import { db, pool, repositories, schema } from "@linea/db"
+import { db, encryptSecret, pool, repositories, schema } from "@linea/db"
 import {
   ConversationAnalyzerService,
   parseFindings,
 } from "./conversation-analyzer.service"
+
+const { resolveApiKey: resolveEnvironmentApiKey } =
+  jest.requireActual<typeof import("@linea/ai")>("@linea/ai")
 
 afterAll(async () => {
   await pool.end()
@@ -34,6 +44,9 @@ afterAll(async () => {
 
 beforeEach(() => {
   complete.mockReset()
+  resolveApiKey
+    .mockReset()
+    .mockResolvedValue({ apiKey: "secret", source: "platform" })
   calculateCostMicros.mockReturnValue(42n)
 })
 
@@ -51,13 +64,12 @@ async function setUpConversation(options: {
       createdAt: new Date(),
     })
     .returning()
-
   const workflow = await repositories.workflow.createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, organization.id),
     workspaceId: organization.id,
     name: "Behaviour Test Workflow",
     slug: `behaviour-test-${suffix}`,
   })
-
   if (options.enabled) {
     await repositories.workspaceSettings.updateWorkspaceSettings(
       db,
@@ -68,7 +80,6 @@ async function setUpConversation(options: {
       }
     )
   }
-
   const conversationId = randomUUID()
   const idleAt = new Date(Date.now() - 60 * 60_000)
   const message = await repositories.chatMessage.createBuilderChatMessage(db, {
@@ -79,11 +90,71 @@ async function setUpConversation(options: {
     content: "I've been trying to cancel my subscription for an hour",
     createdAt: idleAt,
   })
-
   return { organization, workflow, conversationId, message }
 }
 
 describe("ConversationAnalyzerService", () => {
+  it("uses the conversation Environment key ahead of Production and platform keys", async () => {
+    const { organization, workflow } = await setUpConversation({
+      name: "Behaviour Environment Key Test Org",
+      enabled: true,
+    })
+    const platformKey = process.env.ANTHROPIC_API_KEY
+    process.env.ANTHROPIC_API_KEY = "platform-test-key"
+    try {
+      const environmentId = await getTestDevelopmentEnvironmentId(
+        db,
+        organization.id,
+        workflow.id
+      )
+      const [production] = await db
+        .insert(schema.environments)
+        .values({
+          workspaceId: organization.id,
+          applicationId: workflow.applicationId,
+          environment: "production",
+          displayName: "Production",
+        })
+        .returning()
+      await repositories.secret.upsertSecret(
+        db,
+        environmentId,
+        "ANTHROPIC_API_KEY",
+        encryptSecret("development-analysis-key")
+      )
+      await repositories.secret.upsertSecret(
+        db,
+        production.id,
+        "ANTHROPIC_API_KEY",
+        encryptSecret("production-analysis-key")
+      )
+      resolveApiKey.mockImplementationOnce(resolveEnvironmentApiKey)
+      complete.mockResolvedValue({
+        text: "",
+        tokensInput: 0,
+        tokensOutput: 0,
+        toolCalls: [
+          {
+            id: "call-1",
+            name: "report_findings",
+            arguments: { findings: [] },
+          },
+        ],
+      })
+      await new ConversationAnalyzerService().poll()
+      expect(complete).toHaveBeenCalledTimes(1)
+      expect(complete).toHaveBeenCalledWith(
+        "development-analysis-key",
+        expect.objectContaining({ model: "claude-haiku-4-5-20251001" })
+      )
+    } finally {
+      if (platformKey === undefined) delete process.env.ANTHROPIC_API_KEY
+      else process.env.ANTHROPIC_API_KEY = platformKey
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
   it("returns persisted usage metadata for an explicitly selected conversation", async () => {
     const { organization, workflow, conversationId, message } =
       await setUpConversation({
@@ -102,6 +173,11 @@ describe("ConversationAnalyzerService", () => {
       const service = new ConversationAnalyzerService()
       const outcome = await service.analyzeConversation({
         workspaceId: organization.id,
+        environmentId: await getTestDevelopmentEnvironmentId(
+          db,
+          organization.id,
+          workflow.id
+        ),
         workflowId: workflow.id,
         conversationId,
         maxSequence: message.sequence,
@@ -134,7 +210,6 @@ describe("ConversationAnalyzerService", () => {
       ])
     }
   })
-
   it("analyzes an idle, enabled conversation, persists findings, and does not re-pick it up on a second poll", async () => {
     const { organization, workflow, conversationId, message } =
       await setUpConversation({
@@ -163,11 +238,9 @@ describe("ConversationAnalyzerService", () => {
         },
       ],
     })
-
     try {
       const service = new ConversationAnalyzerService()
       await service.poll()
-
       expect(complete).toHaveBeenCalledTimes(1)
       expect(complete).toHaveBeenCalledWith(
         "secret",
@@ -191,16 +264,13 @@ describe("ConversationAnalyzerService", () => {
       })
       expect(request.signal).toBeInstanceOf(AbortSignal)
       expect(request.signal?.aborted).toBe(false)
-
       const [analysis] = await getAnalysisFor(conversationId)
       expect(analysis.analyzerVersion).toBe("v2")
       expect(analysis.costMicros).toBe(42n)
-
       const findings = await getFindingsFor(analysis.id)
       expect(findings).toHaveLength(1)
       expect(findings[0].category).toBe("frustrated")
       expect(findings[0].evidenceMessageId).toBe(message.id)
-
       const [flag] = await getFlagsFor(organization.id)
       expect(flag).toBeDefined()
       expect(flag.flagType).toBe("user_frustration")
@@ -210,7 +280,6 @@ describe("ConversationAnalyzerService", () => {
       expect(flag.dedupeKey).toBe(
         `user_frustration:${conversationId}:${findings[0].id}`
       )
-
       await service.poll()
       expect(complete).toHaveBeenCalledTimes(1)
       expect(await getFlagsFor(organization.id)).toHaveLength(1)
@@ -221,7 +290,6 @@ describe("ConversationAnalyzerService", () => {
       void workflow
     }
   })
-
   it("does not raise a flag for a finding category outside the curated set", async () => {
     const { organization, conversationId } = await setUpConversation({
       name: "Behaviour Uncurated Category Test Org",
@@ -249,11 +317,9 @@ describe("ConversationAnalyzerService", () => {
         },
       ],
     })
-
     try {
       const service = new ConversationAnalyzerService()
       await service.poll()
-
       const [analysis] = await getAnalysisFor(conversationId)
       const findings = await getFindingsFor(analysis.id)
       expect(findings).toHaveLength(1)
@@ -264,7 +330,6 @@ describe("ConversationAnalyzerService", () => {
       ])
     }
   })
-
   it("records reanalysis as a new occurrence and regresses a resolved signal", async () => {
     const { organization, workflow, conversationId, message } =
       await setUpConversation({
@@ -297,6 +362,11 @@ describe("ConversationAnalyzerService", () => {
       const service = new ConversationAnalyzerService()
       await service.analyzeConversation({
         workspaceId: organization.id,
+        environmentId: await getTestDevelopmentEnvironmentId(
+          db,
+          organization.id,
+          workflow.id
+        ),
         workflowId: workflow.id,
         conversationId,
         maxSequence: message.sequence,
@@ -327,6 +397,11 @@ describe("ConversationAnalyzerService", () => {
       )
       await service.analyzeConversation({
         workspaceId: organization.id,
+        environmentId: await getTestDevelopmentEnvironmentId(
+          db,
+          organization.id,
+          workflow.id
+        ),
         workflowId: workflow.id,
         conversationId,
         maxSequence: followUp.sequence,
@@ -368,20 +443,16 @@ describe("ConversationAnalyzerService", () => {
       ])
     }
   })
-
   it("skips the LLM call and records a sampled-out analysis when sampleRate is 0", async () => {
     const { organization, conversationId } = await setUpConversation({
       name: "Behaviour Sample Test Org",
       enabled: true,
       sampleRate: 0,
     })
-
     try {
       const service = new ConversationAnalyzerService()
       await service.poll()
-
       expect(complete).not.toHaveBeenCalled()
-
       const [analysis] = await getAnalysisFor(conversationId)
       expect(analysis.analyzerVersion).toBe("sampled-out")
       expect(analysis.costMicros).toBe(0n)
@@ -391,17 +462,14 @@ describe("ConversationAnalyzerService", () => {
       ])
     }
   })
-
   it("never analyzes a workspace that has not enabled behaviour analysis", async () => {
     const { organization, conversationId } = await setUpConversation({
       name: "Behaviour Disabled Test Org",
       enabled: false,
     })
-
     try {
       const service = new ConversationAnalyzerService()
       await service.poll()
-
       expect(complete).not.toHaveBeenCalled()
       const rows = await getAnalysisFor(conversationId)
       expect(rows).toHaveLength(0)
@@ -411,31 +479,26 @@ describe("ConversationAnalyzerService", () => {
       ])
     }
   })
-
   it("does not loop forever on a persistently-failing conversation within one poll, and retries it once its claim lease expires", async () => {
     const { organization, conversationId } = await setUpConversation({
       name: "Behaviour Persistent Failure Test Org",
       enabled: true,
     })
     complete.mockRejectedValue(new Error("provider is down"))
-
     try {
       const service = new ConversationAnalyzerService()
       // Would hang forever pre-fix: the failing conversation's watermark never advances, so the
       // drain loop's own requery kept re-selecting it inside the same poll() call.
       await service.poll()
       expect(complete).toHaveBeenCalledTimes(1)
-
       const rows = await getAnalysisFor(conversationId)
       expect(rows).toHaveLength(0)
-
       // Still holds its claim (a failed attempt backs off for the claim's lease duration, not
       // just until the next tick — a real crash-recovery lease has to be long enough to survive
       // a genuinely slow provider call, not just "one 60s poll interval") — an immediate second
       // poll must not retry it yet.
       await service.poll()
       expect(complete).toHaveBeenCalledTimes(1)
-
       // Once the claim goes stale (simulated here rather than a real multi-minute wait), the next
       // poll picks it back up rather than skipping it forever.
       await pool.query(
@@ -450,7 +513,6 @@ describe("ConversationAnalyzerService", () => {
       ])
     }
   })
-
   it("skips a conversation another worker already has an active claim on, without calling the LLM", async () => {
     const { organization, workflow, conversationId } = await setUpConversation({
       name: "Behaviour Already Claimed Test Org",
@@ -462,7 +524,6 @@ describe("ConversationAnalyzerService", () => {
       tokensOutput: 1,
       toolCalls: [{ id: "call-1", name: "report_findings", arguments: {} }],
     })
-
     try {
       // Simulates another worker instance already mid-analysis of this exact conversation.
       const claim =
@@ -475,10 +536,8 @@ describe("ConversationAnalyzerService", () => {
           }
         )
       expect(claim.outcome).toBe("claimed")
-
       const service = new ConversationAnalyzerService()
       await service.poll()
-
       expect(complete).not.toHaveBeenCalled()
       expect(await getAnalysisFor(conversationId)).toHaveLength(0)
     } finally {
@@ -487,7 +546,6 @@ describe("ConversationAnalyzerService", () => {
       ])
     }
   })
-
   it("discards its result instead of writing a duplicate analysis when its claim is lost mid-flight to another worker", async () => {
     const { organization, workflow, conversationId } = await setUpConversation({
       name: "Behaviour Lost Claim Test Org",
@@ -508,11 +566,9 @@ describe("ConversationAnalyzerService", () => {
         toolCalls: [{ id: "call-1", name: "report_findings", arguments: {} }],
       }
     })
-
     try {
       const service = new ConversationAnalyzerService()
       await service.poll()
-
       expect(complete).toHaveBeenCalledTimes(1)
       // No analysis was persisted for the losing worker's now-stale result.
       expect(await getAnalysisFor(conversationId)).toHaveLength(0)
@@ -523,7 +579,6 @@ describe("ConversationAnalyzerService", () => {
       void workflow
     }
   })
-
   it("records a zero-finding analysis rather than throwing when the model never calls report_findings", async () => {
     const { organization, conversationId } = await setUpConversation({
       name: "Behaviour No Tool Call Test Org",
@@ -534,11 +589,9 @@ describe("ConversationAnalyzerService", () => {
       tokensInput: 5,
       tokensOutput: 5,
     })
-
     try {
       const service = new ConversationAnalyzerService()
       await service.poll()
-
       const [analysis] = await getAnalysisFor(conversationId)
       expect(analysis).toBeDefined()
       const findings = await getFindingsFor(analysis.id)
@@ -574,7 +627,6 @@ describe("parseFindings", () => {
     )
     expect(result[0].evidenceMessageId).toBe("real-message-id")
   })
-
   it("drops a finding without valid evidence and rationale", () => {
     const result = parseFindings(
       [
@@ -609,7 +661,6 @@ describe("parseFindings", () => {
     )
     expect(result).toEqual([])
   })
-
   it("keeps a well-formed finding and clamps confidence into [0, 1]", () => {
     const result = parseFindings(
       [
@@ -640,7 +691,6 @@ describe("parseFindings", () => {
       },
     ])
   })
-
   it("drops findings with an invalid axis, missing category, or non-numeric confidence", () => {
     const result = parseFindings(
       [
@@ -663,7 +713,6 @@ describe("parseFindings", () => {
     )
     expect(result).toHaveLength(0)
   })
-
   it("drops a finding whose evidence doesn't belong to the conversation", () => {
     const result = parseFindings(
       [
@@ -686,7 +735,6 @@ describe("parseFindings", () => {
     )
     expect(result).toEqual([])
   })
-
   it("returns an empty array when report_findings was never called", () => {
     expect(parseFindings(undefined, new Map())).toEqual([])
     expect(

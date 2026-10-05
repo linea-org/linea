@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 
 const KEY_PREFIX = 'lin_'
-const APPLICATION_KEY_PREFIX = 'lin_app_'
+const ENVIRONMENT_KEY_PREFIX = 'lin_env_'
 const PREFIX_DISPLAY_LENGTH = 12
 
 export type GeneratedApiKey = {
@@ -20,8 +20,8 @@ export function generateApiKey(): GeneratedApiKey {
   }
 }
 
-export function generateApplicationKey(): GeneratedApiKey {
-  const rawKey = `${APPLICATION_KEY_PREFIX}${randomBytes(24).toString('base64url')}`
+export function generateEnvironmentKey(): GeneratedApiKey {
+  const rawKey = `${ENVIRONMENT_KEY_PREFIX}${randomBytes(24).toString('base64url')}`
   return {
     rawKey,
     hashedKey: hashApiKey(rawKey),

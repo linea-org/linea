@@ -10,7 +10,7 @@ function auditFact() {
   return {
     id: '018f47c8-6f4d-7c22-bce4-0b20de96c521',
     workspaceId: '018f47c8-6f4d-7c22-bce4-0b20de96c522',
-    applicationId: '018f47c8-6f4d-7c22-bce4-0b20de96c523',
+    environmentId: '018f47c8-6f4d-7c22-bce4-0b20de96c523',
     externalSubjectId: '018f47c8-6f4d-7c22-bce4-0b20de96c524',
     subjectReference: '018f47c8-6f4d-7c22-bce4-0b20de96c525',
     connectionId: '018f47c8-6f4d-7c22-bce4-0b20de96c526',
@@ -47,14 +47,13 @@ describe('connector audit projections', () => {
   it('constructs the Operator projection from an explicit allowlist', () => {
     const projected = operatorConnectorAuditProjection(auditFact())
     expect(projected).toMatchObject({
-      applicationId: '018f47c8-6f4d-7c22-bce4-0b20de96c523',
+      environmentId: '018f47c8-6f4d-7c22-bce4-0b20de96c523',
       subjectReference: '018f47c8-6f4d-7c22-bce4-0b20de96c525',
     })
     expect(projected).not.toHaveProperty('parameters')
     expect(JSON.stringify(projected)).not.toContain(credentialMarker)
     expect(projected).not.toHaveProperty('retryCount')
   })
-
   it('constructs a narrower End-User projection without Operator fields', () => {
     const projected = endUserConnectorAuditProjection(auditFact())
     expect(projected).toMatchObject({
@@ -62,12 +61,11 @@ describe('connector audit projections', () => {
       display: { title: 'Create issue' },
     })
     expect(projected).not.toHaveProperty('workspaceId')
-    expect(projected).not.toHaveProperty('applicationId')
+    expect(projected).not.toHaveProperty('environmentId')
     expect(projected).not.toHaveProperty('subjectReference')
     expect(projected).not.toHaveProperty('failureClass')
     expect(JSON.stringify(projected)).not.toContain(credentialMarker)
   })
-
   it('rejects Operator-only transition types at the End-User boundary', () => {
     const fact = {
       ...auditFact(),

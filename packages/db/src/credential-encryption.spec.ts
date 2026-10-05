@@ -7,7 +7,7 @@ import {
 
 const context: CredentialEncryptionContext = {
   workspaceId: "workspace-one",
-  applicationId: "application-one",
+  environmentId: "environment-one",
   externalSubjectId: "subject-one",
   recordId: "connection-one",
   provider: "test",
@@ -20,29 +20,25 @@ describe("credential encryption", () => {
       v1: Buffer.alloc(32, 1).toString("base64"),
     })
   })
-
   afterEach(() => {
     delete process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY
     delete process.env.CONNECTION_CREDENTIAL_KEYS
   })
-
   it("fails closed when ciphertext is substituted into another context", () => {
     const encrypted = encryptCredential("secret", context)
     expect(() =>
       decryptCredential(encrypted, {
         ...context,
-        applicationId: "application-two",
+        environmentId: "environment-two",
       })
     ).toThrow()
   })
-
   it("fails closed when ciphertext is tampered with", () => {
     const encrypted = encryptCredential("secret", context)
     const last = encrypted.at(-1)
     const tampered = `${encrypted.slice(0, -1)}${last === "a" ? "b" : "a"}`
     expect(() => decryptCredential(tampered, context)).toThrow()
   })
-
   it("decrypts an older envelope after the active key rotates", () => {
     const encrypted = encryptCredential("secret", context)
     process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY = "v2"

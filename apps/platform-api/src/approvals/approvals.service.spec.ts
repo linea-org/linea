@@ -1,3 +1,4 @@
+import { getTestApplicationId } from '@linea/db/testing'
 import '@linea/config/env'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
@@ -32,6 +33,7 @@ async function setup(designatedEmail?: string) {
     createdAt: new Date(),
   })
   const workflow = await repositories.workflow.createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, organization.id),
     workspaceId: organization.id,
     name: 'Approvals Test Workflow',
     slug: `approvals-test-workflow-${suffix}`,
@@ -72,7 +74,6 @@ describe('ApprovalsService', () => {
       providers: [ApprovalsService],
     }).compile()
     const service = moduleRef.get(ApprovalsService)
-
     const { organization, user, approval } = await setup()
     try {
       const pending = await service.list(user.id, organization.id)
@@ -85,13 +86,11 @@ describe('ApprovalsService', () => {
       await pool.query('DELETE FROM users WHERE id = $1', [user.id])
     }
   })
-
   it('responding resolves the approval, re-queues the execution, and rejects a second response', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [ApprovalsService],
     }).compile()
     const service = moduleRef.get(ApprovalsService)
-
     const { organization, user, execution, approval } = await setup()
     try {
       const resolved = await service.respond(
@@ -105,13 +104,11 @@ describe('ApprovalsService', () => {
         respondedBy: user.id,
         comment: 'looks good',
       })
-
       const reloaded = await repositories.execution.getExecutionById(
         db,
         execution.id,
       )
       expect(reloaded?.status).toBe('queued')
-
       await expect(
         service.respond(user.id, organization.id, approval.id, {
           approved: false,
@@ -125,13 +122,11 @@ describe('ApprovalsService', () => {
       await pool.query('DELETE FROM users WHERE id = $1', [user.id])
     }
   })
-
   it('rejects a response from a workspace member who is not a designated approver', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [ApprovalsService],
     }).compile()
     const service = moduleRef.get(ApprovalsService)
-
     const suffix = randomUUID()
     const designatedEmail = `designated-${suffix}@test.dev`
     const { organization, user, execution, approval } =
@@ -180,7 +175,6 @@ describe('ApprovalsService', () => {
           approved: true,
         }),
       ).rejects.toThrow('not a designated approver')
-
       // Not consumed by the rejected attempt - the designated approver can still respond.
       const resolved = await service.respond(
         designated.id,
@@ -195,7 +189,6 @@ describe('ApprovalsService', () => {
         display: { title: 'Ship it?' },
         status: 'approved',
       })
-
       const reloaded = await repositories.execution.getExecutionById(
         db,
         execution.id,

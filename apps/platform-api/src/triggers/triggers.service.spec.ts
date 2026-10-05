@@ -1,3 +1,5 @@
+import { getTestDevelopmentEnvironmentId } from '@linea/db/testing'
+import { getTestApplicationId, publishTestWorkflow } from '@linea/db/testing'
 import '@linea/config/env'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
@@ -23,7 +25,6 @@ describe('TriggersService', () => {
       providers: [TriggersService],
     }).compile()
     const service = moduleRef.get(TriggersService)
-
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -41,9 +42,9 @@ describe('TriggersService', () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Webhook Workflow',
         slug: `webhook-workflow-${suffix}`,
@@ -53,20 +54,28 @@ describe('TriggersService', () => {
         graph,
         contentHash: 'test-hash',
       })
-      await repositories.workflow.publishWorkflowVersion(
-        db,
-        workflow.id,
-        version.id,
-      )
-
+      await publishTestWorkflow(db, workflow.id, version.id)
       // Same slug, different workspace — must not resolve across tenants.
       await expect(
-        service.trigger(otherOrg.id, workflow.slug, undefined),
+        service.trigger(
+          otherOrg.id,
+          await getTestDevelopmentEnvironmentId(
+            db,
+            organization.id,
+            workflow.id,
+          ),
+          workflow.slug,
+          undefined,
+        ),
       ).rejects.toThrow()
-
-      const execution = await service.trigger(organization.id, workflow.slug, {
-        source: 'github',
-      })
+      const execution = await service.trigger(
+        organization.id,
+        await getTestDevelopmentEnvironmentId(db, organization.id, workflow.id),
+        workflow.slug,
+        {
+          source: 'github',
+        },
+      )
       expect(execution.trigger).toBe('webhook')
       expect(execution.triggerPayload).toEqual({ source: 'github' })
     } finally {
@@ -77,13 +86,11 @@ describe('TriggersService', () => {
       ])
     }
   })
-
   it('rejects triggering an unpublished workflow', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [TriggersService],
     }).compile()
     const service = moduleRef.get(TriggersService)
-
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -93,16 +100,24 @@ describe('TriggersService', () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Unpublished Webhook Workflow',
         slug: `unpublished-webhook-${suffix}`,
       })
-
       await expect(
-        service.trigger(organization.id, workflow.slug, undefined),
+        service.trigger(
+          organization.id,
+          await getTestDevelopmentEnvironmentId(
+            db,
+            organization.id,
+            workflow.id,
+          ),
+          workflow.slug,
+          undefined,
+        ),
       ).rejects.toThrow()
     } finally {
       await moduleRef.close()
@@ -111,13 +126,11 @@ describe('TriggersService', () => {
       ])
     }
   })
-
   it('rejects triggering an archived workflow, even with a published version', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [TriggersService],
     }).compile()
     const service = moduleRef.get(TriggersService)
-
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -127,9 +140,9 @@ describe('TriggersService', () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Archived Webhook Workflow',
         slug: `archived-webhook-${suffix}`,
@@ -139,11 +152,7 @@ describe('TriggersService', () => {
         graph,
         contentHash: 'test-hash',
       })
-      await repositories.workflow.publishWorkflowVersion(
-        db,
-        workflow.id,
-        version.id,
-      )
+      await publishTestWorkflow(db, workflow.id, version.id)
       await repositories.workflow.updateWorkflow(
         db,
         organization.id,
@@ -152,9 +161,17 @@ describe('TriggersService', () => {
           archivedAt: new Date(),
         },
       )
-
       await expect(
-        service.trigger(organization.id, workflow.slug, undefined),
+        service.trigger(
+          organization.id,
+          await getTestDevelopmentEnvironmentId(
+            db,
+            organization.id,
+            workflow.id,
+          ),
+          workflow.slug,
+          undefined,
+        ),
       ).rejects.toThrow()
     } finally {
       await moduleRef.close()
@@ -163,7 +180,6 @@ describe('TriggersService', () => {
       ])
     }
   })
-
   it('commits a webhook execution and its dispatch message together', async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -174,9 +190,9 @@ describe('TriggersService', () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Enqueue Fail Webhook Workflow',
         slug: `enqueue-fail-webhook-${suffix}`,
@@ -186,15 +202,11 @@ describe('TriggersService', () => {
         graph,
         contentHash: 'test-hash',
       })
-      await repositories.workflow.publishWorkflowVersion(
-        db,
-        workflow.id,
-        version.id,
-      )
-
+      await publishTestWorkflow(db, workflow.id, version.id)
       const service = new TriggersService()
       const execution = await service.trigger(
         organization.id,
+        await getTestDevelopmentEnvironmentId(db, organization.id, workflow.id),
         workflow.slug,
         undefined,
       )

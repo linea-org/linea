@@ -1,3 +1,5 @@
+import { configureTestEnvironment } from "@linea/db/testing"
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomBytes, randomUUID } from "node:crypto"
 import {
@@ -21,7 +23,7 @@ type ReceiverAction = (
 ) => void
 
 const workspaceId = randomUUID()
-const applicationId = randomUUID()
+const environmentId = randomUUID()
 const actorUserId = randomUUID()
 const encryptionKey = randomBytes(32).toString("base64")
 
@@ -55,14 +57,14 @@ async function createDelivery(url: string, secret: string) {
     .insert(schema.webhookEndpoints)
     .values({
       workspaceId,
-      applicationId,
+      environmentId,
       url,
       currentSecretEncrypted: encryptSecret(secret),
     })
     .returning()
   const event = await repositories.outboxMessage.createPublicEvent(db, {
     workspaceId,
-    applicationId,
+    environmentId,
     eventType: "execution.completed",
     data: { executionId: randomUUID(), status: "succeeded" },
   })
@@ -94,8 +96,9 @@ beforeAll(async () => {
     slug: `webhook-delivery-${workspaceId}`,
     createdAt: new Date(),
   })
-  await db.insert(schema.applications).values({
-    id: applicationId,
+  await configureTestEnvironment(db, {
+    applicationId: await getTestApplicationId(db, workspaceId),
+    id: environmentId,
     workspaceId,
     environment: "dev",
     displayName: "Webhook Test",
@@ -143,7 +146,6 @@ describe("WebhookDeliveryService", () => {
       await receiver.close()
     }
   })
-
   it("redelivers after an ambiguous response without changing the body", async () => {
     const receiver = await startReceiver((index, request, response) => {
       if (index === 1) {
@@ -164,7 +166,6 @@ describe("WebhookDeliveryService", () => {
       await receiver.close()
     }
   })
-
   it("uses the previous secret for a delivery created before rotation", async () => {
     const receiver = await startReceiver((_index, _request, response) => {
       response.statusCode = 204
@@ -177,7 +178,7 @@ describe("WebhookDeliveryService", () => {
     )
     const rotated = await repositories.webhookEndpoint.rotateWebhookSecret(db, {
       workspaceId,
-      applicationId,
+      environmentId,
       webhookId: endpoint.id,
       currentSecretEncrypted: encryptSecret("current-secret"),
       previousSecretExpiresAt: new Date(Date.now() + 60_000),
@@ -201,7 +202,6 @@ describe("WebhookDeliveryService", () => {
       await receiver.close()
     }
   })
-
   it("records a non-retryable response as a permanent failure", async () => {
     const receiver = await startReceiver((_index, _request, response) => {
       response.statusCode = 400
@@ -226,7 +226,6 @@ describe("WebhookDeliveryService", () => {
       await receiver.close()
     }
   })
-
   it("does not overwrite a disabled delivery after an in-flight response", async () => {
     let receiveRequest: (() => void) | undefined
     let releaseResponse: (() => void) | undefined
@@ -250,7 +249,7 @@ describe("WebhookDeliveryService", () => {
       await requestReceived
       await repositories.webhookEndpoint.disableWebhookEndpoint(db, {
         workspaceId,
-        applicationId,
+        environmentId,
         webhookId: endpoint.id,
         actorUserId,
         now: new Date(),

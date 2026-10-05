@@ -18,7 +18,7 @@ import {
   OIDC_PROVIDER,
   OidcIdentityVerificationError,
   OidcProviderUnavailableError,
-  type OidcApplicationConfiguration,
+  type OidcEnvironmentConfiguration,
   type OidcProvider,
 } from './oidc-provider'
 
@@ -27,8 +27,8 @@ const IDENTITY_EXCHANGE_LIFETIME_MS = 2 * 60 * 1000
 const AUTHORIZATION_CLAIM_LIFETIME_MS = 30 * 1000
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
 const RATE_LIMITS = {
-  authorization: { ip: 30, application: 300 },
-  exchange: { ip: 60, application: 600 },
+  authorization: { ip: 30, environment: 300 },
+  exchange: { ip: 60, environment: 600 },
 }
 
 function opaqueValue(): string {
@@ -57,21 +57,30 @@ function normalizeBrowserOrigin(value: string | undefined): string | undefined {
   }
 }
 
-function configuration(application: {
+function configuration(environment: {
   environment: 'dev' | 'production'
-  oidcIssuer: string
-  oidcClientId: string
-  oidcAudience: string
-  oidcJwksUrl: string
+  oidcIssuer: string | null
+  oidcClientId: string | null
+  oidcAudience: string | null
+  oidcJwksUrl: string | null
   oidcSubjectClaim: string
-}): OidcApplicationConfiguration {
+}): OidcEnvironmentConfiguration {
+  if (
+    !environment.oidcIssuer ||
+    !environment.oidcClientId ||
+    !environment.oidcAudience ||
+    !environment.oidcJwksUrl
+  )
+    throw new UnauthorizedException(
+      'Environment identity trust is not configured',
+    )
   return {
-    environment: application.environment,
-    issuer: application.oidcIssuer,
-    clientId: application.oidcClientId,
-    audience: application.oidcAudience,
-    jwksUrl: application.oidcJwksUrl,
-    subjectClaim: application.oidcSubjectClaim,
+    environment: environment.environment,
+    issuer: environment.oidcIssuer,
+    clientId: environment.oidcClientId,
+    audience: environment.oidcAudience,
+    jwksUrl: environment.oidcJwksUrl,
+    subjectClaim: environment.oidcSubjectClaim,
   }
 }
 
@@ -84,12 +93,12 @@ export class EndUserAuthorizationService {
     browserOrigin: string | undefined,
     clientIp: string,
   ): Promise<EndUserAuthorizationResponse> {
-    await this.enforceRateLimit('authorization', input.applicationId, clientIp)
+    await this.enforceRateLimit('authorization', input.environmentId, clientIp)
     const state = opaqueValue()
     const nonce = opaqueValue()
     const result =
       await repositories.endUserAuthorization.createAuthorizationRequest(db, {
-        applicationId: input.applicationId,
+        environmentId: input.environmentId,
         redirectUri: input.redirectUri,
         redirectOrigin: origin(input.redirectUri),
         browserOrigin: normalizeBrowserOrigin(browserOrigin),
@@ -102,7 +111,7 @@ export class EndUserAuthorizationService {
     try {
       return {
         authorizationUrl: await this.provider.createAuthorizationUrl(
-          configuration(result.application),
+          configuration(result.environment),
           {
             redirectUri: input.redirectUri,
             codeChallenge: input.codeChallenge,
@@ -121,7 +130,7 @@ export class EndUserAuthorizationService {
     browserOrigin: string | undefined,
     clientIp: string,
   ): Promise<EndUserIdentityExchange> {
-    await this.enforceRateLimit('exchange', input.applicationId, clientIp)
+    await this.enforceRateLimit('exchange', input.environmentId, clientIp)
     const now = new Date()
     let consumed: Awaited<
       ReturnType<
@@ -133,7 +142,7 @@ export class EndUserAuthorizationService {
         await repositories.endUserAuthorization.consumeAuthorizationRequest(
           db,
           {
-            applicationId: input.applicationId,
+            environmentId: input.environmentId,
             redirectUri: input.redirectUri,
             browserOrigin: normalizeBrowserOrigin(browserOrigin),
             stateHash: hash(input.state),
@@ -153,7 +162,7 @@ export class EndUserAuthorizationService {
     let identity: { issuerSubject: string }
     try {
       identity = await this.provider.exchangeAuthorizationCode(
-        configuration(consumed.application),
+        configuration(consumed.environment),
         {
           redirectUri: input.redirectUri,
           code: input.code,
@@ -186,7 +195,7 @@ export class EndUserAuthorizationService {
       })
     if (completed.outcome !== 'completed') this.throwInvalidExchange()
     return {
-      applicationId: completed.applicationId,
+      environmentId: completed.environmentId,
       externalSubjectId: completed.externalSubjectId,
       exchangeToken,
       dpopNonce,
@@ -202,7 +211,7 @@ export class EndUserAuthorizationService {
 
   private async enforceRateLimit(
     operation: keyof typeof RATE_LIMITS,
-    applicationId: string,
+    environmentId: string,
     clientIp: string,
   ): Promise<void> {
     const bucket = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS)
@@ -216,8 +225,8 @@ export class EndUserAuthorizationService {
             limit: limits.ip,
           },
           {
-            key: hash(`${operation}:application:${applicationId}:${bucket}`),
-            limit: limits.application,
+            key: hash(`${operation}:environment:${environmentId}:${bucket}`),
+            limit: limits.environment,
           },
         ],
         new Date((bucket + 2) * RATE_LIMIT_WINDOW_MS),

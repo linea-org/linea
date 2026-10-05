@@ -69,33 +69,28 @@ export class RunsService {
 
   async execute(executionId: string): Promise<void> {
     const attemptId = `${this.processId}:${randomUUID()}`
-
     const execution = await repositories.execution.startExecution(
       db,
       executionId,
       attemptId,
       this.lease.computeLeaseExpiry()
     )
-
     if (!execution) {
       this.logger.warn(
         `Execution ${executionId} was not claimable (already running or terminal) — skipping`
       )
       return
     }
-
     // Aborts whatever node handler call is in flight the moment the lease is lost, instead of letting a duplicate HTTP mutation or billed AI completion run in parallel with whoever reclaimed the lease.
     const abortController = new AbortController()
     this.lease.startHeartbeat(executionId, attemptId, () =>
       abortController.abort()
     )
-
     // Best totals known so far, so a failure partway through still reports checkpointed usage instead of zero.
     let knownTokensInput = 0
     let knownTokensOutput = 0
     let knownCostMicros = 0n
     let knownCostUnpriced: boolean | null = false
-
     try {
       // Loaded first, before anything that can throw for unrelated reasons (a bad version id, a corrupt graph) — otherwise a reclaimed execution with real prior usage would finalize at zero on those failures too.
       const resumeTokens =
@@ -104,7 +99,6 @@ export class RunsService {
       knownTokensOutput = resumeTokens.tokensOutput
       knownCostMicros = resumeTokens.costMicros
       knownCostUnpriced = resumeTokens.costUnpriced
-
       const version = await repositories.workflow.getWorkflowVersionById(
         db,
         execution.workflowVersionId
@@ -114,10 +108,8 @@ export class RunsService {
           `Workflow version ${execution.workflowVersionId} not found`
         )
       }
-
       const graph = workflowGraphSchema.parse(version.graph)
       validateGraphStructure(graph)
-
       const resumeFrom = await this.checkpoints.getResumeState(executionId)
       const resumeVariables =
         await this.checkpoints.getResumeVariables(executionId)
@@ -128,7 +120,6 @@ export class RunsService {
           attemptId
         )
       }
-
       // A response/timer can resolve the pause before this loop marks the execution "paused"
       // below, so claimPauseForPendingApproval/claimPauseForPendingWait re-check and pause
       // atomically (locking the approval/timer row first) instead of racing a separate
@@ -141,6 +132,7 @@ export class RunsService {
         outcome = await this.interpreter.run({
           executionId,
           workspaceId: execution.workspaceId,
+          environmentId: execution.environmentId ?? undefined,
           workflowId: execution.workflowId,
           workflowVersionId: execution.workflowVersionId,
           leasedBy: attemptId,
@@ -187,7 +179,6 @@ export class RunsService {
       knownTokensOutput = outcome.totalTokensOutput
       knownCostMicros = outcome.totalCostMicros
       knownCostUnpriced = outcome.costUnpriced
-
       if (outcome.costUnpriced === true) {
         this.logger.warn(
           `Execution ${executionId}: costMicros ${outcome.totalCostMicros} is a partial total — at least one step used a model with no verified price`
@@ -197,15 +188,12 @@ export class RunsService {
           `Execution ${executionId}: costMicros ${outcome.totalCostMicros} has unknown completeness — a resumed step predates cost tracking`
         )
       }
-
       if (paused) {
         // Already marked paused atomically by claimPauseForPendingApprovalRequest above.
         return
       }
-
       // Only absent when pausedAt is set, handled above — safe to assert defined here.
       const result = outcome.result!
-
       if (result.status === "completed") {
         await repositories.execution.completeExecution(
           db,
@@ -219,7 +207,6 @@ export class RunsService {
             tokensOutput: outcome.totalTokensOutput,
           }
         )
-
         // Best-effort: a chat-preview turn's reply persisted for the panel to redisplay. Never allowed to fail the execution it rides on.
         const conversationId = extractConversationId(execution.triggerPayload)
         if (conversationId) {

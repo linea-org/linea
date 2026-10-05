@@ -1,3 +1,4 @@
+import { getTestApplicationId } from '@linea/db/testing'
 import '@linea/config/env'
 import { randomUUID } from 'node:crypto'
 import { type INestApplication } from '@nestjs/common'
@@ -14,7 +15,6 @@ import { ConversationAnalysesService } from '../src/conversation-analyses/conver
 
 describe('Conversation analyses API (e2e)', () => {
   let app: INestApplication<App>
-
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [ConversationAnalysesController],
@@ -28,12 +28,10 @@ describe('Conversation analyses API (e2e)', () => {
     app.setGlobalPrefix(API_PREFIX)
     await app.init()
   })
-
   afterAll(async () => {
     await app.close()
     await pool.end()
   })
-
   it('returns the latest complete analysis with its transcript and cited evidence', async () => {
     const suffix = randomUUID()
     const conversationId = randomUUID()
@@ -48,6 +46,7 @@ describe('Conversation analyses API (e2e)', () => {
       .returning()
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Support Agent',
         slug: `support-agent-${suffix}`,
@@ -207,7 +206,6 @@ describe('Conversation analyses API (e2e)', () => {
       ])
     }
   })
-
   it('distinguishes disabled analysis from an enabled analysis that is pending', async () => {
     const suffix = randomUUID()
     const conversationId = randomUUID()
@@ -222,6 +220,7 @@ describe('Conversation analyses API (e2e)', () => {
       .returning()
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Pending Support Agent',
         slug: `pending-support-agent-${suffix}`,
@@ -291,7 +290,6 @@ describe('Conversation analyses API (e2e)', () => {
       ])
     }
   })
-
   it('distinguishes a sampled-out conversation from an analyzed conversation with no findings', async () => {
     const suffix = randomUUID()
     const conversationId = randomUUID()
@@ -307,6 +305,7 @@ describe('Conversation analyses API (e2e)', () => {
       .returning()
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Sampled Support Agent',
         slug: `sampled-support-agent-${suffix}`,
@@ -389,7 +388,6 @@ describe('Conversation analyses API (e2e)', () => {
       ])
     }
   })
-
   it('returns unavailable when an analysis attempt expired without producing a result', async () => {
     const suffix = randomUUID()
     const conversationId = randomUUID()
@@ -405,6 +403,7 @@ describe('Conversation analyses API (e2e)', () => {
       .returning()
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: 'Unavailable Support Agent',
         slug: `unavailable-support-agent-${suffix}`,
@@ -463,7 +462,6 @@ describe('Conversation analyses API (e2e)', () => {
       ])
     }
   })
-
   it("does not expose another workspace's conversation", async () => {
     const suffix = randomUUID()
     const conversationId = randomUUID()
@@ -485,6 +483,7 @@ describe('Conversation analyses API (e2e)', () => {
       .returning()
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, owner.id),
         workspaceId: owner.id,
         name: 'Private Support Agent',
         slug: `private-support-agent-${suffix}`,

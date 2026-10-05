@@ -27,7 +27,7 @@ export const conversationMetadataSchema = z
     message: "Conversation metadata cannot exceed 8 KiB",
   })
 
-export const createApplicationConversationSchema = z.strictObject({
+export const createEnvironmentConversationSchema = z.strictObject({
   workflowId: publicRuntimeIdSchema,
   externalSubjectId: publicRuntimeIdSchema,
   externalThreadKey: z.string().trim().min(1).max(256).optional(),
@@ -44,7 +44,7 @@ export const createEndUserConversationSchema = z.strictObject({
 
 export const conversationSchema = z.strictObject({
   id: publicRuntimeIdSchema,
-  applicationId: publicRuntimeIdSchema,
+  environmentId: publicRuntimeIdSchema,
   workflowId: publicRuntimeIdSchema,
   externalSubjectId: publicRuntimeIdSchema,
   externalThreadKey: z.string().nullable(),
@@ -78,8 +78,8 @@ export const messageSchema = z.strictObject({
   createdAt: timestampSchema,
 })
 
-export type CreateApplicationConversation = z.infer<
-  typeof createApplicationConversationSchema
+export type CreateEnvironmentConversation = z.infer<
+  typeof createEnvironmentConversationSchema
 >
 export type CreateEndUserConversation = z.infer<
   typeof createEndUserConversationSchema

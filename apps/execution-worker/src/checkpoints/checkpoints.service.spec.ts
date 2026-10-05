@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -30,9 +31,9 @@ describe("CheckpointsService.getResumeState", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Checkpoint Order Test Workflow",
         slug: `checkpoint-order-workflow-${suffix}`,
@@ -54,7 +55,6 @@ describe("CheckpointsService.getResumeState", () => {
         "worker-1",
         new Date(Date.now() + 60_000)
       )
-
       const checkpoints = new CheckpointsService()
       // Completes "10" then "2" then "1" — the reverse of numeric key order.
       let completed = new Map<string, unknown>()
@@ -74,7 +74,6 @@ describe("CheckpointsService.getResumeState", () => {
           variables: {},
         })
       }
-
       const resumed = await checkpoints.getResumeState(execution.id)
       expect([...resumed.keys()]).toEqual(["10", "2", "1"])
     } finally {
@@ -96,9 +95,9 @@ describe("CheckpointsService.getResumeVariables", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Resume Variables Fresh Test Workflow",
         slug: `resume-variables-fresh-workflow-${suffix}`,
@@ -114,7 +113,6 @@ describe("CheckpointsService.getResumeVariables", () => {
         workflowVersionId: version.id,
         trigger: "manual",
       })
-
       const checkpoints = new CheckpointsService()
       const variables = await checkpoints.getResumeVariables(execution.id)
       expect(variables).toEqual({})
@@ -124,7 +122,6 @@ describe("CheckpointsService.getResumeVariables", () => {
       ])
     }
   })
-
   it("returns the latest checkpoint's variables", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -135,9 +132,9 @@ describe("CheckpointsService.getResumeVariables", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Resume Variables Test Workflow",
         slug: `resume-variables-workflow-${suffix}`,
@@ -159,7 +156,6 @@ describe("CheckpointsService.getResumeVariables", () => {
         "worker-1",
         new Date(Date.now() + 60_000)
       )
-
       const checkpoints = new CheckpointsService()
       await checkpoints.recordStep({
         executionId: execution.id,
@@ -190,7 +186,6 @@ describe("CheckpointsService.getResumeVariables", () => {
         ]),
         variables: { a: 1, b: 2 },
       })
-
       const variables = await checkpoints.getResumeVariables(execution.id)
       expect(variables).toEqual({ a: 1, b: 2 })
     } finally {
@@ -212,9 +207,9 @@ describe("CheckpointsService.recordStep attributes", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Checkpoint Attributes Test Workflow",
         slug: `checkpoint-attributes-workflow-${suffix}`,
@@ -236,7 +231,6 @@ describe("CheckpointsService.recordStep attributes", () => {
         "worker-1",
         new Date(Date.now() + 60_000)
       )
-
       const checkpoints = new CheckpointsService()
       await checkpoints.recordStep({
         executionId: execution.id,
@@ -253,7 +247,6 @@ describe("CheckpointsService.recordStep attributes", () => {
         completed: new Map([["1", { value: "1" }]]),
         variables: {},
       })
-
       const [step] = await repositories.checkpoint.getStepsForExecution(
         db,
         execution.id
@@ -268,7 +261,6 @@ describe("CheckpointsService.recordStep attributes", () => {
       ])
     }
   })
-
   it("omits attributes entirely when neither costUnpriced nor retryAttempts is set", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -279,9 +271,9 @@ describe("CheckpointsService.recordStep attributes", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Checkpoint No Attributes Test Workflow",
         slug: `checkpoint-no-attributes-workflow-${suffix}`,
@@ -303,7 +295,6 @@ describe("CheckpointsService.recordStep attributes", () => {
         "worker-1",
         new Date(Date.now() + 60_000)
       )
-
       const checkpoints = new CheckpointsService()
       await checkpoints.recordStep({
         executionId: execution.id,
@@ -318,7 +309,6 @@ describe("CheckpointsService.recordStep attributes", () => {
         completed: new Map([["1", { value: "1" }]]),
         variables: {},
       })
-
       const [step] = await repositories.checkpoint.getStepsForExecution(
         db,
         execution.id

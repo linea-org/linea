@@ -1,7 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import {
-  applications,
+  environments,
   chatMessages,
   conversations,
   executions,
@@ -156,7 +156,7 @@ export async function listChatMessages(
 export async function listExternalSubjectChatMessages(
   db: DbClient,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   externalSubjectId: string,
   conversationId: string
 ): Promise<ChatMessage[]> {
@@ -174,7 +174,7 @@ export async function listExternalSubjectChatMessages(
       and(
         eq(conversations.id, conversationId),
         eq(conversations.workspaceId, workspaceId),
-        eq(conversations.applicationId, applicationId),
+        eq(conversations.environmentId, environmentId),
         eq(conversations.externalSubjectId, externalSubjectId)
       )
     )
@@ -240,10 +240,10 @@ export async function listConversations(
     })
     .from(conversations)
     .innerJoin(
-      applications,
+      environments,
       and(
-        eq(applications.id, conversations.applicationId),
-        eq(applications.workspaceId, conversations.workspaceId)
+        eq(environments.id, conversations.environmentId),
+        eq(environments.workspaceId, conversations.workspaceId)
       )
     )
     .innerJoin(
@@ -264,7 +264,8 @@ export async function listConversations(
       and(
         eq(conversations.workspaceId, workspaceId),
         eq(conversations.workflowId, workflowId),
-        eq(applications.kind, "internal_builder")
+        eq(environments.environment, "dev"),
+        eq(conversations.environment, "draft")
       )
     )
     .groupBy(conversations.id, externalSubjects.issuerSubject)

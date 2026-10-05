@@ -41,7 +41,8 @@ export class RegressionExecutionService {
   private async executeNodeCase(
     regressionCase: RegressionCase,
     graph: WorkflowGraph,
-    workflowVersionId: string
+    workflowVersionId: string,
+    environmentId: string
   ): Promise<CaseOutcome> {
     const node = graph.nodes.find((n) => n.id === regressionCase.nodeId)
     if (!node) {
@@ -70,7 +71,8 @@ export class RegressionExecutionService {
         undefined,
         undefined,
         undefined,
-        workflowVersionId
+        workflowVersionId,
+        environmentId
       )
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -103,7 +105,7 @@ export class RegressionExecutionService {
           ) ?? 0n)
         : 0n
     const graded = await gradeOutput(
-      regressionCase.workspaceId,
+      environmentId,
       result.output,
       regressionCase.assertions
     )
@@ -117,7 +119,8 @@ export class RegressionExecutionService {
 
   private async executeConversationCase(
     regressionCase: RegressionCase,
-    graph: WorkflowGraph
+    graph: WorkflowGraph,
+    environmentId: string
   ): Promise<CaseOutcome> {
     // A conversation snapshot cannot choose unambiguously between multiple Agent nodes.
     const agentNodes = graph.nodes.filter((n) => n.type === "ai")
@@ -136,7 +139,6 @@ export class RegressionExecutionService {
     }
     const node = agentNodes[0]
     const input = regressionCase.input as unknown as ConversationInput
-
     let text: string
     let tokensInput = 0
     let tokensOutput = 0
@@ -146,6 +148,7 @@ export class RegressionExecutionService {
         {},
         {
           workspaceId: regressionCase.workspaceId,
+          environmentId,
           nodeId: node.id,
           regressionConversation: {
             turns: input.turns,
@@ -171,7 +174,6 @@ export class RegressionExecutionService {
         costMicros: 0n,
       }
     }
-
     // AiNode exposes only the final reply, so tool-calling intermediate turns cannot be reconstructed.
     const fullSequence = [
       ...input.turns,
@@ -185,7 +187,7 @@ export class RegressionExecutionService {
         tokensOutput
       ) ?? 0n
     const graded = await gradeOutput(
-      regressionCase.workspaceId,
+      environmentId,
       fullSequence,
       regressionCase.assertions
     )
@@ -200,11 +202,17 @@ export class RegressionExecutionService {
   private executeCase(
     regressionCase: RegressionCase,
     graph: WorkflowGraph,
-    workflowVersionId: string
+    workflowVersionId: string,
+    environmentId: string
   ): Promise<CaseOutcome> {
     return regressionCase.caseType === "node"
-      ? this.executeNodeCase(regressionCase, graph, workflowVersionId)
-      : this.executeConversationCase(regressionCase, graph)
+      ? this.executeNodeCase(
+          regressionCase,
+          graph,
+          workflowVersionId,
+          environmentId
+        )
+      : this.executeConversationCase(regressionCase, graph, environmentId)
   }
 
   /** Runs every active case against exactly one workflow version. */
@@ -221,20 +229,26 @@ export class RegressionExecutionService {
     if (!version) {
       throw new Error(`Workflow version ${workflowVersionId} not found`)
     }
+    const environment = await repositories.environment.getWorkflowEnvironment(
+      db,
+      workspaceId,
+      workflowId,
+      "dev"
+    )
+    if (!environment)
+      throw new Error("Workflow Development Environment not found")
     const graph = workflowGraphSchema.parse(version.graph)
     const cases = await repositories.regressionCase.listRegressionCases(
       db,
       workspaceId,
       workflowId
     )
-
     const run = await repositories.regressionRun.createRegressionRun(db, {
       workspaceId,
       workflowId,
       workflowVersionId,
       trigger,
     })
-
     let passed = 0
     let failed = 0
     let totalCostMicros = 0n
@@ -245,7 +259,8 @@ export class RegressionExecutionService {
         const executed = await this.executeCase(
           regressionCase,
           graph,
-          workflowVersionId
+          workflowVersionId,
+          environment.id
         )
         outcome = {
           ...executed,
@@ -275,7 +290,6 @@ export class RegressionExecutionService {
         costMicros: outcome.costMicros,
       })
     }
-
     await repositories.regressionRun.insertRegressionResults(
       db,
       run.id,

@@ -2,7 +2,7 @@ import { z } from "zod"
 import { identifierSchema } from "../shared/identifier"
 
 export const resourceTypeSchema = z.enum([
-  "application",
+  "environment",
   "workflow_contract",
   "external_subject",
   "conversation",

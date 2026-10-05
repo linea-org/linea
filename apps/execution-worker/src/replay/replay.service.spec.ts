@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -34,6 +35,7 @@ async function setUpExecutionWithStep(
     edges: [],
   }
   const workflow = await repositories.workflow.createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, organizationId),
     workspaceId: organizationId,
     name: "Replay Test Workflow",
     slug: `replay-workflow-${suffix}`,
@@ -68,7 +70,6 @@ async function setUpExecutionWithStep(
       tokensOutput: 0,
     }
   )
-
   const [originalStep] = await db
     .insert(schema.executionSteps)
     .values({
@@ -86,7 +87,6 @@ async function setUpExecutionWithStep(
       output: { status: 200, body: { original: true } },
     })
     .returning()
-
   const interpreter = new InterpreterService(
     new CheckpointsService(),
     overrides.httpNode,
@@ -102,7 +102,6 @@ async function setUpExecutionWithStep(
     new VariablesNode()
   )
   const replay = new ReplayService(interpreter)
-
   return { execution, originalStep, replay }
 }
 
@@ -126,14 +125,12 @@ describe("ReplayService.replay", () => {
         organization.id,
         { httpNode: spyNode }
       )
-
       const replayStepId = randomUUID()
       await replay.replay({
         replayStepId,
         originalStepId: originalStep.id,
         overrideConfig: { url: "https://overridden.example.com" },
       })
-
       expect(executeSpy).toHaveBeenCalledTimes(1)
       const [config, input, context] = executeSpy.mock.calls[0] as unknown as [
         unknown,
@@ -151,7 +148,6 @@ describe("ReplayService.replay", () => {
       expect(context.idempotencyKey).toBe(replayStepId)
       expect(context.signal).toBeInstanceOf(AbortSignal)
       expect(context.workflowVersionId).toBeUndefined()
-
       const result = await repositories.execution.getExecutionWithSteps(
         db,
         execution.id
@@ -168,7 +164,6 @@ describe("ReplayService.replay", () => {
       expect(replayRow?.traceId).toBe(originalStep.traceId)
       expect(replayRow?.parentSpanId).toBe(originalStep.spanId)
       expect(replayRow?.idempotencyKey).toBeNull()
-
       // The original execution's own aggregates are untouched by a replay.
       const untouchedExecution = await repositories.execution.getExecutionById(
         db,
@@ -182,7 +177,6 @@ describe("ReplayService.replay", () => {
       ])
     }
   })
-
   it("marks a replayed unpriced AI step as unpriced rather than silently free", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -193,7 +187,6 @@ describe("ReplayService.replay", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -203,6 +196,7 @@ describe("ReplayService.replay", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Replay Unpriced Cost Test Workflow",
         slug: `replay-unpriced-cost-workflow-${suffix}`,
@@ -254,7 +248,6 @@ describe("ReplayService.replay", () => {
           output: { text: "hello", tokensInput: 100, tokensOutput: 50 },
         })
         .returning()
-
       const spyAiNode = {
         execute: () =>
           Promise.resolve({
@@ -278,14 +271,12 @@ describe("ReplayService.replay", () => {
         new VariablesNode()
       )
       const replay = new ReplayService(interpreter)
-
       const replayStepId = randomUUID()
       await replay.replay({
         replayStepId,
         originalStepId: originalStep.id,
         overrideConfig: { model: "groq/compound-mini" },
       })
-
       const result = await repositories.execution.getExecutionWithSteps(
         db,
         execution.id
@@ -302,7 +293,6 @@ describe("ReplayService.replay", () => {
       ])
     }
   })
-
   it("records a failed replay's error instead of throwing", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -313,7 +303,6 @@ describe("ReplayService.replay", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const failingNode = {
         execute: () => Promise.reject(new Error("provider unreachable")),
@@ -322,14 +311,12 @@ describe("ReplayService.replay", () => {
         organization.id,
         { httpNode: failingNode }
       )
-
       const replayStepId = randomUUID()
       await replay.replay({
         replayStepId,
         originalStepId: originalStep.id,
         overrideConfig: {},
       })
-
       const result = await repositories.execution.getExecutionWithSteps(
         db,
         execution.id
@@ -344,7 +331,6 @@ describe("ReplayService.replay", () => {
       ])
     }
   })
-
   it("does not re-execute the node once redelivered after completion", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -355,7 +341,6 @@ describe("ReplayService.replay", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const executeSpy = jest.fn(() =>
         Promise.resolve({ status: 200, body: { replayed: true } })
@@ -365,21 +350,17 @@ describe("ReplayService.replay", () => {
         organization.id,
         { httpNode: spyNode }
       )
-
       const replayStepId = randomUUID()
       const job = {
         replayStepId,
         originalStepId: originalStep.id,
         overrideConfig: {},
       }
-
       // Simulates BullMQ redelivering the same job after the first delivery already
       // finished — the second call must not fire the node's side effect a second time.
       await replay.replay(job)
       await replay.replay(job)
-
       expect(executeSpy).toHaveBeenCalledTimes(1)
-
       const result = await repositories.execution.getExecutionWithSteps(
         db,
         execution.id
@@ -393,7 +374,6 @@ describe("ReplayService.replay", () => {
       ])
     }
   })
-
   it("throws (rather than silently skipping) when redelivered while the claim is still live, so BullMQ retries later instead of marking it permanently done", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -404,7 +384,6 @@ describe("ReplayService.replay", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       // Slow but not hung — long enough to still be "live" when the second delivery
       // arrives, but resolves before the test ends so nothing (a pending promise, a
@@ -423,23 +402,19 @@ describe("ReplayService.replay", () => {
         organization.id,
         { httpNode: spyNode }
       )
-
       const replayStepId = randomUUID()
       const job = {
         replayStepId,
         originalStepId: originalStep.id,
         overrideConfig: {},
       }
-
       const firstDelivery = replay.replay(job)
       await new Promise((resolve) => setTimeout(resolve, 50))
-
       // A second, redelivered attempt for the same replayStepId must not resolve
       // normally (which would mark the BullMQ job permanently complete and strand any
       // future recheck) — it must throw so attempts/backoff retry later.
       await expect(replay.replay(job)).rejects.toThrow(/not-yet-stale attempt/)
       expect(executeSpy).toHaveBeenCalledTimes(1)
-
       await firstDelivery
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
@@ -447,7 +422,6 @@ describe("ReplayService.replay", () => {
       ])
     }
   })
-
   it("rejects replaying a completed Wait step, rather than silently returning the original fired timer's stale resumedAt", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -458,7 +432,6 @@ describe("ReplayService.replay", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -470,6 +443,7 @@ describe("ReplayService.replay", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Replay Wait Test Workflow",
         slug: `replay-wait-workflow-${suffix}`,
@@ -530,7 +504,6 @@ describe("ReplayService.replay", () => {
           output: { resumedAt: firedAt.toISOString() },
         })
         .returning()
-
       const interpreter = new InterpreterService(
         new CheckpointsService(),
         {} as HttpNode,
@@ -546,7 +519,6 @@ describe("ReplayService.replay", () => {
         new VariablesNode()
       )
       const replay = new ReplayService(interpreter)
-
       const replayStepId = randomUUID()
       // An override that would produce a different resumedAt if it were honored — proves the
       // rejection isn't a coincidence of the fixed-config case.
@@ -555,7 +527,6 @@ describe("ReplayService.replay", () => {
         originalStepId: originalStep.id,
         overrideConfig: { amount: 5 },
       })
-
       const result = await repositories.execution.getExecutionWithSteps(
         db,
         execution.id
@@ -570,7 +541,6 @@ describe("ReplayService.replay", () => {
       ])
     }
   })
-
   it("rejects replaying a completed Approval step, rather than silently returning the original human decision", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -594,7 +564,6 @@ describe("ReplayService.replay", () => {
       role: "member",
       createdAt: new Date(),
     })
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -604,6 +573,7 @@ describe("ReplayService.replay", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Replay Approval Test Workflow",
         slug: `replay-approval-workflow-${suffix}`,
@@ -677,7 +647,6 @@ describe("ReplayService.replay", () => {
           output: { approved: true, comment: "looks good" },
         })
         .returning()
-
       const interpreter = new InterpreterService(
         new CheckpointsService(),
         {} as HttpNode,
@@ -693,7 +662,6 @@ describe("ReplayService.replay", () => {
         new VariablesNode()
       )
       const replay = new ReplayService(interpreter)
-
       const replayStepId = randomUUID()
       // An override that would produce a different response if it were honored — proves the
       // rejection isn't a coincidence of the fixed-config case.
@@ -702,7 +670,6 @@ describe("ReplayService.replay", () => {
         originalStepId: originalStep.id,
         overrideConfig: { message: "a different question entirely" },
       })
-
       const result = await repositories.execution.getExecutionWithSteps(
         db,
         execution.id
@@ -718,7 +685,6 @@ describe("ReplayService.replay", () => {
       await pool.query("DELETE FROM users WHERE id = $1", [reviewer.id])
     }
   })
-
   it("rejects replaying a Variables step, rather than silently reading or writing against empty state", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -729,7 +695,6 @@ describe("ReplayService.replay", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -745,6 +710,7 @@ describe("ReplayService.replay", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Replay Variables Test Workflow",
         slug: `replay-variables-workflow-${suffix}`,
@@ -796,7 +762,6 @@ describe("ReplayService.replay", () => {
           output: { found: true, value: "bar" },
         })
         .returning()
-
       const interpreter = new InterpreterService(
         new CheckpointsService(),
         {} as HttpNode,
@@ -812,7 +777,6 @@ describe("ReplayService.replay", () => {
         new VariablesNode()
       )
       const replay = new ReplayService(interpreter)
-
       const replayStepId = randomUUID()
       // An override that would produce a different result if it were honored — proves the
       // rejection isn't a coincidence of the fixed-config case.
@@ -821,7 +785,6 @@ describe("ReplayService.replay", () => {
         originalStepId: originalStep.id,
         overrideConfig: { key: "" },
       })
-
       const result = await repositories.execution.getExecutionWithSteps(
         db,
         execution.id

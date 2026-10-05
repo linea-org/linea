@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import { externalSubjects } from "./external-subject.js"
 
 export const endUserAuthorizationRequests = snakeCase.table(
@@ -18,7 +18,7 @@ export const endUserAuthorizationRequests = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     stateHash: text().notNull(),
     nonceHash: text().notNull(),
     codeChallenge: text().notNull(),
@@ -40,9 +40,9 @@ export const endUserAuthorizationRequests = snakeCase.table(
       .where(sql`${table.authorizationCodeHash} IS NOT NULL`),
     index("end_user_authorization_requests_expiry_idx").on(table.expiresAt),
     foreignKey({
-      name: "end_user_authorization_requests_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "end_user_authorization_requests_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "end_user_authorization_requests_subject_fkey",
@@ -65,7 +65,7 @@ export const endUserIdentityExchanges = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     tokenHash: text().notNull(),
     dpopNonceHash: text(),
@@ -79,9 +79,9 @@ export const endUserIdentityExchanges = snakeCase.table(
     ),
     index("end_user_identity_exchanges_expiry_idx").on(table.expiresAt),
     foreignKey({
-      name: "end_user_identity_exchanges_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "end_user_identity_exchanges_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "end_user_identity_exchanges_subject_fkey",

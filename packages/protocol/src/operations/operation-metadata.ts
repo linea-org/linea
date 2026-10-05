@@ -9,7 +9,7 @@ export type OperationSdkCoverage =
   | {
       readonly importPath: "@linea/sdk/server" | "@linea/sdk/user"
       readonly client:
-        | "LineaApplicationClient"
+        | "LineaEnvironmentClient"
         | "LineaUserClient"
         | "LineaWorkspaceClient"
       readonly method: string

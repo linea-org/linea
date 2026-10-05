@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { db, repositories, type WebhookDelivery } from '@linea/db'
 import { webhookEnvelopeSchema } from '@linea/protocol/webhooks'
 import type { PaginationQuery } from '@linea/protocol/shared'
-import type { ApplicationPrincipal } from '../auth/application-key.guard'
+import type { EnvironmentPrincipal } from '../auth/environment-key.guard'
 import {
   decodeWebhookDeliveryCursor,
   encodeWebhookDeliveryCursor,
@@ -32,12 +32,12 @@ function deliveryProjection(delivery: WebhookDelivery) {
 
 @Injectable()
 export class WebhookDeliveriesService {
-  async list(principal: ApplicationPrincipal, query: PaginationQuery) {
+  async list(principal: EnvironmentPrincipal, query: PaginationQuery) {
     const deliveries = await repositories.webhookDelivery.listWebhookDeliveries(
       db,
       {
         workspaceId: principal.workspaceId,
-        applicationId: principal.applicationId,
+        environmentId: principal.environmentId,
         retainedAfter: new Date(Date.now() - RETENTION_MS),
         limit: query.limit + 1,
         cursor: decodeWebhookDeliveryCursor(query.cursor),

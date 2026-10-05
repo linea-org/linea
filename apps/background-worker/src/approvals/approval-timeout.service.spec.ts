@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -17,8 +18,8 @@ async function createDueApproval(
     .insert(schema.organizations)
     .values({ name, slug: `${name}-${suffix}`, createdAt: new Date() })
     .returning()
-
   const workflow = await repositories.workflow.createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, organization.id),
     workspaceId: organization.id,
     name: "Approval Timeout Workflow",
     slug: `approval-timeout-workflow-${suffix}`,
@@ -53,7 +54,6 @@ async function createDueApproval(
       timeoutAction,
     }
   )
-
   return { organization, workflow, execution, approval: approval! }
 }
 
@@ -62,13 +62,11 @@ describe("ApprovalTimeoutService", () => {
     const { organization, execution, approval } = await createDueApproval(
       "Approval Timeout Test Org"
     )
-
     const queue = new WorkflowQueueService()
     try {
       const service = new ApprovalTimeoutService()
       await service.poll()
       await service.poll()
-
       const resolved = await repositories.approvalRequest.getApprovalRequest(
         db,
         organization.id,
@@ -82,7 +80,6 @@ describe("ApprovalTimeoutService", () => {
       await expect(
         repositories.approvalRequest.getApprovalDecision(db, approval.id)
       ).resolves.toMatchObject({ outcome: "rejected", reason: "timeout" })
-
       const reloaded = await repositories.execution.getExecutionById(
         db,
         execution.id
@@ -95,18 +92,15 @@ describe("ApprovalTimeoutService", () => {
       ])
     }
   })
-
   it("applies auto_approve", async () => {
     const { organization, execution } = await createDueApproval(
       "Approval Timeout Auto Approve Test Org",
       "auto_approve"
     )
-
     const queue = new WorkflowQueueService()
     try {
       const service = new ApprovalTimeoutService()
       await service.poll()
-
       const resolved = await repositories.approvalRequest.getApprovalRequest(
         db,
         organization.id,
@@ -126,20 +120,16 @@ describe("ApprovalTimeoutService", () => {
       ])
     }
   })
-
   it("resolves a due approval exactly once even with two worker instances polling concurrently", async () => {
     const { organization, execution } = await createDueApproval(
       "Approval Timeout Concurrency Test Org"
     )
-
     const queueA = new WorkflowQueueService()
     const queueB = new WorkflowQueueService()
     try {
       const serviceA = new ApprovalTimeoutService()
       const serviceB = new ApprovalTimeoutService()
-
       await Promise.all([serviceA.poll(), serviceB.poll()])
-
       const reloaded = await repositories.execution.getExecutionById(
         db,
         execution.id
@@ -152,7 +142,6 @@ describe("ApprovalTimeoutService", () => {
       ])
     }
   })
-
   it("does not resolve an approval whose timeout has not passed", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -163,9 +152,9 @@ describe("ApprovalTimeoutService", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Approval Timeout Future Workflow",
         slug: `approval-timeout-future-workflow-${suffix}`,
@@ -191,12 +180,10 @@ describe("ApprovalTimeoutService", () => {
         expiresAt: new Date(Date.now() + 60_000),
         timeoutAction: "auto_reject",
       })
-
       const queue = new WorkflowQueueService()
       try {
         const service = new ApprovalTimeoutService()
         await expect(service.poll()).resolves.toBeUndefined()
-
         const untouched = await repositories.approvalRequest.getApprovalRequest(
           db,
           organization.id,

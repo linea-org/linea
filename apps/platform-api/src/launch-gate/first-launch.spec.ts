@@ -1,3 +1,5 @@
+import { configureTestEnvironment } from '@linea/db/testing'
+import { getTestApplicationId } from '@linea/db/testing'
 import '@linea/config/env'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import type { INestApplication } from '@nestjs/common'
@@ -23,7 +25,7 @@ import {
 } from 'jose-v5'
 import request from 'supertest'
 import type { App } from 'supertest/types'
-import { generateApplicationKey } from '../auth/api-key.util'
+import { generateEnvironmentKey } from '../auth/api-key.util'
 import { EndUserAuthorizationModule } from '../end-user-authorization/end-user-authorization.module'
 import { PublicRuntimeModule } from '../public-runtime/public-runtime.module'
 import { startTestIdentityProvider } from './test-identity-provider'
@@ -37,10 +39,10 @@ type LaunchSession = {
 }
 type LaunchFixture = {
   workspaceId: string
-  applicationId: string
+  environmentId: string
   workflowId: string
   contractRevisionId: string
-  applicationKey: string
+  environmentKey: string
 }
 type RateLimitSnapshot = {
   key: string
@@ -94,7 +96,6 @@ describe('first-launch approval protocol', () => {
   let secondDevice: LaunchSession
   let otherSubject: LaunchSession
   let rateLimitBaseline: Map<string, RateLimitSnapshot>
-
   beforeAll(async () => {
     identityProvider = await startTestIdentityProvider()
     fixture = await createFixture(identityProvider)
@@ -113,7 +114,6 @@ describe('first-launch approval protocol', () => {
     secondDevice = await authorize('customer-1')
     otherSubject = await authorize('customer-2')
   })
-
   afterAll(async () => {
     await app.close()
     await identityProvider.close()
@@ -123,7 +123,8 @@ describe('first-launch approval protocol', () => {
     for (const current of rateLimits.rows) {
       const baseline = rateLimitBaseline.get(current.key)
       if (
-        baseline?.requestCount === current.requestCount &&
+        baseline &&
+        baseline.requestCount === current.requestCount &&
         baseline.expiresAt.getTime() === current.expiresAt.getTime()
       )
         continue
@@ -142,12 +143,15 @@ describe('first-launch approval protocol', () => {
     await pool.query('DELETE FROM approval_requests WHERE workspace_id = $1', [
       fixture.workspaceId,
     ])
+    await pool.query(
+      'DELETE FROM end_user_authorization_requests WHERE workspace_id = $1',
+      [fixture.workspaceId],
+    )
     await pool.query('DELETE FROM organizations WHERE id = $1', [
       fixture.workspaceId,
     ])
     await pool.end()
   })
-
   async function authorize(subject: string): Promise<LaunchSession> {
     identityProvider.setSubject(subject)
     const redirectUri = 'http://127.0.0.1:4173/callback'
@@ -155,7 +159,7 @@ describe('first-launch approval protocol', () => {
     const started = await request(baseUrl)
       .post('/v1/user-sessions/authorization')
       .send({
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         redirectUri,
         codeChallenge: challenge(verifier),
       })
@@ -175,7 +179,7 @@ describe('first-launch approval protocol', () => {
     const exchanged = await request(baseUrl)
       .post('/v1/user-sessions/exchange')
       .send({
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         redirectUri,
         code,
         state,
@@ -206,7 +210,6 @@ describe('first-launch approval protocol', () => {
       key,
     }
   }
-
   async function sessionHeaders(
     session: LaunchSession,
     method: string,
@@ -225,7 +228,6 @@ describe('first-launch approval protocol', () => {
       }),
     }
   }
-
   async function createConversation(title: string) {
     const path = '/v1/user/conversations'
     const response = await request(baseUrl)
@@ -236,7 +238,6 @@ describe('first-launch approval protocol', () => {
       .expect(201)
     return conversationSchema.parse(response.body)
   }
-
   async function startExecution(
     session: LaunchSession,
     conversationId?: string,
@@ -254,7 +255,6 @@ describe('first-launch approval protocol', () => {
       .expect(202)
     return publicExecutionSchema.parse(response.body)
   }
-
   async function createApproval(session: LaunchSession, expiresAt?: Date) {
     const execution = await startExecution(session)
     await pool.query("UPDATE executions SET status = 'paused' WHERE id = $1", [
@@ -264,7 +264,7 @@ describe('first-launch approval protocol', () => {
       db,
       {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         workflowId: fixture.workflowId,
         executionId: execution.id,
         nodeId: `approval-${randomUUID()}`,
@@ -278,7 +278,6 @@ describe('first-launch approval protocol', () => {
     if (!approval) throw new Error('Launch Approval Request was not created')
     return approval
   }
-
   it('runs real OIDC PKCE and rejects copied tokens and proof replay', async () => {
     expect(primary.externalSubjectId).toBe(secondDevice.externalSubjectId)
     expect(otherSubject.externalSubjectId).not.toBe(primary.externalSubjectId)
@@ -301,7 +300,6 @@ describe('first-launch approval protocol', () => {
       'proof_invalid',
     )
   })
-
   it('keeps same-subject Conversations isolated and starts both contract-bound execution paths', async () => {
     const first = await createConversation('First thread')
     const second = await createConversation('Second thread')
@@ -337,10 +335,10 @@ describe('first-launch approval protocol', () => {
         .parse(secondMessages.body)
         .data.map((item) => item.content),
     ).toEqual(['second only'])
-    const backendPath = `/v1/applications/${fixture.applicationId}/executions`
+    const backendPath = `/v1/environments/${fixture.environmentId}/executions`
     const backend = await request(baseUrl)
       .post(backendPath)
-      .set('Authorization', `Bearer ${fixture.applicationKey}`)
+      .set('Authorization', `Bearer ${fixture.environmentKey}`)
       .set('Idempotency-Key', `backend-${randomUUID()}`)
       .send({
         workflowId: fixture.workflowId,
@@ -368,7 +366,6 @@ describe('first-launch approval protocol', () => {
       fixture.contractRevisionId,
     ])
   })
-
   it('allows a second same-subject session to decide and hides the request cross-subject', async () => {
     const approval = await createApproval(primary)
     const path = `/v1/user/approval-requests/${approval.id}/decisions`
@@ -392,7 +389,6 @@ describe('first-launch approval protocol', () => {
       reason: 'human',
     })
   })
-
   it('converges decision races with timeout and cancellation on one Approval terminal state', async () => {
     const timeoutApproval = await createApproval(
       primary,
@@ -423,14 +419,13 @@ describe('first-launch approval protocol', () => {
         .send({ decision: 'rejected' }),
       request(baseUrl)
         .post(cancelPath)
-        .set('Authorization', `Bearer ${fixture.applicationKey}`)
+        .set('Authorization', `Bearer ${fixture.environmentKey}`)
         .set('Idempotency-Key', `cancel-race-${randomUUID()}`),
     ])
     expect([201, 409]).toContain(decisionResponse.status)
     expect(cancellationResponse.status).toBe(200)
     await expectTerminalApproval(cancellationApproval.id)
   })
-
   async function expectTerminalApproval(
     approvalRequestId: string,
   ): Promise<void> {
@@ -457,6 +452,7 @@ async function createFixture(
     })
     .returning()
   const workflow = await repositories.workflow.createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, organization.id),
     workspaceId: organization.id,
     name: 'Launch workflow',
     slug: `launch-${suffix}`,
@@ -489,28 +485,27 @@ async function createFixture(
     workflow.id,
     version.id,
   )
-  const [application] = await db
-    .insert(schema.applications)
-    .values({
-      workspaceId: organization.id,
-      environment: 'dev',
-      displayName: 'Launch application',
-      allowedBrowserOrigins: ['http://127.0.0.1:4173'],
-      allowedRedirectOrigins: ['http://127.0.0.1:4173'],
-      oidcIssuer: identityProvider.issuer,
-      oidcClientId: 'launch-client',
-      oidcAudience: 'launch-client',
-      oidcJwksUrl: identityProvider.jwksUrl,
-    })
-    .returning()
+  const environment = await configureTestEnvironment(db, {
+    applicationId: await getTestApplicationId(db, organization.id),
+    workspaceId: organization.id,
+    environment: 'dev',
+    displayName: 'Launch environment',
+    allowedBrowserOrigins: ['http://127.0.0.1:4173'],
+    allowedRedirectOrigins: ['http://127.0.0.1:4173'],
+    oidcIssuer: identityProvider.issuer,
+    oidcClientId: 'launch-client',
+    oidcAudience: 'launch-client',
+    oidcJwksUrl: identityProvider.jwksUrl,
+  })
   const binding =
-    await repositories.applicationWorkflowBinding.putApplicationWorkflowBinding(
+    await repositories.environmentWorkflowBinding.putEnvironmentWorkflowBinding(
       db,
       organization.id,
-      application.id,
+      environment.id,
       workflow.id,
       {
         workflowContractRevisionId: contract.revision.id,
+        workflowVersionId: version.id,
         allowBackendStart: true,
         allowEndUserStart: true,
         enabled: true,
@@ -518,10 +513,10 @@ async function createFixture(
     )
   if (binding.outcome !== 'updated')
     throw new Error('Launch Workflow binding was not created')
-  const generatedKey = generateApplicationKey()
-  await db.insert(schema.applicationKeys).values({
+  const generatedKey = generateEnvironmentKey()
+  await db.insert(schema.environmentKeys).values({
     workspaceId: organization.id,
-    applicationId: application.id,
+    environmentId: environment.id,
     name: 'Launch suite',
     scopes: [
       'executions:read',
@@ -535,9 +530,9 @@ async function createFixture(
   })
   return {
     workspaceId: organization.id,
-    applicationId: application.id,
+    environmentId: environment.id,
     workflowId: workflow.id,
     contractRevisionId: contract.revision.id,
-    applicationKey: generatedKey.rawKey,
+    environmentKey: generatedKey.rawKey,
   }
 }

@@ -16,7 +16,7 @@ type ActionIntentCancellationScope =
   | { kind: "external_subject"; id: string }
 
 type ActionIntentCancellationActor =
-  | { kind: "application_key"; id: string }
+  | { kind: "environment_key"; id: string }
   | { kind: "end_user_session"; id: string; externalSubjectId: string }
   | { kind: "workspace_member"; id: string }
 
@@ -33,8 +33,8 @@ function cancellationScopePredicate(scope: ActionIntentCancellationScope) {
 
 function cancellationActorColumns(actor: ActionIntentCancellationActor) {
   switch (actor.kind) {
-    case "application_key":
-      return { actorApplicationKeyId: actor.id }
+    case "environment_key":
+      return { actorEnvironmentKeyId: actor.id }
     case "end_user_session":
       return {
         actorEndUserSessionId: actor.id,
@@ -58,10 +58,10 @@ async function recordApprovalCancellation(
     resourceId: request.id,
     metadata: { executionId: request.executionId },
   })
-  if (!request.applicationId || !request.externalSubjectId) return
+  if (!request.environmentId || !request.externalSubjectId) return
   await createPublicEvent(tx, {
     workspaceId: request.workspaceId,
-    applicationId: request.applicationId,
+    environmentId: request.environmentId,
     externalSubjectId: request.externalSubjectId,
     eventType: "approval_request.cancelled",
     data: {

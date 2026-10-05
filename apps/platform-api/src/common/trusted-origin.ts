@@ -7,18 +7,16 @@ export function getTrustedOrigins(): string[] {
 
 export function isTrustedOrigin(origin: string, allowlist: string[]): boolean {
   if (allowlist.includes(origin)) return true
-
   try {
     const appUrl = process.env.APP_URL
     if (appUrl && origin === new URL(appUrl).origin) return true
   } catch {
     return false
   }
-
   return false
 }
 
-export function usesApplicationOriginPolicy(path: string): boolean {
+export function usesEnvironmentOriginPolicy(path: string): boolean {
   return (
     path === '/v1/user-sessions/authorization' ||
     path === '/v1/user-sessions/exchange' ||

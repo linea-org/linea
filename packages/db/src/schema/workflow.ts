@@ -10,6 +10,7 @@ import {
   uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core"
+import { applications } from "./application.js"
 import { organizations } from "./organisation.js"
 
 export const workflows = snakeCase.table(
@@ -21,6 +22,7 @@ export const workflows = snakeCase.table(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
 
+    applicationId: uuid().notNull(),
     name: text().notNull(),
     slug: text().notNull(),
     description: text(),
@@ -41,9 +43,19 @@ export const workflows = snakeCase.table(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("workflows_workspace_slug_uidx").on(
-      table.workspaceId,
+    uniqueIndex("workflows_application_slug_uidx").on(
+      table.applicationId,
       table.slug
+    ),
+    foreignKey({
+      name: "workflows_application_fkey",
+      columns: [table.applicationId, table.workspaceId],
+      foreignColumns: [applications.id, applications.workspaceId],
+    }).onDelete("cascade"),
+    uniqueIndex("workflows_id_application_workspace_uidx").on(
+      table.id,
+      table.applicationId,
+      table.workspaceId
     ),
     index("workflows_workspace_idx").on(table.workspaceId),
     // Supports composite FKs from executions/schedules into this table.
@@ -126,6 +138,11 @@ export const workflowVersions = snakeCase.table(
       table.workflowId,
       table.id
     ),
+    uniqueIndex("workflow_versions_deployment_scope_uidx").on(
+      table.workflowId,
+      table.id,
+      table.workflowContractRevisionId
+    ),
     foreignKey({
       name: "workflow_versions_contract_revision_fkey",
       columns: [table.workflowId, table.workflowContractRevisionId],
@@ -133,7 +150,7 @@ export const workflowVersions = snakeCase.table(
         workflowContractRevisions.workflowId,
         workflowContractRevisions.id,
       ],
-    }),
+    }).onDelete("cascade"),
   ]
 )
 

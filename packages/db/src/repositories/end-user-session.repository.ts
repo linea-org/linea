@@ -1,6 +1,6 @@
 import { and, eq, gt, isNotNull, isNull, lt, sql } from "drizzle-orm"
 import {
-  applications,
+  environments,
   endUserIdentityExchanges,
   endUserSessionProofs,
   endUserSessions,
@@ -24,14 +24,14 @@ export async function findIdentityExchange(
   const [result] = await db
     .select({
       exchange: endUserIdentityExchanges,
-      allowedBrowserOrigins: applications.allowedBrowserOrigins,
+      allowedBrowserOrigins: environments.allowedBrowserOrigins,
     })
     .from(endUserIdentityExchanges)
     .innerJoin(
-      applications,
+      environments,
       and(
-        eq(applications.id, endUserIdentityExchanges.applicationId),
-        eq(applications.workspaceId, endUserIdentityExchanges.workspaceId)
+        eq(environments.id, endUserIdentityExchanges.environmentId),
+        eq(environments.workspaceId, endUserIdentityExchanges.workspaceId)
       )
     )
     .where(
@@ -41,10 +41,10 @@ export async function findIdentityExchange(
         isNull(endUserIdentityExchanges.consumedAt),
         gt(endUserIdentityExchanges.expiresAt, now),
         sql`EXISTS (
-          SELECT 1 FROM ${applications}
-          WHERE ${applications.id} = ${endUserIdentityExchanges.applicationId}
-            AND ${applications.workspaceId} = ${endUserIdentityExchanges.workspaceId}
-            AND ${applications.enabled} = true
+          SELECT 1 FROM ${environments}
+          WHERE ${environments.id} = ${endUserIdentityExchanges.environmentId}
+            AND ${environments.workspaceId} = ${endUserIdentityExchanges.workspaceId}
+            AND ${environments.enabled} = true
         )`,
         sql`EXISTS (
           SELECT 1 FROM ${externalSubjects}
@@ -63,7 +63,7 @@ export async function createEndUserSession(
     exchangeId: string
     exchangeTokenHash: string
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     tokenHash: string
     proofJkt: string
@@ -73,18 +73,18 @@ export async function createEndUserSession(
   }
 ): Promise<EndUserSession | undefined> {
   return db.transaction(async (tx) => {
-    const [application] = await tx
-      .select({ id: applications.id })
-      .from(applications)
+    const [environment] = await tx
+      .select({ id: environments.id })
+      .from(environments)
       .where(
         and(
-          eq(applications.id, input.applicationId),
-          eq(applications.workspaceId, input.workspaceId),
-          eq(applications.enabled, true)
+          eq(environments.id, input.environmentId),
+          eq(environments.workspaceId, input.workspaceId),
+          eq(environments.enabled, true)
         )
       )
       .for("share")
-    if (!application) return undefined
+    if (!environment) return undefined
     const [subject] = await tx
       .select({ id: externalSubjects.id })
       .from(externalSubjects)
@@ -105,7 +105,7 @@ export async function createEndUserSession(
           eq(endUserIdentityExchanges.id, input.exchangeId),
           eq(endUserIdentityExchanges.tokenHash, input.exchangeTokenHash),
           eq(endUserIdentityExchanges.workspaceId, input.workspaceId),
-          eq(endUserIdentityExchanges.applicationId, input.applicationId),
+          eq(endUserIdentityExchanges.environmentId, input.environmentId),
           eq(
             endUserIdentityExchanges.externalSubjectId,
             input.externalSubjectId
@@ -113,10 +113,10 @@ export async function createEndUserSession(
           isNull(endUserIdentityExchanges.consumedAt),
           gt(endUserIdentityExchanges.expiresAt, input.now),
           sql`EXISTS (
-            SELECT 1 FROM ${applications}
-            WHERE ${applications.id} = ${endUserIdentityExchanges.applicationId}
-              AND ${applications.workspaceId} = ${endUserIdentityExchanges.workspaceId}
-              AND ${applications.enabled} = true
+            SELECT 1 FROM ${environments}
+            WHERE ${environments.id} = ${endUserIdentityExchanges.environmentId}
+              AND ${environments.workspaceId} = ${endUserIdentityExchanges.workspaceId}
+              AND ${environments.enabled} = true
           )`,
           sql`EXISTS (
             SELECT 1 FROM ${externalSubjects}
@@ -132,7 +132,7 @@ export async function createEndUserSession(
       .insert(endUserSessions)
       .values({
         workspaceId: exchange.workspaceId,
-        applicationId: exchange.applicationId,
+        environmentId: exchange.environmentId,
         externalSubjectId: exchange.externalSubjectId,
         tokenHash: input.tokenHash,
         proofJkt: input.proofJkt,
@@ -146,7 +146,7 @@ export async function createEndUserSession(
 
 export type EndUserSessionState = {
   session: EndUserSession
-  applicationEnabled: boolean
+  environmentEnabled: boolean
   allowedBrowserOrigins: string[]
   subjectStatus: "provisioned" | "verified" | "disabled" | "erased"
 }
@@ -158,16 +158,16 @@ export async function findEndUserSession(
   const [row] = await db
     .select({
       session: endUserSessions,
-      applicationEnabled: applications.enabled,
-      allowedBrowserOrigins: applications.allowedBrowserOrigins,
+      environmentEnabled: environments.enabled,
+      allowedBrowserOrigins: environments.allowedBrowserOrigins,
       subjectStatus: externalSubjects.status,
     })
     .from(endUserSessions)
     .innerJoin(
-      applications,
+      environments,
       and(
-        eq(applications.id, endUserSessions.applicationId),
-        eq(applications.workspaceId, endUserSessions.workspaceId)
+        eq(environments.id, endUserSessions.environmentId),
+        eq(environments.workspaceId, endUserSessions.workspaceId)
       )
     )
     .innerJoin(
@@ -197,10 +197,10 @@ export async function recordEndUserSessionProof(
         and(
           eq(endUserSessions.id, input.sessionId),
           sql`EXISTS (
-            SELECT 1 FROM ${applications}
-            WHERE ${applications.id} = ${endUserSessions.applicationId}
-              AND ${applications.workspaceId} = ${endUserSessions.workspaceId}
-              AND ${applications.enabled} = true
+            SELECT 1 FROM ${environments}
+            WHERE ${environments.id} = ${endUserSessions.environmentId}
+              AND ${environments.workspaceId} = ${endUserSessions.workspaceId}
+              AND ${environments.enabled} = true
           )`,
           sql`EXISTS (
             SELECT 1 FROM ${externalSubjects}

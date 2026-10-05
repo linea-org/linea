@@ -1,7 +1,9 @@
+import { fixtureIssuer } from "./test-utils.js"
+import { getTestApplicationId } from "./test-utils.js"
 import { createHash, randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import {
-  applications,
+  environments,
   endUserIdentityExchanges,
   externalSubjects,
   organizations,
@@ -31,9 +33,10 @@ describe("end-user session repository", () => {
           createdAt: new Date(),
         })
         .returning()
-      const [application] = await tx
-        .insert(applications)
+      const [environment] = await tx
+        .insert(environments)
         .values({
+          applicationId: await getTestApplicationId(tx, workspace.id),
           workspaceId: workspace.id,
           environment: "production",
           displayName: "Portal",
@@ -45,11 +48,13 @@ describe("end-user session repository", () => {
           oidcJwksUrl: "https://identity.example.com/jwks.json",
         })
         .returning()
+      if (!fixtureIssuer(environment))
+        throw new Error("Fixture identity trust missing")
       const [subject] = await tx
         .insert(externalSubjects)
         .values({
           workspaceId: workspace.id,
-          issuer: application.oidcIssuer,
+          issuer: fixtureIssuer(environment),
           issuerSubject: "customer-123",
           status: "verified",
           verifiedAt: new Date(),
@@ -60,7 +65,7 @@ describe("end-user session repository", () => {
         .insert(endUserIdentityExchanges)
         .values({
           workspaceId: workspace.id,
-          applicationId: application.id,
+          environmentId: environment.id,
           externalSubjectId: subject.id,
           tokenHash: exchangeTokenHash,
           dpopNonceHash: hash("exchange-nonce"),
@@ -78,7 +83,7 @@ describe("end-user session repository", () => {
         exchangeId: exchange.id,
         exchangeTokenHash,
         workspaceId: workspace.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subject.id,
         tokenHash: hash("access-token"),
         proofJkt: "proof-thumbprint",
@@ -88,7 +93,7 @@ describe("end-user session repository", () => {
       }
       const session = await createEndUserSession(tx, input)
       expect(session).toMatchObject({
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subject.id,
       })
       await expect(createEndUserSession(tx, input)).resolves.toBeUndefined()
@@ -97,7 +102,7 @@ describe("end-user session repository", () => {
         findEndUserSession(tx, input.tokenHash)
       ).resolves.toMatchObject({
         session: { id: session.id },
-        applicationEnabled: true,
+        environmentEnabled: true,
         subjectStatus: "verified",
       })
       const proof = {

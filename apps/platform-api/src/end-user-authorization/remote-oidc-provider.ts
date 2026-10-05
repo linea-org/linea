@@ -10,7 +10,7 @@ import { z } from 'zod'
 import {
   OidcIdentityVerificationError,
   OidcProviderUnavailableError,
-  type OidcApplicationConfiguration,
+  type OidcEnvironmentConfiguration,
   type OidcProvider,
 } from './oidc-provider'
 
@@ -39,7 +39,7 @@ function hash(value: string): Buffer {
 }
 
 function assertSafeTransport(
-  configuration: OidcApplicationConfiguration,
+  configuration: OidcEnvironmentConfiguration,
   value: string,
 ): void {
   const url = new URL(value)
@@ -71,7 +71,7 @@ function verifyNonce(payload: JWTPayload, expectedHash: string): void {
 
 function verifyAuthorizedParty(
   payload: JWTPayload,
-  configuration: OidcApplicationConfiguration,
+  configuration: OidcEnvironmentConfiguration,
 ): void {
   const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud]
   if (!audiences.includes(configuration.audience)) {
@@ -97,7 +97,7 @@ export class RemoteOidcProvider implements OidcProvider {
   >()
 
   async createAuthorizationUrl(
-    configuration: OidcApplicationConfiguration,
+    configuration: OidcEnvironmentConfiguration,
     input: {
       redirectUri: string
       codeChallenge: string
@@ -120,7 +120,7 @@ export class RemoteOidcProvider implements OidcProvider {
   }
 
   async exchangeAuthorizationCode(
-    configuration: OidcApplicationConfiguration,
+    configuration: OidcEnvironmentConfiguration,
     input: {
       redirectUri: string
       code: string
@@ -204,7 +204,7 @@ export class RemoteOidcProvider implements OidcProvider {
   }
 
   private async discover(
-    configuration: OidcApplicationConfiguration,
+    configuration: OidcEnvironmentConfiguration,
   ): Promise<Discovery> {
     assertSafeTransport(configuration, configuration.issuer)
     const cached = this.discoveryCache.get(configuration.issuer)
@@ -231,7 +231,7 @@ export class RemoteOidcProvider implements OidcProvider {
   }
 
   private validateDiscovery(
-    configuration: OidcApplicationConfiguration,
+    configuration: OidcEnvironmentConfiguration,
     discovery: Discovery,
   ): void {
     if (

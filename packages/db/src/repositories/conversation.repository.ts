@@ -1,8 +1,8 @@
 import { and, desc, eq, sql } from "drizzle-orm"
 import {
-  applications,
+  environments,
   conversations,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   workflows,
   type Conversation,
@@ -19,7 +19,7 @@ export type CreateConversationResult =
 type ConversationIdentity = Pick<
   NewConversation,
   | "workspaceId"
-  | "applicationId"
+  | "environmentId"
   | "workflowId"
   | "externalSubjectId"
   | "environment"
@@ -31,7 +31,7 @@ function hasIdentity(
 ): boolean {
   return (
     conversation.workspaceId === identity.workspaceId &&
-    conversation.applicationId === identity.applicationId &&
+    conversation.environmentId === identity.environmentId &&
     conversation.workflowId === identity.workflowId &&
     conversation.externalSubjectId === identity.externalSubjectId &&
     conversation.environment === identity.environment
@@ -43,31 +43,32 @@ async function identityExists(
   identity: ConversationIdentity
 ): Promise<boolean> {
   const [row] = await db
-    .select({ applicationKind: applications.kind })
-    .from(applications)
+    .select({ id: environments.id })
+    .from(environments)
     .innerJoin(
       workflows,
       and(
         eq(workflows.id, identity.workflowId),
-        eq(workflows.workspaceId, identity.workspaceId)
+        eq(workflows.workspaceId, identity.workspaceId),
+        eq(workflows.applicationId, environments.applicationId)
       )
     )
     .innerJoin(
-      externalSubjectApplications,
+      externalSubjectEnvironments,
       and(
-        eq(externalSubjectApplications.applicationId, identity.applicationId),
+        eq(externalSubjectEnvironments.environmentId, identity.environmentId),
         eq(
-          externalSubjectApplications.externalSubjectId,
+          externalSubjectEnvironments.externalSubjectId,
           identity.externalSubjectId
         ),
-        eq(externalSubjectApplications.workspaceId, identity.workspaceId)
+        eq(externalSubjectEnvironments.workspaceId, identity.workspaceId)
       )
     )
     .where(
       and(
-        eq(applications.id, identity.applicationId),
-        eq(applications.workspaceId, identity.workspaceId),
-        sql`(${applications.kind} = 'internal_builder' AND ${identity.environment} = 'draft') OR (${applications.kind} = 'operator' AND ${applications.environment}::text = ${identity.environment})`
+        eq(environments.id, identity.environmentId),
+        eq(environments.workspaceId, identity.workspaceId),
+        sql`(${environments.environment} = 'dev' AND ${identity.environment} = 'draft') OR ${environments.environment}::text = ${identity.environment}`
       )
     )
   return row !== undefined
@@ -83,7 +84,7 @@ export async function createConversation(
       .from(conversations)
       .where(
         and(
-          eq(conversations.applicationId, input.applicationId),
+          eq(conversations.environmentId, input.environmentId),
           eq(conversations.externalThreadKey, input.externalThreadKey)
         )
       )
@@ -106,7 +107,7 @@ export async function createConversation(
     .where(
       input.externalThreadKey
         ? and(
-            eq(conversations.applicationId, input.applicationId),
+            eq(conversations.environmentId, input.environmentId),
             eq(conversations.externalThreadKey, input.externalThreadKey)
           )
         : eq(conversations.id, input.id ?? "")
@@ -120,7 +121,7 @@ export async function createConversation(
 export async function getConversation(
   db: DbClient,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   externalSubjectId: string,
   id: string
 ): Promise<Conversation | undefined> {
@@ -131,7 +132,7 @@ export async function getConversation(
       and(
         eq(conversations.id, id),
         eq(conversations.workspaceId, workspaceId),
-        eq(conversations.applicationId, applicationId),
+        eq(conversations.environmentId, environmentId),
         eq(conversations.externalSubjectId, externalSubjectId)
       )
     )
@@ -141,7 +142,7 @@ export async function getConversation(
 export async function listConversations(
   db: DbClient,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   externalSubjectId: string
 ): Promise<Conversation[]> {
   return db
@@ -150,7 +151,7 @@ export async function listConversations(
     .where(
       and(
         eq(conversations.workspaceId, workspaceId),
-        eq(conversations.applicationId, applicationId),
+        eq(conversations.environmentId, environmentId),
         eq(conversations.externalSubjectId, externalSubjectId)
       )
     )
@@ -178,10 +179,11 @@ export async function ensureBuilderConversation(
     })
     .from(conversations)
     .innerJoin(
-      applications,
+      environments,
       and(
-        eq(applications.id, conversations.applicationId),
-        eq(applications.kind, "internal_builder")
+        eq(environments.id, conversations.environmentId),
+        eq(environments.environment, "dev"),
+        eq(conversations.environment, "draft")
       )
     )
     .innerJoin(
@@ -208,35 +210,25 @@ export async function ensureBuilderConversation(
     }
   }
   const subjectKey = input.externalSubjectKey ?? `anonymous:${input.id}`
-  const [insertedApplication] = await db
-    .insert(applications)
-    .values({
-      workspaceId: input.workspaceId,
-      kind: "internal_builder",
-      environment: "dev",
-      displayName: "Linea Builder",
-      allowedBrowserOrigins: ["http://localhost"],
-      allowedRedirectOrigins: ["http://localhost"],
-      oidcIssuer: "urn:linea:builder",
-      oidcClientId: "linea-builder",
-      oidcAudience: "linea-builder",
-      oidcJwksUrl: "http://localhost/.well-known/jwks.json",
-      enabled: false,
-    })
-    .onConflictDoNothing()
-    .returning()
-  const [application] = insertedApplication
-    ? [insertedApplication]
-    : await db
-        .select()
-        .from(applications)
-        .where(
-          and(
-            eq(applications.workspaceId, input.workspaceId),
-            eq(applications.kind, "internal_builder")
-          )
-        )
-  if (!application) throw new Error("Builder Application was not created")
+  const [environment] = await db
+    .select({ id: environments.id })
+    .from(environments)
+    .innerJoin(
+      workflows,
+      and(
+        eq(workflows.applicationId, environments.applicationId),
+        eq(workflows.workspaceId, environments.workspaceId)
+      )
+    )
+    .where(
+      and(
+        eq(workflows.id, input.workflowId),
+        eq(workflows.workspaceId, input.workspaceId),
+        eq(environments.environment, "dev")
+      )
+    )
+  if (!environment)
+    throw new Error("Workflow Development Environment was not found")
   const [insertedSubject] = await db
     .insert(externalSubjects)
     .values({
@@ -262,17 +254,17 @@ export async function ensureBuilderConversation(
         )
   if (!subject) throw new Error("Builder External Subject was not created")
   await db
-    .insert(externalSubjectApplications)
+    .insert(externalSubjectEnvironments)
     .values({
       workspaceId: input.workspaceId,
-      applicationId: application.id,
+      environmentId: environment.id,
       externalSubjectId: subject.id,
     })
     .onConflictDoNothing()
   const result = await createConversation(db, {
     id: input.id,
     workspaceId: input.workspaceId,
-    applicationId: application.id,
+    environmentId: environment.id,
     workflowId: input.workflowId,
     externalSubjectId: subject.id,
     environment: "draft",

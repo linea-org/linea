@@ -30,7 +30,7 @@ export class EndUserEventStreamService {
       db,
       {
         workspaceId: principal.workspaceId,
-        applicationId: principal.applicationId,
+        environmentId: principal.environmentId,
         externalSubjectId: principal.externalSubjectId,
         sessionId: principal.sessionId,
         now,
@@ -126,7 +126,7 @@ export class EndUserEventStreamService {
   ) {
     return repositories.endUserEvent.listEndUserEvents(db, {
       workspaceId: principal.workspaceId,
-      applicationId: principal.applicationId,
+      environmentId: principal.environmentId,
       externalSubjectId: principal.externalSubjectId,
       conversationId: query.conversationId,
       eventTypes: query.eventType,
@@ -137,7 +137,7 @@ export class EndUserEventStreamService {
   }
 
   private serialize(message: OutboxMessage): string {
-    if (!message.applicationId || !message.eventType) {
+    if (!message.environmentId || !message.eventType) {
       throw new Error('Public event outbox message is incomplete')
     }
     const envelope: EventEnvelope = {
@@ -145,7 +145,7 @@ export class EndUserEventStreamService {
       type: message.eventType,
       version: 1,
       createdAt: message.createdAt.toISOString(),
-      applicationId: message.applicationId,
+      environmentId: message.environmentId,
       data: message.payload,
     }
     return `id: ${envelope.id}\nevent: ${envelope.type}\ndata: ${JSON.stringify(envelope)}\n\n`

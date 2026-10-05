@@ -12,14 +12,14 @@ import {
   sql,
 } from "drizzle-orm"
 import {
-  applications,
+  environments,
   actionIntents,
   auditLogs,
   approvalDecisions,
   approvalRequests,
   endUserSessions,
   executions,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   members,
   users,
@@ -48,22 +48,22 @@ export async function createApprovalRequest(
 ): Promise<ApprovalRequest | undefined> {
   return db.transaction(async (tx) => {
     if (input.audience === "external_subject") {
-      if (!input.applicationId || !input.externalSubjectId) {
+      if (!input.environmentId || !input.externalSubjectId) {
         throw new Error(
-          "External-subject Approval Requests require an Application and External Subject"
+          "External-subject Approval Requests require an Environment and External Subject"
         )
       }
       const [owner] = await tx
         .select({ id: externalSubjects.id })
         .from(externalSubjects)
         .innerJoin(
-          externalSubjectApplications,
+          externalSubjectEnvironments,
           and(
             eq(
-              externalSubjectApplications.externalSubjectId,
+              externalSubjectEnvironments.externalSubjectId,
               externalSubjects.id
             ),
-            eq(externalSubjectApplications.applicationId, input.applicationId)
+            eq(externalSubjectEnvironments.environmentId, input.environmentId)
           )
         )
         .where(
@@ -76,7 +76,7 @@ export async function createApprovalRequest(
         .for("key share")
       if (!owner) {
         throw new Error(
-          "External-subject Approval Requests require a verified owner in the Application"
+          "External-subject Approval Requests require a verified owner in the Environment"
         )
       }
     }
@@ -93,12 +93,12 @@ export async function createApprovalRequest(
       })
       .returning()
     if (request?.audience === "external_subject") {
-      if (!request.applicationId || !request.externalSubjectId) {
+      if (!request.environmentId || !request.externalSubjectId) {
         throw new Error("External Approval Request is missing its audience")
       }
       await createPublicEvent(tx, {
         workspaceId: request.workspaceId,
-        applicationId: request.applicationId,
+        environmentId: request.environmentId,
         externalSubjectId: request.externalSubjectId,
         eventType: "approval_request.created",
         data: {
@@ -179,16 +179,16 @@ type ExternalApprovalRequestFilter =
 
 function externalApprovalRequestOwner(input: {
   workspaceId: string
-  applicationId: string
+  environmentId: string
   externalSubjectId: string
 }) {
   return and(
     eq(approvalRequests.audience, "external_subject"),
     eq(approvalRequests.workspaceId, input.workspaceId),
-    eq(approvalRequests.applicationId, input.applicationId),
+    eq(approvalRequests.environmentId, input.environmentId),
     eq(approvalRequests.externalSubjectId, input.externalSubjectId),
     eq(externalSubjects.status, "verified"),
-    eq(applications.enabled, true)
+    eq(environments.enabled, true)
   )
 }
 
@@ -196,7 +196,7 @@ export async function findExternalApprovalRequests(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     limit: number
   } & ExternalApprovalRequestFilter
@@ -213,10 +213,10 @@ export async function findExternalApprovalRequests(
       )
     )
     .innerJoin(
-      applications,
+      environments,
       and(
-        eq(applications.id, approvalRequests.applicationId),
-        eq(applications.workspaceId, approvalRequests.workspaceId)
+        eq(environments.id, approvalRequests.environmentId),
+        eq(environments.workspaceId, approvalRequests.workspaceId)
       )
     )
     .leftJoin(
@@ -458,12 +458,12 @@ async function publishApprovalDecisionEvent(
   decision: ApprovalDecision
 ): Promise<void> {
   if (request.audience !== "external_subject") return
-  if (!request.applicationId || !request.externalSubjectId) {
+  if (!request.environmentId || !request.externalSubjectId) {
     throw new Error("External Approval Request is missing its audience")
   }
   await createPublicEvent(tx, {
     workspaceId: request.workspaceId,
-    applicationId: request.applicationId,
+    environmentId: request.environmentId,
     externalSubjectId: request.externalSubjectId,
     eventType: "approval_request.decided",
     data: {
@@ -556,7 +556,7 @@ export async function decideWorkspaceApprovalRequest(
 
 export type DecideExternalApprovalRequestInput = {
   workspaceId: string
-  applicationId: string
+  environmentId: string
   externalSubjectId: string
   endUserSessionId: string
   approvalRequestId: string
@@ -595,7 +595,7 @@ function isExternalRequestOwner(
   return (
     request?.audience === "external_subject" &&
     request.workspaceId === input.workspaceId &&
-    request.applicationId === input.applicationId &&
+    request.environmentId === input.environmentId &&
     request.externalSubjectId === input.externalSubjectId
   )
 }
@@ -663,10 +663,10 @@ export async function decideExternalApprovalRequest(
         .select({ id: endUserSessions.id })
         .from(endUserSessions)
         .innerJoin(
-          applications,
+          environments,
           and(
-            eq(applications.id, endUserSessions.applicationId),
-            eq(applications.workspaceId, endUserSessions.workspaceId)
+            eq(environments.id, endUserSessions.environmentId),
+            eq(environments.workspaceId, endUserSessions.workspaceId)
           )
         )
         .innerJoin(
@@ -680,11 +680,11 @@ export async function decideExternalApprovalRequest(
           and(
             eq(endUserSessions.id, input.endUserSessionId),
             eq(endUserSessions.workspaceId, input.workspaceId),
-            eq(endUserSessions.applicationId, input.applicationId),
+            eq(endUserSessions.environmentId, input.environmentId),
             eq(endUserSessions.externalSubjectId, input.externalSubjectId),
             isNull(endUserSessions.revokedAt),
             gt(endUserSessions.expiresAt, now),
-            eq(applications.enabled, true),
+            eq(environments.enabled, true),
             eq(externalSubjects.status, "verified")
           )
         )
@@ -708,7 +708,7 @@ export async function decideExternalApprovalRequest(
       }
       const reservation = await reservePublicRequest(tx, {
         workspaceId: input.workspaceId,
-        applicationId: input.applicationId,
+        environmentId: input.environmentId,
         actorKind: "end_user_session",
         actorId: input.endUserSessionId,
         operation: "approval_request.decision",
@@ -746,9 +746,9 @@ export async function decideExternalApprovalRequest(
 export async function cancelExecutionWithPendingApproval(
   tx: Transaction,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   executionId: string,
-  actorApplicationKeyId: string,
+  actorEnvironmentKeyId: string,
   cancelledAt: Date
 ): Promise<Execution | undefined> {
   const lockKey = `action-intent-execution:${executionId}`
@@ -776,7 +776,7 @@ export async function cancelExecutionWithPendingApproval(
       and(
         eq(executions.id, executionId),
         eq(executions.workspaceId, workspaceId),
-        eq(executions.applicationId, applicationId),
+        eq(executions.environmentId, environmentId),
         inArray(executions.status, ["queued", "running", "paused"])
       )
     )
@@ -785,7 +785,7 @@ export async function cancelExecutionWithPendingApproval(
   const actionIntents = await cancelNonExecutingActionIntents(tx, {
     workspaceId,
     scope: { kind: "execution", id: executionId },
-    actor: { kind: "application_key", id: actorApplicationKeyId },
+    actor: { kind: "environment_key", id: actorEnvironmentKeyId },
     cancelledAt,
   })
   if (actionIntents.executing.length > 0) return undefined
@@ -802,7 +802,7 @@ export async function cancelExecutionWithPendingApproval(
       and(
         eq(executions.id, executionId),
         eq(executions.workspaceId, workspaceId),
-        eq(executions.applicationId, applicationId),
+        eq(executions.environmentId, environmentId),
         inArray(executions.status, ["queued", "running", "paused"])
       )
     )
@@ -827,7 +827,7 @@ export async function cancelExecutionWithPendingApproval(
   if (!cancelled) throw new Error("Locked Approval Request changed state")
   await tx.insert(auditLogs).values({
     workspaceId: request.workspaceId,
-    actorApplicationKeyId,
+    actorEnvironmentKeyId,
     action: "approval_request.cancelled",
     resource: "approval_request",
     resourceId: request.id,
@@ -839,7 +839,7 @@ export async function cancelExecutionWithPendingApproval(
     }
     await createPublicEvent(tx, {
       workspaceId: request.workspaceId,
-      applicationId,
+      environmentId,
       externalSubjectId: request.externalSubjectId,
       eventType: "approval_request.cancelled",
       data: {

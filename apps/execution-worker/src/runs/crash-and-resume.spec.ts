@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -27,7 +28,6 @@ function buildLinearTransformGraph(nodeCount: number): WorkflowGraph {
   const edges = nodes
     .slice(0, -1)
     .map((node, i) => ({ from: node.id, to: nodes[i + 1].id }))
-
   return {
     version: 1 as const,
     trigger: { type: "manual" as const },
@@ -52,10 +52,10 @@ describe("crash-and-resume", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph = buildLinearTransformGraph(6)
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Crash Resume Test Workflow",
         slug: `crash-resume-workflow-${suffix}`,
@@ -72,9 +72,7 @@ describe("crash-and-resume", () => {
         trigger: "manual",
         triggerPayload: { value: "start" },
       })
-
       const checkpoints = new CheckpointsService()
-
       // Worker 1 claims with a live lease, gets through 3 of 6 nodes, then dies.
       await repositories.execution.startExecution(
         db,
@@ -82,7 +80,6 @@ describe("crash-and-resume", () => {
         "worker-1-doomed",
         new Date(Date.now() + 60_000)
       )
-
       const transformNode = new TransformNode()
       const completedBeforeCrash = new Map<string, unknown>()
       let currentInput: unknown = execution.triggerPayload
@@ -105,13 +102,11 @@ describe("crash-and-resume", () => {
         })
         currentInput = output
       }
-
       // Now it dies — heartbeat stops, lease ages out.
       await pool.query(
         "UPDATE executions SET lease_expires_at = $1 WHERE id = $2",
         [new Date(Date.now() - 1_000), execution.id]
       )
-
       // Worker 2 ("the restart") resumes it through the real, complete path.
       const interpreter = new InterpreterService(
         checkpoints,
@@ -133,7 +128,6 @@ describe("crash-and-resume", () => {
         new RunLeaseService()
       )
       await runs.execute(execution.id)
-
       const [finalExecution] = await repositories.execution.listExecutions(
         db,
         workflow.id,
@@ -145,7 +139,6 @@ describe("crash-and-resume", () => {
         db,
         execution.id
       ))!
-
       const executedNodeIds = steps.map((step) => step.nodeId)
       expect(executedNodeIds).toEqual([
         "n1",
@@ -158,10 +151,8 @@ describe("crash-and-resume", () => {
       ])
       expect(new Set(executedNodeIds).size).toBe(7)
       expect(steps.every((step) => step.status === "succeeded")).toBe(true)
-
       const lastStep = steps[steps.length - 1]
       expect(lastStep.output).toEqual({ output: { value: "start" } })
-
       expect(finalExecution.status).toBe("succeeded")
       expect(finalExecution.leasedBy).not.toBe("worker-1-doomed")
     } finally {

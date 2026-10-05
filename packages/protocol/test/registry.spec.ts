@@ -23,7 +23,7 @@ function operation(
     method,
     path,
     plane: "control",
-    auth: { kind: "application_key", scopes: ["executions:read"] },
+    auth: { kind: "environment_key", scopes: ["executions:read"] },
     request,
     response,
     errors: ["rate_limited"],
@@ -33,7 +33,7 @@ function operation(
 describe("operation registry", () => {
   it("publishes the public protocol", () => {
     expect(operationRegistry.map(({ operationId }) => operationId)).toEqual([
-      "listApplicationConnectorAuditEvents",
+      "listEnvironmentConnectorAuditEvents",
       "listWorkspaceConnectorAuditEvents",
       "listEndUserConnectorAuditEvents",
       "startConnectionAuthorization",
@@ -47,13 +47,13 @@ describe("operation registry", () => {
       "exchangeEndUserAuthorization",
       "createEndUserSession",
       "revokeEndUserSession",
-      "provisionApplicationSubject",
-      "createApplicationConversation",
-      "listApplicationConversations",
-      "getApplicationConversation",
-      "startApplicationExecution",
-      "getApplicationExecution",
-      "cancelApplicationExecution",
+      "provisionEnvironmentSubject",
+      "createEnvironmentConversation",
+      "listEnvironmentConversations",
+      "getEnvironmentConversation",
+      "startEnvironmentExecution",
+      "getEnvironmentExecution",
+      "cancelEnvironmentExecution",
       "createEndUserConversation",
       "listEndUserConversations",
       "getEndUserConversation",
@@ -76,7 +76,6 @@ describe("operation registry", () => {
       "getRegressionRun",
     ])
   })
-
   it("retains complete versioned operation definitions", () => {
     const registered = createOperationRegistry([
       operation("getExecution", "GET", "/v1/executions/{executionId}"),
@@ -86,13 +85,12 @@ describe("operation registry", () => {
       method: "GET",
       path: "/v1/executions/{executionId}",
       plane: "control",
-      auth: { kind: "application_key" },
+      auth: { kind: "environment_key" },
       errors: ["rate_limited"],
     })
     expect(registered[0]?.request).toBe(request)
     expect(registered[0]?.response).toBe(response)
   })
-
   it("publishes paginated list contracts", () => {
     const listMessages = operationRegistry.find(
       ({ operationId }) => operationId === "listEndUserMessages"
@@ -122,7 +120,6 @@ describe("operation registry", () => {
       }
     }
   })
-
   it("publishes the end-user Approval Request contract", () => {
     const decision = operationRegistry.find(
       ({ operationId }) => operationId === "decideEndUserApprovalRequest"
@@ -141,7 +138,6 @@ describe("operation registry", () => {
       }).success
     ).toBe(false)
   })
-
   it("publishes the resumable end-user event stream contract", () => {
     const events = operationRegistry.find(
       ({ operationId }) => operationId === "streamEndUserEvents"
@@ -161,7 +157,6 @@ describe("operation registry", () => {
       }).success
     ).toBe(true)
   })
-
   it("rejects duplicate operation IDs", () => {
     expect(() =>
       createOperationRegistry([
@@ -170,7 +165,6 @@ describe("operation registry", () => {
       ])
     ).toThrow("Duplicate operation ID: getExecution")
   })
-
   it("rejects equivalent routes with different placeholder names", () => {
     expect(() =>
       createOperationRegistry([
@@ -179,7 +173,6 @@ describe("operation registry", () => {
       ])
     ).toThrow("Duplicate operation route: GET /v1/executions/{}")
   })
-
   it("freezes registered operation metadata", () => {
     const source = operation(
       "getExecution",

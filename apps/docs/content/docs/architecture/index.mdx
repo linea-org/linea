@@ -11,16 +11,12 @@ imports.
 
 ## Product model
 
-Linea uses Workflows to define agent behavior, but a Workflow is not itself a
-customer-facing product or a single audience. An Operator owns the workspace
-and publishes Workflow versions; an Application is one deployed product and
-environment that exposes an immutable Workflow Contract to End Users. Each
-Execution selects a published implementation version when it starts.
+An Application is a customer product within a Workspace. It owns Workflow definitions and has exactly two Environments: Development and Production. Each Environment owns its credentials, identity trust, Connections, secrets, and deployments. A deployment selects an exact published Workflow version and immutable Contract revision. Executions capture that version and Environment when they start; later publication or promotion cannot rewrite an in-flight run.
 
 | Concept                       | Why it matters                                                                                         |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------ |
 | External Subject              | Linea's identity for an End User, separate from workspace members                                      |
-| Conversation                  | One independent thread for a subject in an Application and Workflow; histories do not merge by subject |
+| Conversation                  | One independent thread for a subject in an Environment and Workflow; histories do not merge by subject |
 | Approval Request and Decision | A durable pause and one immutable human or timeout response                                            |
 | Evaluator and Regression      | In-run measurement versus saved-case replay of known inputs                                            |
 | Finding, Flag, and Signal     | A judgment, an alertable issue, and a recurring pattern over time                                      |
@@ -79,7 +75,7 @@ contracts and behavior that must remain consistent across those applications.
 PostgreSQL owns durable execution, conversation, approval, and outbox state.
 Redis and BullMQ deliver jobs; a queued message alone is not the authority for
 whether work exists or has completed. Operator backends use scoped Workspace
-or Application Keys; End-User clients use proof-bound End-User Sessions. The
+or Environment Keys; End-User clients use proof-bound End-User Sessions. The
 first-party web and mobile apps authenticate workspace members. Credentials
 must not cross those planes. See [trust boundaries](../security/trust-boundaries.mdx)
 for the full model.

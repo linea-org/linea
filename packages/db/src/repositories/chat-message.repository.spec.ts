@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "./test-utils.js"
 import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import {
@@ -16,7 +17,6 @@ describe("chat-message.repository", () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
       const conversationId = randomUUID()
-
       await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -31,7 +31,6 @@ describe("chat-message.repository", () => {
         role: "assistant",
         content: "hi there",
       })
-
       const messages = await listChatMessages(
         tx,
         organization.id,
@@ -46,13 +45,11 @@ describe("chat-message.repository", () => {
       })
     })
   })
-
   it("orders assistant replies by their own turn, not by which execution's AI call finished first", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
       const conversationId = randomUUID()
       const now = Date.now()
-
       const user1 = await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -88,7 +85,6 @@ describe("chat-message.repository", () => {
         respondsToMessageId: user1.id,
         createdAt: new Date(now + 3_000),
       })
-
       const messages = await listChatMessages(
         tx,
         organization.id,
@@ -103,14 +99,12 @@ describe("chat-message.repository", () => {
       ])
     })
   })
-
   it("orders correctly even when two user turns share the exact same createdAt timestamp", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
       const conversationId = randomUUID()
       // Same timestamp for both user turns — only correct if something besides createdAt orders them.
       const tiedTimestamp = new Date()
-
       const user1 = await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -146,7 +140,6 @@ describe("chat-message.repository", () => {
         respondsToMessageId: user1.id,
         createdAt: tiedTimestamp,
       })
-
       const messages = await listChatMessages(
         tx,
         organization.id,
@@ -161,14 +154,12 @@ describe("chat-message.repository", () => {
       ])
     })
   })
-
   it("scopes by workspaceId", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
       const otherOrg = await createTestFixtures(tx)
       const conversationId = randomUUID()
       const otherConversationId = randomUUID()
-
       await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -183,7 +174,6 @@ describe("chat-message.repository", () => {
         role: "user",
         content: "different workspace",
       })
-
       const messages = await listChatMessages(
         tx,
         organization.id,
@@ -194,18 +184,17 @@ describe("chat-message.repository", () => {
       expect(messages[0].content).toBe("in scope")
     })
   })
-
   it("scopes by workflowId", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
       const otherWorkflow = await createWorkflow(tx, {
+        applicationId: await getTestApplicationId(tx, organization.id),
         workspaceId: organization.id,
         name: "Other Workflow",
         slug: `other-${randomUUID()}`,
       })
       const conversationId = randomUUID()
       const otherConversationId = randomUUID()
-
       await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -220,7 +209,6 @@ describe("chat-message.repository", () => {
         role: "user",
         content: "workflow B's turn",
       })
-
       const messages = await listChatMessages(
         tx,
         organization.id,
@@ -231,13 +219,11 @@ describe("chat-message.repository", () => {
       expect(messages[0].content).toBe("workflow A's turn")
     })
   })
-
   it("does not mix messages across different conversations in the same workflow", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
       const conversationA = randomUUID()
       const conversationB = randomUUID()
-
       await createBuilderChatMessage(tx, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -252,7 +238,6 @@ describe("chat-message.repository", () => {
         role: "user",
         content: "conversation B",
       })
-
       const messages = await listChatMessages(
         tx,
         organization.id,
@@ -263,14 +248,12 @@ describe("chat-message.repository", () => {
       expect(messages[0].content).toBe("conversation A")
     })
   })
-
   describe("listConversations", () => {
     it("groups by conversation, using the first message as preview, ordered most-recent-first", async () => {
       await withRollback(async (tx) => {
         const { organization, workflow } = await createTestFixtures(tx)
         const older = randomUUID()
         const newer = randomUUID()
-
         await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
@@ -295,7 +278,6 @@ describe("chat-message.repository", () => {
           content: "newer conversation opener",
           createdAt: new Date(),
         })
-
         const conversations = await listConversations(
           tx,
           organization.id,
@@ -314,12 +296,10 @@ describe("chat-message.repository", () => {
         })
       })
     })
-
     it("scopes by workspaceId and workflowId", async () => {
       await withRollback(async (tx) => {
         const { organization, workflow } = await createTestFixtures(tx)
         const otherOrg = await createTestFixtures(tx)
-
         await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
@@ -334,7 +314,6 @@ describe("chat-message.repository", () => {
           role: "user",
           content: "different workspace",
         })
-
         const conversations = await listConversations(
           tx,
           organization.id,
@@ -345,7 +324,6 @@ describe("chat-message.repository", () => {
       })
     })
   })
-
   describe("deleteOrphanedChatMessages", () => {
     it("deletes a user turn whose triggering execution failed and was never answered", async () => {
       await withRollback(async (tx) => {
@@ -367,13 +345,11 @@ describe("chat-message.repository", () => {
           triggerPayload: { conversationId, chatMessageId: message.id },
         })
         await failQueuedExecution(tx, execution.id, { message: "boom" })
-
         const deleted = await deleteOrphanedChatMessages(
           tx,
           new Date(Date.now() - 60_000)
         )
         expect(deleted).toBe(1)
-
         const remaining = await listChatMessages(
           tx,
           organization.id,
@@ -383,7 +359,6 @@ describe("chat-message.repository", () => {
         expect(remaining).toHaveLength(0)
       })
     })
-
     it("does not delete a user turn that already has a reply", async () => {
       await withRollback(async (tx) => {
         const { organization, workflow, version } = await createTestFixtures(tx)
@@ -412,7 +387,6 @@ describe("chat-message.repository", () => {
           content: "a reply arrived anyway",
           respondsToMessageId: message.id,
         })
-
         const deleted = await deleteOrphanedChatMessages(
           tx,
           new Date(Date.now() - 60_000)
@@ -420,7 +394,6 @@ describe("chat-message.repository", () => {
         expect(deleted).toBe(0)
       })
     })
-
     it("does not delete a user turn whose execution hasn't failed yet", async () => {
       await withRollback(async (tx) => {
         const { organization, workflow, version } = await createTestFixtures(tx)
@@ -440,7 +413,6 @@ describe("chat-message.repository", () => {
           trigger: "manual",
           triggerPayload: { conversationId, chatMessageId: message.id },
         })
-
         const deleted = await deleteOrphanedChatMessages(
           tx,
           new Date(Date.now() - 60_000)
@@ -448,7 +420,6 @@ describe("chat-message.repository", () => {
         expect(deleted).toBe(0)
       })
     })
-
     it("does not delete a turn newer than the cutoff, even if its execution already failed", async () => {
       await withRollback(async (tx) => {
         const { organization, workflow, version } = await createTestFixtures(tx)
@@ -468,7 +439,6 @@ describe("chat-message.repository", () => {
           triggerPayload: { conversationId, chatMessageId: message.id },
         })
         await failQueuedExecution(tx, execution.id, { message: "boom" })
-
         const deleted = await deleteOrphanedChatMessages(
           tx,
           new Date(Date.now() - 60_000)
@@ -476,7 +446,6 @@ describe("chat-message.repository", () => {
         expect(deleted).toBe(0)
       })
     })
-
     it("does not delete a message when a failed execution in a different workflow happens to carry the same chatMessageId", async () => {
       await withRollback(async (tx) => {
         const { organization, workflow } = await createTestFixtures(tx)
@@ -499,13 +468,11 @@ describe("chat-message.repository", () => {
           triggerPayload: { conversationId, chatMessageId: message.id },
         })
         await failQueuedExecution(tx, foreignExecution.id, { message: "boom" })
-
         const deleted = await deleteOrphanedChatMessages(
           tx,
           new Date(Date.now() - 60_000)
         )
         expect(deleted).toBe(0)
-
         const remaining = await listChatMessages(
           tx,
           organization.id,
@@ -516,12 +483,10 @@ describe("chat-message.repository", () => {
       })
     })
   })
-
   describe("getEstablishedExternalSubjectId", () => {
     it("reports not found for a conversation with no turns yet", async () => {
       await withRollback(async (tx) => {
         const { organization, workflow } = await createTestFixtures(tx)
-
         const result = await getEstablishedExternalSubjectId(
           tx,
           organization.id,
@@ -531,12 +496,10 @@ describe("chat-message.repository", () => {
         expect(result).toEqual({ found: false, externalSubjectId: null })
       })
     })
-
     it("returns the subject established by the first turn", async () => {
       await withRollback(async (tx) => {
         const { organization, workflow } = await createTestFixtures(tx)
         const conversationId = randomUUID()
-
         await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
@@ -545,7 +508,6 @@ describe("chat-message.repository", () => {
           content: "hello",
           externalSubjectId: "customer-42",
         })
-
         const result = await getEstablishedExternalSubjectId(
           tx,
           organization.id,
@@ -558,12 +520,10 @@ describe("chat-message.repository", () => {
         })
       })
     })
-
     it("reports found with a null subject for a conversation whose turns never set one", async () => {
       await withRollback(async (tx) => {
         const { organization, workflow } = await createTestFixtures(tx)
         const conversationId = randomUUID()
-
         await createBuilderChatMessage(tx, {
           workspaceId: organization.id,
           workflowId: workflow.id,
@@ -571,7 +531,6 @@ describe("chat-message.repository", () => {
           role: "user",
           content: "hello",
         })
-
         const result = await getEstablishedExternalSubjectId(
           tx,
           organization.id,

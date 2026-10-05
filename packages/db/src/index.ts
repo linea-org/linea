@@ -20,3 +20,5 @@ export {
 export * as schema from "./schema/index.js"
 export * from "./schema/index.js"
 export * as repositories from "./repositories/index.js"
+
+export type { DbClient } from "./repositories/types.js"

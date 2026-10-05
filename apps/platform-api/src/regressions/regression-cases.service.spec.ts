@@ -1,3 +1,4 @@
+import { getTestApplicationId } from '@linea/db/testing'
 import '@linea/config/env'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
@@ -18,7 +19,6 @@ async function withOrg(fn: (workspaceId: string) => Promise<void>) {
       createdAt: new Date(),
     })
     .returning()
-
   try {
     await fn(organization.id)
   } finally {
@@ -34,16 +34,17 @@ describe('RegressionCasesService', () => {
       providers: [RegressionCasesService],
     }).compile()
     const service = moduleRef.get(RegressionCasesService)
-
     try {
       await withOrg(async (workspaceId) => {
         const suffix = randomUUID()
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, workspaceId),
           workspaceId,
           name: 'Regression Cases Test Workflow',
           slug: `regression-cases-test-${suffix}`,
         })
         const otherWorkflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, workspaceId),
           workspaceId,
           name: 'Regression Cases Test Other Workflow',
           slug: `regression-cases-test-other-${suffix}`,
@@ -73,7 +74,6 @@ describe('RegressionCasesService', () => {
             input: { message: 'hello' },
           })
           .returning()
-
         // A step from another workflow in the same workspace must 404, not silently file the
         // case under the wrong workflow.
         await expect(
@@ -81,23 +81,19 @@ describe('RegressionCasesService', () => {
             stepId: step.id,
           }),
         ).rejects.toThrow()
-
         const created = await service.createFromStep(workspaceId, workflow.id, {
           stepId: step.id,
         })
         expect(created.caseType).toBe('node')
         expect(created.workflowId).toBe(workflow.id)
-
         const list = await service.list(workspaceId, workflow.id, {})
         expect(list.map((c) => c.id)).toEqual([created.id])
-
         const archived = await service.archive(
           workspaceId,
           workflow.id,
           created.id,
         )
         expect(archived.archivedAt).not.toBeNull()
-
         const listAfterArchive = await service.list(
           workspaceId,
           workflow.id,
@@ -109,22 +105,22 @@ describe('RegressionCasesService', () => {
       await moduleRef.close()
     }
   })
-
   it('creates a case from a flag, rejecting a flag with no conversation to snapshot and a flag from another workflow', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [RegressionCasesService],
     }).compile()
     const service = moduleRef.get(RegressionCasesService)
-
     try {
       await withOrg(async (workspaceId) => {
         const suffix = randomUUID()
         const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, workspaceId),
           workspaceId,
           name: 'Regression Cases Flag Test Workflow',
           slug: `regression-cases-flag-test-${suffix}`,
         })
         const otherWorkflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, workspaceId),
           workspaceId,
           name: 'Regression Cases Flag Test Other Workflow',
           slug: `regression-cases-flag-test-other-${suffix}`,
@@ -140,7 +136,6 @@ describe('RegressionCasesService', () => {
             content: 'What is your refund policy?',
           },
         )
-
         const flagWithDetail = await repositories.flag.createFlagIfNew(db, {
           workspaceId,
           workflowId: workflow.id,
@@ -159,19 +154,16 @@ describe('RegressionCasesService', () => {
           flagType: 'retry_storm',
           dedupeKey: `retry_storm:${randomUUID()}`,
         })
-
         await expect(
           service.createFromFlag(workspaceId, workflow.id, {
             flagId: flagWithoutDetail!.id,
           }),
         ).rejects.toThrow()
-
         await expect(
           service.createFromFlag(workspaceId, otherWorkflow.id, {
             flagId: flagWithDetail!.id,
           }),
         ).rejects.toThrow()
-
         const created = await service.createFromFlag(workspaceId, workflow.id, {
           flagId: flagWithDetail!.id,
         })

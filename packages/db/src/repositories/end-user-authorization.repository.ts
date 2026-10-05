@@ -1,20 +1,20 @@
 import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm"
 import {
-  applications,
+  environments,
   auditLogs,
   endUserAuthorizationRateLimits,
   endUserAuthorizationRequests,
   endUserIdentityExchanges,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
-  type Application,
+  type Environment,
   type EndUserAuthorizationRequest,
   type EndUserIdentityExchange,
 } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
-type ApplicationIdentityConfiguration = Pick<
-  Application,
+type EnvironmentIdentityConfiguration = Pick<
+  Environment,
   | "id"
   | "workspaceId"
   | "environment"
@@ -29,15 +29,15 @@ export type CreateAuthorizationRequestResult =
   | {
       outcome: "created"
       request: EndUserAuthorizationRequest
-      application: ApplicationIdentityConfiguration
+      environment: EnvironmentIdentityConfiguration
     }
-  | { outcome: "application_not_found" }
+  | { outcome: "environment_not_found" }
   | { outcome: "origin_denied" }
 
 export async function createAuthorizationRequest(
   db: DbClient,
   input: {
-    applicationId: string
+    environmentId: string
     redirectUri: string
     redirectOrigin: string
     browserOrigin: string | undefined
@@ -49,29 +49,30 @@ export async function createAuthorizationRequest(
 ): Promise<CreateAuthorizationRequestResult> {
   return db.transaction(
     async (tx): Promise<CreateAuthorizationRequestResult> => {
-      const [application] = await tx
+      const [environment] = await tx
         .select()
-        .from(applications)
+        .from(environments)
         .where(
           and(
-            eq(applications.id, input.applicationId),
-            eq(applications.enabled, true)
+            eq(environments.id, input.environmentId),
+            eq(environments.enabled, true)
           )
         )
         .for("share")
-      if (!application) return { outcome: "application_not_found" }
+      if (!environment || !environment.oidcIssuer)
+        return { outcome: "environment_not_found" }
       if (
-        !application.allowedRedirectOrigins.includes(input.redirectOrigin) ||
+        !environment.allowedRedirectOrigins.includes(input.redirectOrigin) ||
         (input.browserOrigin !== undefined &&
-          !application.allowedBrowserOrigins.includes(input.browserOrigin))
+          !environment.allowedBrowserOrigins.includes(input.browserOrigin))
       ) {
         return { outcome: "origin_denied" }
       }
       const [request] = await tx
         .insert(endUserAuthorizationRequests)
         .values({
-          workspaceId: application.workspaceId,
-          applicationId: application.id,
+          workspaceId: environment.workspaceId,
+          environmentId: environment.id,
           stateHash: input.stateHash,
           nonceHash: input.nonceHash,
           codeChallenge: input.codeChallenge,
@@ -79,7 +80,7 @@ export async function createAuthorizationRequest(
           expiresAt: input.expiresAt,
         })
         .returning()
-      return { outcome: "created", request, application }
+      return { outcome: "created", request, environment }
     }
   )
 }
@@ -88,14 +89,14 @@ export type ConsumeAuthorizationRequestResult =
   | {
       outcome: "consumed"
       request: EndUserAuthorizationRequest
-      application: ApplicationIdentityConfiguration
+      environment: EnvironmentIdentityConfiguration
     }
   | { outcome: "invalid" }
 
 export async function consumeAuthorizationRequest(
   db: DbClient,
   input: {
-    applicationId: string
+    environmentId: string
     redirectUri: string
     browserOrigin: string | undefined
     stateHash: string
@@ -108,20 +109,20 @@ export async function consumeAuthorizationRequest(
 ): Promise<ConsumeAuthorizationRequestResult> {
   return db.transaction(
     async (tx): Promise<ConsumeAuthorizationRequestResult> => {
-      const [application] = await tx
+      const [environment] = await tx
         .select()
-        .from(applications)
+        .from(environments)
         .where(
           and(
-            eq(applications.id, input.applicationId),
-            eq(applications.enabled, true)
+            eq(environments.id, input.environmentId),
+            eq(environments.enabled, true)
           )
         )
         .for("share")
-      if (!application) return { outcome: "invalid" }
+      if (!environment || !environment.oidcIssuer) return { outcome: "invalid" }
       if (
         input.browserOrigin !== undefined &&
-        !application.allowedBrowserOrigins.includes(input.browserOrigin)
+        !environment.allowedBrowserOrigins.includes(input.browserOrigin)
       ) {
         return { outcome: "invalid" }
       }
@@ -134,7 +135,7 @@ export async function consumeAuthorizationRequest(
         })
         .where(
           and(
-            eq(endUserAuthorizationRequests.applicationId, application.id),
+            eq(endUserAuthorizationRequests.environmentId, environment.id),
             eq(endUserAuthorizationRequests.stateHash, input.stateHash),
             eq(endUserAuthorizationRequests.redirectUri, input.redirectUri),
             eq(endUserAuthorizationRequests.codeChallenge, input.codeChallenge),
@@ -168,7 +169,7 @@ export async function consumeAuthorizationRequest(
         )
         .returning()
       if (!request) return { outcome: "invalid" }
-      return { outcome: "consumed", request, application }
+      return { outcome: "consumed", request, environment }
     }
   )
 }
@@ -193,7 +194,7 @@ export async function releaseAuthorizationRequestClaim(
 export type CompleteAuthorizationRequestResult =
   | {
       outcome: "completed"
-      applicationId: string
+      environmentId: string
       externalSubjectId: string
       exchange: EndUserIdentityExchange
     }
@@ -228,23 +229,23 @@ export async function completeAuthorizationRequest(
       ) {
         return { outcome: "invalid" }
       }
-      const [application] = await tx
+      const [environment] = await tx
         .select()
-        .from(applications)
+        .from(environments)
         .where(
           and(
-            eq(applications.id, request.applicationId),
-            eq(applications.workspaceId, request.workspaceId),
-            eq(applications.enabled, true)
+            eq(environments.id, request.environmentId),
+            eq(environments.workspaceId, request.workspaceId),
+            eq(environments.enabled, true)
           )
         )
         .for("share")
-      if (!application) return { outcome: "invalid" }
+      if (!environment || !environment.oidcIssuer) return { outcome: "invalid" }
       const [created] = await tx
         .insert(externalSubjects)
         .values({
-          workspaceId: application.workspaceId,
-          issuer: application.oidcIssuer,
+          workspaceId: environment.workspaceId,
+          issuer: environment.oidcIssuer,
           issuerSubject: input.issuerSubject,
           status: "verified",
           verifiedAt: input.now,
@@ -265,8 +266,8 @@ export async function completeAuthorizationRequest(
             .from(externalSubjects)
             .where(
               and(
-                eq(externalSubjects.workspaceId, application.workspaceId),
-                eq(externalSubjects.issuer, application.oidcIssuer),
+                eq(externalSubjects.workspaceId, environment.workspaceId),
+                eq(externalSubjects.issuer, environment.oidcIssuer),
                 eq(externalSubjects.issuerSubject, input.issuerSubject)
               )
             )
@@ -287,10 +288,10 @@ export async function completeAuthorizationRequest(
           .where(eq(externalSubjects.id, subject.id))
       }
       await tx
-        .insert(externalSubjectApplications)
+        .insert(externalSubjectEnvironments)
         .values({
-          workspaceId: application.workspaceId,
-          applicationId: application.id,
+          workspaceId: environment.workspaceId,
+          environmentId: environment.id,
           externalSubjectId: subject.id,
           metadata: {},
         })
@@ -298,8 +299,8 @@ export async function completeAuthorizationRequest(
       const [exchange] = await tx
         .insert(endUserIdentityExchanges)
         .values({
-          workspaceId: application.workspaceId,
-          applicationId: application.id,
+          workspaceId: environment.workspaceId,
+          environmentId: environment.id,
           externalSubjectId: subject.id,
           tokenHash: input.exchangeTokenHash,
           dpopNonceHash: input.dpopNonceHash,
@@ -315,16 +316,16 @@ export async function completeAuthorizationRequest(
         .where(eq(endUserAuthorizationRequests.id, request.id))
       if (created || subject.status === "provisioned") {
         await tx.insert(auditLogs).values({
-          workspaceId: application.workspaceId,
+          workspaceId: environment.workspaceId,
           action: "external_subject.verified",
           resource: "external_subject",
           resourceId: subject.auditReference,
-          metadata: { applicationId: application.id },
+          metadata: { environmentId: environment.id },
         })
       }
       return {
         outcome: "completed",
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subject.id,
         exchange,
       }
@@ -346,10 +347,10 @@ export async function consumeIdentityExchange(
         isNull(endUserIdentityExchanges.consumedAt),
         gt(endUserIdentityExchanges.expiresAt, now),
         sql`EXISTS (
-          SELECT 1 FROM ${applications}
-          WHERE ${applications.id} = ${endUserIdentityExchanges.applicationId}
-            AND ${applications.workspaceId} = ${endUserIdentityExchanges.workspaceId}
-            AND ${applications.enabled} = true
+          SELECT 1 FROM ${environments}
+          WHERE ${environments.id} = ${endUserIdentityExchanges.environmentId}
+            AND ${environments.workspaceId} = ${endUserIdentityExchanges.workspaceId}
+            AND ${environments.enabled} = true
         )`,
         sql`EXISTS (
           SELECT 1 FROM ${externalSubjects}

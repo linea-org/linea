@@ -61,8 +61,8 @@ export class EndUserSessionService {
       this.throwIdentityExchangeFailed()
     }
     await this.enforceRateLimit(
-      'application',
-      result.exchange.applicationId,
+      'environment',
+      result.exchange.environmentId,
       now,
     )
     let verified: Awaited<ReturnType<typeof verifyDpopProof>>
@@ -87,7 +87,7 @@ export class EndUserSessionService {
       exchangeId: result.exchange.id,
       exchangeTokenHash: tokenHash,
       workspaceId: result.exchange.workspaceId,
-      applicationId: result.exchange.applicationId,
+      environmentId: result.exchange.environmentId,
       externalSubjectId: result.exchange.externalSubjectId,
       tokenHash: hash(accessToken),
       proofJkt: verified.jkt,
@@ -113,7 +113,7 @@ export class EndUserSessionService {
   }
 
   private async enforceRateLimit(
-    dimension: 'ip' | 'application',
+    dimension: 'ip' | 'environment',
     value: string,
     now: Date,
   ): Promise<void> {

@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -36,7 +37,6 @@ describe("RunsService failure accounting", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -46,6 +46,7 @@ describe("RunsService failure accounting", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Fail Test Workflow",
         slug: `runs-fail-workflow-${suffix}`,
@@ -62,7 +63,6 @@ describe("RunsService failure accounting", () => {
         trigger: "manual",
         triggerPayload: {},
       })
-
       // A prior abandoned attempt already checkpointed real token usage.
       const checkpoints = new CheckpointsService()
       await repositories.execution.startExecution(
@@ -91,22 +91,18 @@ describe("RunsService failure accounting", () => {
         "UPDATE executions SET lease_expires_at = $1 WHERE id = $2",
         [new Date(Date.now() - 1_000), execution.id]
       )
-
       // The resuming interpreter fails outright before returning any outcome.
       const poisonInterpreter = {
         run: () => Promise.reject(new Error("simulated failure after resume")),
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         checkpoints,
         poisonInterpreter,
         new RunLeaseService()
       )
-
       await expect(runs.execute(execution.id)).rejects.toThrow(
         "simulated failure after resume"
       )
-
       const [finalExecution] = await repositories.execution.listExecutions(
         db,
         workflow.id,
@@ -121,7 +117,6 @@ describe("RunsService failure accounting", () => {
       ])
     }
   })
-
   it("notifies every workspace member when a run fails outright", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -139,7 +134,6 @@ describe("RunsService failure accounting", () => {
         email: `notify-member-${suffix}@test.dev`,
       })
       .returning()
-
     try {
       await db.insert(schema.members).values({
         organizationId: organization.id,
@@ -147,7 +141,6 @@ describe("RunsService failure accounting", () => {
         role: "member",
         createdAt: new Date(),
       })
-
       const graph: WorkflowGraph = {
         version: 1,
         trigger: { type: "manual" },
@@ -156,6 +149,7 @@ describe("RunsService failure accounting", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Notify Test Workflow",
         slug: `runs-notify-workflow-${suffix}`,
@@ -172,22 +166,18 @@ describe("RunsService failure accounting", () => {
         trigger: "manual",
         triggerPayload: {},
       })
-
       const poisonInterpreter = {
         run: () =>
           Promise.reject(new Error("simulated failure for notification test")),
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         new CheckpointsService(),
         poisonInterpreter,
         new RunLeaseService()
       )
-
       await expect(runs.execute(execution.id)).rejects.toThrow(
         "simulated failure for notification test"
       )
-
       const notifications = await repositories.notification.listNotifications(
         db,
         member.id,
@@ -210,7 +200,6 @@ describe("RunsService failure accounting", () => {
       await pool.query("DELETE FROM users WHERE id = $1", [member.id])
     }
   })
-
   it("reflects a step checkpointed during a run that then throws, not the stale pre-run state", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -221,7 +210,6 @@ describe("RunsService failure accounting", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -231,6 +219,7 @@ describe("RunsService failure accounting", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Mid-Run Fail Test Workflow",
         slug: `runs-mid-run-fail-workflow-${suffix}`,
@@ -247,9 +236,7 @@ describe("RunsService failure accounting", () => {
         trigger: "manual",
         triggerPayload: {},
       })
-
       const checkpoints = new CheckpointsService()
-
       // No prior checkpoints exist yet — the pre-run known* state starts at false/0, same as any fresh execution.
       // interpreter.run() checkpoints an unpriced AI step for real (as it would mid-run), then throws before
       // ever returning an outcome — simulating a crash right after that checkpoint lands.
@@ -283,17 +270,14 @@ describe("RunsService failure accounting", () => {
           throw new Error("simulated crash right after checkpointing")
         },
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         checkpoints,
         midRunFailInterpreter,
         new RunLeaseService()
       )
-
       await expect(runs.execute(execution.id)).rejects.toThrow(
         "simulated crash right after checkpointing"
       )
-
       const [finalExecution] = await repositories.execution.listExecutions(
         db,
         workflow.id,
@@ -308,7 +292,6 @@ describe("RunsService failure accounting", () => {
       ])
     }
   })
-
   it("preserves previously checkpointed token usage when graph parsing fails before the interpreter ever runs", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -319,9 +302,9 @@ describe("RunsService failure accounting", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Early Fail Test Workflow",
         slug: `runs-early-fail-workflow-${suffix}`,
@@ -340,7 +323,6 @@ describe("RunsService failure accounting", () => {
         trigger: "manual",
         triggerPayload: {},
       })
-
       const checkpoints = new CheckpointsService()
       await repositories.execution.startExecution(
         db,
@@ -368,7 +350,6 @@ describe("RunsService failure accounting", () => {
         "UPDATE executions SET lease_expires_at = $1 WHERE id = $2",
         [new Date(Date.now() - 1_000), execution.id]
       )
-
       const unreachableInterpreter = {
         run: () => {
           throw new Error(
@@ -376,15 +357,12 @@ describe("RunsService failure accounting", () => {
           )
         },
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         checkpoints,
         unreachableInterpreter,
         new RunLeaseService()
       )
-
       await expect(runs.execute(execution.id)).rejects.toThrow()
-
       const [finalExecution] = await repositories.execution.listExecutions(
         db,
         workflow.id,
@@ -412,7 +390,6 @@ describe("RunsService chat-preview message persistence", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -422,6 +399,7 @@ describe("RunsService chat-preview message persistence", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Chat Test Workflow",
         slug: `runs-chat-workflow-${suffix}`,
@@ -439,7 +417,6 @@ describe("RunsService chat-preview message persistence", () => {
         trigger: "manual",
         triggerPayload: { conversationId },
       })
-
       const fastInterpreter = {
         run: () =>
           Promise.resolve({
@@ -451,14 +428,12 @@ describe("RunsService chat-preview message persistence", () => {
             completed: new Map([["n1", { text: "the assistant's reply" }]]),
           }),
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         new CheckpointsService(),
         fastInterpreter,
         new RunLeaseService()
       )
       await runs.execute(execution.id)
-
       const messages = await repositories.chatMessage.listChatMessages(
         db,
         organization.id,
@@ -472,7 +447,6 @@ describe("RunsService chat-preview message persistence", () => {
       ])
     }
   })
-
   it("does not persist a reply when chatMessageId points to a real user message from a different conversation", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -483,7 +457,6 @@ describe("RunsService chat-preview message persistence", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -493,6 +466,7 @@ describe("RunsService chat-preview message persistence", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Chat Forged Test Workflow",
         slug: `runs-chat-forged-workflow-${suffix}`,
@@ -520,7 +494,6 @@ describe("RunsService chat-preview message persistence", () => {
         trigger: "manual",
         triggerPayload: { conversationId, chatMessageId: foreignMessage.id },
       })
-
       const fastInterpreter = {
         run: () =>
           Promise.resolve({
@@ -532,14 +505,12 @@ describe("RunsService chat-preview message persistence", () => {
             completed: new Map([["n1", { text: "should not be persisted" }]]),
           }),
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         new CheckpointsService(),
         fastInterpreter,
         new RunLeaseService()
       )
       await runs.execute(execution.id)
-
       const messages = await repositories.chatMessage.listChatMessages(
         db,
         organization.id,
@@ -553,7 +524,6 @@ describe("RunsService chat-preview message persistence", () => {
       ])
     }
   })
-
   it("links the persisted assistant reply to its own triggering user message via respondsToMessageId", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -564,7 +534,6 @@ describe("RunsService chat-preview message persistence", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -574,6 +543,7 @@ describe("RunsService chat-preview message persistence", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Chat Order Test Workflow",
         slug: `runs-chat-order-workflow-${suffix}`,
@@ -599,7 +569,6 @@ describe("RunsService chat-preview message persistence", () => {
         trigger: "manual",
         triggerPayload: { conversationId, chatMessageId: userMessage.id },
       })
-
       const fastInterpreter = {
         run: () =>
           Promise.resolve({
@@ -611,14 +580,12 @@ describe("RunsService chat-preview message persistence", () => {
             completed: new Map([["n1", { text: "the reply" }]]),
           }),
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         new CheckpointsService(),
         fastInterpreter,
         new RunLeaseService()
       )
       await runs.execute(execution.id)
-
       const messages = await repositories.chatMessage.listChatMessages(
         db,
         organization.id,
@@ -633,7 +600,6 @@ describe("RunsService chat-preview message persistence", () => {
       ])
     }
   })
-
   it("does not mistake a later non-ai node's coincidental text field for the assistant's reply", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -644,7 +610,6 @@ describe("RunsService chat-preview message persistence", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -657,6 +622,7 @@ describe("RunsService chat-preview message persistence", () => {
         edges: [{ from: "n1", to: "n2" }],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Chat Non-AI Text Test Workflow",
         slug: `runs-chat-non-ai-text-workflow-${suffix}`,
@@ -682,7 +648,6 @@ describe("RunsService chat-preview message persistence", () => {
         trigger: "manual",
         triggerPayload: { conversationId, chatMessageId: userMessage.id },
       })
-
       const fastInterpreter = {
         run: () =>
           Promise.resolve({
@@ -698,14 +663,12 @@ describe("RunsService chat-preview message persistence", () => {
             ]),
           }),
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         new CheckpointsService(),
         fastInterpreter,
         new RunLeaseService()
       )
       await runs.execute(execution.id)
-
       const messages = await repositories.chatMessage.listChatMessages(
         db,
         organization.id,
@@ -720,7 +683,6 @@ describe("RunsService chat-preview message persistence", () => {
       ])
     }
   })
-
   it("persists nothing when triggerPayload has no conversationId", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -731,7 +693,6 @@ describe("RunsService chat-preview message persistence", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -741,6 +702,7 @@ describe("RunsService chat-preview message persistence", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Non-Chat Test Workflow",
         slug: `runs-non-chat-workflow-${suffix}`,
@@ -757,7 +719,6 @@ describe("RunsService chat-preview message persistence", () => {
         trigger: "manual",
         triggerPayload: {},
       })
-
       const fastInterpreter = {
         run: () =>
           Promise.resolve({
@@ -769,14 +730,12 @@ describe("RunsService chat-preview message persistence", () => {
             completed: new Map([["n1", { text: "should not be persisted" }]]),
           }),
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         new CheckpointsService(),
         fastInterpreter,
         new RunLeaseService()
       )
       await runs.execute(execution.id)
-
       const { rows } = await pool.query(
         "SELECT id FROM chat_messages WHERE workspace_id = $1",
         [organization.id]
@@ -801,7 +760,6 @@ describe("RunsService fencing identity", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -811,6 +769,7 @@ describe("RunsService fencing identity", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Identity Test Workflow",
         slug: `runs-identity-workflow-${suffix}`,
@@ -834,7 +793,6 @@ describe("RunsService fencing identity", () => {
         trigger: "manual",
         triggerPayload: {},
       })
-
       const fastInterpreter = {
         run: () =>
           Promise.resolve({
@@ -843,7 +801,6 @@ describe("RunsService fencing identity", () => {
             totalTokensOutput: 0,
           }),
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         new CheckpointsService(),
         fastInterpreter,
@@ -851,7 +808,6 @@ describe("RunsService fencing identity", () => {
       )
       await runs.execute(executionA.id)
       await runs.execute(executionB.id)
-
       const ownerA = await repositories.execution.getLeaseOwner(
         db,
         executionA.id
@@ -867,7 +823,6 @@ describe("RunsService fencing identity", () => {
       ])
     }
   })
-
   it("loops back and continues immediately instead of pausing when the approval resolves before the pause is recorded", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -885,7 +840,6 @@ describe("RunsService fencing identity", () => {
         email: `anyone-${suffix}@test.dev`,
       })
       .returning()
-
     try {
       await db.insert(schema.members).values({
         organizationId: organization.id,
@@ -893,7 +847,6 @@ describe("RunsService fencing identity", () => {
         role: "member",
         createdAt: new Date(),
       })
-
       const graph: WorkflowGraph = {
         version: 1,
         trigger: { type: "manual" },
@@ -902,6 +855,7 @@ describe("RunsService fencing identity", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Approval Race Test Workflow",
         slug: `runs-approval-race-workflow-${suffix}`,
@@ -918,7 +872,6 @@ describe("RunsService fencing identity", () => {
         trigger: "manual",
         triggerPayload: {},
       })
-
       // Simulates a response racing ahead of the pause: the approval is already resolved before RunsService's own pausedAt handling runs.
       const approval = await repositories.approvalRequest.createApprovalRequest(
         db,
@@ -941,7 +894,6 @@ describe("RunsService fencing identity", () => {
           actorEmail: approver.email,
         }
       )
-
       let callCount = 0
       const racyInterpreter = {
         run: () => {
@@ -965,17 +917,14 @@ describe("RunsService fencing identity", () => {
           })
         },
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         new CheckpointsService(),
         racyInterpreter,
         new RunLeaseService()
       )
       await runs.execute(execution.id)
-
       // Proves the loop actually re-ran the interpreter instead of pausing on the first pausedAt result.
       expect(callCount).toBe(2)
-
       const reloaded = await repositories.execution.getExecutionById(
         db,
         execution.id
@@ -988,7 +937,6 @@ describe("RunsService fencing identity", () => {
       await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
     }
   })
-
   it("throws instead of falsely reporting paused when the lease is lost before the pause is recorded", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -999,7 +947,6 @@ describe("RunsService fencing identity", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -1009,6 +956,7 @@ describe("RunsService fencing identity", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Approval Lease Loss Test Workflow",
         slug: `runs-approval-lease-loss-workflow-${suffix}`,
@@ -1033,7 +981,6 @@ describe("RunsService fencing identity", () => {
         audience: "workspace",
         display: { title: "Continue?" },
       })
-
       const leaseStealingInterpreter = {
         run: async () => {
           // Simulates the lease being reclaimed in the gap between the pause and claimPauseForPendingApproval running, so its guarded UPDATE can't match.
@@ -1050,16 +997,13 @@ describe("RunsService fencing identity", () => {
           }
         },
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         new CheckpointsService(),
         leaseStealingInterpreter,
         new RunLeaseService()
       )
-
       // Must surface as a real failure — a silent success would leave the row running under someone else's lease with a pending approval and nothing left to resume it.
       await expect(runs.execute(execution.id)).rejects.toThrow(/lease/i)
-
       const reloaded = await repositories.execution.getExecutionById(
         db,
         execution.id
@@ -1073,7 +1017,6 @@ describe("RunsService fencing identity", () => {
       ])
     }
   })
-
   it("loops back and continues immediately instead of pausing when the wait timer fires before the pause is recorded", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -1084,7 +1027,6 @@ describe("RunsService fencing identity", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -1094,6 +1036,7 @@ describe("RunsService fencing identity", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Wait Race Test Workflow",
         slug: `runs-wait-race-workflow-${suffix}`,
@@ -1110,7 +1053,6 @@ describe("RunsService fencing identity", () => {
         trigger: "manual",
         triggerPayload: {},
       })
-
       // Simulates the poller firing the timer ahead of the pause: the timer is already fired before RunsService's own pausedAt handling runs.
       await repositories.waitTimer.createWaitTimer(db, {
         workspaceId: organization.id,
@@ -1119,7 +1061,6 @@ describe("RunsService fencing identity", () => {
         resumeAt: new Date(Date.now() - 60_000),
       })
       await drainDueWaitTimers()
-
       let callCount = 0
       const racyInterpreter = {
         run: () => {
@@ -1143,17 +1084,14 @@ describe("RunsService fencing identity", () => {
           })
         },
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         new CheckpointsService(),
         racyInterpreter,
         new RunLeaseService()
       )
       await runs.execute(execution.id)
-
       // Proves the loop actually re-ran the interpreter instead of pausing on the first pausedAt result.
       expect(callCount).toBe(2)
-
       const reloaded = await repositories.execution.getExecutionById(
         db,
         execution.id
@@ -1165,7 +1103,6 @@ describe("RunsService fencing identity", () => {
       ])
     }
   })
-
   it("throws instead of falsely reporting paused when the lease is lost before a wait pause is recorded", async () => {
     const suffix = randomUUID()
     const [organization] = await db
@@ -1176,7 +1113,6 @@ describe("RunsService fencing identity", () => {
         createdAt: new Date(),
       })
       .returning()
-
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -1186,6 +1122,7 @@ describe("RunsService fencing identity", () => {
         edges: [],
       }
       const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
         workspaceId: organization.id,
         name: "Runs Service Wait Lease Loss Test Workflow",
         slug: `runs-wait-lease-loss-workflow-${suffix}`,
@@ -1208,7 +1145,6 @@ describe("RunsService fencing identity", () => {
         nodeId: "wait-1",
         resumeAt: new Date(Date.now() + 60_000),
       })
-
       const leaseStealingInterpreter = {
         run: async () => {
           // Simulates the lease being reclaimed in the gap between the pause and claimPauseForPendingWait running, so its guarded UPDATE can't match.
@@ -1225,16 +1161,13 @@ describe("RunsService fencing identity", () => {
           }
         },
       } as unknown as InterpreterService
-
       const runs = new RunsService(
         new CheckpointsService(),
         leaseStealingInterpreter,
         new RunLeaseService()
       )
-
       // Must surface as a real failure — a silent success would leave the row running under someone else's lease with a pending wait timer and nothing left to resume it.
       await expect(runs.execute(execution.id)).rejects.toThrow(/lease/i)
-
       const reloaded = await repositories.execution.getExecutionById(
         db,
         execution.id

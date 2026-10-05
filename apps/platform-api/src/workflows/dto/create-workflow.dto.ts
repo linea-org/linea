@@ -10,6 +10,7 @@ export const slugSchema = z
   )
 
 export const createWorkflowSchema = z.object({
+  applicationId: z.uuid(),
   name: z.string().min(1).max(200),
   slug: slugSchema,
   description: z.string().max(2000).optional(),

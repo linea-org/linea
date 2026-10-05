@@ -62,9 +62,7 @@ export async function claimAndFireDueSchedule(
       .where(and(eq(schedules.enabled, true), lte(schedules.nextRunAt, now)))
       .for("update", { skipLocked: true })
       .limit(1)
-
     if (!schedule) return { outcome: "empty" }
-
     const nextRunAt = computeNextRunAt(
       schedule.cronExpression,
       schedule.timezone,
@@ -75,18 +73,17 @@ export async function claimAndFireDueSchedule(
       .set({ nextRunAt, lastRunAt: now })
       .where(eq(schedules.id, schedule.id))
       .returning()
-
     const result = await triggerWorkflowExecution(
       tx,
       schedule.workspaceId,
       { by: "id", value: schedule.workflowId },
       {
         trigger: "schedule",
+        environmentId: schedule.environmentId,
         triggerPayload: schedule.triggerPayload ?? undefined,
         externalSubjectId: schedule.externalSubjectId ?? undefined,
       }
     )
-
     if (result.outcome !== "created") {
       return { outcome: "skipped", schedule: advanced, reason: result.outcome }
     }

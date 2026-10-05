@@ -1,3 +1,6 @@
+import { fixtureIssuer } from "@linea/db/testing"
+import { configureTestEnvironment } from "@linea/db/testing"
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import {
@@ -51,8 +54,8 @@ type Provider = {
 
 type Fixture = {
   workspaceId: string
-  applicationId: string
-  applicationKeyId: string
+  environmentId: string
+  environmentKeyId: string
   externalSubjectId: string
   endUserSessionId: string
   connectionId: string
@@ -241,53 +244,51 @@ async function createFixture(
       createdAt: new Date(),
     })
     .returning()
-  const [application] = await db
-    .insert(schema.applications)
-    .values({
-      workspaceId: workspace.id,
-      environment: "dev",
-      displayName: "Connector side effect application",
-      allowedBrowserOrigins: ["http://127.0.0.1:4173"],
-      allowedRedirectOrigins: ["http://127.0.0.1:4173"],
-      oidcIssuer: "https://identity.example.com",
-      oidcClientId: `connector-side-effect-${suffix}`,
-      oidcAudience: `connector-side-effect-${suffix}`,
-      oidcJwksUrl: "https://identity.example.com/jwks",
-      connectorAccessPolicy: {
-        providers: [
-          {
-            provider: "test",
-            actionFamilies: ["test"],
-            maxScopes: ["write:resources"],
-          },
-        ],
-      },
-    })
-    .returning()
+  const environment = await configureTestEnvironment(db, {
+    applicationId: await getTestApplicationId(db, workspace.id),
+    workspaceId: workspace.id,
+    environment: "dev",
+    displayName: "Connector side effect environment",
+    allowedBrowserOrigins: ["http://127.0.0.1:4173"],
+    allowedRedirectOrigins: ["http://127.0.0.1:4173"],
+    oidcIssuer: "https://identity.example.com",
+    oidcClientId: `connector-side-effect-${suffix}`,
+    oidcAudience: `connector-side-effect-${suffix}`,
+    oidcJwksUrl: "https://identity.example.com/jwks",
+    connectorAccessPolicy: {
+      providers: [
+        {
+          provider: "test",
+          actionFamilies: ["test"],
+          maxScopes: ["write:resources"],
+        },
+      ],
+    },
+  })
   const [subject] = await db
     .insert(schema.externalSubjects)
     .values({
       workspaceId: workspace.id,
-      issuer: application.oidcIssuer,
+      issuer: fixtureIssuer(environment),
       issuerSubject: `connector-subject-${suffix}`,
       status: "verified",
       verifiedAt: new Date(),
     })
     .returning()
-  const [applicationKey] = await db
-    .insert(schema.applicationKeys)
+  const [environmentKey] = await db
+    .insert(schema.environmentKeys)
     .values({
       workspaceId: workspace.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       name: "Connector race test",
       scopes: ["executions:cancel"],
       hashedKey: `hashed-${suffix}`,
       keyPrefix: `prefix-${suffix}`,
     })
     .returning()
-  await db.insert(schema.externalSubjectApplications).values({
+  await db.insert(schema.externalSubjectEnvironments).values({
     workspaceId: workspace.id,
-    applicationId: application.id,
+    environmentId: environment.id,
     externalSubjectId: subject.id,
   })
   const connectionId = randomUUID()
@@ -295,7 +296,7 @@ async function createFixture(
   await db.insert(schema.connections).values({
     id: connectionId,
     workspaceId: workspace.id,
-    applicationId: application.id,
+    environmentId: environment.id,
     externalSubjectId: subject.id,
     provider: "test",
     providerAccountId: "provider-account-one",
@@ -310,7 +311,7 @@ async function createFixture(
       }),
       {
         workspaceId: workspace.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subject.id,
         recordId: connectionId,
         provider: "test",
@@ -321,7 +322,7 @@ async function createFixture(
     .insert(schema.endUserSessions)
     .values({
       workspaceId: workspace.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       externalSubjectId: subject.id,
       tokenHash: `token-${suffix}`,
       proofJkt: `proof-${suffix}`,
@@ -330,6 +331,7 @@ async function createFixture(
     })
     .returning()
   const workflow = await repositories.workflow.createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, workspace.id),
     workspaceId: workspace.id,
     name: "Connector side effect workflow",
     slug: `connector-side-effect-${suffix}`,
@@ -341,7 +343,7 @@ async function createFixture(
   })
   const execution = await repositories.execution.createExecution(db, {
     workspaceId: workspace.id,
-    applicationId: application.id,
+    environmentId: environment.id,
     workflowId: workflow.id,
     workflowVersionId: version.id,
     externalSubjectRecordId: subject.id,
@@ -369,8 +371,8 @@ async function createFixture(
   }
   return {
     workspaceId: workspace.id,
-    applicationId: application.id,
-    applicationKeyId: applicationKey.id,
+    environmentId: environment.id,
+    environmentKeyId: environmentKey.id,
     externalSubjectId: subject.id,
     endUserSessionId: session.id,
     connectionId,
@@ -442,7 +444,7 @@ async function decide(
   const result =
     await repositories.approvalRequest.decideExternalApprovalRequest(db, {
       workspaceId: fixture.workspaceId,
-      applicationId: fixture.applicationId,
+      environmentId: fixture.environmentId,
       externalSubjectId: fixture.externalSubjectId,
       endUserSessionId: fixture.endUserSessionId,
       approvalRequestId: view.approvalRequest.id,
@@ -460,7 +462,7 @@ async function revoke(fixture: Fixture) {
     db,
     {
       workspaceId: fixture.workspaceId,
-      applicationId: fixture.applicationId,
+      environmentId: fixture.environmentId,
       externalSubjectId: fixture.externalSubjectId,
     },
     fixture.connectionId
@@ -471,7 +473,7 @@ async function revoke(fixture: Fixture) {
     db,
     {
       workspaceId: fixture.workspaceId,
-      applicationId: fixture.applicationId,
+      environmentId: fixture.environmentId,
       externalSubjectId: fixture.externalSubjectId,
     },
     fixture.connectionId,
@@ -480,7 +482,7 @@ async function revoke(fixture: Fixture) {
       deliveryId,
       revocationCredentialEncrypted: encryptCredential("revocation", {
         workspaceId: fixture.workspaceId,
-        applicationId: fixture.applicationId,
+        environmentId: fixture.environmentId,
         externalSubjectId: fixture.externalSubjectId,
         recordId: deliveryId,
         provider: "test:revocation",
@@ -496,10 +498,10 @@ function cancelExecution(fixture: Fixture) {
   return repositories.publicRuntime.cancelPublicExecution(
     db,
     fixture.workspaceId,
-    fixture.applicationId,
+    fixture.environmentId,
     fixture.executionId,
     {
-      actor: { kind: "application_key", id: fixture.applicationKeyId },
+      actor: { kind: "environment_key", id: fixture.environmentKeyId },
       key: randomUUID(),
       requestHash: repositories.publicIdempotency.hashPublicRequest({
         executionId: fixture.executionId,
@@ -512,12 +514,15 @@ async function removeWorkspace(workspaceId: string): Promise<void> {
   await pool.query("DELETE FROM approval_requests WHERE workspace_id = $1", [
     workspaceId,
   ])
+  await pool.query(
+    "DELETE FROM connector_audit_facts WHERE workspace_id = $1",
+    [workspaceId]
+  )
   await pool.query("DELETE FROM organizations WHERE id = $1", [workspaceId])
 }
 
 describe("exact Action Intent consent", () => {
   let provider: Provider
-
   beforeAll(async () => {
     process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY = "connector-test-v1"
     process.env.CONNECTION_CREDENTIAL_KEYS = JSON.stringify({
@@ -526,12 +531,10 @@ describe("exact Action Intent consent", () => {
     provider = await startProvider()
     process.env.DETERMINISTIC_CONNECTOR_BASE_URL = provider.baseUrl
   })
-
   afterEach(() => {
     provider.requests.length = 0
     provider.effects.clear()
   })
-
   afterAll(async () => {
     await new Promise<void>((resolve, reject) => {
       provider.server.close((error) => (error ? reject(error) : resolve()))
@@ -541,7 +544,6 @@ describe("exact Action Intent consent", () => {
     delete process.env.CONNECTION_CREDENTIAL_KEYS
     delete process.env.DETERMINISTIC_CONNECTOR_BASE_URL
   })
-
   it("creates one redacted exact intent and executes its stored normalized parameters after approval", async () => {
     const fixture = await createFixture()
     try {
@@ -620,7 +622,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it("pauses an Execution for consent and resumes it through the stored intent", async () => {
     const fixture = await createFixture("worker-boundary", false)
     const worker = runs()
@@ -679,7 +680,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it("returns the original intent for an exact duplicate and rejects conflicting content", async () => {
     const fixture = await createFixture()
     try {
@@ -701,7 +701,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it.each([
     ["reauthorization_required", "connection_reauthorization_required"],
     ["scope_insufficient", "connection_scope_insufficient"],
@@ -780,11 +779,11 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-  it("does not classify an Application policy denial as missing Connection scopes", async () => {
+  it("does not classify an Environment policy denial as missing Connection scopes", async () => {
     const fixture = await createFixture()
     try {
       await pool.query(
-        "UPDATE applications SET connector_access_policy = $1 WHERE id = $2",
+        "UPDATE environments SET connector_access_policy = $1 WHERE id = $2",
         [
           JSON.stringify({
             providers: [
@@ -795,7 +794,7 @@ describe("exact Action Intent consent", () => {
               },
             ],
           }),
-          fixture.applicationId,
+          fixture.environmentId,
         ]
       )
       await expect(invoke(fixture)).rejects.toMatchObject({
@@ -828,7 +827,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it("cancels the intent without dispatch when Decision races Connection revocation", async () => {
     const fixture = await createFixture()
     try {
@@ -854,7 +852,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it("cancels the intent without dispatch when Decision races subject disablement", async () => {
     const fixture = await createFixture()
     const [actor] = await db
@@ -893,7 +890,6 @@ describe("exact Action Intent consent", () => {
       await pool.query("DELETE FROM users WHERE id = $1", [actor.id])
     }
   })
-
   it("atomically chooses execution or cancellation after an approving Decision", async () => {
     const fixture = await createFixture()
     try {
@@ -926,7 +922,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it("resolves concurrent conflicting invocation content to one intent and one conflict", async () => {
     const fixture = await createFixture()
     try {
@@ -947,7 +942,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it("rejects mutation of every persisted consent snapshot", async () => {
     const fixture = await createFixture()
     try {
@@ -970,7 +964,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it("re-verifies the stored digest before provider execution", async () => {
     const fixture = await createFixture()
     try {
@@ -1001,7 +994,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it("reconciles a lost provider response with one side effect", async () => {
     const fixture = await createFixture("response-lost")
     try {
@@ -1019,7 +1011,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it("recovers a committed dispatch after worker failure without duplicating the provider effect", async () => {
     const fixture = await createFixture("response-lost")
     try {
@@ -1098,7 +1089,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it("revalidates authority before recovering an executing intent", async () => {
     const fixture = await createFixture()
     const [actor] = await db
@@ -1155,7 +1145,6 @@ describe("exact Action Intent consent", () => {
       await pool.query("DELETE FROM users WHERE id = $1", [actor.id])
     }
   })
-
   it("fences a terminal write after lease expiry and recovers idempotently", async () => {
     const fixture = await createFixture("lease-expired")
     let expireLease = true
@@ -1225,7 +1214,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it("does not retry a possibly sent request without a provider idempotency guarantee", async () => {
     const fixture = await createFixture("outcome-unknown")
     const unsafeOperation: ConnectorSideEffectOperation = Object.freeze({
@@ -1260,7 +1248,6 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-
   it.each([
     ["stale", "precondition_failed", "stale"],
     ["provider-failure", "provider_failed", "failed"],
@@ -1302,7 +1289,6 @@ describe("exact Action Intent consent", () => {
       }
     }
   )
-
   it("does not construct an intent for an unregistered operation", async () => {
     const fixture = await createFixture()
     try {

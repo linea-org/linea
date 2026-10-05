@@ -1,7 +1,7 @@
 import { and, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm"
 import {
   actionIntents,
-  applications,
+  environments,
   approvalDecisions,
   approvalRequests,
   connections,
@@ -85,7 +85,7 @@ function findInvokedActionIntent(
 
 type ConnectionAuthorityInput = {
   workspaceId: string
-  applicationId: string
+  environmentId: string
   externalSubjectId: string
   provider: string
   actionFamily: string
@@ -94,19 +94,19 @@ type ConnectionAuthorityInput = {
 
 function connectionAuthorityBoundary(
   connection: Connection | undefined,
-  application: typeof applications.$inferSelect | undefined,
+  environment: typeof environments.$inferSelect | undefined,
   input: ConnectionAuthorityInput
 ):
   | "authorized"
   | "invalid"
   | "reauthorization_required"
   | "scope_insufficient" {
-  const providerPolicy = application?.connectorAccessPolicy.providers.find(
+  const providerPolicy = environment?.connectorAccessPolicy.providers.find(
     (candidate) => candidate.provider === input.provider
   )
   const connectionOwned = Boolean(
     connection?.workspaceId === input.workspaceId &&
-    connection.applicationId === input.applicationId &&
+    connection.environmentId === input.environmentId &&
     connection.externalSubjectId === input.externalSubjectId &&
     connection.provider === input.provider
   )
@@ -131,7 +131,7 @@ function connectionAuthorityBoundary(
     return "scope_insufficient"
   }
   if (
-    application?.enabled !== true ||
+    environment?.enabled !== true ||
     connection?.status !== "active" ||
     connection.credentialEncrypted === null ||
     !connectionOwned ||
@@ -161,23 +161,23 @@ async function replayActionIntent(
         and(
           eq(connections.id, intent.connectionId),
           eq(connections.workspaceId, intent.workspaceId),
-          eq(connections.applicationId, intent.applicationId),
+          eq(connections.environmentId, intent.environmentId),
           eq(connections.externalSubjectId, intent.externalSubjectId),
           eq(connections.provider, input.connector)
         )
       )
-    const [application] = await db
+    const [environment] = await db
       .select()
-      .from(applications)
+      .from(environments)
       .where(
         and(
-          eq(applications.id, intent.applicationId),
-          eq(applications.workspaceId, intent.workspaceId)
+          eq(environments.id, intent.environmentId),
+          eq(environments.workspaceId, intent.workspaceId)
         )
       )
-    const boundary = connectionAuthorityBoundary(connection, application, {
+    const boundary = connectionAuthorityBoundary(connection, environment, {
       workspaceId: intent.workspaceId,
-      applicationId: intent.applicationId,
+      environmentId: intent.environmentId,
       externalSubjectId: intent.externalSubjectId,
       provider: input.connector,
       actionFamily: input.actionFamily,
@@ -223,7 +223,7 @@ export async function createActionIntent(
         )
       )
     if (
-      !executionSnapshot?.applicationId ||
+      !executionSnapshot?.environmentId ||
       !executionSnapshot.externalSubjectRecordId
     ) {
       return { outcome: "authority_invalid" }
@@ -233,10 +233,10 @@ export async function createActionIntent(
       .from(externalSubjects)
       .where(eq(externalSubjects.id, executionSnapshot.externalSubjectRecordId))
       .for("update")
-    const [application] = await tx
+    const [environment] = await tx
       .select()
-      .from(applications)
-      .where(eq(applications.id, executionSnapshot.applicationId))
+      .from(environments)
+      .where(eq(environments.id, executionSnapshot.environmentId))
       .for("update")
     const [connection] = await tx
       .select()
@@ -248,9 +248,9 @@ export async function createActionIntent(
       .from(executions)
       .where(eq(executions.id, executionSnapshot.id))
       .for("update")
-    const authority = connectionAuthorityBoundary(connection, application, {
+    const authority = connectionAuthorityBoundary(connection, environment, {
       workspaceId: input.workspaceId,
-      applicationId: executionSnapshot.applicationId,
+      environmentId: executionSnapshot.environmentId,
       externalSubjectId: executionSnapshot.externalSubjectRecordId,
       provider: input.connector,
       actionFamily: input.actionFamily,
@@ -264,17 +264,17 @@ export async function createActionIntent(
     }
     if (
       authority !== "authorized" ||
-      !execution?.applicationId ||
+      !execution?.environmentId ||
       !execution.externalSubjectRecordId ||
       execution.status !== "running" ||
       subject?.status !== "verified"
     ) {
       return { outcome: "authority_invalid" }
     }
-    const { applicationId, externalSubjectRecordId } = execution
+    const { environmentId, externalSubjectRecordId } = execution
     let approvalRequest = await createApprovalRequest(tx, {
       workspaceId: input.workspaceId,
-      applicationId,
+      environmentId,
       workflowId: execution.workflowId,
       executionId: execution.id,
       nodeId: input.nodeId,
@@ -311,7 +311,7 @@ export async function createActionIntent(
       .insert(actionIntents)
       .values({
         workspaceId: input.workspaceId,
-        applicationId,
+        environmentId,
         externalSubjectId: externalSubjectRecordId,
         connectionId: input.connectionId,
         workflowId: execution.workflowId,
@@ -452,7 +452,7 @@ type ClaimApprovedActionIntentInput = {
 type LockedActionIntentAuthority = {
   intent: ActionIntent
   connection: Connection | undefined
-  application: typeof applications.$inferSelect | undefined
+  environment: typeof environments.$inferSelect | undefined
   subject: typeof externalSubjects.$inferSelect | undefined
   request: ApprovalRequest | undefined
   decision: ApprovalDecision | undefined
@@ -514,7 +514,7 @@ async function failRecoveredActionIntent(
   if (!failed) return { outcome: "in_progress", intent }
   await createPublicEvent(tx, {
     workspaceId: failed.workspaceId,
-    applicationId: failed.applicationId,
+    environmentId: failed.environmentId,
     externalSubjectId: failed.externalSubjectId,
     eventType: "action_intent.failed",
     data: { actionIntentId: failed.id, executionId: failed.executionId },
@@ -539,7 +539,7 @@ async function recoverExecutingActionIntent(
   const {
     intent,
     connection,
-    application,
+    environment,
     subject,
     request,
     decision,
@@ -552,7 +552,7 @@ async function recoverExecutingActionIntent(
     return { outcome: "in_progress", intent }
   }
   const authorityValid =
-    currentIntentAuthority(intent, connection, application, subject, input) &&
+    currentIntentAuthority(intent, connection, environment, subject, input) &&
     currentIntentApproval(intent, request, decision)
   const priorClaimId = intent.executionClaimId
   if (!priorClaimId) {
@@ -580,15 +580,15 @@ async function recoverExecutingActionIntent(
 function currentIntentAuthority(
   intent: ActionIntent,
   connection: Connection | undefined,
-  application: typeof applications.$inferSelect | undefined,
+  environment: typeof environments.$inferSelect | undefined,
   subject: typeof externalSubjects.$inferSelect | undefined,
   input: ClaimApprovedActionIntentInput
 ): boolean {
   return (
     subject?.status === "verified" &&
-    connectionAuthorityBoundary(connection, application, {
+    connectionAuthorityBoundary(connection, environment, {
       workspaceId: intent.workspaceId,
-      applicationId: intent.applicationId,
+      environmentId: intent.environmentId,
       externalSubjectId: intent.externalSubjectId,
       provider: input.provider,
       actionFamily: input.actionFamily,
@@ -704,10 +704,10 @@ export async function claimApprovedActionIntent(
       .from(externalSubjects)
       .where(eq(externalSubjects.id, snapshot.externalSubjectId))
       .for("update")
-    const [application] = await tx
+    const [environment] = await tx
       .select()
-      .from(applications)
-      .where(eq(applications.id, snapshot.applicationId))
+      .from(environments)
+      .where(eq(environments.id, snapshot.environmentId))
       .for("update")
     const [connection] = await tx
       .select()
@@ -748,7 +748,7 @@ export async function claimApprovedActionIntent(
         {
           intent,
           connection,
-          application,
+          environment,
           subject,
           request,
           decision,
@@ -761,7 +761,7 @@ export async function claimApprovedActionIntent(
       return { outcome: "not_ready", intent }
     }
     const authorityValid =
-      currentIntentAuthority(intent, connection, application, subject, input) &&
+      currentIntentAuthority(intent, connection, environment, subject, input) &&
       currentIntentApproval(intent, request, decision) &&
       activeExecutionClaim(execution, input)
     if (!authorityValid) {
@@ -865,7 +865,7 @@ export async function completeActionIntent(
     if (!intent) return undefined
     await createPublicEvent(tx, {
       workspaceId: intent.workspaceId,
-      applicationId: intent.applicationId,
+      environmentId: intent.environmentId,
       externalSubjectId: intent.externalSubjectId,
       eventType: "action_intent.executed",
       data: {
@@ -921,7 +921,7 @@ export async function failActionIntent(
     if (!intent) return undefined
     await createPublicEvent(tx, {
       workspaceId: intent.workspaceId,
-      applicationId: intent.applicationId,
+      environmentId: intent.environmentId,
       externalSubjectId: intent.externalSubjectId,
       eventType: "action_intent.failed",
       data: {
@@ -946,7 +946,7 @@ export async function findPendingActionIntents(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     limit: number
     cursor?: PendingActionIntentCursor
@@ -962,7 +962,7 @@ export async function findPendingActionIntents(
     .where(
       and(
         eq(actionIntents.workspaceId, input.workspaceId),
-        eq(actionIntents.applicationId, input.applicationId),
+        eq(actionIntents.environmentId, input.environmentId),
         eq(actionIntents.externalSubjectId, input.externalSubjectId),
         eq(actionIntents.status, "awaiting_consent"),
         eq(approvalRequests.status, "pending"),
@@ -988,7 +988,7 @@ export function findTerminalActionIntents(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     connectionId: string
     limit: number
@@ -1001,7 +1001,7 @@ export function findTerminalActionIntents(
     .where(
       and(
         eq(actionIntents.workspaceId, input.workspaceId),
-        eq(actionIntents.applicationId, input.applicationId),
+        eq(actionIntents.environmentId, input.environmentId),
         eq(actionIntents.externalSubjectId, input.externalSubjectId),
         eq(actionIntents.connectionId, input.connectionId),
         inArray(actionIntents.status, [

@@ -13,7 +13,7 @@ import {
 } from "drizzle-orm"
 import {
   actionIntents,
-  applications,
+  environments,
   approvalRequests,
   connectorAuditFacts,
   externalSubjects,
@@ -55,22 +55,22 @@ function auditExpiry(occurredAt: Date): Date {
 
 async function retentionContext(
   tx: DbClient,
-  applicationId: string,
+  environmentId: string,
   externalSubjectId: string
 ): Promise<{ contentRetentionDays: number; subjectReference: string }> {
   const [context] = await tx
     .select({
-      contentRetentionDays: applications.contentRetentionDays,
+      contentRetentionDays: environments.contentRetentionDays,
       subjectReference: externalSubjects.auditReference,
     })
-    .from(applications)
+    .from(environments)
     .innerJoin(
       externalSubjects,
-      eq(externalSubjects.workspaceId, applications.workspaceId)
+      eq(externalSubjects.workspaceId, environments.workspaceId)
     )
     .where(
       and(
-        eq(applications.id, applicationId),
+        eq(environments.id, environmentId),
         eq(externalSubjects.id, externalSubjectId)
       )
     )
@@ -91,7 +91,7 @@ export async function recordConnectionFact(
 ): Promise<ConnectorAuditFact> {
   const context = await retentionContext(
     tx,
-    input.connection.applicationId,
+    input.connection.environmentId,
     input.connection.externalSubjectId
   )
   const auditExpiresAt = auditExpiry(input.occurredAt)
@@ -105,7 +105,7 @@ export async function recordConnectionFact(
     .insert(connectorAuditFacts)
     .values({
       workspaceId: input.connection.workspaceId,
-      applicationId: input.connection.applicationId,
+      environmentId: input.connection.environmentId,
       externalSubjectId: input.connection.externalSubjectId,
       subjectReference: context.subjectReference,
       connectionId: input.connection.id,
@@ -136,7 +136,7 @@ export async function recordActionIntentFact(
 ): Promise<ConnectorAuditFact> {
   const context = await retentionContext(
     tx,
-    input.intent.applicationId,
+    input.intent.environmentId,
     input.intent.externalSubjectId
   )
   const auditExpiresAt = auditExpiry(input.occurredAt)
@@ -150,7 +150,7 @@ export async function recordActionIntentFact(
     .insert(connectorAuditFacts)
     .values({
       workspaceId: input.intent.workspaceId,
-      applicationId: input.intent.applicationId,
+      environmentId: input.intent.environmentId,
       externalSubjectId: input.intent.externalSubjectId,
       subjectReference: context.subjectReference,
       connectionId: input.intent.connectionId,
@@ -192,7 +192,7 @@ export function listOperatorFacts(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId?: string
+    environmentId?: string
     limit: number
     cursor?: ConnectorAuditCursor
     now: Date
@@ -210,8 +210,8 @@ export function listOperatorFacts(
     .where(
       and(
         eq(connectorAuditFacts.workspaceId, input.workspaceId),
-        input.applicationId
-          ? eq(connectorAuditFacts.applicationId, input.applicationId)
+        input.environmentId
+          ? eq(connectorAuditFacts.environmentId, input.environmentId)
           : undefined,
         gt(connectorAuditFacts.auditExpiresAt, input.now),
         beforeCursor(input.cursor)
@@ -242,7 +242,7 @@ export function listEndUserFacts(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     limit: number
     cursor?: ConnectorAuditCursor
@@ -261,7 +261,7 @@ export function listEndUserFacts(
     .where(
       and(
         eq(connectorAuditFacts.workspaceId, input.workspaceId),
-        eq(connectorAuditFacts.applicationId, input.applicationId),
+        eq(connectorAuditFacts.environmentId, input.environmentId),
         eq(connectorAuditFacts.externalSubjectId, input.externalSubjectId),
         inArray(connectorAuditFacts.factType, endUserFactTypes),
         gt(connectorAuditFacts.auditExpiresAt, input.now),
@@ -303,10 +303,10 @@ export async function applyRetention(
         normalizedError: null,
         contentErasedAt: now,
       })
-      .from(applications)
+      .from(environments)
       .where(
         and(
-          eq(actionIntents.applicationId, applications.id),
+          eq(actionIntents.environmentId, environments.id),
           isNull(actionIntents.contentErasedAt),
           inArray(actionIntents.status, [
             "succeeded",
@@ -316,7 +316,7 @@ export async function applyRetention(
             "cancelled",
             "outcome_unknown",
           ]),
-          sql`${actionIntents.createdAt} + (${applications.contentRetentionDays} * interval '1 day') <= ${now}`
+          sql`${actionIntents.createdAt} + (${environments.contentRetentionDays} * interval '1 day') <= ${now}`
         )
       )
       .returning({

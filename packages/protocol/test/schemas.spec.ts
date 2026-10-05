@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
-  applicationKeyScopeSchema,
-  applicationKeyScopes,
+  environmentKeyScopeSchema,
+  environmentKeyScopes,
   createEndUserSessionHeadersSchema,
   createEndUserSessionSchema,
   createMessageSchema,
@@ -49,7 +49,7 @@ describe("public protocol schemas", () => {
         type: "approval_request.created",
         version: 1,
         createdAt: "2026-09-09T12:00:00Z",
-        applicationId: "application_123",
+        environmentId: "environment_123",
         data: { approvalRequestId: "approval_123" },
       })
     ).toMatchObject({ id: "event_123", version: 1 })
@@ -71,7 +71,7 @@ describe("public protocol schemas", () => {
         createdAt: "2026-09-09T12:00:00Z",
       })
     ).toMatchObject({ revision: 1, inputSchema: { type: "object" } })
-    expect(applicationKeyScopeSchema.parse("executions:start")).toBe(
+    expect(environmentKeyScopeSchema.parse("executions:start")).toBe(
       "executions:start"
     )
     expect(
@@ -95,14 +95,14 @@ describe("public protocol schemas", () => {
     ).toMatchObject({ id: "subject_123", status: "provisioned" })
     expect(
       startEndUserAuthorizationSchema.parse({
-        applicationId: "application_123",
+        environmentId: "environment_123",
         redirectUri: "https://app.example.com/auth/callback",
         codeChallenge: "a".repeat(43),
       })
     ).toMatchObject({ codeChallenge: "a".repeat(43) })
     expect(
       exchangeEndUserAuthorizationSchema.parse({
-        applicationId: "application_123",
+        environmentId: "environment_123",
         redirectUri: "https://app.example.com/auth/callback",
         code: "authorization-code-123",
         state: "s".repeat(43),
@@ -127,7 +127,6 @@ describe("public protocol schemas", () => {
       })
     ).toMatchObject({ tokenType: "DPoP" })
   })
-
   it("rejects malformed and unknown wire values", () => {
     expect(paginationQuerySchema.safeParse({ limit: 0 }).success).toBe(false)
     expect(
@@ -143,7 +142,7 @@ describe("public protocol schemas", () => {
         type: "execution.started",
         version: 1,
         createdAt: "today",
-        applicationId: "application_123",
+        environmentId: "environment_123",
         data: {},
       }).success
     ).toBe(false)
@@ -153,7 +152,7 @@ describe("public protocol schemas", () => {
       }).success
     ).toBe(false)
     expect(
-      applicationKeyScopeSchema.safeParse("applications:admin").success
+      environmentKeyScopeSchema.safeParse("environments:admin").success
     ).toBe(false)
     expect(
       provisionExternalSubjectSchema.safeParse({
@@ -185,14 +184,13 @@ describe("public protocol schemas", () => {
       }).success
     ).toBe(false)
   })
-
   it("keeps webhook envelopes minimal and rejects sensitive fields", () => {
     const envelope = {
       id: "00000000-0000-4000-8000-000000000001",
       type: "execution.completed",
       version: 1,
       createdAt: "2026-09-18T12:00:00Z",
-      applicationId: "00000000-0000-4000-8000-000000000002",
+      environmentId: "00000000-0000-4000-8000-000000000002",
       data: {
         executionId: "00000000-0000-4000-8000-000000000003",
         status: "succeeded",
@@ -214,7 +212,6 @@ describe("public protocol schemas", () => {
       ).toBe(false)
     }
   })
-
   it("publishes every accepted stable failure category", () => {
     expect(publicErrorCodes).toEqual([
       "validation_failed",
@@ -246,6 +243,6 @@ describe("public protocol schemas", () => {
       "action_intent_stale",
       "rate_limited",
     ])
-    expect(applicationKeyScopes).toHaveLength(9)
+    expect(environmentKeyScopes).toHaveLength(9)
   })
 })

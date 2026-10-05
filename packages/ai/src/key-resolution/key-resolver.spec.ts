@@ -33,11 +33,23 @@ async function createTestOrganization(tx: Transaction) {
       createdAt: new Date(),
     })
     .returning()
-  return organization
+  const application = await repositories.application.createApplication(tx, {
+    workspaceId: organization.id,
+    name: "Provider test",
+    slug: "provider-test",
+  })
+  const environments = await repositories.environment.listEnvironments(
+    tx,
+    organization.id,
+    application.id
+  )
+  const environment = environments.find((value) => value.environment === "dev")
+  if (!environment) throw new Error("Development Environment missing")
+  return environment
 }
 
 describe("resolveApiKey", () => {
-  it("prefers a workspace's own key over the platform key", async () => {
+  it("prefers an Environment's own key over the platform key", async () => {
     await withRollback(async (tx) => {
       const organization = await createTestOrganization(tx)
       process.env.TEST_PROVIDER_KEY = "platform-key"
@@ -47,45 +59,40 @@ describe("resolveApiKey", () => {
         "TEST_PROVIDER_KEY",
         encryptSecret("workspace-key")
       )
-
       const resolved = await resolveApiKey(
         tx,
         organization.id,
         "TEST_PROVIDER_KEY"
       )
-
-      expect(resolved).toEqual({ apiKey: "workspace-key", source: "workspace" })
+      expect(resolved).toEqual({
+        apiKey: "workspace-key",
+        source: "environment",
+      })
       delete process.env.TEST_PROVIDER_KEY
     })
   })
-
-  it("falls back to the platform key when the workspace has none", async () => {
+  it("falls back to the platform key when the Environment has none", async () => {
     await withRollback(async (tx) => {
       const organization = await createTestOrganization(tx)
       process.env.TEST_PROVIDER_KEY = "platform-key"
-
       const resolved = await resolveApiKey(
         tx,
         organization.id,
         "TEST_PROVIDER_KEY"
       )
-
       expect(resolved).toEqual({ apiKey: "platform-key", source: "platform" })
       delete process.env.TEST_PROVIDER_KEY
     })
   })
-
-  it("throws when neither a workspace key nor a platform key exists", async () => {
+  it("throws when neither an Environment key nor a platform key exists", async () => {
     await withRollback(async (tx) => {
       const organization = await createTestOrganization(tx)
       delete process.env.TEST_PROVIDER_KEY_MISSING
-
       await expect(
         resolveApiKey(tx, organization.id, "TEST_PROVIDER_KEY_MISSING")
-      ).rejects.toThrow(/No workspace key and no platform key/)
+      ).rejects.toThrow(/No Environment key and no platform key/)
     })
   })
-
   it("uses a legacy plaintext value as-is instead of failing to decrypt it", async () => {
     await withRollback(async (tx) => {
       const organization = await createTestOrganization(tx)
@@ -96,20 +103,17 @@ describe("resolveApiKey", () => {
         "TEST_PROVIDER_KEY",
         "legacy-plaintext-key"
       )
-
       const resolved = await resolveApiKey(
         tx,
         organization.id,
         "TEST_PROVIDER_KEY"
       )
-
       expect(resolved).toEqual({
         apiKey: "legacy-plaintext-key",
-        source: "workspace",
+        source: "environment",
       })
     })
   })
-
   it("throws instead of using a corrupted encrypted secret as a literal key", async () => {
     await withRollback(async (tx) => {
       const organization = await createTestOrganization(tx)
@@ -125,7 +129,6 @@ describe("resolveApiKey", () => {
         "TEST_PROVIDER_KEY",
         tampered
       )
-
       await expect(
         resolveApiKey(tx, organization.id, "TEST_PROVIDER_KEY")
       ).rejects.toThrow(/corrupted/)

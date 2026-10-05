@@ -16,7 +16,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import { organizations } from "./organisation.js"
 
 const externalSubjectStatusValues = [
@@ -83,11 +83,11 @@ export const externalSubjects = snakeCase.table(
   ]
 )
 
-export const externalSubjectApplications = snakeCase.table(
-  "external_subject_applications",
+export const externalSubjectEnvironments = snakeCase.table(
+  "external_subject_environments",
   {
     workspaceId: uuid().notNull(),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     metadata: jsonb().$type<ExternalSubjectMetadata>().default({}).notNull(),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -97,15 +97,15 @@ export const externalSubjectApplications = snakeCase.table(
       .notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.applicationId, table.externalSubjectId] }),
-    index("external_subject_applications_workspace_idx").on(table.workspaceId),
+    primaryKey({ columns: [table.environmentId, table.externalSubjectId] }),
+    index("external_subject_environments_workspace_idx").on(table.workspaceId),
     foreignKey({
-      name: "external_subject_applications_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "external_subject_environments_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
-      name: "external_subject_applications_subject_fkey",
+      name: "external_subject_environments_subject_fkey",
       columns: [table.externalSubjectId, table.workspaceId],
       foreignColumns: [externalSubjects.id, externalSubjects.workspaceId],
     }).onDelete("cascade"),
@@ -114,5 +114,5 @@ export const externalSubjectApplications = snakeCase.table(
 
 export type ExternalSubject = typeof externalSubjects.$inferSelect
 export type NewExternalSubject = typeof externalSubjects.$inferInsert
-export type ExternalSubjectApplication =
-  typeof externalSubjectApplications.$inferSelect
+export type ExternalSubjectEnvironment =
+  typeof externalSubjectEnvironments.$inferSelect

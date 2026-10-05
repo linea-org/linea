@@ -1,10 +1,10 @@
-const applicationKeyPrefix = "lin_app_"
+const environmentKeyPrefix = "lin_env_"
 const workspaceKeyPrefix = "lin_"
 const credentialType: unique symbol = Symbol("linea.serverCredentialType")
 
-export type ApplicationKey = {
+export type EnvironmentKey = {
   readonly value: string
-  readonly [credentialType]: "application"
+  readonly [credentialType]: "environment"
 }
 
 export type WorkspaceKey = {
@@ -12,21 +12,23 @@ export type WorkspaceKey = {
   readonly [credentialType]: "workspace"
 }
 
-export function applicationKey(value: string): ApplicationKey {
+export function environmentKey(value: string): EnvironmentKey {
   if (
-    !value.startsWith(applicationKeyPrefix) ||
-    value.length === applicationKeyPrefix.length
+    !value.startsWith(environmentKeyPrefix) ||
+    value.length === environmentKeyPrefix.length
   ) {
-    throw new Error(`Application keys must start with ${applicationKeyPrefix}`)
+    throw new Error(`Environment keys must start with ${environmentKeyPrefix}`)
   }
-  const credential: ApplicationKey = {
+  const credential: EnvironmentKey = {
     value,
-    [credentialType]: "application",
+    [credentialType]: "environment",
   }
   return Object.freeze(credential)
 }
 
 export function workspaceKey(value: string): WorkspaceKey {
+  if (value.startsWith(environmentKeyPrefix))
+    throw new Error("Environment keys cannot authenticate a Workspace client")
   if (
     !value.startsWith(workspaceKeyPrefix) ||
     value.length === workspaceKeyPrefix.length

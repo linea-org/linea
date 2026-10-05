@@ -11,6 +11,7 @@ import {
 import { sql } from "drizzle-orm"
 import { organizations } from "./organisation.js"
 import { users } from "./user.js"
+import { environments } from "./environment.js"
 import { workflows } from "./workflow.js"
 
 export const schedules = snakeCase.table(
@@ -25,6 +26,7 @@ export const schedules = snakeCase.table(
     // Composite FK below also enforces this workflow belongs to workspaceId.
     workflowId: uuid().notNull(),
 
+    environmentId: uuid().notNull(),
     cronExpression: text().notNull(),
     timezone: text().notNull().default("UTC"),
     enabled: boolean().notNull().default(true),
@@ -53,6 +55,11 @@ export const schedules = snakeCase.table(
     index("schedules_next_run_idx")
       .on(table.nextRunAt)
       .where(sql`${table.enabled} = true`),
+    foreignKey({
+      name: "schedules_environment_workspace_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
+    }).onDelete("cascade"),
     foreignKey({
       name: "schedules_workflow_workspace_fkey",
       columns: [table.workflowId, table.workspaceId],

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
-import { applications, organizations } from "../schema/index.js"
+import { applications, environments, organizations } from "../schema/index.js"
 import {
   completeAuthorizationRequest,
   consumeAuthorizationRateLimits,
@@ -30,14 +30,24 @@ async function createWorkspace(tx: DbClient) {
   return workspace
 }
 
-async function createApplication(
+async function createEnvironment(
   tx: DbClient,
   workspaceId: string,
   displayName: string
 ) {
-  const [application] = await tx
-    .insert(applications)
+  const [environment] = await tx
+    .insert(environments)
     .values({
+      applicationId: (
+        await tx
+          .insert(applications)
+          .values({
+            workspaceId,
+            name: "Test product",
+            slug: crypto.randomUUID(),
+          })
+          .returning()
+      )[0].id,
       workspaceId,
       environment: "production",
       displayName,
@@ -49,12 +59,12 @@ async function createApplication(
       oidcJwksUrl: "https://identity.example.com/jwks.json",
     })
     .returning()
-  return application
+  return environment
 }
 
-function authorizationInput(applicationId: string, suffix: string) {
+function authorizationInput(environmentId: string, suffix: string) {
   return {
-    applicationId,
+    environmentId,
     redirectUri: "https://app.example.com/callback",
     redirectOrigin: "https://app.example.com",
     browserOrigin: "https://app.example.com",
@@ -66,41 +76,41 @@ function authorizationInput(applicationId: string, suffix: string) {
 }
 
 describe("end-user authorization repository", () => {
-  it("binds requests to one Application, origin, redirect, verifier, and use", async () => {
+  it("binds requests to one Environment, origin, redirect, verifier, and use", async () => {
     await withRollback(async (tx) => {
       const workspace = await createWorkspace(tx)
-      const application = await createApplication(tx, workspace.id, "portal")
-      const otherApplication = await createApplication(
+      const environment = await createEnvironment(tx, workspace.id, "portal")
+      const otherEnvironment = await createEnvironment(
         tx,
         workspace.id,
         "other-portal"
       )
       const created = await createAuthorizationRequest(
         tx,
-        authorizationInput(application.id, "valid")
+        authorizationInput(environment.id, "valid")
       )
       expect(created.outcome).toBe("created")
       expect(
         await createAuthorizationRequest(tx, {
-          ...authorizationInput(application.id, "wrong-origin"),
+          ...authorizationInput(environment.id, "wrong-origin"),
           browserOrigin: "https://attacker.example.com",
         })
       ).toEqual({ outcome: "origin_denied" })
       expect(
         await createAuthorizationRequest(tx, {
-          ...authorizationInput(application.id, "wrong-redirect-origin"),
+          ...authorizationInput(environment.id, "wrong-redirect-origin"),
           redirectUri: "https://attacker.example.com/callback",
           redirectOrigin: "https://attacker.example.com",
         })
       ).toEqual({ outcome: "origin_denied" })
       expect(
         await consumeAuthorizationRequest(tx, {
-          applicationId: otherApplication.id,
+          environmentId: otherEnvironment.id,
           redirectUri: "https://app.example.com/callback",
           browserOrigin: "https://app.example.com",
           stateHash: hash("state-valid"),
           codeChallenge: "challenge-valid",
-          authorizationCodeHash: hash("code-wrong-application"),
+          authorizationCodeHash: hash("code-wrong-environment"),
           codeVerifierHash: hash("verifier"),
           now: new Date(),
           claimExpiredBefore: new Date(0),
@@ -108,7 +118,7 @@ describe("end-user authorization repository", () => {
       ).toEqual({ outcome: "invalid" })
       expect(
         await consumeAuthorizationRequest(tx, {
-          applicationId: application.id,
+          environmentId: environment.id,
           redirectUri: "https://app.example.com/callback",
           browserOrigin: "https://app.example.com",
           stateHash: hash("state-valid"),
@@ -121,7 +131,7 @@ describe("end-user authorization repository", () => {
       ).toEqual({ outcome: "invalid" })
       expect(
         await consumeAuthorizationRequest(tx, {
-          applicationId: application.id,
+          environmentId: environment.id,
           redirectUri: "https://attacker.example.com/callback",
           browserOrigin: "https://app.example.com",
           stateHash: hash("state-valid"),
@@ -134,7 +144,7 @@ describe("end-user authorization repository", () => {
       ).toEqual({ outcome: "invalid" })
       const claimedAt = new Date()
       const consumed = await consumeAuthorizationRequest(tx, {
-        applicationId: application.id,
+        environmentId: environment.id,
         redirectUri: "https://app.example.com/callback",
         browserOrigin: "https://app.example.com",
         stateHash: hash("state-valid"),
@@ -147,7 +157,7 @@ describe("end-user authorization repository", () => {
       expect(consumed.outcome).toBe("consumed")
       expect(
         await consumeAuthorizationRequest(tx, {
-          applicationId: application.id,
+          environmentId: environment.id,
           redirectUri: "https://app.example.com/callback",
           browserOrigin: "https://app.example.com",
           stateHash: hash("state-valid"),
@@ -163,7 +173,7 @@ describe("end-user authorization repository", () => {
       await releaseAuthorizationRequestClaim(tx, consumed.request.id, claimedAt)
       expect(
         await consumeAuthorizationRequest(tx, {
-          applicationId: application.id,
+          environmentId: environment.id,
           redirectUri: "https://app.example.com/callback",
           browserOrigin: "https://app.example.com",
           stateHash: hash("state-valid"),
@@ -176,7 +186,7 @@ describe("end-user authorization repository", () => {
       ).toEqual({ outcome: "invalid" })
       expect(
         await consumeAuthorizationRequest(tx, {
-          applicationId: application.id,
+          environmentId: environment.id,
           redirectUri: "https://app.example.com/callback",
           browserOrigin: "https://app.example.com",
           stateHash: hash("state-valid"),
@@ -187,14 +197,14 @@ describe("end-user authorization repository", () => {
           claimExpiredBefore: new Date(0),
         })
       ).toMatchObject({ outcome: "consumed" })
-      const expired = authorizationInput(application.id, "expired")
+      const expired = authorizationInput(environment.id, "expired")
       await createAuthorizationRequest(tx, {
         ...expired,
         expiresAt: new Date(Date.now() - 1),
       })
       expect(
         await consumeAuthorizationRequest(tx, {
-          applicationId: application.id,
+          environmentId: environment.id,
           redirectUri: expired.redirectUri,
           browserOrigin: expired.browserOrigin,
           stateHash: expired.stateHash,
@@ -207,34 +217,33 @@ describe("end-user authorization repository", () => {
       ).toEqual({ outcome: "invalid" })
     })
   })
-
   it("resolves verified identities per workspace and issues one-use exchanges", async () => {
     await withRollback(async (tx) => {
       const firstWorkspace = await createWorkspace(tx)
       const secondWorkspace = await createWorkspace(tx)
-      const firstApplication = await createApplication(
+      const firstEnvironment = await createEnvironment(
         tx,
         firstWorkspace.id,
         "first"
       )
-      const secondApplication = await createApplication(
+      const secondEnvironment = await createEnvironment(
         tx,
         secondWorkspace.id,
         "second"
       )
-      const applicationsToAuthorize = [firstApplication, secondApplication]
+      const environmentsToAuthorize = [firstEnvironment, secondEnvironment]
       const subjectIds: string[] = []
-      for (const [index, application] of applicationsToAuthorize.entries()) {
+      for (const [index, environment] of environmentsToAuthorize.entries()) {
         const suffix = `workspace-${index}`
         const created = await createAuthorizationRequest(
           tx,
-          authorizationInput(application.id, suffix)
+          authorizationInput(environment.id, suffix)
         )
         if (created.outcome !== "created")
           throw new Error("Request not created")
         const claimedAt = new Date()
         const consumed = await consumeAuthorizationRequest(tx, {
-          applicationId: application.id,
+          environmentId: environment.id,
           redirectUri: created.request.redirectUri,
           browserOrigin: "https://app.example.com",
           stateHash: created.request.stateHash,
@@ -264,7 +273,7 @@ describe("end-user authorization repository", () => {
       expect(
         await consumeIdentityExchange(tx, firstTokenHash, new Date())
       ).toMatchObject({
-        applicationId: firstApplication.id,
+        environmentId: firstEnvironment.id,
         externalSubjectId: subjectIds[0],
       })
       expect(
@@ -279,13 +288,12 @@ describe("end-user authorization repository", () => {
       ).toBeUndefined()
     })
   })
-
   it("enforces shared rate limits and deletes expired artifacts", async () => {
     await withRollback(async (tx) => {
       const expiresAt = new Date(Date.now() + 60_000)
       const limits = [
         { key: `ip-${randomUUID()}`, limit: 2 },
-        { key: `application-${randomUUID()}`, limit: 2 },
+        { key: `environment-${randomUUID()}`, limit: 2 },
       ]
       await expect(
         consumeAuthorizationRateLimits(tx, limits, expiresAt)

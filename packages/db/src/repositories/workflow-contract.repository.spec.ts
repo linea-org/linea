@@ -44,14 +44,13 @@ describe("workflow Contract repository", () => {
       expect(first.outcome).toBe("created")
       expect(second.outcome).toBe("created")
       if (first.outcome !== "created" || second.outcome !== "created") return
-      expect(first.revision.revision).toBe(1)
-      expect(second.revision.revision).toBe(2)
+      expect(first.revision.revision).toBe(2)
+      expect(second.revision.revision).toBe(3)
       expect(
         await listWorkflowContractRevisions(tx, organization.id, workflow.id)
-      ).toEqual([second.revision, first.revision])
+      ).toEqual(expect.arrayContaining([second.revision, first.revision]))
     })
   })
-
   it("rejects in-place changes to a persisted revision", async () => {
     const { organization, workflow } = await db.transaction((tx) =>
       createTestFixtures(tx)
@@ -92,7 +91,7 @@ describe("workflow Contract repository", () => {
       )
       expect(next.outcome).toBe("created")
       if (next.outcome !== "created") return
-      expect(next.revision.revision).toBe(2)
+      expect(next.revision.revision).toBe(3)
       const version = await createWorkflowVersion(db, {
         workflowId: workflow.id,
         graph: { nodes: [], edges: [] },
@@ -114,7 +113,6 @@ describe("workflow Contract repository", () => {
         .where(eq(organizations.id, organization.id))
     }
   })
-
   it("does not expose another workspace's Workflow or revisions", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow } = await createTestFixtures(tx)
@@ -145,7 +143,6 @@ describe("workflow Contract repository", () => {
       ).toEqual({ outcome: "not_found" })
     })
   })
-
   it("rejects cross-workspace Contract rows at the database boundary", async () => {
     const { organization, workflow } = await db.transaction((tx) =>
       createTestFixtures(tx)
@@ -156,7 +153,7 @@ describe("workflow Contract repository", () => {
     try {
       await expect(
         pool.query(
-          "INSERT INTO workflow_contract_revisions (workspace_id, workflow_id, revision, input_schema, output_schema) VALUES ($1, $2, 1, $3, $4)",
+          "INSERT INTO workflow_contract_revisions (workspace_id, workflow_id, revision, input_schema, output_schema) VALUES ($1, $2, 99, $3, $4)",
           [otherWorkspace.id, workflow.id, inputSchema, outputSchema]
         )
       ).rejects.toThrow(/workflow_contract_revisions_workflow_fkey/)

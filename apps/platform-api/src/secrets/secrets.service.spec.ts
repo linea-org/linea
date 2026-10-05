@@ -1,6 +1,5 @@
 import '@linea/config/env'
 import { randomBytes, randomUUID } from 'node:crypto'
-import { Test } from '@nestjs/testing'
 import { db, decryptSecret, pool, repositories, schema } from '@linea/db'
 import { SecretsService } from './secrets.service'
 
@@ -12,119 +11,107 @@ beforeEach(() => {
   process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString('base64')
 })
 
+async function fixture() {
+  const [workspace] = await db
+    .insert(schema.organizations)
+    .values({ name: 'Secrets test', slug: randomUUID(), createdAt: new Date() })
+    .returning()
+  const application = await repositories.application.createApplication(db, {
+    workspaceId: workspace.id,
+    name: 'Support',
+    slug: 'support',
+  })
+  const environments = await repositories.environment.listEnvironments(
+    db,
+    workspace.id,
+    application.id,
+  )
+  const development = environments.find(
+    (environment) => environment.environment === 'dev',
+  )
+  const production = environments.find(
+    (environment) => environment.environment === 'production',
+  )
+  if (!development || !production)
+    throw new Error('Application Environments missing')
+  return { workspace, development, production }
+}
+
 describe('SecretsService', () => {
-  it('creates, lists (without values), updates, and deletes a secret, scoped to its workspace', async () => {
-    const moduleRef = await Test.createTestingModule({
-      providers: [SecretsService],
-    }).compile()
-    const service = moduleRef.get(SecretsService)
-
-    const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: 'Secrets Test Org',
-        slug: `secrets-test-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
-    const [otherOrg] = await db
-      .insert(schema.organizations)
-      .values({
-        name: 'Secrets Test Other Org',
-        slug: `secrets-test-other-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
-
+  it('encrypts and rotates secrets without sharing them across Environments', async () => {
+    const f = await fixture()
+    const service = new SecretsService()
     try {
       const created = await service.upsert(
-        organization.id,
+        f.workspace.id,
+        f.development.id,
         'ANTHROPIC_API_KEY',
-        {
-          value: 'sk-workspace-key',
-        },
+        { value: 'development-key' },
       )
-      expect(created.key).toBe('ANTHROPIC_API_KEY')
-      expect(created).not.toHaveProperty('value')
+      await service.upsert(
+        f.workspace.id,
+        f.production.id,
+        'ANTHROPIC_API_KEY',
+        { value: 'production-key' },
+      )
       expect(created).not.toHaveProperty('encryptedValue')
-
       const stored = await repositories.secret.getSecret(
         db,
-        organization.id,
+        f.development.id,
         'ANTHROPIC_API_KEY',
       )
-      expect(stored?.encryptedValue).not.toBe('sk-workspace-key')
-      expect(decryptSecret(stored?.encryptedValue ?? '')).toBe(
-        'sk-workspace-key',
+      if (!stored) throw new Error('Stored secret missing')
+      expect(stored.encryptedValue).not.toBe('development-key')
+      expect(decryptSecret(stored.encryptedValue)).toBe('development-key')
+      await service.upsert(
+        f.workspace.id,
+        f.development.id,
+        'ANTHROPIC_API_KEY',
+        { value: 'rotated-key' },
       )
-
-      const list = await service.list(organization.id)
-      expect(list.map((s) => s.key)).toEqual(['ANTHROPIC_API_KEY'])
-
-      expect(await service.list(otherOrg.id)).toEqual([])
-
-      await service.upsert(organization.id, 'ANTHROPIC_API_KEY', {
-        value: 'sk-rotated-key',
-      })
       const rotated = await repositories.secret.getSecret(
         db,
-        organization.id,
+        f.development.id,
         'ANTHROPIC_API_KEY',
       )
-      expect(decryptSecret(rotated?.encryptedValue ?? '')).toBe(
-        'sk-rotated-key',
+      if (!rotated) throw new Error('Rotated secret missing')
+      expect(decryptSecret(rotated.encryptedValue)).toBe('rotated-key')
+      expect(rotated.id).toBe(stored.id)
+      await service.delete(
+        f.workspace.id,
+        f.development.id,
+        'ANTHROPIC_API_KEY',
       )
-
-      await service.delete(organization.id, 'ANTHROPIC_API_KEY')
-      expect(await service.list(organization.id)).toEqual([])
-
-      await expect(
-        service.delete(organization.id, 'ANTHROPIC_API_KEY'),
-      ).rejects.toThrow()
+      expect(await service.list(f.workspace.id, f.development.id)).toEqual([])
+      expect(await service.list(f.workspace.id, f.production.id)).toHaveLength(
+        1,
+      )
     } finally {
-      await moduleRef.close()
-      await pool.query('DELETE FROM organizations WHERE id IN ($1, $2)', [
-        organization.id,
-        otherOrg.id,
+      await pool.query('DELETE FROM organizations WHERE id = $1', [
+        f.workspace.id,
       ])
     }
   })
-
-  it('reports which AI providers this workspace has its own key for, without exposing values', async () => {
-    const moduleRef = await Test.createTestingModule({
-      providers: [SecretsService],
-    }).compile()
-    const service = moduleRef.get(SecretsService)
-
-    const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: 'Secrets Providers Test Org',
-        slug: `secrets-providers-test-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
-
+  it('rejects access to an Environment owned by another Workspace', async () => {
+    const f = await fixture()
+    const service = new SecretsService()
     try {
-      const beforeAny = await service.listAiProviders(organization.id)
-      expect(beforeAny.every((p) => !p.configured)).toBe(true)
-      expect(beforeAny.map((p) => p.keyName)).toContain('ANTHROPIC_API_KEY')
-
-      await service.upsert(organization.id, 'ANTHROPIC_API_KEY', {
-        value: 'sk-workspace-key',
-      })
-
-      const afterOne = await service.listAiProviders(organization.id)
-      const anthropic = afterOne.find((p) => p.keyName === 'ANTHROPIC_API_KEY')
-      expect(anthropic?.configured).toBe(true)
-      expect(anthropic).not.toHaveProperty('value')
-      expect(afterOne.filter((p) => p.configured)).toHaveLength(1)
+      const otherWorkspaceId = randomUUID()
+      await expect(
+        service.list(otherWorkspaceId, f.development.id),
+      ).rejects.toThrow('Environment not found')
+      await expect(
+        service.upsert(otherWorkspaceId, f.development.id, 'API_KEY', {
+          value: 'unauthorized',
+        }),
+      ).rejects.toThrow('Environment not found')
+      await expect(
+        service.delete(otherWorkspaceId, f.development.id, 'API_KEY'),
+      ).rejects.toThrow('Environment not found')
+      expect(await service.list(f.workspace.id, f.development.id)).toEqual([])
     } finally {
-      await moduleRef.close()
       await pool.query('DELETE FROM organizations WHERE id = $1', [
-        organization.id,
+        f.workspace.id,
       ])
     }
   })

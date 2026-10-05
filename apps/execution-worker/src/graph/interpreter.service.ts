@@ -76,6 +76,7 @@ function withAttemptTimeout(
 export type RunInput = {
   executionId: string
   workspaceId: string
+  environmentId?: string
   // Optional so replay/tests without a conversation don't have to supply it.
   workflowId?: string
   workflowVersionId?: string
@@ -201,7 +202,8 @@ export class InterpreterService {
     chatMessageId?: string,
     leasedBy?: string,
     variables?: Record<string, unknown>,
-    workflowVersionId?: string
+    workflowVersionId?: string,
+    environmentId?: string
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -213,6 +215,7 @@ export class InterpreterService {
     }
     const output = await handler.execute(node.config, input, {
       workspaceId,
+      environmentId,
       idempotencyKey,
       signal,
       executionId,
@@ -247,7 +250,6 @@ export class InterpreterService {
         ? false
         : input.initialCostUnpriced
     let variablesState = input.initialVariables ?? {}
-
     let next = generator.next()
     while (!next.done) {
       const step = next.value
@@ -255,22 +257,18 @@ export class InterpreterService {
       if (!node) {
         throw new Error(`Node "${step.nodeId}" not found in graph`)
       }
-
       const startedAt = new Date()
       let stepResult: StepResult
       let attemptsMade = 1
       const model = resolveNodeModel(node)
       const provider = model ? resolveProviderId(model) : undefined
-
       try {
         await this.checkpoints.assertOwnsLease(
           input.executionId,
           input.leasedBy
         )
-
         const retryPolicy = parseRetryPolicy(node.config.retryPolicy)
         const maxAttempts = retryPolicy?.maxAttempts ?? 1
-
         let executed: {
           output: unknown
           tokensInput?: number
@@ -290,7 +288,8 @@ export class InterpreterService {
               extractChatMessageId(input.triggerPayload),
               input.leasedBy,
               variablesState,
-              input.workflowVersionId
+              input.workflowVersionId,
+              input.environmentId
             )
             break
           } catch (attemptError) {
@@ -319,7 +318,6 @@ export class InterpreterService {
             }
           }
         }
-
         const { output, tokensInput, tokensOutput } = executed
         let costMicros: bigint | undefined
         let stepCostUnpriced: boolean | undefined
@@ -335,10 +333,8 @@ export class InterpreterService {
             costUnpriced = mergeCostUnpriced(costUnpriced, stepCostUnpriced)
           }
         }
-
         // Update before checkpointing, so a crash right after the write doesn't leave a resume replaying this step.
         completed.set(step.nodeId, output)
-
         // The handler already merged its own view of the state (context.variables, as of the
         // start of this step) with whatever it was configured to set — adopted at face value, the
         // same way totals above are taken from what the step produced rather than recomputed here.
@@ -346,7 +342,6 @@ export class InterpreterService {
           variablesState = (output as { variables: Record<string, unknown> })
             .variables
         }
-
         await this.checkpoints.recordStep({
           executionId: input.executionId,
           workspaceId: input.workspaceId,
@@ -367,7 +362,6 @@ export class InterpreterService {
           completed,
           variables: variablesState,
         })
-
         stepResult = { nodeId: step.nodeId, output }
       } catch (error) {
         // A failure-checkpoint write would be rejected too — propagate instead of attempting it.
@@ -389,7 +383,6 @@ export class InterpreterService {
             completed,
           }
         }
-
         const message = error instanceof Error ? error.message : String(error)
         const stack = error instanceof Error ? error.stack : undefined
         const usage = getErrorTokenUsage(error)
@@ -407,7 +400,6 @@ export class InterpreterService {
           if (costMicros !== undefined) totalCostMicros += costMicros
           costUnpriced = mergeCostUnpriced(costUnpriced, stepCostUnpriced)
         }
-
         await this.checkpoints.recordStep({
           executionId: input.executionId,
           workspaceId: input.workspaceId,
@@ -428,13 +420,10 @@ export class InterpreterService {
           completed,
           variables: variablesState,
         })
-
         stepResult = { nodeId: step.nodeId, error: { message } }
       }
-
       next = generator.next(stepResult)
     }
-
     return {
       result: next.value,
       totalTokensInput,

@@ -49,7 +49,6 @@ function loadGraph(): WorkflowGraph {
   const graph = workflowGraphSchema.parse(raw)
   validateGraphStructure(graph)
   assertNoReservedNodeIds(graph)
-
   const aiNode = graph.nodes.find((node) => node.type === 'ai')
   if (aiNode) {
     aiNode.config = { ...aiNode.config, model: resolveDemoModel() }
@@ -82,9 +81,13 @@ async function findOrCreateDemoOrg() {
 }
 
 // No separate provenance check needed — scoped to findOrCreateDemoOrg's already-verified org, which nothing outside this script touches, so there's no "unrelated workflow" to defend against.
-async function findOrCreateDemoWorkflow(workspaceId: string) {
+async function findOrCreateDemoWorkflow(
+  workspaceId: string,
+  applicationId: string,
+) {
   return repositories.workflow.findOrCreateWorkflowBySlug(db, {
     workspaceId,
+    applicationId,
     name: DEMO_WORKFLOW_NAME,
     slug: DEMO_WORKFLOW_SLUG,
   })
@@ -153,12 +156,77 @@ function printSummary(
 async function main() {
   const graph = loadGraph()
   const org = await findOrCreateDemoOrg()
-  const workflow = await findOrCreateDemoWorkflow(org.id)
-  await repositories.workflow.ensurePublishedVersion(db, workflow.id, {
-    graph,
-    contentHash: hashWorkflowGraph(graph),
-  })
-
+  const applications = await repositories.application.listApplications(
+    db,
+    org.id,
+  )
+  const application =
+    applications.find((application) => application.slug === 'demo') ??
+    (await repositories.application.createApplication(db, {
+      workspaceId: org.id,
+      name: 'Demo',
+      slug: 'demo',
+    }))
+  const workflow = await findOrCreateDemoWorkflow(org.id, application.id)
+  const contentHash = hashWorkflowGraph(graph)
+  const versions = await repositories.workflow.listWorkflowVersions(
+    db,
+    org.id,
+    workflow.id,
+  )
+  let version = versions.find(
+    (version) =>
+      version.contentHash === contentHash &&
+      version.publishedAt &&
+      version.workflowContractRevisionId,
+  )
+  if (!version) {
+    const contract =
+      await repositories.workflowContract.createWorkflowContractRevision(
+        db,
+        org.id,
+        workflow.id,
+        { inputSchema: { type: 'object' }, outputSchema: {} },
+      )
+    if (contract.outcome !== 'created')
+      throw new Error('Demo workflow contract could not be created')
+    version = await repositories.workflow.createWorkflowVersion(db, {
+      workflowId: workflow.id,
+      graph,
+      contentHash,
+      workflowContractRevisionId: contract.revision.id,
+    })
+    await repositories.workflow.publishWorkflowVersion(
+      db,
+      workflow.id,
+      version.id,
+    )
+  }
+  if (!version.workflowContractRevisionId)
+    throw new Error('Demo version has no contract')
+  const environment = await repositories.environment.getWorkflowEnvironment(
+    db,
+    org.id,
+    workflow.id,
+    'dev',
+  )
+  if (!environment) throw new Error('Demo Development Environment missing')
+  const deployment =
+    await repositories.environmentWorkflowBinding.putEnvironmentWorkflowBinding(
+      db,
+      org.id,
+      environment.id,
+      workflow.id,
+      {
+        workflowVersionId: version.id,
+        workflowContractRevisionId: version.workflowContractRevisionId,
+        allowEndUserStart: false,
+        allowBackendStart: true,
+        enabled: true,
+      },
+    )
+  if (deployment.outcome !== 'updated')
+    throw new Error('Demo deployment failed')
   const trigger = await repositories.execution.triggerWorkflowExecution(
     db,
     org.id,
@@ -168,10 +236,8 @@ async function main() {
   if (trigger.outcome !== 'created') {
     throw new Error(`Could not trigger execution: ${trigger.outcome}`)
   }
-
   try {
     console.log(`Triggered execution ${trigger.execution.id}, waiting...`)
-
     const { execution, steps } = await pollUntilTerminal(trigger.execution.id)
     printSummary(execution, steps)
     if (execution.status !== 'succeeded') {

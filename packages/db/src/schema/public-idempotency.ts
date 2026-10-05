@@ -7,11 +7,11 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 
 export const publicIdempotencyActorKind = pgEnum(
   "public_idempotency_actor_kind",
-  ["application_key", "end_user_session"]
+  ["environment_key", "end_user_session"]
 )
 
 export const publicIdempotencyRecords = snakeCase.table(
@@ -19,7 +19,7 @@ export const publicIdempotencyRecords = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     actorKind: publicIdempotencyActorKind().notNull(),
     actorId: uuid().notNull(),
     operation: text().notNull(),
@@ -36,9 +36,9 @@ export const publicIdempotencyRecords = snakeCase.table(
       table.idempotencyKey
     ),
     foreignKey({
-      name: "public_idempotency_records_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "public_idempotency_records_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
   ]
 )

@@ -1,13 +1,13 @@
 import { and, desc, eq, isNotNull, isNull, lt, or } from "drizzle-orm"
 import Ajv2020 from "ajv/dist/2020.js"
 import {
-  applications,
-  applicationWorkflowBindings,
+  environments,
+  environmentWorkflowBindings,
   auditLogs,
   chatMessages,
   conversations,
   executions,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   workflows,
   workflowContractRevisions,
@@ -30,7 +30,7 @@ import { createWorkflowExecutionMessage } from "./outbox-message.repository.js"
 const jsonSchemaValidator = new Ajv2020({ strict: true, addUsedSchema: false })
 
 export type PublicRuntimeActor = {
-  kind: "application_key" | "end_user_session"
+  kind: "environment_key" | "end_user_session"
   id: string
 }
 
@@ -43,40 +43,39 @@ type Idempotency = {
 async function resolveSubject(
   db: DbClient,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   externalSubjectId: string
 ) {
   const [identity] = await db
     .select({
-      environment: applications.environment,
-      enabled: applications.enabled,
+      environment: environments.environment,
+      enabled: environments.enabled,
       issuerSubject: externalSubjects.issuerSubject,
       subjectStatus: externalSubjects.status,
     })
-    .from(applications)
+    .from(environments)
     .innerJoin(
-      externalSubjectApplications,
+      externalSubjectEnvironments,
       and(
-        eq(externalSubjectApplications.applicationId, applications.id),
-        eq(externalSubjectApplications.workspaceId, applications.workspaceId),
-        eq(externalSubjectApplications.externalSubjectId, externalSubjectId)
+        eq(externalSubjectEnvironments.environmentId, environments.id),
+        eq(externalSubjectEnvironments.workspaceId, environments.workspaceId),
+        eq(externalSubjectEnvironments.externalSubjectId, externalSubjectId)
       )
     )
     .innerJoin(
       externalSubjects,
       and(
-        eq(externalSubjects.id, externalSubjectApplications.externalSubjectId),
+        eq(externalSubjects.id, externalSubjectEnvironments.externalSubjectId),
         eq(
           externalSubjects.workspaceId,
-          externalSubjectApplications.workspaceId
+          externalSubjectEnvironments.workspaceId
         )
       )
     )
     .where(
       and(
-        eq(applications.id, applicationId),
-        eq(applications.workspaceId, workspaceId),
-        eq(applications.kind, "operator")
+        eq(environments.id, environmentId),
+        eq(environments.workspaceId, workspaceId)
       )
     )
   if (
@@ -93,34 +92,34 @@ async function resolveSubject(
 async function bindingAllows(
   db: DbClient,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   workflowId: string,
   startKind: "backend" | "end_user"
 ) {
   const [binding] = await db
     .select({
+      workflowVersionId: environmentWorkflowBindings.workflowVersionId,
       workflowContractRevisionId:
-        applicationWorkflowBindings.workflowContractRevisionId,
+        environmentWorkflowBindings.workflowContractRevisionId,
     })
-    .from(applicationWorkflowBindings)
+    .from(environmentWorkflowBindings)
     .innerJoin(
       workflows,
       and(
-        eq(workflows.id, applicationWorkflowBindings.workflowId),
-        eq(workflows.workspaceId, applicationWorkflowBindings.workspaceId),
-        isNotNull(workflows.publishedVersionId),
+        eq(workflows.id, environmentWorkflowBindings.workflowId),
+        eq(workflows.workspaceId, environmentWorkflowBindings.workspaceId),
         isNull(workflows.archivedAt)
       )
     )
     .where(
       and(
-        eq(applicationWorkflowBindings.workspaceId, workspaceId),
-        eq(applicationWorkflowBindings.applicationId, applicationId),
-        eq(applicationWorkflowBindings.workflowId, workflowId),
-        eq(applicationWorkflowBindings.enabled, true),
+        eq(environmentWorkflowBindings.workspaceId, workspaceId),
+        eq(environmentWorkflowBindings.environmentId, environmentId),
+        eq(environmentWorkflowBindings.workflowId, workflowId),
+        eq(environmentWorkflowBindings.enabled, true),
         startKind === "backend"
-          ? eq(applicationWorkflowBindings.allowBackendStart, true)
-          : eq(applicationWorkflowBindings.allowEndUserStart, true)
+          ? eq(environmentWorkflowBindings.allowBackendStart, true)
+          : eq(environmentWorkflowBindings.allowEndUserStart, true)
       )
     )
   return binding
@@ -137,7 +136,7 @@ export async function createPublicConversation(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     workflowId: string
     startKind: "backend" | "end_user"
@@ -150,7 +149,7 @@ export async function createPublicConversation(
   return db.transaction(async (tx): Promise<CreatePublicConversationResult> => {
     const reservation = await reservePublicRequest(tx, {
       workspaceId: input.workspaceId,
-      applicationId: input.applicationId,
+      environmentId: input.environmentId,
       actorKind: input.idempotency.actor.kind,
       actorId: input.idempotency.actor.id,
       operation: "conversation.create",
@@ -164,7 +163,7 @@ export async function createPublicConversation(
       const conversation = await getPublicConversation(
         tx,
         input.workspaceId,
-        input.applicationId,
+        input.environmentId,
         input.externalSubjectId,
         reservation.resourceId
       )
@@ -174,7 +173,7 @@ export async function createPublicConversation(
     const identity = await resolveSubject(
       tx,
       input.workspaceId,
-      input.applicationId,
+      input.environmentId,
       input.externalSubjectId
     )
     if (!identity) {
@@ -184,7 +183,7 @@ export async function createPublicConversation(
     const binding = await bindingAllows(
       tx,
       input.workspaceId,
-      input.applicationId,
+      input.environmentId,
       input.workflowId,
       input.startKind
     )
@@ -194,7 +193,7 @@ export async function createPublicConversation(
     }
     const result = await createConversation(tx, {
       workspaceId: input.workspaceId,
-      applicationId: input.applicationId,
+      environmentId: input.environmentId,
       workflowId: input.workflowId,
       externalSubjectId: input.externalSubjectId,
       environment: identity.environment,
@@ -222,7 +221,7 @@ export async function createPublicConversation(
 export async function getPublicConversation(
   db: DbClient,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   externalSubjectId: string | undefined,
   conversationId: string
 ): Promise<Conversation | undefined> {
@@ -233,7 +232,7 @@ export async function getPublicConversation(
       and(
         eq(conversations.id, conversationId),
         eq(conversations.workspaceId, workspaceId),
-        eq(conversations.applicationId, applicationId),
+        eq(conversations.environmentId, environmentId),
         externalSubjectId
           ? eq(conversations.externalSubjectId, externalSubjectId)
           : undefined
@@ -245,7 +244,7 @@ export async function getPublicConversation(
 export async function listPublicConversations(
   db: DbClient,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   externalSubjectId: string | undefined,
   limit: number,
   cursor: { lastActivityAt: Date; id: string } | undefined
@@ -256,7 +255,7 @@ export async function listPublicConversations(
     .where(
       and(
         eq(conversations.workspaceId, workspaceId),
-        eq(conversations.applicationId, applicationId),
+        eq(conversations.environmentId, environmentId),
         externalSubjectId
           ? eq(conversations.externalSubjectId, externalSubjectId)
           : undefined,
@@ -287,7 +286,7 @@ export async function startPublicExecution(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     workflowId: string
     conversationId?: string
@@ -299,7 +298,7 @@ export async function startPublicExecution(
   return db.transaction(async (tx): Promise<StartPublicExecutionResult> => {
     const reservation = await reservePublicRequest(tx, {
       workspaceId: input.workspaceId,
-      applicationId: input.applicationId,
+      environmentId: input.environmentId,
       actorKind: input.idempotency.actor.kind,
       actorId: input.idempotency.actor.id,
       operation: "execution.start",
@@ -313,7 +312,7 @@ export async function startPublicExecution(
       const execution = await getPublicExecution(
         tx,
         input.workspaceId,
-        input.applicationId,
+        input.environmentId,
         input.externalSubjectId,
         reservation.resourceId
       )
@@ -323,7 +322,7 @@ export async function startPublicExecution(
     const identity = await resolveSubject(
       tx,
       input.workspaceId,
-      input.applicationId,
+      input.environmentId,
       input.externalSubjectId
     )
     if (!identity) {
@@ -333,7 +332,7 @@ export async function startPublicExecution(
     const binding = await bindingAllows(
       tx,
       input.workspaceId,
-      input.applicationId,
+      input.environmentId,
       input.workflowId,
       input.startKind
     )
@@ -345,7 +344,7 @@ export async function startPublicExecution(
       const conversation = await getPublicConversation(
         tx,
         input.workspaceId,
-        input.applicationId,
+        input.environmentId,
         input.externalSubjectId,
         input.conversationId
       )
@@ -378,6 +377,7 @@ export async function startPublicExecution(
       .where(
         and(
           eq(workflowVersions.workflowId, input.workflowId),
+          eq(workflowVersions.id, binding.workflowVersionId),
           eq(
             workflowVersions.workflowContractRevisionId,
             binding.workflowContractRevisionId
@@ -401,7 +401,7 @@ export async function startPublicExecution(
       .insert(executions)
       .values({
         workspaceId: input.workspaceId,
-        applicationId: input.applicationId,
+        environmentId: input.environmentId,
         workflowId: input.workflowId,
         workflowVersionId: version.id,
         workflowContractRevisionId: version.contractRevisionId,
@@ -425,7 +425,7 @@ export async function startPublicExecution(
 export async function getPublicExecution(
   db: DbClient,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   externalSubjectId: string | undefined,
   executionId: string
 ): Promise<Execution | undefined> {
@@ -436,7 +436,7 @@ export async function getPublicExecution(
       and(
         eq(executions.id, executionId),
         eq(executions.workspaceId, workspaceId),
-        eq(executions.applicationId, applicationId),
+        eq(executions.environmentId, environmentId),
         externalSubjectId
           ? eq(executions.externalSubjectRecordId, externalSubjectId)
           : undefined
@@ -454,14 +454,14 @@ export type CancelPublicExecutionResult =
 export async function cancelPublicExecution(
   db: DbClient,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   executionId: string,
   idempotency: Idempotency
 ): Promise<CancelPublicExecutionResult> {
   return db.transaction(async (tx): Promise<CancelPublicExecutionResult> => {
     const reservation = await reservePublicRequest(tx, {
       workspaceId,
-      applicationId,
+      environmentId,
       actorKind: idempotency.actor.kind,
       actorId: idempotency.actor.id,
       operation: "execution.cancel",
@@ -475,7 +475,7 @@ export async function cancelPublicExecution(
       const execution = await getPublicExecution(
         tx,
         workspaceId,
-        applicationId,
+        environmentId,
         undefined,
         reservation.resourceId
       )
@@ -486,7 +486,7 @@ export async function cancelPublicExecution(
     const execution = await cancelExecutionWithPendingApproval(
       tx,
       workspaceId,
-      applicationId,
+      environmentId,
       executionId,
       idempotency.actor.id,
       cancelledAt
@@ -494,11 +494,11 @@ export async function cancelPublicExecution(
     if (execution) {
       await tx.insert(auditLogs).values({
         workspaceId,
-        actorApplicationKeyId: idempotency.actor.id,
+        actorEnvironmentKeyId: idempotency.actor.id,
         action: "execution.cancelled",
         resource: "execution",
         resourceId: executionId,
-        metadata: { applicationId, idempotencyKey: idempotency.key },
+        metadata: { environmentId, idempotencyKey: idempotency.key },
       })
       await finalizePublicRequest(tx, reservation.recordId, execution.id)
       return { outcome: "cancelled", execution }
@@ -506,7 +506,7 @@ export async function cancelPublicExecution(
     const existing = await getPublicExecution(
       tx,
       workspaceId,
-      applicationId,
+      environmentId,
       undefined,
       executionId
     )
@@ -532,7 +532,7 @@ export async function createPublicMessage(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     conversationId: string
     content: string
@@ -542,7 +542,7 @@ export async function createPublicMessage(
   return db.transaction(async (tx): Promise<CreatePublicMessageResult> => {
     const reservation = await reservePublicRequest(tx, {
       workspaceId: input.workspaceId,
-      applicationId: input.applicationId,
+      environmentId: input.environmentId,
       actorKind: input.idempotency.actor.kind,
       actorId: input.idempotency.actor.id,
       operation: "message.create",
@@ -569,7 +569,7 @@ export async function createPublicMessage(
     const conversation = await getPublicConversation(
       tx,
       input.workspaceId,
-      input.applicationId,
+      input.environmentId,
       input.externalSubjectId,
       input.conversationId
     )
@@ -592,7 +592,7 @@ export async function createPublicMessage(
 export async function listPublicMessages(
   db: DbClient,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   externalSubjectId: string,
   conversationId: string,
   limit: number,
@@ -601,7 +601,7 @@ export async function listPublicMessages(
   const conversation = await getPublicConversation(
     db,
     workspaceId,
-    applicationId,
+    environmentId,
     externalSubjectId,
     conversationId
   )

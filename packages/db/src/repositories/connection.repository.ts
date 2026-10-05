@@ -12,14 +12,14 @@ import {
   sql,
 } from "drizzle-orm"
 import {
-  applications,
+  environments,
   connectionReadUses,
   connectionAuthorizationRequests,
   connectionRevocationDeliveries,
   connections,
   endUserSessions,
   executions,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   type Connection,
   type ConnectionAuthorizationRequest,
@@ -35,7 +35,7 @@ import type { DbClient } from "./types.js"
 type CreateAuthorizationInput = {
   id: string
   workspaceId: string
-  applicationId: string
+  environmentId: string
   externalSubjectId: string
   endUserSessionId: string
   provider: string
@@ -50,7 +50,7 @@ type CreateAuthorizationInput = {
 
 export type CreateConnectionAuthorizationResult =
   | { outcome: "created"; request: ConnectionAuthorizationRequest }
-  | { outcome: "application_unavailable" }
+  | { outcome: "environment_unavailable" }
   | { outcome: "provider_denied" }
   | { outcome: "scope_denied" }
   | { outcome: "connection_unavailable" }
@@ -122,8 +122,8 @@ async function fenceGoogleRevocations(
             isNull(connectionRevocationDeliveries.providerAccountId),
             eq(connectionRevocationDeliveries.workspaceId, request.workspaceId),
             eq(
-              connectionRevocationDeliveries.applicationId,
-              request.applicationId
+              connectionRevocationDeliveries.environmentId,
+              request.environmentId
             ),
             eq(
               connectionRevocationDeliveries.externalSubjectId,
@@ -213,23 +213,23 @@ export async function completeConnectionAuthorizationRequest(
       }
       const [authority] = await tx
         .select({
-          enabled: applications.enabled,
-          connectorAccessPolicy: applications.connectorAccessPolicy,
+          enabled: environments.enabled,
+          connectorAccessPolicy: environments.connectorAccessPolicy,
           subjectStatus: externalSubjects.status,
           sessionExpiresAt: endUserSessions.expiresAt,
           sessionRevokedAt: endUserSessions.revokedAt,
         })
-        .from(applications)
+        .from(environments)
         .innerJoin(
-          externalSubjectApplications,
+          externalSubjectEnvironments,
           and(
             eq(
-              externalSubjectApplications.applicationId,
-              request.applicationId
+              externalSubjectEnvironments.environmentId,
+              request.environmentId
             ),
-            eq(externalSubjectApplications.workspaceId, request.workspaceId),
+            eq(externalSubjectEnvironments.workspaceId, request.workspaceId),
             eq(
-              externalSubjectApplications.externalSubjectId,
+              externalSubjectEnvironments.externalSubjectId,
               request.externalSubjectId
             )
           )
@@ -246,14 +246,14 @@ export async function completeConnectionAuthorizationRequest(
           and(
             eq(endUserSessions.id, request.endUserSessionId),
             eq(endUserSessions.workspaceId, request.workspaceId),
-            eq(endUserSessions.applicationId, request.applicationId),
+            eq(endUserSessions.environmentId, request.environmentId),
             eq(endUserSessions.externalSubjectId, request.externalSubjectId)
           )
         )
         .where(
           and(
-            eq(applications.id, request.applicationId),
-            eq(applications.workspaceId, request.workspaceId)
+            eq(environments.id, request.environmentId),
+            eq(environments.workspaceId, request.workspaceId)
           )
         )
         .for("share")
@@ -299,7 +299,7 @@ export async function completeConnectionAuthorizationRequest(
         .where(
           and(
             eq(connections.workspaceId, request.workspaceId),
-            eq(connections.applicationId, request.applicationId),
+            eq(connections.environmentId, request.environmentId),
             eq(connections.externalSubjectId, request.externalSubjectId),
             eq(connections.provider, request.provider),
             eq(connections.providerAccountId, input.providerAccountId),
@@ -315,7 +315,7 @@ export async function completeConnectionAuthorizationRequest(
               and(
                 eq(connections.id, request.targetConnectionId),
                 eq(connections.workspaceId, request.workspaceId),
-                eq(connections.applicationId, request.applicationId),
+                eq(connections.environmentId, request.environmentId),
                 eq(connections.externalSubjectId, request.externalSubjectId),
                 eq(connections.provider, request.provider),
                 sql`${connections.status} <> 'revoked'`
@@ -339,7 +339,7 @@ export async function completeConnectionAuthorizationRequest(
       const connectionId = existing?.id ?? input.connectionId
       const credentialEncrypted = encryptCredential(input.credentialPlaintext, {
         workspaceId: request.workspaceId,
-        applicationId: request.applicationId,
+        environmentId: request.environmentId,
         externalSubjectId: request.externalSubjectId,
         recordId: connectionId,
         provider: request.provider,
@@ -362,7 +362,7 @@ export async function completeConnectionAuthorizationRequest(
             .values({
               id: input.connectionId,
               workspaceId: request.workspaceId,
-              applicationId: request.applicationId,
+              environmentId: request.environmentId,
               externalSubjectId: request.externalSubjectId,
               provider: request.provider,
               providerAccountId: input.providerAccountId,
@@ -391,8 +391,8 @@ export async function completeConnectionAuthorizationRequest(
             eq(connectionRevocationDeliveries.id, input.revocationDeliveryId),
             eq(connectionRevocationDeliveries.workspaceId, request.workspaceId),
             eq(
-              connectionRevocationDeliveries.applicationId,
-              request.applicationId
+              connectionRevocationDeliveries.environmentId,
+              request.environmentId
             ),
             eq(
               connectionRevocationDeliveries.externalSubjectId,
@@ -445,14 +445,14 @@ export async function failConnectionAuthorizationRequest(
 
 type ConnectionOwner = {
   workspaceId: string
-  applicationId: string
+  environmentId: string
   externalSubjectId: string
 }
 
 function ownedConnection(owner: ConnectionOwner, connectionId?: string) {
   return and(
     eq(connections.workspaceId, owner.workspaceId),
-    eq(connections.applicationId, owner.applicationId),
+    eq(connections.environmentId, owner.environmentId),
     eq(connections.externalSubjectId, owner.externalSubjectId),
     connectionId ? eq(connections.id, connectionId) : undefined
   )
@@ -493,7 +493,7 @@ export async function getConnectionAuthorizationRequest(
       and(
         eq(connectionAuthorizationRequests.id, authorizationRequestId),
         eq(connectionAuthorizationRequests.workspaceId, owner.workspaceId),
-        eq(connectionAuthorizationRequests.applicationId, owner.applicationId),
+        eq(connectionAuthorizationRequests.environmentId, owner.environmentId),
         eq(
           connectionAuthorizationRequests.externalSubjectId,
           owner.externalSubjectId
@@ -534,7 +534,7 @@ export async function recordConnectionReadUse(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     connectionId: string
     executionId: string
@@ -564,7 +564,7 @@ export function findConnectionReadUses(
     .where(
       and(
         eq(connectionReadUses.workspaceId, input.workspaceId),
-        eq(connectionReadUses.applicationId, input.applicationId),
+        eq(connectionReadUses.environmentId, input.environmentId),
         eq(connectionReadUses.externalSubjectId, input.externalSubjectId),
         eq(connectionReadUses.connectionId, input.connectionId),
         input.cursor
@@ -599,15 +599,15 @@ export async function getConnectorReadAuthority(
   const [authority] = await db
     .select({
       connection: connections,
-      policy: applications.connectorAccessPolicy,
+      policy: environments.connectorAccessPolicy,
     })
     .from(executions)
     .innerJoin(
-      applications,
+      environments,
       and(
-        eq(applications.id, executions.applicationId),
-        eq(applications.workspaceId, executions.workspaceId),
-        eq(applications.enabled, true)
+        eq(environments.id, executions.environmentId),
+        eq(environments.workspaceId, executions.workspaceId),
+        eq(environments.enabled, true)
       )
     )
     .innerJoin(
@@ -619,14 +619,14 @@ export async function getConnectorReadAuthority(
       )
     )
     .innerJoin(
-      externalSubjectApplications,
+      externalSubjectEnvironments,
       and(
-        eq(externalSubjectApplications.applicationId, executions.applicationId),
+        eq(externalSubjectEnvironments.environmentId, executions.environmentId),
         eq(
-          externalSubjectApplications.externalSubjectId,
+          externalSubjectEnvironments.externalSubjectId,
           executions.externalSubjectRecordId
         ),
-        eq(externalSubjectApplications.workspaceId, executions.workspaceId)
+        eq(externalSubjectEnvironments.workspaceId, executions.workspaceId)
       )
     )
     .innerJoin(
@@ -634,7 +634,7 @@ export async function getConnectorReadAuthority(
       and(
         eq(connections.id, input.connectionId),
         eq(connections.workspaceId, executions.workspaceId),
-        eq(connections.applicationId, executions.applicationId),
+        eq(connections.environmentId, executions.environmentId),
         eq(connections.externalSubjectId, executions.externalSubjectRecordId)
       )
     )
@@ -715,7 +715,7 @@ export async function revokeConnection(
       await tx.insert(connectionRevocationDeliveries).values({
         id: input.deliveryId,
         workspaceId: owner.workspaceId,
-        applicationId: owner.applicationId,
+        environmentId: owner.environmentId,
         externalSubjectId: owner.externalSubjectId,
         connectionId,
         provider: connection.provider,
@@ -734,7 +734,7 @@ export async function revokeConnection(
     })
     await createPublicEvent(tx, {
       workspaceId: connection.workspaceId,
-      applicationId: connection.applicationId,
+      environmentId: connection.environmentId,
       externalSubjectId: connection.externalSubjectId,
       eventType: "connection.revoked",
       data: { connectionId: connection.id },
@@ -792,7 +792,7 @@ export async function stageAuthorizationCredentialRevocation(
   input: {
     id: string
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     provider: string
     providerAccountId: string
@@ -805,7 +805,7 @@ export async function stageAuthorizationCredentialRevocation(
   await db.insert(connectionRevocationDeliveries).values({
     id: input.id,
     workspaceId: input.workspaceId,
-    applicationId: input.applicationId,
+    environmentId: input.environmentId,
     externalSubjectId: input.externalSubjectId,
     connectionId: null,
     provider: input.provider,
@@ -1040,36 +1040,36 @@ export async function createConnectionAuthorizationRequest(
   input: CreateAuthorizationInput
 ): Promise<CreateConnectionAuthorizationResult> {
   return db.transaction(async (tx) => {
-    const [application] = await tx
+    const [environment] = await tx
       .select({
-        allowedRedirectOrigins: applications.allowedRedirectOrigins,
-        connectorAccessPolicy: applications.connectorAccessPolicy,
+        allowedRedirectOrigins: environments.allowedRedirectOrigins,
+        connectorAccessPolicy: environments.connectorAccessPolicy,
       })
-      .from(applications)
+      .from(environments)
       .innerJoin(
-        externalSubjectApplications,
+        externalSubjectEnvironments,
         and(
-          eq(externalSubjectApplications.applicationId, applications.id),
-          eq(externalSubjectApplications.workspaceId, applications.workspaceId),
+          eq(externalSubjectEnvironments.environmentId, environments.id),
+          eq(externalSubjectEnvironments.workspaceId, environments.workspaceId),
           eq(
-            externalSubjectApplications.externalSubjectId,
+            externalSubjectEnvironments.externalSubjectId,
             input.externalSubjectId
           )
         )
       )
       .where(
         and(
-          eq(applications.id, input.applicationId),
-          eq(applications.workspaceId, input.workspaceId),
-          eq(applications.enabled, true)
+          eq(environments.id, input.environmentId),
+          eq(environments.workspaceId, input.workspaceId),
+          eq(environments.enabled, true)
         )
       )
       .for("share")
-    if (!application) return { outcome: "application_unavailable" }
-    if (!application.allowedRedirectOrigins.includes(origin(input.returnUri))) {
+    if (!environment) return { outcome: "environment_unavailable" }
+    if (!environment.allowedRedirectOrigins.includes(origin(input.returnUri))) {
       return { outcome: "return_uri_denied" }
     }
-    const provider = application.connectorAccessPolicy.providers.find(
+    const provider = environment.connectorAccessPolicy.providers.find(
       (candidate) => candidate.provider === input.provider
     )
     if (!provider) return { outcome: "provider_denied" }
@@ -1110,7 +1110,7 @@ export async function createConnectionAuthorizationRequest(
       .values({
         id: input.id,
         workspaceId: input.workspaceId,
-        applicationId: input.applicationId,
+        environmentId: input.environmentId,
         externalSubjectId: input.externalSubjectId,
         endUserSessionId: input.endUserSessionId,
         provider: input.provider,
@@ -1146,33 +1146,33 @@ export async function getConnectionAuthorizationPolicy(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     provider: string
   }
 ): Promise<{ actionFamilies: string[]; maxScopes: string[] } | undefined> {
-  const [application] = await db
-    .select({ policy: applications.connectorAccessPolicy })
-    .from(applications)
+  const [environment] = await db
+    .select({ policy: environments.connectorAccessPolicy })
+    .from(environments)
     .innerJoin(
-      externalSubjectApplications,
+      externalSubjectEnvironments,
       and(
-        eq(externalSubjectApplications.applicationId, applications.id),
-        eq(externalSubjectApplications.workspaceId, applications.workspaceId),
+        eq(externalSubjectEnvironments.environmentId, environments.id),
+        eq(externalSubjectEnvironments.workspaceId, environments.workspaceId),
         eq(
-          externalSubjectApplications.externalSubjectId,
+          externalSubjectEnvironments.externalSubjectId,
           input.externalSubjectId
         )
       )
     )
     .where(
       and(
-        eq(applications.id, input.applicationId),
-        eq(applications.workspaceId, input.workspaceId),
-        eq(applications.enabled, true)
+        eq(environments.id, input.environmentId),
+        eq(environments.workspaceId, input.workspaceId),
+        eq(environments.enabled, true)
       )
     )
-  return application?.policy.providers.find(
+  return environment?.policy.providers.find(
     (provider) => provider.provider === input.provider
   )
 }

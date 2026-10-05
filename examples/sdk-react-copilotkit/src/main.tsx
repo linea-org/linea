@@ -5,7 +5,7 @@ import { LineaUserProvider } from "@linea/sdk-react"
 import { CopilotKitApprovalAction } from "@linea/sdk-react/copilotkit"
 
 const client = new LineaUserClient({
-  applicationId: "80000000-0000-4000-8000-000000000008",
+  environmentId: "80000000-0000-4000-8000-000000000008",
   baseUrl: "https://api.example",
 })
 

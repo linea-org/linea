@@ -1,12 +1,12 @@
 export {
-  LineaApplicationClient,
+  LineaEnvironmentClient,
   type IdempotencyOptions,
-  type LineaApplicationClientOptions,
-} from "./application-client.js"
+  type LineaEnvironmentClientOptions,
+} from "./environment-client.js"
 export {
-  applicationKey,
+  environmentKey,
   workspaceKey,
-  type ApplicationKey,
+  type EnvironmentKey,
   type WorkspaceKey,
 } from "./credentials.js"
 export {

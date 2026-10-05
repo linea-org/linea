@@ -1,10 +1,10 @@
 import { and, asc, eq, gt, gte, inArray, lte, sql } from "drizzle-orm"
 import type { EventType } from "@linea/protocol/events"
 import {
-  applications,
+  environments,
   endUserEventStreams,
   endUserSessions,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   outboxMessages,
   type EndUserEventStream,
@@ -16,7 +16,7 @@ export async function acquireEndUserEventStream(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     sessionId: string
     now: Date
@@ -26,16 +26,16 @@ export async function acquireEndUserEventStream(
 ): Promise<EndUserEventStream | undefined> {
   return db.transaction(async (tx) => {
     const [audience] = await tx
-      .select({ applicationId: externalSubjectApplications.applicationId })
-      .from(externalSubjectApplications)
+      .select({ environmentId: externalSubjectEnvironments.environmentId })
+      .from(externalSubjectEnvironments)
       .where(
         and(
-          eq(externalSubjectApplications.applicationId, input.applicationId),
+          eq(externalSubjectEnvironments.environmentId, input.environmentId),
           eq(
-            externalSubjectApplications.externalSubjectId,
+            externalSubjectEnvironments.externalSubjectId,
             input.externalSubjectId
           ),
-          eq(externalSubjectApplications.workspaceId, input.workspaceId)
+          eq(externalSubjectEnvironments.workspaceId, input.workspaceId)
         )
       )
       .for("update")
@@ -44,7 +44,7 @@ export async function acquireEndUserEventStream(
       .delete(endUserEventStreams)
       .where(
         and(
-          eq(endUserEventStreams.applicationId, input.applicationId),
+          eq(endUserEventStreams.environmentId, input.environmentId),
           eq(endUserEventStreams.externalSubjectId, input.externalSubjectId),
           lte(endUserEventStreams.leaseExpiresAt, input.now)
         )
@@ -54,7 +54,7 @@ export async function acquireEndUserEventStream(
       .from(endUserEventStreams)
       .where(
         and(
-          eq(endUserEventStreams.applicationId, input.applicationId),
+          eq(endUserEventStreams.environmentId, input.environmentId),
           eq(endUserEventStreams.externalSubjectId, input.externalSubjectId)
         )
       )
@@ -64,7 +64,7 @@ export async function acquireEndUserEventStream(
       .insert(endUserEventStreams)
       .values({
         workspaceId: input.workspaceId,
-        applicationId: input.applicationId,
+        environmentId: input.environmentId,
         externalSubjectId: input.externalSubjectId,
         sessionId: input.sessionId,
         leaseExpiresAt: input.leaseExpiresAt,
@@ -98,10 +98,10 @@ export async function renewEndUserEventStream(
             AND ${endUserSessions.expiresAt} > ${input.now}
         )`,
         sql`EXISTS (
-          SELECT 1 FROM ${applications}
-          WHERE ${applications.id} = ${endUserEventStreams.applicationId}
-            AND ${applications.workspaceId} = ${endUserEventStreams.workspaceId}
-            AND ${applications.enabled} = true
+          SELECT 1 FROM ${environments}
+          WHERE ${environments.id} = ${endUserEventStreams.environmentId}
+            AND ${environments.workspaceId} = ${endUserEventStreams.workspaceId}
+            AND ${environments.enabled} = true
         )`,
         sql`EXISTS (
           SELECT 1 FROM ${externalSubjects}
@@ -134,7 +134,7 @@ export async function listEndUserEvents(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     externalSubjectId: string
     conversationId: string | undefined
     eventTypes: EventType[] | undefined
@@ -158,7 +158,7 @@ export async function listEndUserEvents(
               eq(outboxMessages.id, input.afterEventId),
               eq(outboxMessages.kind, "public_event"),
               eq(outboxMessages.workspaceId, input.workspaceId),
-              eq(outboxMessages.applicationId, input.applicationId),
+              eq(outboxMessages.environmentId, input.environmentId),
               eq(outboxMessages.externalSubjectId, input.externalSubjectId),
               gte(outboxMessages.createdAt, input.retainedAfter)
             )
@@ -172,7 +172,7 @@ export async function listEndUserEvents(
         and(
           eq(outboxMessages.kind, "public_event"),
           eq(outboxMessages.workspaceId, input.workspaceId),
-          eq(outboxMessages.applicationId, input.applicationId),
+          eq(outboxMessages.environmentId, input.environmentId),
           eq(outboxMessages.externalSubjectId, input.externalSubjectId),
           gte(outboxMessages.createdAt, input.retainedAfter),
           cursor ? gt(outboxMessages.sequence, cursor.sequence) : undefined,

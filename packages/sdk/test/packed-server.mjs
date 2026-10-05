@@ -69,14 +69,14 @@ try {
     `import { LineaClient } from "@linea/sdk"
 import { LineaUserClient } from "@linea/sdk/user"
 import { verifyWebhook, verifyWebhookSignature } from "@linea/sdk/webhooks"
-import { LineaApplicationClient, LineaWorkspaceClient, applicationKey, workspaceKey } from "@linea/sdk/server"
-const application = new LineaApplicationClient({ applicationId: "app", applicationKey: applicationKey("lin_app_secret") })
+import { LineaEnvironmentClient, LineaWorkspaceClient, environmentKey, workspaceKey } from "@linea/sdk/server"
+const environment = new LineaEnvironmentClient({ environmentId: "app", environmentKey: environmentKey("lin_env_secret") })
 const workspace = new LineaWorkspaceClient({ workspaceKey: workspaceKey("lin_secret") })
-// @ts-expect-error workspace credentials cannot cross the Application boundary
-new LineaApplicationClient({ applicationId: "app", applicationKey: workspaceKey("lin_secret") })
-// @ts-expect-error Application credentials cannot cross the workspace boundary
-new LineaWorkspaceClient({ workspaceKey: applicationKey("lin_app_secret") })
-export { application, workspace, LineaClient, LineaUserClient, verifyWebhook, verifyWebhookSignature }
+// @ts-expect-error workspace credentials cannot cross the Environment boundary
+new LineaEnvironmentClient({ environmentId: "app", environmentKey: workspaceKey("lin_secret") })
+// @ts-expect-error Environment credentials cannot cross the workspace boundary
+new LineaWorkspaceClient({ workspaceKey: environmentKey("lin_env_secret") })
+export { environment, workspace, LineaClient, LineaUserClient, verifyWebhook, verifyWebhookSignature }
 `
   )
   writeFileSync(
@@ -87,7 +87,7 @@ const secret = "webhook-secret"
 const eventId = "event-1"
 const now = new Date("2026-09-18T12:00:00.000Z")
 const timestamp = String(now.getTime() / 1000)
-const body = Buffer.from(JSON.stringify({ id: eventId, type: "execution.completed", version: 1, createdAt: now.toISOString(), applicationId: "application-1", data: { executionId: "00000000-0000-4000-8000-000000000001", status: "succeeded" } }))
+const body = Buffer.from(JSON.stringify({ id: eventId, type: "execution.completed", version: 1, createdAt: now.toISOString(), environmentId: "environment-1", data: { executionId: "00000000-0000-4000-8000-000000000001", status: "succeeded" } }))
 const digest = createHmac("sha256", secret).update(timestamp + "." + eventId + ".").update(body).digest("hex")
 const result = verifyWebhook({ body, eventId, timestamp, signature: "v1=" + digest, currentSecret: secret, previousSecret: null, previousSecretExpiresAt: null, now, timestampToleranceSeconds: 300 })
 if (!result.valid || result.envelope.id !== eventId) throw new Error("Packed webhook verification failed")

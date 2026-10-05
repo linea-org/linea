@@ -81,7 +81,6 @@ describe('Connections and Action Consent launch tracer', () => {
   let googleConnectionId: string
   let githubConnectionId: string
   let rateLimitStartBucket: number
-
   beforeAll(async () => {
     google = await startTestGoogleProvider()
     github = await startTestGithubOAuthProvider()
@@ -106,7 +105,6 @@ describe('Connections and Action Consent launch tracer', () => {
     baseUrl = await app.getUrl()
     process.env.CONNECTION_OAUTH_CALLBACK_BASE_URL = baseUrl
   })
-
   afterAll(async () => {
     await stopWorker(backgroundWorker)
     await stopWorker(executionWorker)
@@ -133,6 +131,10 @@ describe('Connections and Action Consent launch tracer', () => {
         'DELETE FROM approval_requests WHERE workspace_id = $1',
         [fixture.workspaceId],
       )
+      await pool.query(
+        'DELETE FROM connector_audit_facts WHERE workspace_id = $1',
+        [fixture.workspaceId],
+      )
       await pool.query('DELETE FROM organizations WHERE id = $1', [
         fixture.workspaceId,
       ])
@@ -144,7 +146,6 @@ describe('Connections and Action Consent launch tracer', () => {
     delete process.env.GITHUB_API_BASE_URL
     delete process.env.CONNECTION_OAUTH_CALLBACK_BASE_URL
   })
-
   async function authorize(provider: 'google' | 'github'): Promise<string> {
     const path = '/v1/user/connections/authorizations'
     const started = await request(baseUrl)
@@ -185,7 +186,6 @@ describe('Connections and Action Consent launch tracer', () => {
     if (!connection) throw new Error(`${provider} Connection was not listed`)
     return connection.id
   }
-
   async function startExecution(
     session: LaunchSession,
     workflowId: string,
@@ -201,7 +201,6 @@ describe('Connections and Action Consent launch tracer', () => {
       .expect(202)
     return publicExecutionSchema.parse(response.body)
   }
-
   async function waitForExecution(
     session: LaunchSession,
     executionId: string,
@@ -235,7 +234,6 @@ describe('Connections and Action Consent launch tracer', () => {
       `Execution did not reach ${expectedStatus}: ${workerFailure([backgroundWorker!, executionWorker!])}`,
     )
   }
-
   async function expectPublishedOutbox(executionId: string): Promise<void> {
     const deadline = Date.now() + 10_000
     while (Date.now() < deadline) {
@@ -261,7 +259,6 @@ describe('Connections and Action Consent launch tracer', () => {
       'Transactional execution and public-event outbox did not publish',
     )
   }
-
   it('connects Google and GitHub over OAuth HTTP and isolates the DPoP subject', async () => {
     googleConnectionId = await authorize('google')
     githubConnectionId = await authorize('github')
@@ -277,7 +274,6 @@ describe('Connections and Action Consent launch tracer', () => {
       .expect(200)
     expect(JSON.stringify(primary.body)).not.toMatch(/google-access-|gho_/)
   })
-
   it('runs the queued Google read and consent-bound GitHub write through the public API', async () => {
     backgroundWorker = startWorker('background-worker')
     executionWorker = startWorker('execution-worker')
@@ -357,7 +353,6 @@ describe('Connections and Action Consent launch tracer', () => {
       .expect(200)
     expect(JSON.stringify(result.body)).not.toMatch(/gho_|rawProviderSecret/)
   })
-
   it('projects recent use and audit by audience without provider credentials', async () => {
     const usesPath = `/v1/user/connections/${githubConnectionId}/uses`
     const uses = await request(baseUrl)
@@ -391,10 +386,10 @@ describe('Connections and Action Consent launch tracer', () => {
         otherAudit.body,
       ).data,
     ).toEqual([])
-    const operatorPath = `/v1/applications/${fixture.applicationId}/audit-events`
+    const operatorPath = `/v1/environments/${fixture.environmentId}/audit-events`
     const operatorAudit = await request(baseUrl)
       .get(operatorPath)
-      .set('Authorization', `Bearer ${fixture.applicationKey}`)
+      .set('Authorization', `Bearer ${fixture.environmentKey}`)
       .expect(200)
     expect(
       paginatedResponseSchema(operatorConnectorAuditEventSchema).parse(
@@ -407,7 +402,6 @@ describe('Connections and Action Consent launch tracer', () => {
       )
     }
   })
-
   it('revokes the GitHub Connection before another queued side effect can run', async () => {
     const path = `/v1/user/connections/${githubConnectionId}`
     const revoked = await request(baseUrl)

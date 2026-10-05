@@ -64,20 +64,20 @@ export const relations = defineRelations(schema, (r) => ({
   },
 
   organizations: {
+    applications: r.many.applications(),
     members: r.many.members(),
     invitations: r.many.invitations(),
     auditLogs: r.many.auditLogs(),
     workflows: r.many.workflows(),
     executions: r.many.executions(),
     schedules: r.many.schedules(),
-    secrets: r.many.secrets(),
     apiKeys: r.many.apiKeys(),
-    applications: r.many.applications(),
+    environments: r.many.environments(),
     workflowContractRevisions: r.many.workflowContractRevisions(),
-    applicationWorkflowBindings: r.many.applicationWorkflowBindings(),
-    applicationKeys: r.many.applicationKeys(),
+    environmentWorkflowBindings: r.many.environmentWorkflowBindings(),
+    environmentKeys: r.many.environmentKeys(),
     externalSubjects: r.many.externalSubjects(),
-    externalSubjectApplications: r.many.externalSubjectApplications(),
+    externalSubjectEnvironments: r.many.externalSubjectEnvironments(),
     endUserAuthorizationRequests: r.many.endUserAuthorizationRequests(),
     endUserIdentityExchanges: r.many.endUserIdentityExchanges(),
     endUserSessions: r.many.endUserSessions(),
@@ -90,10 +90,23 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.applications.workspaceId,
       to: r.organizations.id,
     }),
-    workflowBindings: r.many.applicationWorkflowBindings(),
-    keys: r.many.applicationKeys(),
+    environments: r.many.environments(),
+    workflows: r.many.workflows(),
+  },
+  environments: {
+    application: r.one.applications({
+      from: r.environments.applicationId,
+      to: r.applications.id,
+    }),
+    secrets: r.many.secrets(),
+    workspace: r.one.organizations({
+      from: r.environments.workspaceId,
+      to: r.organizations.id,
+    }),
+    workflowBindings: r.many.environmentWorkflowBindings(),
+    keys: r.many.environmentKeys(),
     executions: r.many.executions(),
-    externalSubjects: r.many.externalSubjectApplications(),
+    externalSubjects: r.many.externalSubjectEnvironments(),
     endUserAuthorizationRequests: r.many.endUserAuthorizationRequests(),
     endUserIdentityExchanges: r.many.endUserIdentityExchanges(),
     endUserSessions: r.many.endUserSessions(),
@@ -106,7 +119,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.externalSubjects.workspaceId,
       to: r.organizations.id,
     }),
-    applications: r.many.externalSubjectApplications(),
+    environments: r.many.externalSubjectEnvironments(),
     authorizationRequests: r.many.endUserAuthorizationRequests(),
     identityExchanges: r.many.endUserIdentityExchanges(),
     sessions: r.many.endUserSessions(),
@@ -114,17 +127,17 @@ export const relations = defineRelations(schema, (r) => ({
     conversations: r.many.conversations(),
   },
 
-  externalSubjectApplications: {
+  externalSubjectEnvironments: {
     workspace: r.one.organizations({
-      from: r.externalSubjectApplications.workspaceId,
+      from: r.externalSubjectEnvironments.workspaceId,
       to: r.organizations.id,
     }),
-    application: r.one.applications({
-      from: r.externalSubjectApplications.applicationId,
-      to: r.applications.id,
+    environmentRecord: r.one.environments({
+      from: r.externalSubjectEnvironments.environmentId,
+      to: r.environments.id,
     }),
     externalSubject: r.one.externalSubjects({
-      from: r.externalSubjectApplications.externalSubjectId,
+      from: r.externalSubjectEnvironments.externalSubjectId,
       to: r.externalSubjects.id,
     }),
   },
@@ -134,9 +147,9 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.endUserSessions.workspaceId,
       to: r.organizations.id,
     }),
-    application: r.one.applications({
-      from: r.endUserSessions.applicationId,
-      to: r.applications.id,
+    environmentRecord: r.one.environments({
+      from: r.endUserSessions.environmentId,
+      to: r.environments.id,
     }),
     externalSubject: r.one.externalSubjects({
       from: r.endUserSessions.externalSubjectId,
@@ -151,9 +164,9 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.endUserEventStreams.workspaceId,
       to: r.organizations.id,
     }),
-    application: r.one.applications({
-      from: r.endUserEventStreams.applicationId,
-      to: r.applications.id,
+    environmentRecord: r.one.environments({
+      from: r.endUserEventStreams.environmentId,
+      to: r.environments.id,
     }),
     externalSubject: r.one.externalSubjects({
       from: r.endUserEventStreams.externalSubjectId,
@@ -177,9 +190,9 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.endUserAuthorizationRequests.workspaceId,
       to: r.organizations.id,
     }),
-    application: r.one.applications({
-      from: r.endUserAuthorizationRequests.applicationId,
-      to: r.applications.id,
+    environmentRecord: r.one.environments({
+      from: r.endUserAuthorizationRequests.environmentId,
+      to: r.environments.id,
     }),
     externalSubject: r.one.externalSubjects({
       from: r.endUserAuthorizationRequests.externalSubjectId,
@@ -192,9 +205,9 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.endUserIdentityExchanges.workspaceId,
       to: r.organizations.id,
     }),
-    application: r.one.applications({
-      from: r.endUserIdentityExchanges.applicationId,
-      to: r.applications.id,
+    environmentRecord: r.one.environments({
+      from: r.endUserIdentityExchanges.environmentId,
+      to: r.environments.id,
     }),
     externalSubject: r.one.externalSubjects({
       from: r.endUserIdentityExchanges.externalSubjectId,
@@ -202,40 +215,44 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
 
-  applicationKeys: {
+  environmentKeys: {
     workspace: r.one.organizations({
-      from: r.applicationKeys.workspaceId,
+      from: r.environmentKeys.workspaceId,
       to: r.organizations.id,
     }),
-    application: r.one.applications({
-      from: r.applicationKeys.applicationId,
-      to: r.applications.id,
+    environmentRecord: r.one.environments({
+      from: r.environmentKeys.environmentId,
+      to: r.environments.id,
     }),
     auditLogs: r.many.auditLogs({
-      alias: "audit_application_key_actor",
+      alias: "audit_environment_key_actor",
     }),
   },
 
-  applicationWorkflowBindings: {
+  environmentWorkflowBindings: {
     workspace: r.one.organizations({
-      from: r.applicationWorkflowBindings.workspaceId,
+      from: r.environmentWorkflowBindings.workspaceId,
       to: r.organizations.id,
     }),
-    application: r.one.applications({
-      from: r.applicationWorkflowBindings.applicationId,
-      to: r.applications.id,
+    environmentRecord: r.one.environments({
+      from: r.environmentWorkflowBindings.environmentId,
+      to: r.environments.id,
     }),
     workflow: r.one.workflows({
-      from: r.applicationWorkflowBindings.workflowId,
+      from: r.environmentWorkflowBindings.workflowId,
       to: r.workflows.id,
     }),
     contractRevision: r.one.workflowContractRevisions({
-      from: r.applicationWorkflowBindings.workflowContractRevisionId,
+      from: r.environmentWorkflowBindings.workflowContractRevisionId,
       to: r.workflowContractRevisions.id,
     }),
   },
 
   workflows: {
+    application: r.one.applications({
+      from: r.workflows.applicationId,
+      to: r.applications.id,
+    }),
     workspace: r.one.organizations({
       from: r.workflows.workspaceId,
       to: r.organizations.id,
@@ -243,7 +260,7 @@ export const relations = defineRelations(schema, (r) => ({
 
     versions: r.many.workflowVersions(),
     contractRevisions: r.many.workflowContractRevisions(),
-    applicationBindings: r.many.applicationWorkflowBindings(),
+    environmentBindings: r.many.environmentWorkflowBindings(),
     conversations: r.many.conversations(),
 
     publishedVersion: r.one.workflowVersions({
@@ -278,7 +295,7 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.workflows.id,
     }),
     workflowVersions: r.many.workflowVersions(),
-    applicationBindings: r.many.applicationWorkflowBindings(),
+    environmentBindings: r.many.environmentWorkflowBindings(),
     executions: r.many.executions(),
   },
 
@@ -287,9 +304,9 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.conversations.workspaceId,
       to: r.organizations.id,
     }),
-    application: r.one.applications({
-      from: r.conversations.applicationId,
-      to: r.applications.id,
+    environmentRecord: r.one.environments({
+      from: r.conversations.environmentId,
+      to: r.environments.id,
     }),
     workflow: r.one.workflows({
       from: r.conversations.workflowId,
@@ -325,9 +342,9 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.executions.workflowVersionId,
       to: r.workflowVersions.id,
     }),
-    application: r.one.applications({
-      from: r.executions.applicationId,
-      to: r.applications.id,
+    environmentRecord: r.one.environments({
+      from: r.executions.environmentId,
+      to: r.environments.id,
     }),
     conversation: r.one.conversations({
       from: r.executions.conversationId,
@@ -383,9 +400,9 @@ export const relations = defineRelations(schema, (r) => ({
   },
 
   secrets: {
-    workspace: r.one.organizations({
-      from: r.secrets.workspaceId,
-      to: r.organizations.id,
+    environmentRecord: r.one.environments({
+      from: r.secrets.environmentId,
+      to: r.environments.id,
     }),
   },
 
@@ -407,10 +424,10 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.users.id,
     }),
 
-    applicationKeyActor: r.one.applicationKeys({
-      alias: "audit_application_key_actor",
-      from: r.auditLogs.actorApplicationKeyId,
-      to: r.applicationKeys.id,
+    environmentKeyActor: r.one.environmentKeys({
+      alias: "audit_environment_key_actor",
+      from: r.auditLogs.actorEnvironmentKeyId,
+      to: r.environmentKeys.id,
     }),
 
     targetUser: r.one.users({

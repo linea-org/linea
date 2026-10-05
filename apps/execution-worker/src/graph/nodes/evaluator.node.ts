@@ -98,7 +98,7 @@ export class EvaluatorNode implements NodeHandler {
         throw new NonRetryableError("Evaluator node requires a judge model")
       }
       const keyName = resolveKeyName(parsed.model)
-      const { apiKey } = await resolveApiKey(db, context.workspaceId, keyName)
+      const { apiKey } = await resolveApiKey(db, context.environmentId, keyName)
       judge = {
         model: parsed.model,
         provider: resolveProvider(parsed.model),

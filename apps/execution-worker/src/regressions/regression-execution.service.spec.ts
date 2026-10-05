@@ -1,3 +1,4 @@
+import { getTestApplicationId } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -49,6 +50,7 @@ async function setUpWorkflow(graph: WorkflowGraph) {
     })
     .returning()
   const workflow = await repositories.workflow.createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, organization.id),
     workspaceId: organization.id,
     name: "Regression Execution Test Workflow",
     slug: `regression-execution-workflow-${suffix}`,
@@ -83,7 +85,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       buildInterpreter(aiNode),
       aiNode
     )
-
     try {
       await repositories.regressionCase.createRegressionCase(db, {
         workspaceId: organization.id,
@@ -95,7 +96,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
           { type: "contains", config: { target: "output", value: "hello" } },
         ],
       })
-
       const run = await service.runRegressionForVersion(
         organization.id,
         workflow.id,
@@ -106,7 +106,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       expect(run.passed).toBe(1)
       expect(run.failed).toBe(0)
       expect(run.completedAt).toBeInstanceOf(Date)
-
       const results = await repositories.regressionRun.listRegressionResults(
         db,
         organization.id,
@@ -122,7 +121,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       ])
     }
   })
-
   it("runs an Evaluator node as a regression case", async () => {
     const graph: WorkflowGraph = {
       version: 1,
@@ -186,7 +184,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       ])
     }
   })
-
   it("errors a case with non-JSON output without aborting the run", async () => {
     const graph: WorkflowGraph = {
       version: 1,
@@ -236,7 +233,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       ])
     }
   })
-
   it("errors a node-type case whose nodeId no longer exists in this workflow version", async () => {
     const graph: WorkflowGraph = {
       version: 1,
@@ -251,7 +247,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       buildInterpreter(aiNode),
       aiNode
     )
-
     try {
       await repositories.regressionCase.createRegressionCase(db, {
         workspaceId: organization.id,
@@ -261,7 +256,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
         input: { nodeInput: {} },
         assertions: [],
       })
-
       const run = await service.runRegressionForVersion(
         organization.id,
         workflow.id,
@@ -271,7 +265,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       expect(run.total).toBe(1)
       expect(run.passed).toBe(0)
       expect(run.failed).toBe(1)
-
       const results = await repositories.regressionRun.listRegressionResults(
         db,
         organization.id,
@@ -284,7 +277,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       ])
     }
   })
-
   it("runs a conversation-type case through AiNode's chat path with the snapshotted history", async () => {
     const graph: WorkflowGraph = {
       version: 1,
@@ -307,7 +299,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       buildInterpreter(aiNode),
       aiNode
     )
-
     try {
       await repositories.regressionCase.createRegressionCase(db, {
         workspaceId: organization.id,
@@ -325,7 +316,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
           },
         ],
       })
-
       const run = await service.runRegressionForVersion(
         organization.id,
         workflow.id,
@@ -346,7 +336,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
           },
         })
       )
-
       const results = await repositories.regressionRun.listRegressionResults(
         db,
         organization.id,
@@ -363,7 +352,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       ])
     }
   })
-
   it("errors a conversation-type case when the graph has no Agent node", async () => {
     const graph: WorkflowGraph = {
       version: 1,
@@ -379,7 +367,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       buildInterpreter(aiNode),
       aiNode
     )
-
     try {
       await repositories.regressionCase.createRegressionCase(db, {
         workspaceId: organization.id,
@@ -388,7 +375,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
         input: { turns: [], finalPrompt: "hi" },
         assertions: [],
       })
-
       const run = await service.runRegressionForVersion(
         organization.id,
         workflow.id,
@@ -409,7 +395,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       ])
     }
   })
-
   it("aggregates passed/failed across multiple cases in one run", async () => {
     const graph: WorkflowGraph = {
       version: 1,
@@ -430,7 +415,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       buildInterpreter(aiNode),
       aiNode
     )
-
     try {
       await repositories.regressionCase.createRegressionCase(db, {
         workspaceId: organization.id,
@@ -471,7 +455,6 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
         organization.id,
         archived.id
       )
-
       const run = await service.runRegressionForVersion(
         organization.id,
         workflow.id,

@@ -9,7 +9,7 @@ import {
 } from "drizzle-orm/pg-core"
 import { users } from "./user.js"
 import { organizations } from "./organisation.js"
-import { applicationKeys } from "./application-key.js"
+import { environmentKeys } from "./environment-key.js"
 import { externalSubjects } from "./external-subject.js"
 
 export const auditAction = pgEnum("audit_action", [
@@ -19,17 +19,17 @@ export const auditAction = pgEnum("audit_action", [
   "workspace.deleted",
   "workspace.transferred",
 
-  "application.created",
-  "application.updated",
-  "application.trust_configuration_updated",
-  "application.disabled",
+  "environment.created",
+  "environment.updated",
+  "environment.trust_configuration_updated",
+  "environment.disabled",
 
-  "application_key.created",
-  "application_key.rotated",
-  "application_key.revoked",
-  "application_key.used",
-  "application_key.scope_denied",
-  "application_key.cross_application_access_denied",
+  "environment_key.created",
+  "environment_key.rotated",
+  "environment_key.revoked",
+  "environment_key.used",
+  "environment_key.scope_denied",
+  "environment_key.cross_environment_access_denied",
 
   "external_subject.provisioned",
   "external_subject.verified",
@@ -98,8 +98,8 @@ export const auditAction = pgEnum("audit_action", [
 
 export const auditResource = pgEnum("audit_resource", [
   "workspace",
-  "application",
-  "application_key",
+  "environment",
+  "environment_key",
   "external_subject",
   "member",
   "workflow",
@@ -125,7 +125,7 @@ export const auditLogs = snakeCase.table(
       onDelete: "set null",
     }),
 
-    actorApplicationKeyId: uuid().references(() => applicationKeys.id, {
+    actorEnvironmentKeyId: uuid().references(() => environmentKeys.id, {
       onDelete: "set null",
     }),
 

@@ -1,3 +1,5 @@
+import { z } from "zod"
+import { jsonValueSchema } from "@linea/protocol/shared"
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 
@@ -5,6 +7,7 @@ import { apiFetch } from "./api-fetch"
 import type { JsonValue } from "./executions-api"
 
 export type WorkflowSummary = {
+  applicationId: string
   id: string
   name: string
   slug: string
@@ -48,6 +51,32 @@ export const listWorkflowsFn = createServerFn({ method: "GET" }).handler(
   }
 )
 
+export const listApplicationWorkflowsFn = createServerFn({ method: "GET" })
+  .inputValidator((data: { applicationId: string }) => data)
+  .handler(async ({ data }): Promise<WorkflowSummary[]> => {
+    const res = await apiFetch(
+      "/applications/" + data.applicationId + "/workflows"
+    )
+    if (!res.ok) throw new Error("Could not load Application Workflows")
+    return z
+      .array(
+        z.object({
+          applicationId: z.string(),
+          id: z.string(),
+          name: z.string(),
+          slug: z.string(),
+          description: z.string().nullable(),
+          publishedVersionId: z.string().nullable(),
+          archivedAt: z.string().nullable(),
+          draftGraph: z.record(z.string(), jsonValueSchema).nullable(),
+          draftUpdatedAt: z.string().nullable(),
+          createdAt: z.string(),
+          updatedAt: z.string(),
+        })
+      )
+      .parse(await res.json())
+  })
+
 export const getWorkflowFn = createServerFn({ method: "GET" })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }): Promise<WorkflowSummary> => {
@@ -60,7 +89,12 @@ export const getWorkflowFn = createServerFn({ method: "GET" })
 
 export const createWorkflowFn = createServerFn({ method: "POST" })
   .inputValidator(
-    (data: { name: string; slug: string; description?: string }) => data
+    (data: {
+      applicationId: string
+      name: string
+      slug: string
+      description?: string
+    }) => data
   )
   .handler(async ({ data }): Promise<WorkflowSummary> => {
     const res = await apiFetch("/workflows", {

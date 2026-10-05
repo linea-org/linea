@@ -9,19 +9,19 @@ const platformProtection =
   "No operation-specific limit; platform protections apply."
 const cursorPagination =
   "Cursor pagination through limit and cursor query parameters."
-const userCaller = "An End User's browser or native application."
-const applicationCaller =
-  "A trusted Operator backend acting for one Application."
+const userCaller = "An End User's browser or native environment."
+const environmentCaller =
+  "A trusted Operator backend acting for one Environment."
 const workspaceCaller = "A trusted Operator backend acting for one workspace."
 
 function adapter(source: string, handler: string): OperationAdapter {
   return { source, handler }
 }
 
-function applicationSdk(method: string): OperationSdkCoverage {
+function environmentSdk(method: string): OperationSdkCoverage {
   return {
     importPath: "@linea/sdk/server",
-    client: "LineaApplicationClient",
+    client: "LineaEnvironmentClient",
     method,
   }
 }
@@ -39,18 +39,18 @@ function workspaceSdk(method: string): OperationSdkCoverage {
 }
 
 export const operationMetadata = {
-  listApplicationConnectorAuditEvents: {
-    purpose: "List redacted connector audit events for one Application.",
-    caller: applicationCaller,
+  listEnvironmentConnectorAuditEvents: {
+    purpose: "List redacted connector audit events for one Environment.",
+    caller: environmentCaller,
     idempotency: none,
     rateLimit: platformProtection,
     pagination: cursorPagination,
     events: none,
     adapter: adapter(
-      "apps/platform-api/src/public-runtime/application-connector-audit.controller.ts",
+      "apps/platform-api/src/public-runtime/environment-connector-audit.controller.ts",
       "list"
     ),
-    sdk: applicationSdk("listAuditEvents"),
+    sdk: environmentSdk("listAuditEvents"),
   },
   listWorkspaceConnectorAuditEvents: {
     purpose: "List redacted connector audit events for one workspace.",
@@ -105,7 +105,7 @@ export const operationMetadata = {
     sdk: userSdk("getConnectionAuthorization"),
   },
   listConnections: {
-    purpose: "List the End User's Application-scoped Connections.",
+    purpose: "List the End User's Environment-scoped Connections.",
     caller: userCaller,
     idempotency: none,
     rateLimit: platformProtection,
@@ -174,7 +174,7 @@ export const operationMetadata = {
     purpose: "Start an OIDC authorization with PKCE for an End User.",
     caller: userCaller,
     idempotency: none,
-    rateLimit: "30 requests per client IP and 300 per Application each minute.",
+    rateLimit: "30 requests per client IP and 300 per Environment each minute.",
     pagination: none,
     events: none,
     adapter: adapter(
@@ -188,7 +188,7 @@ export const operationMetadata = {
       "Exchange an authorization code and PKCE verifier for a one-time identity exchange.",
     caller: userCaller,
     idempotency: "The authorization code is single-use.",
-    rateLimit: "60 requests per client IP and 600 per Application each minute.",
+    rateLimit: "60 requests per client IP and 600 per Environment each minute.",
     pagination: none,
     events: none,
     adapter: adapter(
@@ -201,7 +201,7 @@ export const operationMetadata = {
     purpose: "Create a proof-bound End-User Session from an identity exchange.",
     caller: userCaller,
     idempotency: "The identity exchange is single-use.",
-    rateLimit: "10 requests per client IP and 10 per Application each minute.",
+    rateLimit: "10 requests per client IP and 10 per Environment each minute.",
     pagination: none,
     events: none,
     adapter: adapter(
@@ -223,90 +223,90 @@ export const operationMetadata = {
     ),
     sdk: userSdk("revoke"),
   },
-  provisionApplicationSubject: {
-    purpose: "Provision or retrieve an External Subject in an Application.",
-    caller: applicationCaller,
+  provisionEnvironmentSubject: {
+    purpose: "Provision or retrieve an External Subject in an Environment.",
+    caller: environmentCaller,
     idempotency: "The external identity is the natural idempotency key.",
     rateLimit: platformProtection,
     pagination: none,
     events: none,
     adapter: adapter(
-      "apps/platform-api/src/applications/application-external-subjects.controller.ts",
+      "apps/platform-api/src/environments/environment-external-subjects.controller.ts",
       "provision"
     ),
-    sdk: applicationSdk("provisionSubject"),
+    sdk: environmentSdk("provisionSubject"),
   },
-  createApplicationConversation: {
+  createEnvironmentConversation: {
     purpose:
       "Create an isolated Conversation for a provisioned External Subject.",
-    caller: applicationCaller,
+    caller: environmentCaller,
     idempotency:
       "Requires Idempotency-Key; replay returns the original response and conflicting input fails.",
     rateLimit: platformProtection,
     pagination: none,
     events: none,
     adapter: adapter(
-      "apps/platform-api/src/public-runtime/application-conversations.controller.ts",
+      "apps/platform-api/src/public-runtime/environment-conversations.controller.ts",
       "create"
     ),
-    sdk: applicationSdk("createConversation"),
+    sdk: environmentSdk("createConversation"),
   },
-  listApplicationConversations: {
-    purpose: "List Conversations visible to an Application.",
-    caller: applicationCaller,
+  listEnvironmentConversations: {
+    purpose: "List Conversations visible to an Environment.",
+    caller: environmentCaller,
     idempotency: none,
     rateLimit: platformProtection,
     pagination: cursorPagination,
     events: none,
     adapter: adapter(
-      "apps/platform-api/src/public-runtime/application-conversations.controller.ts",
+      "apps/platform-api/src/public-runtime/environment-conversations.controller.ts",
       "list"
     ),
-    sdk: applicationSdk("listConversations"),
+    sdk: environmentSdk("listConversations"),
   },
-  getApplicationConversation: {
-    purpose: "Get one Conversation visible to an Application.",
-    caller: applicationCaller,
+  getEnvironmentConversation: {
+    purpose: "Get one Conversation visible to an Environment.",
+    caller: environmentCaller,
     idempotency: none,
     rateLimit: platformProtection,
     pagination: none,
     events: none,
     adapter: adapter(
-      "apps/platform-api/src/public-runtime/application-conversations.controller.ts",
+      "apps/platform-api/src/public-runtime/environment-conversations.controller.ts",
       "get"
     ),
-    sdk: applicationSdk("getConversation"),
+    sdk: environmentSdk("getConversation"),
   },
-  startApplicationExecution: {
-    purpose: "Start an Execution through an Application workflow binding.",
-    caller: applicationCaller,
+  startEnvironmentExecution: {
+    purpose: "Start an Execution through an Environment workflow binding.",
+    caller: environmentCaller,
     idempotency:
       "Requires Idempotency-Key; replay returns the original response and conflicting input fails.",
     rateLimit: platformProtection,
     pagination: none,
     events: "May emit execution and approval events and configured webhooks.",
     adapter: adapter(
-      "apps/platform-api/src/public-runtime/application-executions.controller.ts",
+      "apps/platform-api/src/public-runtime/environment-executions.controller.ts",
       "start"
     ),
-    sdk: applicationSdk("startExecution"),
+    sdk: environmentSdk("startExecution"),
   },
-  getApplicationExecution: {
-    purpose: "Get one Execution visible to an Application.",
-    caller: applicationCaller,
+  getEnvironmentExecution: {
+    purpose: "Get one Execution visible to an Environment.",
+    caller: environmentCaller,
     idempotency: none,
     rateLimit: platformProtection,
     pagination: none,
     events: none,
     adapter: adapter(
-      "apps/platform-api/src/public-runtime/application-executions.controller.ts",
+      "apps/platform-api/src/public-runtime/environment-executions.controller.ts",
       "get"
     ),
-    sdk: applicationSdk("getExecution"),
+    sdk: environmentSdk("getExecution"),
   },
-  cancelApplicationExecution: {
-    purpose: "Cancel a cancellable Application Execution.",
-    caller: applicationCaller,
+  cancelEnvironmentExecution: {
+    purpose: "Cancel a cancellable Environment Execution.",
+    caller: environmentCaller,
     idempotency:
       "Requires Idempotency-Key; replay returns the original response and conflicting input fails.",
     rateLimit: platformProtection,
@@ -314,10 +314,10 @@ export const operationMetadata = {
     events:
       "May emit execution and approval cancellation events and configured webhooks.",
     adapter: adapter(
-      "apps/platform-api/src/public-runtime/application-executions.controller.ts",
+      "apps/platform-api/src/public-runtime/environment-executions.controller.ts",
       "cancel"
     ),
-    sdk: applicationSdk("cancelExecution"),
+    sdk: environmentSdk("cancelExecution"),
   },
   createEndUserConversation: {
     purpose: "Create an isolated Conversation for the authenticated End User.",
@@ -468,7 +468,7 @@ export const operationMetadata = {
   },
   streamEndUserEvents: {
     purpose:
-      "Stream resumable Application events for the authenticated End User.",
+      "Stream resumable Environment events for the authenticated End User.",
     caller: userCaller,
     idempotency: none,
     rateLimit: "At most 3 concurrent streams per End-User Session.",
@@ -483,8 +483,8 @@ export const operationMetadata = {
     sdk: userSdk("streamEvents"),
   },
   listWebhookDeliveries: {
-    purpose: "List webhook delivery attempts for an Application.",
-    caller: applicationCaller,
+    purpose: "List webhook delivery attempts for an Environment.",
+    caller: environmentCaller,
     idempotency: none,
     rateLimit: platformProtection,
     pagination: cursorPagination,
@@ -493,7 +493,7 @@ export const operationMetadata = {
       "apps/platform-api/src/public-runtime/webhook-deliveries.controller.ts",
       "list"
     ),
-    sdk: applicationSdk("listWebhookDeliveries"),
+    sdk: environmentSdk("listWebhookDeliveries"),
   },
   listRegressionCases: {
     purpose: "List saved Regression Cases for a Workflow.",

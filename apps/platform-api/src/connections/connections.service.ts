@@ -130,7 +130,7 @@ export class ConnectionsService {
       await repositories.connection.createConnectionAuthorizationRequest(db, {
         id,
         workspaceId: principal.workspaceId,
-        applicationId: principal.applicationId,
+        environmentId: principal.environmentId,
         externalSubjectId: principal.externalSubjectId,
         endUserSessionId: principal.sessionId,
         provider: input.provider,
@@ -140,16 +140,16 @@ export class ConnectionsService {
         stateHash: hash(state),
         codeVerifierEncrypted: encryptCredential(codeVerifier, {
           workspaceId: principal.workspaceId,
-          applicationId: principal.applicationId,
+          environmentId: principal.environmentId,
           externalSubjectId: principal.externalSubjectId,
           recordId: id,
           provider: input.provider,
         }),
         expiresAt: new Date(Date.now() + AUTHORIZATION_LIFETIME_MS),
       })
-    if (result.outcome === 'application_unavailable') {
+    if (result.outcome === 'environment_unavailable') {
       throw new ServiceUnavailableException(
-        publicError('service_unavailable', 'Application unavailable'),
+        publicError('service_unavailable', 'Environment unavailable'),
       )
     }
     if (result.outcome !== 'created') {
@@ -203,7 +203,7 @@ export class ConnectionsService {
       await repositories.connection.createConnectionAuthorizationRequest(db, {
         id,
         workspaceId: principal.workspaceId,
-        applicationId: principal.applicationId,
+        environmentId: principal.environmentId,
         externalSubjectId: principal.externalSubjectId,
         endUserSessionId: principal.sessionId,
         provider: connection.provider,
@@ -213,7 +213,7 @@ export class ConnectionsService {
         stateHash: hash(state),
         codeVerifierEncrypted: encryptCredential(codeVerifier, {
           workspaceId: principal.workspaceId,
-          applicationId: principal.applicationId,
+          environmentId: principal.environmentId,
           externalSubjectId: principal.externalSubjectId,
           recordId: id,
           provider: connection.provider,
@@ -234,9 +234,9 @@ export class ConnectionsService {
         ),
       )
     }
-    if (result.outcome === 'application_unavailable') {
+    if (result.outcome === 'environment_unavailable') {
       throw new ServiceUnavailableException(
-        publicError('service_unavailable', 'Application unavailable'),
+        publicError('service_unavailable', 'Environment unavailable'),
       )
     }
     if (result.outcome !== 'created') {
@@ -279,7 +279,7 @@ export class ConnectionsService {
     try {
       const context = {
         workspaceId: request.workspaceId,
-        applicationId: request.applicationId,
+        environmentId: request.environmentId,
         externalSubjectId: request.externalSubjectId,
         recordId: request.id,
         provider: request.provider,
@@ -295,7 +295,7 @@ export class ConnectionsService {
       const policy =
         await repositories.connection.getConnectionAuthorizationPolicy(db, {
           workspaceId: request.workspaceId,
-          applicationId: request.applicationId,
+          environmentId: request.environmentId,
           externalSubjectId: request.externalSubjectId,
           provider: providerName,
         })
@@ -331,13 +331,13 @@ export class ConnectionsService {
       await repositories.connection.stageAuthorizationCredentialRevocation(db, {
         id: revocationDeliveryId,
         workspaceId: request.workspaceId,
-        applicationId: request.applicationId,
+        environmentId: request.environmentId,
         externalSubjectId: request.externalSubjectId,
         provider: request.provider,
         providerAccountId: credential.accountId,
         credentialEncrypted: encryptCredential(JSON.stringify(credential), {
           workspaceId: request.workspaceId,
-          applicationId: request.applicationId,
+          environmentId: request.environmentId,
           externalSubjectId: request.externalSubjectId,
           recordId: revocationDeliveryId,
           provider: `${request.provider}:revocation`,
@@ -491,7 +491,7 @@ export class ConnectionsService {
             parseConnectionProviderCredential(
               decryptCredential(current.credentialEncrypted, {
                 workspaceId: current.workspaceId,
-                applicationId: current.applicationId,
+                environmentId: current.environmentId,
                 externalSubjectId: current.externalSubjectId,
                 recordId: current.id,
                 provider: current.provider,
@@ -501,7 +501,7 @@ export class ConnectionsService {
           ),
           {
             workspaceId: current.workspaceId,
-            applicationId: current.applicationId,
+            environmentId: current.environmentId,
             externalSubjectId: current.externalSubjectId,
             recordId: deliveryId ?? current.id,
             provider: `${current.provider}:revocation`,
@@ -627,7 +627,7 @@ export class ConnectionsService {
     const policy =
       await repositories.connection.getConnectionAuthorizationPolicy(db, {
         workspaceId: principal.workspaceId,
-        applicationId: principal.applicationId,
+        environmentId: principal.environmentId,
         externalSubjectId: principal.externalSubjectId,
         provider: provider.provider,
       })

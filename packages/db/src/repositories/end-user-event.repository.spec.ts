@@ -1,12 +1,14 @@
+import { fixtureIssuer } from "./test-utils.js"
+import { getTestApplicationId } from "./test-utils.js"
 import { eq, sql } from "drizzle-orm"
 import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
 import {
-  applications,
+  environments,
   endUserEventStreams,
   endUserSessions,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   outboxMessages,
 } from "../schema/index.js"
@@ -19,11 +21,15 @@ import {
   renewEndUserEventStream,
 } from "./end-user-event.repository.js"
 
-async function createApplicationAndSubjects(client: Transaction) {
+async function createEnvironmentAndSubjects(client: Transaction) {
   const fixture = await createTestFixtures(client)
-  const [application] = await client
-    .insert(applications)
+  const [environment] = await client
+    .insert(environments)
     .values({
+      applicationId: await getTestApplicationId(
+        client,
+        fixture.organization.id
+      ),
       workspaceId: fixture.organization.id,
       environment: "production",
       displayName: "Event test",
@@ -35,6 +41,8 @@ async function createApplicationAndSubjects(client: Transaction) {
       oidcJwksUrl: "https://identity.example.com/jwks.json",
     })
     .returning()
+  if (!fixtureIssuer(environment))
+    throw new Error("Fixture identity trust missing")
   const subjects = await client
     .insert(externalSubjects)
     .values([
@@ -54,24 +62,24 @@ async function createApplicationAndSubjects(client: Transaction) {
       },
     ])
     .returning()
-  await client.insert(externalSubjectApplications).values(
+  await client.insert(externalSubjectEnvironments).values(
     subjects.map((subject) => ({
       workspaceId: fixture.organization.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       externalSubjectId: subject.id,
     }))
   )
-  return { fixture, application, subjects }
+  return { fixture, environment, subjects }
 }
 
 describe("end-user event repository", () => {
   it("resumes ordered subject events and applies conversation and type filters", async () => {
     await withRollback(async (tx) => {
-      const { fixture, application, subjects } =
-        await createApplicationAndSubjects(tx)
+      const { fixture, environment, subjects } =
+        await createEnvironmentAndSubjects(tx)
       const first = await createPublicEvent(tx, {
         workspaceId: fixture.organization.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subjects[0].id,
         eventType: "approval_request.created",
         data: {
@@ -81,7 +89,7 @@ describe("end-user event repository", () => {
       })
       const second = await createPublicEvent(tx, {
         workspaceId: fixture.organization.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subjects[0].id,
         eventType: "approval_request.decided",
         data: {
@@ -91,7 +99,7 @@ describe("end-user event repository", () => {
       })
       await createPublicEvent(tx, {
         workspaceId: fixture.organization.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subjects[1].id,
         eventType: "approval_request.created",
         data: { approvalRequestId: randomUUID() },
@@ -100,7 +108,7 @@ describe("end-user event repository", () => {
       await expect(
         listEndUserEvents(tx, {
           workspaceId: fixture.organization.id,
-          applicationId: application.id,
+          environmentId: environment.id,
           externalSubjectId: subjects[0].id,
           conversationId: undefined,
           eventTypes: undefined,
@@ -112,7 +120,7 @@ describe("end-user event repository", () => {
       await expect(
         listEndUserEvents(tx, {
           workspaceId: fixture.organization.id,
-          applicationId: application.id,
+          environmentId: environment.id,
           externalSubjectId: subjects[0].id,
           conversationId: "00000000-0000-4000-8000-000000000001",
           eventTypes: ["approval_request.created"],
@@ -124,7 +132,7 @@ describe("end-user event repository", () => {
       await expect(
         listEndUserEvents(tx, {
           workspaceId: fixture.organization.id,
-          applicationId: application.id,
+          environmentId: environment.id,
           externalSubjectId: subjects[1].id,
           conversationId: undefined,
           eventTypes: undefined,
@@ -135,14 +143,13 @@ describe("end-user event repository", () => {
       ).resolves.toEqual({ outcome: "cursor_expired" })
     })
   })
-
   it("rejects cursors outside the retention window", async () => {
     await withRollback(async (tx) => {
-      const { fixture, application, subjects } =
-        await createApplicationAndSubjects(tx)
+      const { fixture, environment, subjects } =
+        await createEnvironmentAndSubjects(tx)
       const event = await createPublicEvent(tx, {
         workspaceId: fixture.organization.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subjects[0].id,
         eventType: "approval_request.created",
         data: { approvalRequestId: randomUUID() },
@@ -155,7 +162,7 @@ describe("end-user event repository", () => {
       await expect(
         listEndUserEvents(tx, {
           workspaceId: fixture.organization.id,
-          applicationId: application.id,
+          environmentId: environment.id,
           externalSubjectId: subjects[0].id,
           conversationId: undefined,
           eventTypes: undefined,
@@ -166,14 +173,13 @@ describe("end-user event repository", () => {
       ).resolves.toEqual({ outcome: "cursor_expired" })
     })
   })
-
   it("prevents later subject events from committing around an earlier event", async () => {
-    const { fixture, application, subjects } = await db.transaction((tx) =>
-      createApplicationAndSubjects(tx)
+    const { fixture, environment, subjects } = await db.transaction((tx) =>
+      createEnvironmentAndSubjects(tx)
     )
     const cursor = await createPublicEvent(db, {
       workspaceId: fixture.organization.id,
-      applicationId: application.id,
+      environmentId: environment.id,
       externalSubjectId: subjects[0].id,
       eventType: "approval_request.created",
       data: { approvalRequestId: randomUUID() },
@@ -189,7 +195,7 @@ describe("end-user event repository", () => {
     const earlierTransaction = db.transaction(async (tx) => {
       const event = await createPublicEvent(tx, {
         workspaceId: fixture.organization.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subjects[0].id,
         eventType: "approval_request.created",
         data: { approvalRequestId: randomUUID() },
@@ -205,7 +211,7 @@ describe("end-user event repository", () => {
           await tx.execute(sql`SET LOCAL lock_timeout = '100ms'`)
           return createPublicEvent(tx, {
             workspaceId: fixture.organization.id,
-            applicationId: application.id,
+            environmentId: environment.id,
             externalSubjectId: subjects[0].id,
             eventType: "approval_request.decided",
             data: { approvalRequestId: randomUUID() },
@@ -219,7 +225,7 @@ describe("end-user event repository", () => {
       const earlier = await earlierTransaction
       const later = await createPublicEvent(db, {
         workspaceId: fixture.organization.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subjects[0].id,
         eventType: "approval_request.decided",
         data: { approvalRequestId: randomUUID() },
@@ -227,7 +233,7 @@ describe("end-user event repository", () => {
       await expect(
         listEndUserEvents(db, {
           workspaceId: fixture.organization.id,
-          applicationId: application.id,
+          environmentId: environment.id,
           externalSubjectId: subjects[0].id,
           conversationId: undefined,
           eventTypes: undefined,
@@ -242,16 +248,15 @@ describe("end-user event repository", () => {
       ])
     }
   })
-
   it("enforces three distributed leases, recovers expiry, and observes revocation", async () => {
-    const { fixture, application, subjects } = await db.transaction((tx) =>
-      createApplicationAndSubjects(tx)
+    const { fixture, environment, subjects } = await db.transaction((tx) =>
+      createEnvironmentAndSubjects(tx)
     )
     const [session] = await db
       .insert(endUserSessions)
       .values({
         workspaceId: fixture.organization.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subjects[0].id,
         tokenHash: randomUUID(),
         proofJkt: randomUUID(),
@@ -263,7 +268,7 @@ describe("end-user event repository", () => {
     const acquire = () =>
       acquireEndUserEventStream(db, {
         workspaceId: fixture.organization.id,
-        applicationId: application.id,
+        environmentId: environment.id,
         externalSubjectId: subjects[0].id,
         sessionId: session.id,
         now,

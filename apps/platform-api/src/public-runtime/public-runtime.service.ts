@@ -8,20 +8,20 @@ import {
 } from '@nestjs/common'
 import { db, repositories, type Execution } from '@linea/db'
 import type {
-  CreateApplicationConversation,
+  CreateEnvironmentConversation,
   CreateEndUserConversation,
   CreateMessage,
   DecideApprovalRequest,
   ListApprovalRequestsQuery,
   ListPendingActionIntentsQuery,
-  StartApplicationExecution,
+  StartEnvironmentExecution,
   StartEndUserExecution,
 } from '@linea/protocol/resources'
 import { publicErrorStatuses } from '@linea/protocol/errors'
 import { jsonValueSchema, type PaginationQuery } from '@linea/protocol/shared'
 import { workflowGraphSchema } from '@linea/runtime'
 import Ajv2020 from 'ajv/dist/2020'
-import type { ApplicationPrincipal } from '../auth/application-key.guard'
+import type { EnvironmentPrincipal } from '../auth/environment-key.guard'
 import { publicError } from '../auth/public-error'
 import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.guard'
 import {
@@ -57,9 +57,9 @@ function hash(value: string): string {
 
 @Injectable()
 export class PublicRuntimeService {
-  async createApplicationConversation(
-    principal: ApplicationPrincipal,
-    input: CreateApplicationConversation,
+  async createEnvironmentConversation(
+    principal: EnvironmentPrincipal,
+    input: CreateEnvironmentConversation,
     idempotencyKey: string,
   ) {
     return this.createConversation(
@@ -86,24 +86,24 @@ export class PublicRuntimeService {
   }
 
   private async createConversation(
-    principal: ApplicationPrincipal | EndUserPrincipal,
+    principal: EnvironmentPrincipal | EndUserPrincipal,
     externalSubjectId: string,
     input: CreateEndUserConversation,
     startKind: 'backend' | 'end_user',
     idempotencyKey: string,
   ) {
     const actor: {
-      kind: 'application_key' | 'end_user_session'
+      kind: 'environment_key' | 'end_user_session'
       id: string
     } =
       'keyId' in principal
-        ? { kind: 'application_key', id: principal.keyId }
+        ? { kind: 'environment_key', id: principal.keyId }
         : { kind: 'end_user_session', id: principal.sessionId }
     const result = await repositories.publicRuntime.createPublicConversation(
       db,
       {
         workspaceId: principal.workspaceId,
-        applicationId: principal.applicationId,
+        environmentId: principal.environmentId,
         externalSubjectId,
         workflowId: input.workflowId,
         startKind,
@@ -139,8 +139,8 @@ export class PublicRuntimeService {
     return conversationProjection(result.conversation)
   }
 
-  async listApplicationConversations(
-    principal: ApplicationPrincipal,
+  async listEnvironmentConversations(
+    principal: EnvironmentPrincipal,
     query: PaginationQuery,
   ) {
     const cursor = decodeConversationCursor(query.cursor)
@@ -148,7 +148,7 @@ export class PublicRuntimeService {
       await repositories.publicRuntime.listPublicConversations(
         db,
         principal.workspaceId,
-        principal.applicationId,
+        principal.environmentId,
         undefined,
         query.limit + 1,
         cursor,
@@ -173,7 +173,7 @@ export class PublicRuntimeService {
       await repositories.publicRuntime.listPublicConversations(
         db,
         principal.workspaceId,
-        principal.applicationId,
+        principal.environmentId,
         principal.externalSubjectId,
         query.limit + 1,
         cursor,
@@ -189,8 +189,8 @@ export class PublicRuntimeService {
     }
   }
 
-  async getApplicationConversation(
-    principal: ApplicationPrincipal,
+  async getEnvironmentConversation(
+    principal: EnvironmentPrincipal,
     conversationId: string,
   ) {
     return this.getConversation(principal, undefined, conversationId)
@@ -208,14 +208,14 @@ export class PublicRuntimeService {
   }
 
   private async getConversation(
-    principal: ApplicationPrincipal | EndUserPrincipal,
+    principal: EnvironmentPrincipal | EndUserPrincipal,
     externalSubjectId: string | undefined,
     conversationId: string,
   ) {
     const conversation = await repositories.publicRuntime.getPublicConversation(
       db,
       principal.workspaceId,
-      principal.applicationId,
+      principal.environmentId,
       externalSubjectId,
       conversationId,
     )
@@ -223,9 +223,9 @@ export class PublicRuntimeService {
     return conversationProjection(conversation)
   }
 
-  async startApplicationExecution(
-    principal: ApplicationPrincipal,
-    input: StartApplicationExecution,
+  async startEnvironmentExecution(
+    principal: EnvironmentPrincipal,
+    input: StartEnvironmentExecution,
     idempotencyKey: string,
   ) {
     return this.startExecution(
@@ -257,22 +257,22 @@ export class PublicRuntimeService {
   }
 
   private async startExecution(
-    principal: ApplicationPrincipal | EndUserPrincipal,
+    principal: EnvironmentPrincipal | EndUserPrincipal,
     externalSubjectId: string,
     input: StartEndUserExecution,
     startKind: 'backend' | 'end_user',
     idempotencyKey: string,
   ) {
     const actor: {
-      kind: 'application_key' | 'end_user_session'
+      kind: 'environment_key' | 'end_user_session'
       id: string
     } =
       'keyId' in principal
-        ? { kind: 'application_key', id: principal.keyId }
+        ? { kind: 'environment_key', id: principal.keyId }
         : { kind: 'end_user_session', id: principal.sessionId }
     const result = await repositories.publicRuntime.startPublicExecution(db, {
       workspaceId: principal.workspaceId,
-      applicationId: principal.applicationId,
+      environmentId: principal.environmentId,
       externalSubjectId,
       workflowId: input.workflowId,
       conversationId: input.conversationId,
@@ -302,8 +302,8 @@ export class PublicRuntimeService {
     return this.projectExecution(result.execution)
   }
 
-  async getApplicationExecution(
-    principal: ApplicationPrincipal,
+  async getEnvironmentExecution(
+    principal: EnvironmentPrincipal,
     executionId: string,
   ) {
     return this.getExecution(principal, undefined, executionId)
@@ -325,7 +325,7 @@ export class PublicRuntimeService {
     const views =
       await repositories.approvalRequest.findExternalApprovalRequests(db, {
         workspaceId: principal.workspaceId,
-        applicationId: principal.applicationId,
+        environmentId: principal.environmentId,
         externalSubjectId: principal.externalSubjectId,
         conversationId: query.conversationId,
         limit: query.limit + 1,
@@ -351,7 +351,7 @@ export class PublicRuntimeService {
   ) {
     const views = await repositories.actionIntent.findPendingActionIntents(db, {
       workspaceId: principal.workspaceId,
-      applicationId: principal.applicationId,
+      environmentId: principal.environmentId,
       externalSubjectId: principal.externalSubjectId,
       limit: query.limit + 1,
       cursor: decodeActionIntentCursor(query.cursor),
@@ -376,7 +376,7 @@ export class PublicRuntimeService {
     const [view] =
       await repositories.approvalRequest.findExternalApprovalRequests(db, {
         workspaceId: principal.workspaceId,
-        applicationId: principal.applicationId,
+        environmentId: principal.environmentId,
         externalSubjectId: principal.externalSubjectId,
         approvalRequestId,
         limit: 1,
@@ -401,7 +401,7 @@ export class PublicRuntimeService {
     const result =
       await repositories.approvalRequest.decideExternalApprovalRequest(db, {
         workspaceId: principal.workspaceId,
-        applicationId: principal.applicationId,
+        environmentId: principal.environmentId,
         externalSubjectId: principal.externalSubjectId,
         endUserSessionId: principal.sessionId,
         approvalRequestId,
@@ -458,14 +458,14 @@ export class PublicRuntimeService {
   }
 
   private async getExecution(
-    principal: ApplicationPrincipal | EndUserPrincipal,
+    principal: EnvironmentPrincipal | EndUserPrincipal,
     externalSubjectId: string | undefined,
     executionId: string,
   ) {
     const execution = await repositories.publicRuntime.getPublicExecution(
       db,
       principal.workspaceId,
-      principal.applicationId,
+      principal.environmentId,
       externalSubjectId,
       executionId,
     )
@@ -473,18 +473,18 @@ export class PublicRuntimeService {
     return this.projectExecution(execution)
   }
 
-  async cancelApplicationExecution(
-    principal: ApplicationPrincipal,
+  async cancelEnvironmentExecution(
+    principal: EnvironmentPrincipal,
     executionId: string,
     idempotencyKey: string,
   ) {
     const result = await repositories.publicRuntime.cancelPublicExecution(
       db,
       principal.workspaceId,
-      principal.applicationId,
+      principal.environmentId,
       executionId,
       {
-        actor: { kind: 'application_key', id: principal.keyId },
+        actor: { kind: 'environment_key', id: principal.keyId },
         key: idempotencyKey,
         requestHash: repositories.publicIdempotency.hashPublicRequest({
           executionId,
@@ -518,7 +518,7 @@ export class PublicRuntimeService {
     )
     const result = await repositories.publicRuntime.createPublicMessage(db, {
       workspaceId: principal.workspaceId,
-      applicationId: principal.applicationId,
+      environmentId: principal.environmentId,
       externalSubjectId: principal.externalSubjectId,
       conversationId,
       content: input.content,
@@ -549,7 +549,7 @@ export class PublicRuntimeService {
     const messages = await repositories.publicRuntime.listPublicMessages(
       db,
       principal.workspaceId,
-      principal.applicationId,
+      principal.environmentId,
       principal.externalSubjectId,
       conversationId,
       query.limit + 1,

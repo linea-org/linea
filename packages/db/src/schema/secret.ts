@@ -5,16 +5,16 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-import { organizations } from "./organisation.js"
+import { environments } from "./environment.js"
 
 export const secrets = snakeCase.table(
   "secrets",
   {
     id: uuid().defaultRandom().primaryKey(),
 
-    workspaceId: uuid()
+    environmentId: uuid()
       .notNull()
-      .references(() => organizations.id, { onDelete: "cascade" }),
+      .references(() => environments.id, { onDelete: "cascade" }),
 
     key: text().notNull(),
     encryptedValue: text().notNull(),
@@ -26,7 +26,10 @@ export const secrets = snakeCase.table(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("secrets_workspace_key_uidx").on(table.workspaceId, table.key),
+    uniqueIndex("secrets_environment_key_uidx").on(
+      table.environmentId,
+      table.key
+    ),
   ]
 )
 

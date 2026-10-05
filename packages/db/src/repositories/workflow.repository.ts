@@ -2,6 +2,7 @@ import { and, desc, eq, isNull, max } from "drizzle-orm"
 import {
   workflows,
   workflowVersions,
+  workflowContractRevisions,
   type NewWorkflow,
   type Workflow,
   type WorkflowVersion,
@@ -24,11 +25,15 @@ export async function findOrCreateWorkflowBySlug(
   const [inserted] = await db
     .insert(workflows)
     .values(input)
-    .onConflictDoNothing({ target: [workflows.workspaceId, workflows.slug] })
+    .onConflictDoNothing({ target: [workflows.applicationId, workflows.slug] })
     .returning()
   if (inserted) return inserted
-
-  const existing = await getWorkflowBySlug(db, input.workspaceId, input.slug)
+  const existing = await getWorkflowBySlug(
+    db,
+    input.workspaceId,
+    input.applicationId,
+    input.slug
+  )
   if (!existing) {
     throw new Error(`Failed to find or create workflow "${input.slug}"`)
   }
@@ -49,22 +54,48 @@ export async function createWorkflowVersion(
   input: CreateWorkflowVersionInput
 ): Promise<WorkflowVersion> {
   return db.transaction(async (tx) => {
-    await tx
-      .select({ id: workflows.id })
+    const [workflow] = await tx
+      .select({ id: workflows.id, workspaceId: workflows.workspaceId })
       .from(workflows)
       .where(eq(workflows.id, input.workflowId))
       .for("update")
-
+    if (!workflow) throw new Error("Workflow not found")
+    let contractId = input.workflowContractRevisionId
+    if (!contractId) {
+      const [existing] = await tx
+        .select()
+        .from(workflowContractRevisions)
+        .where(eq(workflowContractRevisions.workflowId, input.workflowId))
+        .orderBy(desc(workflowContractRevisions.revision))
+        .limit(1)
+      const contract =
+        existing ??
+        (
+          await tx
+            .insert(workflowContractRevisions)
+            .values({
+              workspaceId: workflow.workspaceId,
+              workflowId: workflow.id,
+              revision: 1,
+              inputSchema: { type: "object" },
+              outputSchema: {},
+            })
+            .returning()
+        )[0]
+      contractId = contract.id
+    }
     const [{ latest }] = await tx
       .select({ latest: max(workflowVersions.version) })
       .from(workflowVersions)
       .where(eq(workflowVersions.workflowId, input.workflowId))
-
     const [version] = await tx
       .insert(workflowVersions)
-      .values({ ...input, version: (latest ?? 0) + 1 })
+      .values({
+        ...input,
+        workflowContractRevisionId: contractId,
+        version: (latest ?? 0) + 1,
+      })
       .returning()
-
     return version
   })
 }
@@ -81,7 +112,6 @@ export async function ensureVersionForGraph(
       .from(workflows)
       .where(eq(workflows.id, workflowId))
       .for("update")
-
     const [existing] = await tx
       .select()
       .from(workflowVersions)
@@ -93,12 +123,10 @@ export async function ensureVersionForGraph(
       )
       .limit(1)
     if (existing) return existing
-
     const [{ latest }] = await tx
       .select({ latest: max(workflowVersions.version) })
       .from(workflowVersions)
       .where(eq(workflowVersions.workflowId, workflowId))
-
     const [version] = await tx
       .insert(workflowVersions)
       .values({
@@ -108,7 +136,6 @@ export async function ensureVersionForGraph(
         version: (latest ?? 0) + 1,
       })
       .returning()
-
     return version
   })
 }
@@ -123,13 +150,11 @@ export async function publishWorkflowVersion(
       .update(workflowVersions)
       .set({ publishedAt: new Date() })
       .where(eq(workflowVersions.id, versionId))
-
     const [workflow] = await tx
       .update(workflows)
       .set({ publishedVersionId: versionId })
       .where(eq(workflows.id, workflowId))
       .returning()
-
     return workflow
   })
 }
@@ -146,7 +171,6 @@ export async function ensurePublishedVersion(
       .from(workflows)
       .where(eq(workflows.id, workflowId))
       .for("update")
-
     const [published] = await tx
       .select({ version: workflowVersions })
       .from(workflows)
@@ -155,16 +179,13 @@ export async function ensurePublishedVersion(
         eq(workflows.publishedVersionId, workflowVersions.id)
       )
       .where(eq(workflows.id, workflowId))
-
     if (published && published.version.contentHash === input.contentHash) {
       return published.version
     }
-
     const [{ latest }] = await tx
       .select({ latest: max(workflowVersions.version) })
       .from(workflowVersions)
       .where(eq(workflowVersions.workflowId, workflowId))
-
     const [version] = await tx
       .insert(workflowVersions)
       .values({
@@ -174,7 +195,6 @@ export async function ensurePublishedVersion(
         version: (latest ?? 0) + 1,
       })
       .returning()
-
     await tx
       .update(workflowVersions)
       .set({ publishedAt: new Date() })
@@ -183,7 +203,6 @@ export async function ensurePublishedVersion(
       .update(workflows)
       .set({ publishedVersionId: version.id })
       .where(eq(workflows.id, workflowId))
-
     return version
   })
 }
@@ -191,13 +210,18 @@ export async function ensurePublishedVersion(
 export async function getWorkflowBySlug(
   db: DbClient,
   workspaceId: string,
+  applicationId: string,
   slug: string
 ): Promise<Workflow | undefined> {
   const [workflow] = await db
     .select()
     .from(workflows)
     .where(
-      and(eq(workflows.workspaceId, workspaceId), eq(workflows.slug, slug))
+      and(
+        eq(workflows.workspaceId, workspaceId),
+        eq(workflows.applicationId, applicationId),
+        eq(workflows.slug, slug)
+      )
     )
   return workflow
 }
@@ -217,7 +241,7 @@ export async function getWorkflowById(
 export async function listWorkflows(
   db: DbClient,
   workspaceId: string,
-  options: { includeArchived?: boolean } = {}
+  options: { includeArchived?: boolean; applicationId?: string } = {}
 ): Promise<Workflow[]> {
   return db
     .select()
@@ -225,6 +249,9 @@ export async function listWorkflows(
     .where(
       and(
         eq(workflows.workspaceId, workspaceId),
+        options.applicationId
+          ? eq(workflows.applicationId, options.applicationId)
+          : undefined,
         options.includeArchived ? undefined : isNull(workflows.archivedAt)
       )
     )
@@ -293,4 +320,20 @@ export async function getWorkflowVersionById(
     .from(workflowVersions)
     .where(eq(workflowVersions.id, versionId))
   return version
+}
+
+export async function listWorkflowVersions(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string
+): Promise<WorkflowVersion[]> {
+  return db
+    .select({ version: workflowVersions })
+    .from(workflowVersions)
+    .innerJoin(workflows, eq(workflows.id, workflowVersions.workflowId))
+    .where(
+      and(eq(workflows.workspaceId, workspaceId), eq(workflows.id, workflowId))
+    )
+    .orderBy(desc(workflowVersions.version))
+    .then((rows) => rows.map((row) => row.version))
 }

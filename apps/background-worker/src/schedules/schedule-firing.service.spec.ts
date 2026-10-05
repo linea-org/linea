@@ -1,3 +1,5 @@
+import { getTestDevelopmentEnvironmentId } from "@linea/db/testing"
+import { getTestApplicationId, publishTestWorkflow } from "@linea/db/testing"
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -22,8 +24,8 @@ async function createDueSchedule(name: string) {
     .insert(schema.organizations)
     .values({ name, slug: `${name}-${suffix}`, createdAt: new Date() })
     .returning()
-
   const workflow = await repositories.workflow.createWorkflow(db, {
+    applicationId: await getTestApplicationId(db, organization.id),
     workspaceId: organization.id,
     name: "Scheduled Workflow",
     slug: `scheduled-workflow-${suffix}`,
@@ -33,22 +35,21 @@ async function createDueSchedule(name: string) {
     graph,
     contentHash: "test-hash",
   })
-  await repositories.workflow.publishWorkflowVersion(
-    db,
-    workflow.id,
-    version.id
-  )
-
+  await publishTestWorkflow(db, workflow.id, version.id)
   const [schedule] = await db
     .insert(schema.schedules)
     .values({
+      environmentId: await getTestDevelopmentEnvironmentId(
+        db,
+        organization.id,
+        workflow.id
+      ),
       workspaceId: organization.id,
       workflowId: workflow.id,
       cronExpression: "* * * * *",
       nextRunAt: new Date(Date.now() - 1_000),
     })
     .returning()
-
   return { organization, workflow, schedule }
 }
 
@@ -57,13 +58,11 @@ describe("ScheduleFiringService", () => {
     const { organization, workflow } = await createDueSchedule(
       "Schedule Firing Test Org"
     )
-
     const queue = new WorkflowQueueService()
     try {
       const service = new ScheduleFiringService()
       await service.poll()
       await service.poll()
-
       const executions = await repositories.execution.listExecutions(
         db,
         workflow.id
@@ -78,7 +77,6 @@ describe("ScheduleFiringService", () => {
       ])
     }
   })
-
   it("skips a schedule pointing at an archived workflow without throwing", async () => {
     const { organization, workflow } = await createDueSchedule(
       "Schedule Firing Archived Test Org"
@@ -91,12 +89,10 @@ describe("ScheduleFiringService", () => {
         archivedAt: new Date(),
       }
     )
-
     const queue = new WorkflowQueueService()
     try {
       const service = new ScheduleFiringService()
       await expect(service.poll()).resolves.toBeUndefined()
-
       const executions = await repositories.execution.listExecutions(
         db,
         workflow.id
@@ -109,16 +105,13 @@ describe("ScheduleFiringService", () => {
       ])
     }
   })
-
   it("commits a queued execution for the outbox dispatcher", async () => {
     const { organization, workflow } = await createDueSchedule(
       "Schedule Firing Enqueue Fail Test Org"
     )
-
     try {
       const service = new ScheduleFiringService()
       await service.poll()
-
       const executions = await repositories.execution.listExecutions(
         db,
         workflow.id
@@ -132,20 +125,16 @@ describe("ScheduleFiringService", () => {
       ])
     }
   })
-
   it("fires a due schedule exactly once even with two worker instances polling concurrently", async () => {
     const { organization, workflow } = await createDueSchedule(
       "Schedule Firing Concurrency Test Org"
     )
-
     const queueA = new WorkflowQueueService()
     const queueB = new WorkflowQueueService()
     try {
       const serviceA = new ScheduleFiringService()
       const serviceB = new ScheduleFiringService()
-
       await Promise.all([serviceA.poll(), serviceB.poll()])
-
       const executions = await repositories.execution.listExecutions(
         db,
         workflow.id

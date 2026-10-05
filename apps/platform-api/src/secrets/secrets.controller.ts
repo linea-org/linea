@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Put,
   UseGuards,
 } from '@nestjs/common'
@@ -20,8 +21,7 @@ import {
 } from './dto/upsert-secret.dto'
 import { SecretsService } from './secrets.service'
 
-// Secrets are workspace-wide credentials (e.g. an AI provider key used by every workflow) — admin+ only, same tier as API keys.
-@Controller('secrets')
+@Controller('environments/:environmentId/secrets')
 @OptionalAuth()
 @UseGuards(WorkspaceAuthGuard, WorkspaceRoleGuard)
 @RequireRole('admin')
@@ -29,29 +29,37 @@ export class SecretsController {
   constructor(private readonly secrets: SecretsService) {}
 
   @Get()
-  list(@CurrentWorkspaceId() workspaceId: string) {
-    return this.secrets.list(workspaceId)
+  list(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('environmentId', ParseUUIDPipe) environmentId: string,
+  ) {
+    return this.secrets.list(workspaceId, environmentId)
   }
 
   @Get('providers')
-  listAiProviders(@CurrentWorkspaceId() workspaceId: string) {
-    return this.secrets.listAiProviders(workspaceId)
+  listAiProviders(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('environmentId', ParseUUIDPipe) environmentId: string,
+  ) {
+    return this.secrets.listAiProviders(workspaceId, environmentId)
   }
 
   @Put(':key')
   upsert(
     @CurrentWorkspaceId() workspaceId: string,
+    @Param('environmentId', ParseUUIDPipe) environmentId: string,
     @Param('key', new ZodValidationPipe(secretKeySchema)) key: string,
     @Body(new ZodValidationPipe(upsertSecretSchema)) body: UpsertSecretDto,
   ) {
-    return this.secrets.upsert(workspaceId, key, body)
+    return this.secrets.upsert(workspaceId, environmentId, key, body)
   }
 
   @Delete(':key')
   delete(
     @CurrentWorkspaceId() workspaceId: string,
+    @Param('environmentId', ParseUUIDPipe) environmentId: string,
     @Param('key', new ZodValidationPipe(secretKeySchema)) key: string,
   ) {
-    return this.secrets.delete(workspaceId, key)
+    return this.secrets.delete(workspaceId, environmentId, key)
   }
 }

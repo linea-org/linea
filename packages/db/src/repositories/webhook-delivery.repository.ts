@@ -34,7 +34,7 @@ function optionalString(
 }
 
 function webhookBody(message: OutboxMessage): string {
-  if (!message.applicationId || !message.eventType) {
+  if (!message.environmentId || !message.eventType) {
     throw new InvalidWebhookEventError(
       "Public event outbox message is missing its envelope"
     )
@@ -43,7 +43,7 @@ function webhookBody(message: OutboxMessage): string {
     id: message.id,
     version: 1,
     createdAt: message.createdAt.toISOString(),
-    applicationId: message.applicationId,
+    environmentId: message.environmentId,
   }
   const conversationId = optionalString(message.payload, "conversationId")
   let candidate: unknown
@@ -140,7 +140,7 @@ export async function prepareWebhookDeliveries(
       )
       .for("update")
     if (!message) throw new Error("Public event outbox claim was lost")
-    if (!message.applicationId || !message.eventType) {
+    if (!message.environmentId || !message.eventType) {
       throw new InvalidWebhookEventError(
         "Public event outbox message is missing its envelope"
       )
@@ -150,11 +150,11 @@ export async function prepareWebhookDeliveries(
       .from(webhookEndpoints)
       .where(
         and(
-          eq(webhookEndpoints.applicationId, message.applicationId),
+          eq(webhookEndpoints.environmentId, message.environmentId),
           isNull(webhookEndpoints.disabledAt)
         )
       )
-    const applicationId = message.applicationId
+    const environmentId = message.environmentId
     const eventType = message.eventType
     const body = webhookBody(message)
     if (endpoints.length > 0) {
@@ -163,7 +163,7 @@ export async function prepareWebhookDeliveries(
         .values(
           endpoints.map((endpoint) => ({
             workspaceId: message.workspaceId,
-            applicationId,
+            environmentId,
             webhookId: endpoint.id,
             eventId: message.id,
             eventType,
@@ -295,7 +295,7 @@ export function listWebhookDeliveries(
   db: DbClient,
   input: {
     workspaceId: string
-    applicationId: string
+    environmentId: string
     retainedAfter: Date
     limit: number
     cursor?: { createdAt: Date; id: string }
@@ -307,7 +307,7 @@ export function listWebhookDeliveries(
     .where(
       and(
         eq(webhookDeliveries.workspaceId, input.workspaceId),
-        eq(webhookDeliveries.applicationId, input.applicationId),
+        eq(webhookDeliveries.environmentId, input.environmentId),
         gte(webhookDeliveries.createdAt, input.retainedAfter),
         input.cursor
           ? or(

@@ -11,7 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 import type { ApprovalRequestDisplay } from "./approval-request.js"
-import { applications } from "./application.js"
+import { environments } from "./environment.js"
 import { externalSubjects } from "./external-subject.js"
 
 export const connectorAuditFactType = pgEnum("connector_audit_fact_type", [
@@ -44,7 +44,7 @@ export const connectorAuditFacts = snakeCase.table(
   {
     id: uuid().defaultRandom().primaryKey(),
     workspaceId: uuid().notNull(),
-    applicationId: uuid().notNull(),
+    environmentId: uuid().notNull(),
     externalSubjectId: uuid(),
     subjectReference: uuid().notNull(),
     connectionId: uuid().notNull(),
@@ -67,8 +67,8 @@ export const connectorAuditFacts = snakeCase.table(
       table.workspaceId,
       table.occurredAt
     ),
-    index("connector_audit_facts_application_idx").on(
-      table.applicationId,
+    index("connector_audit_facts_environment_idx").on(
+      table.environmentId,
       table.occurredAt
     ),
     index("connector_audit_facts_subject_idx").on(
@@ -80,9 +80,9 @@ export const connectorAuditFacts = snakeCase.table(
       table.auditExpiresAt
     ),
     foreignKey({
-      name: "connector_audit_facts_application_fkey",
-      columns: [table.applicationId, table.workspaceId],
-      foreignColumns: [applications.id, applications.workspaceId],
+      name: "connector_audit_facts_environment_fkey",
+      columns: [table.environmentId, table.workspaceId],
+      foreignColumns: [environments.id, environments.workspaceId],
     }).onDelete("cascade"),
     foreignKey({
       name: "connector_audit_facts_subject_fkey",

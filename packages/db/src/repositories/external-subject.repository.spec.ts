@@ -1,10 +1,12 @@
+import { fixtureIssuer } from "./test-utils.js"
 import { and, eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import {
-  applicationKeys,
   applications,
+  environmentKeys,
+  environments,
   auditLogs,
-  externalSubjectApplications,
+  externalSubjectEnvironments,
   externalSubjects,
   users,
 } from "../schema/index.js"
@@ -12,21 +14,31 @@ import {
   disableExternalSubject,
   eraseExternalSubject,
   findExternalSubjectByIdentity,
-  getApplicationExternalSubject,
+  getEnvironmentExternalSubject,
   provisionExternalSubject,
 } from "./external-subject.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import type { DbClient } from "./types.js"
 
-async function createApplication(
+async function createEnvironment(
   tx: DbClient,
   workspaceId: string,
   issuer: string,
   name: string
 ) {
-  const [application] = await tx
-    .insert(applications)
+  const [environment] = await tx
+    .insert(environments)
     .values({
+      applicationId: (
+        await tx
+          .insert(applications)
+          .values({
+            workspaceId,
+            name: "Test product",
+            slug: crypto.randomUUID(),
+          })
+          .returning()
+      )[0].id,
       workspaceId,
       environment: "production",
       displayName: name,
@@ -38,24 +50,24 @@ async function createApplication(
       oidcJwksUrl: `${issuer}/jwks.json`,
     })
     .returning()
-  return application
+  return environment
 }
 
-async function createApplicationKey(
+async function createEnvironmentKey(
   tx: DbClient,
   workspaceId: string,
-  applicationId: string,
+  environmentId: string,
   suffix: string
 ) {
   const [key] = await tx
-    .insert(applicationKeys)
+    .insert(environmentKeys)
     .values({
       workspaceId,
-      applicationId,
+      environmentId,
       name: "Subject provisioner",
       scopes: ["subjects:provision"],
       hashedKey: `subject-key-${suffix}`,
-      keyPrefix: `lin_app_${suffix}`,
+      keyPrefix: `lin_env_${suffix}`,
     })
     .returning()
   return key
@@ -70,26 +82,26 @@ async function createActor(tx: DbClient, suffix: string) {
 }
 
 describe("External Subject repository", () => {
-  it("provisions idempotently from the Application issuer", async () => {
+  it("provisions idempotently from the Environment issuer", async () => {
     await withRollback(async (tx) => {
       const { organization } = await createTestFixtures(tx)
-      const application = await createApplication(
+      const environment = await createEnvironment(
         tx,
         organization.id,
         "https://identity.example.com",
         "portal"
       )
-      const key = await createApplicationKey(
+      const key = await createEnvironmentKey(
         tx,
         organization.id,
-        application.id,
-        application.id
+        environment.id,
+        environment.id
       )
       const first = await provisionExternalSubject(
         tx,
         {
           workspaceId: organization.id,
-          applicationId: application.id,
+          environmentId: environment.id,
           issuerSubject: "customer-123",
           metadata: { prospect: "lead-1" },
         },
@@ -99,7 +111,7 @@ describe("External Subject repository", () => {
         tx,
         {
           workspaceId: organization.id,
-          applicationId: application.id,
+          environmentId: environment.id,
           issuerSubject: "customer-123",
           metadata: { prospect: "lead-2" },
         },
@@ -110,9 +122,9 @@ describe("External Subject repository", () => {
       if (first.outcome !== "provisioned") return
       if (second.outcome !== "provisioned") return
       expect(second.value.subject.id).toBe(first.value.subject.id)
-      expect(second.value.subject.issuer).toBe(application.oidcIssuer)
+      expect(second.value.subject.issuer).toBe(fixtureIssuer(environment))
       expect(second.value.subject.status).toBe("provisioned")
-      expect(second.value.application.metadata).toEqual({ prospect: "lead-2" })
+      expect(second.value.environment.metadata).toEqual({ prospect: "lead-2" })
       const identities = await tx
         .select()
         .from(externalSubjects)
@@ -129,40 +141,39 @@ describe("External Subject repository", () => {
       expect(JSON.stringify(provisionAudits[0])).not.toContain("customer-123")
     })
   })
-
-  it("reuses identity across Applications without sharing metadata", async () => {
+  it("reuses identity across Environments without sharing metadata", async () => {
     await withRollback(async (tx) => {
       const { organization } = await createTestFixtures(tx)
       const issuer = "https://identity.example.com"
-      const firstApplication = await createApplication(
+      const firstEnvironment = await createEnvironment(
         tx,
         organization.id,
         issuer,
         "first"
       )
-      const secondApplication = await createApplication(
+      const secondEnvironment = await createEnvironment(
         tx,
         organization.id,
         issuer,
         "second"
       )
-      const firstKey = await createApplicationKey(
+      const firstKey = await createEnvironmentKey(
         tx,
         organization.id,
-        firstApplication.id,
-        firstApplication.id
+        firstEnvironment.id,
+        firstEnvironment.id
       )
-      const secondKey = await createApplicationKey(
+      const secondKey = await createEnvironmentKey(
         tx,
         organization.id,
-        secondApplication.id,
-        secondApplication.id
+        secondEnvironment.id,
+        secondEnvironment.id
       )
       const first = await provisionExternalSubject(
         tx,
         {
           workspaceId: organization.id,
-          applicationId: firstApplication.id,
+          environmentId: firstEnvironment.id,
           issuerSubject: "shared-person",
           metadata: { account: "first-account" },
         },
@@ -177,7 +188,7 @@ describe("External Subject repository", () => {
         tx,
         {
           workspaceId: organization.id,
-          applicationId: secondApplication.id,
+          environmentId: secondEnvironment.id,
           issuerSubject: "shared-person",
           metadata: { account: "second-account" },
         },
@@ -186,65 +197,64 @@ describe("External Subject repository", () => {
       if (second.outcome !== "provisioned") return
       expect(second.value.subject.id).toBe(first.value.subject.id)
       expect(second.value.subject.status).toBe("verified")
-      expect(first.value.application.metadata).toEqual({
+      expect(first.value.environment.metadata).toEqual({
         account: "first-account",
       })
-      expect(second.value.application.metadata).toEqual({
+      expect(second.value.environment.metadata).toEqual({
         account: "second-account",
       })
       expect(
-        await getApplicationExternalSubject(
+        await getEnvironmentExternalSubject(
           tx,
           organization.id,
-          firstApplication.id,
+          firstEnvironment.id,
           first.value.subject.id
         )
       ).toMatchObject({
-        application: { metadata: { account: "first-account" } },
+        environment: { metadata: { account: "first-account" } },
       })
     })
   })
-
   it("isolates identities across issuers and workspaces", async () => {
     await withRollback(async (tx) => {
       const firstFixtures = await createTestFixtures(tx)
       const secondFixtures = await createTestFixtures(tx)
-      const firstApplication = await createApplication(
+      const firstEnvironment = await createEnvironment(
         tx,
         firstFixtures.organization.id,
         "https://first.example.com",
         "first"
       )
-      const otherIssuerApplication = await createApplication(
+      const otherIssuerEnvironment = await createEnvironment(
         tx,
         firstFixtures.organization.id,
         "https://second.example.com",
         "second"
       )
-      const otherWorkspaceApplication = await createApplication(
+      const otherWorkspaceEnvironment = await createEnvironment(
         tx,
         secondFixtures.organization.id,
         "https://first.example.com",
         "other-workspace"
       )
       const configurations = [
-        [firstFixtures.organization.id, firstApplication],
-        [firstFixtures.organization.id, otherIssuerApplication],
-        [secondFixtures.organization.id, otherWorkspaceApplication],
+        [firstFixtures.organization.id, firstEnvironment],
+        [firstFixtures.organization.id, otherIssuerEnvironment],
+        [secondFixtures.organization.id, otherWorkspaceEnvironment],
       ] as const
       const subjectIds: string[] = []
-      for (const [workspaceId, application] of configurations) {
-        const key = await createApplicationKey(
+      for (const [workspaceId, environment] of configurations) {
+        const key = await createEnvironmentKey(
           tx,
           workspaceId,
-          application.id,
-          application.id
+          environment.id,
+          environment.id
         )
         const result = await provisionExternalSubject(
           tx,
           {
             workspaceId,
-            applicationId: application.id,
+            environmentId: environment.id,
             issuerSubject: "same-value",
             metadata: {},
           },
@@ -256,56 +266,55 @@ describe("External Subject repository", () => {
       }
       expect(new Set(subjectIds).size).toBe(3)
       expect(
-        await getApplicationExternalSubject(
+        await getEnvironmentExternalSubject(
           tx,
           secondFixtures.organization.id,
-          otherWorkspaceApplication.id,
+          otherWorkspaceEnvironment.id,
           subjectIds[0] ?? ""
         )
       ).toBeUndefined()
     })
   })
-
-  it("rejects disabled Applications and External Subjects", async () => {
+  it("rejects disabled Environments and External Subjects", async () => {
     await withRollback(async (tx) => {
       const { organization } = await createTestFixtures(tx)
-      const application = await createApplication(
+      const environment = await createEnvironment(
         tx,
         organization.id,
         "https://identity.example.com",
         "portal"
       )
-      const key = await createApplicationKey(
+      const key = await createEnvironmentKey(
         tx,
         organization.id,
-        application.id,
-        application.id
+        environment.id,
+        environment.id
       )
       await tx
-        .update(applications)
+        .update(environments)
         .set({ enabled: false })
-        .where(eq(applications.id, application.id))
+        .where(eq(environments.id, environment.id))
       expect(
         await provisionExternalSubject(
           tx,
           {
             workspaceId: organization.id,
-            applicationId: application.id,
+            environmentId: environment.id,
             issuerSubject: "blocked",
             metadata: {},
           },
           key.id
         )
-      ).toEqual({ outcome: "application_disabled" })
+      ).toEqual({ outcome: "environment_disabled" })
       await tx
-        .update(applications)
+        .update(environments)
         .set({ enabled: true })
-        .where(eq(applications.id, application.id))
+        .where(eq(environments.id, environment.id))
       const created = await provisionExternalSubject(
         tx,
         {
           workspaceId: organization.id,
-          applicationId: application.id,
+          environmentId: environment.id,
           issuerSubject: "disabled-subject",
           metadata: {},
         },
@@ -324,7 +333,7 @@ describe("External Subject repository", () => {
           tx,
           {
             workspaceId: organization.id,
-            applicationId: application.id,
+            environmentId: environment.id,
             issuerSubject: "disabled-subject",
             metadata: {},
           },
@@ -333,27 +342,26 @@ describe("External Subject repository", () => {
       ).toEqual({ outcome: "external_subject_disabled" })
     })
   })
-
-  it("erases identity and Application metadata but retains pseudonymous audit", async () => {
+  it("erases identity and Environment metadata but retains pseudonymous audit", async () => {
     await withRollback(async (tx) => {
       const { organization } = await createTestFixtures(tx)
-      const application = await createApplication(
+      const environment = await createEnvironment(
         tx,
         organization.id,
         "https://identity.example.com",
         "portal"
       )
-      const key = await createApplicationKey(
+      const key = await createEnvironmentKey(
         tx,
         organization.id,
-        application.id,
-        application.id
+        environment.id,
+        environment.id
       )
       const created = await provisionExternalSubject(
         tx,
         {
           workspaceId: organization.id,
-          applicationId: application.id,
+          environmentId: environment.id,
           issuerSubject: "erase-me",
           metadata: { prospect: "sensitive-reference" },
         },
@@ -378,18 +386,18 @@ describe("External Subject repository", () => {
         await findExternalSubjectByIdentity(
           tx,
           organization.id,
-          application.oidcIssuer,
+          fixtureIssuer(environment),
           "erase-me"
         )
       ).toBeUndefined()
       const [link] = await tx
         .select()
-        .from(externalSubjectApplications)
+        .from(externalSubjectEnvironments)
         .where(
           and(
-            eq(externalSubjectApplications.applicationId, application.id),
+            eq(externalSubjectEnvironments.environmentId, environment.id),
             eq(
-              externalSubjectApplications.externalSubjectId,
+              externalSubjectEnvironments.externalSubjectId,
               created.value.subject.id
             )
           )

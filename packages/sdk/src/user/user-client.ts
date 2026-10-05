@@ -112,7 +112,7 @@ function shouldRetryNetwork(
 }
 
 export type LineaUserClientOptions = {
-  applicationId: string
+  environmentId: string
   baseUrl?: string
   fetch?: typeof fetch
   crypto?: Crypto
@@ -123,7 +123,7 @@ export type LineaUserClientOptions = {
 export type StartAuthorizationInput = { redirectUri: string }
 export type CompleteAuthorizationInput = { code: string; state: string }
 export type LineaUserSession = {
-  applicationId: string
+  environmentId: string
   externalSubjectId: string
   expiresAt: string
 }
@@ -138,7 +138,7 @@ export type UserEventUpdate =
   | { kind: "reconciled"; approvalRequests: ApprovalRequest[] }
 
 export class LineaUserClient {
-  private readonly applicationId: string
+  private readonly environmentId: string
   private readonly baseUrl: string
   private readonly fetchImplementation: typeof fetch
   private readonly cryptoImplementation: Crypto
@@ -148,7 +148,7 @@ export class LineaUserClient {
   private stateMutation = Promise.resolve()
 
   constructor(options: LineaUserClientOptions) {
-    this.applicationId = options.applicationId
+    this.environmentId = options.environmentId
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, "")
     this.fetchImplementation = options.fetch ?? globalThis.fetch
     this.cryptoImplementation = options.crypto ?? globalThis.crypto
@@ -158,7 +158,7 @@ export class LineaUserClient {
     if (!this.cryptoImplementation?.subtle) {
       throw new Error("LineaUserClient requires Web Crypto API support")
     }
-    const namespace = `${this.baseUrl}|${this.applicationId}`
+    const namespace = `${this.baseUrl}|${this.environmentId}`
     this.store = createUserStateStore(namespace, options.storage)
     this.proofKeys = createProofKeyStore(
       this.cryptoImplementation,
@@ -172,7 +172,7 @@ export class LineaUserClient {
   ): Promise<EndUserAuthorizationResponse> {
     const pkce = await createPkce(this.cryptoImplementation)
     const body = startEndUserAuthorizationOperation.request.body.parse({
-      applicationId: this.applicationId,
+      environmentId: this.environmentId,
       redirectUri: input.redirectUri,
       codeChallenge: pkce.challenge,
     })
@@ -216,7 +216,7 @@ export class LineaUserClient {
     }
     const exchangeBody =
       exchangeEndUserAuthorizationOperation.request.body.parse({
-        applicationId: this.applicationId,
+        environmentId: this.environmentId,
         redirectUri: authorization.redirectUri,
         code: input.code,
         state: input.state,
@@ -859,7 +859,7 @@ export class LineaUserClient {
 
   private publicSession(session: StoredUserSession): LineaUserSession {
     return {
-      applicationId: this.applicationId,
+      environmentId: this.environmentId,
       externalSubjectId: session.externalSubjectId,
       expiresAt: session.expiresAt,
     }

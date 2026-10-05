@@ -1,4 +1,4 @@
-export type OidcApplicationConfiguration = {
+export type OidcEnvironmentConfiguration = {
   environment: 'dev' | 'production'
   issuer: string
   clientId: string
@@ -9,7 +9,7 @@ export type OidcApplicationConfiguration = {
 
 export interface OidcProvider {
   createAuthorizationUrl(
-    configuration: OidcApplicationConfiguration,
+    configuration: OidcEnvironmentConfiguration,
     input: {
       redirectUri: string
       codeChallenge: string
@@ -18,7 +18,7 @@ export interface OidcProvider {
     },
   ): Promise<string>
   exchangeAuthorizationCode(
-    configuration: OidcApplicationConfiguration,
+    configuration: OidcEnvironmentConfiguration,
     input: {
       redirectUri: string
       code: string
