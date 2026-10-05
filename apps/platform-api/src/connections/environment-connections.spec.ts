@@ -612,6 +612,60 @@ describe('shared Environment Connection API and Gateway', () => {
       )?.status,
     ).toBe('active')
   })
+  it('locks shared authority before cancelling approvals during subject erasure', async () => {
+    const fixture = await approvedWrite()
+    const consent = await repositories.actionIntent.getActionIntentConsent(
+      db,
+      fixture.input,
+    )
+    if (!consent) throw new Error('Consent missing')
+    const holder = await pool.connect()
+    let erased: Promise<unknown> | undefined
+    try {
+      await holder.query('BEGIN')
+      const identity = z
+        .object({ pid: z.number() })
+        .parse((await holder.query('SELECT pg_backend_pid() AS pid')).rows[0])
+      await holder.query(
+        'SELECT id FROM connection_access_grants WHERE id=$1 FOR UPDATE',
+        [fixture.grantId],
+      )
+      erased = expect(
+        repositories.externalSubject.eraseExternalSubject(
+          db,
+          workspaceId,
+          fixture.requester,
+          operatorId,
+        ),
+      ).resolves.toMatchObject({ status: 'erased' })
+      const deadline = Date.now() + 5000
+      while (true) {
+        const blocked = z
+          .object({ blocked: z.boolean() })
+          .parse(
+            (
+              await pool.query(
+                'SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))) AS blocked',
+                [identity.pid],
+              )
+            ).rows[0],
+          )
+        if (blocked.blocked) break
+        if (Date.now() >= deadline)
+          throw new Error('Erasure did not wait for the locked grant')
+        await new Promise<void>((resolve) => setTimeout(resolve, 10))
+      }
+      const approval = await holder.query(
+        'SELECT id FROM approval_requests WHERE id=$1 FOR UPDATE NOWAIT',
+        [consent.approvalRequest.id],
+      )
+      expect(approval.rowCount).toBe(1)
+    } finally {
+      await holder.query('ROLLBACK')
+      holder.release()
+      await erased
+    }
+  })
   it('rejects a requester grant revoked while an installation token is being minted', async () => {
     const connection = await setup()
     const requester = await subject()

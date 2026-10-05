@@ -269,41 +269,61 @@ export async function eraseExternalSubject(
     if (!existing || existing.status === "erased") return existing
     const now = new Date()
     const auditReference = randomUUID()
+    // Grant revocation locks authority before approvals; erasure must use the same order.
+    const requesters = await tx
+      .update(connectionAccessGrants)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          eq(connectionAccessGrants.workspaceId, workspaceId),
+          eq(connectionAccessGrants.externalSubjectId, existing.id),
+          isNull(connectionAccessGrants.revokedAt)
+        )
+      )
+      .returning()
+    const reviewers = await tx
+      .update(connectionReviewerAssignments)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          eq(connectionReviewerAssignments.workspaceId, workspaceId),
+          eq(connectionReviewerAssignments.externalSubjectId, existing.id),
+          isNull(connectionReviewerAssignments.revokedAt)
+        )
+      )
+      .returning()
     await cancelNonExecutingActionIntents(tx, {
       workspaceId,
       scope: { kind: "external_subject", id: existing.id },
       actor: { kind: "workspace_member", id: actorUserId },
       cancelledAt: now,
     })
-    for (const [kind, table] of [
-      ["requester", connectionAccessGrants],
-      ["reviewer", connectionReviewerAssignments],
-    ] as const) {
-      const revoked = await tx
-        .update(table)
-        .set({ revokedAt: now })
-        .where(
-          and(
-            eq(table.workspaceId, workspaceId),
-            eq(table.externalSubjectId, existing.id),
-            isNull(table.revokedAt)
-          )
+    const revokedAuthorities = [
+      ...requesters.map((authorization) => ({
+        authorization,
+        kind: "requester" as const,
+      })),
+      ...reviewers.map((authorization) => ({
+        authorization,
+        kind: "reviewer" as const,
+      })),
+    ]
+    if (revokedAuthorities.length > 0)
+      await tx.insert(auditLogs).values(
+        revokedAuthorities.map<typeof auditLogs.$inferInsert>(
+          ({ authorization, kind }) => ({
+            workspaceId,
+            actorUserId,
+            action: `connection.${kind}_revoked`,
+            resource: "connection",
+            resourceId: authorization.connectionId,
+            metadata: {
+              authorizationId: authorization.id,
+              subjectReference: auditReference,
+            },
+          })
         )
-        .returning()
-      for (const authorization of revoked) {
-        await tx.insert(auditLogs).values({
-          workspaceId,
-          actorUserId,
-          action: `connection.${kind}_revoked`,
-          resource: "connection",
-          resourceId: authorization.connectionId,
-          metadata: {
-            authorizationId: authorization.id,
-            subjectReference: auditReference,
-          },
-        })
-      }
-    }
+      )
     const revokedConnections = await tx
       .update(connections)
       .set({

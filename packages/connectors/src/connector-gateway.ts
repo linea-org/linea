@@ -8,7 +8,6 @@ import {
   encryptCredential,
   repositories,
   type ActionIntent,
-  type Connection,
   type Database,
 } from "@linea/db"
 import { z } from "zod"
@@ -310,19 +309,18 @@ export class ConnectorGateway {
       )
         return this.resolveSideEffectConsent(operation, input, existing)
     }
-    let authorizationKind: Connection["authorizationKind"] | undefined
-    if (existing)
-      authorizationKind = existing.intent.connectionAccessGrantId
-        ? "github_app_installation"
-        : "delegated_user"
-    else
-      authorizationKind = (
-        await repositories.connection.getConnectorReadAuthority(this.db, {
-          workspaceId: input.workspaceId,
-          executionId: input.executionId,
-          connectionId: input.connectionId,
-        })
-      )?.connection.authorizationKind
+    const existingAuthorizationKind = existing?.intent.connectionAccessGrantId
+      ? "github_app_installation"
+      : "delegated_user"
+    const authorizationKind = existing
+      ? existingAuthorizationKind
+      : (
+          await repositories.connection.getConnectorReadAuthority(this.db, {
+            workspaceId: input.workspaceId,
+            executionId: input.executionId,
+            connectionId: input.connectionId,
+          })
+        )?.connection.authorizationKind
     if (!authorizationKind) throw new ConnectorGatewayError()
     const created = await repositories.actionIntent.createActionIntent(
       this.db,
