@@ -4,6 +4,10 @@
 
 An Application-owned, task-directed actor that chooses its next steps within Operator-defined tool permissions, approval requirements, and execution limits.
 
+## Agent Definition
+
+An Application-owned, versioned description of an Agent's instructions, model, tools, and execution limits, reusable in standalone runs and Workflows.
+
 ## Workflow
 
 An Application-owned definition of a prescribed process with explicit steps and control flow.
@@ -42,6 +46,14 @@ The saved-case system that replays known inputs against a workflow version to de
 ## Regression Case
 
 A saved input and its assertions.
+
+## Replay
+
+An isolated diagnostic run of a recorded step using its original input and optional configuration changes, preserving the original Execution.
+
+## Recorded Effect
+
+A retained description and observed outcome of a mutating operation, reused as evidence for a matching diagnostic request rather than authorization to perform another write.
 
 ## Regression Run
 
