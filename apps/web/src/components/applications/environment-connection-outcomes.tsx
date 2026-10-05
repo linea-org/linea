@@ -7,7 +7,10 @@ export function EnvironmentConnectionOutcomes({
 }: {
   environmentId: string
 }) {
-  const [cursor, setCursor] = useState<string>()
+  const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([
+    undefined,
+  ])
+  const cursor = cursorHistory.at(-1)
   const { data, error, isFetching } = useQuery({
     queryKey: ["connection-outcomes", environmentId, cursor],
     queryFn: () =>
@@ -40,16 +43,25 @@ export function EnvironmentConnectionOutcomes({
       <div className="flex gap-2">
         <Button
           variant="outline"
-          disabled={!cursor || isFetching}
-          onClick={() => setCursor(undefined)}
+          disabled={cursorHistory.length === 1 || isFetching}
+          onClick={() => setCursorHistory([undefined])}
         >
           Latest
         </Button>
         <Button
           variant="outline"
+          disabled={cursorHistory.length === 1 || isFetching}
+          onClick={() => setCursorHistory((history) => history.slice(0, -1))}
+        >
+          Newer activity
+        </Button>
+        <Button
+          variant="outline"
           disabled={!data?.nextCursor || isFetching}
           onClick={() => {
-            if (data?.nextCursor) setCursor(data.nextCursor)
+            const nextCursor = data?.nextCursor
+            if (nextCursor)
+              setCursorHistory((history) => [...history, nextCursor])
           }}
         >
           Older activity

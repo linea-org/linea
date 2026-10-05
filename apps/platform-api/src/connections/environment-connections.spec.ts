@@ -621,6 +621,43 @@ describe('shared Environment Connection API and Gateway', () => {
     await rejected
     expect(readCount).toBe(before)
   })
+  it('allows requester consent only with separately assigned reviewer authority and DPoP proof', async () => {
+    const connection = await setup()
+    const requester = await subject()
+    await assign(connection.id, requester, 'access-grants')
+    const input = {
+      ...(await execution(requester)),
+      connectionId: connection.id,
+      operationId: 'github.issues.create',
+      operationInput: issueInput,
+    }
+    const pending = await gateway.execute(input)
+    if (pending.outcome !== 'awaiting_consent')
+      throw new Error('Expected human consent')
+    const consent = await repositories.actionIntent.getActionIntentConsent(
+      db,
+      input,
+    )
+    if (!consent) throw new Error('Consent missing')
+    const path = `/v1/user/approval-requests/${consent.approvalRequest.id}/decisions`
+    const requesterSession = await session(requester)
+    await request(baseUrl)
+      .post(path)
+      .set(await proofHeaders(requesterSession, 'POST', path))
+      .set('Idempotency-Key', randomUUID())
+      .send({ decision: 'approved' })
+      .expect(404)
+    await assign(connection.id, requester, 'reviewer-assignments')
+    await request(baseUrl)
+      .post(path)
+      .set(await proofHeaders(requesterSession, 'POST', path))
+      .set('Idempotency-Key', randomUUID())
+      .send({ decision: 'approved' })
+      .expect(201)
+    const before = writeCount
+    expect((await gateway.execute(input)).outcome).toBe('completed')
+    expect(writeCount).toBe(before + 1)
+  })
   it('approves an exact shared action through a distinct DPoP reviewer and replays the recorded outcome after revocation', async () => {
     const fixture = await approvedWrite()
     const before = writeCount
