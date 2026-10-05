@@ -167,7 +167,6 @@ export function parseFindings(
   const call = toolCalls?.find((tc) => tc.name === "report_findings")
   const raw = call?.arguments.findings
   if (!Array.isArray(raw)) return []
-
   const findings: ParsedFinding[] = []
   for (const item of raw) {
     if (typeof item !== "object" || item === null) continue
@@ -180,7 +179,6 @@ export function parseFindings(
     const persistedMessageId = evidenceMessageIds.get(evidenceMessageId)
     if (!persistedMessageId) continue
     if (typeof rationale !== "string" || rationale.trim() === "") continue
-
     findings.push({
       axis,
       category,
@@ -272,6 +270,7 @@ export class ConversationAnalyzerService
   ): Promise<ConversationAnalysisOutcome> {
     const {
       workspaceId,
+      environmentId,
       workflowId,
       conversationId,
       maxSequence,
@@ -279,7 +278,6 @@ export class ConversationAnalyzerService
       behaviourSampleRate,
       behaviourModel,
     } = conversation
-
     // Claimed before anything else — including the sample-rate coin flip — so two workers can
     // never both process (billable or not) the same conversation concurrently. Not needed for
     // fairness within this call: findConversationsDueForAnalysis already excludes/orders by
@@ -293,7 +291,6 @@ export class ConversationAnalyzerService
     if (claim.outcome === "already-claimed") {
       return { outcome: "already-claimed" }
     }
-
     if (Math.random() >= behaviourSampleRate) {
       // No LLM call on this path, so there's no realistic way to outlive the lease — but the write
       // still goes through the same fencing check, atomically in the same transaction, as the real
@@ -343,7 +340,6 @@ export class ConversationAnalyzerService
         costMicros: 0n,
       }
     }
-
     // The claim just taken above is the only thing standing between two workers both paying for
     // this conversation's analysis. Two layers close that window: the provider call below is
     // bounded well under the claim's own lease, so a call that's still genuinely running can never
@@ -351,19 +347,16 @@ export class ConversationAnalyzerService
     // `claim.attemptCount` is then re-checked as a fencing token immediately before the write, as a
     // second, cheap backstop against that crash case: if some other worker's claim has since
     // superseded this one, this result is discarded rather than persisted as a duplicate.
-
     const messages = await repositories.chatMessage.listChatMessages(
       db,
       workspaceId,
       workflowId,
       conversationId
     )
-
     const model = behaviourModel ?? DEFAULT_BEHAVIOUR_MODEL
     const provider = resolveProvider(model)
     const keyName = resolveKeyName(model)
-    const { apiKey } = await resolveApiKey(db, workspaceId, keyName)
-
+    const { apiKey } = await resolveApiKey(db, environmentId, keyName)
     const evidenceMessageIds = new Map(
       messages.map((message, index) => [`m${index + 1}`, message.id])
     )
@@ -381,7 +374,6 @@ export class ConversationAnalyzerService
         `Conversation ${conversationId}: analyzer did not call report_findings, treating as zero findings`
       )
     }
-
     const costMicros = calculateCostMicros(
       model,
       result.tokensInput,
@@ -392,7 +384,6 @@ export class ConversationAnalyzerService
         `Conversation ${conversationId}: no pricing for model "${model}", recording cost as 0`
       )
     }
-
     // One transaction — reaffirming ownership, advancing the watermark (via the analysis row),
     // and persisting the findings/flags it's the watermark for must all commit together or not at
     // all. The ownership check has to be inside this same transaction: checking it separately just
@@ -410,7 +401,6 @@ export class ConversationAnalyzerService
           claim.attemptCount
         )
       if (!claimStillOwned) return
-
       const analysis =
         await repositories.conversationAnalysis.createConversationAnalysis(tx, {
           workspaceId,
@@ -432,7 +422,6 @@ export class ConversationAnalyzerService
           analysis.id,
           findings.map((finding) => ({ workspaceId, ...finding }))
         )
-
       for (const finding of persistedFindings) {
         const flagType = FLAGGABLE_CATEGORIES[finding.category]
         if (!flagType) continue

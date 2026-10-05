@@ -215,7 +215,7 @@ export function createGithubOAuthProvider(
     async revokeCredential(credential, signal) {
       const response = await fetch(
         new URL(
-          `/environments/${encodeURIComponent(configuration.clientId)}/token`,
+          `/applications/${encodeURIComponent(configuration.clientId)}/token`,
           configuration.apiBaseUrl,
         ),
         {

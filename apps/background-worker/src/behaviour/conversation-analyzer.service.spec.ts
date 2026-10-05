@@ -1,4 +1,7 @@
-import { getTestApplicationId } from "@linea/db/testing"
+import {
+  getTestApplicationId,
+  getTestDevelopmentEnvironmentId,
+} from "@linea/db/testing"
 import type { CompletionRequest, CompletionResult } from "@linea/ai"
 
 const complete = jest.fn<
@@ -7,7 +10,10 @@ const complete = jest.fn<
 >()
 const resolveProvider = jest.fn(() => ({ complete }))
 const resolveKeyName = jest.fn(() => "ANTHROPIC_API_KEY")
-const resolveApiKey = jest.fn(() => Promise.resolve({ apiKey: "secret" }))
+const resolveApiKey = jest.fn<
+  ReturnType<typeof import("@linea/ai").resolveApiKey>,
+  Parameters<typeof import("@linea/ai").resolveApiKey>
+>(() => Promise.resolve({ apiKey: "secret", source: "platform" }))
 const calculateCostMicros = jest.fn(() => 42n)
 const providers = [
   { id: "anthropic", label: "Anthropic", keyName: "ANTHROPIC_API_KEY" },
@@ -23,11 +29,14 @@ jest.mock("@linea/ai", () => ({
 
 import "@linea/config/env"
 import { randomUUID } from "node:crypto"
-import { db, pool, repositories, schema } from "@linea/db"
+import { db, encryptSecret, pool, repositories, schema } from "@linea/db"
 import {
   ConversationAnalyzerService,
   parseFindings,
 } from "./conversation-analyzer.service"
+
+const { resolveApiKey: resolveEnvironmentApiKey } =
+  jest.requireActual<typeof import("@linea/ai")>("@linea/ai")
 
 afterAll(async () => {
   await pool.end()
@@ -35,6 +44,9 @@ afterAll(async () => {
 
 beforeEach(() => {
   complete.mockReset()
+  resolveApiKey
+    .mockReset()
+    .mockResolvedValue({ apiKey: "secret", source: "platform" })
   calculateCostMicros.mockReturnValue(42n)
 })
 
@@ -82,6 +94,67 @@ async function setUpConversation(options: {
 }
 
 describe("ConversationAnalyzerService", () => {
+  it("uses the conversation Environment key ahead of Production and platform keys", async () => {
+    const { organization, workflow } = await setUpConversation({
+      name: "Behaviour Environment Key Test Org",
+      enabled: true,
+    })
+    const platformKey = process.env.ANTHROPIC_API_KEY
+    process.env.ANTHROPIC_API_KEY = "platform-test-key"
+    try {
+      const environmentId = await getTestDevelopmentEnvironmentId(
+        db,
+        organization.id,
+        workflow.id
+      )
+      const [production] = await db
+        .insert(schema.environments)
+        .values({
+          workspaceId: organization.id,
+          applicationId: workflow.applicationId,
+          environment: "production",
+          displayName: "Production",
+        })
+        .returning()
+      await repositories.secret.upsertSecret(
+        db,
+        environmentId,
+        "ANTHROPIC_API_KEY",
+        encryptSecret("development-analysis-key")
+      )
+      await repositories.secret.upsertSecret(
+        db,
+        production.id,
+        "ANTHROPIC_API_KEY",
+        encryptSecret("production-analysis-key")
+      )
+      resolveApiKey.mockImplementationOnce(resolveEnvironmentApiKey)
+      complete.mockResolvedValue({
+        text: "",
+        tokensInput: 0,
+        tokensOutput: 0,
+        toolCalls: [
+          {
+            id: "call-1",
+            name: "report_findings",
+            arguments: { findings: [] },
+          },
+        ],
+      })
+      await new ConversationAnalyzerService().poll()
+      expect(complete).toHaveBeenCalledTimes(1)
+      expect(complete).toHaveBeenCalledWith(
+        "development-analysis-key",
+        expect.objectContaining({ model: "claude-haiku-4-5-20251001" })
+      )
+    } finally {
+      if (platformKey === undefined) delete process.env.ANTHROPIC_API_KEY
+      else process.env.ANTHROPIC_API_KEY = platformKey
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
   it("returns persisted usage metadata for an explicitly selected conversation", async () => {
     const { organization, workflow, conversationId, message } =
       await setUpConversation({
@@ -100,6 +173,11 @@ describe("ConversationAnalyzerService", () => {
       const service = new ConversationAnalyzerService()
       const outcome = await service.analyzeConversation({
         workspaceId: organization.id,
+        environmentId: await getTestDevelopmentEnvironmentId(
+          db,
+          organization.id,
+          workflow.id
+        ),
         workflowId: workflow.id,
         conversationId,
         maxSequence: message.sequence,
@@ -284,6 +362,11 @@ describe("ConversationAnalyzerService", () => {
       const service = new ConversationAnalyzerService()
       await service.analyzeConversation({
         workspaceId: organization.id,
+        environmentId: await getTestDevelopmentEnvironmentId(
+          db,
+          organization.id,
+          workflow.id
+        ),
         workflowId: workflow.id,
         conversationId,
         maxSequence: message.sequence,
@@ -314,6 +397,11 @@ describe("ConversationAnalyzerService", () => {
       )
       await service.analyzeConversation({
         workspaceId: organization.id,
+        environmentId: await getTestDevelopmentEnvironmentId(
+          db,
+          organization.id,
+          workflow.id
+        ),
         workflowId: workflow.id,
         conversationId,
         maxSequence: followUp.sequence,

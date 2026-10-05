@@ -62,7 +62,6 @@ export async function claimConversationForAnalysis(
       attemptCount: conversationAnalysisClaims.attemptCount,
       claimedAt: conversationAnalysisClaims.claimedAt,
     })
-
   return row
     ? {
         outcome: "claimed",
@@ -228,6 +227,7 @@ export async function insertConversationFindings(
 
 export type ConversationDueForAnalysis = {
   workspaceId: string
+  environmentId: string
   workflowId: string
   conversationId: string
   maxSequence: number
@@ -255,6 +255,7 @@ export async function findConversationsDueForAnalysis(
 ): Promise<ConversationDueForAnalysis[]> {
   const result = await db.execute<{
     workspace_id: string
+    environment_id: string
     workflow_id: string
     conversation_id: string
     // node-postgres returns a bigint SQL result as a string (no global type-parser override in
@@ -267,7 +268,7 @@ export async function findConversationsDueForAnalysis(
   }>(sql`
     WITH conversation_stats AS (
       SELECT
-        cm.workspace_id, c.workflow_id, cm.conversation_id,
+        cm.workspace_id, c.environment_id, c.workflow_id, cm.conversation_id,
         max(cm.sequence) AS max_sequence,
         max(cm.created_at) AS last_message_at,
         CASE
@@ -291,7 +292,7 @@ export async function findConversationsDueForAnalysis(
       ORDER BY workspace_id, workflow_id, conversation_id, created_at DESC, analyzed_through_sequence DESC
     )
     SELECT
-      cs.workspace_id, cs.workflow_id, cs.conversation_id, cs.max_sequence, cs.external_subject_id,
+      cs.workspace_id, cs.environment_id, cs.workflow_id, cs.conversation_id, cs.max_sequence, cs.external_subject_id,
       ws.behaviour_sample_rate, ws.behaviour_model
     FROM conversation_stats cs
     JOIN workspace_settings ws
@@ -311,9 +312,9 @@ export async function findConversationsDueForAnalysis(
     ORDER BY cac.claimed_at ASC NULLS FIRST
     LIMIT ${limit}
   `)
-
   return result.rows.map((row) => ({
     workspaceId: row.workspace_id,
+    environmentId: row.environment_id,
     workflowId: row.workflow_id,
     conversationId: row.conversation_id,
     // Safe up to Number.MAX_SAFE_INTEGER (2^53-1) — the same ceiling chat_messages.sequence's own
