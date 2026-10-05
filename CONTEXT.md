@@ -4,6 +4,10 @@
 
 An Application-owned, task-directed actor that chooses its next steps within Operator-defined tool permissions, approval requirements, and execution limits.
 
+## Agent Definition
+
+An Application-owned, versioned description of an Agent's instructions, model, tools, and execution limits, reusable in standalone runs and Workflows.
+
 ## Workflow
 
 An Application-owned definition of a prescribed process with explicit steps and control flow.
@@ -41,7 +45,19 @@ The saved-case system that replays known inputs against a workflow version to de
 
 ## Regression Case
 
-A saved input and its assertions.
+A saved input, its assertions, and the recorded response fixtures needed to evaluate it.
+
+## Regression Fixture
+
+A credential-free response snapshot owned by a Regression Case, with source Environment and subject attribution and its own retention and erasure obligations.
+
+## Replay
+
+An isolated diagnostic run of a recorded step using its original input and optional configuration changes, preserving the original Execution.
+
+## Recorded Effect
+
+A retained description and observed outcome of a mutating operation, reused as evidence for a matching diagnostic request rather than authorization to perform another write.
 
 ## Regression Run
 
@@ -79,6 +95,10 @@ _Avoid_: Admin key, master key
 **Workflow Contract**:
 An immutable revision of the public input and output promised by a Workflow to an Application, independent of the Workflow implementation version serving an Execution.
 _Avoid_: Workflow version, node schema
+
+**Agent Contract**:
+An immutable revision of an Agent's public input and output, independent of the Agent Definition version selected by its Environment for an Execution.
+_Avoid_: Agent version, tool schema
 
 **End User**:
 A person using an Operator's Application.
