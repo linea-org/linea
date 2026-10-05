@@ -1,5 +1,13 @@
 # Domain Context
 
+## Agent
+
+An Application-owned, task-directed actor that chooses its next steps within Operator-defined tool permissions, approval requirements, and execution limits.
+
+## Workflow
+
+An Application-owned definition of a prescribed process with explicit steps and control flow.
+
 ## Evals
 
 The umbrella for measuring workflow quality, regardless of where the measurement originates.
@@ -46,19 +54,26 @@ The outcome of one Regression Case within a Regression Run.
 ## End-User Access
 
 **Operator**:
-A Linea workspace customer that authors and operates workflows.
+A Linea workspace customer that authors and operates Applications, Agents, and Workflows.
 _Avoid_: Customer, consumer
 
 **Application**:
-One deployed Operator product boundary through which Linea-backed behavior is exposed to End Users. Staging and production are separate Applications.
+One Operator product within a workspace that owns Agent and Workflow definitions and exposes Linea-backed behavior through its Environments.
 _Avoid_: Client, frontend
 
-**Application Key**:
-A server credential bound to one Application and explicitly scoped to its end-user runtime resources. It cannot access another Application or change identity trust configuration.
-_Avoid_: App token, workspace API key
+**Environment**:
+One Development or Production boundary within an Application, with its own deployed definition versions, identity trust, credentials, access grants, reviewer assignments, and runtime configuration.
+_Avoid_: Application, Project
+
+**Deployment**:
+The published Agent and Workflow versions and configuration selected to serve one Environment.
+
+**Environment Key**:
+A server credential bound to one Environment and explicitly scoped to its runtime resources. It cannot access another Environment or change identity trust configuration.
+_Avoid_: Application Key, App token, workspace API key
 
 **Workspace Key**:
-A server credential scoped to explicitly granted workspace operations such as Workflow, Signal, and cross-Application monitoring. It cannot act as an End User or substitute for an Application Key.
+A server credential scoped to explicitly granted workspace operations such as Workflow, Signal, and cross-Application monitoring. It cannot act as an End User or substitute for an Environment Key.
 _Avoid_: Admin key, master key
 
 **Workflow Contract**:
@@ -74,11 +89,11 @@ Linea's representation of one End User, canonical within a workspace and identit
 _Avoid_: External user, customer user
 
 **End-User Session**:
-A short-lived, narrowly scoped capability through which an End User interacts with Linea from an Application.
+A short-lived, narrowly scoped capability through which an End User interacts with Linea within an Environment.
 _Avoid_: Conversation token
 
 **Conversation**:
-One independent thread or context owned by an External Subject within an Application and handled by one Workflow. Each Execution records the Workflow version current when it starts.
+One independent thread or context owned by an External Subject within an Environment and handled by one Agent or Workflow. Each Execution records the definition version it starts with.
 _Avoid_: Session
 
 **Approval Request**:
@@ -90,15 +105,21 @@ An immutable approve or reject response to an Approval Request.
 _Avoid_: Resolution
 
 **Connection**:
-An Application-scoped credential relationship between one External Subject and one stable provider account. A revoked Connection cannot be reactivated.
+An Environment-scoped credential relationship with one stable provider account, owned either by an External Subject or shared within the Environment. A revoked Connection cannot be reactivated.
 _Avoid_: Integration
+
+**Connection Access Grant**:
+An explicit permission for one External Subject to use a shared Connection within its Environment.
+
+**Connection Reviewer Assignment**:
+An explicit permission for one authenticated External Subject to approve proposed actions using a shared Connection within its Environment. Requesting an action alone does not confer reviewer authority.
 
 **Action Intent**:
 An immutable, versioned description of one proposed external side effect, bound to a Connection, connector operation, target, canonical parameters, and provider preconditions.
 _Avoid_: Tool call
 
 **Action Consent**:
-An End User's authorization of the exact digest of one Action Intent or an explicit policy that covers it.
+An authorized End User's authorization of the exact digest of one Action Intent or an explicit policy that covers it. For a subject-owned Connection, that End User is its owner; for a shared Connection, that End User is an assigned reviewer.
 _Avoid_: Approval
 
 **Connector Operation**:
@@ -110,7 +131,7 @@ The logical enforcement boundary that resolves Connections and executes register
 _Avoid_: Run Gateway, sandbox gateway
 
 **Connector Access Policy**:
-Protected Application configuration that limits enabled provider action families and the maximum OAuth scopes they may request.
+Protected Environment configuration that limits enabled provider action families and the maximum OAuth scopes they may request.
 _Avoid_: Consent policy
 
 **Provider Preconditions**:
