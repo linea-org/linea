@@ -10,6 +10,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 import { approvalRequests } from "./approval-request.js"
+import { connectionReviewerAssignments } from "./connection-reviewer-assignment.js"
 import { externalSubjects } from "./external-subject.js"
 import { users } from "./user.js"
 
@@ -39,7 +40,9 @@ export const approvalDecisions = snakeCase.table(
     actorUserId: uuid().references(() => users.id),
     actorExternalSubjectId: uuid(),
     endUserSessionId: uuid(),
-    reviewerAssignmentId: uuid(),
+    reviewerAssignmentId: uuid().references(
+      () => connectionReviewerAssignments.id
+    ),
     reason: approvalDecisionReason().notNull(),
     comment: text(),
     idempotencyKey: text(),

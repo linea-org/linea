@@ -183,10 +183,7 @@ await client.listConnections(/* typed arguments */)
 
 ### cURL
 
-```sh
-curl --request GET "https://api.linea.dev/v1/environments/$ENVIRONMENT_ID/connections" \
-  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY"
-```
+Requires an authenticated workspace administrator session with recent authentication.
 
 <!-- operation:createGithubInstallationConnection -->
 
@@ -409,12 +406,7 @@ await client.createGithubInstallation(/* typed arguments */)
 
 ### cURL
 
-```sh
-curl --request POST "https://api.linea.dev/v1/environments/$ENVIRONMENT_ID/connections/github-installations" \
-  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY" \
-  --header 'Content-Type: application/json' \
-  --data "$REQUEST_JSON"
-```
+Requires an authenticated workspace administrator session with recent authentication.
 
 <!-- operation:getConnectionAuthorities -->
 
@@ -587,10 +579,7 @@ await client.getAuthorities(/* typed arguments */)
 
 ### cURL
 
-```sh
-curl --request GET "https://api.linea.dev/v1/environments/$ENVIRONMENT_ID/connections/$CONNECTION_ID/authorities" \
-  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY"
-```
+Requires an authenticated workspace administrator session with recent authentication.
 
 <!-- operation:grantConnectionAccess -->
 
@@ -729,12 +718,7 @@ await client.grantAccess(/* typed arguments */)
 
 ### cURL
 
-```sh
-curl --request POST "https://api.linea.dev/v1/environments/$ENVIRONMENT_ID/connections/$CONNECTION_ID/access-grants" \
-  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY" \
-  --header 'Content-Type: application/json' \
-  --data "$REQUEST_JSON"
-```
+Requires an authenticated workspace administrator session with recent authentication.
 
 <!-- operation:revokeConnectionAccess -->
 
@@ -865,10 +849,7 @@ await client.revokeAccess(/* typed arguments */)
 
 ### cURL
 
-```sh
-curl --request DELETE "https://api.linea.dev/v1/environments/$ENVIRONMENT_ID/connections/$CONNECTION_ID/access-grants/$AUTHORIZATION_ID" \
-  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY"
-```
+Requires an authenticated workspace administrator session with recent authentication.
 
 <!-- operation:assignConnectionReviewer -->
 
@@ -1007,12 +988,7 @@ await client.assignReviewer(/* typed arguments */)
 
 ### cURL
 
-```sh
-curl --request POST "https://api.linea.dev/v1/environments/$ENVIRONMENT_ID/connections/$CONNECTION_ID/reviewer-assignments" \
-  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY" \
-  --header 'Content-Type: application/json' \
-  --data "$REQUEST_JSON"
-```
+Requires an authenticated workspace administrator session with recent authentication.
 
 <!-- operation:revokeConnectionReviewer -->
 
@@ -1143,10 +1119,7 @@ await client.revokeReviewer(/* typed arguments */)
 
 ### cURL
 
-```sh
-curl --request DELETE "https://api.linea.dev/v1/environments/$ENVIRONMENT_ID/connections/$CONNECTION_ID/reviewer-assignments/$AUTHORIZATION_ID" \
-  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY"
-```
+Requires an authenticated workspace administrator session with recent authentication.
 
 <!-- operation:revokeSharedConnection -->
 
@@ -1331,10 +1304,7 @@ await client.revokeConnection(/* typed arguments */)
 
 ### cURL
 
-```sh
-curl --request DELETE "https://api.linea.dev/v1/environments/$ENVIRONMENT_ID/connections/$CONNECTION_ID" \
-  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY"
-```
+Requires an authenticated workspace administrator session with recent authentication.
 
 <!-- operation:listEnvironmentConnectorAuditEvents -->
 

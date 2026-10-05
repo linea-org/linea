@@ -38,6 +38,7 @@ export const connectionReviewerAssignments = snakeCase.table(
         connections.workspaceId,
       ],
     }).onDelete("cascade"),
+    // SQL defers this check so workspace cascades can finish before validation.
     foreignKey({
       name: "connection_reviewer_assignments_membership_fkey",
       columns: [table.environmentId, table.externalSubjectId],
@@ -45,7 +46,7 @@ export const connectionReviewerAssignments = snakeCase.table(
         externalSubjectEnvironments.environmentId,
         externalSubjectEnvironments.externalSubjectId,
       ],
-    }).onDelete("cascade"),
+    }),
   ]
 )
 

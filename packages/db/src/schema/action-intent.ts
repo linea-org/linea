@@ -18,6 +18,7 @@ import {
   type ApprovalRequestDisplay,
 } from "./approval-request.js"
 import { connections } from "./connection.js"
+import { connectionAccessGrants } from "./connection-access-grant.js"
 import { executions } from "./execution.js"
 import { externalSubjects } from "./external-subject.js"
 
@@ -58,7 +59,7 @@ export const actionIntents = snakeCase.table(
     environmentId: uuid().notNull(),
     externalSubjectId: uuid().notNull(),
     connectionId: uuid().notNull(),
-    connectionAccessGrantId: uuid(),
+    connectionAccessGrantId: uuid().references(() => connectionAccessGrants.id),
     workflowId: uuid().notNull(),
     executionId: uuid().notNull(),
     nodeId: text().notNull(),

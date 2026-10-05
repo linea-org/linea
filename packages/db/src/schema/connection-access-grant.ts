@@ -38,6 +38,7 @@ export const connectionAccessGrants = snakeCase.table(
         connections.workspaceId,
       ],
     }).onDelete("cascade"),
+    // SQL defers this check so workspace cascades can finish before validation.
     foreignKey({
       name: "connection_access_grants_membership_fkey",
       columns: [table.environmentId, table.externalSubjectId],
@@ -45,7 +46,7 @@ export const connectionAccessGrants = snakeCase.table(
         externalSubjectEnvironments.environmentId,
         externalSubjectEnvironments.externalSubjectId,
       ],
-    }).onDelete("cascade"),
+    }),
   ]
 )
 

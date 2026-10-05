@@ -6,6 +6,9 @@ import {
   environmentKeys,
   environments,
   auditLogs,
+  connections,
+  connectionAccessGrants,
+  connectionReviewerAssignments,
   externalSubjectEnvironments,
   externalSubjects,
   users,
@@ -369,6 +372,49 @@ describe("External Subject repository", () => {
       )
       if (created.outcome !== "provisioned") return
       const actor = await createActor(tx, organization.id)
+      const [otherSubject] = await tx
+        .insert(externalSubjects)
+        .values({
+          workspaceId: organization.id,
+          issuer: fixtureIssuer(environment),
+          issuerSubject: "retain-me",
+        })
+        .returning()
+      await tx.insert(externalSubjectEnvironments).values({
+        workspaceId: organization.id,
+        environmentId: environment.id,
+        externalSubjectId: otherSubject.id,
+      })
+      const [connection] = await tx
+        .insert(connections)
+        .values({
+          workspaceId: organization.id,
+          environmentId: environment.id,
+          ownership: "environment",
+          authorizationKind: "github_app_installation",
+          provider: "github",
+          providerAccountId: "installation:42",
+          accountLabel: "Shared installation",
+          credentialEncrypted: "encrypted-test-credential",
+          status: "active",
+          scopes: ["issues:read"],
+        })
+        .returning()
+      for (const table of [
+        connectionAccessGrants,
+        connectionReviewerAssignments,
+      ]) {
+        await tx.insert(table).values(
+          [created.value.subject.id, otherSubject.id].map(
+            (externalSubjectId) => ({
+              workspaceId: organization.id,
+              environmentId: environment.id,
+              connectionId: connection.id,
+              externalSubjectId,
+            })
+          )
+        )
+      }
       const erased = await eraseExternalSubject(
         tx,
         organization.id,
@@ -403,6 +449,51 @@ describe("External Subject repository", () => {
           )
         )
       expect(link?.metadata).toEqual({})
+      for (const table of [
+        connectionAccessGrants,
+        connectionReviewerAssignments,
+      ]) {
+        const records = await tx
+          .select()
+          .from(table)
+          .where(eq(table.connectionId, connection.id))
+        expect(records).toHaveLength(2)
+        expect(
+          records.find(
+            (record) => record.externalSubjectId === created.value.subject.id
+          )?.revokedAt
+        ).toEqual(erased?.erasedAt)
+        expect(
+          records.find((record) => record.externalSubjectId === otherSubject.id)
+            ?.revokedAt
+        ).toBeNull()
+      }
+      const [shared] = await tx
+        .select()
+        .from(connections)
+        .where(eq(connections.id, connection.id))
+      expect(shared.status).toBe("active")
+      expect(shared.credentialEncrypted).toBe("encrypted-test-credential")
+      await eraseExternalSubject(
+        tx,
+        organization.id,
+        created.value.subject.id,
+        actor.id
+      )
+      const revocations = await tx
+        .select()
+        .from(auditLogs)
+        .where(eq(auditLogs.resourceId, connection.id))
+      expect(revocations.map((record) => record.action).sort()).toEqual([
+        "connection.requester_revoked",
+        "connection.reviewer_revoked",
+      ])
+      expect(
+        revocations.every(
+          (record) =>
+            record.metadata?.subjectReference === erased?.auditReference
+        )
+      ).toBe(true)
       const [audit] = await tx
         .select()
         .from(auditLogs)

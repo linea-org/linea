@@ -18,7 +18,7 @@ export type InstallationForm = {
 export function GithubInstallationFields({
   register,
 }: {
-  register: UseFormRegister<InstallationForm>
+  readonly register: UseFormRegister<InstallationForm>
 }) {
   const environmentId = useId()
   return (

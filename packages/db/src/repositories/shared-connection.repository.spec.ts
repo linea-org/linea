@@ -5,6 +5,12 @@ import {
   environments,
   externalSubjects,
   externalSubjectEnvironments,
+  connectionAccessGrants,
+  connectionReviewerAssignments,
+  approvalDecisions,
+  approvalRequests,
+  organizations,
+  connectorAuditFacts,
 } from "../schema/index.js"
 import {
   createActionIntent,
@@ -305,6 +311,36 @@ describe("shared Environment Connections", () => {
             })
           ).outcome
         ).toBe("decided")
+        for (const table of [
+          connectionAccessGrants,
+          connectionReviewerAssignments,
+        ]) {
+          await expect(
+            tx.transaction(async (nested) => {
+              await nested
+                .delete(table)
+                .where(eq(table.connectionId, connection.id))
+            })
+          ).rejects.toMatchObject({ cause: { code: "23503" } })
+        }
+        await expect(
+          tx.transaction(async (nested) => {
+            await nested
+              .delete(externalSubjectEnvironments)
+              .where(
+                eq(externalSubjectEnvironments.environmentId, environment.id)
+              )
+            await nested.execute(sql`SET CONSTRAINTS ALL IMMEDIATE`)
+          })
+        ).rejects.toMatchObject({ cause: { code: "23503" } })
+        const [decision] = await tx
+          .select()
+          .from(approvalDecisions)
+          .where(
+            eq(approvalDecisions.approvalRequestId, created.approvalRequest.id)
+          )
+        expect(decision.reviewerAssignmentId).not.toBeNull()
+        expect(created.intent.connectionAccessGrantId).not.toBeNull()
         const claimInput = {
           actionIntentId: created.intent.id,
           executionClaimId: claimId,
@@ -328,6 +364,30 @@ describe("shared Environment Connections", () => {
           expect(
             (await claimApprovedActionIntent(tx, claimInput))?.outcome
           ).toBe("cancelled")
+        await tx
+          .delete(approvalRequests)
+          .where(eq(approvalRequests.workspaceId, organization.id))
+        await tx
+          .delete(connectorAuditFacts)
+          .where(eq(connectorAuditFacts.workspaceId, organization.id))
+        await tx
+          .delete(organizations)
+          .where(eq(organizations.id, organization.id))
+        await tx.execute(sql`SET CONSTRAINTS ALL IMMEDIATE`)
+        expect(
+          await tx
+            .select()
+            .from(connectionReviewerAssignments)
+            .where(
+              eq(connectionReviewerAssignments.connectionId, connection.id)
+            )
+        ).toHaveLength(0)
+        expect(
+          await tx
+            .select()
+            .from(connectionAccessGrants)
+            .where(eq(connectionAccessGrants.connectionId, connection.id))
+        ).toHaveLength(0)
       })
     }
   )

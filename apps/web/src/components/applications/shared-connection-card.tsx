@@ -7,7 +7,7 @@ import { ConnectionAuthorities } from "./connection-authorities"
 export function SharedConnectionCard({
   connection,
 }: {
-  connection: Connection
+  readonly connection: Connection
 }) {
   const { environmentId } = useConnectionManagement()
   const queryClient = useQueryClient()

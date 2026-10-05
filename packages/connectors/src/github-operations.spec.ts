@@ -70,24 +70,6 @@ function issueResponse(number: number) {
 }
 
 describe("GitHub Connector Operations", () => {
-  it("filters private installation repositories without stopping mixed-page pagination", async () => {
-    const result = await githubListRepositoriesOperation.execute(
-      { perPage: 2 },
-      {
-        accessToken: "github-access-secret",
-        accountId: "installation:42",
-        expiresAt: null,
-        scopes: ["metadata:read"],
-        installationId: 42,
-      }
-    )
-    expect(result).toMatchObject({
-      repositories: [{ id: "101", private: false }],
-      hasMore: true,
-    })
-    expect(requests.at(-1)?.path).toBe("/installation/repositories")
-    expect(requests.at(-1)?.query.has("visibility")).toBe(false)
-  })
   let baseUrl: string
   let closeProvider: () => Promise<void>
   beforeAll(async () => {
@@ -253,6 +235,24 @@ describe("GitHub Connector Operations", () => {
   afterAll(async () => {
     await closeProvider()
     delete process.env.GITHUB_API_BASE_URL
+  })
+  it("filters private installation repositories without stopping mixed-page pagination", async () => {
+    const result = await githubListRepositoriesOperation.execute(
+      { perPage: 2 },
+      {
+        accessToken: "github-access-secret",
+        accountId: "installation:42",
+        expiresAt: null,
+        scopes: ["metadata:read"],
+        installationId: 42,
+      }
+    )
+    expect(result).toMatchObject({
+      repositories: [{ id: "101", private: false }],
+      hasMore: true,
+    })
+    expect(requests.at(-1)?.path).toBe("/installation/repositories")
+    expect(requests.at(-1)?.query.has("visibility")).toBe(false)
   })
   const credential = {
     accountId: "1234",

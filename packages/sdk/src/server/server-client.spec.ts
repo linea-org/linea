@@ -84,6 +84,16 @@ function execution() {
 }
 
 describe("server SDK public HTTP contract", () => {
+  afterEach(async () => {
+    await Promise.all(
+      servers
+        .splice(0)
+        .map(
+          (server) =>
+            new Promise<void>((resolve) => server.close(() => resolve()))
+        )
+    )
+  })
   it("administers shared connections with an Operator cookie and never substitutes a machine key", async () => {
     const envId = "00000000-0000-4000-8000-000000000002"
     const server = await testServer((request, response) => {
@@ -119,16 +129,6 @@ describe("server SDK public HTTP contract", () => {
       })
     ).rejects.toBeInstanceOf(LineaApiError)
     expect(server.requests).toHaveLength(1)
-  })
-  afterEach(async () => {
-    await Promise.all(
-      servers
-        .splice(0)
-        .map(
-          (server) =>
-            new Promise<void>((resolve) => server.close(() => resolve()))
-        )
-    )
   })
   it("scopes Environment operations to the constructed Environment and sends idempotency", async () => {
     const fixture = execution()

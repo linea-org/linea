@@ -11,9 +11,9 @@ export function GithubInstallationForm({
   enabled,
   onSaved,
 }: {
-  environmentId: string
-  enabled: boolean
-  onSaved: () => Promise<void>
+  readonly environmentId: string
+  readonly enabled: boolean
+  readonly onSaved: () => Promise<void>
 }) {
   const {
     register,

@@ -468,7 +468,13 @@ describe('shared Environment Connection API and Gateway', () => {
       privateKey,
       permissions: { metadata: 'read', issues: 'write' },
     }
-    await request(baseUrl).post(path).send(input).expect(401)
+    const unauthenticated = await request(baseUrl)
+      .post(path)
+      .send(input)
+      .expect(401)
+    expect(unauthenticated.body).toMatchObject({
+      message: 'Session or API key required',
+    })
     await request(baseUrl)
       .post(path)
       .set({ ...admin(), 'x-test-stale': 'yes' })
@@ -481,11 +487,15 @@ describe('shared Environment Connection API and Gateway', () => {
       hashedKey: key.hashedKey,
       keyPrefix: key.keyPrefix,
     })
-    await request(baseUrl)
+    const machine = await request(baseUrl)
       .post(path)
       .set('Authorization', `Bearer ${key.rawKey}`)
       .send(input)
       .expect(403)
+    expect(machine.body).toMatchObject({
+      message:
+        "Requires a signed-in session with admin role or higher — API keys can't be used here",
+    })
   })
   it('stores independent installation authority encrypted with no fictional Subject', async () => {
     const connection = await setup()
@@ -530,7 +540,7 @@ describe('shared Environment Connection API and Gateway', () => {
       .expect(400)
   })
   it('rejects wrong App ownership and unauthorized installation permissions', async () => {
-    await request(baseUrl)
+    const wrongApp = await request(baseUrl)
       .post(
         `/v1/environments/${environmentId}/connections/github-installations`,
       )
@@ -542,7 +552,11 @@ describe('shared Environment Connection API and Gateway', () => {
         permissions: { metadata: 'read', issues: 'write' },
       })
       .expect(400)
-    await request(baseUrl)
+    expect(wrongApp.body).toMatchObject({
+      message:
+        'GitHub App installation could not be authorized with the supplied App credentials and permissions',
+    })
+    const unauthorizedPermissions = await request(baseUrl)
       .post(`/v1/environments/${productionId}/connections/github-installations`)
       .set(admin())
       .send({
@@ -552,6 +566,10 @@ describe('shared Environment Connection API and Gateway', () => {
         permissions: { metadata: 'read', issues: 'write' },
       })
       .expect(400)
+    expect(unauthorizedPermissions.body).toMatchObject({
+      message:
+        'Environment GitHub policy does not authorize these installation permissions',
+    })
   })
   it('requires an explicit requester grant and preserves other users when Alice is disabled', async () => {
     const connection = await setup()

@@ -6,6 +6,8 @@ import {
   auditLogs,
   connectionRevocationDeliveries,
   connections,
+  connectionAccessGrants,
+  connectionReviewerAssignments,
   connectorAuditFacts,
   endUserSessions,
   externalSubjectEnvironments,
@@ -273,6 +275,35 @@ export async function eraseExternalSubject(
       actor: { kind: "workspace_member", id: actorUserId },
       cancelledAt: now,
     })
+    for (const [kind, table] of [
+      ["requester", connectionAccessGrants],
+      ["reviewer", connectionReviewerAssignments],
+    ] as const) {
+      const revoked = await tx
+        .update(table)
+        .set({ revokedAt: now })
+        .where(
+          and(
+            eq(table.workspaceId, workspaceId),
+            eq(table.externalSubjectId, existing.id),
+            isNull(table.revokedAt)
+          )
+        )
+        .returning()
+      for (const authorization of revoked) {
+        await tx.insert(auditLogs).values({
+          workspaceId,
+          actorUserId,
+          action: `connection.${kind}_revoked`,
+          resource: "connection",
+          resourceId: authorization.connectionId,
+          metadata: {
+            authorizationId: authorization.id,
+            subjectReference: auditReference,
+          },
+        })
+      }
+    }
     const revokedConnections = await tx
       .update(connections)
       .set({

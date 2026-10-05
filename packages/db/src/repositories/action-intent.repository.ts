@@ -855,8 +855,7 @@ export async function beginActionIntentDispatch(
       .from(actionIntents)
       .where(eq(actionIntents.id, input.actionIntentId))
     if (
-      !snapshot ||
-      snapshot.status !== "executing" ||
+      snapshot?.status !== "executing" ||
       snapshot.executionClaimId !== input.executionClaimId
     )
       return undefined

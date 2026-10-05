@@ -34,14 +34,10 @@ async function response(
   if (!result.ok) {
     const error = z
       .object({ message: z.union([z.string(), z.array(z.string())]) })
-      .safeParse(await result.json())
-    throw new Error(
-      error.success
-        ? typeof error.data.message === "string"
-          ? error.data.message
-          : error.data.message.join(", ")
-        : "Connection administration failed"
-    )
+      .safeParse(await result.json().catch(() => undefined))
+    if (!error.success) throw new Error("Connection administration failed")
+    const message = error.data.message
+    throw new Error(typeof message === "string" ? message : message.join(", "))
   }
   const responseBody: unknown = await result.json()
   return responseBody
@@ -129,12 +125,13 @@ export const listEnvironmentConnectionOutcomesFn = createServerFn({
   method: "GET",
 })
   .inputValidator(environmentInput.extend({ cursor: z.string().optional() }))
-  .handler(async ({ data }) =>
-    paginatedResponseSchema(operatorConnectorAuditEventSchema).parse(
-      await response(
-        `/audit-events?environmentId=${data.environmentId}&limit=20${data.cursor ? `&cursor=${encodeURIComponent(data.cursor)}` : ""}`,
-        "GET",
-        undefined
-      )
+  .handler(async ({ data }) => {
+    const query = new URLSearchParams({
+      environmentId: data.environmentId,
+      limit: "20",
+    })
+    if (data.cursor) query.set("cursor", data.cursor)
+    return paginatedResponseSchema(operatorConnectorAuditEventSchema).parse(
+      await response(`/audit-events?${query}`, "GET", undefined)
     )
-  )
+  })

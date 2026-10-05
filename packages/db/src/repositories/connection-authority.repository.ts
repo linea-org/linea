@@ -97,11 +97,15 @@ export async function getApprovalReviewerAuthority(
     .from(actionIntents)
     .innerJoin(connections, eq(connections.id, actionIntents.connectionId))
     .where(eq(actionIntents.approvalRequestId, request.id))
-  return linked
-    ? getConnectionReviewerAuthority(db, linked.connection, externalSubjectId)
-    : request.externalSubjectId === externalSubjectId
-      ? { reviewerAssignmentId: null }
-      : undefined
+  if (linked)
+    return getConnectionReviewerAuthority(
+      db,
+      linked.connection,
+      externalSubjectId
+    )
+  if (request.externalSubjectId === externalSubjectId)
+    return { reviewerAssignmentId: null }
+  return undefined
 }
 
 export function externalApprovalEligibility(externalSubjectId: string) {

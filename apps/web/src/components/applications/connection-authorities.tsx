@@ -8,7 +8,7 @@ import {
   revokeConnectionAuthorityFn,
 } from "@/lib/shared-connections-api"
 export function ConnectionAuthorities() {
-  const { environmentId, connectionId } = useConnectionManagement()
+  const { environmentId, connectionId, enabled } = useConnectionManagement()
   const queryClient = useQueryClient()
   const owner = { environmentId, connectionId }
   const queryKey = ["connection-authorities", environmentId, connectionId]
@@ -43,7 +43,7 @@ export function ConnectionAuthorities() {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={!!record.revokedAt || revoke.isPending}
+                disabled={!enabled || !!record.revokedAt || revoke.isPending}
                 onClick={() =>
                   revoke.mutate({ kind: role.kind, authorizationId: record.id })
                 }

@@ -280,6 +280,8 @@ function requiredNames(schema) {
 }
 
 function curlExample(operation) {
+  if (operation.auth.kind === "workspace_session")
+    return "Requires an authenticated workspace administrator session with recent authentication."
   if (operation.plane !== "control")
     return "Not shown for browser/native credentials."
   const credential =

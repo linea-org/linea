@@ -22,7 +22,7 @@ const authorizationTables = {
   reviewer: connectionReviewerAssignments,
 }
 
-export async function createSharedEnvironmentConnection(
+export function createSharedEnvironmentConnection(
   db: DbClient,
   input: EnvironmentConnectionOwner & {
     id: string
@@ -130,7 +130,7 @@ export async function getSharedEnvironmentConnection(
   return connection
 }
 
-export async function setConnectionSubjectAuthorization(
+export function setConnectionSubjectAuthorization(
   db: DbClient,
   input: EnvironmentConnectionOwner & {
     connectionId: string
@@ -177,12 +177,8 @@ export async function setConnectionSubjectAuthorization(
           ne(externalSubjects.status, "erased")
         )
       )
-    if (
-      !environment?.enabled ||
-      !connection ||
-      connection.status !== "active" ||
-      !subject
-    )
+      .for("share", { of: externalSubjects })
+    if (!environment?.enabled || connection?.status !== "active" || !subject)
       throw new SharedConnectionAuthorizationError(
         "Shared Connection or Environment Subject is unavailable"
       )
@@ -254,7 +250,7 @@ export async function listConnectionAuthorities(
   return { grants, reviewers }
 }
 
-export async function revokeConnectionSubjectAuthorization(
+export function revokeConnectionSubjectAuthorization(
   db: DbClient,
   input: EnvironmentConnectionOwner & {
     connectionId: string
@@ -327,7 +323,7 @@ export async function revokeConnectionSubjectAuthorization(
   })
 }
 
-export async function revokeSharedEnvironmentConnection(
+export function revokeSharedEnvironmentConnection(
   db: DbClient,
   input: EnvironmentConnectionOwner & {
     connectionId: string

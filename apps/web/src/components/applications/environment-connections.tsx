@@ -10,8 +10,8 @@ export function EnvironmentConnections({
   environment,
   onSaved,
 }: {
-  environment: EnvironmentSummary
-  onSaved: () => Promise<void>
+  readonly environment: EnvironmentSummary
+  readonly onSaved: () => Promise<void>
 }) {
   const queryClient = useQueryClient()
   const queryKey = ["shared-connections", environment.id]

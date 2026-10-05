@@ -5,7 +5,7 @@ import { listEnvironmentConnectionOutcomesFn } from "@/lib/shared-connections-ap
 export function EnvironmentConnectionOutcomes({
   environmentId,
 }: {
-  environmentId: string
+  readonly environmentId: string
 }) {
   const [cursorHistory, setCursorHistory] = useState<(string | undefined)[]>([
     undefined,

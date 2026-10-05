@@ -20,26 +20,20 @@ export function EnvironmentConnectorPolicy({
   environment,
   onSaved,
 }: {
-  environment: EnvironmentSummary
-  onSaved: () => Promise<void>
+  readonly environment: EnvironmentSummary
+  readonly onSaved: () => Promise<void>
 }) {
   const current = environment.connectorAccessPolicy.providers.find(
     (provider) => provider.provider === "github"
   )
-  const { register, handleSubmit } = useForm<PolicyForm>({
-    defaultValues: {
-      issues: current?.maxScopes.includes("issues:write")
-        ? "write"
-        : current?.maxScopes.includes("issues:read")
-          ? "read"
-          : "none",
-      pull_requests: current?.maxScopes.includes("pull_requests:write")
-        ? "write"
-        : current?.maxScopes.includes("pull_requests:read")
-          ? "read"
-          : "none",
-    },
-  })
+  const defaultValues: PolicyForm = { issues: "none", pull_requests: "none" }
+  for (const permission of permissions) {
+    if (current?.maxScopes.includes(permission.name + ":write"))
+      defaultValues[permission.name] = "write"
+    else if (current?.maxScopes.includes(permission.name + ":read"))
+      defaultValues[permission.name] = "read"
+  }
+  const { register, handleSubmit } = useForm<PolicyForm>({ defaultValues })
   const save = useMutation({
     mutationFn: (input: PolicyForm) => {
       const selected = permissions.filter(
@@ -72,7 +66,10 @@ export function EnvironmentConnectorPolicy({
                 provider: "github",
                 actionFamilies: [
                   ...new Set([
-                    ...(current?.actionFamilies ?? []),
+                    ...(current?.actionFamilies.filter(
+                      (family) =>
+                        family !== "issues" && family !== "pull_requests"
+                    ) ?? []),
                     "repositories",
                     ...selected.map((permission) => permission.name),
                   ]),
