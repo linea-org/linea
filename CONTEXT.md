@@ -45,7 +45,11 @@ The saved-case system that replays known inputs against a workflow version to de
 
 ## Regression Case
 
-A saved input and its assertions.
+A saved input, its assertions, and the recorded response fixtures needed to evaluate it.
+
+## Regression Fixture
+
+A credential-free response snapshot owned by a Regression Case, with source Environment and subject attribution and its own retention and erasure obligations.
 
 ## Replay
 
@@ -91,6 +95,10 @@ _Avoid_: Admin key, master key
 **Workflow Contract**:
 An immutable revision of the public input and output promised by a Workflow to an Application, independent of the Workflow implementation version serving an Execution.
 _Avoid_: Workflow version, node schema
+
+**Agent Contract**:
+An immutable revision of an Agent's public input and output, independent of the Agent Definition version selected by its Environment for an Execution.
+_Avoid_: Agent version, tool schema
 
 **End User**:
 A person using an Operator's Application.
