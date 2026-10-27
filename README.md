@@ -103,10 +103,13 @@ workflow branches.
 ```bash
 pnpm install
 
+for example in apps/*/.env.example packages/*/.env.example docker/.env.example; do
+  cp "$example" "${example%.example}"
+done
+
 pnpm db:up
 pnpm queue:up
 
-cp .env.example .env
 pnpm db:migrate
 
 pnpm dev

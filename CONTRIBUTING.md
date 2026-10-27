@@ -22,27 +22,22 @@ cd linea
 pnpm install
 ```
 
-### 2. Start Postgres and Redis
+### 2. Configure environment variables
 
 ```bash
-pnpm db:up
-pnpm queue:up
+for example in apps/*/.env.example packages/*/.env.example docker/.env.example; do
+  cp "$example" "${example%.example}"
+done
 ```
 
-`db:up` starts Postgres 16 with the `pgvector` extension on port `5432`;
-`queue:up` starts Redis on port `6379` — both via Docker Compose. Data
-persists in named volumes across restarts. `pnpm db:down` or
-`pnpm queue:down` stops the whole Compose stack (both services); `db:logs`
-/ `queue:logs` tail one service's logs.
-
-### 3. Configure environment variables
-
-```bash
-cp .env.example .env
-```
-
-There's a single `.env` at the repo root shared by the local apps and workers.
-Fill in:
+Each backend app and package loads its own `.env` using `dotenv/config`;
+exported environment variables take precedence. Web, docs, and mobile use
+their framework env loaders. There is no root `.env`. Keep
+`SECRETS_ENCRYPTION_KEY` identical across the API and workers, and keep
+`CONNECTION_CREDENTIAL_KEYS` identical across the API and execution worker.
+Database migrations use `packages/db/.env`; database and queue tests use their
+package env files. Docker scripts use `docker/.env` for `POSTGRES_PORT`. If you
+change that port, update each `DATABASE_URL` to match. Fill in:
 
 | Variable                                                                | Required | Purpose                                                                                                     |
 | ----------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------- |
@@ -64,6 +59,19 @@ Fill in:
 
 The values committed in `.env.example` are development placeholders. Generate
 real encryption keys before storing any non-test secret or Connection.
+
+### 3. Start Postgres and Redis
+
+```bash
+pnpm db:up
+pnpm queue:up
+```
+
+`db:up` starts Postgres 16 with the `pgvector` extension on port `5432`;
+`queue:up` starts Redis on port `6379` — both via Docker Compose. Data
+persists in named volumes across restarts. `pnpm db:down` or
+`pnpm queue:down` stops the whole Compose stack (both services); `db:logs`
+/ `queue:logs` tail one service's logs.
 
 ### 4. Push the database schema
 

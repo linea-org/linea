@@ -1,6 +1,6 @@
 /// <reference types="node" />
 
-import "@linea/config/env"
+import "dotenv/config"
 import { defineConfig } from "vitest/config"
 
 export default defineConfig({

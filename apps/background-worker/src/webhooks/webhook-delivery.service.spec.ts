@@ -1,6 +1,6 @@
 import { configureTestEnvironment } from "@linea/db/testing"
 import { getTestApplicationId } from "@linea/db/testing"
-import "@linea/config/env"
+import "dotenv/config"
 import { randomBytes, randomUUID } from "node:crypto"
 import {
   createServer,

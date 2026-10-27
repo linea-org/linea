@@ -2,7 +2,7 @@ import {
   getTestApplicationId,
   getTestDevelopmentEnvironmentId,
 } from "@linea/db/testing"
-import "@linea/config/env"
+import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { resolveKeyName } from "@linea/ai"
 import {

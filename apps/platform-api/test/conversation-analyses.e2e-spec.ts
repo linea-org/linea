@@ -1,5 +1,5 @@
 import { getTestApplicationId } from '@linea/db/testing'
-import '@linea/config/env'
+import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { type INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'

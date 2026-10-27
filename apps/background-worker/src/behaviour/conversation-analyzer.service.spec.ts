@@ -27,7 +27,7 @@ jest.mock("@linea/ai", () => ({
   providers,
 }))
 
-import "@linea/config/env"
+import "dotenv/config"
 import { randomBytes, randomUUID } from "node:crypto"
 import { db, encryptSecret, pool, repositories, schema } from "@linea/db"
 import {

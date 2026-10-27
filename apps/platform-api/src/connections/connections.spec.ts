@@ -1,7 +1,7 @@
 import { fixtureIssuer } from '@linea/db/testing'
 import { configureTestEnvironment } from '@linea/db/testing'
 import { getTestApplicationId } from '@linea/db/testing'
-import '@linea/config/env'
+import 'dotenv/config'
 import { createHash, randomUUID } from 'node:crypto'
 import { Logger, type INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'

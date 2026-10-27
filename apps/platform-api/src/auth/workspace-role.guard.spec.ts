@@ -1,4 +1,4 @@
-import '@linea/config/env'
+import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { ForbiddenException, type ExecutionContext } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
