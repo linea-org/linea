@@ -24,6 +24,7 @@
     "demo": "ts-node scripts/demo.ts"
   },
   "dependencies": {
+    "dotenv": "17.4.2",
     "@linea/ai": "workspace:*",
     "@linea/auth": "workspace:*",
     "@linea/config": "workspace:*",

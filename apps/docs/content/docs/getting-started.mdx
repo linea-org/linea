@@ -20,20 +20,23 @@ icon: Rocket
 pnpm install
 ```
 
+### Configure the environment
+
+Copy each app and package's `.env.example` to its own `.env`, then provide
+the required authentication and email credentials. Keep the encryption keys
+identical across the API and workers that use them.
+
+```bash
+for example in apps/*/.env.example packages/*/.env.example docker/.env.example; do
+  cp "$example" "${example%.example}"
+done
+```
+
 ### Start PostgreSQL and Redis
 
 ```bash
 pnpm db:up
 pnpm queue:up
-```
-
-### Configure the environment
-
-Copy `.env.example` to `.env`, then provide the required authentication and
-email credentials.
-
-```bash
-cp .env.example .env
 pnpm db:migrate
 ```
 

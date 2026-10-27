@@ -1,4 +1,4 @@
-import '@linea/config/env'
+import 'dotenv/config'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { db, pool, repositories } from '@linea/db'

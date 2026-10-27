@@ -1,4 +1,4 @@
-import '@linea/config/env'
+import 'dotenv/config'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { join } from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'

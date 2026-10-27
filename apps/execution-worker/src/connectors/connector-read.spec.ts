@@ -1,7 +1,7 @@
 import { fixtureIssuer } from "@linea/db/testing"
 import { configureTestEnvironment } from "@linea/db/testing"
 import { getTestApplicationId } from "@linea/db/testing"
-import "@linea/config/env"
+import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { createServer, type IncomingMessage, type Server } from "node:http"
 import {

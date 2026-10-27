@@ -1,7 +1,10 @@
 import { spawnSync } from "node:child_process"
 import { config as loadEnv } from "dotenv"
 
-loadEnv({ quiet: true })
+loadEnv({
+  path: new URL("../apps/platform-api/.env", import.meta.url),
+  quiet: true,
+})
 
 const pnpmCli = process.env.npm_execpath
 const pnpmIsJavaScript = /\.(?:c|m)?js$/.test(pnpmCli ?? "")

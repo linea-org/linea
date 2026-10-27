@@ -1,4 +1,4 @@
-import '@linea/config/env'
+import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import { db, pool, schema, repositories } from '@linea/db'

@@ -1,5 +1,5 @@
 import { getTestApplicationId } from "@linea/db/testing"
-import "@linea/config/env"
+import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
 import { ApprovalTimeoutService } from "./approval-timeout.service"

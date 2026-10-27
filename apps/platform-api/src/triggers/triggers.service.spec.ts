@@ -1,6 +1,6 @@
 import { getTestDevelopmentEnvironmentId } from '@linea/db/testing'
 import { getTestApplicationId, publishTestWorkflow } from '@linea/db/testing'
-import '@linea/config/env'
+import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import { db, pool, repositories, schema } from '@linea/db'

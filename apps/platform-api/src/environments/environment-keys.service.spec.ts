@@ -1,6 +1,6 @@
 import { configureTestEnvironment } from '@linea/db/testing'
 import { getTestApplicationId } from '@linea/db/testing'
-import '@linea/config/env'
+import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { db, pool, schema } from '@linea/db'
 import { hashApiKey } from '../auth/api-key.util'

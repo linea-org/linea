@@ -9,9 +9,9 @@
     "format": "prettier --write \"**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "queue:up": "docker compose -f ../../docker-compose.yml up -d redis",
-    "queue:down": "docker compose -f ../../docker-compose.yml down",
-    "queue:logs": "docker compose -f ../../docker-compose.yml logs -f redis"
+    "queue:up": "docker compose --env-file ../../docker/.env -f ../../docker-compose.yml up -d redis",
+    "queue:down": "docker compose --env-file ../../docker/.env -f ../../docker-compose.yml down",
+    "queue:logs": "docker compose --env-file ../../docker/.env -f ../../docker-compose.yml logs -f redis"
   },
   "dependencies": {
     "bullmq": "^5",

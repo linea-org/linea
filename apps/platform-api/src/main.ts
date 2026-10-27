@@ -1,4 +1,4 @@
-import '@linea/config/env'
+import 'dotenv/config'
 import type { NextFunction, Request, Response } from 'express'
 import helmet from 'helmet'
 import { NestFactory } from '@nestjs/core'

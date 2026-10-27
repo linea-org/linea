@@ -1,4 +1,4 @@
-import '@linea/config/env'
+import 'dotenv/config'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { db, decryptSecret, pool, repositories, schema } from '@linea/db'
 import { SecretsService } from './secrets.service'
