@@ -41,7 +41,7 @@ _Avoid_: Finding, Flag
 
 ## Regression
 
-The saved-case system that replays known inputs against a workflow version to detect behavior changes.
+The saved-case system that replays known inputs against an Agent Definition or Workflow version to detect behavior changes.
 
 ## Regression Case
 
@@ -61,7 +61,7 @@ A retained description and observed outcome of a mutating operation, reused as e
 
 ## Regression Run
 
-One execution of active Regression Cases against a specific workflow version.
+One execution of active Regression Cases against a specific Agent Definition or Workflow version.
 
 ## Regression Result
 
