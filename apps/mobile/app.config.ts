@@ -14,6 +14,10 @@ export default function defineApp({ config }: ConfigContext): ExpoConfig {
     ...config,
     name: "Linea",
     slug: "linea-mobile",
+    owner: "linea-labs",
+    extra: {
+      eas: { projectId: "044594b7-97b1-4be3-82fb-16f5019ea9cb" },
+    },
     version: "0.0.1",
     scheme: "linea",
     orientation: "portrait",
