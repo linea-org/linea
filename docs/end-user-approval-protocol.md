@@ -92,7 +92,7 @@ This document replaces the external-subject approval architecture in issue #84. 
 
 ## Language
 
-The following accepted terms are also recorded in `CONTEXT.md`.
+The following accepted terms are also recorded in `GLOSSARY.md`.
 
 ### Operator
 

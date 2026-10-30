@@ -4,7 +4,7 @@
 
 Planning document only. This document does not authorize implementation, package moves, route changes, schema migrations, issue creation, or publishing.
 
-The accepted security and domain decisions in `docs/end-user-approval-protocol.md`, `CONTEXT.md`, and the accepted ADRs remain authoritative. This plan explains how to turn those decisions into maintainable package interfaces, a complete developer interface, generated route documentation, and SDKs when implementation begins.
+The accepted security and domain decisions in `docs/end-user-approval-protocol.md`, `GLOSSARY.md`, and the accepted ADRs remain authoritative. This plan explains how to turn those decisions into maintainable package interfaces, a complete developer interface, generated route documentation, and SDKs when implementation begins.
 
 The GitHub repository `linea-org/linea` is currently private. It already uses Apache-2.0 and contains `SECURITY.md` and `CONTRIBUTING.md`. The accepted open-source target is to make this monorepo public after the launch audit and repository-access controls in this plan are complete.
 
@@ -1249,7 +1249,7 @@ Use this file as the single Notion-ready implementation blueprint, but do not co
 
 - `docs/product-vision.md` owns stable product identity and positioning;
 - `docs/strategy.md` owns current market evidence, wedge, risks, and sequencing logic;
-- `CONTEXT.md` owns canonical domain vocabulary only;
+- `GLOSSARY.md` owns canonical domain vocabulary only;
 - `docs/adr/*` records hard-to-reverse accepted decisions and their trade-offs;
 - `docs/end-user-approval-protocol.md` owns the detailed accepted security and protocol design;
 - this file owns the package, developer-interface, documentation, and implementation plan.
