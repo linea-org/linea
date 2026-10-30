@@ -61,7 +61,7 @@ A retained description and observed outcome of a mutating operation, reused as e
 
 ## Regression Run
 
-One execution of active Regression Cases against a specific Agent Definition or Workflow version.
+One execution of active Regression Cases against a specific Agent Definition or Workflow version. For a standalone Agent run, the Environment selects the Agent Contract revision independently of the definition version and records both with the run.
 
 ## Regression Result
 
