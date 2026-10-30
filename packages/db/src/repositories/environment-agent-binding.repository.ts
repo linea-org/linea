@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, isNull } from "drizzle-orm"
+import { and, desc, eq, isNotNull } from "drizzle-orm"
 import {
   environments,
   environmentAgentBindings,
@@ -45,17 +45,38 @@ export async function putEnvironmentAgentBinding(
       .for("update")
     if (!environment) return { outcome: "environment_not_found" }
     const [agent] = await tx
-      .select({ id: agents.id })
+      .select({ archivedAt: agents.archivedAt })
       .from(agents)
       .where(
         and(
           eq(agents.workspaceId, workspaceId),
           eq(agents.id, agentId),
-          eq(agents.applicationId, environment.applicationId),
-          isNull(agents.archivedAt)
+          eq(agents.applicationId, environment.applicationId)
         )
       )
     if (!agent) return { outcome: "agent_not_found" }
+    if (agent.archivedAt) {
+      if (input.enabled) return { outcome: "agent_not_found" }
+      const [binding] = await tx
+        .update(environmentAgentBindings)
+        .set({ enabled: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(environmentAgentBindings.workspaceId, workspaceId),
+            eq(environmentAgentBindings.environmentId, environmentId),
+            eq(environmentAgentBindings.agentId, agentId),
+            eq(environmentAgentBindings.agentVersionId, input.agentVersionId),
+            eq(
+              environmentAgentBindings.agentContractRevisionId,
+              input.agentContractRevisionId
+            )
+          )
+        )
+        .returning()
+      return binding
+        ? { outcome: "updated", binding }
+        : { outcome: "agent_not_found" }
+    }
     const [revision] = await tx
       .select({ id: agentContractRevisions.id })
       .from(agentContractRevisions)

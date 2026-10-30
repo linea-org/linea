@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
-import { agents, applications, organizations } from "../schema/index.js"
+import {
+  agents,
+  applications,
+  environments,
+  organizations,
+} from "../schema/index.js"
 import {
   createTestFixtures,
   getTestDevelopmentEnvironmentId,
@@ -23,6 +28,7 @@ import {
 import {
   listEnvironmentAgentBindings,
   putEnvironmentAgentBinding,
+  type PutEnvironmentAgentBindingInput,
 } from "./environment-agent-binding.repository.js"
 import type { DbClient } from "./types.js"
 
@@ -317,6 +323,106 @@ describe("Agent definitions", () => {
           }
         )
       ).toEqual({ outcome: "agent_not_found" })
+    })
+  })
+  it("disables an archived Agent's existing binding without allowing new deployments", async () => {
+    await withRollback(async (tx) => {
+      const f = await createFixture(tx)
+      const input = {
+        agentVersionId: f.agentVersion.id,
+        agentContractRevisionId: f.contract.id,
+        enabled: false,
+      }
+      const bind = (value: PutEnvironmentAgentBindingInput) =>
+        putEnvironmentAgentBinding(
+          tx,
+          f.organization.id,
+          f.environmentId,
+          f.agent.id,
+          value
+        )
+      await publishAgentVersion(
+        tx,
+        f.organization.id,
+        f.agent.id,
+        f.agentVersion.id
+      )
+      expect(await bind({ ...input, enabled: true })).toMatchObject({
+        outcome: "updated",
+        binding: { ...input, enabled: true },
+      })
+      const contract = await createAgentContractRevision(
+        tx,
+        f.organization.id,
+        f.agent.id,
+        { inputSchema: {}, outputSchema: {} }
+      )
+      if (contract.outcome !== "created")
+        throw new Error("Contract fixture missing")
+      const next = await createAgentVersion(tx, f.organization.id, f.agent.id, {
+        definition,
+        agentContractRevisionId: contract.revision.id,
+      })
+      if (next.outcome !== "created") throw new Error("Version fixture missing")
+      await publishAgentVersion(
+        tx,
+        f.organization.id,
+        f.agent.id,
+        next.version.id
+      )
+      await tx
+        .update(agents)
+        .set({ archivedAt: new Date() })
+        .where(eq(agents.id, f.agent.id))
+      expect(await bind(input)).toMatchObject({
+        outcome: "updated",
+        binding: input,
+      })
+      expect(await bind(input)).toMatchObject({ outcome: "updated" })
+      expect(await bind({ ...input, enabled: true })).toEqual({
+        outcome: "agent_not_found",
+      })
+      expect(
+        await bind({
+          ...input,
+          agentVersionId: next.version.id,
+          agentContractRevisionId: contract.revision.id,
+        })
+      ).toEqual({ outcome: "agent_not_found" })
+      expect(
+        await bind({ ...input, agentContractRevisionId: contract.revision.id })
+      ).toEqual({ outcome: "agent_not_found" })
+      expect(await bind({ ...input, agentVersionId: next.version.id })).toEqual(
+        { outcome: "agent_not_found" }
+      )
+      const [production] = await tx
+        .insert(environments)
+        .values({
+          workspaceId: f.organization.id,
+          applicationId: f.agent.applicationId,
+          environment: "production",
+          displayName: "Production",
+        })
+        .returning()
+      expect(
+        await putEnvironmentAgentBinding(
+          tx,
+          f.organization.id,
+          production.id,
+          f.agent.id,
+          input
+        )
+      ).toEqual({ outcome: "agent_not_found" })
+      expect(
+        await listEnvironmentAgentBindings(tx, f.organization.id, production.id)
+      ).toEqual([])
+      expect(
+        await listEnvironmentAgentBindings(
+          tx,
+          f.organization.id,
+          f.environmentId
+        )
+      ).toMatchObject([input])
     })
   })
   it("serializes concurrent version and Contract numbering", async () => {
