@@ -1,4 +1,6 @@
 import { ApplicationsController } from '../applications/applications.controller'
+import { EnvironmentAgentBindingsController } from './environment-agent-bindings.controller'
+import { EnvironmentAgentBindingsService } from './environment-agent-bindings.service'
 import { Module } from '@nestjs/common'
 import { EnvironmentsController } from './environments.controller'
 import { EnvironmentsService } from './environments.service'
@@ -19,6 +21,7 @@ import { EnvironmentWebhooksService } from './environment-webhooks.service'
     ApplicationsController,
     EnvironmentsController,
     EnvironmentWorkflowBindingsController,
+    EnvironmentAgentBindingsController,
     EnvironmentKeysController,
     EnvironmentExternalSubjectsController,
     ExternalSubjectsController,
@@ -27,6 +30,7 @@ import { EnvironmentWebhooksService } from './environment-webhooks.service'
   providers: [
     EnvironmentsService,
     EnvironmentWorkflowBindingsService,
+    EnvironmentAgentBindingsService,
     EnvironmentKeysService,
     EnvironmentKeyGuard,
     EnvironmentScopeGuard,

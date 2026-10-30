@@ -52,3 +52,5 @@ export * from "./application.js"
 export * from "./connection-access-grant.js"
 
 export * from "./connection-reviewer-assignment.js"
+export * from "./agent.js"
+export * from "./environment-agent-binding.js"
