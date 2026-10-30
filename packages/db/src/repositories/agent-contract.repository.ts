@@ -21,7 +21,7 @@ export async function createAgentContractRevision(
   agentId: string,
   input: CreateAgentContractRevisionInput
 ): Promise<CreateAgentContractRevisionResult> {
-  return db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
     const [agent] = await tx
       .select({ id: agents.id })
       .from(agents)
@@ -69,7 +69,7 @@ export async function listAgentContractRevisions(
   workspaceId: string,
   agentId: string
 ): Promise<AgentContractRevision[]> {
-  return db
+  return await db
     .select()
     .from(agentContractRevisions)
     .where(

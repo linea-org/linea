@@ -38,7 +38,7 @@ export async function listAgents(
   workspaceId: string,
   applicationId: string
 ): Promise<Agent[]> {
-  return db
+  return await db
     .select()
     .from(agents)
     .where(
@@ -84,7 +84,7 @@ export async function createAgentVersion(
   agentId: string,
   input: CreateAgentVersionInput
 ): Promise<CreateAgentVersionResult> {
-  return db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
     const [agent] = await tx
       .select({ id: agents.id })
       .from(agents)
@@ -119,7 +119,7 @@ export async function listAgentVersions(
   workspaceId: string,
   agentId: string
 ): Promise<AgentVersion[]> {
-  return db
+  return await db
     .select({ version: agentVersions })
     .from(agentVersions)
     .innerJoin(agents, eq(agents.id, agentVersions.agentId))

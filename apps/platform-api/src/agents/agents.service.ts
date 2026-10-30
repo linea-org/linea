@@ -44,15 +44,13 @@ export class AgentsService {
     return agent
   }
   async update(workspaceId: string, id: string, input: UpdateAgentDto) {
+    let archivedAt: Date | null | undefined
+    if (input.archived !== undefined)
+      archivedAt = input.archived ? new Date() : null
     const agent = await repositories.agent.updateAgent(db, workspaceId, id, {
       name: input.name,
       description: input.description,
-      archivedAt:
-        input.archived === undefined
-          ? undefined
-          : input.archived
-            ? new Date()
-            : null,
+      archivedAt,
     })
     if (!agent) throw new NotFoundException('Agent not found')
     return agent

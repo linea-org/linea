@@ -7,7 +7,7 @@ export const agentDefinitionSchema = z.strictObject({
   tools: z
     .array(
       z.strictObject({
-        name: z.string().regex(/^[a-zA-Z][a-zA-Z0-9_]*$/),
+        name: z.string().regex(/^[a-zA-Z]\w*$/),
         operation: z.string().trim().min(1),
       })
     )

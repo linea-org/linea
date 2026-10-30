@@ -29,7 +29,7 @@ export async function putEnvironmentAgentBinding(
   agentId: string,
   input: PutEnvironmentAgentBindingInput
 ): Promise<PutEnvironmentAgentBindingResult> {
-  return db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
     const [environment] = await tx
       .select({
         id: environments.id,
@@ -109,7 +109,7 @@ export async function listEnvironmentAgentBindings(
   workspaceId: string,
   environmentId: string
 ): Promise<EnvironmentAgentBinding[]> {
-  return db
+  return await db
     .select()
     .from(environmentAgentBindings)
     .where(

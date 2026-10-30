@@ -68,7 +68,7 @@ BEGIN
   IF TG_OP = 'DELETE' AND NOT EXISTS (SELECT 1 FROM agents WHERE id = OLD.agent_id) THEN
     RETURN OLD;
   END IF;
-  RAISE EXCEPTION 'Agent Contract revisions are immutable' USING ERRCODE = '55000';
+  RAISE object_not_in_prerequisite_state USING MESSAGE = 'Agent Contract revisions are immutable';
 END;
 $$ LANGUAGE plpgsql;
 --> statement-breakpoint
@@ -80,10 +80,10 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM agents WHERE id = OLD.agent_id) THEN
       RETURN OLD;
     END IF;
-    RAISE EXCEPTION 'Agent versions are immutable' USING ERRCODE = '55000';
+    RAISE object_not_in_prerequisite_state USING MESSAGE = 'Agent versions are immutable';
   END IF;
   IF (to_jsonb(OLD) - 'published_at') IS DISTINCT FROM (to_jsonb(NEW) - 'published_at') OR (OLD.published_at IS NOT NULL AND OLD.published_at IS DISTINCT FROM NEW.published_at) THEN
-    RAISE EXCEPTION 'Agent versions are immutable' USING ERRCODE = '55000';
+    RAISE object_not_in_prerequisite_state USING MESSAGE = 'Agent versions are immutable';
   END IF;
   RETURN NEW;
 END;
