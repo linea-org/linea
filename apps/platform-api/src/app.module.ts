@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { AgentsModule } from './agents/agents.module'
 import { Module } from '@nestjs/common'
 import { AuthModule } from '@thallesp/nestjs-better-auth'
 import { auth } from '@linea/auth'
@@ -39,6 +40,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     PublicRuntimeModule,
     PushDevicesModule,
     WorkflowsModule,
+    AgentsModule,
     ExecutionsModule,
     TriggersModule,
     SignalsModule,
