@@ -139,3 +139,17 @@ AI coding agent. Follow them strictly.
 - No co-authorship lines in commit messages.
 - Resolve merge conflicts by understanding both sides — never blindly
   accept one side.
+
+## Agent skills
+
+### Issue tracker
+
+Before reading or publishing specs and tickets, read `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Before triaging or labeling issues, read `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Before exploring domain behavior, read `docs/agents/domain.md`.
