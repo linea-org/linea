@@ -25,6 +25,21 @@ function useBreadcrumbs(slug: string): Crumb[] {
   const matches = useMatches()
   const crumbs: Crumb[] = []
   for (const match of matches) {
+    if (match.routeId === "/w/$slug/agents/$agentId") {
+      crumbs.push({
+        label: "Applications",
+        to: "/w/$slug/applications",
+        params: { slug },
+      })
+      if (match.loaderData) {
+        crumbs.push({
+          label: match.loaderData.application.name,
+          to: "/w/$slug/applications/$applicationId",
+          params: { slug, applicationId: match.loaderData.application.id },
+        })
+        crumbs.push({ label: match.loaderData.agent.name })
+      }
+    }
     if (match.routeId === "/w/$slug/") {
       crumbs.push({ label: "Home" })
     }
@@ -122,13 +137,16 @@ function CrumbText({ label }: { label: string }) {
 function CrumbItem({ crumb, current }: { crumb: Crumb; current: boolean }) {
   if ("to" in crumb && !current) {
     return (
-      <BreadcrumbLink render={<Link to={crumb.to} params={crumb.params} />}>
+      <BreadcrumbLink
+        className="min-w-0"
+        render={<Link to={crumb.to} params={crumb.params} />}
+      >
         <CrumbText label={crumb.label} />
       </BreadcrumbLink>
     )
   }
   return (
-    <BreadcrumbPage>
+    <BreadcrumbPage className="min-w-0">
       <CrumbText label={crumb.label} />
     </BreadcrumbPage>
   )
@@ -173,19 +191,19 @@ export function TopBarBreadcrumb({ slug }: { slug: string }) {
   if (!first || !last) {
     return null
   }
-  const collapsed = crumbs.length > 3
+  const collapsed = crumbs.length >= 3
   const visible = collapsed ? [first, last] : crumbs
   const hidden = collapsed ? crumbs.slice(1, -1) : []
   return (
-    <Breadcrumb className="min-w-0">
+    <Breadcrumb className="min-w-0 overflow-hidden">
       <BreadcrumbList className="flex-nowrap">
         {visible.map((crumb, index) => (
           <Fragment key={`${crumb.label}-${index}`}>
-            {index > 0 ? <BreadcrumbSeparator /> : null}
+            {index > 0 ? <BreadcrumbSeparator className="shrink-0" /> : null}
             {index === 1 && hidden.length > 0 ? (
               <>
                 <HiddenCrumbs crumbs={hidden} />
-                <BreadcrumbSeparator />
+                <BreadcrumbSeparator className="shrink-0" />
               </>
             ) : null}
             <BreadcrumbItem className="min-w-0">

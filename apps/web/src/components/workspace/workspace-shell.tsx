@@ -120,6 +120,7 @@ export function WorkspaceShell({
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={
+                    pathname.startsWith(`/w/${slug}/agents/`) ||
                     !!matchRoute({
                       to: "/w/$slug/applications",
                       params: { slug },
@@ -284,7 +285,7 @@ export function WorkspaceShell({
               <div className="hidden flex-1 justify-center sm:flex">
                 <TopBarSearch />
               </div>
-              <div className="flex flex-1 items-center justify-end">
+              <div className="flex shrink-0 items-center justify-end sm:flex-1">
                 <TopBarNotifications slug={slug} />
               </div>
             </div>

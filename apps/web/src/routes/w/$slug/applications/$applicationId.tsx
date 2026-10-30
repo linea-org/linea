@@ -1,6 +1,7 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { EnvironmentSettings } from "@/components/applications/environment-settings"
+import { ApplicationAgents } from "@/components/agents/application-agents"
 import {
   applicationsQueryOptions,
   listApplicationsFn,
@@ -52,10 +53,11 @@ function ApplicationPage() {
       <div>
         <h1 className="text-xl font-semibold">{application.name}</h1>
         <p className="text-sm text-muted-foreground">
-          Workflows belong to this product. Deploy published versions
+          Agents and Workflows belong to this product. Deploy published versions
           independently in each Environment.
         </p>
       </div>
+      <ApplicationAgents workspaceSlug={slug} applicationId={applicationId} />
       <section className="rounded-xl border bg-card p-4">
         <h2 className="mb-3 font-semibold">Workflows</h2>
         <div className="flex flex-col gap-2">
