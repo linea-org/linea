@@ -18,13 +18,49 @@ import {
 } from "@linea/ui/components/dropdown-menu"
 
 type Crumb =
-  | { label: string; to: string; params: Record<string, string> }
+  | {
+      label: string
+      to: string
+      params: Record<string, string>
+      search?: { view: "agents" | "workflows" | "environments" }
+    }
   | { label: string }
 
 function useBreadcrumbs(slug: string): Crumb[] {
   const matches = useMatches()
   const crumbs: Crumb[] = []
   for (const match of matches) {
+    if (match.routeId === "/w/$slug/applications/")
+      crumbs.push({ label: "Applications" })
+    if (match.routeId === "/w/$slug/applications/$applicationId") {
+      crumbs.push({
+        label: "Applications",
+        to: "/w/$slug/applications",
+        params: { slug },
+      })
+      crumbs.push({
+        label:
+          match.loaderData?.applications.find(
+            (application) => application.id === match.params.applicationId
+          )?.name ?? "Application",
+      })
+    }
+    if (match.routeId === "/w/$slug/agents/$agentId") {
+      crumbs.push({
+        label: "Applications",
+        to: "/w/$slug/applications",
+        params: { slug },
+      })
+      if (match.loaderData) {
+        crumbs.push({
+          label: match.loaderData.application.name,
+          to: "/w/$slug/applications/$applicationId",
+          params: { slug, applicationId: match.loaderData.application.id },
+          search: { view: "agents" },
+        })
+        crumbs.push({ label: match.loaderData.agent.name })
+      }
+    }
     if (match.routeId === "/w/$slug/") {
       crumbs.push({ label: "Home" })
     }
@@ -122,13 +158,18 @@ function CrumbText({ label }: { label: string }) {
 function CrumbItem({ crumb, current }: { crumb: Crumb; current: boolean }) {
   if ("to" in crumb && !current) {
     return (
-      <BreadcrumbLink render={<Link to={crumb.to} params={crumb.params} />}>
+      <BreadcrumbLink
+        className="min-w-0"
+        render={
+          <Link to={crumb.to} params={crumb.params} search={crumb.search} />
+        }
+      >
         <CrumbText label={crumb.label} />
       </BreadcrumbLink>
     )
   }
   return (
-    <BreadcrumbPage>
+    <BreadcrumbPage className="min-w-0">
       <CrumbText label={crumb.label} />
     </BreadcrumbPage>
   )
@@ -150,7 +191,11 @@ function HiddenCrumbs({ crumbs }: { crumbs: Crumb[] }) {
               disabled={!("to" in crumb)}
               onClick={() => {
                 if ("to" in crumb) {
-                  void navigate({ to: crumb.to, params: crumb.params })
+                  void navigate({
+                    to: crumb.to,
+                    params: crumb.params,
+                    search: crumb.search,
+                  })
                 }
               }}
             >
@@ -173,19 +218,19 @@ export function TopBarBreadcrumb({ slug }: { slug: string }) {
   if (!first || !last) {
     return null
   }
-  const collapsed = crumbs.length > 3
+  const collapsed = crumbs.length >= 3
   const visible = collapsed ? [first, last] : crumbs
   const hidden = collapsed ? crumbs.slice(1, -1) : []
   return (
-    <Breadcrumb className="min-w-0">
+    <Breadcrumb className="min-w-0 overflow-hidden">
       <BreadcrumbList className="flex-nowrap">
         {visible.map((crumb, index) => (
           <Fragment key={`${crumb.label}-${index}`}>
-            {index > 0 ? <BreadcrumbSeparator /> : null}
+            {index > 0 ? <BreadcrumbSeparator className="shrink-0" /> : null}
             {index === 1 && hidden.length > 0 ? (
               <>
                 <HiddenCrumbs crumbs={hidden} />
-                <BreadcrumbSeparator />
+                <BreadcrumbSeparator className="shrink-0" />
               </>
             ) : null}
             <BreadcrumbItem className="min-w-0">

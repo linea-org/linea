@@ -8,12 +8,15 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:agent-ui": "playwright test agent-authoring.browser.ts",
+    "test:application-ui": "playwright test application-workflows.browser.ts",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
+    "@linea/protocol": "workspace:*",
     "@linea/runtime": "workspace:*",
     "@linea/ui": "workspace:*",
     "@paper-design/shaders-react": "^0.0.78",
@@ -37,11 +40,11 @@
     "remark-gfm": "^4.0.1",
     "socket.io-client": "^4.8.3",
     "tailwindcss": "^4",
-    "zod": "^4.4.3",
-    "@linea/protocol": "workspace:*"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@linea/config": "workspace:*",
+    "@playwright/test": "^1.64.1",
     "@tanstack/devtools-vite": "latest",
     "@types/node": "^22",
     "@types/react": "^19",

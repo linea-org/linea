@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
+import { z } from "zod"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
+import { Link, createFileRoute } from "@tanstack/react-router"
 import {
   EllipsisVerticalIcon,
   PencilIcon,
@@ -37,6 +38,10 @@ import {
   SelectValue,
 } from "@linea/ui/components/select"
 import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@linea/ui/components/native-select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -57,6 +62,10 @@ import {
   workflowsQueryOptions,
   type WorkflowSummary,
 } from "@/lib/workflows-api"
+import {
+  applicationsQueryOptions,
+  listApplicationsFn,
+} from "@/lib/applications-api"
 
 const STATUS_FILTERS = ["Draft", "Published", "Archived"] as const
 type StatusFilter = (typeof STATUS_FILTERS)[number]
@@ -66,18 +75,30 @@ function isStatusFilter(value: string): value is StatusFilter {
 }
 
 export const Route = createFileRoute("/w/$slug/workflows/")({
-  loader: () => listWorkflowsFn(),
+  validateSearch: z.object({ applicationId: z.uuid().optional() }),
+  loader: async () => {
+    const [workflows, applications] = await Promise.all([
+      listWorkflowsFn(),
+      listApplicationsFn(),
+    ])
+    return { workflows, applications }
+  },
   component: WorkflowsListPage,
 })
 
 function WorkflowsListPage() {
   const { slug } = Route.useParams()
+  const { applicationId } = Route.useSearch()
   const initialData = Route.useLoaderData()
   const { data: workflows } = useSuspenseQuery({
     ...workflowsQueryOptions(slug),
-    initialData,
+    initialData: initialData.workflows,
   })
-  const navigate = useNavigate()
+  const { data: applications } = useSuspenseQuery({
+    ...applicationsQueryOptions(slug),
+    initialData: initialData.applications,
+  })
+  const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
   const [editingWorkflow, setEditingWorkflow] =
     useState<WorkflowSummary | null>(null)
@@ -86,6 +107,8 @@ function WorkflowsListPage() {
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()
     return workflows.filter((workflow) => {
+      if (applicationId && workflow.applicationId !== applicationId)
+        return false
       if (status !== "all" && workflowStatus(workflow) !== status) return false
       if (!query) return true
       return (
@@ -93,7 +116,7 @@ function WorkflowsListPage() {
         workflow.slug.toLowerCase().includes(query)
       )
     })
-  }, [workflows, search, status])
+  }, [workflows, search, status, applicationId])
   function goToBuilder(workflow: { id: string }) {
     return navigate({
       to: "/w/$slug/workflows/$workflowId/builder",
@@ -101,12 +124,18 @@ function WorkflowsListPage() {
     })
   }
   async function onWorkflowSaved() {
-    await queryClient.invalidateQueries({
-      queryKey: workflowsQueryOptions(slug).queryKey,
-    })
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: workflowsQueryOptions(slug).queryKey,
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["application-workflows", slug],
+      }),
+    ])
   }
   const createDialog = (
     <WorkflowFormDialog
+      key={applicationId ?? "all"}
       workspaceSlug={slug}
       trigger={
         <Button size="sm">
@@ -116,12 +145,26 @@ function WorkflowsListPage() {
       }
       title="Create workflow"
       submitLabel="Create workflow"
+      defaultValues={
+        applicationId
+          ? { applicationId, name: "", slug: "", description: "" }
+          : undefined
+      }
       onSubmit={(values) => createWorkflowFn({ data: values })}
-      onSuccess={goToBuilder}
+      onSuccess={async (workflow) => {
+        await onWorkflowSaved()
+        await goToBuilder(workflow)
+      }}
     />
   )
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
+      <div className="mb-4 pl-1">
+        <h1 className="text-sm font-medium">Workflows</h1>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Build and manage processes across your Applications.
+        </p>
+      </div>
       <div className="mb-4 flex flex-wrap items-center gap-2 pl-1">
         <InputGroup className="h-8 max-w-sm rounded-lg border-input/30 bg-input/30 shadow-none">
           <InputGroupAddon>
@@ -133,6 +176,23 @@ function WorkflowsListPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </InputGroup>
+        <NativeSelect
+          size="sm"
+          value={applicationId ?? ""}
+          aria-label="Filter by Application"
+          onChange={(event) => {
+            void navigate({
+              search: { applicationId: event.target.value || undefined },
+            })
+          }}
+        >
+          <NativeSelectOption value="">All Applications</NativeSelectOption>
+          {applications.map((application) => (
+            <NativeSelectOption key={application.id} value={application.id}>
+              {application.name}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
         <Select
           value={status}
           onValueChange={(value) => {
@@ -168,7 +228,8 @@ function WorkflowsListPage() {
             </EmptyMedia>
             <EmptyTitle>No workflows yet</EmptyTitle>
             <EmptyDescription>
-              Workflows created for this workspace will show up here.
+              Create a Workflow in an Application to define its process and
+              deploy it to an Environment.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -180,7 +241,7 @@ function WorkflowsListPage() {
             </EmptyMedia>
             <EmptyTitle>No matching workflows</EmptyTitle>
             <EmptyDescription>
-              Try a different search or status filter.
+              Try a different Application, search, or status filter.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -190,6 +251,7 @@ function WorkflowsListPage() {
             <TableHeader className="bg-muted/40">
               <TableRow className="hover:bg-transparent">
                 <TableHead className="px-4">Name</TableHead>
+                <TableHead className="px-4">Application</TableHead>
                 <TableHead className="px-4">Status</TableHead>
                 <TableHead className="px-4">Updated</TableHead>
                 <TableHead className="w-12 px-2">
@@ -212,6 +274,19 @@ function WorkflowsListPage() {
                       <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                         {workflow.slug}
                       </span>
+                    </Link>
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <Link
+                      to="/w/$slug/applications/$applicationId"
+                      params={{ slug, applicationId: workflow.applicationId }}
+                      search={{ view: "workflows" }}
+                      className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      {applications.find(
+                        (application) =>
+                          application.id === workflow.applicationId
+                      )?.name ?? "View Application"}
                     </Link>
                   </TableCell>
                   <TableCell className="px-4 py-3">
