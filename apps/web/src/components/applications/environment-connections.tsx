@@ -21,9 +21,8 @@ export function EnvironmentConnections({
       listSharedConnectionsFn({ data: { environmentId: environment.id } }),
   })
   return (
-    <section className="flex flex-col gap-4 border-t pt-4">
-      <h2 className="font-semibold">Shared connections</h2>
-      <p className="text-sm text-muted-foreground">
+    <section className="flex flex-col gap-4">
+      <p className="text-xs text-muted-foreground">
         Company integrations belong to this Environment. Assign requester access
         and reviewer authority separately; each reviewer signs in as a real
         customer user.

@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
@@ -7,10 +7,11 @@ import { Button } from "@linea/ui/components/button"
 import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@linea/ui/components/native-select"
-import { Textarea } from "@linea/ui/components/textarea"
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@linea/ui/components/accordion"
 import { createAgentVersionFn } from "@/lib/agents-api"
 import {
   createAgentVersionInputSchema,
@@ -18,6 +19,7 @@ import {
   type AgentContract,
   type AgentVersion,
 } from "@/lib/agent-schemas"
+import { AgentDefinitionFields } from "./agent-definition-fields"
 import { AgentToolFields } from "./agent-tool-fields"
 
 export function AgentDefinitionForm({
@@ -35,6 +37,7 @@ export function AgentDefinitionForm({
   onSaved: (version: AgentVersion) => Promise<void>
   onDirtyChange: (dirty: boolean) => void
 }) {
+  const [sections, setSections] = useState(["definition"])
   const form = useForm<z.infer<typeof createAgentVersionInputSchema>>({
     resolver: zodResolver(createAgentVersionInputSchema),
     defaultValues: {
@@ -67,93 +70,58 @@ export function AgentDefinitionForm({
     <FormProvider {...form}>
       <form
         onSubmit={(event) => {
-          void handleSubmit((data) => save.mutate(data))(event)
+          void handleSubmit(
+            (data) => save.mutate(data),
+            () => setSections(["definition", "tools"])
+          )(event)
         }}
         className="flex flex-col gap-4"
       >
         <fieldset disabled={save.isPending} className="flex flex-col gap-4">
           <div>
-            <h2 className="font-semibold">Agent definition</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h2 className="text-sm font-medium">Definition</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
               {sourceVersion
-                ? `Based on version ${sourceVersion.version}. Saving creates a new immutable version.`
-                : "Configure how this Agent reasons and what it may request."}
+                ? `Based on version ${sourceVersion.version}. Your changes will be saved as a new version.`
+                : "Describe the task and choose the model and tools this Agent can use."}
             </p>
           </div>
-          <Field>
-            <FieldLabel htmlFor="agent-instructions">Instructions</FieldLabel>
-            <Textarea
-              id="agent-instructions"
-              rows={9}
-              placeholder="Describe the task, constraints, and expected outcome…"
-              {...register("definition.instructions")}
-            />
-            <FieldError>{errors.definition?.instructions?.message}</FieldError>
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="agent-model">Model</FieldLabel>
-              <NativeSelect
-                id="agent-model"
-                className="w-full"
-                {...register("definition.model")}
-              >
-                <NativeSelectOption value="">Select model</NativeSelectOption>
-                {catalog.models.map((model) => (
-                  <NativeSelectOption key={model} value={model}>
-                    {model}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-              <FieldError>{errors.definition?.model?.message}</FieldError>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="agent-iterations">
-                Maximum iterations
-              </FieldLabel>
-              <Input
-                id="agent-iterations"
-                type="number"
-                min={1}
-                step={1}
-                {...register("definition.maxIterations", {
-                  valueAsNumber: true,
-                })}
-              />
-              <FieldError>
-                {errors.definition?.maxIterations?.message}
-              </FieldError>
-            </Field>
-          </div>
-          <Field>
-            <FieldLabel htmlFor="agent-contract">
-              Public Contract revision
-            </FieldLabel>
-            <NativeSelect
-              id="agent-contract"
-              className="w-full"
-              {...register("agentContractRevisionId")}
-            >
-              <NativeSelectOption value="">
-                Select Contract revision
-              </NativeSelectOption>
-              {contracts.map((contract) => (
-                <NativeSelectOption key={contract.id} value={contract.id}>
-                  Revision {contract.revision}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <FieldError>{errors.agentContractRevisionId?.message}</FieldError>
-            {contracts.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Create a public Contract in the Contracts tab before saving a
-                version.
-              </p>
-            )}
-          </Field>
-          <AgentToolFields operations={catalog.operations} />
+          <Accordion multiple value={sections} onValueChange={setSections}>
+            <AccordionItem value="definition">
+              <AccordionTrigger>Instructions and model</AccordionTrigger>
+              <AccordionContent keepMounted>
+                <AgentDefinitionFields
+                  catalog={catalog}
+                  contracts={contracts}
+                />
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="tools">
+              <AccordionTrigger>Tools and execution limits</AccordionTrigger>
+              <AccordionContent keepMounted className="flex flex-col gap-4">
+                <Field>
+                  <FieldLabel htmlFor="agent-iterations">
+                    Maximum iterations
+                  </FieldLabel>
+                  <Input
+                    id="agent-iterations"
+                    type="number"
+                    min={1}
+                    step={1}
+                    {...register("definition.maxIterations", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                  <FieldError>
+                    {errors.definition?.maxIterations?.message}
+                  </FieldError>
+                </Field>
+                <AgentToolFields operations={catalog.operations} />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
           {save.error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-xs text-destructive">
               {save.error.message}
             </p>
           )}

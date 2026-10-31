@@ -78,9 +78,8 @@ export function EnvironmentKeys({
   })
   const error = loadError ?? create.error ?? revoke.error ?? rotate.error
   return (
-    <section className="flex flex-col gap-3 border-t pt-4">
-      <h3 className="font-medium">Backend keys</h3>
-      <p className="text-sm text-muted-foreground">
+    <section className="flex flex-col gap-3">
+      <p className="text-xs text-muted-foreground">
         These keys access this Environment. Human approvals require a verified
         user session.
       </p>

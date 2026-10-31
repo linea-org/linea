@@ -56,10 +56,10 @@ export function AgentContractForm({
       className="flex flex-col gap-4"
     >
       <div>
-        <h2 className="font-semibold">New Contract revision</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Define the public input and output with JSON Schema. Revisions are
-          immutable and independent of definition versions.
+        <h2 className="text-sm font-medium">New Contract revision</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Describe the input and output using JSON Schema. You can start with
+          the example below. Saved revisions cannot be changed.
         </p>
       </div>
       {(
@@ -82,12 +82,12 @@ export function AgentContractForm({
         </Field>
       ))}
       {save.error && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-xs text-destructive">
           {save.error.message}
         </p>
       )}
       {save.isSuccess && (
-        <p role="status" className="text-sm text-muted-foreground">
+        <p role="status" className="text-xs text-muted-foreground">
           Contract revision saved. Select it in the definition editor.
         </p>
       )}

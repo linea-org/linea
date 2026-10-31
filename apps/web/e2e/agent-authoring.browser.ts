@@ -72,8 +72,16 @@ test("author, publish, and independently deploy immutable Agent versions", async
       "Analyze repository issues. Propose two distinct follow-up issues and respect each reviewer's decision."
     )
   await page.getByLabel("Model", { exact: true }).selectOption("gpt-5")
+  await page
+    .getByRole("button", { name: "Tools and execution limits", exact: true })
+    .click()
   await page.getByLabel("Maximum iterations").fill("6")
-  await page.getByRole("tab", { name: "Contracts (0)" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Development", exact: true })
+  ).not.toBeVisible()
+  await page
+    .getByRole("button", { name: "Create Contract", exact: true })
+    .click()
   await page.getByLabel("Input JSON Schema").fill("{")
   await page.getByRole("button", { name: "Create Contract revision" }).click()
   await expect(
@@ -107,6 +115,9 @@ test("author, publish, and independently deploy immutable Agent versions", async
     .getByLabel("Connector Operation", { exact: true })
     .nth(1)
     .selectOption("github.issues.create")
+  await page
+    .getByRole("button", { name: "Tools and execution limits", exact: true })
+    .click()
   await page.getByRole("button", { name: "Save new version" }).click()
   await expect(page.getByText("Tool names must be unique")).toBeVisible()
   await page
@@ -118,22 +129,20 @@ test("author, publish, and independently deploy immutable Agent versions", async
     "aria-selected",
     "true"
   )
-  const development = page
-    .getByRole("complementary")
-    .getByRole("region")
-    .filter({
-      has: page.getByRole("heading", { name: "Development", exact: true }),
-    })
-  const production = page
-    .getByRole("complementary")
-    .getByRole("region")
-    .filter({
-      has: page.getByRole("heading", { name: "Production", exact: true }),
-    })
+  const development = page.getByRole("region").filter({
+    has: page.getByRole("heading", { name: "Development", exact: true }),
+  })
+  const production = page.getByRole("region").filter({
+    has: page.getByRole("heading", { name: "Production", exact: true }),
+  })
+  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
   await expect(
     development.getByRole("button", { name: "Save deployment" })
   ).toBeDisabled()
-  await page.getByText("Inspect definition", { exact: true }).click()
+  await page.getByRole("tab", { name: "Versions (1)" }).click()
+  await page
+    .getByRole("button", { name: "Inspect definition", exact: true })
+    .click()
   await expect(
     page.getByRole("tabpanel", { name: "Versions (1)" })
   ).toContainText("github.issues.create")
@@ -141,6 +150,9 @@ test("author, publish, and independently deploy immutable Agent versions", async
     .getByRole("button", { name: "Publish version 1", exact: true })
     .click()
   await expect(page.getByText("Published", { exact: true })).toBeVisible()
+  await page
+    .getByRole("button", { name: "Manage deployments", exact: true })
+    .click()
   await development
     .getByLabel("Published version and Contract")
     .selectOption({ label: "Version 1 · Contract revision 1" })
@@ -169,6 +181,7 @@ test("author, publish, and independently deploy immutable Agent versions", async
   await page
     .getByRole("button", { name: "Publish version 2", exact: true })
     .click()
+  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
   await production
     .getByLabel("Published version and Contract")
     .selectOption({ label: "Version 2 · Contract revision 2" })
@@ -179,6 +192,7 @@ test("author, publish, and independently deploy immutable Agent versions", async
       .filter({ hasText: "Version 2 · Contract revision 2" })
   ).toBeVisible()
   await page.reload()
+  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
   await expect(
     development
       .getByRole("paragraph")
@@ -195,9 +209,11 @@ test("author, publish, and independently deploy immutable Agent versions", async
     production.locator("[data-slot=badge]").filter({ hasText: "Disabled" })
   ).toBeVisible()
   await page.reload()
+  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
   await expect(production.getByLabel("Deployment status")).toHaveValue(
     "disabled"
   )
+  await page.getByRole("tab", { name: "Definition", exact: true }).click()
   await page
     .getByLabel("Instructions", { exact: true })
     .fill("Unsaved instructions")
@@ -222,16 +238,38 @@ test("author, publish, and independently deploy immutable Agent versions", async
   ).toHaveText("Revision 1")
   await page.getByRole("tab", { name: "Versions (2)" }).click()
   await page.getByRole("button", { name: "Use as new version" }).first().click()
+  await page
+    .getByRole("button", { name: "Instructions and model", exact: true })
+    .focus()
+  await page.keyboard.press("Enter")
+  await expect(
+    page.getByLabel("Instructions", { exact: true })
+  ).not.toBeVisible()
+  await page.keyboard.press("Enter")
+  await expect(page.getByLabel("Instructions", { exact: true })).toHaveValue(
+    /Report partial success/
+  )
+  const editorWidth = await page
+    .getByRole("tabpanel", { name: "Definition", exact: true })
+    .evaluate((element) => element.getBoundingClientRect().width)
+  const mainWidth = await page
+    .locator("main")
+    .last()
+    .evaluate((element) => element.clientWidth)
+  expect(editorWidth).toBeGreaterThan(mainWidth * 0.9)
+  await page.getByRole("heading", { name: agentName, exact: true }).click()
   await page.emulateMedia({ colorScheme: "light" })
   await page.screenshot({
     path: testInfo.outputPath("agent-desktop.png"),
     fullPage: true,
+    animations: "disabled",
   })
   await page.emulateMedia({ colorScheme: "dark" })
   await expect(page.locator("html")).toHaveClass(/dark/)
   await page.screenshot({
     path: testInfo.outputPath("agent-desktop-dark.png"),
     fullPage: true,
+    animations: "disabled",
   })
   await page.setViewportSize({ width: 390, height: 844 })
   expect(
@@ -246,10 +284,17 @@ test("author, publish, and independently deploy immutable Agent versions", async
   await page.screenshot({
     path: testInfo.outputPath("agent-mobile.png"),
     fullPage: true,
+    animations: "disabled",
   })
   await page.goto(environment.AGENT_UI_APPLICATION_PATH)
   await page.getByRole("tab", { name: "Agents", exact: true }).click()
   await page.getByRole("link", { name: new RegExp(agentName) }).click()
   await expect(page).toHaveURL(agentUrl)
+  await page
+    .getByRole("link", { name: "Back to Application", exact: true })
+    .click()
+  await expect(
+    page.getByRole("tab", { name: "Agents", exact: true })
+  ).toHaveAttribute("aria-selected", "true")
   expect(pageErrors).toEqual([])
 })

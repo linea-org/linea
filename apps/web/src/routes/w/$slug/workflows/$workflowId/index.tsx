@@ -161,7 +161,7 @@ function WorkflowDetailPage() {
         <ArrowLeftIcon className="size-3" />
         Back to Application
       </Link>
-      <h1 className="mb-4 text-xl font-semibold">{workflow.name}</h1>
+      <h1 className="mb-4 text-sm font-medium">{workflow.name}</h1>
       <div className="flex items-center justify-between gap-3 pl-1">
         <div className="flex items-center gap-3">
           <WorkflowStatusBadge workflow={workflow} />

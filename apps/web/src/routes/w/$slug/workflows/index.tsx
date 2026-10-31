@@ -160,10 +160,9 @@ function WorkflowsListPage() {
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
       <div className="mb-4 pl-1">
-        <h1 className="text-xl font-semibold">Workflows</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Browse Workflows across Applications, or select an Application to
-          focus on its processes.
+        <h1 className="text-sm font-medium">Workflows</h1>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Build and manage processes across your Applications.
         </p>
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-2 pl-1">

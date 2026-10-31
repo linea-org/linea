@@ -19,9 +19,8 @@ export function EnvironmentDeployments({
     queryFn: () => listDeploymentsFn({ data: { environmentId } }),
   })
   return (
-    <section className="flex flex-col gap-3 border-t pt-4">
-      <h3 className="font-medium">Workflow deployments</h3>
-      <p className="text-sm text-muted-foreground">
+    <section className="flex flex-col gap-3">
+      <p className="text-xs text-muted-foreground">
         Publish in the builder, then deploy an exact version. Updating this
         Environment does not change the other one.
       </p>

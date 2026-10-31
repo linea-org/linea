@@ -46,7 +46,7 @@ export function AgentEnvironmentDeployment({
       className="flex flex-col gap-4 rounded-xl border bg-card p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-medium">
+        <h3 className="text-xs font-medium">
           {environment.environment === "dev" ? "Development" : "Production"}
         </h3>
         <Badge variant="outline">
@@ -60,17 +60,17 @@ export function AgentEnvironmentDeployment({
         </Badge>
       </div>
       {binding && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Version {version?.version} · Contract revision {contract?.revision}
         </p>
       )}
       {isPending && (
-        <p role="status" className="text-sm text-muted-foreground">
+        <p role="status" className="text-xs text-muted-foreground">
           Loading deployment…
         </p>
       )}
       {error && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-xs text-destructive">
           {error.message}
         </p>
       )}

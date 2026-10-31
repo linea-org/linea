@@ -20,6 +20,7 @@ import { AgentContracts } from "./agent-contracts"
 import { AgentVersions } from "./agent-versions"
 import { AgentEnvironmentDeployment } from "./agent-environment-deployment"
 import { AgentVersionReplacement } from "./agent-version-replacement"
+import { AgentNextStep } from "./agent-next-step"
 
 export function AgentEditor({
   workspaceSlug,
@@ -66,9 +67,20 @@ export function AgentEditor({
     setTab("definition")
   }
   return (
-    <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="flex w-full min-w-0 flex-col gap-4">
+      {!archived && (
+        <AgentNextStep
+          hasContract={contracts.length > 0}
+          hasVersion={versions.length > 0}
+          hasPublishedVersion={versions.some(
+            (version) => version.publishedAt !== null
+          )}
+          tab={tab}
+          onContinue={setTab}
+        />
+      )}
       <Tabs value={tab} onValueChange={setTab} className="min-w-0 gap-4">
-        <TabsList>
+        <TabsList variant="line">
           <TabsTrigger value="definition">Definition</TabsTrigger>
           <TabsTrigger value="contracts">
             Contracts ({contracts.length})
@@ -76,8 +88,9 @@ export function AgentEditor({
           <TabsTrigger value="versions">
             Versions ({versions.length})
           </TabsTrigger>
+          <TabsTrigger value="deployments">Deployments</TabsTrigger>
         </TabsList>
-        <div className="min-w-0 rounded-xl border bg-card p-5">
+        <div className="min-w-0 rounded-xl border bg-card p-4">
           <TabsContent value="definition" keepMounted>
             <fieldset disabled={archived}>
               <AgentDefinitionForm
@@ -120,28 +133,35 @@ export function AgentEditor({
               }}
             />
           </TabsContent>
+          <TabsContent value="deployments">
+            <section className="flex flex-col gap-4">
+              <div>
+                <h2 className="text-sm font-medium">Deployments</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Each Environment uses its own published version. Saving one
+                  does not change the other.
+                </p>
+              </div>
+              <div className="grid items-start gap-4 md:grid-cols-2">
+                {environments.map((environment) => (
+                  <AgentEnvironmentDeployment
+                    key={environment.id}
+                    workspaceSlug={workspaceSlug}
+                    agentId={agent.id}
+                    environment={environment}
+                    versions={versions}
+                    contracts={contracts}
+                    archived={archived}
+                  />
+                ))}
+              </div>
+            </section>
+          </TabsContent>
         </div>
       </Tabs>
-      <aside className="flex min-w-0 flex-col gap-4">
-        <div>
-          <h2 className="font-semibold">Environment deployments</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Each Environment pins a published version and its Contract revision
-            independently.
-          </p>
-        </div>
-        {environments.map((environment) => (
-          <AgentEnvironmentDeployment
-            key={environment.id}
-            workspaceSlug={workspaceSlug}
-            agentId={agent.id}
-            environment={environment}
-            versions={versions}
-            contracts={contracts}
-            archived={archived}
-          />
-        ))}
-      </aside>
+      <p className="pl-1 text-xs text-muted-foreground">
+        Agent execution and trace inspection are not available yet.
+      </p>
       <AgentVersionReplacement
         version={pendingVersion}
         onCancel={() => setPendingVersion(null)}

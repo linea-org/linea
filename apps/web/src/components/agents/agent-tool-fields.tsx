@@ -28,7 +28,7 @@ export function AgentToolFields({
   return (
     <section className="flex flex-col gap-3 border-t pt-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-medium">Registered tools</h3>
+        <h3 className="text-xs font-medium">Tools</h3>
         <Button
           type="button"
           size="sm"
@@ -39,12 +39,12 @@ export function AgentToolFields({
           Add tool
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground">
-        Choose operations the Agent may request. Connections, access grants, and
-        reviewer assignments are configured in each Environment.
+      <p className="text-xs text-muted-foreground">
+        Choose the actions this Agent can request. Set up connections and
+        permissions in the Application’s Environments tab.
       </p>
       {fields.length === 0 && (
-        <p className="text-sm text-muted-foreground">No tools configured.</p>
+        <p className="text-xs text-muted-foreground">No tools configured.</p>
       )}
       {fields.map((field, index) => (
         <div

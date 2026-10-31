@@ -101,17 +101,107 @@ test("organizes Workflow creation, navigation, and deployments by Application", 
   await expect(
     page.getByRole("button", { name: "Create Workflow", exact: true })
   ).not.toBeVisible()
+  await expect(page.getByLabel("Content retention in days")).not.toBeVisible()
+  await page.screenshot({
+    path: testInfo.outputPath("environments-overview.png"),
+    fullPage: true,
+    animations: "disabled",
+  })
+  const development = page.getByRole("region", {
+    name: "Development Environment",
+    exact: true,
+  })
+  await development
+    .getByRole("button", { name: "Manage Development", exact: true })
+    .click()
+  let savedRetention = ""
+  for (const section of [
+    "Deployments",
+    "Connections",
+    "Secrets",
+    "Backend keys",
+    "User identity",
+    "Settings",
+  ]) {
+    const sheet = page.getByRole("dialog")
+    await sheet.getByLabel("Section", { exact: true }).selectOption(section)
+    await expect(
+      sheet.getByRole("heading", {
+        name: section,
+        exact: true,
+      })
+    ).toBeVisible()
+    if (section === "Settings") {
+      const retention = sheet.getByLabel("Content retention in days")
+      savedRetention = (await retention.inputValue()) === "45" ? "46" : "45"
+      await retention.fill(savedRetention)
+      await sheet
+        .getByRole("button", { name: "Save retention", exact: true })
+        .click()
+      await expect(sheet.getByRole("status")).toHaveText("Retention saved.")
+      await sheet
+        .getByRole("button", { name: "Disable Environment", exact: true })
+        .click()
+      await expect(page.getByRole("alertdialog")).toBeVisible()
+      await page.getByRole("button", { name: "Cancel", exact: true }).click()
+      await expect(page.getByRole("alertdialog")).not.toBeVisible()
+    }
+    if (section === "User identity") {
+      await expect(
+        sheet.getByLabel("Identity provider issuer", { exact: true })
+      ).toBeVisible()
+      await page.screenshot({
+        path: testInfo.outputPath("environment-identity.png"),
+        fullPage: true,
+        animations: "disabled",
+      })
+      await page.setViewportSize({ width: 390, height: 844 })
+      expect(
+        await sheet.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth
+        )
+      ).toBe(true)
+      await page.screenshot({
+        path: testInfo.outputPath("environment-identity-mobile.png"),
+        fullPage: true,
+        animations: "disabled",
+      })
+      await page.setViewportSize({ width: 1440, height: 1100 })
+    }
+  }
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Close", exact: true })
+    .click()
+  await expect(page.getByRole("dialog")).not.toBeVisible()
+  await development
+    .getByRole("button", { name: "Manage Development", exact: true })
+    .click()
+  await expect(
+    page.getByRole("dialog").getByLabel("Content retention in days")
+  ).toHaveValue(savedRetention)
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Close", exact: true })
+    .click()
+  await expect(development.getByText("Enabled", { exact: true })).toBeVisible()
   await page.getByRole("tab", { name: /^Workflows/ }).click()
   await expect(workflows).toBeVisible()
+  await expect(page.getByRole("tab", { name: /^Workflows/ })).toHaveAttribute(
+    "aria-selected",
+    "true"
+  )
   await page.screenshot({
     path: testInfo.outputPath("application-workflows.png"),
     fullPage: true,
+    animations: "disabled",
   })
   await page.emulateMedia({ colorScheme: "dark" })
   await expect(page.locator("html")).toHaveClass(/dark/)
   await page.screenshot({
     path: testInfo.outputPath("application-workflows-dark.png"),
     fullPage: true,
+    animations: "disabled",
   })
   await page.setViewportSize({ width: 390, height: 844 })
   expect(
@@ -124,17 +214,22 @@ test("organizes Workflow creation, navigation, and deployments by Application", 
   await page.screenshot({
     path: testInfo.outputPath("application-workflows-mobile.png"),
     fullPage: true,
+    animations: "disabled",
   })
   await page.setViewportSize({ width: 1440, height: 1100 })
   await page.goto(`${workspacePath}/applications`)
-  await page.getByLabel("Name", { exact: true }).fill(secondApplicationName)
-  await page.getByLabel("Slug", { exact: true }).fill(`support-${Date.now()}`)
   await page
     .getByRole("button", { name: "Create Application", exact: true })
     .click()
+  await page.getByLabel("Name", { exact: true }).fill(secondApplicationName)
+  await page.getByLabel("Slug", { exact: true }).fill(`support-${Date.now()}`)
   await page
-    .getByRole("link", { name: new RegExp(secondApplicationName) })
+    .getByRole("dialog")
+    .getByRole("button", { name: "Create Application", exact: true })
     .click()
+  await expect(
+    page.getByRole("heading", { name: secondApplicationName, exact: true })
+  ).toBeVisible()
   const secondApplicationId = z
     .uuid()
     .parse(new URL(page.url()).pathname.split("/").at(-1))
@@ -175,5 +270,11 @@ test("organizes Workflow creation, navigation, and deployments by Application", 
   ).toHaveValue(applicationId)
   await row.getByRole("link").last().click()
   await expect(page).toHaveURL(new RegExp(`${applicationId}\\?view=workflows$`))
+  await page
+    .getByRole("link", { name: "Back to Applications", exact: true })
+    .click()
+  await expect(page).toHaveURL(
+    `${new URL(`${workspacePath}/applications`, page.url()).href}`
+  )
   expect(pageErrors).toEqual([])
 })

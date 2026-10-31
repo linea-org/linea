@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { BotIcon, ArrowLeftIcon } from "lucide-react"
+import { ArrowLeftIcon } from "lucide-react"
+import { buttonVariants } from "@linea/ui/components/button"
 import { Badge } from "@linea/ui/components/badge"
 import { AgentEditor } from "@/components/agents/agent-editor"
 import {
@@ -32,8 +33,8 @@ export const Route = createFileRoute("/w/$slug/agents/$agentId")({
   },
   component: AgentPage,
   errorComponent: ({ error }) => (
-    <main className="flex flex-1 flex-col gap-2 p-6">
-      <h1 className="text-xl font-semibold">Agent unavailable</h1>
+    <main className="flex flex-1 flex-col gap-2 p-4">
+      <h1 className="text-sm font-medium">Agent unavailable</h1>
       <p role="alert" className="text-sm text-destructive">
         {error.message}
       </p>
@@ -46,29 +47,24 @@ function AgentPage() {
   const { agent, catalog, versions, contracts, application, environments } =
     Route.useLoaderData()
   return (
-    <main className="flex min-w-0 flex-1 flex-col gap-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-3">
-        <Link
-          to="/w/$slug/applications/$applicationId"
-          params={{ slug, applicationId: application.id }}
-          search={{ view: "agents" }}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeftIcon className="size-3" />
-          {application.name}
-        </Link>
-        <div className="flex flex-wrap items-center gap-3">
-          <BotIcon className="size-6 text-muted-foreground" />
-          <h1 className="text-xl font-semibold">{agent.name}</h1>
+    <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
+      <Link
+        to="/w/$slug/applications/$applicationId"
+        params={{ slug, applicationId: application.id }}
+        search={{ view: "agents" }}
+        className={`${buttonVariants({ variant: "ghost", size: "xs" })} self-start`}
+      >
+        <ArrowLeftIcon />
+        Back to Application
+      </Link>
+      <header className="flex flex-col gap-1 pl-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-sm font-medium break-words">{agent.name}</h1>
           {agent.archivedAt && <Badge variant="outline">Archived</Badge>}
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {agent.description ||
-            "Configure and release this Application’s reusable Agent."}
-        </p>
-        <p className="rounded-lg border bg-card px-3 py-2 text-sm text-muted-foreground">
-          Authoring and deployment are available. Agent execution and trace
-          inspection are not available yet.
+            "Define what this Agent does, publish a version, then deploy it."}
         </p>
       </header>
       <AgentEditor

@@ -1,5 +1,7 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { ArrowLeftIcon } from "lucide-react"
+import { buttonVariants } from "@linea/ui/components/button"
 import { z } from "zod"
 import {
   Tabs,
@@ -62,12 +64,20 @@ function ApplicationPage() {
     })
   }
   return (
-    <main className="flex min-w-0 flex-1 flex-col gap-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-xl font-semibold">{application.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          Agents and Workflows belong to this product. Deploy published versions
-          independently in each Environment.
+    <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
+      <Link
+        to="/w/$slug/applications"
+        params={{ slug }}
+        className={`${buttonVariants({ variant: "ghost", size: "xs" })} self-start`}
+      >
+        <ArrowLeftIcon />
+        Back to Applications
+      </Link>
+      <div className="pl-1">
+        <h1 className="text-sm font-medium">{application.name}</h1>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Create an Agent or Workflow, then deploy a published version to an
+          Environment.
         </p>
       </div>
       <Tabs
@@ -79,7 +89,7 @@ function ApplicationPage() {
         }}
         className="min-w-0 gap-4"
       >
-        <TabsList>
+        <TabsList variant="line">
           <TabsTrigger value="workflows">
             Workflows ({workflows.length})
           </TabsTrigger>
@@ -103,7 +113,7 @@ function ApplicationPage() {
         </TabsContent>
         <TabsContent
           value="environments"
-          className="grid items-start gap-4 xl:grid-cols-2"
+          className="grid items-start gap-4 md:grid-cols-2"
         >
           {environments.map((environment) => (
             <EnvironmentSettings

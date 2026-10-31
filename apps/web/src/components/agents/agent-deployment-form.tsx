@@ -127,17 +127,17 @@ export function AgentDeploymentForm({
         </Button>
       </fieldset>
       {published.length === 0 && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Publish a version before deploying this Agent.
         </p>
       )}
       {deploy.error && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-xs text-destructive">
           {deploy.error.message}
         </p>
       )}
       {deploy.isSuccess && (
-        <p role="status" className="text-sm text-muted-foreground">
+        <p role="status" className="text-xs text-muted-foreground">
           Deployment saved.
         </p>
       )}
