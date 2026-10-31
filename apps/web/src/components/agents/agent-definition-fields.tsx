@@ -1,10 +1,13 @@
-import { useFormContext } from "react-hook-form"
+import { Controller, useFormContext } from "react-hook-form"
 import { z } from "zod"
 import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@linea/ui/components/native-select"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@linea/ui/components/select"
 import { Textarea } from "@linea/ui/components/textarea"
 import {
   createAgentVersionInputSchema,
@@ -20,6 +23,7 @@ export function AgentDefinitionFields({
   contracts: AgentContract[]
 }) {
   const {
+    control,
     register,
     formState: { errors },
   } = useFormContext<z.infer<typeof createAgentVersionInputSchema>>()
@@ -38,45 +42,68 @@ export function AgentDefinitionFields({
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
           <FieldLabel htmlFor="agent-model">Model</FieldLabel>
-          <NativeSelect
-            id="agent-model"
-            className="w-full"
-            {...register("definition.model")}
-          >
-            <NativeSelectOption value="">Select model</NativeSelectOption>
-            {catalog.models.map((model) => (
-              <NativeSelectOption key={model} value={model}>
-                {model}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+          <Controller
+            control={control}
+            name="definition.model"
+            render={({ field }) => (
+              <Select
+                value={field.value || null}
+                onValueChange={(value) => {
+                  if (typeof value !== "string") return
+                  field.onChange(value)
+                }}
+              >
+                <SelectTrigger id="agent-model" className="w-full">
+                  <SelectValue placeholder="Select model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {catalog.models.map((model) => (
+                    <SelectItem key={model} value={model}>
+                      {model}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
           <FieldError>{errors.definition?.model?.message}</FieldError>
         </Field>
         <Field>
           <FieldLabel htmlFor="agent-contract">
             Public Contract revision
           </FieldLabel>
-          <NativeSelect
-            id="agent-contract"
-            className="w-full"
-            {...register("agentContractRevisionId")}
-          >
-            <NativeSelectOption value="">
-              Select Contract revision
-            </NativeSelectOption>
-            {contracts.map((contract) => (
-              <NativeSelectOption key={contract.id} value={contract.id}>
-                Revision {contract.revision}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+          <Controller
+            control={control}
+            name="agentContractRevisionId"
+            render={({ field }) => (
+              <Select
+                value={field.value || null}
+                disabled={contracts.length === 0}
+                onValueChange={(value) => {
+                  if (typeof value !== "string") return
+                  field.onChange(value)
+                }}
+              >
+                <SelectTrigger id="agent-contract" className="w-full">
+                  <SelectValue
+                    placeholder={
+                      contracts.length === 0
+                        ? "Create a Contract first"
+                        : "Select Contract revision"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {contracts.map((contract) => (
+                    <SelectItem key={contract.id} value={contract.id}>
+                      Revision {contract.revision}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
           <FieldError>{errors.agentContractRevisionId?.message}</FieldError>
-          {contracts.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              Create a public Contract in the Contracts tab before saving a
-              version.
-            </p>
-          )}
         </Field>
       </div>
     </div>

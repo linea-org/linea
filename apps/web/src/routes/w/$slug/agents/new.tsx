@@ -1,8 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowLeftIcon } from "lucide-react"
+import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
-import { buttonVariants } from "@linea/ui/components/button"
 import { AgentOnboardingForm } from "@/components/agents/agent-onboarding-form"
 import {
   applicationsQueryOptions,
@@ -33,14 +31,6 @@ function AddAgentPage() {
   })
   return (
     <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
-      <Link
-        to="/w/$slug/applications"
-        params={{ slug }}
-        className={`${buttonVariants({ variant: "ghost", size: "xs" })} self-start`}
-      >
-        <ArrowLeftIcon />
-        Back to Applications
-      </Link>
       <header className="pl-1">
         <h1 className="text-sm font-medium">Add an Agent to your product</h1>
         <p className="mt-1 text-xs text-muted-foreground">

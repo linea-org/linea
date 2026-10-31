@@ -1,11 +1,14 @@
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@linea/ui/components/button"
 import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@linea/ui/components/native-select"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@linea/ui/components/select"
 import { deployAgentFn } from "@/lib/agent-deployments-api"
 import type {
   AgentBinding,
@@ -36,7 +39,7 @@ export function AgentDeploymentForm({
 }) {
   const queryClient = useQueryClient()
   const {
-    register,
+    control,
     handleSubmit,
     watch,
     formState: { errors },
@@ -78,68 +81,107 @@ export function AgentDeploymentForm({
     >
       <fieldset
         disabled={disabled || deploy.isPending}
-        className="flex flex-col gap-3"
+        className="grid gap-4 sm:grid-cols-2"
       >
         <Field>
           <FieldLabel htmlFor={`${environmentId}-agent-version`}>
             Published version and Contract
           </FieldLabel>
-          <NativeSelect
-            className="w-full"
-            id={`${environmentId}-agent-version`}
-            disabled={archived}
-            {...register("versionId", {
-              required: "Select a published version",
-            })}
-          >
-            <NativeSelectOption value="">
-              Select published version
-            </NativeSelectOption>
-            {published.map((version) => (
-              <NativeSelectOption key={version.id} value={version.id}>
-                Version {version.version} · Contract revision{" "}
-                {
-                  contracts.find(
-                    (contract) =>
-                      contract.id === version.agentContractRevisionId
-                  )?.revision
+          <Controller
+            control={control}
+            name="versionId"
+            rules={{ required: "Select a published version" }}
+            render={({ field }) => (
+              <Select
+                value={field.value || null}
+                disabled={
+                  published.length === 0 ||
+                  archived ||
+                  disabled ||
+                  deploy.isPending
                 }
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+                onValueChange={(value) => {
+                  if (typeof value !== "string") return
+                  field.onChange(value)
+                }}
+              >
+                <SelectTrigger
+                  id={`${environmentId}-agent-version`}
+                  className="w-full"
+                >
+                  <SelectValue
+                    placeholder={
+                      published.length === 0
+                        ? "Publish a version first"
+                        : "Select published version"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {published.map((version) => (
+                    <SelectItem key={version.id} value={version.id}>
+                      Version {version.version} · Contract revision{" "}
+                      {
+                        contracts.find(
+                          (contract) =>
+                            contract.id === version.agentContractRevisionId
+                        )?.revision
+                      }
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
           <FieldError>{errors.versionId?.message}</FieldError>
         </Field>
         <Field>
           <FieldLabel htmlFor={`${environmentId}-agent-enabled`}>
             Deployment status
           </FieldLabel>
-          <NativeSelect
-            className="w-full"
-            id={`${environmentId}-agent-enabled`}
-            {...register("enabled")}
-          >
-            <NativeSelectOption value="enabled" disabled={archived}>
-              Enabled
-            </NativeSelectOption>
-            <NativeSelectOption value="disabled">Disabled</NativeSelectOption>
-          </NativeSelect>
+          <Controller
+            control={control}
+            name="enabled"
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                disabled={
+                  published.length === 0 || disabled || deploy.isPending
+                }
+                onValueChange={(value) => {
+                  if (value !== "enabled" && value !== "disabled") return
+                  field.onChange(value)
+                }}
+              >
+                <SelectTrigger
+                  id={`${environmentId}-agent-enabled`}
+                  className="w-full"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="enabled" disabled={archived}>
+                    Enabled
+                  </SelectItem>
+                  <SelectItem value="disabled">Disabled</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
         </Field>
         <Button
           type="submit"
+          size="xs"
           disabled={
             published.length === 0 ||
             (archived && watch("enabled") !== "disabled")
           }
           variant="outline"
+          className="w-fit justify-self-start sm:col-span-2"
         >
           {deploy.isPending ? "Saving…" : "Save deployment"}
         </Button>
       </fieldset>
-      {published.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          Publish a version before deploying this Agent.
-        </p>
-      )}
       {deploy.error && (
         <p role="alert" className="text-xs text-destructive">
           {deploy.error.message}

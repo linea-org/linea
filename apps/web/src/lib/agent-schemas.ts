@@ -9,6 +9,7 @@ export const agentSchema = z.object({
   slug: z.string(),
   description: z.string().nullable(),
   archivedAt: z.string().nullable(),
+  updatedAt: z.string(),
 })
 
 export const agentContractSchema = z.object({

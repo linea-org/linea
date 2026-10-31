@@ -1,8 +1,6 @@
 import { useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
-import { ArrowLeftIcon } from "lucide-react"
-import { Button, buttonVariants } from "@linea/ui/components/button"
+import { Button } from "@linea/ui/components/button"
 
 import {
   executionQueryOptions,
@@ -102,14 +100,6 @@ export function ExecutionDetailView({
   const workflowName = initialData.workflow?.name ?? "Execution"
   return (
     <main className="flex min-w-0 flex-1 flex-col px-4 py-4">
-      <Link
-        to="/w/$slug/executions"
-        params={{ slug }}
-        className={`${buttonVariants({ variant: "ghost", size: "xs" })} mb-4 self-start`}
-      >
-        <ArrowLeftIcon />
-        Back to Executions
-      </Link>
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
@@ -161,7 +151,7 @@ export function ExecutionDetailView({
           <p>
             Could not refresh this execution. Showing the last recorded state.
           </p>
-          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+          <Button variant="outline" size="xs" onClick={() => void refetch()}>
             Retry refresh
           </Button>
         </div>

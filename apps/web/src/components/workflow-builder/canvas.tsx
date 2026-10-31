@@ -673,7 +673,7 @@ function WorkflowBuilderCanvasInner({
             <Button
               type="button"
               variant="ghost"
-              size="sm"
+              size="xs"
               onClick={() => setPendingRemoteUpdate(null)}
             >
               Dismiss
@@ -681,7 +681,7 @@ function WorkflowBuilderCanvasInner({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="xs"
               onClick={() => applyRemoteGraph(pendingRemoteUpdate)}
             >
               <RefreshCwIcon />
@@ -908,11 +908,12 @@ function WorkflowBuilderCanvasInner({
             <Button
               type="button"
               variant="ghost"
+              size="xs"
               onClick={() => setCommitDialog(null)}
             >
               Cancel
             </Button>
-            <Button type="button" onClick={confirmCommit}>
+            <Button type="button" size="xs" onClick={confirmCommit}>
               {commitDialog === "publish" ? "Publish" : "Commit"}
             </Button>
           </DialogFooter>

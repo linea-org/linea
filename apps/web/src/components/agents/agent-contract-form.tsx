@@ -5,7 +5,7 @@ import { z } from "zod"
 import { jsonSchemaDocumentSchema } from "@linea/protocol/resources"
 import { Button } from "@linea/ui/components/button"
 import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
-import { Textarea } from "@linea/ui/components/textarea"
+import { JsonTextarea } from "./json-textarea"
 import { createAgentContractFn } from "@/lib/agent-contracts-api"
 
 const schemaText = z.string().transform((text, context) => {
@@ -55,13 +55,7 @@ export function AgentContractForm({
       }}
       className="flex flex-col gap-4"
     >
-      <div>
-        <h2 className="text-sm font-medium">New Contract revision</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Describe the input and output using JSON Schema. You can start with
-          the example below. Saved revisions cannot be changed.
-        </p>
-      </div>
+      <h2 className="text-sm font-medium">New Contract revision</h2>
       {(
         ["inputSchema", "outputSchema"] satisfies (keyof z.input<
           typeof schema
@@ -71,10 +65,9 @@ export function AgentContractForm({
           <FieldLabel htmlFor={`agent-${name}`}>
             {name === "inputSchema" ? "Input" : "Output"} JSON Schema
           </FieldLabel>
-          <Textarea
+          <JsonTextarea
             id={`agent-${name}`}
             rows={9}
-            spellCheck={false}
             className="font-mono text-xs"
             {...register(name)}
           />
@@ -91,7 +84,12 @@ export function AgentContractForm({
           Contract revision saved. Select it in the definition editor.
         </p>
       )}
-      <Button type="submit" disabled={save.isPending} className="self-start">
+      <Button
+        type="submit"
+        size="xs"
+        disabled={save.isPending}
+        className="self-start"
+      >
         {save.isPending ? "Saving…" : "Create Contract revision"}
       </Button>
     </form>

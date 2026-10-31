@@ -10,9 +10,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
-
-import { AuthShell } from "../components/auth"
+import { AuthShell, PasswordInput } from "../components/auth"
 import { authClient } from "../lib/auth-client"
 import { authErrorMessage } from "../lib/auth-redirect"
 
@@ -122,10 +120,9 @@ function ResetPasswordPage() {
         <FieldGroup>
           <Field data-invalid={!!fieldErrors.password || undefined}>
             <FieldLabel htmlFor="password">New password</FieldLabel>
-            <Input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -135,10 +132,9 @@ function ResetPasswordPage() {
           </Field>
           <Field data-invalid={!!fieldErrors.confirm || undefined}>
             <FieldLabel htmlFor="confirm">Confirm password</FieldLabel>
-            <Input
+            <PasswordInput
               id="confirm"
               name="confirm"
-              type="password"
               autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}

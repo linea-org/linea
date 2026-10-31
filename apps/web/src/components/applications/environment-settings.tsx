@@ -1,19 +1,4 @@
-import { useState } from "react"
-import { Button } from "@linea/ui/components/button"
-import { Field, FieldLabel } from "@linea/ui/components/field"
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@linea/ui/components/native-select"
 import { Badge } from "@linea/ui/components/badge"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@linea/ui/components/sheet"
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
 import { EnvironmentDeployments } from "./environment-deployments"
@@ -28,6 +13,21 @@ type EnvironmentSettingsProps = {
   environment: EnvironmentSummary
   workflows: WorkflowSummary[]
   onSaved: () => Promise<void>
+}
+
+export function environmentName(
+  environment: EnvironmentSummary["environment"]
+) {
+  switch (environment) {
+    case "dev":
+      return "Development"
+    case "production":
+      return "Production"
+    default: {
+      const unreachable: never = environment
+      return unreachable
+    }
+  }
 }
 
 const sections = [
@@ -93,14 +93,9 @@ const sections = [
 
 export function EnvironmentSettings(props: EnvironmentSettingsProps) {
   const { environment } = props
-  const name = environment.environment === "dev" ? "Development" : "Production"
-  const [active, setActive] = useState(sections[0])
-  const [visited, setVisited] = useState<string[]>([])
+  const name = environmentName(environment.environment)
   return (
-    <section
-      aria-label={`${name} Environment`}
-      className="overflow-hidden rounded-xl border bg-card"
-    >
+    <section aria-label={`${name} Environment`} className="flex flex-col">
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div>
           <h2 className="text-sm font-medium">{name}</h2>
@@ -114,88 +109,20 @@ export function EnvironmentSettings(props: EnvironmentSettingsProps) {
           {environment.enabled ? "Enabled" : "Disabled"}
         </Badge>
       </div>
-      <dl className="grid grid-cols-2 gap-4 px-4 py-4 text-xs">
-        <div>
-          <dt className="text-muted-foreground">User identity</dt>
-          <dd className="mt-1">
-            {environment.oidcIssuer ? "Configured" : "Not configured"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Content retention</dt>
-          <dd className="mt-1">{environment.contentRetentionDays} days</dd>
-        </div>
-      </dl>
-      <Sheet
-        onOpenChange={(open) => {
-          if (open)
-            setVisited((current) => (current.length ? current : [active.label]))
-        }}
-      >
-        <div className="border-t px-4 py-3">
-          <SheetTrigger render={<Button variant="outline" size="sm" />}>
-            Manage {name}
-          </SheetTrigger>
-        </div>
-        <SheetContent
-          keepMounted
-          className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-2xl"
+      {sections.map((section) => (
+        <section
+          key={section.label}
+          className="flex flex-col gap-4 border-b px-4 py-4"
         >
-          <SheetHeader className="border-b pr-12">
-            <SheetTitle>{name} Environment</SheetTitle>
-            <SheetDescription>
-              Manage deployments and configuration for this Environment.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="flex min-w-0 flex-col gap-4 px-4 pb-6">
-            <Field>
-              <FieldLabel htmlFor={`${environment.id}-section`}>
-                Section
-              </FieldLabel>
-              <NativeSelect
-                id={`${environment.id}-section`}
-                className="w-full"
-                value={active.label}
-                onChange={(event) => {
-                  const section = sections.find(
-                    (section) => section.label === event.target.value
-                  )
-                  if (section) {
-                    setActive(section)
-                    setVisited((current) =>
-                      current.includes(section.label)
-                        ? current
-                        : [...current, section.label]
-                    )
-                  }
-                }}
-              >
-                {sections.map((section) => (
-                  <NativeSelectOption key={section.label} value={section.label}>
-                    {section.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <div>
-              <h3 className="text-sm font-medium">{active.label}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {active.description}
-              </p>
-            </div>
-            {sections
-              .filter((section) => visited.includes(section.label))
-              .map((section) => (
-                <div
-                  key={section.label}
-                  hidden={active.label !== section.label}
-                >
-                  {section.content(props)}
-                </div>
-              ))}
+          <div>
+            <h3 className="text-sm font-medium">{section.label}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {section.description}
+            </p>
           </div>
-        </SheetContent>
-      </Sheet>
+          {section.content(props)}
+        </section>
+      ))}
     </section>
   )
 }

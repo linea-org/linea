@@ -173,7 +173,7 @@ export function ChatPreviewPanel({
         <Button
           type="button"
           variant="ghost"
-          size="sm"
+          size="xs"
           onClick={startNewChat}
           disabled={(!conversationId && messages.length === 0) || isWaiting}
         >
@@ -216,7 +216,7 @@ export function ChatPreviewPanel({
             <Button
               type="button"
               variant="ghost"
-              size="sm"
+              size="xs"
               onClick={() => setContextOpen(true)}
             >
               <PlusIcon />

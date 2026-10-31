@@ -8,6 +8,10 @@ export const applicationSchema = z.object({
   workspaceId: z.uuid(),
   name: z.string(),
   slug: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  agentCount: z.coerce.number().default(0),
+  workflowCount: z.coerce.number().default(0),
 })
 
 export type ApplicationSummary = z.infer<typeof applicationSchema>
@@ -48,6 +52,34 @@ export const createApplicationFn = createServerFn({ method: "POST" })
       )
     }
     return applicationSchema.parse(body)
+  })
+
+export const updateApplicationFn = createServerFn({ method: "POST" })
+  .validator(
+    createApplicationInputSchema.extend({
+      applicationId: z.uuid(),
+    })
+  )
+  .handler(async ({ data }) => {
+    const response = await apiFetch(`/applications/${data.applicationId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: data.name, slug: data.slug }),
+    })
+    const body: unknown = await response.json()
+    if (!response.ok) {
+      const error = z.object({ message: z.string() }).safeParse(body)
+      throw new Error(
+        error.success ? error.data.message : "Could not update Application"
+      )
+    }
+    return z
+      .object({
+        id: z.uuid(),
+        name: z.string(),
+        slug: z.string(),
+      })
+      .parse(body)
   })
 
 export function applicationsQueryOptions(workspaceSlug: string) {

@@ -52,7 +52,7 @@ export function RecentExecutionsWidget({
       action={
         <Button
           variant="secondary"
-          size="sm"
+          size="xs"
           nativeButton={false}
           render={<Link to="/w/$slug/executions" params={{ slug }} />}
         >

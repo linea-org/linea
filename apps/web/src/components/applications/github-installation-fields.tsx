@@ -1,12 +1,15 @@
 import { useId } from "react"
-import type { UseFormRegister } from "react-hook-form"
+import { Controller, type Control, type UseFormRegister } from "react-hook-form"
 import { Field, FieldLabel } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
 import { Textarea } from "@linea/ui/components/textarea"
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@linea/ui/components/native-select"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@linea/ui/components/select"
 export type InstallationForm = {
   appClientId: string
   installationId: number
@@ -17,8 +20,10 @@ export type InstallationForm = {
 
 export function GithubInstallationFields({
   register,
+  control,
 }: {
   readonly register: UseFormRegister<InstallationForm>
+  readonly control: Control<InstallationForm>
 }) {
   const environmentId = useId()
   return (
@@ -60,26 +65,61 @@ export function GithubInstallationFields({
         <FieldLabel htmlFor={environmentId + "-github-issues"}>
           Issues permission
         </FieldLabel>
-        <NativeSelect
-          id={environmentId + "-github-issues"}
-          {...register("issues")}
-        >
-          <NativeSelectOption value="read">Read</NativeSelectOption>
-          <NativeSelectOption value="write">Read and write</NativeSelectOption>
-        </NativeSelect>
+        <Controller
+          control={control}
+          name="issues"
+          render={({ field }) => (
+            <Select
+              value={field.value}
+              onValueChange={(value) => {
+                if (value !== "read" && value !== "write") return
+                field.onChange(value)
+              }}
+            >
+              <SelectTrigger
+                id={environmentId + "-github-issues"}
+                className="w-full"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="read">Read</SelectItem>
+                <SelectItem value="write">Read and write</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        />
       </Field>
       <Field>
         <FieldLabel htmlFor={environmentId + "-github-pr"}>
           Pull requests permission
         </FieldLabel>
-        <NativeSelect
-          id={environmentId + "-github-pr"}
-          {...register("pullRequests")}
-        >
-          <NativeSelectOption value="none">None</NativeSelectOption>
-          <NativeSelectOption value="read">Read</NativeSelectOption>
-          <NativeSelectOption value="write">Read and write</NativeSelectOption>
-        </NativeSelect>
+        <Controller
+          control={control}
+          name="pullRequests"
+          render={({ field }) => (
+            <Select
+              value={field.value}
+              onValueChange={(value) => {
+                if (value !== "none" && value !== "read" && value !== "write")
+                  return
+                field.onChange(value)
+              }}
+            >
+              <SelectTrigger
+                id={environmentId + "-github-pr"}
+                className="w-full"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="read">Read</SelectItem>
+                <SelectItem value="write">Read and write</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        />
       </Field>
     </>
   )

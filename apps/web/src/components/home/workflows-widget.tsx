@@ -41,7 +41,7 @@ export function WorkflowsWidget({
     <WorkflowFormDialog
       workspaceSlug={slug}
       trigger={
-        <Button size="sm">
+        <Button size="xs">
           <PlusIcon />
           Create
         </Button>
@@ -67,7 +67,7 @@ export function WorkflowsWidget({
         <div className="flex items-center gap-1">
           <Button
             variant="secondary"
-            size="sm"
+            size="xs"
             nativeButton={false}
             render={<Link to="/w/$slug/workflows" params={{ slug }} />}
           >

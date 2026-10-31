@@ -1,8 +1,9 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { PlusIcon } from "lucide-react"
-import { buttonVariants } from "@linea/ui/components/button"
+import { Button } from "@linea/ui/components/button"
 
+import { AddAgentDialog } from "@/components/agents/add-agent-dialog"
 import {
   HomeStats,
   OpenSignalsWidget,
@@ -53,14 +54,15 @@ function WorkspaceHomePage() {
             Start with a task, then configure and deploy your Agent.
           </p>
         </div>
-        <Link
-          to="/w/$slug/agents/new"
-          params={{ slug }}
-          className={buttonVariants({ size: "sm" })}
-        >
-          <PlusIcon />
-          Add Agent
-        </Link>
+        <AddAgentDialog
+          workspaceSlug={slug}
+          trigger={
+            <Button size="xs">
+              <PlusIcon />
+              Add Agent
+            </Button>
+          }
+        />
       </header>
       <HomeStats
         workflows={workflows}

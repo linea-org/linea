@@ -9,9 +9,13 @@ import {
   CommandList,
 } from "@linea/ui/components/command"
 import { Kbd, KbdGroup } from "@linea/ui/components/kbd"
+import { useSidebar } from "@linea/ui/components/sidebar"
+import { cn } from "@linea/ui/lib/utils"
 
 export function TopBarSearch() {
   const [open, setOpen] = useState(false)
+  const { isMobile, state } = useSidebar()
+  const iconOnly = !isMobile && state === "collapsed"
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -29,18 +33,26 @@ export function TopBarSearch() {
       <Button
         type="button"
         variant="outline"
-        size="xs"
-        className="w-full max-w-sm justify-start gap-2 text-muted-foreground"
+        size={iconOnly ? "icon-sm" : "xs"}
+        aria-label="Find"
+        className={cn(
+          "text-muted-foreground",
+          iconOnly ? "size-8" : "w-full justify-start"
+        )}
         onClick={() => setOpen(true)}
       >
         <SearchIcon data-icon="inline-start" />
-        <span className="flex-1 text-left font-normal">Search…</span>
-        <KbdGroup>
-          <Kbd>
-            <CommandIcon />
-          </Kbd>
-          <Kbd>K</Kbd>
-        </KbdGroup>
+        {iconOnly ? null : (
+          <>
+            <span className="flex-1 text-left font-normal">Find</span>
+            <KbdGroup>
+              <Kbd>
+                <CommandIcon />
+              </Kbd>
+              <Kbd>K</Kbd>
+            </KbdGroup>
+          </>
+        )}
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder="Search…" />

@@ -56,6 +56,7 @@ import {
   executionStatusLabel,
   formatCost,
 } from "@/components/executions"
+import { PageToolbar } from "@/components/workspace/page-toolbar"
 import {
   encodeExecutionCursor,
   listWorkspaceExecutionsFn,
@@ -217,8 +218,8 @@ function ExecutionsPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col px-4 py-4">
-      <div className="mb-4 flex flex-wrap items-center gap-2 pl-1">
+    <main className="flex min-w-0 flex-1 flex-col">
+      <PageToolbar>
         <Select
           value={search.status ?? "all"}
           onValueChange={(value) => {
@@ -234,7 +235,7 @@ function ExecutionsPage() {
             })
           }}
         >
-          <SelectTrigger size="sm">
+          <SelectTrigger size="xs">
             <SelectValue placeholder="Status">
               {(value: string) =>
                 value === "all"
@@ -268,7 +269,7 @@ function ExecutionsPage() {
             })
           }}
         >
-          <SelectTrigger size="sm">
+          <SelectTrigger size="xs">
             <SelectValue placeholder="Trigger">
               {(value: string) =>
                 value === "all"
@@ -286,201 +287,205 @@ function ExecutionsPage() {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </PageToolbar>
+      <div className="flex flex-1 flex-col px-4 py-4">
+        {newCount > 0 ? (
+          <button
+            type="button"
+            onClick={showNewExecutions}
+            className="mb-4 flex w-fit items-center gap-2 rounded-md border border-input bg-accent px-3 py-1.5 text-xs text-accent-foreground transition-colors hover:bg-accent/80"
+          >
+            <SparklesIcon className="size-4" />
+            {newCount === 1
+              ? "1 new execution — refresh"
+              : `${newCount} new executions — refresh`}
+          </button>
+        ) : null}
 
-      {newCount > 0 ? (
-        <button
-          type="button"
-          onClick={showNewExecutions}
-          className="mb-4 flex w-fit items-center gap-2 rounded-md border border-input bg-accent px-3 py-1.5 text-xs text-accent-foreground transition-colors hover:bg-accent/80"
-        >
-          <SparklesIcon className="size-4" />
-          {newCount === 1
-            ? "1 new execution — refresh"
-            : `${newCount} new executions — refresh`}
-        </button>
-      ) : null}
-
-      {executions.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              {search.status || search.trigger ? (
-                <SearchIcon />
-              ) : (
-                <HistoryIcon />
-              )}
-            </EmptyMedia>
-            <EmptyTitle>
-              {search.status || search.trigger
-                ? "No matching executions"
-                : "No executions yet"}
-            </EmptyTitle>
-            <EmptyDescription>
-              {search.status || search.trigger
-                ? "Try a different status or trigger filter."
-                : "Runs of any workflow in this workspace will show up here."}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <>
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <Table>
-              <TableHeader className="bg-muted/40">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="px-4">Workflow</TableHead>
-                  <TableHead className="px-4">Status</TableHead>
-                  <TableHead className="px-4">Trigger</TableHead>
-                  <TableHead className="px-4">Duration</TableHead>
-                  <TableHead className="px-4">Cost</TableHead>
-                  <TableHead className="px-4">When</TableHead>
-                  <TableHead className="w-12 px-2">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {executions.map((execution) => (
-                  <TableRow key={execution.id}>
-                    <TableCell className="px-4 py-3">
-                      <Link
-                        to="/w/$slug/executions/$executionId"
-                        params={{
-                          slug,
-                          executionId: execution.id,
-                        }}
-                        className="block min-w-0"
-                      >
-                        <span className="block truncate font-medium text-foreground hover:underline">
-                          {execution.workflowName}
-                        </span>
-                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                          {execution.workflowSlug}
-                        </span>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <ExecutionStatusBadge status={execution.status} />
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground">
-                      {triggerLabel[execution.trigger]}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground">
-                      {formatDuration(
-                        execution.startedAt,
-                        execution.completedAt
-                      )}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground">
-                      {formatCost(execution.costMicros, execution.costUnpriced)}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground">
-                      {new Date(execution.createdAt).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="px-2 py-3 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`More options for ${execution.workflowName}`}
-                            />
-                          }
-                        >
-                          <EllipsisVerticalIcon />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-48 min-w-48"
-                        >
-                          <DropdownMenuItem
-                            onClick={() =>
-                              void navigate({
-                                to: "/w/$slug/executions/$executionId",
-                                params: {
-                                  slug,
-                                  executionId: execution.id,
-                                },
-                              })
-                            }
-                          >
-                            <EyeIcon />
-                            View execution
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              void navigate({
-                                to: "/w/$slug/workflows/$workflowId",
-                                params: {
-                                  slug,
-                                  workflowId: execution.workflowId,
-                                },
-                              })
-                            }
-                          >
-                            <WorkflowIcon />
-                            Open workflow
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+        {executions.length === 0 ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                {search.status || search.trigger ? (
+                  <SearchIcon />
+                ) : (
+                  <HistoryIcon />
+                )}
+              </EmptyMedia>
+              <EmptyTitle>
+                {search.status || search.trigger
+                  ? "No matching executions"
+                  : "No executions yet"}
+              </EmptyTitle>
+              <EmptyDescription>
+                {search.status || search.trigger
+                  ? "Try a different status or trigger filter."
+                  : "Runs of any workflow in this workspace will show up here."}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <>
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <Table>
+                <TableHeader className="bg-muted/40">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="px-4">Workflow</TableHead>
+                    <TableHead className="px-4">Status</TableHead>
+                    <TableHead className="px-4">Trigger</TableHead>
+                    <TableHead className="px-4">Duration</TableHead>
+                    <TableHead className="px-4">Cost</TableHead>
+                    <TableHead className="px-4">When</TableHead>
+                    <TableHead className="w-12 px-2">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {isFirstPage && !hasMore ? null : (
-            <div className="mt-4 flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                Page {currentPageNumber} · {total} total
-              </p>
-              <Pagination className="mx-0 w-auto">
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      href={hrefFor({
-                        cursor: previousCursor || undefined,
-                        trail:
-                          previousTrail.length > 0
-                            ? previousTrail.join(";")
-                            : undefined,
-                      })}
-                      aria-disabled={isFirstPage}
-                      className={
-                        isFirstPage ? "pointer-events-none opacity-50" : ""
-                      }
-                      onClick={(event) => {
-                        event.preventDefault()
-                        goPrevious()
-                      }}
-                    />
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationNext
-                      href={hrefFor({
-                        cursor: nextCursor,
-                        trail: [...trail, search.cursor ?? ""].join(";"),
-                      })}
-                      aria-disabled={!hasMore}
-                      className={
-                        !hasMore ? "pointer-events-none opacity-50" : ""
-                      }
-                      onClick={(event) => {
-                        event.preventDefault()
-                        goNext()
-                      }}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+                </TableHeader>
+                <TableBody>
+                  {executions.map((execution) => (
+                    <TableRow key={execution.id}>
+                      <TableCell className="px-4 py-3">
+                        <Link
+                          to="/w/$slug/executions/$executionId"
+                          params={{
+                            slug,
+                            executionId: execution.id,
+                          }}
+                          className="block min-w-0"
+                        >
+                          <span className="block truncate font-medium text-foreground hover:underline">
+                            {execution.workflowName}
+                          </span>
+                          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                            {execution.workflowSlug}
+                          </span>
+                        </Link>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <ExecutionStatusBadge status={execution.status} />
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground">
+                        {triggerLabel[execution.trigger]}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground">
+                        {formatDuration(
+                          execution.startedAt,
+                          execution.completedAt
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground">
+                        {formatCost(
+                          execution.costMicros,
+                          execution.costUnpriced
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground">
+                        {new Date(execution.createdAt).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="px-2 py-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`More options for ${execution.workflowName}`}
+                              />
+                            }
+                          >
+                            <EllipsisVerticalIcon />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-48 min-w-48"
+                          >
+                            <DropdownMenuItem
+                              onClick={() =>
+                                void navigate({
+                                  to: "/w/$slug/executions/$executionId",
+                                  params: {
+                                    slug,
+                                    executionId: execution.id,
+                                  },
+                                })
+                              }
+                            >
+                              <EyeIcon />
+                              View execution
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                void navigate({
+                                  to: "/w/$slug/workflows/$workflowId",
+                                  params: {
+                                    slug,
+                                    workflowId: execution.workflowId,
+                                  },
+                                })
+                              }
+                            >
+                              <WorkflowIcon />
+                              Open workflow
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          )}
-        </>
-      )}
+
+            {isFirstPage && !hasMore ? null : (
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Page {currentPageNumber} · {total} total
+                </p>
+                <Pagination className="mx-0 w-auto">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href={hrefFor({
+                          cursor: previousCursor || undefined,
+                          trail:
+                            previousTrail.length > 0
+                              ? previousTrail.join(";")
+                              : undefined,
+                        })}
+                        aria-disabled={isFirstPage}
+                        className={
+                          isFirstPage ? "pointer-events-none opacity-50" : ""
+                        }
+                        onClick={(event) => {
+                          event.preventDefault()
+                          goPrevious()
+                        }}
+                      />
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationNext
+                        href={hrefFor({
+                          cursor: nextCursor,
+                          trail: [...trail, search.cursor ?? ""].join(";"),
+                        })}
+                        aria-disabled={!hasMore}
+                        className={
+                          !hasMore ? "pointer-events-none opacity-50" : ""
+                        }
+                        onClick={(event) => {
+                          event.preventDefault()
+                          goNext()
+                        }}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </main>
   )
 }

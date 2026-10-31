@@ -1,26 +1,12 @@
-"use client"
-
-import { GrainGradient } from "@paper-design/shaders-react"
-
-const GRADIENT_COLORS = ["#FFFFFF", "#6B5CE7", "#8B7CF7", "#F3E8FF"]
-
 export function AuthGradientPanel() {
   return (
-    <div className="relative hidden h-full min-h-0 overflow-hidden bg-foreground text-primary-foreground lg:flex">
-      <GrainGradient
-        speed={1}
-        scale={1}
-        rotation={0}
-        offsetX={0}
-        offsetY={0}
-        softness={0.55}
-        intensity={0.5}
-        noise={0.22}
-        shape="corners"
-        colors={GRADIENT_COLORS}
-        colorBack="#00000000"
-        className="absolute inset-0 size-full"
+    <div className="relative hidden h-full min-h-0 overflow-hidden bg-black text-white lg:flex">
+      <img
+        src="/assets/auth-panel.jpg"
+        alt=""
+        className="absolute inset-0 size-full object-cover"
       />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/15 to-black/50" />
       <div className="relative z-10 flex h-full w-full flex-col justify-between gap-10 p-12 xl:p-16">
         <div>
           <p className="text-xs font-medium tracking-wide text-white/70">

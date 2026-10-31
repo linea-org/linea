@@ -1,13 +1,16 @@
 import { useConnectionManagement } from "./connection-management-context"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@linea/ui/components/button"
 import { Input } from "@linea/ui/components/input"
 import { Field, FieldLabel } from "@linea/ui/components/field"
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@linea/ui/components/native-select"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@linea/ui/components/select"
 import { assignConnectionAuthorityFn } from "@/lib/shared-connections-api"
 import { connectionAuthorityRoles as roles } from "./connection-authority-roles"
 type AuthorityForm = {
@@ -25,6 +28,7 @@ export function ConnectionAuthorityForm() {
     })
   }
   const {
+    control,
     register,
     handleSubmit,
     resetField,
@@ -50,13 +54,30 @@ export function ConnectionAuthorityForm() {
       >
         <Field>
           <FieldLabel htmlFor={connectionId + "-role"}>Assign role</FieldLabel>
-          <NativeSelect id={connectionId + "-role"} {...register("kind")}>
-            {roles.map((role) => (
-              <NativeSelectOption key={role.kind} value={role.kind}>
-                {role.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+          <Controller
+            control={control}
+            name="kind"
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onValueChange={(value) => {
+                  if (value !== "requester" && value !== "reviewer") return
+                  field.onChange(value)
+                }}
+              >
+                <SelectTrigger id={connectionId + "-role"} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((role) => (
+                    <SelectItem key={role.kind} value={role.kind}>
+                      {role.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
         </Field>
         <Field>
           <FieldLabel htmlFor={connectionId + "-subject"}>
@@ -80,7 +101,7 @@ export function ConnectionAuthorityForm() {
             </p>
           )}
         </Field>
-        <Button disabled={!enabled || assign.isPending} type="submit">
+        <Button size="xs" disabled={!enabled || assign.isPending} type="submit">
           Assign access
         </Button>
       </form>

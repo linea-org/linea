@@ -26,7 +26,7 @@ type Crumb =
     }
   | { label: string }
 
-function useBreadcrumbs(slug: string): Crumb[] {
+export function useWorkspaceCrumbs(slug: string): Crumb[] {
   const matches = useMatches()
   const crumbs: Crumb[] = []
   for (const match of matches) {
@@ -125,6 +125,9 @@ function useBreadcrumbs(slug: string): Crumb[] {
       })
       crumbs.push({ label: "Execution" })
     }
+    if (match.routeId === "/w/$slug/approvals") {
+      crumbs.push({ label: "Approvals" })
+    }
     if (match.routeId === "/w/$slug/notifications") {
       crumbs.push({ label: "Notifications" })
     }
@@ -217,7 +220,7 @@ function HiddenCrumbs({ crumbs }: { crumbs: Crumb[] }) {
 }
 
 export function TopBarBreadcrumb({ slug }: { slug: string }) {
-  const crumbs = useBreadcrumbs(slug)
+  const crumbs = useWorkspaceCrumbs(slug)
   if (crumbs.length === 0) {
     return null
   }

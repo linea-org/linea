@@ -131,18 +131,16 @@ test("adds an Agent with inline Application creation and preserves partial succe
     page.getByRole("heading", { name: agentName, exact: true })
   ).toBeVisible()
   expect(applicationCreates).toBe(1)
-  await page
-    .getByRole("link", { name: "Back to Application", exact: true })
-    .click()
+  await page.getByRole("link", { name: "Applications", exact: true }).click()
+  await page.getByRole("link", { name: applicationName, exact: true }).click()
+  await page.getByRole("tab", { name: "Agents", exact: true }).click()
   await expect(
     page.getByRole("tab", { name: "Agents", exact: true })
   ).toHaveAttribute("aria-selected", "true")
   await expect(
     page.getByRole("link", { name: new RegExp(agentName) })
   ).toBeVisible()
-  await page
-    .getByRole("link", { name: "Back to Applications", exact: true })
-    .click()
+  await page.getByRole("link", { name: "Applications", exact: true }).click()
   await expect(
     page.getByRole("link", { name: new RegExp(applicationName) })
   ).toHaveCount(1)

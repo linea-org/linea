@@ -64,9 +64,9 @@ export function UserMenu({
             variant="ghost"
             aria-label="Open account menu"
             className={cn(
-              "gap-2 transition-colors hover:bg-secondary hover:text-secondary-foreground",
+              "gap-2 hover:bg-transparent",
               showDetails
-                ? "h-10 w-full justify-start rounded-md px-2 group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:p-0"
+                ? "h-8 w-full justify-start rounded-md px-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:p-0"
                 : "size-10 rounded-full p-0",
               className
             )}
@@ -78,40 +78,41 @@ export function UserMenu({
           email={user?.email}
           image={user?.image}
           size="sm"
-          className="size-8 group-data-[collapsible=icon]:size-8"
+          className="size-6 group-data-[collapsible=icon]:size-6"
         />
         {showDetails ? (
           <>
-            <span className="min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-              <span className="block truncate text-xs font-medium text-foreground">
-                {user?.name || "Account"}
-              </span>
-              <span className="block truncate text-xs text-muted-foreground">
-                {user?.email}
-              </span>
+            <span className="min-w-0 truncate text-left text-xs font-medium text-foreground group-data-[collapsible=icon]:hidden">
+              {user?.name || "Account"}
             </span>
-            <EllipsisVerticalIcon className="size-3.5 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+            <EllipsisVerticalIcon className="ml-auto size-3 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
           </>
         ) : null}
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="w-56 min-w-56">
-        <DropdownMenuItem className="cursor-pointer" onClick={goToAccount}>
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="truncate text-xs font-medium text-foreground">
+        <div className="flex items-center gap-2 px-2 py-1.5">
+          <UserAvatar
+            name={user?.name}
+            email={user?.email}
+            image={user?.image}
+            className="size-7"
+          />
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium text-foreground">
               {user?.name || "Account"}
-            </span>
-            <span className="truncate text-xs text-muted-foreground">
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
               {user?.email}
-            </span>
+            </p>
           </div>
-        </DropdownMenuItem>
+        </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="cursor-pointer" onClick={goToAccount}>
+        <DropdownMenuItem className="min-h-8 py-1" onClick={goToAccount}>
           <UserRoundIcon />
           Account
         </DropdownMenuItem>
         <DropdownMenuItem
-          className="cursor-pointer"
+          className="min-h-8 py-1"
           onClick={() => setTheme(isDark ? "light" : "dark")}
         >
           {isDark ? <SunIcon /> : <MoonIcon />}
@@ -120,7 +121,7 @@ export function UserMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"
-          className="cursor-pointer"
+          className="min-h-8 py-1"
           onClick={() => {
             void signOut()
           }}

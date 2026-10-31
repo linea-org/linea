@@ -157,7 +157,7 @@ export function RunPanel({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="xs"
               onClick={() => void refetch()}
             >
               Retry

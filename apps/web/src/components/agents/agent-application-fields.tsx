@@ -7,9 +7,12 @@ import {
 } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@linea/ui/components/native-select"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@linea/ui/components/select"
 import { slugify } from "@/lib/auth-redirect"
 import type { ApplicationSummary } from "@/lib/applications-api"
 import type { AgentOnboardingInput } from "./agent-onboarding-schema"
@@ -26,31 +29,37 @@ export function AgentApplicationFields({
     <>
       <Field>
         <FieldLabel htmlFor="agent-application">Application</FieldLabel>
-        <NativeSelect
-          id="agent-application"
-          className="w-full"
-          value={application.kind === "new" ? "new" : application.id}
-          onChange={(event) => {
+        <Select
+          value={application.kind === "new" ? "new" : application.id || null}
+          onValueChange={(value) => {
+            if (typeof value !== "string") return
             setValue(
               "application",
-              event.target.value === "new"
+              value === "new"
                 ? { kind: "new", name: "", slug: "" }
-                : { kind: "existing", id: event.target.value }
+                : { kind: "existing", id: value }
             )
           }}
         >
-          <NativeSelectOption value="">
-            Choose an Application
-          </NativeSelectOption>
-          {applications.map((application) => (
-            <NativeSelectOption key={application.id} value={application.id}>
-              {application.name}
-            </NativeSelectOption>
-          ))}
-          <NativeSelectOption value="new">
-            Create an Application…
-          </NativeSelectOption>
-        </NativeSelect>
+          <SelectTrigger id="agent-application" className="w-full">
+            <SelectValue placeholder="Choose an Application">
+              {(value: string) =>
+                value === "new"
+                  ? "Create an Application…"
+                  : (applications.find((item) => item.id === value)?.name ??
+                    "Choose an Application")
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {applications.map((item) => (
+              <SelectItem key={item.id} value={item.id}>
+                {item.name}
+              </SelectItem>
+            ))}
+            <SelectItem value="new">Create an Application…</SelectItem>
+          </SelectContent>
+        </Select>
         <FieldDescription>The product this Agent belongs to.</FieldDescription>
         <FieldError>
           {getFieldState("application.id").error?.message}

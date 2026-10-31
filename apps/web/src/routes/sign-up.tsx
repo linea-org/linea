@@ -12,7 +12,7 @@ import {
 } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
 
-import { AuthShell, OAuthButtons } from "../components/auth"
+import { AuthShell, OAuthButtons, PasswordInput } from "../components/auth"
 import { authClient } from "../lib/auth-client"
 import { authErrorMessage, requireGuest } from "../lib/auth-redirect"
 
@@ -149,10 +149,9 @@ function SignUpPage() {
             </Field>
             <Field data-invalid={!!fieldErrors.password || undefined}>
               <FieldLabel htmlFor="password">Password</FieldLabel>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

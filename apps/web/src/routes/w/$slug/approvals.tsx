@@ -1,10 +1,10 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
-import { ArrowLeftIcon, CircleCheckIcon, XIcon } from "lucide-react"
+import { CircleCheckIcon, XIcon } from "lucide-react"
 import { z } from "zod"
 
-import { Button, buttonVariants } from "@linea/ui/components/button"
+import { Button } from "@linea/ui/components/button"
 import {
   Empty,
   EmptyDescription,
@@ -50,31 +50,12 @@ function ApprovalsPage() {
 
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      {executionId && (
-        <Link
-          to="/w/$slug/executions/$executionId"
-          params={{ slug, executionId }}
-          className={`${buttonVariants({ variant: "ghost", size: "xs" })} mb-4 self-start`}
-        >
-          <ArrowLeftIcon />
-          Back to execution
-        </Link>
-      )}
-      <h1 className="pl-1 text-base font-medium text-foreground">
-        Pending approvals
-      </h1>
-      <p className="mt-1 pl-1 text-xs text-muted-foreground">
-        Workflow executions waiting on a decision before they continue.
-      </p>
-
       {approvalsQuery.isError ? (
-        <p className="mt-6 text-xs text-destructive">
-          Could not load approvals.
-        </p>
+        <p className="text-xs text-destructive">Could not load approvals.</p>
       ) : approvalsQuery.isPending ? (
-        <p className="mt-6 text-xs text-muted-foreground">Loading…</p>
+        <p className="text-xs text-muted-foreground">Loading…</p>
       ) : approvals.length === 0 ? (
-        <Empty className="mt-6">
+        <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <CircleCheckIcon />
@@ -90,7 +71,7 @@ function ApprovalsPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <ul className="mt-6 flex flex-col gap-4">
+        <ul className="flex flex-col gap-4">
           {approvals.map((approval) => (
             <li
               key={approval.id}
@@ -128,7 +109,7 @@ function ApprovalsPage() {
               <div className="mt-3 flex items-center gap-2">
                 <Button
                   type="button"
-                  size="sm"
+                  size="xs"
                   onClick={() =>
                     respond.mutate({ id: approval.id, approved: true })
                   }
@@ -140,7 +121,7 @@ function ApprovalsPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  size="xs"
                   onClick={() =>
                     respond.mutate({ id: approval.id, approved: false })
                   }

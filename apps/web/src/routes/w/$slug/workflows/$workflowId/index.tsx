@@ -11,7 +11,6 @@ import {
   PencilIcon,
   PencilRulerIcon,
   PlayIcon,
-  ArrowLeftIcon,
 } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
@@ -152,15 +151,6 @@ function WorkflowDetailPage() {
   })
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <Link
-        to="/w/$slug/applications/$applicationId"
-        params={{ slug, applicationId: workflow.applicationId }}
-        search={{ view: "workflows" }}
-        className="mb-3 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeftIcon className="size-3" />
-        Back to Application
-      </Link>
       <h1 className="mb-4 text-sm font-medium">{workflow.name}</h1>
       <div className="flex items-center justify-between gap-3 pl-1">
         <div className="flex items-center gap-3">
@@ -171,6 +161,7 @@ function WorkflowDetailPage() {
           <Button
             type="button"
             variant="outline"
+            size="xs"
             onClick={() => setEditOpen(true)}
           >
             <PencilIcon />
@@ -179,6 +170,7 @@ function WorkflowDetailPage() {
           <Button
             type="button"
             variant="outline"
+            size="xs"
             onClick={() => run.mutate()}
             disabled={run.isPending || !workflow.publishedVersionId}
             title={
@@ -191,6 +183,7 @@ function WorkflowDetailPage() {
             {run.isPending ? "Running…" : "Run"}
           </Button>
           <Button
+            size="xs"
             nativeButton={false}
             render={
               <Link
@@ -295,7 +288,7 @@ function WorkflowDetailPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  size="xs"
                   onClick={() => runRegression.mutate()}
                   disabled={
                     runRegression.isPending || !workflow.publishedVersionId

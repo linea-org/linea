@@ -1,7 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowLeftIcon } from "lucide-react"
-import { buttonVariants } from "@linea/ui/components/button"
-import { Badge } from "@linea/ui/components/badge"
+import { createFileRoute } from "@tanstack/react-router"
 import { AgentEditor } from "@/components/agents/agent-editor"
 import {
   getAgentFn,
@@ -44,29 +41,10 @@ export const Route = createFileRoute("/w/$slug/agents/$agentId")({
 
 function AgentPage() {
   const { slug } = Route.useParams()
-  const { agent, catalog, versions, contracts, application, environments } =
+  const { agent, catalog, versions, contracts, environments } =
     Route.useLoaderData()
   return (
-    <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
-      <Link
-        to="/w/$slug/applications/$applicationId"
-        params={{ slug, applicationId: application.id }}
-        search={{ view: "agents" }}
-        className={`${buttonVariants({ variant: "ghost", size: "xs" })} self-start`}
-      >
-        <ArrowLeftIcon />
-        Back to Application
-      </Link>
-      <header className="flex flex-col gap-1 pl-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-sm font-medium break-words">{agent.name}</h1>
-          {agent.archivedAt && <Badge variant="outline">Archived</Badge>}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {agent.description ||
-            "Define what this Agent does, publish a version, then deploy it."}
-        </p>
-      </header>
+    <main className="flex min-w-0 flex-1 flex-col">
       <AgentEditor
         key={agent.id}
         workspaceSlug={slug}

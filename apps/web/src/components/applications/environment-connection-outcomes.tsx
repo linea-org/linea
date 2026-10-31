@@ -43,6 +43,7 @@ export function EnvironmentConnectionOutcomes({
       <div className="flex gap-2">
         <Button
           variant="outline"
+          size="xs"
           disabled={cursorHistory.length === 1 || isFetching}
           onClick={() => setCursorHistory([undefined])}
         >
@@ -50,6 +51,7 @@ export function EnvironmentConnectionOutcomes({
         </Button>
         <Button
           variant="outline"
+          size="xs"
           disabled={cursorHistory.length === 1 || isFetching}
           onClick={() => setCursorHistory((history) => history.slice(0, -1))}
         >
@@ -57,6 +59,7 @@ export function EnvironmentConnectionOutcomes({
         </Button>
         <Button
           variant="outline"
+          size="xs"
           disabled={!data?.nextCursor || isFetching}
           onClick={() => {
             const nextCursor = data?.nextCursor

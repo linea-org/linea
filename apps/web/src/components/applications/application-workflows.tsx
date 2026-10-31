@@ -1,99 +1,104 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { PlusIcon, PencilRulerIcon } from "lucide-react"
-import { Button, buttonVariants } from "@linea/ui/components/button"
-import { WorkflowFormDialog, WorkflowStatusBadge } from "@/components/workflows"
+import { PlusIcon } from "lucide-react"
+import { Button } from "@linea/ui/components/button"
+import { PlayfulAvatar } from "@/components/avatar"
+import { WorkflowFormDialog, workflowStatus } from "@/components/workflows"
 import {
   createWorkflowFn,
   workflowsQueryOptions,
   type WorkflowSummary,
 } from "@/lib/workflows-api"
 
-export function ApplicationWorkflows({
+export function ApplicationWorkflowCreateButton({
   workspaceSlug,
   applicationId,
-  workflows,
 }: {
   workspaceSlug: string
   applicationId: string
-  workflows: WorkflowSummary[]
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   return (
-    <section aria-label="Application Workflows" className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="pl-1 text-xs text-muted-foreground">
-          Workflows run a process with steps you define in the builder.
-        </p>
-        <WorkflowFormDialog
-          workspaceSlug={workspaceSlug}
-          trigger={
-            <Button size="sm">
-              <PlusIcon />
-              Create Workflow
-            </Button>
-          }
-          title="Create Workflow"
-          submitLabel="Create Workflow"
-          defaultValues={{ applicationId, name: "", slug: "", description: "" }}
-          onSubmit={(values) =>
-            createWorkflowFn({ data: { ...values, applicationId } })
-          }
-          onSuccess={async (workflow) => {
-            await Promise.all([
-              queryClient.invalidateQueries({
-                queryKey: [
-                  "application-workflows",
-                  workspaceSlug,
-                  applicationId,
-                ],
-              }),
-              queryClient.invalidateQueries(
-                workflowsQueryOptions(workspaceSlug)
-              ),
-            ])
-            await navigate({
-              to: "/w/$slug/workflows/$workflowId/builder",
-              params: { slug: workspaceSlug, workflowId: workflow.id },
-            })
-          }}
-        />
-      </div>
+    <WorkflowFormDialog
+      workspaceSlug={workspaceSlug}
+      trigger={
+        <Button size="xs">
+          <PlusIcon />
+          Create Workflow
+        </Button>
+      }
+      title="Create Workflow"
+      submitLabel="Create Workflow"
+      defaultValues={{ applicationId, name: "", slug: "", description: "" }}
+      onSubmit={(values) =>
+        createWorkflowFn({ data: { ...values, applicationId } })
+      }
+      onSuccess={async (workflow) => {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["application-workflows", workspaceSlug, applicationId],
+          }),
+          queryClient.invalidateQueries(workflowsQueryOptions(workspaceSlug)),
+        ])
+        await navigate({
+          to: "/w/$slug/workflows/$workflowId/builder",
+          params: { slug: workspaceSlug, workflowId: workflow.id },
+        })
+      }}
+    />
+  )
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value))
+}
+
+export function ApplicationWorkflows({
+  workspaceSlug,
+  workflows,
+}: {
+  workspaceSlug: string
+  workflows: WorkflowSummary[]
+}) {
+  return (
+    <section aria-label="Application Workflows" className="flex flex-col">
       {workflows.length === 0 && (
-        <p className="rounded-xl border bg-card p-12 text-center text-xs text-muted-foreground">
-          No Workflows in this Application yet. Create one to open the builder.
+        <p className="px-4 py-8 text-xs text-muted-foreground">
+          No Workflows in this Application yet.
         </p>
       )}
       {workflows.length > 0 && (
-        <div className="divide-y overflow-hidden rounded-xl border bg-card">
+        <div className="divide-y divide-border/70 border-b border-border/70">
           {workflows.map((workflow) => (
-            <article
+            <Link
               key={workflow.id}
-              className="flex flex-wrap items-center gap-3 px-4 py-3"
+              to="/w/$slug/workflows/$workflowId"
+              params={{ slug: workspaceSlug, workflowId: workflow.id }}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40"
             >
-              <Link
-                to="/w/$slug/workflows/$workflowId"
-                params={{ slug: workspaceSlug, workflowId: workflow.id }}
-                className="min-w-0 basis-full hover:underline sm:flex-1 sm:basis-auto"
-              >
-                <h3 className="text-xs font-medium break-words">
-                  {workflow.name}
-                </h3>
-                <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {workflow.description || workflow.slug}
+              <PlayfulAvatar
+                name={workflow.name}
+                shape="rounded"
+                className="size-8"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium">{workflow.name}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {workflow.slug}
                 </p>
-              </Link>
-              <WorkflowStatusBadge workflow={workflow} />
-              <Link
-                to="/w/$slug/workflows/$workflowId/builder"
-                params={{ slug: workspaceSlug, workflowId: workflow.id }}
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                <PencilRulerIcon />
-                Open builder
-              </Link>
-            </article>
+              </div>
+              <div className="ml-auto flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+                <span>{workflowStatus(workflow)}</span>
+                <span className="tabular-nums">
+                  {formatDate(workflow.updatedAt)}
+                </span>
+              </div>
+            </Link>
           ))}
         </div>
       )}

@@ -74,7 +74,7 @@ export function EnvironmentPreferences({
         </Field>
         <Button
           type="submit"
-          size="sm"
+          size="xs"
           className="self-start"
           disabled={retention.isPending}
         >
@@ -96,7 +96,7 @@ export function EnvironmentPreferences({
             render={
               <Button
                 variant="destructive"
-                size="sm"
+                size="xs"
                 className="self-start"
                 disabled={!environment.enabled || disable.isPending}
               />

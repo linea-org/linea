@@ -1,17 +1,33 @@
+import { useState } from "react"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { ArrowLeftIcon } from "lucide-react"
-import { buttonVariants } from "@linea/ui/components/button"
+import { createFileRoute } from "@tanstack/react-router"
+import { ListFilterIcon, PlusIcon } from "lucide-react"
 import { z } from "zod"
+import { Button } from "@linea/ui/components/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@linea/ui/components/dropdown-menu"
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@linea/ui/components/tabs"
-import { EnvironmentSettings } from "@/components/applications/environment-settings"
-import { ApplicationWorkflows } from "@/components/applications/application-workflows"
+import {
+  EnvironmentSettings,
+  environmentName,
+} from "@/components/applications/environment-settings"
+import {
+  ApplicationWorkflowCreateButton,
+  ApplicationWorkflows,
+} from "@/components/applications/application-workflows"
+import { AddAgentDialog } from "@/components/agents/add-agent-dialog"
 import { ApplicationAgents } from "@/components/agents/application-agents"
+import { PageToolbar } from "@/components/workspace/page-toolbar"
+import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import {
   applicationsQueryOptions,
   listApplicationsFn,
@@ -20,9 +36,13 @@ import { listEnvironmentsFn } from "@/lib/environments-api"
 import { listApplicationWorkflowsFn } from "@/lib/workflows-api"
 
 const applicationViewSchema = z.enum(["workflows", "agents", "environments"])
+const environmentSchema = z.enum(["dev", "production"])
 
 export const Route = createFileRoute("/w/$slug/applications/$applicationId")({
-  validateSearch: z.object({ view: applicationViewSchema.optional() }),
+  validateSearch: z.object({
+    view: applicationViewSchema.optional(),
+    environment: environmentSchema.optional(),
+  }),
   loader: async ({ params }) => {
     const [applications, environments, workflows] = await Promise.all([
       listApplicationsFn(),
@@ -38,7 +58,8 @@ export const Route = createFileRoute("/w/$slug/applications/$applicationId")({
 
 function ApplicationPage() {
   const { slug, applicationId } = Route.useParams()
-  const { view = "agents" } = Route.useSearch()
+  const { view = "agents", environment: selectedName = "dev" } =
+    Route.useSearch()
   const navigate = Route.useNavigate()
   const initial = Route.useLoaderData()
   const queryClient = useQueryClient()
@@ -56,6 +77,18 @@ function ApplicationPage() {
     queryFn: () => listApplicationWorkflowsFn({ data: { applicationId } }),
     initialData: initial.workflows,
   })
+  const [agentQuery, setAgentQuery] = useState("")
+  const [agentStatus, setAgentStatus] = useState<"all" | "active" | "archived">(
+    "all"
+  )
+  const dev = environments.find((item) => item.environment === "dev")
+  const production = environments.find(
+    (item) => item.environment === "production"
+  )
+  const selectedEnvironment =
+    environments.find((item) => item.environment === selectedName) ??
+    dev ??
+    production
   const application = applications.find((value) => value.id === applicationId)
   if (!application) throw new Error("Application not found")
   async function onSaved() {
@@ -64,22 +97,7 @@ function ApplicationPage() {
     })
   }
   return (
-    <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
-      <Link
-        to="/w/$slug/applications"
-        params={{ slug }}
-        className={`${buttonVariants({ variant: "ghost", size: "xs" })} self-start`}
-      >
-        <ArrowLeftIcon />
-        Back to Applications
-      </Link>
-      <div className="pl-1">
-        <h1 className="text-sm font-medium">{application.name}</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Create an Agent or Workflow, then deploy a published version to an
-          Environment.
-        </p>
-      </div>
+    <main className="flex min-w-0 flex-1 flex-col">
       <Tabs
         value={view}
         onValueChange={(value) => {
@@ -87,45 +105,143 @@ function ApplicationPage() {
             search: { view: applicationViewSchema.parse(value) },
           })
         }}
-        className="min-w-0 gap-4"
+        className="min-w-0 gap-0"
       >
-        <TabsList variant="line">
-          <TabsTrigger value="agents">Agents</TabsTrigger>
-          <TabsTrigger value="workflows">
-            Workflows ({workflows.length})
-          </TabsTrigger>
-          <TabsTrigger value="environments">Environments</TabsTrigger>
-        </TabsList>
-        <TabsContent value="workflows">
-          <ApplicationWorkflows
-            key={applicationId}
-            workspaceSlug={slug}
-            applicationId={applicationId}
-            workflows={workflows}
-          />
-        </TabsContent>
-        <TabsContent value="agents">
-          <ApplicationAgents
-            key={applicationId}
-            workspaceSlug={slug}
-            applicationId={applicationId}
-          />
-        </TabsContent>
-        <TabsContent
-          value="environments"
-          keepMounted
-          className="grid items-start gap-4 md:grid-cols-2"
-        >
-          {environments.map((environment) => (
-            <EnvironmentSettings
-              workflows={workflows}
+        <PageToolbar>
+          <TabsList className="h-8!">
+            <TabsTrigger value="agents">Agents</TabsTrigger>
+            <TabsTrigger value="workflows">
+              Workflows ({workflows.length})
+            </TabsTrigger>
+            <TabsTrigger value="environments">Environments</TabsTrigger>
+          </TabsList>
+          {view === "agents" ? (
+            <>
+              <ToolbarSearch
+                value={agentQuery}
+                onChange={setAgentQuery}
+                placeholder="Search Agents"
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      aria-label="Filter agents"
+                    />
+                  }
+                >
+                  <ListFilterIcon />
+                  Filter
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="w-max max-w-64 min-w-(--anchor-width)"
+                >
+                  <DropdownMenuItem
+                    className="truncate"
+                    onClick={() => setAgentStatus("all")}
+                  >
+                    All
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="truncate"
+                    onClick={() => setAgentStatus("active")}
+                  >
+                    Active
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="truncate"
+                    onClick={() => setAgentStatus("archived")}
+                  >
+                    Archived
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <div className="ml-auto">
+                <AddAgentDialog
+                  workspaceSlug={slug}
+                  applicationId={applicationId}
+                  trigger={
+                    <Button size="xs">
+                      <PlusIcon />
+                      Add Agent
+                    </Button>
+                  }
+                />
+              </div>
+            </>
+          ) : null}
+          {view === "workflows" ? (
+            <div className="ml-auto">
+              <ApplicationWorkflowCreateButton
+                workspaceSlug={slug}
+                applicationId={applicationId}
+              />
+            </div>
+          ) : null}
+          {view === "environments" && environments.length > 0 ? (
+            <Tabs
+              value={selectedEnvironment?.environment ?? selectedName}
+              onValueChange={(value) => {
+                void navigate({
+                  search: {
+                    view: "environments",
+                    environment: environmentSchema.parse(value),
+                  },
+                })
+              }}
+            >
+              <TabsList className="h-8!">
+                {dev ? (
+                  <TabsTrigger value={dev.environment}>
+                    {environmentName(dev.environment)}
+                  </TabsTrigger>
+                ) : null}
+                {production ? (
+                  <TabsTrigger value={production.environment}>
+                    {environmentName(production.environment)}
+                  </TabsTrigger>
+                ) : null}
+              </TabsList>
+            </Tabs>
+          ) : null}
+        </PageToolbar>
+        <div className="flex flex-col">
+          <TabsContent value="workflows">
+            <ApplicationWorkflows
+              key={applicationId}
               workspaceSlug={slug}
-              key={environment.id}
-              environment={environment}
-              onSaved={onSaved}
+              workflows={workflows}
             />
-          ))}
-        </TabsContent>
+          </TabsContent>
+          <TabsContent value="agents">
+            <ApplicationAgents
+              key={applicationId}
+              workspaceSlug={slug}
+              applicationId={applicationId}
+              query={agentQuery}
+              status={agentStatus}
+            />
+          </TabsContent>
+          <TabsContent value="environments" keepMounted>
+            {selectedEnvironment ? (
+              <EnvironmentSettings
+                key={selectedEnvironment.id}
+                workflows={workflows}
+                workspaceSlug={slug}
+                environment={selectedEnvironment}
+                onSaved={onSaved}
+              />
+            ) : (
+              <p className="px-4 py-8 text-xs text-muted-foreground">
+                No Environments for this Application yet.
+              </p>
+            )}
+          </TabsContent>
+        </div>
       </Tabs>
     </main>
   )

@@ -78,50 +78,41 @@ function WorkspacesPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh flex-col overflow-hidden bg-background text-foreground">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,color-mix(in_oklch,var(--primary)_18%,transparent),transparent_70%),radial-gradient(ellipse_50%_40%_at_100%_100%,color-mix(in_oklch,var(--accent)_55%,transparent),transparent_65%)]"
-      />
-
-      <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-14 sm:py-20">
-        <div className="animate-in duration-500 fade-in-0 fill-mode-both slide-in-from-bottom-2">
-          <div className="mb-10 flex flex-col items-center text-center">
-            <img
-              src="/assets/linea.svg"
-              alt=""
-              width={40}
-              height={40}
-              className="mb-5 size-10 rounded-lg shadow-sm ring-1 ring-black/5 dark:ring-white/10"
-            />
-            <h1 className="font-heading text-3xl font-semibold tracking-tight">
-              Workspaces
-            </h1>
-            <p className="mt-2 max-w-xs text-xs text-muted-foreground">
-              Pick a workspace to continue.
-            </p>
-          </div>
-
-          {error ? (
-            <Alert variant="destructive" className="mb-5">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : null}
-
-          <ul className="space-y-2">
-            {orgs.map((org, index) => {
+    <div className="flex min-h-svh flex-col bg-background text-foreground">
+      <header className="flex h-12 shrink-0 items-center justify-between border-b border-border/70 px-4">
+        <div className="flex items-center gap-2">
+          <img
+            src="/assets/linea.svg"
+            alt=""
+            width={20}
+            height={20}
+            className="size-5 rounded"
+          />
+          <span className="text-sm font-medium">Linea</span>
+        </div>
+        <UserMenu align="end" />
+      </header>
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-16">
+        <h1 className="text-center text-sm font-medium">Workspaces</h1>
+        <p className="mt-1 text-center text-xs text-muted-foreground">
+          Pick a workspace to continue.
+        </p>
+        {error ? (
+          <Alert variant="destructive" className="mt-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        <div className="mt-6 overflow-hidden rounded-xl border bg-card">
+          <ul className="divide-y divide-border/70">
+            {orgs.map((org) => {
               const opening = pendingId === org.id
               return (
-                <li
-                  key={org.id}
-                  className="animate-in duration-500 fade-in-0 fill-mode-both slide-in-from-bottom-1"
-                  style={{ animationDelay: `${80 + index * 45}ms` }}
-                >
+                <li key={org.id}>
                   <button
                     type="button"
                     className={cn(
-                      "group flex w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors",
-                      "hover:bg-secondary focus-visible:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
+                      "flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left",
+                      "hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
                       "disabled:cursor-not-allowed disabled:opacity-50"
                     )}
                     disabled={pendingId !== null}
@@ -132,10 +123,10 @@ function WorkspacesPage() {
                     <PlayfulAvatar
                       name={org.name}
                       shape="rounded"
-                      className="size-11 transition-transform duration-200 group-hover:scale-[1.03]"
+                      className="size-8"
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium text-foreground">
+                      <span className="block truncate text-xs font-medium text-foreground">
                         {org.name}
                       </span>
                       <span className="block truncate text-xs text-muted-foreground">
@@ -143,15 +134,15 @@ function WorkspacesPage() {
                       </span>
                     </span>
                     <span
-                      className="shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+                      className="shrink-0 text-muted-foreground"
                       aria-label={
                         opening ? "Opening workspace" : "Open workspace"
                       }
                     >
                       {opening ? (
-                        <LoaderCircleIcon className="size-4 animate-spin" />
+                        <LoaderCircleIcon className="size-3 animate-spin" />
                       ) : (
-                        <ArrowRightIcon className="size-4" />
+                        <ArrowRightIcon className="size-3" />
                       )}
                     </span>
                   </button>
@@ -159,21 +150,17 @@ function WorkspacesPage() {
               )
             })}
           </ul>
-
+        </div>
+        <div className="mt-3 flex justify-center">
           <Button
-            variant="ghost"
-            size="lg"
-            className="mt-3 w-full rounded-2xl text-muted-foreground transition-colors hover:bg-secondary hover:text-secondary-foreground"
+            type="button"
+            variant="outline"
+            size="xs"
             onClick={() => setCreateOpen(true)}
           >
             <PlusIcon />
             Create workspace
           </Button>
-        </div>
-
-        <div className="animate-in delay-200 duration-500 fade-in-0 fill-mode-both">
-          <div className="mb-1 h-px bg-border/80" />
-          <UserMenu showDetails align="start" className="w-full" />
         </div>
       </main>
 
@@ -181,10 +168,10 @@ function WorkspacesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create a workspace</DialogTitle>
-            <DialogDescription>
-              Workspaces keep your workflows, members, and settings together.
-            </DialogDescription>
           </DialogHeader>
+          <DialogDescription>
+            Workspaces keep your workflows, members, and settings together.
+          </DialogDescription>
           {createOpen ? <CreateWorkspaceForm onSuccess={onCreated} /> : null}
         </DialogContent>
       </Dialog>

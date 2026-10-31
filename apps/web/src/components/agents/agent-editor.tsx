@@ -1,11 +1,13 @@
 import { useState } from "react"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { Badge } from "@linea/ui/components/badge"
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@linea/ui/components/tabs"
+import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { listAgentContractsFn } from "@/lib/agent-contracts-api"
 import { listAgentVersionsFn } from "@/lib/agents-api"
 import type {
@@ -20,7 +22,6 @@ import { AgentContracts } from "./agent-contracts"
 import { AgentVersions } from "./agent-versions"
 import { AgentEnvironmentDeployment } from "./agent-environment-deployment"
 import { AgentVersionReplacement } from "./agent-version-replacement"
-import { AgentNextStep } from "./agent-next-step"
 
 export function AgentEditor({
   workspaceSlug,
@@ -67,30 +68,22 @@ export function AgentEditor({
     setTab("definition")
   }
   return (
-    <div className="flex w-full min-w-0 flex-col gap-4">
-      {!archived && (
-        <AgentNextStep
-          hasContract={contracts.length > 0}
-          hasVersion={versions.length > 0}
-          hasPublishedVersion={versions.some(
-            (version) => version.publishedAt !== null
-          )}
-          tab={tab}
-          onContinue={setTab}
-        />
-      )}
-      <Tabs value={tab} onValueChange={setTab} className="min-w-0 gap-4">
-        <TabsList variant="line">
-          <TabsTrigger value="definition">Definition</TabsTrigger>
-          <TabsTrigger value="contracts">
-            Contracts ({contracts.length})
-          </TabsTrigger>
-          <TabsTrigger value="versions">
-            Versions ({versions.length})
-          </TabsTrigger>
-          <TabsTrigger value="deployments">Deployments</TabsTrigger>
-        </TabsList>
-        <div className="min-w-0 rounded-xl border bg-card p-4">
+    <>
+      <Tabs value={tab} onValueChange={setTab} className="min-w-0 gap-0">
+        <PageToolbar>
+          {archived ? <Badge variant="outline">Archived</Badge> : null}
+          <TabsList className="h-8!">
+            <TabsTrigger value="definition">Definition</TabsTrigger>
+            <TabsTrigger value="contracts">
+              Contracts ({contracts.length})
+            </TabsTrigger>
+            <TabsTrigger value="versions">
+              Versions ({versions.length})
+            </TabsTrigger>
+            <TabsTrigger value="deployments">Deployments</TabsTrigger>
+          </TabsList>
+        </PageToolbar>
+        <div className="flex min-w-0 flex-col gap-4 px-4 py-4">
           <TabsContent value="definition" keepMounted>
             <fieldset disabled={archived}>
               <AgentDefinitionForm
@@ -134,39 +127,22 @@ export function AgentEditor({
             />
           </TabsContent>
           <TabsContent value="deployments" keepMounted>
-            <section className="flex flex-col gap-4">
-              <div>
-                <h2 className="text-sm font-medium">Deployments</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Each Environment uses its own published version. Saving one
-                  does not change the other.
-                </p>
-              </div>
-              <div className="grid items-start gap-4 md:grid-cols-2">
-                {environments.map((environment) => (
-                  <AgentEnvironmentDeployment
-                    key={environment.id}
-                    workspaceSlug={workspaceSlug}
-                    agentId={agent.id}
-                    environment={environment}
-                    versions={versions}
-                    contracts={contracts}
-                    archived={archived}
-                  />
-                ))}
-              </div>
-            </section>
+            <AgentEnvironmentDeployment
+              workspaceSlug={workspaceSlug}
+              agentId={agent.id}
+              environments={environments}
+              versions={versions}
+              contracts={contracts}
+              archived={archived}
+            />
           </TabsContent>
         </div>
       </Tabs>
-      <p className="pl-1 text-xs text-muted-foreground">
-        Agent execution and trace inspection are not available yet.
-      </p>
       <AgentVersionReplacement
         version={pendingVersion}
         onCancel={() => setPendingVersion(null)}
         onConfirm={loadVersion}
       />
-    </div>
+    </>
   )
 }

@@ -153,9 +153,7 @@ test("inspects recorded steps, replay lineage, and scoped approvals in a shared 
   await expect(
     page.getByText("Unrelated checkpoint", { exact: true })
   ).not.toBeVisible()
-  await page
-    .getByRole("link", { name: "Back to execution", exact: true })
-    .click()
+  await page.goBack()
   await expect(page).toHaveURL(new URL(pausedPath, page.url()).href)
   await expect(inspector).toContainText(
     "A reviewer should check the proposed action."

@@ -9,9 +9,12 @@ import { z } from "zod"
 import { Button, buttonVariants } from "@linea/ui/components/button"
 import { Input } from "@linea/ui/components/input"
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@linea/ui/components/native-select"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@linea/ui/components/select"
 import type { ExecutionDetailResponse } from "@/lib/executions-api"
 import { ExecutionGanttChart } from "./execution-gantt-chart"
 import { ExecutionStepDetails } from "./execution-step-details"
@@ -101,21 +104,26 @@ export function ExecutionTraceWorkspace({
             clearSelection()
           }}
         />
-        <NativeSelect
-          size="sm"
-          aria-label="Filter trace status"
+        <Select
           value={status}
-          onChange={(event) => {
-            setStatus(statusFilterSchema.parse(event.target.value))
+          onValueChange={(value) => {
+            const parsed = statusFilterSchema.safeParse(value)
+            if (!parsed.success) return
+            setStatus(parsed.data)
             clearSelection()
           }}
         >
-          <NativeSelectOption value="all">All statuses</NativeSelectOption>
-          <NativeSelectOption value="running">Running</NativeSelectOption>
-          <NativeSelectOption value="succeeded">Succeeded</NativeSelectOption>
-          <NativeSelectOption value="failed">Failed</NativeSelectOption>
-          <NativeSelectOption value="skipped">Skipped</NativeSelectOption>
-        </NativeSelect>
+          <SelectTrigger size="xs" aria-label="Filter trace status">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="running">Running</SelectItem>
+            <SelectItem value="succeeded">Succeeded</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="skipped">Skipped</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       {pausedAtNode && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
@@ -219,7 +227,7 @@ export function ExecutionTraceWorkspace({
               </p>
               {selectedId && (
                 <Button
-                  size="sm"
+                  size="xs"
                   variant="outline"
                   className="self-start"
                   onClick={clearSelection}

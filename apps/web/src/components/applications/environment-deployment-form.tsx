@@ -121,7 +121,7 @@ export function EnvironmentDeploymentForm({
             {flag.label}
           </label>
         ))}
-        <Button type="submit" disabled={!enabled || deploy.isPending}>
+        <Button type="submit" size="xs" disabled={!enabled || deploy.isPending}>
           Save deployment
         </Button>
       </form>

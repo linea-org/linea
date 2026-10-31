@@ -16,6 +16,7 @@ import {
   AuthShell,
   MagicLinkForm,
   OAuthButtons,
+  PasswordInput,
   magicLinkVerifyErrorMessage,
 } from "../components/auth"
 import { authClient } from "../lib/auth-client"
@@ -173,10 +174,9 @@ function SignInPage() {
                   Forgot password?
                 </Link>
               </div>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

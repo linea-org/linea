@@ -9,7 +9,6 @@ import { Button } from "@linea/ui/components/button"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -60,17 +59,13 @@ export function CreateApplicationDialog({
   })
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" variant="outline" />}>
+      <DialogTrigger render={<Button size="xs" variant="outline" />}>
         <PlusIcon />
         Create Application
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Application</DialogTitle>
-          <DialogDescription>
-            Group the Agents and Workflows for one product. Development and
-            Production Environments are created for you.
-          </DialogDescription>
         </DialogHeader>
         <form
           onSubmit={(event) => {
@@ -82,6 +77,7 @@ export function CreateApplicationDialog({
             <FieldLabel htmlFor="application-name">Name</FieldLabel>
             <Input
               id="application-name"
+              className="h-9"
               autoFocus
               {...register("name", {
                 onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,6 +95,7 @@ export function CreateApplicationDialog({
             <FieldLabel htmlFor="application-slug">Slug</FieldLabel>
             <Input
               id="application-slug"
+              className="h-9"
               placeholder="support-assistant"
               {...register("slug")}
             />
@@ -110,7 +107,7 @@ export function CreateApplicationDialog({
             </p>
           )}
           <DialogFooter>
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" size="xs" disabled={create.isPending}>
               {create.isPending ? "Creating…" : "Create Application"}
             </Button>
           </DialogFooter>

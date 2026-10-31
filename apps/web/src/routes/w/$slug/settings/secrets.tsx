@@ -1,4 +1,16 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { Link, createFileRoute } from "@tanstack/react-router"
+import { KeyIcon } from "lucide-react"
+
+import { buttonVariants } from "@linea/ui/components/button"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@linea/ui/components/empty"
+
+import { PageToolbar } from "@/components/workspace/page-toolbar"
 
 export const Route = createFileRoute("/w/$slug/settings/secrets")({
   component: SecretsPage,
@@ -7,19 +19,30 @@ export const Route = createFileRoute("/w/$slug/settings/secrets")({
 function SecretsPage() {
   const { slug } = Route.useParams()
   return (
-    <section className="p-6">
-      <h1 className="text-lg font-semibold">Environment secrets</h1>
-      <p className="my-3 text-sm text-muted-foreground">
-        Manage provider keys and other secrets inside each Application’s
-        Development or Production Environment.
-      </p>
-      <Link
-        to="/w/$slug/applications"
-        params={{ slug }}
-        className="text-sm underline"
-      >
-        Open Applications
-      </Link>
-    </section>
+    <main className="flex min-w-0 flex-1 flex-col">
+      <PageToolbar>
+        <div className="ml-auto">
+          <Link
+            to="/w/$slug/applications"
+            params={{ slug }}
+            className={buttonVariants({ size: "xs" })}
+          >
+            Open Applications
+          </Link>
+        </div>
+      </PageToolbar>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <KeyIcon />
+          </EmptyMedia>
+          <EmptyTitle>Environment secrets</EmptyTitle>
+          <EmptyDescription>
+            Manage provider keys inside an Application’s Development or
+            Production environment.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    </main>
   )
 }

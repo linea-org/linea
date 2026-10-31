@@ -322,9 +322,7 @@ test("author, publish, and independently deploy immutable Agent versions", async
   await expect(
     development.locator("[data-slot=badge]").filter({ hasText: "Disabled" })
   ).toBeVisible()
-  await page
-    .getByRole("link", { name: "Back to Application", exact: true })
-    .click()
+  await page.goBack()
   await expect(
     page.getByRole("tab", { name: "Agents", exact: true })
   ).toHaveAttribute("aria-selected", "true")

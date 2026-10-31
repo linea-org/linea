@@ -1,81 +1,118 @@
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Badge } from "@linea/ui/components/badge"
+import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
 import { listAgentDeploymentsFn } from "@/lib/agent-deployments-api"
 import type { AgentContract, AgentVersion } from "@/lib/agent-schemas"
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import { AgentDeploymentForm } from "./agent-deployment-form"
 
+function environmentName(environment: EnvironmentSummary["environment"]) {
+  switch (environment) {
+    case "dev":
+      return "Development"
+    case "production":
+      return "Production"
+    default: {
+      const unreachable: never = environment
+      return unreachable
+    }
+  }
+}
+
 export function AgentEnvironmentDeployment({
   workspaceSlug,
   agentId,
-  environment,
+  environments,
   versions,
   contracts,
   archived,
 }: {
   workspaceSlug: string
   agentId: string
-  environment: EnvironmentSummary
+  environments: EnvironmentSummary[]
   versions: AgentVersion[]
   contracts: AgentContract[]
   archived: boolean
 }) {
-  const {
-    data: bindings,
-    error,
-    isPending,
-  } = useQuery({
-    queryKey: ["agent-deployments", workspaceSlug, environment.id],
-    queryFn: () =>
-      listAgentDeploymentsFn({ data: { environmentId: environment.id } }),
+  const dev = environments.find(
+    (environment) => environment.environment === "dev"
+  )
+  const production = environments.find(
+    (environment) => environment.environment === "production"
+  )
+  const devDeployments = useQuery({
+    queryKey: ["agent-deployments", workspaceSlug, dev?.id],
+    queryFn: () => {
+      if (!dev) throw new Error("Development Environment is missing")
+      return listAgentDeploymentsFn({ data: { environmentId: dev.id } })
+    },
+    enabled: dev !== undefined,
   })
-  const binding = bindings?.find((candidate) => candidate.agentId === agentId)
-  const version = versions.find(
-    (candidate) => candidate.id === binding?.agentVersionId
+  const productionDeployments = useQuery({
+    queryKey: ["agent-deployments", workspaceSlug, production?.id],
+    queryFn: () => {
+      if (!production) throw new Error("Production Environment is missing")
+      return listAgentDeploymentsFn({
+        data: { environmentId: production.id },
+      })
+    },
+    enabled: production !== undefined,
+  })
+  const [environmentId, setEnvironmentId] = useState(
+    dev?.id ?? production?.id ?? ""
   )
-  const contract = contracts.find(
-    (candidate) => candidate.id === binding?.agentContractRevisionId
+  const environment =
+    environments.find((candidate) => candidate.id === environmentId) ??
+    dev ??
+    production
+  if (!environment) return null
+  const deployments =
+    environment.environment === "production"
+      ? productionDeployments
+      : devDeployments
+  const binding = deployments.data?.find(
+    (candidate) => candidate.agentId === agentId
   )
+  const status = !environment.enabled
+    ? "Environment disabled"
+    : binding
+      ? binding.enabled
+        ? "Enabled"
+        : "Disabled"
+      : "Not deployed"
   return (
     <section
-      aria-label={
-        environment.environment === "dev"
-          ? "Development deployment"
-          : "Production deployment"
-      }
-      className="flex flex-col gap-4 rounded-xl border bg-card p-4"
+      aria-label={`${environmentName(environment.environment)} deployment`}
+      className="flex flex-col gap-4"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-xs font-medium">
-          {environment.environment === "dev" ? "Development" : "Production"}
-        </h3>
-        <Badge variant="outline">
-          {!environment.enabled
-            ? "Environment disabled"
-            : binding
-              ? binding.enabled
-                ? "Enabled"
-                : "Disabled"
-              : "Not deployed"}
+      <div className="flex items-center gap-3">
+        <Tabs value={environment.id} onValueChange={setEnvironmentId}>
+          <TabsList className="h-8!">
+            {dev ? (
+              <TabsTrigger value={dev.id}>
+                {environmentName(dev.environment)}
+              </TabsTrigger>
+            ) : null}
+            {production ? (
+              <TabsTrigger value={production.id}>
+                {environmentName(production.environment)}
+              </TabsTrigger>
+            ) : null}
+          </TabsList>
+        </Tabs>
+        <Badge variant="outline" className="ml-auto">
+          {deployments.isPending ? "Loading…" : status}
         </Badge>
       </div>
-      {binding && (
-        <p className="text-xs text-muted-foreground">
-          Version {version?.version} · Contract revision {contract?.revision}
-        </p>
-      )}
-      {isPending && (
-        <p role="status" className="text-xs text-muted-foreground">
-          Loading deployment…
-        </p>
-      )}
-      {error && (
+      {deployments.error && (
         <p role="alert" className="text-xs text-destructive">
-          {error.message}
+          {deployments.error.message}
         </p>
       )}
-      {bindings && (
+      {deployments.data && (
         <AgentDeploymentForm
+          key={environment.id}
           workspaceSlug={workspaceSlug}
           environmentId={environment.id}
           agentId={agentId}

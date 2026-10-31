@@ -32,18 +32,13 @@ export function AgentVersions({
   })
   return (
     <section className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-sm font-medium">Versions</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Inspect a saved version before publishing it. Publishing makes it
-          available for deployment; it does not update any Environment.
-        </p>
-      </div>
-      {versions.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          No versions yet. Save a definition to review and publish it here.
-        </p>
-      )}
+      {versions.length === 0 ? (
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+            No versions yet.
+          </p>
+        </div>
+      ) : null}
       {versions.map((version) => (
         <article
           key={version.id}
@@ -80,7 +75,7 @@ export function AgentVersions({
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
-                size="sm"
+                size="xs"
                 variant="outline"
                 onClick={() => onLoad(version)}
               >
@@ -89,7 +84,7 @@ export function AgentVersions({
               {!version.publishedAt && (
                 <Button
                   type="button"
-                  size="sm"
+                  size="xs"
                   disabled={publish.isPending}
                   onClick={() => publish.mutate(version.id)}
                 >

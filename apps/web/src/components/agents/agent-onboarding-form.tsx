@@ -26,10 +26,12 @@ export function AgentOnboardingForm({
   workspaceSlug,
   applications,
   initialApplicationId,
+  plain = false,
 }: {
   workspaceSlug: string
   applications: ApplicationSummary[]
   initialApplicationId: string | undefined
+  plain?: boolean
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -95,7 +97,11 @@ export function AgentOnboardingForm({
   return (
     <FormProvider {...form}>
       <form
-        className="overflow-hidden rounded-xl border bg-card"
+        className={
+          plain
+            ? "flex flex-col gap-4"
+            : "overflow-hidden rounded-xl border bg-card"
+        }
         onSubmit={(event) => {
           void handleSubmit(
             (input) => {
@@ -121,7 +127,7 @@ export function AgentOnboardingForm({
       >
         <fieldset
           disabled={create.isPending || createdAgent !== null}
-          className="flex flex-col gap-4 p-4"
+          className={plain ? "flex flex-col gap-4" : "flex flex-col gap-4 p-4"}
         >
           <Field>
             <FieldLabel htmlFor="agent-name">Agent name</FieldLabel>
@@ -155,7 +161,11 @@ export function AgentOnboardingForm({
             {create.error.message} Your entries have been kept.
           </p>
         )}
-        <div className="flex justify-end border-t px-4 py-3">
+        <div
+          className={
+            plain ? "flex justify-end" : "flex justify-end border-t px-4 py-3"
+          }
+        >
           {createdAgent ? (
             <Link
               to="/w/$slug/agents/$agentId"
@@ -166,7 +176,7 @@ export function AgentOnboardingForm({
               <ArrowRightIcon />
             </Link>
           ) : (
-            <Button type="submit" size="sm" disabled={create.isPending}>
+            <Button type="submit" size="xs" disabled={create.isPending}>
               {create.isPending ? "Creating…" : "Continue to configure"}
               <ArrowRightIcon />
             </Button>

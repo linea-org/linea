@@ -41,7 +41,7 @@ export function ReplayAction({
       <Button
         type="button"
         variant="outline"
-        size="sm"
+        size="xs"
         className="mt-3"
         onClick={() => setOpen(true)}
       >
@@ -72,7 +72,7 @@ export function ReplayAction({
       <div className="flex gap-2">
         <Button
           type="button"
-          size="sm"
+          size="xs"
           disabled={mutation.isPending}
           onClick={() => {
             let parsed: Record<string, unknown>
@@ -91,7 +91,7 @@ export function ReplayAction({
         <Button
           type="button"
           variant="ghost"
-          size="sm"
+          size="xs"
           disabled={mutation.isPending}
           onClick={() => setOpen(false)}
         >
@@ -124,7 +124,7 @@ export function AddToRegressionAction({
       <Button
         type="button"
         variant="outline"
-        size="sm"
+        size="xs"
         disabled={mutation.isPending}
         onClick={() => mutation.mutate()}
       >
