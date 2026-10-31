@@ -82,7 +82,8 @@ export function AgentEnvironmentDeployment({
           versions={versions}
           contracts={contracts}
           binding={binding}
-          disabled={!environment.enabled || archived}
+          disabled={!environment.enabled || (archived && !binding?.enabled)}
+          archived={archived}
         />
       )}
     </section>

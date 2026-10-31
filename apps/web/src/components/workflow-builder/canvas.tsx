@@ -809,6 +809,7 @@ function WorkflowBuilderCanvasInner({
                       className="min-h-0"
                     >
                       <RunPanel
+                        key={activeRunExecutionId}
                         slug={slug}
                         workflowId={workflowId}
                         executionId={activeRunExecutionId}

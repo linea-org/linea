@@ -1,5 +1,8 @@
 import { useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
+import { ArrowLeftIcon } from "lucide-react"
+import { Button, buttonVariants } from "@linea/ui/components/button"
 
 import {
   executionQueryOptions,
@@ -11,7 +14,7 @@ import {
 import { getWorkflowFn, type WorkflowSummary } from "@/lib/workflows-api"
 import { ErrorCallout } from "./error-callout"
 import { ExecutionStatusBadge } from "./execution-status-badge"
-import { ExecutionStepTimeline } from "./execution-step-timeline"
+import { ExecutionTraceWorkspace } from "./execution-trace-workspace"
 import { formatCost } from "./execution-list"
 
 const triggerLabel: Record<ExecutionTrigger, string> = {
@@ -79,27 +82,40 @@ export function ExecutionDetailView({
     null
   )
   const {
-    data: { execution, steps, nodeConfigs, pausedAtNode },
+    data: detail,
+    error,
+    refetch,
   } = useSuspenseQuery({
     ...executionQueryOptions(slug, executionId),
     initialData: initialData.detail,
-    // Only while a just-triggered replay's step row hasn't shown up yet — stops on its own once it appears, since this then evaluates to false.
     refetchInterval: (query) => {
-      if (!pendingReplayStepId) return false
       const data = query.state.data
       if (!data) return 2000
-      return data.steps.some((s) => s.id === pendingReplayStepId) ? false : 2000
+      if (["queued", "running", "paused"].includes(data.execution.status))
+        return 2000
+      if (!pendingReplayStepId) return false
+      const replay = data.steps.find((step) => step.id === pendingReplayStepId)
+      return !replay || replay.status === "running" ? 2000 : false
     },
   })
+  const { execution } = detail
   const workflowName = initialData.workflow?.name ?? "Execution"
   return (
-    <main className="flex flex-1 flex-col px-4 py-4">
+    <main className="flex min-w-0 flex-1 flex-col px-4 py-4">
+      <Link
+        to="/w/$slug/executions"
+        params={{ slug }}
+        className={`${buttonVariants({ variant: "ghost", size: "xs" })} mb-4 self-start`}
+      >
+        <ArrowLeftIcon />
+        Back to Executions
+      </Link>
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-foreground">
+            <h1 className="truncate text-sm font-medium text-foreground">
               {workflowName}
-            </p>
+            </h1>
             <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
               {execution.id}
             </p>
@@ -137,26 +153,25 @@ export function ExecutionDetailView({
           />
         </div>
       ) : null}
-      <div className="mt-4 flex flex-col gap-2">
-        <p className="pl-1 text-sm font-medium text-foreground">Steps</p>
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          {steps.length === 0 && !pausedAtNode ? (
-            <p className="px-4 py-6 text-xs text-muted-foreground">
-              No steps recorded.
-            </p>
-          ) : (
-            <ExecutionStepTimeline
-              executionId={executionId}
-              workflowId={execution.workflowId}
-              steps={steps}
-              nodeConfigs={nodeConfigs}
-              replayable={execution.replayable}
-              pausedAtNode={pausedAtNode}
-              onReplayTriggered={setPendingReplayStepId}
-            />
-          )}
+      {error && (
+        <div
+          role="alert"
+          className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-destructive"
+        >
+          <p>
+            Could not refresh this execution. Showing the last recorded state.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            Retry refresh
+          </Button>
         </div>
-      </div>
+      )}
+      <ExecutionTraceWorkspace
+        slug={slug}
+        detail={detail}
+        pendingReplayStepId={pendingReplayStepId}
+        onReplayTriggered={setPendingReplayStepId}
+      />
     </main>
   )
 }

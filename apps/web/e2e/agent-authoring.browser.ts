@@ -38,20 +38,25 @@ test("author, publish, and independently deploy immutable Agent versions", async
   await expect(page).toHaveURL(/\/w\//)
   await page.goto(environment.AGENT_UI_APPLICATION_PATH)
   await page.getByRole("tab", { name: "Agents", exact: true }).click()
-  await page.getByRole("button", { name: "Create Agent", exact: true }).click()
-  const dialog = page.getByRole("dialog")
+  await page.getByRole("link", { name: "Add Agent", exact: true }).click()
+  await expect(
+    page.getByRole("combobox", { name: "Application", exact: true })
+  ).toHaveValue(environment.AGENT_UI_APPLICATION_PATH.split("/").at(-1) ?? "")
   const agentName = `GitHub issue analyst ${Date.now()}`
-  await dialog.getByLabel("Name", { exact: true }).fill(agentName)
-  await dialog
-    .getByLabel("Slug", { exact: true })
+  await page.getByLabel("Agent name", { exact: true }).fill(agentName)
+  await page
+    .getByRole("button", { name: "Advanced settings", exact: true })
+    .click()
+  await page
+    .getByLabel("Agent identifier", { exact: true })
     .fill(`github-analyst-${Date.now()}`)
-  await dialog
+  await page
     .getByLabel("Description")
     .fill(
       "Analyze repository issues and propose distinct follow-up issues for review."
     )
-  await dialog
-    .getByRole("button", { name: "Create Agent", exact: true })
+  await page
+    .getByRole("button", { name: "Continue to configure", exact: true })
     .click()
   await expect(
     page.getByRole("heading", { name: agentName, exact: true })
@@ -95,6 +100,10 @@ test("author, publish, and independently deploy immutable Agent versions", async
     .fill(
       '{"type":"object","properties":{"task":{"type":"string"}},"required":["task"],"additionalProperties":false}'
     )
+  const contractDraft = await page.getByLabel("Input JSON Schema").inputValue()
+  await page.getByRole("tab", { name: "Definition", exact: true }).click()
+  await page.getByRole("tab", { name: "Contracts (0)" }).click()
+  await expect(page.getByLabel("Input JSON Schema")).toHaveValue(contractDraft)
   await page.getByRole("button", { name: "Create Contract revision" }).click()
   await expect(page.getByRole("tab", { name: "Contracts (1)" })).toBeVisible()
   await page.getByRole("tab", { name: "Definition", exact: true }).click()
@@ -156,6 +165,11 @@ test("author, publish, and independently deploy immutable Agent versions", async
   await development
     .getByLabel("Published version and Contract")
     .selectOption({ label: "Version 1 · Contract revision 1" })
+  await page.getByRole("tab", { name: "Versions (1)" }).click()
+  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
+  await expect(
+    development.getByLabel("Published version and Contract")
+  ).not.toHaveValue("")
   await development.getByRole("button", { name: "Save deployment" }).click()
   await expect(
     development
@@ -290,6 +304,24 @@ test("author, publish, and independently deploy immutable Agent versions", async
   await page.getByRole("tab", { name: "Agents", exact: true }).click()
   await page.getByRole("link", { name: new RegExp(agentName) }).click()
   await expect(page).toHaveURL(agentUrl)
+  const agentId = z.uuid().parse(new URL(agentUrl).pathname.split("/").at(-1))
+  const archived = await page.request.patch(
+    `http://localhost:3000/v1/agents/${agentId}`,
+    {
+      data: { archived: true },
+    }
+  )
+  expect(archived.ok()).toBe(true)
+  await page.reload()
+  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
+  await expect(
+    development.getByLabel("Published version and Contract")
+  ).toBeDisabled()
+  await development.getByLabel("Deployment status").selectOption("disabled")
+  await development.getByRole("button", { name: "Save deployment" }).click()
+  await expect(
+    development.locator("[data-slot=badge]").filter({ hasText: "Disabled" })
+  ).toBeVisible()
   await page
     .getByRole("link", { name: "Back to Application", exact: true })
     .click()

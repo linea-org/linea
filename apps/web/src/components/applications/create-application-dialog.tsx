@@ -20,16 +20,9 @@ import { Input } from "@linea/ui/components/input"
 import {
   applicationsQueryOptions,
   createApplicationFn,
+  createApplicationInputSchema,
 } from "@/lib/applications-api"
 import { slugify } from "@/lib/auth-redirect"
-
-const schema = z.object({
-  name: z.string().trim().min(1).max(100),
-  slug: z
-    .string()
-    .min(1)
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
-})
 
 export function CreateApplicationDialog({
   workspaceSlug,
@@ -44,13 +37,15 @@ export function CreateApplicationDialog({
     handleSubmit,
     reset,
     setValue,
+    getFieldState,
     formState: { errors },
-  } = useForm<z.infer<typeof schema>>({
-    resolver: zodResolver(schema),
+  } = useForm<z.infer<typeof createApplicationInputSchema>>({
+    resolver: zodResolver(createApplicationInputSchema),
     defaultValues: { name: "", slug: "" },
   })
   const create = useMutation({
-    mutationFn: (data: z.infer<typeof schema>) => createApplicationFn({ data }),
+    mutationFn: (data: z.infer<typeof createApplicationInputSchema>) =>
+      createApplicationFn({ data }),
     onSuccess: async (application) => {
       await queryClient.invalidateQueries(
         applicationsQueryOptions(workspaceSlug)
@@ -65,7 +60,7 @@ export function CreateApplicationDialog({
   })
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" />}>
+      <DialogTrigger render={<Button size="sm" variant="outline" />}>
         <PlusIcon />
         Create Application
       </DialogTrigger>
@@ -89,8 +84,13 @@ export function CreateApplicationDialog({
               id="application-name"
               autoFocus
               {...register("name", {
-                onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-                  setValue("slug", slugify(event.target.value)),
+                onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+                  if (!getFieldState("slug").isDirty)
+                    setValue(
+                      "slug",
+                      slugify(event.target.value).replace(/-+$/, "")
+                    )
+                },
               })}
             />
             <FieldError>{errors.name?.message}</FieldError>

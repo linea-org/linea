@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:agent-ui": "playwright test agent-authoring.browser.ts",
+    "test:agent-onboarding": "playwright test agent-onboarding.browser.ts",
+    "test:execution-trace": "playwright test execution-trace.browser.ts",
     "test:application-ui": "playwright test application-workflows.browser.ts",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",

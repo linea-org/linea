@@ -30,6 +30,14 @@ function useBreadcrumbs(slug: string): Crumb[] {
   const matches = useMatches()
   const crumbs: Crumb[] = []
   for (const match of matches) {
+    if (match.routeId === "/w/$slug/agents/new") {
+      crumbs.push({
+        label: "Applications",
+        to: "/w/$slug/applications",
+        params: { slug },
+      })
+      crumbs.push({ label: "Add Agent" })
+    }
     if (match.routeId === "/w/$slug/applications/")
       crumbs.push({ label: "Applications" })
     if (match.routeId === "/w/$slug/applications/$applicationId") {

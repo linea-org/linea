@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ChevronRightIcon } from "lucide-react"
+import { ChevronRightIcon, PlusIcon } from "lucide-react"
+import { buttonVariants } from "@linea/ui/components/button"
 import {
   Empty,
   EmptyDescription,
@@ -33,15 +34,24 @@ function ApplicationsPage() {
             Open a product to manage its Agents, Workflows, and Environments.
           </p>
         </div>
-        <CreateApplicationDialog workspaceSlug={slug} />
+        <div className="flex items-center gap-2">
+          <CreateApplicationDialog workspaceSlug={slug} />
+          <Link
+            to="/w/$slug/agents/new"
+            params={{ slug }}
+            className={buttonVariants({ size: "sm" })}
+          >
+            <PlusIcon />
+            Add Agent
+          </Link>
+        </div>
       </div>
       {applications.length === 0 ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>No Applications yet</EmptyTitle>
+            <EmptyTitle>Add your first Agent</EmptyTitle>
             <EmptyDescription>
-              Create an Application for your product, then add an Agent or
-              Workflow.
+              Start with an Agent and create its Application in the same flow.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

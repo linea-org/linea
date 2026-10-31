@@ -38,7 +38,7 @@ export const Route = createFileRoute("/w/$slug/applications/$applicationId")({
 
 function ApplicationPage() {
   const { slug, applicationId } = Route.useParams()
-  const { view = "workflows" } = Route.useSearch()
+  const { view = "agents" } = Route.useSearch()
   const navigate = Route.useNavigate()
   const initial = Route.useLoaderData()
   const queryClient = useQueryClient()
@@ -90,10 +90,10 @@ function ApplicationPage() {
         className="min-w-0 gap-4"
       >
         <TabsList variant="line">
+          <TabsTrigger value="agents">Agents</TabsTrigger>
           <TabsTrigger value="workflows">
             Workflows ({workflows.length})
           </TabsTrigger>
-          <TabsTrigger value="agents">Agents</TabsTrigger>
           <TabsTrigger value="environments">Environments</TabsTrigger>
         </TabsList>
         <TabsContent value="workflows">
@@ -113,6 +113,7 @@ function ApplicationPage() {
         </TabsContent>
         <TabsContent
           value="environments"
+          keepMounted
           className="grid items-start gap-4 md:grid-cols-2"
         >
           {environments.map((environment) => (

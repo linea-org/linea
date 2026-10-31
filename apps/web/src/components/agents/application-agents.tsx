@@ -1,8 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link, useNavigate } from "@tanstack/react-router"
-import { ChevronRightIcon } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
+import { ChevronRightIcon, PlusIcon } from "lucide-react"
+import { buttonVariants } from "@linea/ui/components/button"
 import { listAgentsFn } from "@/lib/agents-api"
-import { CreateAgentDialog } from "./create-agent-dialog"
 
 export function ApplicationAgents({
   workspaceSlug,
@@ -11,8 +11,6 @@ export function ApplicationAgents({
   workspaceSlug: string
   applicationId: string
 }) {
-  const queryClient = useQueryClient()
-  const navigate = useNavigate()
   const queryKey = ["agents", workspaceSlug, applicationId]
   const {
     data: agents,
@@ -29,16 +27,15 @@ export function ApplicationAgents({
           Agents use instructions and tools to decide how to complete a task.
         </p>
         {agents && (
-          <CreateAgentDialog
-            applicationId={applicationId}
-            onCreated={async (agent) => {
-              await queryClient.invalidateQueries({ queryKey })
-              await navigate({
-                to: "/w/$slug/agents/$agentId",
-                params: { slug: workspaceSlug, agentId: agent.id },
-              })
-            }}
-          />
+          <Link
+            to="/w/$slug/agents/new"
+            params={{ slug: workspaceSlug }}
+            search={{ applicationId }}
+            className={buttonVariants({ size: "sm" })}
+          >
+            <PlusIcon />
+            Add Agent
+          </Link>
         )}
       </div>
       {isPending && (

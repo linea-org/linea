@@ -108,7 +108,7 @@ export function AgentEditor({
               />
             </fieldset>
           </TabsContent>
-          <TabsContent value="contracts">
+          <TabsContent value="contracts" keepMounted>
             <AgentContracts
               agentId={agent.id}
               contracts={contracts}
@@ -133,7 +133,7 @@ export function AgentEditor({
               }}
             />
           </TabsContent>
-          <TabsContent value="deployments">
+          <TabsContent value="deployments" keepMounted>
             <section className="flex flex-col gap-4">
               <div>
                 <h2 className="text-sm font-medium">Deployments</h2>

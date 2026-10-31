@@ -1,9 +1,10 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
-import { CircleCheckIcon, XIcon } from "lucide-react"
+import { ArrowLeftIcon, CircleCheckIcon, XIcon } from "lucide-react"
+import { z } from "zod"
 
-import { Button } from "@linea/ui/components/button"
+import { Button, buttonVariants } from "@linea/ui/components/button"
 import {
   Empty,
   EmptyDescription,
@@ -19,15 +20,19 @@ import {
 } from "@/lib/approvals-api"
 
 export const Route = createFileRoute("/w/$slug/approvals")({
+  validateSearch: z.object({ executionId: z.uuid().optional() }),
   component: ApprovalsPage,
 })
 
 function ApprovalsPage() {
   const { slug } = Route.useParams()
+  const { executionId } = Route.useSearch()
   const queryClient = useQueryClient()
   const [comments, setComments] = useState<Record<string, string>>({})
   const approvalsQuery = useQuery(pendingApprovalsQueryOptions(slug))
-  const approvals = approvalsQuery.data ?? []
+  const approvals = (approvalsQuery.data ?? []).filter(
+    (approval) => !executionId || approval.executionId === executionId
+  )
 
   const respond = useMutation({
     mutationFn: (input: { id: string; approved: boolean }) =>
@@ -45,6 +50,16 @@ function ApprovalsPage() {
 
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
+      {executionId && (
+        <Link
+          to="/w/$slug/executions/$executionId"
+          params={{ slug, executionId }}
+          className={`${buttonVariants({ variant: "ghost", size: "xs" })} mb-4 self-start`}
+        >
+          <ArrowLeftIcon />
+          Back to execution
+        </Link>
+      )}
       <h1 className="pl-1 text-base font-medium text-foreground">
         Pending approvals
       </h1>
@@ -64,7 +79,11 @@ function ApprovalsPage() {
             <EmptyMedia variant="icon">
               <CircleCheckIcon />
             </EmptyMedia>
-            <EmptyTitle>Nothing pending</EmptyTitle>
+            <EmptyTitle>
+              {executionId
+                ? "No approvals awaiting you for this execution"
+                : "Nothing pending"}
+            </EmptyTitle>
             <EmptyDescription>
               Approval nodes that pause a run will show up here.
             </EmptyDescription>

@@ -133,7 +133,7 @@ export class ExecutionsController {
     return this.executions.countNew(workspaceId, query)
   }
 
-  @Get('executions/:id')
+  @Get('workspace/executions/:id')
   get(@CurrentWorkspaceId() workspaceId: string, @Param('id') id: string) {
     return this.executions.get(workspaceId, id)
   }

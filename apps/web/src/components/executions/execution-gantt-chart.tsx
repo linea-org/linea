@@ -1,13 +1,11 @@
-import {
-  nodeRegistry,
-  type NodeTypeId,
-  type NodeUICategory,
-} from "@linea/runtime/browser"
+import { nodeRegistry, type NodeUICategory } from "@linea/runtime/browser"
 import { cn } from "@linea/ui/lib/utils"
+import { useHydrated } from "@tanstack/react-router"
 
 import type { ExecutionStepSummary } from "@/lib/executions-api"
 import { NODE_CATEGORY_COLORS } from "../workflow-builder/node-category-colors"
 import { NodeIcon } from "../workflow-builder/node-icon"
+import { isNodeTypeId, stepTitle } from "./execution-step-presentation"
 
 const MIN_BAR_WIDTH_PCT = 1.5
 const TICK_COUNT = 4
@@ -18,15 +16,6 @@ const CATEGORY_BAR: Record<NodeUICategory, string> = {
   logic: "bg-node-logic",
   data: "bg-node-data",
   trigger: "bg-node-trigger",
-}
-
-function isNodeTypeId(value: string): value is NodeTypeId {
-  return value in nodeRegistry
-}
-
-function stepTitle(name: string): string {
-  if (!isNodeTypeId(name)) return name
-  return nodeRegistry[name].ui.label
 }
 
 function formatElapsed(ms: number): string {
@@ -73,6 +62,7 @@ export function ExecutionGanttChart({
   selectedStepId?: string | null
   onStepSelect?: (stepId: string) => void
 }) {
+  const hydrated = useHydrated()
   const rows = steps
     .filter((step) => !step.isSystemEvent)
     .slice()
@@ -87,7 +77,13 @@ export function ExecutionGanttChart({
       </p>
     )
   }
-  const now = Date.now()
+  const now = hydrated
+    ? Date.now()
+    : Math.max(
+        ...rows.map((step) =>
+          new Date(step.endedAt ?? step.startedAt).getTime()
+        )
+      )
   const rangeStartMs = executionStartedAt
     ? new Date(executionStartedAt).getTime()
     : Math.min(...rows.map((s) => new Date(s.startedAt).getTime()))
@@ -137,6 +133,8 @@ export function ExecutionGanttChart({
               type="button"
               onClick={() => onStepSelect?.(step.id)}
               title={`${label} · ${formatElapsed(endMs - startMs)}`}
+              aria-label={`${label} · ${step.status} · attempt ${step.attempt}`}
+              aria-pressed={selectedStepId === step.id}
               className={cn(
                 "flex w-full items-center gap-2 rounded-md py-1 pr-1 text-left hover:bg-muted/50",
                 selectedStepId === step.id && "bg-muted"

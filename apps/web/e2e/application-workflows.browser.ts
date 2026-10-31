@@ -38,6 +38,10 @@ test("organizes Workflow creation, navigation, and deployments by Application", 
   await page.getByRole("button", { name: new RegExp(workspaceSlug) }).click()
   await expect(page).toHaveURL(/\/w\//)
   await page.goto(environment.AGENT_UI_APPLICATION_PATH)
+  await expect(
+    page.getByRole("tab", { name: "Agents", exact: true })
+  ).toHaveAttribute("aria-selected", "true")
+  await page.getByRole("tab", { name: /^Workflows/ }).click()
   await expect(page.getByRole("tab", { name: /^Workflows/ })).toHaveAttribute(
     "aria-selected",
     "true"
@@ -89,7 +93,7 @@ test("organizes Workflow creation, navigation, and deployments by Application", 
     page.getByRole("tab", { name: "Agents", exact: true })
   ).toHaveAttribute("aria-selected", "true")
   await expect(
-    page.getByRole("button", { name: "Create Agent", exact: true })
+    page.getByRole("link", { name: "Add Agent", exact: true })
   ).toBeVisible()
   await page.getByRole("tab", { name: "Environments", exact: true }).click()
   await expect(
@@ -150,6 +154,9 @@ test("organizes Workflow creation, navigation, and deployments by Application", 
       await expect(
         sheet.getByLabel("Identity provider issuer", { exact: true })
       ).toBeVisible()
+      await sheet
+        .getByLabel("Identity provider issuer", { exact: true })
+        .fill("https://draft.example.test")
       await page.screenshot({
         path: testInfo.outputPath("environment-identity.png"),
         fullPage: true,
@@ -174,12 +181,23 @@ test("organizes Workflow creation, navigation, and deployments by Application", 
     .getByRole("button", { name: "Close", exact: true })
     .click()
   await expect(page.getByRole("dialog")).not.toBeVisible()
+  await page.getByRole("tab", { name: "Agents", exact: true }).click()
+  await page.getByRole("tab", { name: "Environments", exact: true }).click()
   await development
     .getByRole("button", { name: "Manage Development", exact: true })
     .click()
   await expect(
     page.getByRole("dialog").getByLabel("Content retention in days")
   ).toHaveValue(savedRetention)
+  await page
+    .getByRole("dialog")
+    .getByLabel("Section", { exact: true })
+    .selectOption("User identity")
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByLabel("Identity provider issuer", { exact: true })
+  ).toHaveValue("https://draft.example.test")
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Close", exact: true })
@@ -222,7 +240,13 @@ test("organizes Workflow creation, navigation, and deployments by Application", 
     .getByRole("button", { name: "Create Application", exact: true })
     .click()
   await page.getByLabel("Name", { exact: true }).fill(secondApplicationName)
-  await page.getByLabel("Slug", { exact: true }).fill(`support-${Date.now()}`)
+  const customSlug = `support-${Date.now()}`
+  await page.getByLabel("Slug", { exact: true }).fill(customSlug)
+  await page
+    .getByLabel("Name", { exact: true })
+    .fill(`${secondApplicationName} revised`)
+  await expect(page.getByLabel("Slug", { exact: true })).toHaveValue(customSlug)
+  await page.getByLabel("Name", { exact: true }).fill(secondApplicationName)
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Create Application", exact: true })
@@ -233,6 +257,7 @@ test("organizes Workflow creation, navigation, and deployments by Application", 
   const secondApplicationId = z
     .uuid()
     .parse(new URL(page.url()).pathname.split("/").at(-1))
+  await page.getByRole("tab", { name: /^Workflows/ }).click()
   await expect(
     page.getByText("No Workflows in this Application yet.", { exact: false })
   ).toBeVisible()

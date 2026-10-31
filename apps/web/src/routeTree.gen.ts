@@ -35,6 +35,7 @@ import { Route as WSlugSettingsSecretsRouteImport } from './routes/w/$slug/setti
 import { Route as WSlugSettingsMembersRouteImport } from './routes/w/$slug/settings/members'
 import { Route as WSlugExecutionsExecutionIdRouteImport } from './routes/w/$slug/executions/$executionId'
 import { Route as WSlugApplicationsApplicationIdRouteImport } from './routes/w/$slug/applications/$applicationId'
+import { Route as WSlugAgentsNewRouteImport } from './routes/w/$slug/agents/new'
 import { Route as WSlugAgentsAgentIdRouteImport } from './routes/w/$slug/agents/$agentId'
 import { Route as WSlugWorkflowsWorkflowIdIndexRouteImport } from './routes/w/$slug/workflows/$workflowId/index'
 import { Route as WSlugWorkflowsWorkflowIdBuilderRouteImport } from './routes/w/$slug/workflows/$workflowId/builder'
@@ -177,6 +178,11 @@ const WSlugApplicationsApplicationIdRoute =
     path: '/applications/$applicationId',
     getParentRoute: () => WSlugRoute,
   } as any)
+const WSlugAgentsNewRoute = WSlugAgentsNewRouteImport.update({
+  id: '/agents/new',
+  path: '/agents/new',
+  getParentRoute: () => WSlugRoute,
+} as any)
 const WSlugAgentsAgentIdRoute = WSlugAgentsAgentIdRouteImport.update({
   id: '/agents/$agentId',
   path: '/agents/$agentId',
@@ -238,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
   '/w/$slug/': typeof WSlugIndexRoute
   '/w/$slug/agents/$agentId': typeof WSlugAgentsAgentIdRoute
+  '/w/$slug/agents/new': typeof WSlugAgentsNewRoute
   '/w/$slug/applications/$applicationId': typeof WSlugApplicationsApplicationIdRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
@@ -272,6 +279,7 @@ export interface FileRoutesByTo {
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
   '/w/$slug': typeof WSlugIndexRoute
   '/w/$slug/agents/$agentId': typeof WSlugAgentsAgentIdRoute
+  '/w/$slug/agents/new': typeof WSlugAgentsNewRoute
   '/w/$slug/applications/$applicationId': typeof WSlugApplicationsApplicationIdRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
   '/w/$slug/': typeof WSlugIndexRoute
   '/w/$slug/agents/$agentId': typeof WSlugAgentsAgentIdRoute
+  '/w/$slug/agents/new': typeof WSlugAgentsNewRoute
   '/w/$slug/applications/$applicationId': typeof WSlugApplicationsApplicationIdRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
@@ -344,6 +353,7 @@ export interface FileRouteTypes {
     | '/w/$slug/notifications'
     | '/w/$slug/'
     | '/w/$slug/agents/$agentId'
+    | '/w/$slug/agents/new'
     | '/w/$slug/applications/$applicationId'
     | '/w/$slug/executions/$executionId'
     | '/w/$slug/settings/members'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/w/$slug/notifications'
     | '/w/$slug'
     | '/w/$slug/agents/$agentId'
+    | '/w/$slug/agents/new'
     | '/w/$slug/applications/$applicationId'
     | '/w/$slug/executions/$executionId'
     | '/w/$slug/settings/members'
@@ -412,6 +423,7 @@ export interface FileRouteTypes {
     | '/w/$slug/notifications'
     | '/w/$slug/'
     | '/w/$slug/agents/$agentId'
+    | '/w/$slug/agents/new'
     | '/w/$slug/applications/$applicationId'
     | '/w/$slug/executions/$executionId'
     | '/w/$slug/settings/members'
@@ -630,6 +642,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugApplicationsApplicationIdRouteImport
       parentRoute: typeof WSlugRoute
     }
+    '/w/$slug/agents/new': {
+      id: '/w/$slug/agents/new'
+      path: '/agents/new'
+      fullPath: '/w/$slug/agents/new'
+      preLoaderRoute: typeof WSlugAgentsNewRouteImport
+      parentRoute: typeof WSlugRoute
+    }
     '/w/$slug/agents/$agentId': {
       id: '/w/$slug/agents/$agentId'
       path: '/agents/$agentId'
@@ -715,6 +734,7 @@ interface WSlugRouteChildren {
   WSlugNotificationsRoute: typeof WSlugNotificationsRoute
   WSlugIndexRoute: typeof WSlugIndexRoute
   WSlugAgentsAgentIdRoute: typeof WSlugAgentsAgentIdRoute
+  WSlugAgentsNewRoute: typeof WSlugAgentsNewRoute
   WSlugApplicationsApplicationIdRoute: typeof WSlugApplicationsApplicationIdRoute
   WSlugExecutionsExecutionIdRoute: typeof WSlugExecutionsExecutionIdRoute
   WSlugSettingsMembersRoute: typeof WSlugSettingsMembersRoute
@@ -731,6 +751,7 @@ const WSlugRouteChildren: WSlugRouteChildren = {
   WSlugNotificationsRoute: WSlugNotificationsRoute,
   WSlugIndexRoute: WSlugIndexRoute,
   WSlugAgentsAgentIdRoute: WSlugAgentsAgentIdRoute,
+  WSlugAgentsNewRoute: WSlugAgentsNewRoute,
   WSlugApplicationsApplicationIdRoute: WSlugApplicationsApplicationIdRoute,
   WSlugExecutionsExecutionIdRoute: WSlugExecutionsExecutionIdRoute,
   WSlugSettingsMembersRoute: WSlugSettingsMembersRoute,

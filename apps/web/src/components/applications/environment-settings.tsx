@@ -95,6 +95,7 @@ export function EnvironmentSettings(props: EnvironmentSettingsProps) {
   const { environment } = props
   const name = environment.environment === "dev" ? "Development" : "Production"
   const [active, setActive] = useState(sections[0])
+  const [visited, setVisited] = useState<string[]>([])
   return (
     <section
       aria-label={`${name} Environment`}
@@ -125,13 +126,21 @@ export function EnvironmentSettings(props: EnvironmentSettingsProps) {
           <dd className="mt-1">{environment.contentRetentionDays} days</dd>
         </div>
       </dl>
-      <Sheet>
+      <Sheet
+        onOpenChange={(open) => {
+          if (open)
+            setVisited((current) => (current.length ? current : [active.label]))
+        }}
+      >
         <div className="border-t px-4 py-3">
           <SheetTrigger render={<Button variant="outline" size="sm" />}>
             Manage {name}
           </SheetTrigger>
         </div>
-        <SheetContent className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-2xl">
+        <SheetContent
+          keepMounted
+          className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-2xl"
+        >
           <SheetHeader className="border-b pr-12">
             <SheetTitle>{name} Environment</SheetTitle>
             <SheetDescription>
@@ -151,7 +160,14 @@ export function EnvironmentSettings(props: EnvironmentSettingsProps) {
                   const section = sections.find(
                     (section) => section.label === event.target.value
                   )
-                  if (section) setActive(section)
+                  if (section) {
+                    setActive(section)
+                    setVisited((current) =>
+                      current.includes(section.label)
+                        ? current
+                        : [...current, section.label]
+                    )
+                  }
                 }}
               >
                 {sections.map((section) => (
@@ -167,7 +183,16 @@ export function EnvironmentSettings(props: EnvironmentSettingsProps) {
                 {active.description}
               </p>
             </div>
-            <div key={active.label}>{active.content(props)}</div>
+            {sections
+              .filter((section) => visited.includes(section.label))
+              .map((section) => (
+                <div
+                  key={section.label}
+                  hidden={active.label !== section.label}
+                >
+                  {section.content(props)}
+                </div>
+              ))}
           </div>
         </SheetContent>
       </Sheet>

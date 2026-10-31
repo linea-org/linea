@@ -23,6 +23,7 @@ export function AgentDeploymentForm({
   contracts,
   binding,
   disabled,
+  archived,
 }: {
   workspaceSlug: string
   environmentId: string
@@ -31,11 +32,13 @@ export function AgentDeploymentForm({
   contracts: AgentContract[]
   binding: AgentBinding | undefined
   disabled: boolean
+  archived: boolean
 }) {
   const queryClient = useQueryClient()
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<DeploymentInput>({
     values: {
@@ -84,6 +87,7 @@ export function AgentDeploymentForm({
           <NativeSelect
             className="w-full"
             id={`${environmentId}-agent-version`}
+            disabled={archived}
             {...register("versionId", {
               required: "Select a published version",
             })}
@@ -114,13 +118,18 @@ export function AgentDeploymentForm({
             id={`${environmentId}-agent-enabled`}
             {...register("enabled")}
           >
-            <NativeSelectOption value="enabled">Enabled</NativeSelectOption>
+            <NativeSelectOption value="enabled" disabled={archived}>
+              Enabled
+            </NativeSelectOption>
             <NativeSelectOption value="disabled">Disabled</NativeSelectOption>
           </NativeSelect>
         </Field>
         <Button
           type="submit"
-          disabled={published.length === 0}
+          disabled={
+            published.length === 0 ||
+            (archived && watch("enabled") !== "disabled")
+          }
           variant="outline"
         >
           {deploy.isPending ? "Saving…" : "Save deployment"}
