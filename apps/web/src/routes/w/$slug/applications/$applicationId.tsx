@@ -1,6 +1,14 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
+import { z } from "zod"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@linea/ui/components/tabs"
 import { EnvironmentSettings } from "@/components/applications/environment-settings"
+import { ApplicationWorkflows } from "@/components/applications/application-workflows"
 import { ApplicationAgents } from "@/components/agents/application-agents"
 import {
   applicationsQueryOptions,
@@ -9,7 +17,10 @@ import {
 import { listEnvironmentsFn } from "@/lib/environments-api"
 import { listApplicationWorkflowsFn } from "@/lib/workflows-api"
 
+const applicationViewSchema = z.enum(["workflows", "agents", "environments"])
+
 export const Route = createFileRoute("/w/$slug/applications/$applicationId")({
+  validateSearch: z.object({ view: applicationViewSchema.optional() }),
   loader: async ({ params }) => {
     const [applications, environments, workflows] = await Promise.all([
       listApplicationsFn(),
@@ -25,6 +36,8 @@ export const Route = createFileRoute("/w/$slug/applications/$applicationId")({
 
 function ApplicationPage() {
   const { slug, applicationId } = Route.useParams()
+  const { view = "workflows" } = Route.useSearch()
+  const navigate = Route.useNavigate()
   const initial = Route.useLoaderData()
   const queryClient = useQueryClient()
   const { data: applications } = useSuspenseQuery({
@@ -49,7 +62,7 @@ function ApplicationPage() {
     })
   }
   return (
-    <main className="flex flex-1 flex-col gap-6 p-6">
+    <main className="flex min-w-0 flex-1 flex-col gap-6 p-4 sm:p-6">
       <div>
         <h1 className="text-xl font-semibold">{application.name}</h1>
         <p className="text-sm text-muted-foreground">
@@ -57,44 +70,52 @@ function ApplicationPage() {
           independently in each Environment.
         </p>
       </div>
-      <ApplicationAgents workspaceSlug={slug} applicationId={applicationId} />
-      <section className="rounded-xl border bg-card p-4">
-        <h2 className="mb-3 font-semibold">Workflows</h2>
-        <div className="flex flex-col gap-2">
-          {workflows
-            .filter((workflow) => workflow.applicationId === applicationId)
-            .map((workflow) => (
-              <Link
-                key={workflow.id}
-                to="/w/$slug/workflows/$workflowId"
-                params={{ slug, workflowId: workflow.id }}
-                className="text-sm underline"
-              >
-                {workflow.name}
-              </Link>
-            ))}
-          <Link
-            to="/w/$slug/workflows"
-            params={{ slug }}
-            className="text-sm underline"
-          >
-            Manage Workflows
-          </Link>
-        </div>
-      </section>
-      <div className="grid items-start gap-4 xl:grid-cols-2">
-        {environments.map((environment) => (
-          <EnvironmentSettings
-            workflows={workflows.filter(
-              (workflow) => workflow.applicationId === applicationId
-            )}
+      <Tabs
+        value={view}
+        onValueChange={(value) => {
+          void navigate({
+            search: { view: applicationViewSchema.parse(value) },
+          })
+        }}
+        className="min-w-0 gap-4"
+      >
+        <TabsList>
+          <TabsTrigger value="workflows">
+            Workflows ({workflows.length})
+          </TabsTrigger>
+          <TabsTrigger value="agents">Agents</TabsTrigger>
+          <TabsTrigger value="environments">Environments</TabsTrigger>
+        </TabsList>
+        <TabsContent value="workflows">
+          <ApplicationWorkflows
+            key={applicationId}
             workspaceSlug={slug}
-            key={environment.id}
-            environment={environment}
-            onSaved={onSaved}
+            applicationId={applicationId}
+            workflows={workflows}
           />
-        ))}
-      </div>
+        </TabsContent>
+        <TabsContent value="agents">
+          <ApplicationAgents
+            key={applicationId}
+            workspaceSlug={slug}
+            applicationId={applicationId}
+          />
+        </TabsContent>
+        <TabsContent
+          value="environments"
+          className="grid items-start gap-4 xl:grid-cols-2"
+        >
+          {environments.map((environment) => (
+            <EnvironmentSettings
+              workflows={workflows}
+              workspaceSlug={slug}
+              key={environment.id}
+              environment={environment}
+              onSaved={onSaved}
+            />
+          ))}
+        </TabsContent>
+      </Tabs>
     </main>
   )
 }

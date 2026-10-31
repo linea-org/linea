@@ -57,8 +57,8 @@ function ApplicationsPage() {
       <div>
         <h1 className="text-xl font-semibold">Applications</h1>
         <p className="text-sm text-muted-foreground">
-          Your products own their Workflows. Each has separate Development and
-          Production Environments.
+          Your products own their Agents and Workflows. Each has separate
+          Development and Production Environments.
         </p>
       </div>
       <form

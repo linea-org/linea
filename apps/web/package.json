@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:agent-ui": "playwright test",
+    "test:agent-ui": "playwright test agent-authoring.browser.ts",
+    "test:application-ui": "playwright test application-workflows.browser.ts",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit"

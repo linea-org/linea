@@ -127,7 +127,9 @@ export function WorkflowFormDialog({
         >
           <FieldGroup>
             <Field>
-              <FieldLabel>Application</FieldLabel>
+              <FieldLabel htmlFor="workflow-application">
+                Application
+              </FieldLabel>
               <Controller
                 name="applicationId"
                 control={control}
@@ -137,8 +139,14 @@ export function WorkflowFormDialog({
                     onValueChange={field.onChange}
                     disabled={!!defaultValues}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an Application" />
+                    <SelectTrigger id="workflow-application">
+                      <SelectValue placeholder="Select an Application">
+                        {(value: string) =>
+                          applications.find(
+                            (application) => application.id === value
+                          )?.name ?? "Select an Application"
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {applications.map((application) => (

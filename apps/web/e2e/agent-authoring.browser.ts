@@ -37,6 +37,7 @@ test("author, publish, and independently deploy immutable Agent versions", async
     .click()
   await expect(page).toHaveURL(/\/w\//)
   await page.goto(environment.AGENT_UI_APPLICATION_PATH)
+  await page.getByRole("tab", { name: "Agents", exact: true }).click()
   await page.getByRole("button", { name: "Create Agent", exact: true }).click()
   const dialog = page.getByRole("dialog")
   const agentName = `GitHub issue analyst ${Date.now()}`
@@ -247,6 +248,7 @@ test("author, publish, and independently deploy immutable Agent versions", async
     fullPage: true,
   })
   await page.goto(environment.AGENT_UI_APPLICATION_PATH)
+  await page.getByRole("tab", { name: "Agents", exact: true }).click()
   await page.getByRole("link", { name: new RegExp(agentName) }).click()
   await expect(page).toHaveURL(agentUrl)
   expect(pageErrors).toEqual([])

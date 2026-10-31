@@ -51,6 +51,7 @@ function AgentPage() {
         <Link
           to="/w/$slug/applications/$applicationId"
           params={{ slug, applicationId: application.id }}
+          search={{ view: "agents" }}
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeftIcon className="size-3" />

@@ -30,7 +30,7 @@ import { Link } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useTheme } from "next-themes"
 import { nodeRegistry, type NodeTypeId } from "@linea/runtime/browser"
-import { Button } from "@linea/ui/components/button"
+import { Button, buttonVariants } from "@linea/ui/components/button"
 import {
   Dialog,
   DialogContent,
@@ -74,6 +74,7 @@ import {
   createWorkflowVersionFn,
   publishWorkflowVersionFn,
   saveWorkflowDraftFn,
+  workflowQueryOptions,
 } from "@/lib/workflows-api"
 import { WorkflowPalette, PALETTE_DRAG_MIME } from "./palette"
 import { NodeConfigPanel } from "./node-config-panel"
@@ -206,6 +207,7 @@ function WorkflowBuilderCanvasInner({
   slug,
   initialGraph,
 }: WorkflowBuilderCanvasProps) {
+  const { data: workflow } = useQuery(workflowQueryOptions(slug, workflowId))
   const seeded = ensureStartNode(initialGraph)
   const initial = graphToFlow(seeded)
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes)
@@ -544,6 +546,21 @@ function WorkflowBuilderCanvasInner({
             <ArrowLeftIcon />
             Back
           </Button>
+          {workflow && (
+            <Link
+              to="/w/$slug/applications/$applicationId"
+              params={{ slug, applicationId: workflow.applicationId }}
+              search={{ view: "workflows" }}
+              className={buttonVariants({ variant: "ghost", size: "xs" })}
+            >
+              Application
+            </Link>
+          )}
+          {workflow && (
+            <span className="hidden max-w-48 truncate px-2 text-sm font-medium lg:block">
+              {workflow.name}
+            </span>
+          )}
         </div>
         <div className="flex items-center justify-end gap-2">
           {otherViewers.length > 0 && (
