@@ -64,10 +64,10 @@ export function UserMenu({
             variant="ghost"
             aria-label="Open account menu"
             className={cn(
-              "h-auto gap-2 transition-colors hover:bg-secondary hover:text-secondary-foreground",
+              "gap-2 transition-colors hover:bg-secondary hover:text-secondary-foreground",
               showDetails
-                ? "h-8 w-full justify-start rounded-md px-2 group-data-[collapsible=icon]:size-7 group-data-[collapsible=icon]:w-7 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:p-0"
-                : "size-8 rounded-full p-0",
+                ? "h-10 w-full justify-start rounded-md px-2 group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:p-0"
+                : "size-10 rounded-full p-0",
               className
             )}
           />
@@ -78,7 +78,7 @@ export function UserMenu({
           email={user?.email}
           image={user?.image}
           size="sm"
-          className="size-7 group-data-[collapsible=icon]:size-7"
+          className="size-8 group-data-[collapsible=icon]:size-8"
         />
         {showDetails ? (
           <>

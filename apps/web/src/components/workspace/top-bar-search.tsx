@@ -30,7 +30,7 @@ export function TopBarSearch() {
         type="button"
         variant="outline"
         size="xs"
-        className="h-7 w-full max-w-sm justify-start gap-2 text-muted-foreground"
+        className="w-full max-w-sm justify-start gap-2 text-muted-foreground"
         onClick={() => setOpen(true)}
       >
         <SearchIcon data-icon="inline-start" />

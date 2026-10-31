@@ -62,12 +62,12 @@ export function WorkspaceSwitcher({
             render={
               <SidebarMenuButton
                 size="lg"
-                className="h-8 cursor-pointer data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
+                className="h-10 cursor-pointer data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground"
                 aria-label="Switch workspace"
               />
             }
           >
-            <PlayfulAvatar name={name} shape="rounded" className="size-7" />
+            <PlayfulAvatar name={name} shape="rounded" className="size-8" />
             <span className="grid min-w-0 flex-1 text-left text-xs leading-tight">
               <span className="truncate font-heading font-semibold tracking-tight">
                 {name}
@@ -99,7 +99,7 @@ export function WorkspaceSwitcher({
                   <PlayfulAvatar
                     name={workspace.name}
                     shape="rounded"
-                    className="size-7"
+                    className="size-8"
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-medium">
