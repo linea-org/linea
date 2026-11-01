@@ -35,6 +35,14 @@ import {
   EmptyTitle,
 } from "@linea/ui/components/empty"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@linea/ui/components/table"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -250,91 +258,115 @@ function MembersPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="divide-y divide-border/70 border-b border-border/70">
-          {filteredMembers.map((member) => {
-            const isSelf = member.userId === session?.user.id
-            const isOwner = member.role === "owner"
-            return (
-              <div
-                key={member.id}
-                className="flex items-center hover:bg-muted/40"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <UserAvatar
-                      name={member.user.name}
-                      email={member.user.email}
-                      image={member.user.image}
-                      className="size-8"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <h2 className="truncate text-xs font-medium">
-                        {member.user.name}
-                        {isSelf ? (
-                          <span className="ml-2 font-normal text-muted-foreground">
-                            You
-                          </span>
-                        ) : null}
-                      </h2>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {member.user.email}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="ml-auto flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-                    {isOwner ? (
-                      <p>{roleLabel(member.role)}</p>
-                    ) : (
-                      <Select
-                        value={member.role}
-                        onValueChange={(value) => {
-                          if (value === "member" || value === "admin") {
-                            changeRole.mutate({
-                              memberId: member.id,
-                              role: value,
-                            })
+        <div className="px-4 py-2">
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Member
+                  </TableHead>
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Role
+                  </TableHead>
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Joined
+                  </TableHead>
+                  <TableHead className="w-12 px-2">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredMembers.map((member) => {
+                  const isSelf = member.userId === session?.user.id
+                  const isOwner = member.role === "owner"
+                  return (
+                    <TableRow key={member.id} className="hover:bg-muted/40">
+                      <TableCell className="px-4 py-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <UserAvatar
+                            name={member.user.name}
+                            email={member.user.email}
+                            image={member.user.image}
+                            className="size-8"
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-medium">
+                              {member.user.name}
+                              {isSelf ? (
+                                <span className="ml-2 font-normal text-muted-foreground">
+                                  You
+                                </span>
+                              ) : null}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {member.user.email}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground">
+                        {isOwner ? (
+                          roleLabel(member.role)
+                        ) : (
+                          <Select
+                            value={member.role}
+                            onValueChange={(value) => {
+                              if (value === "member" || value === "admin") {
+                                changeRole.mutate({
+                                  memberId: member.id,
+                                  role: value,
+                                })
+                              }
+                            }}
+                          >
+                            <SelectTrigger size="sm" className="w-28">
+                              <SelectValue>
+                                {() => roleLabel(member.role)}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROLE_OPTIONS.map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                        {formatDate(member.createdAt)}
+                      </TableCell>
+                      <TableCell className="px-2 py-3 text-right">
+                        <RowOptions
+                          label={member.user.name}
+                          copyValue={member.user.email}
+                          removeLabel={
+                            !isOwner && !isSelf ? "Remove" : undefined
                           }
-                        }}
-                      >
-                        <SelectTrigger size="sm" className="w-28">
-                          <SelectValue>
-                            {() => roleLabel(member.role)}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ROLE_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <p className="shrink-0 tabular-nums">
-                      {formatDate(member.createdAt)}
-                    </p>
-                  </div>
-                </div>
-                <div className="pr-2">
-                  <RowOptions
-                    label={member.user.name}
-                    copyValue={member.user.email}
-                    removeLabel={!isOwner && !isSelf ? "Remove" : undefined}
-                    onRemove={
-                      !isOwner && !isSelf
-                        ? () =>
-                            setConfirmTarget({
-                              kind: "member",
-                              id: member.id,
-                              label: member.user.name,
-                            })
-                        : undefined
-                    }
-                  />
-                </div>
-              </div>
-            )
-          })}
+                          onRemove={
+                            !isOwner && !isSelf
+                              ? () =>
+                                  setConfirmTarget({
+                                    kind: "member",
+                                    id: member.id,
+                                    label: member.user.name,
+                                  })
+                              : undefined
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
       {filteredInvites.length > 0 ? (
@@ -342,42 +374,66 @@ function MembersPage() {
           <p className="px-4 pt-6 pb-2 text-xs font-medium text-foreground">
             Pending invitations
           </p>
-          <div className="divide-y divide-border/70 border-b border-border/70">
-            {filteredInvites.map((invitation) => (
-              <div
-                key={invitation.id}
-                className="flex items-center hover:bg-muted/40"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <UserAvatar email={invitation.email} className="size-8" />
-                    <h2 className="min-w-0 flex-1 truncate text-xs font-medium">
-                      {invitation.email}
-                    </h2>
-                  </div>
-                  <p className="ml-auto shrink-0 text-xs text-muted-foreground">
-                    {roleLabel(invitation.role ?? "member")}
-                    {invitation.expiresAt
-                      ? ` · Expires ${formatDate(invitation.expiresAt)}`
-                      : ""}
-                  </p>
-                </div>
-                <div className="pr-2">
-                  <RowOptions
-                    label={invitation.email}
-                    copyValue={invitation.email}
-                    removeLabel="Cancel invite"
-                    onRemove={() =>
-                      setConfirmTarget({
-                        kind: "invite",
-                        id: invitation.id,
-                        label: invitation.email,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            ))}
+          <div className="px-4 pb-2">
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <Table>
+                <TableHeader className="bg-muted/40">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="px-4 font-normal text-muted-foreground">
+                      Invitation
+                    </TableHead>
+                    <TableHead className="px-4 font-normal text-muted-foreground">
+                      Role
+                    </TableHead>
+                    <TableHead className="px-4 font-normal text-muted-foreground">
+                      Expires
+                    </TableHead>
+                    <TableHead className="w-12 px-2">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredInvites.map((invitation) => (
+                    <TableRow key={invitation.id} className="hover:bg-muted/40">
+                      <TableCell className="px-4 py-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <UserAvatar
+                            email={invitation.email}
+                            className="size-8"
+                          />
+                          <p className="truncate text-xs font-medium">
+                            {invitation.email}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground">
+                        {roleLabel(invitation.role ?? "member")}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                        {invitation.expiresAt
+                          ? formatDate(invitation.expiresAt)
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="px-2 py-3 text-right">
+                        <RowOptions
+                          label={invitation.email}
+                          copyValue={invitation.email}
+                          removeLabel="Cancel invite"
+                          onRemove={() =>
+                            setConfirmTarget({
+                              kind: "invite",
+                              id: invitation.id,
+                              label: invitation.email,
+                            })
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </>
       ) : null}

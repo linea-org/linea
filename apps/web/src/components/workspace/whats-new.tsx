@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
+import { z } from "zod"
 import { MailIcon, MailOpenIcon, MegaphoneIcon } from "lucide-react"
 import { Button, buttonVariants } from "@linea/ui/components/button"
 import {
@@ -23,29 +24,38 @@ const updates = [
 ] as const
 
 function storedReadIds(): string[] {
-  try {
-    const raw = localStorage.getItem(storageKey)
-    if (!raw) return []
-    const parsed: unknown = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((value) => typeof value === "string")
-  } catch {
-    return []
-  }
+  const raw = localStorage.getItem(storageKey)
+  if (!raw) return []
+  return z.array(z.string()).parse(JSON.parse(raw))
 }
 
 export function WhatsNew() {
   const [readIds, setReadIds] = useState<string[] | null>(null)
-  useEffect(() => {
-    setReadIds(storedReadIds())
+  const [storageError, setStorageError] = useState<string | null>(null)
+  const loadReadIds = useCallback(() => {
+    try {
+      setReadIds(storedReadIds())
+      setStorageError(null)
+    } catch {
+      setReadIds(null)
+      setStorageError("Could not load your announcement read status.")
+    }
   }, [])
+  useEffect(() => {
+    loadReadIds()
+  }, [loadReadIds])
   const known = readIds ?? []
   const unreadCount = readIds
     ? updates.filter((update) => !known.includes(update.id)).length
     : 0
   function persist(next: string[]) {
-    localStorage.setItem(storageKey, JSON.stringify(next))
-    setReadIds(next)
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(next))
+      setReadIds(next)
+      setStorageError(null)
+    } catch {
+      setStorageError("Could not save your announcement read status.")
+    }
   }
   function toggleRead(id: string) {
     persist(
@@ -84,7 +94,7 @@ export function WhatsNew() {
           <p className="min-w-0 flex-1 text-xs font-medium text-foreground">
             What&apos;s new
           </p>
-          {unreadCount > 0 ? (
+          {unreadCount > 0 && !storageError ? (
             <Button
               variant="ghost"
               size="xs"
@@ -95,13 +105,24 @@ export function WhatsNew() {
             </Button>
           ) : null}
         </div>
+        {storageError && (
+          <div
+            role="alert"
+            className="flex items-center gap-2 border-b px-3 py-2 text-xs text-destructive"
+          >
+            <p className="flex-1">{storageError}</p>
+            <Button variant="ghost" size="xs" onClick={loadReadIds}>
+              Retry
+            </Button>
+          </div>
+        )}
         <div className="divide-y divide-border">
           {updates.map((update) => {
-            const read = known.includes(update.id)
+            const read = readIds?.includes(update.id)
             return (
               <div
                 key={update.id}
-                className={cn("px-3 py-2.5", !read && "bg-muted/20")}
+                className={cn("px-3 py-2.5", read === false && "bg-muted/20")}
               >
                 <div className="flex items-center gap-2">
                   <p className="min-w-0 flex-1 text-xs font-medium text-foreground">
@@ -113,6 +134,7 @@ export function WhatsNew() {
                     size="icon-xs"
                     aria-label={read ? "Mark unread" : "Mark read"}
                     title={read ? "Mark unread" : "Mark read"}
+                    disabled={readIds === null || storageError !== null}
                     onClick={() => toggleRead(update.id)}
                   >
                     {read ? (

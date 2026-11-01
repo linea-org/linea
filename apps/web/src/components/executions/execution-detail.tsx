@@ -1,7 +1,9 @@
 import { useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { Button } from "@linea/ui/components/button"
+import { Separator } from "@linea/ui/components/separator"
 
+import { PlayfulAvatar } from "@/components/avatar"
 import {
   executionQueryOptions,
   getExecutionFn,
@@ -52,19 +54,40 @@ export async function loadExecutionDetail(
 }
 
 function formatDuration(startedAt: string | null, completedAt: string | null) {
-  if (!startedAt) return "—"
-  if (!completedAt) return "Running…"
+  if (!startedAt || !completedAt) return "—"
   const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-card px-4 py-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 truncate text-xs text-foreground">{value}</p>
-    </div>
-  )
+function executionDuration(
+  execution: ExecutionDetail,
+  steps: ExecutionDetailResponse["steps"]
+) {
+  if (execution.completedAt) {
+    return formatDuration(execution.startedAt, execution.completedAt)
+  }
+  switch (execution.status) {
+    case "queued":
+    case "running":
+      return "Running…"
+    case "paused": {
+      const lastEnded = steps
+        .flatMap((step) => (step.endedAt ? [step.endedAt] : []))
+        .sort()
+        .at(-1)
+      return lastEnded
+        ? formatDuration(execution.startedAt, lastEnded)
+        : "Paused"
+    }
+    case "succeeded":
+    case "failed":
+    case "cancelled":
+      return "—"
+    default: {
+      const unreachable: never = execution.status
+      return unreachable
+    }
+  }
 }
 
 export function ExecutionDetailView({
@@ -99,69 +122,84 @@ export function ExecutionDetailView({
   const { execution } = detail
   const workflowName = initialData.workflow?.name ?? "Execution"
   return (
-    <main className="flex min-w-0 flex-1 flex-col px-4 py-4">
+    <main className="flex min-w-0 flex-1 flex-col px-4 py-2">
       <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
+        <header className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
+          <PlayfulAvatar
+            name={workflowName}
+            shape="rounded"
+            className="size-8"
+          />
           <div className="min-w-0">
-            <h1 className="truncate text-sm font-medium text-foreground">
-              {workflowName}
-            </h1>
-            <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+            <p className="truncate text-xs font-medium">{workflowName}</p>
+            <p className="truncate font-mono text-xs text-muted-foreground">
               {execution.id}
             </p>
           </div>
-          <ExecutionStatusBadge status={execution.status} />
-        </div>
-        <div className="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4">
-          <Stat
-            label="Trigger"
-            value={`${triggerLabel[execution.trigger]} · ${environmentLabel[execution.environment]}`}
-          />
-          <Stat
-            label="Duration"
-            value={formatDuration(execution.startedAt, execution.completedAt)}
-          />
-          <Stat
-            label="Cost"
-            value={formatCost(execution.costMicros, execution.costUnpriced)}
-          />
-          <Stat
-            label="Started"
-            value={
-              execution.startedAt
-                ? new Date(execution.startedAt).toLocaleString()
-                : "—"
-            }
+          <div className="ml-auto flex flex-wrap items-center text-xs text-muted-foreground">
+            <ExecutionStatusBadge status={execution.status} />
+            {(
+              [
+                ["trigger", triggerLabel[execution.trigger]],
+                ["environment", environmentLabel[execution.environment]],
+                ["duration", executionDuration(execution, detail.steps)],
+                [
+                  "cost",
+                  formatCost(execution.costMicros, execution.costUnpriced),
+                ],
+                [
+                  "when",
+                  execution.startedAt
+                    ? new Date(execution.startedAt).toLocaleString()
+                    : "—",
+                ],
+              ] as const
+            ).map(([key, value]) => (
+              <span key={key} className="flex items-center">
+                <Separator
+                  orientation="vertical"
+                  className="mx-3 h-3 data-vertical:h-3 data-vertical:self-center"
+                />
+                <span className="tabular-nums">{value}</span>
+              </span>
+            ))}
+          </div>
+        </header>
+        {execution.error ? (
+          <div className="border-b px-4 py-3">
+            <ErrorCallout
+              title="This run failed"
+              message={execution.error.message}
+            />
+          </div>
+        ) : null}
+        <div className="flex min-h-0 flex-1 flex-col">
+          {error && (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 text-xs text-destructive"
+            >
+              <p>
+                Could not refresh this execution. Showing the last recorded
+                state.
+              </p>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => void refetch()}
+              >
+                Retry refresh
+              </Button>
+            </div>
+          )}
+          <ExecutionTraceWorkspace
+            slug={slug}
+            detail={detail}
+            pendingReplayStepId={pendingReplayStepId}
+            onReplayTriggered={setPendingReplayStepId}
           />
         </div>
       </div>
-      {execution.error ? (
-        <div className="mt-4">
-          <ErrorCallout
-            title="This run failed"
-            message={execution.error.message}
-          />
-        </div>
-      ) : null}
-      {error && (
-        <div
-          role="alert"
-          className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-destructive"
-        >
-          <p>
-            Could not refresh this execution. Showing the last recorded state.
-          </p>
-          <Button variant="outline" size="xs" onClick={() => void refetch()}>
-            Retry refresh
-          </Button>
-        </div>
-      )}
-      <ExecutionTraceWorkspace
-        slug={slug}
-        detail={detail}
-        pendingReplayStepId={pendingReplayStepId}
-        onReplayTriggered={setPendingReplayStepId}
-      />
     </main>
   )
 }

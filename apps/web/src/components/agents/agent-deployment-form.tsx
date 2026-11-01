@@ -94,6 +94,10 @@ export function AgentDeploymentForm({
             render={({ field }) => (
               <Select
                 value={field.value || null}
+                items={published.map((version) => ({
+                  value: version.id,
+                  label: `Version ${version.version} · Contract revision ${contracts.find((contract) => contract.id === version.agentContractRevisionId)?.revision}`,
+                }))}
                 disabled={
                   published.length === 0 ||
                   archived ||

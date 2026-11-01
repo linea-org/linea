@@ -1,5 +1,13 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@linea/ui/components/table"
 import { PlayfulAvatar } from "@/components/avatar"
 import { listAgentsFn } from "@/lib/agents-api"
 
@@ -61,33 +69,57 @@ export function ApplicationAgents({
         </p>
       )}
       {visible.length > 0 && (
-        <div className="divide-y divide-border/70 border-b border-border/70">
-          {visible.map((agent) => (
-            <Link
-              key={agent.id}
-              to="/w/$slug/agents/$agentId"
-              params={{ slug: workspaceSlug, agentId: agent.id }}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40"
-            >
-              <PlayfulAvatar
-                name={agent.name}
-                shape="rounded"
-                className="size-8"
-              />
-              <div className="min-w-0">
-                <p className="truncate text-xs font-medium">{agent.name}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {agent.slug}
-                </p>
-              </div>
-              <div className="ml-auto flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-                {agent.archivedAt ? <span>Archived</span> : null}
-                <span className="tabular-nums">
-                  {formatDate(agent.updatedAt)}
-                </span>
-              </div>
-            </Link>
-          ))}
+        <div className="px-4 py-2">
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Agent
+                  </TableHead>
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Status
+                  </TableHead>
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Updated
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visible.map((agent) => (
+                  <TableRow key={agent.id} className="hover:bg-muted/40">
+                    <TableCell className="px-4 py-3">
+                      <Link
+                        to="/w/$slug/agents/$agentId"
+                        params={{ slug: workspaceSlug, agentId: agent.id }}
+                        className="flex min-w-0 items-center gap-3"
+                      >
+                        <PlayfulAvatar
+                          name={agent.name}
+                          shape="rounded"
+                          className="size-8"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-medium">
+                            {agent.name}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {agent.slug}
+                          </span>
+                        </span>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground">
+                      {agent.archivedAt ? "Archived" : "Active"}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                      {formatDate(agent.updatedAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
     </section>

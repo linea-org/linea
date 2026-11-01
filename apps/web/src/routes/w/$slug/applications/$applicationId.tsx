@@ -107,7 +107,7 @@ function ApplicationPage() {
         }}
         className="min-w-0 gap-0"
       >
-        <PageToolbar>
+        <PageToolbar className="border-b border-border/70">
           <TabsList className="h-8!">
             <TabsTrigger value="agents">Agents</TabsTrigger>
             <TabsTrigger value="workflows">
@@ -228,13 +228,19 @@ function ApplicationPage() {
           </TabsContent>
           <TabsContent value="environments" keepMounted>
             {selectedEnvironment ? (
-              <EnvironmentSettings
-                key={selectedEnvironment.id}
-                workflows={workflows}
-                workspaceSlug={slug}
-                environment={selectedEnvironment}
-                onSaved={onSaved}
-              />
+              environments.map((environment) => (
+                <div
+                  key={environment.id}
+                  hidden={environment.id !== selectedEnvironment.id}
+                >
+                  <EnvironmentSettings
+                    workflows={workflows}
+                    workspaceSlug={slug}
+                    environment={environment}
+                    onSaved={onSaved}
+                  />
+                </div>
+              ))
             ) : (
               <p className="px-4 py-8 text-xs text-muted-foreground">
                 No Environments for this Application yet.

@@ -7,6 +7,7 @@ export default defineConfig({
   workers: 1,
   timeout: 60000,
   use: {
+    actionTimeout: 10000,
     baseURL: process.env.AGENT_UI_BASE_URL ?? "http://localhost:3001",
     viewport: { width: 1440, height: 1100 },
     screenshot: "only-on-failure",

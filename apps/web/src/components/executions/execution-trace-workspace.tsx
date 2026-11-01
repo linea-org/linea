@@ -83,14 +83,12 @@ export function ExecutionTraceWorkspace({
     })
   }
   return (
-    <section
-      aria-label="Execution trace"
-      className="mt-4 flex min-w-0 flex-col gap-4"
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="mr-auto pl-1 text-sm font-medium">
-          Trace{" "}
+    <section aria-label="Execution trace" className="flex min-w-0 flex-col">
+      <div className="flex h-12 flex-wrap items-center gap-2 border-b bg-muted/40 px-4">
+        <h2 className="mr-auto text-xs font-medium">
+          Trace
           <span className="font-normal text-muted-foreground">
+            {" "}
             · {recorded.length} steps
           </span>
         </h2>
@@ -126,7 +124,7 @@ export function ExecutionTraceWorkspace({
         </Select>
       </div>
       {pausedAtNode && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
           <p className="text-xs">
             Paused at {stepTitle(pausedAtNode.type)} ·{" "}
             <span className="font-mono">{pausedAtNode.nodeId}</span>
@@ -136,24 +134,31 @@ export function ExecutionTraceWorkspace({
               to="/w/$slug/approvals"
               params={{ slug }}
               search={{ executionId: execution.id }}
-              className={buttonVariants({ size: "sm", variant: "outline" })}
+              className={buttonVariants({ size: "xs", variant: "outline" })}
             >
               View approvals
             </Link>
           )}
         </div>
       )}
-      <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
-        <div className="min-w-0 overflow-hidden rounded-xl border bg-card p-3">
-          {orphanedResumeEvents.map((event) => (
-            <p key={event.id} className="mb-3 text-xs text-muted-foreground">
-              Resumed{" "}
-              {hydrated
-                ? new Date(event.startedAt).toLocaleString()
-                : event.startedAt}
-            </p>
-          ))}
-          {filtered.length ? (
+      {orphanedResumeEvents.map((event) => (
+        <p
+          key={event.id}
+          className="border-b px-4 py-3 text-xs text-muted-foreground"
+        >
+          Resumed{" "}
+          {hydrated
+            ? new Date(event.startedAt).toLocaleString()
+            : event.startedAt}
+        </p>
+      ))}
+      {filtered.length === 0 ? (
+        <p className="px-4 py-8 text-xs text-muted-foreground">
+          {recorded.length ? "No matching steps." : "No steps recorded yet."}
+        </p>
+      ) : (
+        <>
+          <div className="border-b px-4 py-3">
             <ExecutionGanttChart
               steps={filtered}
               executionStartedAt={execution.startedAt}
@@ -161,22 +166,14 @@ export function ExecutionTraceWorkspace({
               selectedStepId={selected?.id ?? null}
               onStepSelect={selectStep}
             />
-          ) : (
-            <p className="px-2 py-6 text-xs text-muted-foreground">
-              {recorded.length
-                ? "No matching steps."
-                : "No steps recorded yet."}
-            </p>
-          )}
-        </div>
-        <div className="min-w-0 rounded-xl border bg-card p-4">
+          </div>
           {selected ? (
-            <>
+            <div className="flex flex-col gap-4 px-4 py-3">
               {parent && (
                 <Button
                   size="xs"
                   variant="ghost"
-                  className="mb-3"
+                  className="self-start"
                   onClick={() => {
                     setStatus("all")
                     setSearch("")
@@ -190,7 +187,7 @@ export function ExecutionTraceWorkspace({
                 <Button
                   size="xs"
                   variant="ghost"
-                  className="mb-3"
+                  className="self-start"
                   onClick={() => {
                     setStatus("all")
                     setSearch("")
@@ -215,30 +212,27 @@ export function ExecutionTraceWorkspace({
                   onReplayTriggered(stepId)
                 }}
               />
-            </>
-          ) : (
-            <div className="flex flex-col gap-3 py-6 text-xs text-muted-foreground">
-              <p>
-                {selectedId && selectedId === pendingReplayStepId
-                  ? "Waiting for the replay step to be recorded…"
-                  : selectedId
-                    ? "This step is not available in this execution."
-                    : "Select a recorded step to inspect its input, output, and timing."}
-              </p>
-              {selectedId && (
-                <Button
-                  size="xs"
-                  variant="outline"
-                  className="self-start"
-                  onClick={clearSelection}
-                >
-                  Clear step selection
-                </Button>
-              )}
             </div>
-          )}
+          ) : null}
+        </>
+      )}
+      {selectedId && !selected ? (
+        <div className="px-4 py-4 text-xs text-muted-foreground">
+          <p>
+            {selectedId === pendingReplayStepId
+              ? "Waiting for the replay step to be recorded…"
+              : "This step is not available in this execution."}
+          </p>
+          <Button
+            size="xs"
+            variant="outline"
+            className="mt-3"
+            onClick={clearSelection}
+          >
+            Clear step selection
+          </Button>
         </div>
-      </div>
+      ) : null}
     </section>
   )
 }

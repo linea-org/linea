@@ -79,6 +79,10 @@ export function AgentDefinitionFields({
               <Select
                 value={field.value || null}
                 disabled={contracts.length === 0}
+                items={contracts.map((contract) => ({
+                  value: contract.id,
+                  label: `Revision ${contract.revision}`,
+                }))}
                 onValueChange={(value) => {
                   if (typeof value !== "string") return
                   field.onChange(value)

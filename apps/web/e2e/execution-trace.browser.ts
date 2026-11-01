@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { z } from "zod"
+import { chooseOption } from "./choose-option"
+import { signInWorkspace } from "./sign-in-workspace"
 
 const environment = z
   .object({
@@ -19,19 +21,12 @@ test("inspects recorded steps, replay lineage, and scoped approvals in a shared 
   page.on("pageerror", (error) => pageErrors.push(error.message))
   const workspacePath = `/w/${environment.TRACE_UI_WORKSPACE}`
   const executionPath = `${workspacePath}/executions/${environment.TRACE_UI_FAILED_EXECUTION_ID}`
-  await page.goto("/sign-in")
-  await page
-    .getByLabel("Email", { exact: true })
-    .fill(environment.AGENT_UI_EMAIL)
-  await page
-    .getByLabel("Password", { exact: true })
-    .fill(environment.AGENT_UI_PASSWORD)
-  await page.getByRole("button", { name: "Sign in", exact: true }).click()
-  await expect(page).not.toHaveURL(/\/sign-in/)
-  await page
-    .getByRole("button", { name: new RegExp(environment.TRACE_UI_WORKSPACE) })
-    .click()
-  await expect(page).toHaveURL(/\/w\//)
+  await signInWorkspace({
+    page,
+    email: environment.AGENT_UI_EMAIL,
+    password: environment.AGENT_UI_PASSWORD,
+    slug: environment.TRACE_UI_WORKSPACE,
+  })
   const publicExecution = await page.request.get(
     `http://localhost:3000/v1/executions/${environment.TRACE_UI_FAILED_EXECUTION_ID}`
   )
@@ -70,9 +65,11 @@ test("inspects recorded steps, replay lineage, and scoped approvals in a shared 
     inspector.getByRole("tabpanel", { name: "Raw data", exact: true })
   ).toContainText('"model": "gpt-5"')
   await inspector.getByRole("tab", { name: "Details", exact: true }).click()
-  await page
-    .getByLabel("Filter trace status", { exact: true })
-    .selectOption("failed")
+  await chooseOption({
+    page,
+    control: page.getByLabel("Filter trace status", { exact: true }),
+    option: "Failed",
+  })
   await expect(
     trace.getByRole("button", { name: /succeeded · attempt/ })
   ).toHaveCount(0)
@@ -86,9 +83,11 @@ test("inspects recorded steps, replay lineage, and scoped approvals in a shared 
     inspector.getByText("Enter a JSON object", { exact: true })
   ).toBeVisible()
   await inspector.getByRole("button", { name: "Cancel", exact: true }).click()
-  await page
-    .getByLabel("Filter trace status", { exact: true })
-    .selectOption("all")
+  await chooseOption({
+    page,
+    control: page.getByLabel("Filter trace status", { exact: true }),
+    option: "All statuses",
+  })
   await trace.getByRole("button", { name: /Replay of HTTP request/ }).click()
   await expect(
     inspector.getByRole("button", { name: "Replay", exact: true })
@@ -153,7 +152,9 @@ test("inspects recorded steps, replay lineage, and scoped approvals in a shared 
   await expect(
     page.getByText("Unrelated checkpoint", { exact: true })
   ).not.toBeVisible()
-  await page.goBack()
+  await page
+    .getByRole("link", { name: "Back to Execution", exact: true })
+    .click()
   await expect(page).toHaveURL(new URL(pausedPath, page.url()).href)
   await expect(inspector).toContainText(
     "A reviewer should check the proposed action."

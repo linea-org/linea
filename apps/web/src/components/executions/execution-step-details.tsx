@@ -1,4 +1,6 @@
+import { nodeRegistry } from "@linea/runtime/browser"
 import { Badge } from "@linea/ui/components/badge"
+import { cn } from "@linea/ui/lib/utils"
 import { useHydrated } from "@tanstack/react-router"
 import {
   Tabs,
@@ -7,6 +9,8 @@ import {
   TabsTrigger,
 } from "@linea/ui/components/tabs"
 import type { ExecutionStepSummary, JsonValue } from "@/lib/executions-api"
+import { NODE_CATEGORY_COLORS } from "../workflow-builder/node-category-colors"
+import { NodeIcon } from "../workflow-builder/node-icon"
 import { formatCost, stepCostUnpricedState } from "./execution-list"
 import {
   ReplayAction,
@@ -18,6 +22,7 @@ import {
   stepStatusVariant,
   formatStepDuration,
   formatJson,
+  isNodeTypeId,
 } from "./execution-step-presentation"
 import { ErrorCallout } from "./error-callout"
 
@@ -79,50 +84,50 @@ export function ExecutionStepDetails({
   onReplayTriggered: (stepId: string) => void
 }) {
   const hydrated = useHydrated()
+  const title = `${step.replayedFromStepId ? "Replay of " : ""}${stepTitle(step.name)}`
+  const colors = isNodeTypeId(step.name)
+    ? NODE_CATEGORY_COLORS[nodeRegistry[step.name].ui.category]
+    : null
+  const model = [step.provider, step.model].filter(Boolean).join(" · ")
   return (
     <section aria-label="Selected step" className="flex min-w-0 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-medium">
-          {step.replayedFromStepId ? "Replay of " : ""}
-          {stepTitle(step.name)}
-        </h2>
-        <Badge variant={stepStatusVariant[step.status]}>
-          {stepStatusLabel[step.status]}
-        </Badge>
-      </div>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
-        <div>
-          <dt className="text-muted-foreground">Duration</dt>
-          <dd className="mt-1">
+      <div className="flex flex-wrap items-center gap-3">
+        <span
+          className={cn(
+            "inline-flex size-8 shrink-0 items-center justify-center rounded-md",
+            colors?.bg ?? "bg-muted"
+          )}
+        >
+          {isNodeTypeId(step.name) ? (
+            <NodeIcon
+              icon={nodeRegistry[step.name].ui.icon}
+              className={cn("size-3.5", colors?.icon)}
+            />
+          ) : null}
+        </span>
+        <div className="min-w-0">
+          <h2 className="truncate text-xs font-medium">{title}</h2>
+          <p className="truncate text-xs text-muted-foreground">
+            {step.nodeId}
+            {model ? ` · ${model}` : ""}
+          </p>
+        </div>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <Badge variant={stepStatusVariant[step.status]}>
+            {stepStatusLabel[step.status]}
+          </Badge>
+          <span className="tabular-nums">
             {formatStepDuration(step.startedAt, step.endedAt)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Attempt</dt>
-          <dd className="mt-1">{step.attempt}</dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Cost</dt>
-          <dd className="mt-1">
+          </span>
+          <span>Attempt {step.attempt}</span>
+          <span>
             {formatCost(step.costMicros, stepCostUnpricedState(step))}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Tokens</dt>
-          <dd className="mt-1">
+          </span>
+          <span className="tabular-nums">
             {step.tokensInput} in / {step.tokensOutput} out
-          </dd>
+          </span>
         </div>
-      </dl>
-      <p className="text-xs text-muted-foreground">
-        Node <span className="font-mono break-all">{step.nodeId}</span> · Step{" "}
-        <span className="font-mono break-all">{step.id}</span>
-      </p>
-      {(step.model || step.provider) && (
-        <p className="text-xs text-muted-foreground">
-          Model: {[step.provider, step.model].filter(Boolean).join(" · ")}
-        </p>
-      )}
+      </div>
       {resumedAt && (
         <p className="text-xs text-muted-foreground">
           Resumed {hydrated ? new Date(resumedAt).toLocaleString() : resumedAt}
@@ -132,7 +137,7 @@ export function ExecutionStepDetails({
         <ErrorCallout title="This step failed" message={step.error.message} />
       )}
       <Tabs defaultValue="overview" className="min-w-0 gap-4">
-        <TabsList variant="line">
+        <TabsList className="h-8!">
           <TabsTrigger value="overview">Details</TabsTrigger>
           <TabsTrigger value="raw">Raw data</TabsTrigger>
         </TabsList>
@@ -146,7 +151,7 @@ export function ExecutionStepDetails({
           </pre>
         </TabsContent>
       </Tabs>
-      <div className="flex flex-wrap items-start gap-2 border-t pt-1">
+      <div className="flex flex-wrap items-start gap-2">
         {replayable && !step.replayedFromStepId && (
           <ReplayAction
             executionId={executionId}

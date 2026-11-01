@@ -8,8 +8,12 @@ import {
 } from "react"
 import { Link, useLocation, useMatchRoute } from "@tanstack/react-router"
 import {
+  ArchiveIcon,
+  ArrowLeftIcon,
+  ChevronRightIcon,
   CircleCheckIcon,
   BoxesIcon,
+  FilePenIcon,
   HistoryIcon,
   HouseIcon,
   KeyIcon,
@@ -67,6 +71,199 @@ function InsetCollapseEdge() {
   )
 }
 
+const WORKFLOW_LIST_STATUSES = ["Draft", "Published", "Archived"] as const
+type WorkflowListStatus = (typeof WORKFLOW_LIST_STATUSES)[number]
+const workflowSectionIcon = {
+  Draft: FilePenIcon,
+  Published: CircleCheckIcon,
+  Archived: ArchiveIcon,
+} as const
+function workflowListStatus(search: unknown): WorkflowListStatus | undefined {
+  if (typeof search !== "object" || search === null || !("status" in search)) {
+    return undefined
+  }
+  const status = search.status
+  if (status === "Draft" || status === "Published" || status === "Archived") {
+    return status
+  }
+  return undefined
+}
+function MainNav({ slug, pathname }: { slug: string; pathname: string }) {
+  const matchRoute = useMatchRoute()
+  return (
+    <>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          size="sm"
+          isActive={!!matchRoute({ to: "/w/$slug", params: { slug } })}
+          tooltip="Home"
+          render={<Link to="/w/$slug" params={{ slug }} />}
+        >
+          <HouseIcon />
+          <span>Home</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          size="sm"
+          isActive={
+            pathname.startsWith(`/w/${slug}/agents/`) ||
+            !!matchRoute({
+              to: "/w/$slug/applications",
+              params: { slug },
+              fuzzy: true,
+            })
+          }
+          tooltip="Applications"
+          render={<Link to="/w/$slug/applications" params={{ slug }} />}
+        >
+          <BoxesIcon />
+          <span>Applications</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          size="sm"
+          isActive={
+            !!matchRoute({
+              to: "/w/$slug/workflows",
+              params: { slug },
+              fuzzy: true,
+            })
+          }
+          tooltip="Workflows"
+          render={<Link to="/w/$slug/workflows" params={{ slug }} />}
+        >
+          <WorkflowIcon />
+          <span>Workflows</span>
+          <ChevronRightIcon
+            aria-hidden
+            className="ml-auto group-data-[collapsible=icon]:hidden"
+          />
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          size="sm"
+          isActive={
+            !!matchRoute({
+              to: "/w/$slug/executions",
+              params: { slug },
+              fuzzy: true,
+            })
+          }
+          tooltip="Executions"
+          render={<Link to="/w/$slug/executions" params={{ slug }} />}
+        >
+          <HistoryIcon />
+          <span>Executions</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          size="sm"
+          isActive={
+            !!matchRoute({
+              to: "/w/$slug/approvals",
+              params: { slug },
+              fuzzy: true,
+            })
+          }
+          tooltip="Approvals"
+          render={<Link to="/w/$slug/approvals" params={{ slug }} />}
+        >
+          <CircleCheckIcon />
+          <span>Approvals</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </>
+  )
+}
+function WorkflowSectionNav({
+  slug,
+  status,
+  onIndex,
+}: {
+  slug: string
+  status: WorkflowListStatus | undefined
+  onIndex: boolean
+}) {
+  return (
+    <>
+      <SidebarGroup className="px-1 py-1 group-data-[collapsible=icon]:p-1">
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="sm"
+                tooltip="Back"
+                className="relative justify-center"
+                render={
+                  <Link
+                    to="/w/$slug"
+                    params={{ slug }}
+                    activeOptions={{ exact: true }}
+                  />
+                }
+              >
+                <ArrowLeftIcon className="absolute left-2 group-data-[collapsible=icon]:static" />
+                <span>Back</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+      <SidebarSeparator className="mx-0 w-full data-horizontal:w-full" />
+      <SidebarGroup className="px-1 pt-1 pb-2 group-data-[collapsible=icon]:p-1">
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="sm"
+                isActive={onIndex && !status}
+                tooltip="Overview"
+                render={
+                  <Link
+                    to="/w/$slug/workflows"
+                    params={{ slug }}
+                    search={{ status: undefined }}
+                    activeOptions={{ exact: true, includeSearch: true }}
+                  />
+                }
+              >
+                <WorkflowIcon />
+                <span>Overview</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            {WORKFLOW_LIST_STATUSES.map((filter) => {
+              const Icon = workflowSectionIcon[filter]
+              return (
+                <SidebarMenuItem key={filter}>
+                  <SidebarMenuButton
+                    size="sm"
+                    isActive={onIndex && status === filter}
+                    tooltip={filter}
+                    render={
+                      <Link
+                        to="/w/$slug/workflows"
+                        params={{ slug }}
+                        search={{ status: filter }}
+                        activeOptions={{ exact: true, includeSearch: true }}
+                      />
+                    }
+                  >
+                    <Icon />
+                    <span>{filter}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </>
+  )
+}
 type WorkspaceShellProps = {
   slug: string
   workspaces: WorkspaceOption[]
@@ -79,8 +276,10 @@ export function WorkspaceShell({
   children,
 }: WorkspaceShellProps) {
   const matchRoute = useMatchRoute()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const isBuilder = pathname.endsWith("/builder")
+  const inWorkflows = pathname.startsWith(`/w/${slug}/workflows`)
+  const workflowStatus = workflowListStatus(search)
   const railOpenRef = useRef(true)
   const wasBuilderRef = useRef(isBuilder)
   const [open, setOpen] = useState(!isBuilder)
@@ -108,92 +307,26 @@ export function WorkspaceShell({
       )}
       <SidebarSeparator className="mx-0 -mt-px w-full data-horizontal:w-full" />
       <SidebarContent className="gap-0">
-        <SidebarGroup className="px-1 pt-1 pb-2 group-data-[collapsible=icon]:p-1">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="sm"
-                  isActive={!!matchRoute({ to: "/w/$slug", params: { slug } })}
-                  tooltip="Home"
-                  render={<Link to="/w/$slug" params={{ slug }} />}
-                >
-                  <HouseIcon />
-                  <span>Home</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="sm"
-                  isActive={
-                    pathname.startsWith(`/w/${slug}/agents/`) ||
-                    !!matchRoute({
-                      to: "/w/$slug/applications",
-                      params: { slug },
-                      fuzzy: true,
-                    })
-                  }
-                  tooltip="Applications"
-                  render={<Link to="/w/$slug/applications" params={{ slug }} />}
-                >
-                  <BoxesIcon />
-                  <span>Applications</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="sm"
-                  isActive={
-                    !!matchRoute({
-                      to: "/w/$slug/workflows",
-                      params: { slug },
-                      fuzzy: true,
-                    })
-                  }
-                  tooltip="Workflows"
-                  render={<Link to="/w/$slug/workflows" params={{ slug }} />}
-                >
-                  <WorkflowIcon />
-                  <span>Workflows</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="sm"
-                  isActive={
-                    !!matchRoute({
-                      to: "/w/$slug/executions",
-                      params: { slug },
-                      fuzzy: true,
-                    })
-                  }
-                  tooltip="Executions"
-                  render={<Link to="/w/$slug/executions" params={{ slug }} />}
-                >
-                  <HistoryIcon />
-                  <span>Executions</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="sm"
-                  isActive={
-                    !!matchRoute({
-                      to: "/w/$slug/approvals",
-                      params: { slug },
-                      fuzzy: true,
-                    })
-                  }
-                  tooltip="Approvals"
-                  render={<Link to="/w/$slug/approvals" params={{ slug }} />}
-                >
-                  <CircleCheckIcon />
-                  <span>Approvals</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {inWorkflows ? (
+          <WorkflowSectionNav
+            slug={slug}
+            status={workflowStatus}
+            onIndex={
+              !!matchRoute({
+                to: "/w/$slug/workflows",
+                params: { slug },
+              })
+            }
+          />
+        ) : (
+          <SidebarGroup className="px-1 pt-1 pb-2 group-data-[collapsible=icon]:p-1">
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <MainNav slug={slug} pathname={pathname} />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
         <SidebarSeparator className="mx-0 w-full data-horizontal:w-full" />
         <SidebarGroup className="p-1 group-data-[collapsible=icon]:p-1">
           <SidebarGroupContent>

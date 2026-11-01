@@ -1,4 +1,5 @@
-import { BookOpenIcon } from "lucide-react"
+import { Link, useMatches } from "@tanstack/react-router"
+import { ArrowLeftIcon, BookOpenIcon } from "lucide-react"
 
 import { buttonVariants } from "@linea/ui/components/button"
 import { Separator } from "@linea/ui/components/separator"
@@ -6,6 +7,7 @@ import { SidebarTrigger, useSidebar } from "@linea/ui/components/sidebar"
 import { cn } from "@linea/ui/lib/utils"
 
 import { useWorkspaceCrumbs } from "./top-bar-breadcrumb"
+import { WorkflowHeading } from "./workflow-heading"
 import { WorkspaceSwitcher, type WorkspaceOption } from "./workspace-switcher"
 
 type WorkspaceTopBarProps = {
@@ -18,14 +20,22 @@ export function WorkspaceTopBar({ slug, workspaces }: WorkspaceTopBarProps) {
   const collapsed = !isMobile && state === "collapsed"
   const crumbs = useWorkspaceCrumbs(slug)
   const title = crumbs[crumbs.length - 1]?.label
+  const parent = crumbs
+    .slice(0, -1)
+    .reverse()
+    .find((crumb) => "to" in crumb)
+  const workflow = useMatches().find(
+    (match) => match.routeId === "/w/$slug/workflows/$workflowId/"
+  )?.loaderData?.workflow
   return (
     <header className="z-30 flex h-12 shrink-0 items-center border-b border-border/70 bg-sidebar">
       <div
         className={cn(
-          "flex h-full shrink-0 items-center gap-1 transition-[width] duration-200 ease-linear",
-          isMobile && "px-2",
-          !isMobile && collapsed && "w-(--sidebar-width-icon) justify-center",
-          !isMobile && !collapsed && "w-(--sidebar-width) px-2"
+          "flex h-full w-auto shrink-0 items-center gap-1 px-2 transition-[width] duration-200 ease-linear md:px-0",
+          !isMobile &&
+            collapsed &&
+            "justify-center md:w-(--sidebar-width-icon)",
+          !isMobile && !collapsed && "md:w-(--sidebar-width) md:px-2"
         )}
       >
         <WorkspaceSwitcher currentSlug={slug} workspaces={workspaces} />
@@ -34,24 +44,43 @@ export function WorkspaceTopBar({ slug, workspaces }: WorkspaceTopBarProps) {
         orientation="vertical"
         className="mx-0 -ml-px hidden h-12 md:block"
       />
-      <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3">
-        <div className="flex min-w-0 items-center justify-self-start">
+      <div className="flex min-w-0 flex-1 items-center gap-2 px-2 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] md:gap-3 md:px-3">
+        <div className="flex shrink-0 items-center justify-self-start">
           <SidebarTrigger size="icon-xs" className="-ml-1" />
+          {parent && (
+            <Link
+              to={parent.to}
+              params={parent.params}
+              search={parent.search}
+              aria-label={`Back to ${parent.label}`}
+              title={`Back to ${parent.label}`}
+              className={buttonVariants({ variant: "ghost", size: "icon-xs" })}
+            >
+              <ArrowLeftIcon />
+            </Link>
+          )}
         </div>
-        <h1 className="max-w-80 truncate text-sm font-medium text-foreground">
-          {title}
-        </h1>
+        <div className="min-w-0 flex-1 md:justify-self-center">
+          {workflow ? (
+            <WorkflowHeading workflow={workflow} />
+          ) : (
+            <h1 className="max-w-80 truncate text-sm font-medium text-foreground">
+              {title}
+            </h1>
+          )}
+        </div>
         <a
           href="https://docs.getlinea.app"
           target="_blank"
           rel="noreferrer"
+          aria-label="Learn about Linea"
           className={cn(
             buttonVariants({ variant: "outline", size: "xs" }),
             "mr-2 gap-1.5 justify-self-end"
           )}
         >
           <BookOpenIcon />
-          Learn
+          <span className="hidden sm:inline">Learn</span>
         </a>
       </div>
     </header>

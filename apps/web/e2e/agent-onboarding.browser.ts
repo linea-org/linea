@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { z } from "zod"
+import { chooseOption } from "./choose-option"
+import { signInWorkspace } from "./sign-in-workspace"
 
 const environment = z
   .object({
@@ -23,21 +25,17 @@ test("adds an Agent with inline Application creation and preserves partial succe
   const applicationName = `Product ${Date.now()}`
   const pageErrors: string[] = []
   page.on("pageerror", (error) => pageErrors.push(error.message))
-  await page.goto("/sign-in")
-  await page
-    .getByLabel("Email", { exact: true })
-    .fill(environment.AGENT_UI_EMAIL)
-  await page
-    .getByLabel("Password", { exact: true })
-    .fill(environment.AGENT_UI_PASSWORD)
-  await page.getByRole("button", { name: "Sign in", exact: true }).click()
-  await expect(page).not.toHaveURL(/\/sign-in/)
-  await page.getByRole("button", { name: new RegExp(workspaceSlug) }).click()
-  await expect(page).toHaveURL(/\/w\//)
-  await page.getByRole("link", { name: "Add Agent", exact: true }).click()
+  await signInWorkspace({
+    page,
+    email: environment.AGENT_UI_EMAIL,
+    password: environment.AGENT_UI_PASSWORD,
+    slug: workspaceSlug,
+  })
+  await page.goto(`${workspacePath}/applications`)
+  await page.getByRole("button", { name: "Add Agent", exact: true }).click()
   await expect(
     page.getByRole("heading", {
-      name: "Add an Agent to your product",
+      name: "Add Agent",
       exact: true,
     })
   ).toBeVisible()
@@ -49,7 +47,11 @@ test("adds an Agent with inline Application creation and preserves partial succe
     page.getByText("Choose an Application", { exact: true }).last()
   ).toBeVisible()
   await page.getByLabel("Agent name", { exact: true }).fill(agentName)
-  await page.getByLabel("Application", { exact: true }).selectOption("new")
+  await chooseOption({
+    page,
+    control: page.getByLabel("Application", { exact: true }),
+    option: "Create an Application…",
+  })
   await page
     .getByLabel("Application name", { exact: true })
     .fill(applicationName)
@@ -114,13 +116,9 @@ test("adds an Agent with inline Application creation and preserves partial succe
   await expect(page.getByLabel("Description", { exact: true })).toHaveValue(
     "Triage new issues for the existing product."
   )
-  const selectedApplication = await page
-    .getByLabel("Application", { exact: true })
-    .inputValue()
-  expect(z.uuid().safeParse(selectedApplication).success).toBe(true)
-  await expect(
-    page.getByLabel("Application", { exact: true }).locator("option:checked")
-  ).toHaveText(applicationName)
+  await expect(page.getByLabel("Application", { exact: true })).toContainText(
+    applicationName
+  )
   await expect(
     page.getByLabel("Application name", { exact: true })
   ).not.toBeVisible()
@@ -132,7 +130,7 @@ test("adds an Agent with inline Application creation and preserves partial succe
   ).toBeVisible()
   expect(applicationCreates).toBe(1)
   await page.getByRole("link", { name: "Applications", exact: true }).click()
-  await page.getByRole("link", { name: applicationName, exact: true }).click()
+  await page.getByRole("link", { name: new RegExp(applicationName) }).click()
   await page.getByRole("tab", { name: "Agents", exact: true }).click()
   await expect(
     page.getByRole("tab", { name: "Agents", exact: true })
@@ -144,11 +142,15 @@ test("adds an Agent with inline Application creation and preserves partial succe
   await expect(
     page.getByRole("link", { name: new RegExp(applicationName) })
   ).toHaveCount(1)
-  await page.getByRole("link", { name: "Add Agent", exact: true }).click()
+  await page.getByRole("button", { name: "Add Agent", exact: true }).click()
   await page
     .getByLabel("Agent name", { exact: true })
     .fill(`Another analyst ${Date.now()}`)
-  await page.getByLabel("Application", { exact: true }).selectOption("new")
+  await chooseOption({
+    page,
+    control: page.getByLabel("Application", { exact: true }),
+    option: "Create an Application…",
+  })
   await page
     .getByLabel("Application name", { exact: true })
     .fill(applicationName)

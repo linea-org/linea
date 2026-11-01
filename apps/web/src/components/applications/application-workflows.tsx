@@ -2,6 +2,14 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { PlusIcon } from "lucide-react"
 import { Button } from "@linea/ui/components/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@linea/ui/components/table"
 import { PlayfulAvatar } from "@/components/avatar"
 import { WorkflowFormDialog, workflowStatus } from "@/components/workflows"
 import {
@@ -73,33 +81,60 @@ export function ApplicationWorkflows({
         </p>
       )}
       {workflows.length > 0 && (
-        <div className="divide-y divide-border/70 border-b border-border/70">
-          {workflows.map((workflow) => (
-            <Link
-              key={workflow.id}
-              to="/w/$slug/workflows/$workflowId"
-              params={{ slug: workspaceSlug, workflowId: workflow.id }}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40"
-            >
-              <PlayfulAvatar
-                name={workflow.name}
-                shape="rounded"
-                className="size-8"
-              />
-              <div className="min-w-0">
-                <p className="truncate text-xs font-medium">{workflow.name}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {workflow.slug}
-                </p>
-              </div>
-              <div className="ml-auto flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-                <span>{workflowStatus(workflow)}</span>
-                <span className="tabular-nums">
-                  {formatDate(workflow.updatedAt)}
-                </span>
-              </div>
-            </Link>
-          ))}
+        <div className="px-4 py-2">
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Workflow
+                  </TableHead>
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Status
+                  </TableHead>
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Updated
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {workflows.map((workflow) => (
+                  <TableRow key={workflow.id} className="hover:bg-muted/40">
+                    <TableCell className="px-4 py-3">
+                      <Link
+                        to="/w/$slug/workflows/$workflowId"
+                        params={{
+                          slug: workspaceSlug,
+                          workflowId: workflow.id,
+                        }}
+                        className="flex min-w-0 items-center gap-3"
+                      >
+                        <PlayfulAvatar
+                          name={workflow.name}
+                          shape="rounded"
+                          className="size-8"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-medium">
+                            {workflow.name}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {workflow.slug}
+                          </span>
+                        </span>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground">
+                      {workflowStatus(workflow)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                      {formatDate(workflow.updatedAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
     </section>

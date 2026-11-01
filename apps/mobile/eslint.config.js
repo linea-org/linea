@@ -3,7 +3,7 @@
 import { createSharedEslintConfig, globals } from "@linea/config/eslint"
 
 export default createSharedEslintConfig({
-  ignores: [".expo/**", "dist/**", "eslint.config.js"],
+  ignores: [".expo/**", "dist/**", "expo-env.d.ts", "eslint.config.js"],
   globals: {
     ...globals.node,
     ...globals.jest,

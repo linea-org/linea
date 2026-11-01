@@ -53,7 +53,7 @@ export function WorkspaceSwitcher({
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { isMobile, state } = useSidebar()
-  const iconOnly = !isMobile && state === "collapsed"
+  const iconOnly = isMobile || state === "collapsed"
   const current =
     workspaces.find((workspace) => workspace.slug === currentSlug) ??
     workspaces[0]
@@ -96,7 +96,7 @@ export function WorkspaceSwitcher({
       )}
     >
       {iconOnly ? null : (
-        <div className="flex h-9 min-w-0 flex-1 items-center gap-2 px-2">
+        <div className="hidden h-9 min-w-0 flex-1 items-center gap-2 px-2 md:flex">
           <PlayfulAvatar name={name} shape="rounded" className="size-5" />
           <span className="truncate font-medium">{name}</span>
         </div>

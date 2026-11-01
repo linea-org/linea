@@ -1,15 +1,5 @@
 import { Link } from "@tanstack/react-router"
 import { FlaskConicalIcon } from "lucide-react"
-
-import { Badge } from "@linea/ui/components/badge"
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@linea/ui/components/empty"
 import {
   Table,
   TableBody,
@@ -18,6 +8,15 @@ import {
   TableHeader,
   TableRow,
 } from "@linea/ui/components/table"
+
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@linea/ui/components/empty"
 
 import { formatCost } from "@/components/executions/execution-list"
 import type { RegressionRun } from "@/lib/regression-runs-api"
@@ -54,50 +53,62 @@ export function RegressionRunList({
   }
 
   return (
-    <Table className="mt-4">
-      <TableHeader>
-        <TableRow>
-          <TableHead>Trigger</TableHead>
-          <TableHead>Started</TableHead>
-          <TableHead>Passed / Failed / Total</TableHead>
-          <TableHead>Cost</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {runs.map((run) => (
-          <TableRow key={run.id} className="cursor-pointer">
-            <TableCell>
-              <Link
-                to="/w/$slug/workflows/$workflowId/regression-runs/$runId"
-                params={{ slug, workflowId, runId: run.id }}
-                className="flex items-center gap-2 hover:underline"
-              >
-                <Badge variant="outline">{triggerLabel[run.trigger]}</Badge>
-              </Link>
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {new Date(run.startedAt).toLocaleString()}
-              {!run.completedAt && (
-                <span className="ml-2 text-xs text-muted-foreground">
-                  running…
-                </span>
-              )}
-            </TableCell>
-            <TableCell className="text-foreground">
-              <span className="text-emerald-600 dark:text-emerald-400">
-                {run.passed}
-              </span>
-              {" / "}
-              <span className="text-destructive">{run.failed}</span>
-              {" / "}
-              {run.total}
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {formatCost(run.costMicros)}
-            </TableCell>
+    <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+      <Table>
+        <TableHeader className="bg-muted/40">
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Run
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Started
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Passed
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Failed
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Total
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Cost
+            </TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {runs.map((run) => (
+            <TableRow key={run.id} className="hover:bg-muted/40">
+              <TableCell className="px-4 py-3">
+                <Link
+                  to="/w/$slug/workflows/$workflowId/regression-runs/$runId"
+                  params={{ slug, workflowId, runId: run.id }}
+                  className="text-xs font-medium"
+                >
+                  {triggerLabel[run.trigger]}
+                  {!run.completedAt ? " · running…" : ""}
+                </Link>
+              </TableCell>
+              <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                {new Date(run.startedAt).toLocaleString()}
+              </TableCell>
+              <TableCell className="px-4 py-3 text-emerald-600 tabular-nums dark:text-emerald-400">
+                {run.passed}
+              </TableCell>
+              <TableCell className="px-4 py-3 text-destructive tabular-nums">
+                {run.failed}
+              </TableCell>
+              <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                {run.total}
+              </TableCell>
+              <TableCell className="px-4 py-3 text-muted-foreground">
+                {formatCost(run.costMicros)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

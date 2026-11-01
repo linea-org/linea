@@ -73,7 +73,7 @@ function NotificationsPage() {
   const unreadCount = unreadCountQuery.data?.count ?? 0
   return (
     <main className="flex min-w-0 flex-1 flex-col">
-      <PageToolbar>
+      <PageToolbar className="border-b border-border/70">
         <Tabs
           value={tab}
           onValueChange={(value) => {
@@ -106,54 +106,46 @@ function NotificationsPage() {
           </div>
         ) : null}
       </PageToolbar>
-      <div className="flex flex-1 flex-col px-4 py-4">
-        {notificationsQuery.isPending ? (
-          <div className="rounded-xl border border-border bg-card px-4 py-8">
-            <p className="text-xs text-muted-foreground">Loading…</p>
+      {notificationsQuery.isPending ? (
+        <p className="px-4 py-8 text-xs text-muted-foreground">Loading…</p>
+      ) : notificationsQuery.isError ? (
+        <p className="px-4 py-8 text-xs text-destructive">
+          {notificationsQuery.error.message}
+        </p>
+      ) : notifications.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              {tab === "archived" ? <ArchiveIcon /> : <BellIcon />}
+            </EmptyMedia>
+            <EmptyTitle>
+              {tab === "archived" ? "Nothing archived" : "You're all caught up"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {tab === "archived"
+                ? "Archived notifications will show up here."
+                : "Activity across this workspace will show up here."}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="px-4 py-2">
+          <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border bg-card">
+            {notifications.map((notification) => (
+              <NotificationRow
+                key={notification.id}
+                notification={notification}
+                slug={slug}
+                archived={archived}
+                onToggleRead={(id, read) => toggleRead.mutate({ id, read })}
+                onArchive={(id) => archive.mutate(id)}
+                onUnarchive={(id) => unarchive.mutate(id)}
+                onDelete={(id) => remove.mutate(id)}
+              />
+            ))}
           </div>
-        ) : notificationsQuery.isError ? (
-          <div className="rounded-xl border border-border bg-card px-4 py-8">
-            <p className="text-xs text-destructive">
-              {notificationsQuery.error.message}
-            </p>
-          </div>
-        ) : notifications.length === 0 ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                {tab === "archived" ? <ArchiveIcon /> : <BellIcon />}
-              </EmptyMedia>
-              <EmptyTitle>
-                {tab === "archived"
-                  ? "Nothing archived"
-                  : "You're all caught up"}
-              </EmptyTitle>
-              <EmptyDescription>
-                {tab === "archived"
-                  ? "Archived notifications will show up here."
-                  : "Activity across this workspace will show up here."}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <div className="divide-y divide-border">
-              {notifications.map((notification) => (
-                <NotificationRow
-                  key={notification.id}
-                  notification={notification}
-                  slug={slug}
-                  archived={archived}
-                  onToggleRead={(id, read) => toggleRead.mutate({ id, read })}
-                  onArchive={(id) => archive.mutate(id)}
-                  onUnarchive={(id) => unarchive.mutate(id)}
-                  onDelete={(id) => remove.mutate(id)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </main>
   )
 }

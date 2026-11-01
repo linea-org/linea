@@ -29,7 +29,7 @@ import {
   SignalStatCards,
   SignalTrendChart,
 } from "@/components/signals"
-import { WorkflowFormDialog, WorkflowStatusBadge } from "@/components/workflows"
+import { WorkflowFormDialog } from "@/components/workflows"
 import {
   archiveRegressionCaseFn,
   workflowRegressionCasesQueryOptions,
@@ -151,76 +151,56 @@ function WorkflowDetailPage() {
   })
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <h1 className="mb-4 text-sm font-medium">{workflow.name}</h1>
-      <div className="flex items-center justify-between gap-3 pl-1">
-        <div className="flex items-center gap-3">
-          <WorkflowStatusBadge workflow={workflow} />
-          <span className="text-xs text-muted-foreground">{workflow.slug}</span>
+      <Tabs defaultValue="executions">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TabsList className="h-8!">
+            <TabsTrigger value="executions">Executions</TabsTrigger>
+            <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+            <TabsTrigger value="regression">Regression</TabsTrigger>
+          </TabsList>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => setEditOpen(true)}
+            >
+              <PencilIcon />
+              Edit
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => run.mutate()}
+              disabled={run.isPending || !workflow.publishedVersionId}
+              title={
+                workflow.publishedVersionId
+                  ? undefined
+                  : "Publish a version before running"
+              }
+            >
+              <PlayIcon />
+              {run.isPending ? "Running…" : "Run"}
+            </Button>
+            <Button
+              size="xs"
+              nativeButton={false}
+              render={
+                <Link
+                  to="/w/$slug/workflows/$workflowId/builder"
+                  params={{ slug, workflowId }}
+                />
+              }
+            >
+              <PencilRulerIcon />
+              Open builder
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            onClick={() => setEditOpen(true)}
-          >
-            <PencilIcon />
-            Edit
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            onClick={() => run.mutate()}
-            disabled={run.isPending || !workflow.publishedVersionId}
-            title={
-              workflow.publishedVersionId
-                ? undefined
-                : "Publish a version before running"
-            }
-          >
-            <PlayIcon />
-            {run.isPending ? "Running…" : "Run"}
-          </Button>
-          <Button
-            size="xs"
-            nativeButton={false}
-            render={
-              <Link
-                to="/w/$slug/workflows/$workflowId/builder"
-                params={{ slug, workflowId }}
-              />
-            }
-          >
-            <PencilRulerIcon />
-            Open builder
-          </Button>
-        </div>
-      </div>
-      {run.isError && (
-        <p className="mt-3 text-xs text-destructive">{run.error.message}</p>
-      )}
-      {workflow.description && (
-        <p className="mt-4 max-w-2xl text-xs text-muted-foreground">
-          {workflow.description}
-        </p>
-      )}
-      <dl className="mt-6 grid max-w-md grid-cols-2 gap-y-3 text-xs">
-        <dt className="text-muted-foreground">Created</dt>
-        <dd className="text-foreground">
-          {new Date(workflow.createdAt).toLocaleString()}
-        </dd>
-        <dt className="text-muted-foreground">Updated</dt>
-        <dd className="text-foreground">
-          {new Date(workflow.updatedAt).toLocaleString()}
-        </dd>
-      </dl>
-      <Tabs defaultValue="executions" className="mt-10">
-        <TabsList>
-          <TabsTrigger value="executions">Executions</TabsTrigger>
-          <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
-          <TabsTrigger value="regression">Regression</TabsTrigger>
-        </TabsList>
+        {run.isError && (
+          <p className="mt-3 text-xs text-destructive">{run.error.message}</p>
+        )}
         <TabsContent value="executions">
           {executionsErrored ? (
             <p className="mt-4 text-xs text-destructive">

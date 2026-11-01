@@ -20,8 +20,15 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@linea/ui/components/empty"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@linea/ui/components/table"
 import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
-import { cn } from "@linea/ui/lib/utils"
 import { PlayfulAvatar } from "@/components/avatar"
 import { ApplicationCardMenu } from "@/components/applications/application-rename-popover"
 import { CreateApplicationDialog } from "@/components/applications/create-application-dialog"
@@ -183,20 +190,76 @@ function ApplicationsPage() {
               key={application.id}
               slug={slug}
               application={application}
-              layout="grid"
             />
           ))}
         </div>
       ) : (
-        <div className="divide-y divide-border/70 border-b border-border/70">
-          {visible.map((application) => (
-            <ApplicationCard
-              key={application.id}
-              slug={slug}
-              application={application}
-              layout="list"
-            />
-          ))}
+        <div className="px-4 py-2">
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Application
+                  </TableHead>
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Agents
+                  </TableHead>
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Workflows
+                  </TableHead>
+                  <TableHead className="px-4 font-normal text-muted-foreground">
+                    Updated
+                  </TableHead>
+                  <TableHead className="w-12 px-2">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visible.map((application) => (
+                  <TableRow key={application.id} className="hover:bg-muted/40">
+                    <TableCell className="px-4 py-3">
+                      <Link
+                        to="/w/$slug/applications/$applicationId"
+                        params={{ slug, applicationId: application.id }}
+                        className="flex min-w-0 items-center gap-3"
+                      >
+                        <PlayfulAvatar
+                          name={application.name}
+                          shape="rounded"
+                          className="size-8"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-medium">
+                            {application.name}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {application.slug}
+                          </span>
+                        </span>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                      {application.agentCount}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                      {application.workflowCount}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                      {formatDate(application.updatedAt)}
+                    </TableCell>
+                    <TableCell className="px-2 py-3 text-right">
+                      <ApplicationCardMenu
+                        workspaceSlug={slug}
+                        application={application}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
     </main>
@@ -210,31 +273,17 @@ function countLabel(count: number, singular: string, plural: string) {
 function ApplicationCard({
   slug,
   application,
-  layout,
 }: {
   slug: string
   application: ApplicationSummary
-  layout: ApplicationView
 }) {
-  const updated = formatDate(application.updatedAt)
   const summary = `${countLabel(application.agentCount, "Agent", "Agents")} · ${countLabel(application.workflowCount, "Workflow", "Workflows")}`
   return (
-    <div
-      className={cn(
-        "hover:bg-muted/40",
-        layout === "grid"
-          ? "relative rounded-lg border border-border/70"
-          : "flex items-center"
-      )}
-    >
+    <div className="relative rounded-lg border border-border/70 hover:bg-muted/40">
       <Link
         to="/w/$slug/applications/$applicationId"
         params={{ slug, applicationId: application.id }}
-        className={
-          layout === "grid"
-            ? "flex flex-col gap-3 p-3 pr-10"
-            : "flex min-w-0 flex-1 items-center gap-3 px-4 py-3"
-        }
+        className="flex flex-col gap-3 p-3 pr-10"
       >
         <div className="flex min-w-0 items-center gap-3">
           <PlayfulAvatar
@@ -249,21 +298,14 @@ function ApplicationCard({
             </p>
           </div>
         </div>
-        {layout === "grid" ? (
-          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-            <p className="truncate">{summary}</p>
-            <p className="shrink-0 tabular-nums">{updated}</p>
-          </div>
-        ) : (
-          <div className="ml-auto flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-            <p className="truncate">{summary}</p>
-            <p className="shrink-0 tabular-nums">{updated}</p>
-          </div>
-        )}
+        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+          <p className="truncate">{summary}</p>
+          <p className="shrink-0 tabular-nums">
+            {formatDate(application.updatedAt)}
+          </p>
+        </div>
       </Link>
-      <div
-        className={layout === "grid" ? "absolute top-2.5 right-2.5" : "pr-2"}
-      >
+      <div className="absolute top-2.5 right-2.5">
         <ApplicationCardMenu workspaceSlug={slug} application={application} />
       </div>
     </div>

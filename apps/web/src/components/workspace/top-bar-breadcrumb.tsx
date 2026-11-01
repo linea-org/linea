@@ -88,11 +88,17 @@ export function useWorkspaceCrumbs(slug: string): Crumb[] {
     }
     if (match.routeId === "/w/$slug/workflows/$workflowId/") {
       const workflowId = match.params.workflowId
-      crumbs.push({
-        label: "Workflows",
-        to: "/w/$slug/workflows",
-        params: { slug },
-      })
+      if (match.loaderData) {
+        crumbs.push({
+          label: "Application",
+          to: "/w/$slug/applications/$applicationId",
+          params: {
+            slug,
+            applicationId: match.loaderData.workflow.applicationId,
+          },
+          search: { view: "workflows" },
+        })
+      }
       crumbs.push({
         label: match.loaderData?.workflow.name ?? "Workflow",
         to: "/w/$slug/workflows/$workflowId",
@@ -126,6 +132,13 @@ export function useWorkspaceCrumbs(slug: string): Crumb[] {
       crumbs.push({ label: "Execution" })
     }
     if (match.routeId === "/w/$slug/approvals") {
+      if (match.search.executionId) {
+        crumbs.push({
+          label: "Execution",
+          to: "/w/$slug/executions/$executionId",
+          params: { slug, executionId: match.search.executionId },
+        })
+      }
       crumbs.push({ label: "Approvals" })
     }
     if (match.routeId === "/w/$slug/notifications") {

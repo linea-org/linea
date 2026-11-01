@@ -1,5 +1,6 @@
 import type { ComponentProps, KeyboardEvent } from "react"
 import { Textarea } from "@linea/ui/components/textarea"
+import { jsonStringContext } from "./json-string-context"
 
 const pairs: Record<string, string> = {
   "{": "}",
@@ -15,8 +16,7 @@ function write(
   text: string,
   caret: number
 ) {
-  const next = element.value.slice(0, start) + text + element.value.slice(end)
-  element.value = next
+  element.setRangeText(text, start, end, "end")
   element.setSelectionRange(caret, caret)
   element.dispatchEvent(new Event("input", { bubbles: true }))
 }
@@ -31,9 +31,16 @@ function editJsonText(event: KeyboardEvent<HTMLTextAreaElement>) {
   const start = element.selectionStart
   const end = element.selectionEnd
   const value = element.value
+  const context = jsonStringContext(value, start)
   if (event.key === "Backspace" && start === end && start > 0) {
     const close = pairs[value[start - 1] ?? ""]
-    if (close && value[start] === close) {
+    const openingQuote =
+      value[start - 1] === '"' && !jsonStringContext(value, start - 1).inString
+    if (
+      close &&
+      value[start] === close &&
+      (!context.inString || openingQuote)
+    ) {
       event.preventDefault()
       write(element, start - 1, start + 1, "", start - 1)
     }
@@ -82,14 +89,16 @@ function editJsonText(event: KeyboardEvent<HTMLTextAreaElement>) {
       event.key === '"') &&
     start === end &&
     value[start] === event.key &&
-    value[start - 1] !== "\\"
+    (event.key === '"'
+      ? context.inString && !context.escaped
+      : !context.inString)
   ) {
     event.preventDefault()
     element.setSelectionRange(start + 1, start + 1)
     return
   }
   const close = pairs[event.key]
-  if (!close) return
+  if (!close || context.inString) return
   if (start !== end) {
     event.preventDefault()
     write(

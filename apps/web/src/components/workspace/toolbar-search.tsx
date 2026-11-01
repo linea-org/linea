@@ -32,7 +32,7 @@ export function ToolbarSearch({
         placeholder={placeholder}
         autoFocus={autoFocus}
         className={cn(
-          "h-8 pl-8",
+          "h-8 bg-background pl-8",
           shortcut && (shortcut.length > 1 ? "pr-12" : "pr-8")
         )}
       />

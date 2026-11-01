@@ -82,10 +82,7 @@ export function AgentEnvironmentDeployment({
         : "Disabled"
       : "Not deployed"
   return (
-    <section
-      aria-label={`${environmentName(environment.environment)} deployment`}
-      className="flex flex-col gap-4"
-    >
+    <section aria-label="Agent deployments" className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <Tabs value={environment.id} onValueChange={setEnvironmentId}>
           <TabsList className="h-8!">
@@ -110,19 +107,37 @@ export function AgentEnvironmentDeployment({
           {deployments.error.message}
         </p>
       )}
-      {deployments.data && (
-        <AgentDeploymentForm
-          key={environment.id}
-          workspaceSlug={workspaceSlug}
-          environmentId={environment.id}
-          agentId={agentId}
-          versions={versions}
-          contracts={contracts}
-          binding={binding}
-          disabled={!environment.enabled || (archived && !binding?.enabled)}
-          archived={archived}
-        />
-      )}
+      {environments.map((candidate) => {
+        const query =
+          candidate.environment === "production"
+            ? productionDeployments
+            : devDeployments
+        const candidateBinding = query.data?.find(
+          (item) => item.agentId === agentId
+        )
+        return (
+          <section
+            key={candidate.id}
+            aria-label={`${environmentName(candidate.environment)} deployment`}
+            hidden={candidate.id !== environment.id}
+          >
+            {query.data && (
+              <AgentDeploymentForm
+                workspaceSlug={workspaceSlug}
+                environmentId={candidate.id}
+                agentId={agentId}
+                versions={versions}
+                contracts={contracts}
+                binding={candidateBinding}
+                disabled={
+                  !candidate.enabled || (archived && !candidateBinding?.enabled)
+                }
+                archived={archived}
+              />
+            )}
+          </section>
+        )
+      })}
     </section>
   )
 }

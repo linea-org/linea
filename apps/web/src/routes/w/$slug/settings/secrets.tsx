@@ -20,7 +20,7 @@ function SecretsPage() {
   const { slug } = Route.useParams()
   return (
     <main className="flex min-w-0 flex-1 flex-col">
-      <PageToolbar>
+      <PageToolbar className="border-b border-border/70">
         <div className="ml-auto">
           <Link
             to="/w/$slug/applications"

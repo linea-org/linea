@@ -3,6 +3,9 @@ import { z } from "zod"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
 import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ChevronsUpDownIcon,
   EllipsisVerticalIcon,
   PencilIcon,
   PencilRulerIcon,
@@ -41,6 +44,7 @@ import {
   TableRow,
 } from "@linea/ui/components/table"
 
+import { PlayfulAvatar } from "@/components/avatar"
 import {
   WorkflowFormDialog,
   WorkflowStatusBadge,
@@ -62,13 +66,109 @@ import {
 
 const STATUS_FILTERS = ["Draft", "Published", "Archived"] as const
 type StatusFilter = (typeof STATUS_FILTERS)[number]
+const workflowsSearchSchema = z.object({
+  applicationId: z.uuid().optional(),
+  status: z.enum(STATUS_FILTERS).optional(),
+})
 
 function isStatusFilter(value: string): value is StatusFilter {
   return STATUS_FILTERS.includes(value as StatusFilter)
 }
 
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value))
+}
+
+type WorkflowSortColumn = "workflow" | "application" | "status" | "updated"
+type SortDirection = "asc" | "desc"
+type WorkflowSort = { column: WorkflowSortColumn; direction: SortDirection }
+
+function workflowSortValue(
+  workflow: WorkflowSummary,
+  column: WorkflowSortColumn,
+  applicationName: string
+): string | number {
+  switch (column) {
+    case "workflow":
+      return workflow.name.toLowerCase()
+    case "application":
+      return applicationName.toLowerCase()
+    case "status":
+      return workflowStatus(workflow)
+    case "updated":
+      return new Date(workflow.updatedAt).getTime()
+    default: {
+      const unreachable: never = column
+      return unreachable
+    }
+  }
+}
+
+function compareSortValues(
+  left: string | number,
+  right: string | number,
+  direction: SortDirection
+) {
+  if (left === right) return 0
+  const order = left < right ? -1 : 1
+  return direction === "asc" ? order : -order
+}
+
+function WorkflowSortHeader({
+  column,
+  label,
+  sorts,
+  onSort,
+}: {
+  column: WorkflowSortColumn
+  label: string
+  sorts: WorkflowSort[]
+  onSort: (column: WorkflowSortColumn) => void
+}) {
+  const index = sorts.findIndex((item) => item.column === column)
+  const active = sorts[index]
+  return (
+    <TableHead
+      aria-sort={
+        active
+          ? active.direction === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+      className="px-4 font-normal text-muted-foreground"
+    >
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 hover:text-foreground"
+        onClick={() => onSort(column)}
+      >
+        {label}
+        {active ? (
+          active.direction === "asc" ? (
+            <ChevronUpIcon className="size-3" />
+          ) : (
+            <ChevronDownIcon className="size-3" />
+          )
+        ) : (
+          <ChevronsUpDownIcon className="size-3 opacity-40" />
+        )}
+        {active && sorts.length > 1 ? (
+          <span className="text-[10px] leading-none tabular-nums">
+            {index + 1}
+          </span>
+        ) : null}
+      </button>
+    </TableHead>
+  )
+}
+
 export const Route = createFileRoute("/w/$slug/workflows/")({
-  validateSearch: z.object({ applicationId: z.uuid().optional() }),
+  validateSearch: workflowsSearchSchema,
   loader: async () => {
     const [workflows, applications] = await Promise.all([
       listWorkflowsFn(),
@@ -81,7 +181,8 @@ export const Route = createFileRoute("/w/$slug/workflows/")({
 
 function WorkflowsListPage() {
   const { slug } = Route.useParams()
-  const { applicationId } = Route.useSearch()
+  const { applicationId, status: statusSearch } = Route.useSearch()
+  const status = statusSearch ?? "all"
   const initialData = Route.useLoaderData()
   const { data: workflows } = useSuspenseQuery({
     ...workflowsQueryOptions(slug),
@@ -96,7 +197,14 @@ function WorkflowsListPage() {
   const [editingWorkflow, setEditingWorkflow] =
     useState<WorkflowSummary | null>(null)
   const [search, setSearch] = useState("")
-  const [status, setStatus] = useState<"all" | StatusFilter>("all")
+  const [sorts, setSorts] = useState<WorkflowSort[]>([])
+  const applicationNameById = useMemo(
+    () =>
+      new Map(
+        applications.map((application) => [application.id, application.name])
+      ),
+    [applications]
+  )
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()
     return workflows.filter((workflow) => {
@@ -110,6 +218,41 @@ function WorkflowsListPage() {
       )
     })
   }, [workflows, search, status, applicationId])
+  const rows = useMemo(() => {
+    if (sorts.length === 0) return filtered
+    return filtered.slice().sort((left, right) => {
+      for (const sort of sorts) {
+        const compared = compareSortValues(
+          workflowSortValue(
+            left,
+            sort.column,
+            applicationNameById.get(left.applicationId) ?? ""
+          ),
+          workflowSortValue(
+            right,
+            sort.column,
+            applicationNameById.get(right.applicationId) ?? ""
+          ),
+          sort.direction
+        )
+        if (compared !== 0) return compared
+      }
+      return right.updatedAt.localeCompare(left.updatedAt)
+    })
+  }, [filtered, sorts, applicationNameById])
+  function onSort(column: WorkflowSortColumn) {
+    setSorts((current) => {
+      const index = current.findIndex((item) => item.column === column)
+      if (index === -1) return [...current, { column, direction: "asc" }]
+      const item = current[index]
+      if (!item || item.direction === "desc") {
+        return current.filter((entry) => entry.column !== column)
+      }
+      return current.map((entry) =>
+        entry.column === column ? { column, direction: "desc" } : entry
+      )
+    })
+  }
   function goToBuilder(workflow: { id: string }) {
     return navigate({
       to: "/w/$slug/workflows/$workflowId/builder",
@@ -165,11 +308,16 @@ function WorkflowsListPage() {
             void navigate({
               search: {
                 applicationId: value === "all" ? undefined : value,
+                status: status === "all" ? undefined : status,
               },
             })
           }}
         >
-          <SelectTrigger size="xs" aria-label="Filter by Application">
+          <SelectTrigger
+            size="xs"
+            aria-label="Filter by Application"
+            className="bg-background"
+          >
             <SelectValue>
               {(value: string) =>
                 value === "all"
@@ -180,7 +328,7 @@ function WorkflowsListPage() {
               }
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="w-max! min-w-(--anchor-width)!">
             <SelectItem value="all">All Applications</SelectItem>
             {applications.map((application) => (
               <SelectItem key={application.id} value={application.id}>
@@ -193,14 +341,16 @@ function WorkflowsListPage() {
           value={status}
           onValueChange={(value) => {
             if (typeof value !== "string") return
-            if (value === "all" || isStatusFilter(value)) {
-              setStatus(value)
-              return
-            }
-            setStatus("all")
+            void navigate({
+              search: {
+                applicationId,
+                status:
+                  value !== "all" && isStatusFilter(value) ? value : undefined,
+              },
+            })
           }}
         >
-          <SelectTrigger size="xs">
+          <SelectTrigger size="xs" className="bg-background">
             <SelectValue placeholder="Status">
               {(value: string) => (value === "all" ? "All statuses" : value)}
             </SelectValue>
@@ -216,141 +366,174 @@ function WorkflowsListPage() {
         </Select>
         <div className="ml-auto">{createDialog}</div>
       </PageToolbar>
-      <div className="flex flex-1 flex-col px-4 py-4">
-        {workflows.length === 0 ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <WorkflowIcon />
-              </EmptyMedia>
-              <EmptyTitle>No workflows yet</EmptyTitle>
-              <EmptyDescription>
-                Create a Workflow in an Application to define its process and
-                deploy it to an Environment.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : filtered.length === 0 ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <SearchIcon />
-              </EmptyMedia>
-              <EmptyTitle>No matching workflows</EmptyTitle>
-              <EmptyDescription>
-                Try a different Application, search, or status filter.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
+      {workflows.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <WorkflowIcon />
+            </EmptyMedia>
+            <EmptyTitle>No workflows yet</EmptyTitle>
+            <EmptyDescription>
+              Create a Workflow in an Application to define its process and
+              deploy it to an Environment.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : filtered.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <SearchIcon />
+            </EmptyMedia>
+            <EmptyTitle>No matching workflows</EmptyTitle>
+            <EmptyDescription>
+              Try a different Application, search, or status filter.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="px-4 py-2">
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="px-4">Name</TableHead>
-                  <TableHead className="px-4">Application</TableHead>
-                  <TableHead className="px-4">Status</TableHead>
-                  <TableHead className="px-4">Updated</TableHead>
+                  <WorkflowSortHeader
+                    column="workflow"
+                    label="Workflow"
+                    sorts={sorts}
+                    onSort={onSort}
+                  />
+                  <WorkflowSortHeader
+                    column="application"
+                    label="Application"
+                    sorts={sorts}
+                    onSort={onSort}
+                  />
+                  <WorkflowSortHeader
+                    column="status"
+                    label="Status"
+                    sorts={sorts}
+                    onSort={onSort}
+                  />
+                  <WorkflowSortHeader
+                    column="updated"
+                    label="Updated"
+                    sorts={sorts}
+                    onSort={onSort}
+                  />
                   <TableHead className="w-12 px-2">
                     <span className="sr-only">Actions</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((workflow) => (
-                  <TableRow key={workflow.id}>
-                    <TableCell className="px-4 py-3">
-                      <Link
-                        to="/w/$slug/workflows/$workflowId"
-                        params={{ slug, workflowId: workflow.id }}
-                        className="block min-w-0"
-                      >
-                        <span className="block truncate font-medium text-foreground hover:underline">
-                          {workflow.name}
-                        </span>
-                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                          {workflow.slug}
-                        </span>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <Link
-                        to="/w/$slug/applications/$applicationId"
-                        params={{ slug, applicationId: workflow.applicationId }}
-                        search={{ view: "workflows" }}
-                        className="text-sm text-muted-foreground hover:text-foreground hover:underline"
-                      >
-                        {applications.find(
-                          (application) =>
-                            application.id === workflow.applicationId
-                        )?.name ?? "View Application"}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <WorkflowStatusBadge workflow={workflow} />
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground">
-                      {new Date(workflow.updatedAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="px-2 py-3 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`More options for ${workflow.name}`}
-                            />
-                          }
+                {rows.map((workflow) => {
+                  const applicationName =
+                    applications.find(
+                      (application) => application.id === workflow.applicationId
+                    )?.name ?? "View Application"
+                  return (
+                    <TableRow key={workflow.id} className="hover:bg-muted/40">
+                      <TableCell className="px-4 py-3">
+                        <Link
+                          to="/w/$slug/workflows/$workflowId"
+                          params={{ slug, workflowId: workflow.id }}
+                          className="flex min-w-0 items-center gap-3"
                         >
-                          <EllipsisVerticalIcon />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-48 min-w-48"
+                          <PlayfulAvatar
+                            name={workflow.name}
+                            shape="rounded"
+                            className="size-8"
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate text-xs font-medium">
+                              {workflow.name}
+                            </span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {workflow.slug}
+                            </span>
+                          </span>
+                        </Link>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Link
+                          to="/w/$slug/applications/$applicationId"
+                          params={{
+                            slug,
+                            applicationId: workflow.applicationId,
+                          }}
+                          search={{ view: "workflows" }}
+                          className="text-xs text-muted-foreground hover:text-foreground"
                         >
-                          <DropdownMenuItem
-                            onClick={() => void goToBuilder(workflow)}
+                          {applicationName}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <WorkflowStatusBadge workflow={workflow} />
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                        {formatDate(workflow.updatedAt)}
+                      </TableCell>
+                      <TableCell className="px-2 py-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`More options for ${workflow.name}`}
+                              />
+                            }
                           >
-                            <PencilRulerIcon />
-                            Open builder
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => setEditingWorkflow(workflow)}
+                            <EllipsisVerticalIcon />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-48 min-w-48"
                           >
-                            <PencilIcon />
-                            Edit
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                            <DropdownMenuItem
+                              onClick={() => void goToBuilder(workflow)}
+                            >
+                              <PencilRulerIcon />
+                              Open builder
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setEditingWorkflow(workflow)}
+                            >
+                              <PencilIcon />
+                              Edit
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
-        )}
-        {editingWorkflow && (
-          <WorkflowFormDialog
-            workspaceSlug={slug}
-            open
-            onOpenChange={(open) => !open && setEditingWorkflow(null)}
-            title="Edit workflow"
-            submitLabel="Save"
-            defaultValues={{
-              applicationId: editingWorkflow.applicationId,
-              name: editingWorkflow.name,
-              slug: editingWorkflow.slug,
-              description: editingWorkflow.description ?? "",
-            }}
-            onSubmit={(values) =>
-              updateWorkflowFn({ data: { id: editingWorkflow.id, ...values } })
-            }
-            onSuccess={onWorkflowSaved}
-          />
-        )}
-      </div>
+        </div>
+      )}
+      {editingWorkflow && (
+        <WorkflowFormDialog
+          workspaceSlug={slug}
+          open
+          onOpenChange={(open) => !open && setEditingWorkflow(null)}
+          title="Edit workflow"
+          submitLabel="Save"
+          defaultValues={{
+            applicationId: editingWorkflow.applicationId,
+            name: editingWorkflow.name,
+            slug: editingWorkflow.slug,
+            description: editingWorkflow.description ?? "",
+          }}
+          onSubmit={(values) =>
+            updateWorkflowFn({ data: { id: editingWorkflow.id, ...values } })
+          }
+          onSuccess={onWorkflowSaved}
+        />
+      )}
     </main>
   )
 }

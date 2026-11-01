@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react"
 import {
   useQuery,
   useQueryClient,
@@ -5,6 +6,8 @@ import {
 } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
 import {
+  ChevronDownIcon,
+  ChevronUpIcon,
   EllipsisVerticalIcon,
   EyeIcon,
   HistoryIcon,
@@ -51,12 +54,12 @@ import {
   TableRow,
 } from "@linea/ui/components/table"
 
+import { PlayfulAvatar } from "@/components/avatar"
 import {
   ExecutionStatusBadge,
   executionStatusLabel,
   formatCost,
 } from "@/components/executions"
-import { PageToolbar } from "@/components/workspace/page-toolbar"
 import {
   encodeExecutionCursor,
   listWorkspaceExecutionsFn,
@@ -64,6 +67,7 @@ import {
   workspaceExecutionsQueryOptions,
   type ExecutionStatus,
   type ExecutionTrigger,
+  type WorkspaceExecutionSummary,
 } from "@/lib/executions-api"
 
 const EXECUTION_STATUSES: ExecutionStatus[] = [
@@ -124,11 +128,154 @@ const triggerLabel: Record<ExecutionTrigger, string> = {
   api: "API",
 }
 
-function formatDuration(startedAt: string | null, completedAt: string | null) {
-  if (!startedAt) return "—"
-  if (!completedAt) return "Running…"
-  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
+function formatDuration(
+  startedAt: string | null,
+  completedAt: string | null,
+  status: ExecutionStatus
+) {
+  if (startedAt && completedAt) {
+    const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
+    return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
+  }
+  switch (status) {
+    case "queued":
+    case "running":
+      return "Running…"
+    case "paused":
+      return "Paused"
+    case "succeeded":
+    case "failed":
+    case "cancelled":
+      return "—"
+    default: {
+      const unreachable: never = status
+      return unreachable
+    }
+  }
+}
+
+type ExecutionSortColumn =
+  | "workflow"
+  | "status"
+  | "trigger"
+  | "duration"
+  | "cost"
+  | "when"
+type SortDirection = "asc" | "desc"
+type ExecutionSort = { column: ExecutionSortColumn; direction: SortDirection }
+
+function durationMs(execution: WorkspaceExecutionSummary) {
+  if (!execution.startedAt) return null
+  if (!execution.completedAt) return Number.POSITIVE_INFINITY
+  return (
+    new Date(execution.completedAt).getTime() -
+    new Date(execution.startedAt).getTime()
+  )
+}
+
+function sortValue(
+  execution: WorkspaceExecutionSummary,
+  column: ExecutionSortColumn
+) {
+  switch (column) {
+    case "workflow":
+      return execution.workflowName.toLowerCase()
+    case "status":
+      return executionStatusLabel[execution.status]
+    case "trigger":
+      return triggerLabel[execution.trigger]
+    case "duration":
+      return durationMs(execution)
+    case "cost": {
+      const amount = Number(execution.costMicros)
+      return Number.isFinite(amount) ? amount : null
+    }
+    case "when":
+      return new Date(execution.createdAt).getTime()
+    default: {
+      const unreachable: never = column
+      return unreachable
+    }
+  }
+}
+
+function compareSortValues(
+  left: string | number | null,
+  right: string | number | null,
+  direction: SortDirection
+) {
+  if (left === null && right === null) return 0
+  if (left === null) return 1
+  if (right === null) return -1
+  if (left === right) return 0
+  const order = left < right ? -1 : 1
+  return direction === "asc" ? order : -order
+}
+
+function sortExecutions(
+  executions: WorkspaceExecutionSummary[],
+  sorts: ExecutionSort[]
+) {
+  if (sorts.length === 0) return executions
+  return executions.slice().sort((left, right) => {
+    for (const sort of sorts) {
+      const compared = compareSortValues(
+        sortValue(left, sort.column),
+        sortValue(right, sort.column),
+        sort.direction
+      )
+      if (compared !== 0) return compared
+    }
+    return right.createdAt.localeCompare(left.createdAt)
+  })
+}
+
+function ExecutionSortHeader({
+  column,
+  label,
+  sorts,
+  onSort,
+}: {
+  column: ExecutionSortColumn
+  label: string
+  sorts: ExecutionSort[]
+  onSort: (column: ExecutionSortColumn) => void
+}) {
+  const index = sorts.findIndex((item) => item.column === column)
+  const active = sorts[index]
+  return (
+    <TableHead
+      aria-sort={
+        active
+          ? active.direction === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+      className="px-4 font-normal text-muted-foreground"
+    >
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 hover:text-foreground"
+        title={`Sort this page by ${label.toLowerCase()}`}
+        onClick={() => onSort(column)}
+      >
+        {label}
+        {active ? (
+          active.direction === "asc" ? (
+            <ChevronUpIcon className="size-3" />
+          ) : (
+            <ChevronDownIcon className="size-3" />
+          )
+        ) : null}
+        {active && sorts.length > 1 ? (
+          <span className="text-[10px] leading-none tabular-nums">
+            {index + 1}
+          </span>
+        ) : null}
+      </button>
+    </TableHead>
+  )
 }
 
 function ExecutionsPage() {
@@ -142,6 +289,24 @@ function ExecutionsPage() {
     initialData,
   })
   const { executions, hasMore, total } = data
+  const [sorts, setSorts] = useState<ExecutionSort[]>([])
+  const sortedExecutions = useMemo(
+    () => sortExecutions(executions, sorts),
+    [executions, sorts]
+  )
+  function onSort(column: ExecutionSortColumn) {
+    setSorts((current) => {
+      const index = current.findIndex((item) => item.column === column)
+      if (index === -1) return [...current, { column, direction: "asc" }]
+      const item = current[index]
+      if (!item || item.direction === "desc") {
+        return current.filter((entry) => entry.column !== column)
+      }
+      return current.map((entry) =>
+        entry.column === column ? { column, direction: "desc" } : entry
+      )
+    })
+  }
 
   const trail = search.trail ? search.trail.split(";") : []
   const isFirstPage = trail.length === 0 && !search.cursor
@@ -218,8 +383,8 @@ function ExecutionsPage() {
   }
 
   return (
-    <main className="flex min-w-0 flex-1 flex-col">
-      <PageToolbar>
+    <main className="flex min-w-0 flex-1 flex-col px-4 py-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <Select
           value={search.status ?? "all"}
           onValueChange={(value) => {
@@ -287,205 +452,238 @@ function ExecutionsPage() {
             ))}
           </SelectContent>
         </Select>
-      </PageToolbar>
-      <div className="flex flex-1 flex-col px-4 py-4">
-        {newCount > 0 ? (
+      </div>
+      {newCount > 0 ? (
+        <div className="mb-4">
           <button
             type="button"
             onClick={showNewExecutions}
-            className="mb-4 flex w-fit items-center gap-2 rounded-md border border-input bg-accent px-3 py-1.5 text-xs text-accent-foreground transition-colors hover:bg-accent/80"
+            className="flex w-fit items-center gap-2 rounded-md border border-input bg-accent px-3 py-1.5 text-xs text-accent-foreground transition-colors hover:bg-accent/80"
           >
             <SparklesIcon className="size-4" />
             {newCount === 1
               ? "1 new execution — refresh"
               : `${newCount} new executions — refresh`}
           </button>
-        ) : null}
-
-        {executions.length === 0 ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                {search.status || search.trigger ? (
-                  <SearchIcon />
-                ) : (
-                  <HistoryIcon />
-                )}
-              </EmptyMedia>
-              <EmptyTitle>
-                {search.status || search.trigger
-                  ? "No matching executions"
-                  : "No executions yet"}
-              </EmptyTitle>
-              <EmptyDescription>
-                {search.status || search.trigger
-                  ? "Try a different status or trigger filter."
-                  : "Runs of any workflow in this workspace will show up here."}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <>
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
-              <Table>
-                <TableHeader className="bg-muted/40">
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="px-4">Workflow</TableHead>
-                    <TableHead className="px-4">Status</TableHead>
-                    <TableHead className="px-4">Trigger</TableHead>
-                    <TableHead className="px-4">Duration</TableHead>
-                    <TableHead className="px-4">Cost</TableHead>
-                    <TableHead className="px-4">When</TableHead>
-                    <TableHead className="w-12 px-2">
-                      <span className="sr-only">Actions</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {executions.map((execution) => (
-                    <TableRow key={execution.id}>
-                      <TableCell className="px-4 py-3">
-                        <Link
-                          to="/w/$slug/executions/$executionId"
-                          params={{
-                            slug,
-                            executionId: execution.id,
-                          }}
-                          className="block min-w-0"
-                        >
-                          <span className="block truncate font-medium text-foreground hover:underline">
+        </div>
+      ) : null}
+      {executions.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              {search.status || search.trigger ? (
+                <SearchIcon />
+              ) : (
+                <HistoryIcon />
+              )}
+            </EmptyMedia>
+            <EmptyTitle>
+              {search.status || search.trigger
+                ? "No matching executions"
+                : "No executions yet"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {search.status || search.trigger
+                ? "Try a different status or trigger filter."
+                : "Runs of any workflow in this workspace will show up here."}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <>
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            {sorts.length > 0 && (
+              <p className="border-b px-4 py-2 text-xs text-muted-foreground">
+                Sorting applies to this page only. Pages remain ordered newest
+                first.
+              </p>
+            )}
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="hover:bg-transparent">
+                  <ExecutionSortHeader
+                    column="workflow"
+                    label="Workflow"
+                    sorts={sorts}
+                    onSort={onSort}
+                  />
+                  <ExecutionSortHeader
+                    column="status"
+                    label="Status"
+                    sorts={sorts}
+                    onSort={onSort}
+                  />
+                  <ExecutionSortHeader
+                    column="trigger"
+                    label="Trigger"
+                    sorts={sorts}
+                    onSort={onSort}
+                  />
+                  <ExecutionSortHeader
+                    column="duration"
+                    label="Duration"
+                    sorts={sorts}
+                    onSort={onSort}
+                  />
+                  <ExecutionSortHeader
+                    column="cost"
+                    label="Cost"
+                    sorts={sorts}
+                    onSort={onSort}
+                  />
+                  <ExecutionSortHeader
+                    column="when"
+                    label="When"
+                    sorts={sorts}
+                    onSort={onSort}
+                  />
+                  <TableHead className="w-12 px-2">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedExecutions.map((execution) => (
+                  <TableRow key={execution.id} className="hover:bg-muted/40">
+                    <TableCell className="px-4 py-3">
+                      <Link
+                        to="/w/$slug/executions/$executionId"
+                        params={{ slug, executionId: execution.id }}
+                        className="flex min-w-0 items-center gap-3"
+                      >
+                        <PlayfulAvatar
+                          name={execution.workflowName}
+                          shape="rounded"
+                          className="size-8"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-medium">
                             {execution.workflowName}
                           </span>
-                          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          <span className="block truncate text-xs text-muted-foreground">
                             {execution.workflowSlug}
                           </span>
-                        </Link>
-                      </TableCell>
-                      <TableCell className="px-4 py-3">
-                        <ExecutionStatusBadge status={execution.status} />
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-muted-foreground">
-                        {triggerLabel[execution.trigger]}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-muted-foreground">
-                        {formatDuration(
-                          execution.startedAt,
-                          execution.completedAt
-                        )}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-muted-foreground">
-                        {formatCost(
-                          execution.costMicros,
-                          execution.costUnpriced
-                        )}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-muted-foreground">
-                        {new Date(execution.createdAt).toLocaleString()}
-                      </TableCell>
-                      <TableCell className="px-2 py-3 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            render={
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={`More options for ${execution.workflowName}`}
-                              />
+                        </span>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <ExecutionStatusBadge status={execution.status} />
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground">
+                      {triggerLabel[execution.trigger]}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground">
+                      {formatDuration(
+                        execution.startedAt,
+                        execution.completedAt,
+                        execution.status
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground">
+                      {formatCost(execution.costMicros, execution.costUnpriced)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                      {new Date(execution.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="px-2 py-3 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`More options for ${execution.workflowName}`}
+                            />
+                          }
+                        >
+                          <EllipsisVerticalIcon />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-48 min-w-48"
+                        >
+                          <DropdownMenuItem
+                            onClick={() =>
+                              void navigate({
+                                to: "/w/$slug/executions/$executionId",
+                                params: { slug, executionId: execution.id },
+                              })
                             }
                           >
-                            <EllipsisVerticalIcon />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="w-48 min-w-48"
+                            <EyeIcon />
+                            View execution
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              void navigate({
+                                to: "/w/$slug/workflows/$workflowId",
+                                params: {
+                                  slug,
+                                  workflowId: execution.workflowId,
+                                },
+                              })
+                            }
                           >
-                            <DropdownMenuItem
-                              onClick={() =>
-                                void navigate({
-                                  to: "/w/$slug/executions/$executionId",
-                                  params: {
-                                    slug,
-                                    executionId: execution.id,
-                                  },
-                                })
-                              }
-                            >
-                              <EyeIcon />
-                              View execution
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                void navigate({
-                                  to: "/w/$slug/workflows/$workflowId",
-                                  params: {
-                                    slug,
-                                    workflowId: execution.workflowId,
-                                  },
-                                })
-                              }
-                            >
-                              <WorkflowIcon />
-                              Open workflow
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                            <WorkflowIcon />
+                            Open workflow
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {isFirstPage && !hasMore ? null : (
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Page {currentPageNumber} · {total} total
+              </p>
+              <Pagination className="mx-0 w-auto">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href={hrefFor({
+                        cursor: previousCursor || undefined,
+                        trail:
+                          previousTrail.length > 0
+                            ? previousTrail.join(";")
+                            : undefined,
+                      })}
+                      aria-disabled={isFirstPage}
+                      className={
+                        isFirstPage ? "pointer-events-none opacity-50" : ""
+                      }
+                      onClick={(event) => {
+                        event.preventDefault()
+                        goPrevious()
+                      }}
+                    />
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationNext
+                      href={hrefFor({
+                        cursor: nextCursor,
+                        trail: [...trail, search.cursor ?? ""].join(";"),
+                      })}
+                      aria-disabled={!hasMore}
+                      className={
+                        !hasMore ? "pointer-events-none opacity-50" : ""
+                      }
+                      onClick={(event) => {
+                        event.preventDefault()
+                        goNext()
+                      }}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
-
-            {isFirstPage && !hasMore ? null : (
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Page {currentPageNumber} · {total} total
-                </p>
-                <Pagination className="mx-0 w-auto">
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        href={hrefFor({
-                          cursor: previousCursor || undefined,
-                          trail:
-                            previousTrail.length > 0
-                              ? previousTrail.join(";")
-                              : undefined,
-                        })}
-                        aria-disabled={isFirstPage}
-                        className={
-                          isFirstPage ? "pointer-events-none opacity-50" : ""
-                        }
-                        onClick={(event) => {
-                          event.preventDefault()
-                          goPrevious()
-                        }}
-                      />
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationNext
-                        href={hrefFor({
-                          cursor: nextCursor,
-                          trail: [...trail, search.cursor ?? ""].join(";"),
-                        })}
-                        aria-disabled={!hasMore}
-                        className={
-                          !hasMore ? "pointer-events-none opacity-50" : ""
-                        }
-                        onClick={(event) => {
-                          event.preventDefault()
-                          goNext()
-                        }}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+          )}
+        </>
+      )}
     </main>
   )
 }

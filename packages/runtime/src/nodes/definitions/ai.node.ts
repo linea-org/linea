@@ -44,7 +44,7 @@ export const aiNode: NodeDefinition<
   outputSchema: aiOutputSchema,
   needsSandbox: false,
   ui: {
-    label: "Agent",
+    label: "Generate text",
     description: "Prompt a model and use its response.",
     category: "ai",
     icon: "sparkles",

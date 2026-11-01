@@ -16,7 +16,6 @@ import {
   TableHeader,
   TableRow,
 } from "@linea/ui/components/table"
-
 import type { SignalSummary } from "@/lib/signals-api"
 import { flagTypeLabel, SignalStatusBadge } from "../signals"
 import { HomePanel } from "./home-panel"
@@ -47,49 +46,51 @@ export function OpenSignalsWidget({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="px-4">Signal</TableHead>
-              <TableHead className="px-4">Occurrences</TableHead>
-              <TableHead className="px-4">Status</TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                Signal
+              </TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                Count
+              </TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                Last seen
+              </TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                Status
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {open.map((signal) => (
-              <TableRow key={signal.id}>
-                <TableCell className="px-4 py-3">
-                  {signal.workflowId ? (
-                    <Link
-                      to="/w/$slug/workflows/$workflowId"
-                      params={{ slug, workflowId: signal.workflowId }}
-                      className="block min-w-0"
-                    >
-                      <span className="block truncate font-medium text-foreground hover:underline">
-                        {flagTypeLabel[signal.flagType] ?? signal.flagType}
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                        Last seen{" "}
-                        {new Date(signal.lastFlaggedAt).toLocaleDateString()}
-                      </span>
-                    </Link>
-                  ) : (
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-foreground">
-                        {flagTypeLabel[signal.flagType] ?? signal.flagType}
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        Last seen{" "}
-                        {new Date(signal.lastFlaggedAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell className="px-4 py-3 text-muted-foreground">
-                  {signal.occurrenceCount.toLocaleString()}
-                </TableCell>
-                <TableCell className="px-4 py-3">
-                  <SignalStatusBadge status={signal.status} />
-                </TableCell>
-              </TableRow>
-            ))}
+            {open.map((signal) => {
+              const label = flagTypeLabel[signal.flagType] ?? signal.flagType
+              const seen = new Date(signal.lastFlaggedAt).toLocaleDateString()
+              return (
+                <TableRow key={signal.id} className="hover:bg-muted/40">
+                  <TableCell className="px-4 py-3">
+                    {signal.workflowId ? (
+                      <Link
+                        to="/w/$slug/workflows/$workflowId"
+                        params={{ slug, workflowId: signal.workflowId }}
+                        className="text-xs font-medium"
+                      >
+                        {label}
+                      </Link>
+                    ) : (
+                      <span className="text-xs font-medium">{label}</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                    {signal.occurrenceCount.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                    {seen}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <SignalStatusBadge status={signal.status} />
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       )}

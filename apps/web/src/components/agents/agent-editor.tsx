@@ -70,7 +70,7 @@ export function AgentEditor({
   return (
     <>
       <Tabs value={tab} onValueChange={setTab} className="min-w-0 gap-0">
-        <PageToolbar>
+        <PageToolbar className="border-b border-border/70">
           {archived ? <Badge variant="outline">Archived</Badge> : null}
           <TabsList className="h-8!">
             <TabsTrigger value="definition">Definition</TabsTrigger>
@@ -138,6 +138,9 @@ export function AgentEditor({
           </TabsContent>
         </div>
       </Tabs>
+      <p className="px-4 pb-4 text-xs text-muted-foreground">
+        Agent execution and trace inspection are not available yet.
+      </p>
       <AgentVersionReplacement
         version={pendingVersion}
         onCancel={() => setPendingVersion(null)}

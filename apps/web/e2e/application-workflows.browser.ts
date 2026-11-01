@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { z } from "zod"
+import { signInWorkspace } from "./sign-in-workspace"
 
 const environment = z
   .object({
@@ -11,44 +12,44 @@ const environment = z
   })
   .parse(process.env)
 
-test("organizes Workflow creation, navigation, and deployments by Application", async ({
+test("preserves Environment drafts and one-time keys while organizing Application Workflows", async ({
   page,
 }, testInfo) => {
-  const pageErrors: string[] = []
-  page.on("pageerror", (error) => pageErrors.push(error.message))
+  const errors: string[] = []
+  page.on("pageerror", (error) => errors.push(error.message))
   const workspacePath = environment.AGENT_UI_APPLICATION_PATH.replace(
     /\/applications\/.*$/,
     ""
   )
-  const workspaceSlug = workspacePath.replace(/^\/w\//, "")
-  const applicationId = z
-    .uuid()
-    .parse(environment.AGENT_UI_APPLICATION_PATH.split("/").at(-1))
+  const slug = workspacePath.replace(/^\/w\//, "")
   const workflowName = `Issue analysis ${Date.now()}`
-  const secondApplicationName = `Support ${Date.now()}`
-  await page.goto("/sign-in")
-  await page
-    .getByLabel("Email", { exact: true })
-    .fill(environment.AGENT_UI_EMAIL)
-  await page
-    .getByLabel("Password", { exact: true })
-    .fill(environment.AGENT_UI_PASSWORD)
-  await page.getByRole("button", { name: "Sign in", exact: true }).click()
-  await expect(page).not.toHaveURL(/\/sign-in/)
-  await page.getByRole("button", { name: new RegExp(workspaceSlug) }).click()
-  await expect(page).toHaveURL(/\/w\//)
+  const renamedWorkflow = `${workflowName} revised`
+  await page.addInitScript(() =>
+    localStorage.setItem("linea.whats-new.read", "broken-json")
+  )
+  await signInWorkspace({
+    page,
+    email: environment.AGENT_UI_EMAIL,
+    password: environment.AGENT_UI_PASSWORD,
+    slug,
+  })
+  await page.getByRole("button", { name: /^What's new/ }).click()
+  await expect(page.getByRole("alert")).toContainText(
+    "Could not load your announcement read status"
+  )
+  await expect(
+    page.getByRole("button", { name: "Mark read", exact: true }).first()
+  ).toBeDisabled()
+  await page.evaluate(() => localStorage.removeItem("linea.whats-new.read"))
+  await page.getByRole("button", { name: "Retry", exact: true }).click()
+  await expect(page.getByRole("alert")).not.toBeVisible()
+  await page.getByRole("button", { name: "Mark all read", exact: true }).click()
+  await page.keyboard.press("Escape")
   await page.goto(environment.AGENT_UI_APPLICATION_PATH)
   await expect(
     page.getByRole("tab", { name: "Agents", exact: true })
   ).toHaveAttribute("aria-selected", "true")
   await page.getByRole("tab", { name: /^Workflows/ }).click()
-  await expect(page.getByRole("tab", { name: /^Workflows/ })).toHaveAttribute(
-    "aria-selected",
-    "true"
-  )
-  await expect(
-    page.getByRole("heading", { name: "Development", exact: true })
-  ).not.toBeVisible()
   await page
     .getByRole("button", { name: "Create Workflow", exact: true })
     .click()
@@ -60,157 +61,133 @@ test("organizes Workflow creation, navigation, and deployments by Application", 
   await dialog
     .getByLabel("Description")
     .fill(
-      "Analyze incoming GitHub issues and route proposed follow-up work for review."
+      "Analyze incoming issues and route proposed follow-up work for review."
     )
   await dialog
     .getByRole("button", { name: "Create Workflow", exact: true })
     .click()
   await expect(page).toHaveURL(/\/workflows\/[a-f0-9-]+\/builder$/)
   await expect(page.locator(".react-flow")).toBeVisible()
-  await page.getByRole("link", { name: "Application", exact: true }).click()
+  await page
+    .getByRole("button", { name: "Edit workflow name", exact: true })
+    .click()
+  await page
+    .getByLabel("Workflow name", { exact: true })
+    .fill("Discard this edit")
+  await page.getByLabel("Workflow name", { exact: true }).press("Escape")
+  await page
+    .getByRole("button", { name: "Edit workflow name", exact: true })
+    .click()
+  await page.getByLabel("Workflow name", { exact: true }).fill(renamedWorkflow)
+  await page.getByLabel("Workflow name", { exact: true }).press("Enter")
+  await expect(page.getByText(renamedWorkflow, { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Back", exact: true }).click()
+  await page
+    .getByRole("link", { name: "Back to Application", exact: true })
+    .click()
   await expect(page).toHaveURL(
     `${new URL(environment.AGENT_UI_APPLICATION_PATH, page.url()).href}?view=workflows`
   )
+  const workflows = page.getByRole("region", {
+    name: "Application Workflows",
+    exact: true,
+  })
   await expect(
-    page.getByRole("heading", { name: workflowName, exact: true })
-  ).toBeVisible()
-  const workflows = page.getByRole("region", { name: "Application Workflows" })
-  await workflows.getByRole("link", { name: new RegExp(workflowName) }).click()
-  await expect(
-    page.getByRole("heading", { name: workflowName, exact: true })
-  ).toBeVisible()
-  await page.goBack()
-  await expect(page.getByRole("tab", { name: /^Workflows/ })).toHaveAttribute(
-    "aria-selected",
-    "true"
-  )
-  await page.getByRole("tab", { name: "Agents", exact: true }).click()
-  await expect(page).toHaveURL(/view=agents$/)
-  await page.reload()
-  await expect(
-    page.getByRole("tab", { name: "Agents", exact: true })
-  ).toHaveAttribute("aria-selected", "true")
-  await expect(
-    page.getByRole("link", { name: "Add Agent", exact: true })
+    workflows.getByRole("link", { name: new RegExp(renamedWorkflow) })
   ).toBeVisible()
   await page.getByRole("tab", { name: "Environments", exact: true }).click()
-  await expect(
-    page.getByRole("tab", { name: "Development", exact: true })
-  ).toHaveAttribute("aria-selected", "true")
-  await expect(
-    page.getByRole("tab", { name: "Production", exact: true })
-  ).toBeVisible()
-  await expect(
-    page.getByRole("heading", { name: "Development", exact: true })
-  ).toBeVisible()
-  await expect(
-    page.getByRole("button", { name: "Create Workflow", exact: true })
-  ).not.toBeVisible()
-  await expect(page.getByLabel("Content retention in days")).toBeVisible()
-  await page.screenshot({
-    path: testInfo.outputPath("environments-overview.png"),
-    fullPage: true,
-    animations: "disabled",
-  })
   const development = page.getByRole("region", {
     name: "Development Environment",
     exact: true,
   })
-  let savedRetention = ""
-  for (const section of [
-    "Deployments",
-    "Connections",
-    "Secrets",
-    "Backend keys",
-    "User identity",
-    "Settings",
-  ]) {
-    await expect(
-      development.getByRole("heading", {
-        name: section,
-        exact: true,
-      })
-    ).toBeVisible()
-    if (section === "Settings") {
-      const retention = development.getByLabel("Content retention in days")
-      savedRetention = (await retention.inputValue()) === "45" ? "46" : "45"
-      await retention.fill(savedRetention)
-      await development
-        .getByRole("button", { name: "Save retention", exact: true })
-        .click()
-      await expect(development.getByRole("status")).toHaveText(
-        "Retention saved."
-      )
-      await development
-        .getByRole("button", { name: "Disable Environment", exact: true })
-        .click()
-      await expect(page.getByRole("alertdialog")).toBeVisible()
-      await page.getByRole("button", { name: "Cancel", exact: true }).click()
-      await expect(page.getByRole("alertdialog")).not.toBeVisible()
-    }
-    if (section === "User identity") {
-      await expect(
-        development.getByLabel("Identity provider issuer", { exact: true })
-      ).toBeVisible()
-      await development
-        .getByLabel("Identity provider issuer", { exact: true })
-        .fill("https://draft.example.test")
-      await page.screenshot({
-        path: testInfo.outputPath("environment-identity.png"),
-        fullPage: true,
-        animations: "disabled",
-      })
-      await page.setViewportSize({ width: 390, height: 844 })
-      expect(
-        await development.evaluate(
-          (element) => element.scrollWidth <= element.clientWidth
-        )
-      ).toBe(true)
-      await page.screenshot({
-        path: testInfo.outputPath("environment-identity-mobile.png"),
-        fullPage: true,
-        animations: "disabled",
-      })
-      await page.setViewportSize({ width: 1440, height: 1100 })
-    }
-  }
+  const production = page.getByRole("region", {
+    name: "Production Environment",
+    exact: true,
+  })
+  const devIssuer = development.getByLabel("Identity provider issuer", {
+    exact: true,
+  })
+  await devIssuer.fill("https://dev-draft.example.test")
+  await page.getByRole("tab", { name: "Production", exact: true }).click()
+  await production
+    .getByLabel("Identity provider issuer", { exact: true })
+    .fill("https://prod-draft.example.test")
+  await page.getByRole("tab", { name: "Development", exact: true }).click()
+  await expect(devIssuer).toHaveValue("https://dev-draft.example.test")
+  const retention = development.getByLabel("Content retention in days", {
+    exact: true,
+  })
+  const retainedDays = (await retention.inputValue()) === "45" ? "46" : "45"
+  await retention.fill(retainedDays)
+  await development
+    .getByRole("button", { name: "Save retention", exact: true })
+    .click()
+  await expect(
+    development.getByRole("status").filter({ hasText: "Retention saved." })
+  ).toBeVisible()
+  await development
+    .getByRole("button", { name: "Disable Environment", exact: true })
+    .click()
+  await page.getByRole("button", { name: "Cancel", exact: true }).click()
+  await expect(page.getByRole("alertdialog")).not.toBeVisible()
+  await page.addStyleTag({ content: "code { visibility: hidden !important; }" })
+  const keyName = `Browser persistence ${Date.now()}`
+  await development.getByLabel("Key name", { exact: true }).fill(keyName)
+  await development
+    .getByRole("checkbox", { name: "executions · read", exact: true })
+    .check()
+  await development
+    .getByRole("button", { name: "Create key", exact: true })
+    .click()
+  const keyNotice = development.getByText(
+    "Copy this key now. It is shown once.",
+    { exact: true }
+  )
+  await expect(keyNotice).toBeVisible()
+  const keyText = keyNotice.locator("..").locator("code")
+  const originalKey = await keyText.textContent()
+  expect(Boolean(originalKey)).toBe(true)
+  await page.getByRole("tab", { name: "Production", exact: true }).click()
+  await expect(
+    production.getByLabel("Identity provider issuer", { exact: true })
+  ).toHaveValue("https://prod-draft.example.test")
+  await page.getByRole("tab", { name: "Development", exact: true }).click()
+  expect((await keyText.textContent()) === originalKey).toBe(true)
   await page.getByRole("tab", { name: "Agents", exact: true }).click()
   await page.getByRole("tab", { name: "Environments", exact: true }).click()
-  await expect(development.getByLabel("Content retention in days")).toHaveValue(
-    savedRetention
-  )
-  await expect(
-    development.getByLabel("Identity provider issuer", { exact: true })
-  ).toHaveValue("https://draft.example.test")
-  await expect(development.getByText("Enabled", { exact: true })).toBeVisible()
-  await page.getByRole("tab", { name: /^Workflows/ }).click()
-  await expect(workflows).toBeVisible()
-  await expect(page.getByRole("tab", { name: /^Workflows/ })).toHaveAttribute(
-    "aria-selected",
-    "true"
-  )
+  expect((await keyText.textContent()) === originalKey).toBe(true)
+  await expect(devIssuer).toHaveValue("https://dev-draft.example.test")
+  await expect(retention).toHaveValue(retainedDays)
+  const keyRow = development
+    .getByText(new RegExp(`^${keyName} ·`))
+    .locator("..")
+  await keyRow.getByRole("button", { name: "Revoke", exact: true }).click()
+  await expect(keyRow).toContainText("Revoked")
+  await keyNotice
+    .locator("..")
+    .getByRole("button", { name: "Dismiss", exact: true })
+    .click()
+  await expect(keyNotice).not.toBeVisible()
   await page.screenshot({
-    path: testInfo.outputPath("application-workflows.png"),
+    path: testInfo.outputPath("environment-drafts.png"),
     fullPage: true,
     animations: "disabled",
   })
   await page.emulateMedia({ colorScheme: "dark" })
   await expect(page.locator("html")).toHaveClass(/dark/)
   await page.screenshot({
-    path: testInfo.outputPath("application-workflows-dark.png"),
+    path: testInfo.outputPath("environment-drafts-dark.png"),
     fullPage: true,
     animations: "disabled",
   })
   await page.setViewportSize({ width: 390, height: 844 })
   expect(
-    await page.evaluate(() =>
-      Array.from(document.querySelectorAll("main")).every(
-        (main) => main.scrollWidth <= main.clientWidth
-      )
+    await development.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth
     )
   ).toBe(true)
   await page.screenshot({
-    path: testInfo.outputPath("application-workflows-mobile.png"),
+    path: testInfo.outputPath("environment-drafts-mobile.png"),
     fullPage: true,
     animations: "disabled",
   })
@@ -219,65 +196,34 @@ test("organizes Workflow creation, navigation, and deployments by Application", 
   await page
     .getByRole("button", { name: "Create Application", exact: true })
     .click()
-  await page.getByLabel("Name", { exact: true }).fill(secondApplicationName)
+  const applicationName = `Support ${Date.now()}`
+  await dialog.getByLabel("Name", { exact: true }).fill(applicationName)
   const customSlug = `support-${Date.now()}`
-  await page.getByLabel("Slug", { exact: true }).fill(customSlug)
-  await page
+  await dialog.getByLabel("Slug", { exact: true }).fill(customSlug)
+  await dialog
     .getByLabel("Name", { exact: true })
-    .fill(`${secondApplicationName} revised`)
-  await expect(page.getByLabel("Slug", { exact: true })).toHaveValue(customSlug)
-  await page.getByLabel("Name", { exact: true }).fill(secondApplicationName)
-  await page
-    .getByRole("dialog")
+    .fill(`${applicationName} revised`)
+  await expect(dialog.getByLabel("Slug", { exact: true })).toHaveValue(
+    customSlug
+  )
+  await dialog
     .getByRole("button", { name: "Create Application", exact: true })
     .click()
   await expect(
-    page.getByRole("heading", { name: secondApplicationName, exact: true })
+    page.getByRole("heading", {
+      name: `${applicationName} revised`,
+      exact: true,
+    })
   ).toBeVisible()
-  const secondApplicationId = z
-    .uuid()
-    .parse(new URL(page.url()).pathname.split("/").at(-1))
   await page.getByRole("tab", { name: /^Workflows/ }).click()
   await expect(
-    page.getByText("No Workflows in this Application yet.", { exact: false })
-  ).toBeVisible()
-  await expect(
-    page.getByRole("heading", { name: workflowName, exact: true })
+    page.getByRole("link", { name: new RegExp(renamedWorkflow) })
   ).not.toBeVisible()
-  await page.goto(`${workspacePath}/workflows`)
-  await expect(
-    page.getByRole("columnheader", { name: "Application", exact: true })
-  ).toBeVisible()
   await page
-    .getByRole("combobox", { name: "Filter by Application" })
-    .selectOption(secondApplicationId)
-  await expect(
-    page.getByText("No matching workflows", { exact: true })
-  ).toBeVisible()
-  await page
-    .getByRole("button", { name: "Create workflow", exact: true })
+    .getByRole("link", { name: "Back to Applications", exact: true })
     .click()
   await expect(
-    dialog.getByRole("combobox", { name: "Application", exact: true })
-  ).toBeDisabled()
-  await expect(
-    dialog.getByRole("combobox", { name: "Application", exact: true })
-  ).toContainText(secondApplicationName)
-  await dialog.getByRole("button", { name: "Close", exact: true }).click()
-  await page
-    .getByRole("combobox", { name: "Filter by Application" })
-    .selectOption(applicationId)
-  const row = page.getByRole("row").filter({ hasText: workflowName })
-  await expect(row).toBeVisible()
-  await page.reload()
-  await expect(
-    page.getByRole("combobox", { name: "Filter by Application" })
-  ).toHaveValue(applicationId)
-  await row.getByRole("link").last().click()
-  await expect(page).toHaveURL(new RegExp(`${applicationId}\\?view=workflows$`))
-  await page.getByRole("link", { name: "Applications", exact: true }).click()
-  await expect(page).toHaveURL(
-    `${new URL(`${workspacePath}/applications`, page.url()).href}`
-  )
-  expect(pageErrors).toEqual([])
+    page.getByRole("heading", { name: "Applications", exact: true })
+  ).toBeVisible()
+  expect(errors).toEqual([])
 })
