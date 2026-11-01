@@ -106,7 +106,7 @@ export function WorkspaceShell({
           <TopBarSearch />
         </SidebarHeader>
       )}
-      <SidebarSeparator className="-mt-px mx-0 w-full data-horizontal:w-full" />
+      <SidebarSeparator className="mx-0 -mt-px w-full data-horizontal:w-full" />
       <SidebarContent className="gap-0">
         <SidebarGroup className="px-1 pt-1 pb-2 group-data-[collapsible=icon]:p-1">
           <SidebarGroupContent>

@@ -122,8 +122,7 @@ function WorkspaceSettingsPage() {
               <p className="text-xs font-medium text-foreground">Members</p>
               {activeOrg ? (
                 <p className="text-xs text-muted-foreground">
-                  (
-                  {countLabel(memberCount, "member", "members")}
+                  ({countLabel(memberCount, "member", "members")}
                   {inviteCount > 0
                     ? ` · ${countLabel(inviteCount, "invitation", "invitations")}`
                     : ""}
