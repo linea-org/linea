@@ -3,74 +3,31 @@ import { createServerFn } from "@tanstack/react-start"
 
 import { apiFetch } from "./api-fetch"
 
-export type ExecutionStatus =
-  | "queued"
-  | "running"
-  | "paused"
-  | "succeeded"
-  | "failed"
-  | "cancelled"
+import { z } from "zod"
+import {
+  executionDetailResponseSchema,
+  type ExecutionSummary,
+  type ExecutionDetailResponse,
+  type ExecutionStatus,
+  type ExecutionTrigger,
+  type JsonValue,
+} from "./execution-detail-schema"
 
-export type ExecutionTrigger = "manual" | "schedule" | "webhook" | "api"
-
-export type ExecutionEnvironment = "draft" | "dev" | "production"
-
-export type ExecutionSummary = {
-  id: string
-  workflowId: string
-  status: ExecutionStatus
-  trigger: ExecutionTrigger
-  environment: ExecutionEnvironment
-  costMicros: string
-  // True: costMicros is a known-partial lower bound. False: fully priced. Null: this execution predates cost-unpriced tracking, not the same as false.
-  costUnpriced: boolean | null
-  tokensInput: number
-  tokensOutput: number
-  startedAt: string | null
-  completedAt: string | null
-  createdAt: string
-}
-
-export type ExecutionDetail = ExecutionSummary & {
-  error: { message: string; stepId?: string } | null
-  /** Whether any of this execution's steps can be replayed — computed server-side from origin ("native", not ingested) and terminal status. */
-  replayable: boolean
-}
+export type {
+  ExecutionStatus,
+  ExecutionTrigger,
+  ExecutionEnvironment,
+  ExecutionSummary,
+  ExecutionDetail,
+  ExecutionStepSummary,
+  ExecutionStepStatus,
+  ExecutionDetailResponse,
+  JsonValue,
+} from "./execution-detail-schema"
 
 export type WorkspaceExecutionSummary = ExecutionSummary & {
   workflowName: string
   workflowSlug: string
-}
-
-export type ExecutionStepStatus = "running" | "succeeded" | "failed" | "skipped"
-
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
-
-export type ExecutionStepSummary = {
-  id: string
-  name: string
-  nodeId: string
-  status: ExecutionStepStatus
-  startedAt: string
-  endedAt: string | null
-  sequence: number
-  attempt: number
-  input: Record<string, JsonValue> | null
-  output: Record<string, JsonValue> | null
-  error: { message: string; stack?: string } | null
-  costMicros: string
-  attributes: Record<string, JsonValue> | null
-  tokensInput: number
-  tokensOutput: number
-  isSystemEvent: boolean
-  /** The step this one re-ran, if it's a replay — never set on a real graph-execution step. */
-  replayedFromStepId: string | null
 }
 
 export const listExecutionsFn = createServerFn({ method: "GET" })
@@ -119,23 +76,14 @@ export const testRunFn = createServerFn({ method: "POST" })
     return (await res.json()) as ExecutionSummary
   })
 
-export type ExecutionDetailResponse = {
-  execution: ExecutionDetail
-  steps: ExecutionStepSummary[]
-  /** nodeId -> the node's config in the workflow version this execution ran, for pre-filling the replay override form. */
-  nodeConfigs: Record<string, Record<string, JsonValue>>
-  /** The node a paused execution is currently waiting on — undefined once resolved or if the execution isn't paused. Neither Approval nor Wait checkpoints before pausing, so this is the only way to know which node it stopped at. */
-  pausedAtNode?: { nodeId: string; type: string }
-}
-
 export const getExecutionFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { id: string }) => data)
+  .validator(z.object({ id: z.uuid() }))
   .handler(async ({ data }): Promise<ExecutionDetailResponse> => {
-    const res = await apiFetch(`/executions/${data.id}`)
+    const res = await apiFetch(`/workspace/executions/${data.id}`)
     if (!res.ok) {
       throw new Error("Execution not found")
     }
-    return (await res.json()) as ExecutionDetailResponse
+    return executionDetailResponseSchema.parse(await res.json())
   })
 
 export const replayStepFn = createServerFn({ method: "POST" })

@@ -34,11 +34,6 @@ import {
   EmptyTitle,
 } from "@linea/ui/components/empty"
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@linea/ui/components/input-group"
-import {
   Table,
   TableBody,
   TableCell,
@@ -48,6 +43,7 @@ import {
 } from "@linea/ui/components/table"
 
 import { SecretFormDialog } from "@/components/secrets"
+import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import type { AiProviderKeyStatus, SecretSummary } from "@/lib/secrets-api"
 import {
   useEnvironmentSecrets,
@@ -309,18 +305,13 @@ function CustomSecretsSection({
     <>
       {" "}
       <div className="mt-8 mb-4 flex flex-wrap items-center gap-2 pl-1">
-        <InputGroup className="h-8 max-w-sm rounded-lg border-input/30 bg-input/30 shadow-none">
-          <InputGroupAddon>
-            <SearchIcon className="size-4 shrink-0 opacity-50" />
-          </InputGroupAddon>
-          <InputGroupInput
-            placeholder="Search secrets"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </InputGroup>
+        <ToolbarSearch
+          value={search}
+          onChange={setSearch}
+          placeholder="Search secrets"
+        />
         <div className="ml-auto">
-          <Button size="sm" onClick={() => onEdit({ kind: "create" })}>
+          <Button size="xs" onClick={() => onEdit({ kind: "create" })}>
             <PlusIcon />
             Add secret
           </Button>

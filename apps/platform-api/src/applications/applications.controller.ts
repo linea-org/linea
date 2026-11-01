@@ -1,10 +1,12 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Get,
   NotFoundException,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common'
@@ -37,6 +39,35 @@ export class ApplicationsController {
       workspaceId,
       ...input,
     })
+  }
+  @Patch(':id')
+  @RequireRole('admin')
+  async update(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(createApplicationSchema))
+    input: CreateApplicationDto,
+  ) {
+    const result = await repositories.application.updateApplication(
+      db,
+      workspaceId,
+      id,
+      input,
+    )
+    switch (result.outcome) {
+      case 'updated':
+        return result.application
+      case 'not_found':
+        throw new NotFoundException('Application not found')
+      case 'slug_taken':
+        throw new ConflictException(
+          'An Application with that identifier already exists',
+        )
+      default: {
+        const unexpected: never = result
+        return unexpected
+      }
+    }
   }
   @Get()
   list(@CurrentWorkspaceId() workspaceId: string) {

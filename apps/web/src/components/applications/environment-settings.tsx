@@ -1,125 +1,128 @@
-import { EnvironmentConnections } from "./environment-connections"
-import { useForm } from "react-hook-form"
-import { useMutation } from "@tanstack/react-query"
-import { Button } from "@linea/ui/components/button"
-import { Field, FieldLabel } from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
-import {
-  disableEnvironmentFn,
-  updateEnvironmentRetentionFn,
-  type EnvironmentSummary,
-} from "@/lib/environments-api"
+import { Badge } from "@linea/ui/components/badge"
+import type { EnvironmentSummary } from "@/lib/environments-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
 import { EnvironmentDeployments } from "./environment-deployments"
 import { EnvironmentSecrets } from "./environment-secrets"
+import { EnvironmentConnections } from "./environment-connections"
 import { EnvironmentKeys } from "./environment-keys"
 import { EnvironmentTrustForm } from "./environment-trust-form"
+import { EnvironmentPreferences } from "./environment-preferences"
 
-export function EnvironmentSettings({
-  workspaceSlug,
-  environment,
-  workflows,
-  onSaved,
-}: {
+type EnvironmentSettingsProps = {
   workspaceSlug: string
-  workflows: WorkflowSummary[]
   environment: EnvironmentSummary
+  workflows: WorkflowSummary[]
   onSaved: () => Promise<void>
-}) {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<{ contentRetentionDays: number }>({
-    defaultValues: { contentRetentionDays: environment.contentRetentionDays },
-  })
-  const retention = useMutation({
-    mutationFn: (data: { contentRetentionDays: number }) =>
-      updateEnvironmentRetentionFn({
-        data: { ...data, environmentId: environment.id },
-      }),
-    onSuccess: onSaved,
-  })
-  const disable = useMutation({
-    mutationFn: () =>
-      disableEnvironmentFn({ data: { environmentId: environment.id } }),
-    onSuccess: onSaved,
-  })
-  return (
-    <section className="flex flex-col gap-4 rounded-xl border bg-card p-4">
-      <div>
-        <h2 className="font-semibold">
-          {environment.environment === "dev" ? "Development" : "Production"}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {environment.enabled ? "Enabled" : "Disabled"} ·{" "}
-          {environment.oidcIssuer
-            ? "Identity trust configured"
-            : "Identity trust pending"}
-        </p>
-        <p className="font-mono text-xs break-all text-muted-foreground">
-          {environment.id}
-        </p>
-      </div>
-      <EnvironmentTrustForm environment={environment} onSaved={onSaved} />
-      <form
-        onSubmit={(event) => {
-          void handleSubmit((data) => retention.mutate(data))(event)
-        }}
-        className="flex flex-col gap-2 border-t pt-4"
-      >
-        <Field>
-          <FieldLabel htmlFor={`${environment.id}-retention`}>
-            Content retention in days
-          </FieldLabel>
-          <Input
-            id={`${environment.id}-retention`}
-            type="number"
-            {...register("contentRetentionDays", {
-              valueAsNumber: true,
-              min: 1,
-              max: 3650,
-              required: true,
-            })}
-          />
-          {errors.contentRetentionDays && (
-            <p className="text-sm text-destructive">
-              Enter between 1 and 3650 days.
-            </p>
-          )}
-        </Field>
-        <Button type="submit" disabled={retention.isPending}>
-          Save retention
-        </Button>
-      </form>
-      {(retention.error || disable.error) && (
-        <p className="text-sm text-destructive">
-          {retention.error?.message ?? disable.error?.message}
-        </p>
-      )}
+}
+
+export function environmentName(
+  environment: EnvironmentSummary["environment"]
+) {
+  switch (environment) {
+    case "dev":
+      return "Development"
+    case "production":
+      return "Production"
+    default: {
+      const unreachable: never = environment
+      return unreachable
+    }
+  }
+}
+
+const sections = [
+  {
+    label: "Deployments",
+    description: "Choose the published Workflow versions to use.",
+    content: ({
+      workspaceSlug,
+      environment,
+      workflows,
+    }: EnvironmentSettingsProps) => (
       <EnvironmentDeployments
         workspaceSlug={workspaceSlug}
         environmentId={environment.id}
         workflows={workflows}
         enabled={environment.enabled}
       />
+    ),
+  },
+  {
+    label: "Connections",
+    description: "Connect integrations and manage access.",
+    content: ({ environment, onSaved }: EnvironmentSettingsProps) => (
+      <EnvironmentConnections environment={environment} onSaved={onSaved} />
+    ),
+  },
+  {
+    label: "Secrets",
+    description: "Manage AI provider keys and integration credentials.",
+    content: ({ workspaceSlug, environment }: EnvironmentSettingsProps) => (
       <EnvironmentSecrets
         workspaceSlug={workspaceSlug}
         environmentId={environment.id}
       />
-      <EnvironmentConnections environment={environment} onSaved={onSaved} />
+    ),
+  },
+  {
+    label: "Backend keys",
+    description: "Allow your server to access this Environment.",
+    content: ({ workspaceSlug, environment }: EnvironmentSettingsProps) => (
       <EnvironmentKeys
         workspaceSlug={workspaceSlug}
         environmentId={environment.id}
         enabled={environment.enabled}
       />
-      <Button
-        variant="destructive"
-        disabled={!environment.enabled || disable.isPending}
-        onClick={() => disable.mutate()}
-      >
-        Disable Environment and revoke user sessions
-      </Button>
+    ),
+  },
+  {
+    label: "User identity",
+    description: "Configure sign-in and allowed origins for your users.",
+    content: ({ environment, onSaved }: EnvironmentSettingsProps) => (
+      <EnvironmentTrustForm environment={environment} onSaved={onSaved} />
+    ),
+  },
+  {
+    label: "Settings",
+    description: "Manage retention and Environment status.",
+    content: ({ environment, onSaved }: EnvironmentSettingsProps) => (
+      <EnvironmentPreferences environment={environment} onSaved={onSaved} />
+    ),
+  },
+]
+
+export function EnvironmentSettings(props: EnvironmentSettingsProps) {
+  const { environment } = props
+  const name = environmentName(environment.environment)
+  return (
+    <section aria-label={`${name} Environment`} className="flex flex-col">
+      <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+        <div>
+          <h2 className="text-sm font-medium">{name}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {environment.environment === "dev"
+              ? "Build and test changes."
+              : "Serve your users."}
+          </p>
+        </div>
+        <Badge variant="outline">
+          {environment.enabled ? "Enabled" : "Disabled"}
+        </Badge>
+      </div>
+      {sections.map((section) => (
+        <section
+          key={section.label}
+          className="flex flex-col gap-4 border-b px-4 py-4"
+        >
+          <div>
+            <h3 className="text-sm font-medium">{section.label}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {section.description}
+            </p>
+          </div>
+          {section.content(props)}
+        </section>
+      ))}
     </section>
   )
 }

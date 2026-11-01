@@ -4,13 +4,6 @@ import { PlusIcon, WorkflowIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@linea/ui/components/empty"
-import {
   Table,
   TableBody,
   TableCell,
@@ -18,7 +11,14 @@ import {
   TableHeader,
   TableRow,
 } from "@linea/ui/components/table"
-
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@linea/ui/components/empty"
+import { PlayfulAvatar } from "@/components/avatar"
 import {
   createWorkflowFn,
   workflowsQueryOptions,
@@ -41,7 +41,7 @@ export function WorkflowsWidget({
     <WorkflowFormDialog
       workspaceSlug={slug}
       trigger={
-        <Button size="sm">
+        <Button size="xs">
           <PlusIcon />
           Create
         </Button>
@@ -67,7 +67,7 @@ export function WorkflowsWidget({
         <div className="flex items-center gap-1">
           <Button
             variant="secondary"
-            size="sm"
+            size="xs"
             nativeButton={false}
             render={<Link to="/w/$slug/workflows" params={{ slug }} />}
           >
@@ -93,32 +93,45 @@ export function WorkflowsWidget({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="px-4">Name</TableHead>
-              <TableHead className="px-4">Status</TableHead>
-              <TableHead className="px-4">Updated</TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                Workflow
+              </TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                Status
+              </TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                Updated
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {recent.map((workflow) => (
-              <TableRow key={workflow.id}>
+              <TableRow key={workflow.id} className="hover:bg-muted/40">
                 <TableCell className="px-4 py-3">
                   <Link
                     to="/w/$slug/workflows/$workflowId"
                     params={{ slug, workflowId: workflow.id }}
-                    className="block min-w-0"
+                    className="flex min-w-0 items-center gap-3"
                   >
-                    <span className="block truncate font-medium text-foreground hover:underline">
-                      {workflow.name}
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                      {workflow.slug}
+                    <PlayfulAvatar
+                      name={workflow.name}
+                      shape="rounded"
+                      className="size-8"
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-medium">
+                        {workflow.name}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {workflow.slug}
+                      </span>
                     </span>
                   </Link>
                 </TableCell>
                 <TableCell className="px-4 py-3">
                   <WorkflowStatusBadge workflow={workflow} />
                 </TableCell>
-                <TableCell className="px-4 py-3 text-muted-foreground">
+                <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
                   {new Date(workflow.updatedAt).toLocaleDateString()}
                 </TableCell>
               </TableRow>

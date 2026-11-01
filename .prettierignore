@@ -4,6 +4,9 @@ node_modules/
 .next/
 .source/
 **/next-env.d.ts
+**/expo-env.d.ts
+.context/
+.gstack/
 .output/
 .nitro/
 .tanstack/

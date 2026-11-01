@@ -8,8 +8,12 @@ import {
 } from "react"
 import { Link, useLocation, useMatchRoute } from "@tanstack/react-router"
 import {
+  ArchiveIcon,
+  ArrowLeftIcon,
+  ChevronRightIcon,
   CircleCheckIcon,
   BoxesIcon,
+  FilePenIcon,
   HistoryIcon,
   HouseIcon,
   KeyIcon,
@@ -24,7 +28,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -32,17 +35,16 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarSeparator,
-  SidebarTrigger,
   useSidebar,
 } from "@linea/ui/components/sidebar"
-import { Separator } from "@linea/ui/components/separator"
 import { cn } from "@linea/ui/lib/utils"
 
 import { UserMenu } from "../account"
-import { TopBarBreadcrumb } from "./top-bar-breadcrumb"
 import { TopBarNotifications } from "./top-bar-notifications"
+import { WhatsNew } from "./whats-new"
 import { TopBarSearch } from "./top-bar-search"
 import { WorkspaceSwitcher, type WorkspaceOption } from "./workspace-switcher"
+import { WorkspaceTopBar } from "./workspace-top-bar"
 
 export const WorkspaceOverlayNavContext = createContext<(() => void) | null>(
   null
@@ -61,14 +63,207 @@ function InsetCollapseEdge() {
       title={open ? "Collapse sidebar" : "Expand sidebar"}
       onClick={toggleSidebar}
       className={cn(
-        "absolute inset-y-0 left-0 z-20 hidden w-2 rounded-l-lg md:block",
-        "after:absolute after:inset-y-0 after:left-0 after:w-px after:bg-transparent after:transition-colors hover:after:bg-border",
+        "absolute -top-12 bottom-0 left-0 z-40 hidden w-2 md:block",
+        "after:absolute after:inset-y-0 after:-left-px after:w-px after:bg-transparent after:transition-colors hover:after:bg-border",
         open ? "cursor-w-resize" : "cursor-e-resize"
       )}
     />
   )
 }
 
+const WORKFLOW_LIST_STATUSES = ["Draft", "Published", "Archived"] as const
+type WorkflowListStatus = (typeof WORKFLOW_LIST_STATUSES)[number]
+const workflowSectionIcon = {
+  Draft: FilePenIcon,
+  Published: CircleCheckIcon,
+  Archived: ArchiveIcon,
+} as const
+function workflowListStatus(search: unknown): WorkflowListStatus | undefined {
+  if (typeof search !== "object" || search === null || !("status" in search)) {
+    return undefined
+  }
+  const status = search.status
+  if (status === "Draft" || status === "Published" || status === "Archived") {
+    return status
+  }
+  return undefined
+}
+function MainNav({ slug, pathname }: { slug: string; pathname: string }) {
+  const matchRoute = useMatchRoute()
+  return (
+    <>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          size="sm"
+          isActive={!!matchRoute({ to: "/w/$slug", params: { slug } })}
+          tooltip="Home"
+          render={<Link to="/w/$slug" params={{ slug }} />}
+        >
+          <HouseIcon />
+          <span>Home</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          size="sm"
+          isActive={
+            pathname.startsWith(`/w/${slug}/agents/`) ||
+            !!matchRoute({
+              to: "/w/$slug/applications",
+              params: { slug },
+              fuzzy: true,
+            })
+          }
+          tooltip="Applications"
+          render={<Link to="/w/$slug/applications" params={{ slug }} />}
+        >
+          <BoxesIcon />
+          <span>Applications</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          size="sm"
+          isActive={
+            !!matchRoute({
+              to: "/w/$slug/workflows",
+              params: { slug },
+              fuzzy: true,
+            })
+          }
+          tooltip="Workflows"
+          render={<Link to="/w/$slug/workflows" params={{ slug }} />}
+        >
+          <WorkflowIcon />
+          <span>Workflows</span>
+          <ChevronRightIcon
+            aria-hidden
+            className="ml-auto group-data-[collapsible=icon]:hidden"
+          />
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          size="sm"
+          isActive={
+            !!matchRoute({
+              to: "/w/$slug/executions",
+              params: { slug },
+              fuzzy: true,
+            })
+          }
+          tooltip="Executions"
+          render={<Link to="/w/$slug/executions" params={{ slug }} />}
+        >
+          <HistoryIcon />
+          <span>Executions</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          size="sm"
+          isActive={
+            !!matchRoute({
+              to: "/w/$slug/approvals",
+              params: { slug },
+              fuzzy: true,
+            })
+          }
+          tooltip="Approvals"
+          render={<Link to="/w/$slug/approvals" params={{ slug }} />}
+        >
+          <CircleCheckIcon />
+          <span>Approvals</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </>
+  )
+}
+function WorkflowSectionNav({
+  slug,
+  status,
+  onIndex,
+}: {
+  slug: string
+  status: WorkflowListStatus | undefined
+  onIndex: boolean
+}) {
+  return (
+    <>
+      <SidebarGroup className="px-1 py-1 group-data-[collapsible=icon]:p-1">
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="sm"
+                tooltip="Back"
+                className="relative justify-center"
+                render={
+                  <Link
+                    to="/w/$slug"
+                    params={{ slug }}
+                    activeOptions={{ exact: true }}
+                  />
+                }
+              >
+                <ArrowLeftIcon className="absolute left-2 group-data-[collapsible=icon]:static" />
+                <span>Back</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+      <SidebarSeparator className="mx-0 w-full data-horizontal:w-full" />
+      <SidebarGroup className="px-1 pt-1 pb-2 group-data-[collapsible=icon]:p-1">
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="sm"
+                isActive={onIndex && !status}
+                tooltip="Overview"
+                render={
+                  <Link
+                    to="/w/$slug/workflows"
+                    params={{ slug }}
+                    search={{ status: undefined }}
+                    activeOptions={{ exact: true, includeSearch: true }}
+                  />
+                }
+              >
+                <WorkflowIcon />
+                <span>Overview</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            {WORKFLOW_LIST_STATUSES.map((filter) => {
+              const Icon = workflowSectionIcon[filter]
+              return (
+                <SidebarMenuItem key={filter}>
+                  <SidebarMenuButton
+                    size="sm"
+                    isActive={onIndex && status === filter}
+                    tooltip={filter}
+                    render={
+                      <Link
+                        to="/w/$slug/workflows"
+                        params={{ slug }}
+                        search={{ status: filter }}
+                        activeOptions={{ exact: true, includeSearch: true }}
+                      />
+                    }
+                  >
+                    <Icon />
+                    <span>{filter}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </>
+  )
+}
 type WorkspaceShellProps = {
   slug: string
   workspaces: WorkspaceOption[]
@@ -81,8 +276,10 @@ export function WorkspaceShell({
   children,
 }: WorkspaceShellProps) {
   const matchRoute = useMatchRoute()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const isBuilder = pathname.endsWith("/builder")
+  const inWorkflows = pathname.startsWith(`/w/${slug}/workflows`)
+  const workflowStatus = workflowListStatus(search)
   const railOpenRef = useRef(true)
   const wasBuilderRef = useRef(isBuilder)
   const [open, setOpen] = useState(!isBuilder)
@@ -99,97 +296,44 @@ export function WorkspaceShell({
   }, [isBuilder])
   const navigation = (
     <>
-      <SidebarHeader className="p-1 pb-2 group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:pb-3">
-        <WorkspaceSwitcher currentSlug={slug} workspaces={workspaces} />
-      </SidebarHeader>
-      <SidebarSeparator className="group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:data-horizontal:w-5" />
-      <SidebarContent>
-        <SidebarGroup className="group-data-[collapsible=icon]:pt-3">
+      {isBuilder ? (
+        <SidebarHeader className="p-1 pb-2">
+          <WorkspaceSwitcher currentSlug={slug} workspaces={workspaces} />
+        </SidebarHeader>
+      ) : (
+        <SidebarHeader className="px-1 py-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:py-2">
+          <TopBarSearch />
+        </SidebarHeader>
+      )}
+      <SidebarSeparator className="mx-0 -mt-px w-full data-horizontal:w-full" />
+      <SidebarContent className="gap-0">
+        {inWorkflows ? (
+          <WorkflowSectionNav
+            slug={slug}
+            status={workflowStatus}
+            onIndex={
+              !!matchRoute({
+                to: "/w/$slug/workflows",
+                params: { slug },
+              })
+            }
+          />
+        ) : (
+          <SidebarGroup className="px-1 pt-1 pb-2 group-data-[collapsible=icon]:p-1">
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <MainNav slug={slug} pathname={pathname} />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        <SidebarSeparator className="mx-0 w-full data-horizontal:w-full" />
+        <SidebarGroup className="p-1 group-data-[collapsible=icon]:p-1">
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  isActive={!!matchRoute({ to: "/w/$slug", params: { slug } })}
-                  tooltip="Home"
-                  render={<Link to="/w/$slug" params={{ slug }} />}
-                >
-                  <HouseIcon />
-                  <span>Home</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={
-                    !!matchRoute({
-                      to: "/w/$slug/applications",
-                      params: { slug },
-                      fuzzy: true,
-                    })
-                  }
-                  tooltip="Applications"
-                  render={<Link to="/w/$slug/applications" params={{ slug }} />}
-                >
-                  <BoxesIcon />
-                  <span>Applications</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={
-                    !!matchRoute({
-                      to: "/w/$slug/workflows",
-                      params: { slug },
-                      fuzzy: true,
-                    })
-                  }
-                  tooltip="Workflows"
-                  render={<Link to="/w/$slug/workflows" params={{ slug }} />}
-                >
-                  <WorkflowIcon />
-                  <span>Workflows</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={
-                    !!matchRoute({
-                      to: "/w/$slug/executions",
-                      params: { slug },
-                      fuzzy: true,
-                    })
-                  }
-                  tooltip="Executions"
-                  render={<Link to="/w/$slug/executions" params={{ slug }} />}
-                >
-                  <HistoryIcon />
-                  <span>Executions</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={
-                    !!matchRoute({
-                      to: "/w/$slug/approvals",
-                      params: { slug },
-                      fuzzy: true,
-                    })
-                  }
-                  tooltip="Approvals"
-                  render={<Link to="/w/$slug/approvals" params={{ slug }} />}
-                >
-                  <CircleCheckIcon />
-                  <span>Approvals</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup className="mt-auto">
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
+                  size="sm"
                   isActive={
                     !!matchRoute({
                       to: "/w/$slug/settings/members",
@@ -208,6 +352,7 @@ export function WorkspaceShell({
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
+                  size="sm"
                   isActive={
                     !!matchRoute({
                       to: "/w/$slug/settings/secrets",
@@ -225,6 +370,7 @@ export function WorkspaceShell({
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
+                  size="sm"
                   isActive={
                     !!matchRoute({
                       to: "/w/$slug/settings",
@@ -242,9 +388,16 @@ export function WorkspaceShell({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarSeparator className="group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:data-horizontal:w-5" />
-      <SidebarFooter className="p-1">
-        <UserMenu showDetails align="start" className="w-full" />
+      <SidebarFooter className="h-12 flex-row items-center gap-0 px-2 group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1">
+        <UserMenu
+          showDetails
+          align="start"
+          className="min-w-0 flex-1 pr-1 group-data-[collapsible=icon]:flex-none"
+        />
+        <div className="flex items-center gap-0.5 group-data-[collapsible=icon]:hidden">
+          <TopBarNotifications slug={slug} />
+          <WhatsNew />
+        </div>
       </SidebarFooter>
     </>
   )
@@ -252,56 +405,56 @@ export function WorkspaceShell({
     <SidebarProvider
       open={open}
       onOpenChange={handleOpenChange}
-      className="relative h-svh max-h-svh overflow-hidden bg-sidebar has-data-[variant=inset]:bg-sidebar"
+      className="relative h-svh max-h-svh flex-col overflow-hidden bg-sidebar has-data-[variant=inset]:bg-sidebar"
     >
-      {!isBuilder && (
-        <Sidebar variant="inset" collapsible="icon" className="z-20">
-          {navigation}
-        </Sidebar>
-      )}
-      {isBuilder && open && (
-        <div className="absolute inset-y-1 left-1 z-30 flex w-[var(--sidebar-width)] animate-in flex-col overflow-hidden rounded-lg bg-popover shadow-md ring-1 ring-foreground/10 duration-200 fade-in-0 slide-in-from-left-2">
-          {navigation}
-        </div>
-      )}
-      <WorkspaceOverlayNavContext.Provider
-        value={() => handleOpenChange(!open)}
-      >
-        <SidebarInset
-          className={cn(
-            "relative z-10 min-h-0 overflow-hidden bg-card md:peer-data-[variant=inset]:rounded-lg md:peer-data-[variant=inset]:shadow-none md:peer-data-[variant=inset]:ring-1 md:peer-data-[variant=inset]:ring-border",
-            isBuilder && "m-2 rounded-lg"
-          )}
-        >
-          {!isBuilder && <InsetCollapseEdge />}
-          {!isBuilder && (
-            <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border/70 py-0 pr-3 pl-2">
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <SidebarTrigger size="icon-xs" />
-                <Separator orientation="vertical" className="h-6 self-center" />
-                <TopBarBreadcrumb slug={slug} />
-              </div>
-              <div className="hidden flex-1 justify-center sm:flex">
-                <TopBarSearch />
-              </div>
-              <div className="flex flex-1 items-center justify-end">
-                <TopBarNotifications slug={slug} />
-              </div>
-            </div>
-          )}
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-auto bg-card">
-            {children}
-            {isBuilder && open && (
-              <button
-                type="button"
-                className="absolute inset-0 z-20"
-                aria-label="Close navigation"
-                onClick={() => setOpen(false)}
-              />
-            )}
+      {!isBuilder ? (
+        <WorkspaceTopBar slug={slug} workspaces={workspaces} />
+      ) : null}
+      <div className="flex min-h-0 w-full flex-1">
+        {!isBuilder && (
+          <Sidebar
+            collapsible="icon"
+            className="top-12! bottom-0! h-auto! border-sidebar-border p-0!"
+          >
+            {navigation}
+          </Sidebar>
+        )}
+        {isBuilder && open && (
+          <div className="absolute inset-y-1 left-1 z-30 flex w-[var(--sidebar-width)] animate-in flex-col overflow-hidden rounded-lg bg-popover shadow-md ring-1 ring-foreground/10 duration-200 fade-in-0 slide-in-from-left-2">
+            {navigation}
           </div>
-        </SidebarInset>
-      </WorkspaceOverlayNavContext.Provider>
+        )}
+        <WorkspaceOverlayNavContext.Provider
+          value={() => handleOpenChange(!open)}
+        >
+          <SidebarInset
+            className={cn(
+              "relative z-10 min-h-0 overflow-hidden bg-sidebar shadow-none",
+              isBuilder
+                ? "m-2 rounded-lg bg-card ring-1 ring-border"
+                : "m-0! rounded-none ring-0"
+            )}
+          >
+            {!isBuilder && <InsetCollapseEdge />}
+            <div
+              className={cn(
+                "relative flex min-h-0 flex-1 flex-col overflow-auto",
+                isBuilder ? "bg-card" : "bg-sidebar"
+              )}
+            >
+              {children}
+              {isBuilder && open && (
+                <button
+                  type="button"
+                  className="absolute inset-0 z-20"
+                  aria-label="Close navigation"
+                  onClick={() => setOpen(false)}
+                />
+              )}
+            </div>
+          </SidebarInset>
+        </WorkspaceOverlayNavContext.Provider>
+      </div>
     </SidebarProvider>
   )
 }

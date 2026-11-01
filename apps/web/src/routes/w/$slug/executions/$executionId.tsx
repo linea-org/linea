@@ -15,6 +15,7 @@ function WorkspaceExecutionDetailPage() {
   const initialData = Route.useLoaderData()
   return (
     <ExecutionDetailView
+      key={executionId}
       slug={slug}
       executionId={executionId}
       initialData={initialData}

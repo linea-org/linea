@@ -16,9 +16,15 @@ const variantByStatus = {
 
 export function WorkflowStatusBadge({
   workflow,
+  className,
 }: {
   workflow: WorkflowSummary
+  className?: string
 }) {
   const status = workflowStatus(workflow)
-  return <Badge variant={variantByStatus[status]}>{status}</Badge>
+  return (
+    <Badge variant={variantByStatus[status]} className={className}>
+      {status}
+    </Badge>
+  )
 }

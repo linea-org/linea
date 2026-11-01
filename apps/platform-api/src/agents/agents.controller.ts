@@ -24,6 +24,7 @@ import {
   type UpdateAgentDto,
 } from './dto/agent-input.dto'
 import { AgentsService } from './agents.service'
+import { agentAuthoringCatalog } from './agent-authoring-catalog'
 
 @Controller('agents')
 @OptionalAuth()
@@ -31,6 +32,10 @@ import { AgentsService } from './agents.service'
 @RequireRole('admin')
 export class AgentsController {
   constructor(private readonly agents: AgentsService) {}
+  @Get('authoring-catalog')
+  authoringCatalog() {
+    return agentAuthoringCatalog()
+  }
   @Post()
   create(
     @CurrentWorkspaceId() workspaceId: string,

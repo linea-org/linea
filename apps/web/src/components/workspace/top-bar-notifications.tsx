@@ -65,7 +65,10 @@ export function TopBarNotifications({ slug }: { slug: string }) {
     <Popover open={open} onOpenChange={setOpen}>
       <div className="relative">
         <PopoverTrigger
-          className={buttonVariants({ variant: "ghost", size: "icon-xs" })}
+          className={cn(
+            buttonVariants({ variant: "ghost", size: "icon-xs" }),
+            "rounded-md [&_svg]:size-3"
+          )}
           aria-label={
             unreadCount > 0
               ? `Notifications (${unreadCount} unread)`
@@ -141,20 +144,18 @@ export function TopBarNotifications({ slug }: { slug: string }) {
             </div>
           )}
         </div>
-        <div className="border-t border-border p-2">
-          <Link
-            to="/w/$slug/notifications"
-            params={{ slug }}
-            onClick={() => setOpen(false)}
-            className={cn(
-              buttonVariants({ variant: "secondary", size: "sm" }),
-              "w-full"
-            )}
-          >
-            See all
-            <ChevronRightIcon />
-          </Link>
-        </div>
+        <Link
+          to="/w/$slug/notifications"
+          params={{ slug }}
+          onClick={() => setOpen(false)}
+          className={cn(
+            buttonVariants({ variant: "ghost", size: "sm" }),
+            "w-full rounded-none border-t border-border"
+          )}
+        >
+          See all
+          <ChevronRightIcon />
+        </Link>
       </PopoverContent>
     </Popover>
   )

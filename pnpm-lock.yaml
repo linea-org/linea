@@ -168,13 +168,13 @@ importers:
         version: 7.0.107(zod@4.4.3)
       fumadocs-core:
         specifier: 16.15.11
-        version: 16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3)
+        version: 16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3)
       fumadocs-mdx:
         specifier: 15.4.1
-        version: 15.4.1(@types/mdast@4.0.4)(@types/mdx@2.0.14)(@types/react@19.2.15)(fumadocs-core@16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3))(next@16.3.4(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)(rolldown@1.0.3)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+        version: 15.4.1(@types/mdast@4.0.4)(@types/mdx@2.0.14)(@types/react@19.2.15)(fumadocs-core@16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)(rolldown@1.0.3)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
       fumadocs-ui:
         specifier: npm:@fumadocs/base-ui@16.15.11
-        version: '@fumadocs/base-ui@16.15.11(@date-fns/tz@1.5.0)(@types/mdx@2.0.14)(@types/react@19.2.15)(date-fns@4.4.0)(fumadocs-core@16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3))(next@16.3.4(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tailwindcss@4.3.3)'
+        version: '@fumadocs/base-ui@16.15.11(@date-fns/tz@1.5.0)(@types/mdx@2.0.14)(@types/react@19.2.15)(date-fns@4.4.0)(fumadocs-core@16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tailwindcss@4.3.3)'
       lucide-react:
         specifier: ^1.43.0
         version: 1.47.0(react@19.2.6)
@@ -183,7 +183,7 @@ importers:
         version: 11.17.2
       next:
         specifier: 16.3.4
-        version: 16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+        version: 16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -332,7 +332,7 @@ importers:
     dependencies:
       '@better-auth/expo':
         specifier: 1.6.23
-        version: 1.6.23(28a767508c06c8fe70cafe350e9a2556)
+        version: 1.6.23(6b34a6fa0589cdcd917276c107c8a116)
       '@hookform/resolvers':
         specifier: ^5.7.1
         version: 5.7.1(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.85.0(react@19.2.3))(zod@4.4.3)
@@ -341,7 +341,7 @@ importers:
         version: 5.101.4(react@19.2.3)
       better-auth:
         specifier: 1.6.23
-        version: 1.6.23(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.22.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
+        version: 1.6.23(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.22.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
       expo:
         specifier: ~57.0.20
         version: 57.0.20(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.15)(expo-router@57.0.19)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.1(@babel/core@7.29.7)(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.15)(react@19.2.3))(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.15)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
@@ -483,13 +483,13 @@ importers:
         version: 11.2.1(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.28)(@nestjs/platform-socket.io@11.2.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@thallesp/nestjs-better-auth':
         specifier: 2.7.0
-        version: 2.7.0(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.28)(@nestjs/websockets@11.2.1)(better-auth@1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@5.9.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))))(express@5.2.1)(graphql@16.14.2)(qs@6.16.0)(typescript@5.9.3)
+        version: 2.7.0(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.28)(@nestjs/websockets@11.2.1)(better-auth@1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@5.9.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))))(express@5.2.1)(graphql@16.14.2)(qs@6.16.0)(typescript@5.9.3)
       ajv:
         specifier: 8.20.0
         version: 8.20.0
       better-auth:
         specifier: 1.6.25
-        version: 1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@5.9.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
+        version: 1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@5.9.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
       bullmq:
         specifier: ^5
         version: 5.81.3
@@ -624,7 +624,7 @@ importers:
         version: 12.11.3(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(immer@11.1.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       better-auth:
         specifier: ^1.6.25
-        version: 1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
+        version: 1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
       lucide-react:
         specifier: ^1.28.0
         version: 1.28.0(react@19.2.6)
@@ -665,6 +665,9 @@ importers:
       '@linea/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@playwright/test':
+        specifier: ^1.64.1
+        version: 1.64.1
       '@tanstack/devtools-vite':
         specifier: latest
         version: 0.7.0(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
@@ -734,13 +737,13 @@ importers:
         version: 1.6.25(@better-auth/core@1.6.25(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.7)(kysely@0.29.4)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(drizzle-orm@1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3))
       '@better-auth/expo':
         specifier: 1.6.25
-        version: 1.6.25(8946b11fca1de530f114672b5a8e12f4)
+        version: 1.6.25(16f8d82cd89861461d134a83f105688b)
       '@linea/db':
         specifier: workspace:*
         version: link:../db
       better-auth:
         specifier: ^1.6.25
-        version: 1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)(postcss@8.5.23)))(drizzle-orm@1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
+        version: 1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)(postcss@8.5.23)))(drizzle-orm@1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
       drizzle-orm:
         specifier: 1.0.0-rc.4
         version: 1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3)
@@ -3647,6 +3650,11 @@ packages:
     resolution: {integrity: sha512-SEeaJLb3qBNF/OaXnaR1NmmBbFYk1zC0ZH/52fATcRPLFg/p791YrcyFFy44Bo9sLaGuSuLp5Q6axbb/O+v/RA==}
     engines: {node: ^14.18.0 || >=16.0.0}
 
+  '@playwright/test@1.64.1':
+    resolution: {integrity: sha512-IaYGml/nSOiZWROfPtuIL7neuu9qDOZ3TNvNljUIrhDMxiGTgPjzj/g9p9RxpS2tSepPDRY+UwAaEeiKtUvIAg==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   '@preact/signals-core@1.14.4':
     resolution: {integrity: sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA==}
 
@@ -5578,67 +5586,79 @@ packages:
     resolution: {integrity: sha512-Rvr0/EkPfPgc0C1wx8dz4bv6o4I4yeYI06tcHUL0f4ZdwSyIreABoLHNW51Ap0VNA7aDRVQ4izRNQh/LuykofA==}
     cpu: [arm64]
     os: [android]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-darwin-arm64@0.9.5':
     resolution: {integrity: sha512-sh9DaXzkVmedM9aWvjCAAluRtvz/trk5VSosF7dPhqDf3IhrJW2DOh9iuA+YQzWSktP/ILsKfKili2UZ/ZjRzw==}
     cpu: [arm64]
     os: [darwin]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-darwin-x64@0.9.5':
     resolution: {integrity: sha512-qPKyWlGK92vjwwFdAKwGkfqF3rye4UR8X2WPvzhOSt/plATd2pPJFyMBhF1aclRMBNbk20YnctWYRYLS8FBgAg==}
     cpu: [x64]
     os: [darwin]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-freebsd-x64@0.9.5':
     resolution: {integrity: sha512-LeSbxDQ7k0WFyddM3BiFW3i55eSkWwi4hgG8PmqNBGL9dZ4sysYOwcy3We8vyxc/fyhuhc0CYxa6p6v14+UBow==}
     cpu: [x64]
     os: [freebsd]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-linux-arm-gnu@0.9.5':
     resolution: {integrity: sha512-GVtm5UmUhKMnicVz/Q4QgRr7OFyvxDrr7j9u0Mrgnisj/GmABhcFhzqVwW+rbS+EFnUHY7yIamwY2Fc3CoCTCw==}
     cpu: [arm]
     os: [linux]
     libc: [glibc]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-linux-arm-musl@0.9.5':
     resolution: {integrity: sha512-c/9lCWXRwp0eaAvbTZslrplIjaLhiFCdc5bF/hCV13HrYYyICSwEcCgx3/OEEpwfHpdQsqejhsntUKc/0Ylbfg==}
     cpu: [arm]
     os: [linux]
     libc: [musl]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-linux-arm64-gnu@0.9.5':
     resolution: {integrity: sha512-BwZYDPfnuP9gh8KphdjClzN3XRV0smbc2nNGkxvSOEYB/uRW0e+S2Jh82QKMSCK5TptQfovmFWe55Z5lToLAfA==}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-linux-arm64-musl@0.9.5':
     resolution: {integrity: sha512-xglOsssSkPQGwendJdWud5maVWoM6h5SwlouStfg0eUACjxV8uLvnub2NT+euQJQMVzH3aRc5RuPPqzvMFeDTA==}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-linux-x64-gnu@0.9.5':
     resolution: {integrity: sha512-X7J/LWSnNsyx1E4hv6CFofXQft4GMePfc4pDn00B4lG6BO3HNR/zGlYZ5ayQsxhRNLxtAlvSFSaguaSuyz6p6g==}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-linux-x64-musl@0.9.5':
     resolution: {integrity: sha512-gmi9vazzSs4PLpHjgkFLPGCDMzG7ths3mcip0qZEHhLwLJthH5PTA+LYKi+7FRKHNQT4A50RTVox5CjdUC+prw==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-win32-arm64@0.9.5':
     resolution: {integrity: sha512-0iKC5sGOCrFqumzSHLv2qCQa0OTytK605dSJrdHah5CoLT13oStEfk3jwNltYB77J3BiSagg896d5YmTY8HQPA==}
     cpu: [arm64]
     os: [win32]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-win32-x64@0.9.5':
     resolution: {integrity: sha512-dSb5o6D9JugPmKRsjVLDLpgHRdSd1oCvNhY6AP6+OCzMwn0kbiNxhf2DwXYtt4xIBjliYQnw+ZsvIy1d0lHtSg==}
     cpu: [x64]
     os: [win32]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-toolchain/types@0.9.5':
     resolution: {integrity: sha512-KiuLNNgX9uNealaWAR+G3/cMXnRk9x4TY2EkYe/KIag+UPdwiA0RRf1hr1WAxzTP8KGzCTkqUdLPvqh32sEO3w==}
@@ -10042,6 +10062,16 @@ packages:
   playful-avatars@1.0.0:
     resolution: {integrity: sha512-kQK76frsyuX5y7agZKteMwsIFKSxtNg1AnIy8WspO5tAl32hPPSysDHS0WB5xWrvyx58jkhsQ2Jo9GE03W6YtA==}
 
+  playwright-core@1.64.1:
+    resolution: {integrity: sha512-BC4s8y6SEVA6Q1rSxZTto8hI1KUI3xXlHGZgvGqP4IqPdI/a6FX9H29IDNz7vKo9l21b6LfYosScPL6M3xxyDQ==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.64.1:
+    resolution: {integrity: sha512-HCrVhHr5QQuwYoswEUGTb7gGp522yflbv/ST8nF4sFWGuLjQCt17Q/EubpGGSNKYn1tsTCPZxqHhHCfVURu7UA==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   plist@3.1.1:
     resolution: {integrity: sha512-ZIfcLJC+7E7FBFnDxm9MPmt7D+DidyQ26lewieO75AdhA2ayMtsJSES0iWzqJQbcVRSrTufQoy0DR94xHue0oA==}
     engines: {node: '>=10.4.0'}
@@ -13051,11 +13081,11 @@ snapshots:
     optionalDependencies:
       drizzle-orm: 1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3)
 
-  '@better-auth/expo@1.6.23(28a767508c06c8fe70cafe350e9a2556)':
+  '@better-auth/expo@1.6.23(6b34a6fa0589cdcd917276c107c8a116)':
     dependencies:
       '@better-auth/core': 1.6.25(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.7)(kysely@0.29.4)(nanostores@1.4.2)
       '@better-fetch/fetch': 1.3.1
-      better-auth: 1.6.23(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.22.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
+      better-auth: 1.6.23(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.22.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
       better-call: 1.3.7(zod@4.4.3)
       zod: 4.4.3
     optionalDependencies:
@@ -13064,11 +13094,11 @@ snapshots:
       expo-network: 57.0.1(expo@57.0.20)(react@19.2.3)
       expo-web-browser: 57.0.2(expo@57.0.20)(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.15)(react@19.2.3))
 
-  '@better-auth/expo@1.6.25(8946b11fca1de530f114672b5a8e12f4)':
+  '@better-auth/expo@1.6.25(16f8d82cd89861461d134a83f105688b)':
     dependencies:
       '@better-auth/core': 1.6.25(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.7)(kysely@0.29.4)(nanostores@1.4.2)
       '@better-fetch/fetch': 1.3.1
-      better-auth: 1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)(postcss@8.5.23)))(drizzle-orm@1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
+      better-auth: 1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)(postcss@8.5.23)))(drizzle-orm@1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
       better-call: 1.3.7(zod@4.4.3)
       zod: 4.4.3
     optionalDependencies:
@@ -14036,14 +14066,14 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.15
 
-  '@fumadocs/base-ui@16.15.11(@date-fns/tz@1.5.0)(@types/mdx@2.0.14)(@types/react@19.2.15)(date-fns@4.4.0)(fumadocs-core@16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3))(next@16.3.4(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tailwindcss@4.3.3)':
+  '@fumadocs/base-ui@16.15.11(@date-fns/tz@1.5.0)(@types/mdx@2.0.14)(@types/react@19.2.15)(date-fns@4.4.0)(fumadocs-core@16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tailwindcss@4.3.3)':
     dependencies:
       '@base-ui/react': 1.8.0(@date-fns/tz@1.5.0)(@types/react@19.2.15)(date-fns@4.4.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@fuma-translate/react': 1.0.2(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@fumadocs/tailwind': 0.1.2(tailwindcss@4.3.3)
       class-variance-authority: 0.7.1
       cn: 0.2.6
-      fumadocs-core: 16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3)
+      fumadocs-core: 16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3)
       lucide-react: 1.47.0(react@19.2.6)
       motion: 13.4.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       next-themes: 0.4.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -14057,7 +14087,7 @@ snapshots:
     optionalDependencies:
       '@types/mdx': 2.0.14
       '@types/react': 19.2.15
-      next: 16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      next: 16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
     transitivePeerDependencies:
       - '@date-fns/tz'
       - date-fns
@@ -15253,6 +15283,10 @@ snapshots:
     optional: true
 
   '@pkgr/core@0.3.6': {}
+
+  '@playwright/test@1.64.1':
+    dependencies:
+      playwright: 1.64.1
 
   '@preact/signals-core@1.14.4': {}
 
@@ -16972,11 +17006,11 @@ snapshots:
       '@types/react': 19.2.15
       '@types/react-dom': 19.2.3(@types/react@19.2.15)
 
-  '@thallesp/nestjs-better-auth@2.7.0(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.28)(@nestjs/websockets@11.2.1)(better-auth@1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@5.9.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))))(express@5.2.1)(graphql@16.14.2)(qs@6.16.0)(typescript@5.9.3)':
+  '@thallesp/nestjs-better-auth@2.7.0(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.28)(@nestjs/websockets@11.2.1)(better-auth@1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@5.9.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))))(express@5.2.1)(graphql@16.14.2)(qs@6.16.0)(typescript@5.9.3)':
     dependencies:
       '@nestjs/common': 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core': 11.1.28(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.28)(@nestjs/websockets@11.2.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      better-auth: 1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@5.9.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
+      better-auth: 1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@5.9.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
       typescript: 5.9.3
     optionalDependencies:
       '@nestjs/websockets': 11.2.1(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.28)(@nestjs/platform-socket.io@11.2.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -18223,7 +18257,7 @@ snapshots:
 
   baseline-browser-mapping@2.11.25: {}
 
-  better-auth@1.6.23(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.22.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))):
+  better-auth@1.6.23(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.22.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))):
     dependencies:
       '@better-auth/core': 1.6.23(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.7)(kysely@0.29.4)(nanostores@1.4.2)
       '@better-auth/drizzle-adapter': 1.6.23(@better-auth/core@1.6.23(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.7)(kysely@0.29.4)(nanostores@1.4.2))(@better-auth/utils@0.4.2)
@@ -18244,7 +18278,7 @@ snapshots:
       zod: 4.4.3
     optionalDependencies:
       '@tanstack/react-start': 1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1))
-      next: 16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      next: 16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       pg: 8.22.0
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
@@ -18254,7 +18288,7 @@ snapshots:
       - '@cloudflare/workers-types'
       - '@opentelemetry/api'
 
-  better-auth@1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)(postcss@8.5.23)))(drizzle-orm@1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))):
+  better-auth@1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)(postcss@8.5.23)))(drizzle-orm@1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))):
     dependencies:
       '@better-auth/core': 1.6.25(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.7)(kysely@0.29.4)(nanostores@1.4.2)
       '@better-auth/drizzle-adapter': 1.6.25(@better-auth/core@1.6.25(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.7)(kysely@0.29.4)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(drizzle-orm@1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3))
@@ -18276,7 +18310,7 @@ snapshots:
     optionalDependencies:
       '@tanstack/react-start': 1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)(postcss@8.5.23))
       drizzle-orm: 1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3)
-      next: 16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      next: 16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       pg: 8.22.0
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
@@ -18286,7 +18320,7 @@ snapshots:
       - '@cloudflare/workers-types'
       - '@opentelemetry/api'
 
-  better-auth@1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@5.9.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))):
+  better-auth@1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@5.9.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))):
     dependencies:
       '@better-auth/core': 1.6.25(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.7)(kysely@0.29.4)(nanostores@1.4.2)
       '@better-auth/drizzle-adapter': 1.6.25(@better-auth/core@1.6.25(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.7)(kysely@0.29.4)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(drizzle-orm@1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3))
@@ -18307,7 +18341,7 @@ snapshots:
       zod: 4.4.3
     optionalDependencies:
       '@tanstack/react-start': 1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1))
-      next: 16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      next: 16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       pg: 8.22.0
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
@@ -18317,7 +18351,7 @@ snapshots:
       - '@cloudflare/workers-types'
       - '@opentelemetry/api'
 
-  better-auth@1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))):
+  better-auth@1.6.25(@tanstack/react-start@1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))):
     dependencies:
       '@better-auth/core': 1.6.25(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.7)(kysely@0.29.4)(nanostores@1.4.2)
       '@better-auth/drizzle-adapter': 1.6.25(@better-auth/core@1.6.25(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.4.3))(jose@6.2.7)(kysely@0.29.4)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(drizzle-orm@1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.20.3)(pg@8.22.0)(zod@4.4.3))
@@ -18338,7 +18372,7 @@ snapshots:
       zod: 4.4.3
     optionalDependencies:
       '@tanstack/react-start': 1.168.26(crossws@0.4.5(srvx@0.11.16))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1))
-      next: 16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      next: 16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       pg: 8.22.0
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
@@ -20271,7 +20305,7 @@ snapshots:
   fsevents@2.3.3:
     optional: true
 
-  fumadocs-core@16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3):
+  fumadocs-core@16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3):
     dependencies:
       '@fumari/image-size': 0.1.1
       estree-util-value-to-estree: 3.5.0
@@ -20300,21 +20334,21 @@ snapshots:
       '@types/mdast': 4.0.4
       '@types/react': 19.2.15
       lucide-react: 1.47.0(react@19.2.6)
-      next: 16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      next: 16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
       zod: 4.4.3
     transitivePeerDependencies:
       - supports-color
 
-  fumadocs-mdx@15.4.1(@types/mdast@4.0.4)(@types/mdx@2.0.14)(@types/react@19.2.15)(fumadocs-core@16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3))(next@16.3.4(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)(rolldown@1.0.3)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)):
+  fumadocs-mdx@15.4.1(@types/mdast@4.0.4)(@types/mdx@2.0.14)(@types/react@19.2.15)(fumadocs-core@16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)(rolldown@1.0.3)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)):
     dependencies:
       '@mdx-js/mdx': 3.1.1
       '@standard-schema/spec': 1.1.0
       chokidar: 5.0.0
       esbuild: 0.28.1
       estree-util-value-to-estree: 3.5.0
-      fumadocs-core: 16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3)
+      fumadocs-core: 16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.16(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3)
       github-slugger: 2.0.0
       magic-string: 1.4.1
       mdast-util-mdx: 3.0.0
@@ -20333,7 +20367,7 @@ snapshots:
       '@types/mdast': 4.0.4
       '@types/mdx': 2.0.14
       '@types/react': 19.2.15
-      next: 16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      next: 16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       react: 19.2.6
       rolldown: 1.0.3
       vite: 8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
@@ -23198,7 +23232,7 @@ snapshots:
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
 
-  next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+  next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
       '@next/env': 16.3.4
       '@swc/helpers': 0.5.23
@@ -23217,6 +23251,7 @@ snapshots:
       '@next/swc-linux-x64-musl': 16.3.4
       '@next/swc-win32-arm64-msvc': 16.3.4
       '@next/swc-win32-x64-msvc': 16.3.4
+      '@playwright/test': 1.64.1
       babel-plugin-react-compiler: 1.0.0
       sharp: 0.35.4(@types/node@22.19.19)
     transitivePeerDependencies:
@@ -23225,7 +23260,7 @@ snapshots:
       - babel-plugin-macros
     optional: true
 
-  next@16.3.4(@babel/core@7.29.7)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+  next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
     dependencies:
       '@next/env': 16.3.4
       '@swc/helpers': 0.5.23
@@ -23244,6 +23279,7 @@ snapshots:
       '@next/swc-linux-x64-musl': 16.3.4
       '@next/swc-win32-arm64-msvc': 16.3.4
       '@next/swc-win32-x64-msvc': 16.3.4
+      '@playwright/test': 1.64.1
       babel-plugin-react-compiler: 1.0.0
       sharp: 0.35.4(@types/node@22.19.19)
     transitivePeerDependencies:
@@ -23608,6 +23644,12 @@ snapshots:
       find-up: 3.0.0
 
   playful-avatars@1.0.0: {}
+
+  playwright-core@1.64.1: {}
+
+  playwright@1.64.1:
+    dependencies:
+      playwright-core: 1.64.1
 
   plist@3.1.1:
     dependencies:

@@ -41,7 +41,7 @@ export function ConnectionAuthorities() {
                 {record.revokedAt ? "Revoked" : "Active"}
               </span>
               <Button
-                size="sm"
+                size="xs"
                 variant="outline"
                 disabled={!enabled || !!record.revokedAt || revoke.isPending}
                 onClick={() =>

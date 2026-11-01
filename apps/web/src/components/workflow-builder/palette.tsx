@@ -130,7 +130,9 @@ export function WorkflowPalette({
                 align="inline-end"
                 className="group-focus-within/input-group:hidden"
               >
-                <Kbd>Ctrl+K</Kbd>
+                <Kbd className="h-4 min-w-4 text-[0.75rem] leading-none">
+                  Ctrl+K
+                </Kbd>
               </InputGroupAddon>
             </InputGroup>
           </div>

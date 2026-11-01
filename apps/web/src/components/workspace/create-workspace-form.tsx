@@ -95,18 +95,19 @@ export function CreateWorkspaceForm({
     : null
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      <FieldGroup>
+      <FieldGroup className="gap-4">
         <Field data-invalid={!!fieldErrors.name || undefined}>
           <FieldLabel htmlFor="workspace-name">Workspace name</FieldLabel>
           <Input
             id="workspace-name"
             name="name"
+            className="h-9"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Acme Studio"
@@ -120,6 +121,7 @@ export function CreateWorkspaceForm({
           <Input
             id="workspace-slug"
             name="slug"
+            className="h-9"
             value={slug}
             onChange={(e) => {
               setSlugTouched(true)
@@ -138,7 +140,7 @@ export function CreateWorkspaceForm({
         type="submit"
         className="w-full"
         disabled={createMutation.isPending}
-        size="lg"
+        size="xs"
       >
         {createMutation.isPending ? "Creating…" : submitLabel}
       </Button>

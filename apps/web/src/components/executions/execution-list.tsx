@@ -1,8 +1,15 @@
 import { Link, useNavigate } from "@tanstack/react-router"
 import { EllipsisVerticalIcon, EyeIcon, HistoryIcon } from "lucide-react"
 
-import { Badge } from "@linea/ui/components/badge"
 import { Button } from "@linea/ui/components/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@linea/ui/components/table"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,14 +23,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@linea/ui/components/empty"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@linea/ui/components/table"
 
 import type {
   ExecutionStepSummary,
@@ -42,15 +41,6 @@ const environmentLabel: Record<ExecutionSummary["environment"], string> = {
   draft: "Draft",
   dev: "Dev",
   production: "Production",
-}
-
-const environmentBadgeVariant: Record<
-  ExecutionSummary["environment"],
-  "outline" | "secondary" | "default"
-> = {
-  draft: "outline",
-  dev: "secondary",
-  production: "default",
 }
 
 function formatDuration(startedAt: string | null, completedAt: string | null) {
@@ -110,13 +100,27 @@ export function ExecutionList({
       <Table>
         <TableHeader className="bg-muted/40">
           <TableRow className="hover:bg-transparent">
-            <TableHead className="px-4">Run</TableHead>
-            <TableHead className="px-4">Status</TableHead>
-            <TableHead className="px-4">Trigger</TableHead>
-            <TableHead className="px-4">Environment</TableHead>
-            <TableHead className="px-4">Duration</TableHead>
-            <TableHead className="px-4">Cost</TableHead>
-            <TableHead className="px-4">When</TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Execution
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Environment
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Status
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Trigger
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Duration
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Cost
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              When
+            </TableHead>
             <TableHead className="w-12 px-2">
               <span className="sr-only">Actions</span>
             </TableHead>
@@ -124,17 +128,18 @@ export function ExecutionList({
         </TableHeader>
         <TableBody>
           {executions.map((execution) => (
-            <TableRow key={execution.id}>
+            <TableRow key={execution.id} className="hover:bg-muted/40">
               <TableCell className="px-4 py-3">
                 <Link
                   to="/w/$slug/workflows/$workflowId/executions/$executionId"
                   params={{ slug, workflowId, executionId: execution.id }}
-                  className="block min-w-0"
+                  className="font-mono text-xs font-medium"
                 >
-                  <span className="block truncate font-mono text-xs font-medium text-foreground hover:underline">
-                    {execution.id}
-                  </span>
+                  {execution.id}
                 </Link>
+              </TableCell>
+              <TableCell className="px-4 py-3 text-muted-foreground">
+                {environmentLabel[execution.environment]}
               </TableCell>
               <TableCell className="px-4 py-3">
                 <ExecutionStatusBadge status={execution.status} />
@@ -142,18 +147,13 @@ export function ExecutionList({
               <TableCell className="px-4 py-3 text-muted-foreground">
                 {triggerLabel[execution.trigger]}
               </TableCell>
-              <TableCell className="px-4 py-3">
-                <Badge variant={environmentBadgeVariant[execution.environment]}>
-                  {environmentLabel[execution.environment]}
-                </Badge>
-              </TableCell>
               <TableCell className="px-4 py-3 text-muted-foreground">
                 {formatDuration(execution.startedAt, execution.completedAt)}
               </TableCell>
               <TableCell className="px-4 py-3 text-muted-foreground">
                 {formatCost(execution.costMicros, execution.costUnpriced)}
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground">
+              <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
                 {new Date(execution.createdAt).toLocaleString()}
               </TableCell>
               <TableCell className="px-2 py-3 text-right">

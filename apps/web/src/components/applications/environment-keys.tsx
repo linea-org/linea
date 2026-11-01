@@ -78,9 +78,8 @@ export function EnvironmentKeys({
   })
   const error = loadError ?? create.error ?? revoke.error ?? rotate.error
   return (
-    <section className="flex flex-col gap-3 border-t pt-4">
-      <h3 className="font-medium">Backend keys</h3>
-      <p className="text-sm text-muted-foreground">
+    <section className="flex flex-col gap-3">
+      <p className="text-xs text-muted-foreground">
         These keys access this Environment. Human approvals require a verified
         user session.
       </p>
@@ -122,7 +121,7 @@ export function EnvironmentKeys({
           ))}
         </fieldset>
         <FieldError>{errors.scopes?.message}</FieldError>
-        <Button type="submit" disabled={!enabled || create.isPending}>
+        <Button type="submit" size="xs" disabled={!enabled || create.isPending}>
           Create key
         </Button>
       </form>
@@ -132,7 +131,7 @@ export function EnvironmentKeys({
           <code className="text-xs break-all">{rawKey}</code>
           <Button
             variant="ghost"
-            size="sm"
+            size="xs"
             onClick={() => {
               setRawKey(null)
               create.reset()
@@ -154,7 +153,7 @@ export function EnvironmentKeys({
             {key.revokedAt ? "Revoked" : "Active"}
           </span>
           <Button
-            size="sm"
+            size="xs"
             variant="outline"
             disabled={!enabled || !!key.revokedAt || rotate.isPending}
             onClick={() => rotate.mutate(key.id)}
@@ -162,7 +161,7 @@ export function EnvironmentKeys({
             Rotate
           </Button>
           <Button
-            size="sm"
+            size="xs"
             variant="outline"
             disabled={!!key.revokedAt || revoke.isPending}
             onClick={() => revoke.mutate(key.id)}

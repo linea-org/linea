@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { CircleCheckIcon, XIcon } from "lucide-react"
+import { z } from "zod"
 
 import { Button } from "@linea/ui/components/button"
 import {
@@ -19,15 +20,19 @@ import {
 } from "@/lib/approvals-api"
 
 export const Route = createFileRoute("/w/$slug/approvals")({
+  validateSearch: z.object({ executionId: z.uuid().optional() }),
   component: ApprovalsPage,
 })
 
 function ApprovalsPage() {
   const { slug } = Route.useParams()
+  const { executionId } = Route.useSearch()
   const queryClient = useQueryClient()
   const [comments, setComments] = useState<Record<string, string>>({})
   const approvalsQuery = useQuery(pendingApprovalsQueryOptions(slug))
-  const approvals = approvalsQuery.data ?? []
+  const approvals = (approvalsQuery.data ?? []).filter(
+    (approval) => !executionId || approval.executionId === executionId
+  )
 
   const respond = useMutation({
     mutationFn: (input: { id: string; approved: boolean }) =>
@@ -45,33 +50,28 @@ function ApprovalsPage() {
 
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <h1 className="pl-1 text-base font-medium text-foreground">
-        Pending approvals
-      </h1>
-      <p className="mt-1 pl-1 text-xs text-muted-foreground">
-        Workflow executions waiting on a decision before they continue.
-      </p>
-
       {approvalsQuery.isError ? (
-        <p className="mt-6 text-xs text-destructive">
-          Could not load approvals.
-        </p>
+        <p className="text-xs text-destructive">Could not load approvals.</p>
       ) : approvalsQuery.isPending ? (
-        <p className="mt-6 text-xs text-muted-foreground">Loading…</p>
+        <p className="text-xs text-muted-foreground">Loading…</p>
       ) : approvals.length === 0 ? (
-        <Empty className="mt-6">
+        <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <CircleCheckIcon />
             </EmptyMedia>
-            <EmptyTitle>Nothing pending</EmptyTitle>
+            <EmptyTitle>
+              {executionId
+                ? "No approvals awaiting you for this execution"
+                : "Nothing pending"}
+            </EmptyTitle>
             <EmptyDescription>
               Approval nodes that pause a run will show up here.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
-        <ul className="mt-6 flex flex-col gap-4">
+        <ul className="flex flex-col gap-4">
           {approvals.map((approval) => (
             <li
               key={approval.id}
@@ -109,7 +109,7 @@ function ApprovalsPage() {
               <div className="mt-3 flex items-center gap-2">
                 <Button
                   type="button"
-                  size="sm"
+                  size="xs"
                   onClick={() =>
                     respond.mutate({ id: approval.id, approved: true })
                   }
@@ -121,7 +121,7 @@ function ApprovalsPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  size="xs"
                   onClick={() =>
                     respond.mutate({ id: approval.id, approved: false })
                   }

@@ -381,7 +381,7 @@ export function KeyValueEditor({
       <Button
         type="button"
         variant="outline"
-        size="sm"
+        size="xs"
         className="self-start"
         onClick={addRow}
       >
