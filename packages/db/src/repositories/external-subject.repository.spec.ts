@@ -497,7 +497,12 @@ describe("External Subject repository", () => {
       const [audit] = await tx
         .select()
         .from(auditLogs)
-        .where(eq(auditLogs.action, "external_subject.erased"))
+        .where(
+          and(
+            eq(auditLogs.workspaceId, organization.id),
+            eq(auditLogs.action, "external_subject.erased")
+          )
+        )
       expect(audit?.resourceId).toBe(erased?.auditReference)
       expect(JSON.stringify(audit)).not.toContain("erase-me")
       expect(JSON.stringify(audit)).not.toContain("sensitive-reference")
