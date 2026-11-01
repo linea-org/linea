@@ -82,6 +82,25 @@ test("preserves Environment drafts and one-time keys while organizing Applicatio
   await page.getByLabel("Workflow name", { exact: true }).press("Enter")
   await expect(page.getByText(renamedWorkflow, { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Back", exact: true }).click()
+  const editedName = `${renamedWorkflow} edited`
+  const editedSlug = `edited-${Date.now()}`
+  const editedDescription = "Saved Workflow details update immediately."
+  await page.getByRole("button", { name: "Edit", exact: true }).click()
+  await dialog.getByLabel("Name", { exact: true }).fill(editedName)
+  await dialog.getByLabel("Slug", { exact: true }).fill(editedSlug)
+  await dialog
+    .getByLabel("Description", { exact: true })
+    .fill(editedDescription)
+  await dialog.getByRole("button", { name: "Save", exact: true }).click()
+  await expect(
+    page.getByRole("heading", { name: editedName, exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Copy slug", exact: true })
+  ).toHaveText(`/${editedSlug}`)
+  await expect(
+    page.getByRole("button", { name: new RegExp(editedDescription) })
+  ).toBeVisible()
   await page
     .getByRole("link", { name: "Back to Application", exact: true })
     .click()
@@ -93,7 +112,7 @@ test("preserves Environment drafts and one-time keys while organizing Applicatio
     exact: true,
   })
   await expect(
-    workflows.getByRole("link", { name: new RegExp(renamedWorkflow) })
+    workflows.getByRole("link", { name: new RegExp(editedName) })
   ).toBeVisible()
   await page.getByRole("tab", { name: "Environments", exact: true }).click()
   const development = page.getByRole("region", {

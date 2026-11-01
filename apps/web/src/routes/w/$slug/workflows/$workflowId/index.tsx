@@ -51,6 +51,7 @@ import {
   getWorkflowFn,
   updateWorkflowFn,
   workflowQueryOptions,
+  workflowsQueryOptions,
 } from "@/lib/workflows-api"
 
 export const Route = createFileRoute("/w/$slug/workflows/$workflowId/")({
@@ -346,9 +347,16 @@ function WorkflowDetailPage() {
         onSubmit={(values) =>
           updateWorkflowFn({ data: { id: workflow.id, ...values } })
         }
-        onSuccess={async () => {
+        onSuccess={async (updated) => {
+          queryClient.setQueryData(
+            workflowQueryOptions(slug, workflowId).queryKey,
+            updated
+          )
           await queryClient.invalidateQueries({
-            queryKey: workflowQueryOptions(slug, workflowId).queryKey,
+            queryKey: workflowsQueryOptions(slug).queryKey,
+          })
+          await queryClient.invalidateQueries({
+            queryKey: ["application-workflows", slug, workflow.applicationId],
           })
         }}
       />

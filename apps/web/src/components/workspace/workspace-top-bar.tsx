@@ -62,7 +62,7 @@ export function WorkspaceTopBar({ slug, workspaces }: WorkspaceTopBarProps) {
         </div>
         <div className="min-w-0 flex-1 md:justify-self-center">
           {workflow ? (
-            <WorkflowHeading workflow={workflow} />
+            <WorkflowHeading slug={slug} workflow={workflow} />
           ) : (
             <h1 className="max-w-80 truncate text-sm font-medium text-foreground">
               {title}

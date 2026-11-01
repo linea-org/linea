@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { InfoIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
@@ -10,9 +11,19 @@ import {
 } from "@linea/ui/components/tooltip"
 
 import { WorkflowStatusBadge } from "@/components/workflows"
-import type { WorkflowSummary } from "@/lib/workflows-api"
+import { workflowQueryOptions, type WorkflowSummary } from "@/lib/workflows-api"
 
-export function WorkflowHeading({ workflow }: { workflow: WorkflowSummary }) {
+export function WorkflowHeading({
+  slug,
+  workflow: initialData,
+}: {
+  slug: string
+  workflow: WorkflowSummary
+}) {
+  const { data: workflow } = useSuspenseQuery({
+    ...workflowQueryOptions(slug, initialData.id),
+    initialData,
+  })
   const [slugNotice, setSlugNotice] = useState<string | null>(null)
   const slugNoticeTimeout = useRef<number | null>(null)
   useEffect(() => {

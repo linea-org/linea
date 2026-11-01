@@ -51,7 +51,6 @@ export function RegressionRunList({
       </Empty>
     )
   }
-
   return (
     <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
       <Table>
@@ -93,7 +92,7 @@ export function RegressionRunList({
               <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
                 {new Date(run.startedAt).toLocaleString()}
               </TableCell>
-              <TableCell className="px-4 py-3 text-emerald-600 tabular-nums dark:text-emerald-400">
+              <TableCell className="px-4 py-3 text-success tabular-nums">
                 {run.passed}
               </TableCell>
               <TableCell className="px-4 py-3 text-destructive tabular-nums">
