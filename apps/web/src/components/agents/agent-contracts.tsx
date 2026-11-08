@@ -12,12 +12,12 @@ export function AgentContracts({
   contracts,
   archived,
   onSaved,
-}: {
+}: Readonly<{
   agentId: string
   contracts: AgentContract[]
   archived: boolean
   onSaved: () => Promise<void>
-}) {
+}>) {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">

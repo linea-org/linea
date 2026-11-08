@@ -18,10 +18,10 @@ import type { AgentOnboardingInput } from "./agent-onboarding-schema"
 export function AgentOnboardingAdvanced({
   open,
   onOpenChange,
-}: {
+}: Readonly<{
   open: boolean
   onOpenChange: (open: boolean) => void
-}) {
+}>) {
   const {
     register,
     watch,

@@ -92,6 +92,109 @@ function ApplicationsPage() {
         : new Date(right.updatedAt).getTime() -
           new Date(left.updatedAt).getTime()
     )
+  function renderApplications() {
+    if (applications.length === 0) {
+      return (
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>Add your first Agent</EmptyTitle>
+            <EmptyDescription>
+              Start with an Agent and create its Application in the same flow.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      )
+    }
+    if (visible.length === 0) {
+      return (
+        <p className="px-4 py-8 text-sm text-muted-foreground">
+          No Applications match that search.
+        </p>
+      )
+    }
+    if (view === "grid") {
+      return (
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visible.map((application) => (
+            <ApplicationCard
+              key={application.id}
+              slug={slug}
+              application={application}
+            />
+          ))}
+        </div>
+      )
+    }
+    return (
+      <div className="px-4 py-2">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Table>
+            <TableHeader className="bg-muted/40">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="px-4 font-normal text-muted-foreground">
+                  Application
+                </TableHead>
+                <TableHead className="px-4 font-normal text-muted-foreground">
+                  Agents
+                </TableHead>
+                <TableHead className="px-4 font-normal text-muted-foreground">
+                  Workflows
+                </TableHead>
+                <TableHead className="px-4 font-normal text-muted-foreground">
+                  Updated
+                </TableHead>
+                <TableHead className="w-12 px-2">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.map((application) => (
+                <TableRow key={application.id} className="hover:bg-muted/40">
+                  <TableCell className="px-4 py-3">
+                    <Link
+                      to="/w/$slug/applications/$applicationId"
+                      params={{ slug, applicationId: application.id }}
+                      className="flex min-w-0 items-center gap-3"
+                    >
+                      <PlayfulAvatar
+                        name={application.name}
+                        shape="rounded"
+                        className="size-8"
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-medium">
+                          {application.name}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {application.slug}
+                        </span>
+                      </span>
+                    </Link>
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                    {application.agentCount}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                    {application.workflowCount}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                    {formatDate(application.updatedAt)}
+                  </TableCell>
+                  <TableCell className="px-2 py-3 text-right">
+                    <ApplicationCardMenu
+                      workspaceSlug={slug}
+                      application={application}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    )
+  }
   return (
     <main className="flex min-w-0 flex-1 flex-col">
       <PageToolbar>
@@ -163,98 +266,7 @@ function ApplicationsPage() {
           />
         </div>
       </PageToolbar>
-      {applications.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>Add your first Agent</EmptyTitle>
-            <EmptyDescription>
-              Start with an Agent and create its Application in the same flow.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : visible.length === 0 ? (
-        <p className="px-4 py-8 text-sm text-muted-foreground">
-          No Applications match that search.
-        </p>
-      ) : view === "grid" ? (
-        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((application) => (
-            <ApplicationCard
-              key={application.id}
-              slug={slug}
-              application={application}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="px-4 py-2">
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <Table>
-              <TableHeader className="bg-muted/40">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="px-4 font-normal text-muted-foreground">
-                    Application
-                  </TableHead>
-                  <TableHead className="px-4 font-normal text-muted-foreground">
-                    Agents
-                  </TableHead>
-                  <TableHead className="px-4 font-normal text-muted-foreground">
-                    Workflows
-                  </TableHead>
-                  <TableHead className="px-4 font-normal text-muted-foreground">
-                    Updated
-                  </TableHead>
-                  <TableHead className="w-12 px-2">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visible.map((application) => (
-                  <TableRow key={application.id} className="hover:bg-muted/40">
-                    <TableCell className="px-4 py-3">
-                      <Link
-                        to="/w/$slug/applications/$applicationId"
-                        params={{ slug, applicationId: application.id }}
-                        className="flex min-w-0 items-center gap-3"
-                      >
-                        <PlayfulAvatar
-                          name={application.name}
-                          shape="rounded"
-                          className="size-8"
-                        />
-                        <span className="min-w-0">
-                          <span className="block truncate text-xs font-medium">
-                            {application.name}
-                          </span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {application.slug}
-                          </span>
-                        </span>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
-                      {application.agentCount}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
-                      {application.workflowCount}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
-                      {formatDate(application.updatedAt)}
-                    </TableCell>
-                    <TableCell className="px-2 py-3 text-right">
-                      <ApplicationCardMenu
-                        workspaceSlug={slug}
-                        application={application}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      )}
+      {renderApplications()}
     </main>
   )
 }
@@ -266,10 +278,10 @@ function countLabel(count: number, singular: string, plural: string) {
 function ApplicationCard({
   slug,
   application,
-}: {
+}: Readonly<{
   slug: string
   application: ApplicationSummary
-}) {
+}>) {
   const summary = `${countLabel(application.agentCount, "Agent", "Agents")} · ${countLabel(application.workflowCount, "Workflow", "Workflows")}`
   return (
     <div className="relative rounded-lg border border-border/70 hover:bg-muted/40">

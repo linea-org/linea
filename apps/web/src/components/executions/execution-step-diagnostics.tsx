@@ -15,12 +15,12 @@ export function ReplayAction({
   step,
   nodeConfig,
   onReplayTriggered,
-}: {
+}: Readonly<{
   executionId: string
   step: ExecutionStepSummary
   nodeConfig: Record<string, JsonValue> | undefined
   onReplayTriggered: (replayStepId: string) => void
-}) {
+}>) {
   const [open, setOpen] = useState(false)
   const [configText, setConfigText] = useState(() =>
     JSON.stringify(nodeConfig ?? {}, null, 2)
@@ -104,10 +104,10 @@ export function ReplayAction({
 export function AddToRegressionAction({
   workflowId,
   stepId,
-}: {
+}: Readonly<{
   workflowId: string
   stepId: string
-}) {
+}>) {
   const mutation = useMutation({
     mutationFn: () =>
       createRegressionCaseFromStepFn({ data: { workflowId, stepId } }),

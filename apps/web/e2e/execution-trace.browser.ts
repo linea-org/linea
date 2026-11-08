@@ -143,7 +143,7 @@ test("inspects recorded steps, replay lineage, and scoped approvals in a shared 
   await page.getByRole("link", { name: "View approvals", exact: true }).click()
   await expect(page).toHaveURL(
     new RegExp(
-      `approvals\\?executionId=${environment.TRACE_UI_PAUSED_EXECUTION_ID}$`
+      String.raw`approvals\?executionId=${environment.TRACE_UI_PAUSED_EXECUTION_ID}$`
     )
   )
   await expect(

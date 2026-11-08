@@ -25,9 +25,9 @@ import { slugify } from "@/lib/auth-redirect"
 
 export function CreateApplicationDialog({
   workspaceSlug,
-}: {
+}: Readonly<{
   workspaceSlug: string
-}) {
+}>) {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -84,7 +84,7 @@ export function CreateApplicationDialog({
                   if (!getFieldState("slug").isDirty)
                     setValue(
                       "slug",
-                      slugify(event.target.value).replace(/-+$/, "")
+                      slugify(event.target.value).replace(/-$/, "")
                     )
                 },
               })}

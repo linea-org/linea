@@ -99,7 +99,7 @@ function orderedChoices(operations: AgentCatalog["operations"]) {
 
 export function AgentToolFields({
   operations,
-}: Pick<AgentCatalog, "operations">) {
+}: Readonly<Pick<AgentCatalog, "operations">>) {
   const {
     control,
     setValue,

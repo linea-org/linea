@@ -18,10 +18,10 @@ import {
 export function AgentDefinitionFields({
   catalog,
   contracts,
-}: {
+}: Readonly<{
   catalog: AgentCatalog
   contracts: AgentContract[]
-}) {
+}>) {
   const {
     control,
     register,

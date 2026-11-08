@@ -13,10 +13,10 @@ import {
 export function WorkflowTitle({
   slug,
   workflow,
-}: {
+}: Readonly<{
   slug: string
   workflow: WorkflowSummary
-}) {
+}>) {
   const queryClient = useQueryClient()
   // An Escape-triggered blur must not save the cancelled name.
   const skipCommit = useRef(false)
@@ -73,11 +73,6 @@ export function WorkflowTitle({
           if (next instanceof Node && event.currentTarget.contains(next)) return
           commit()
         }}
-        onKeyDown={(event) => {
-          if (event.key !== "Escape") return
-          event.preventDefault()
-          cancel()
-        }}
       >
         <Input
           autoFocus
@@ -88,6 +83,11 @@ export function WorkflowTitle({
           disabled={rename.isPending}
           onFocus={(event) => event.currentTarget.select()}
           onChange={(event) => setName(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Escape") return
+            event.preventDefault()
+            cancel()
+          }}
           className="h-8 w-48"
         />
         {rename.error ? (

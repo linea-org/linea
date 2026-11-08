@@ -27,7 +27,7 @@ export function AgentDeploymentForm({
   binding,
   disabled,
   archived,
-}: {
+}: Readonly<{
   workspaceSlug: string
   environmentId: string
   agentId: string
@@ -36,7 +36,7 @@ export function AgentDeploymentForm({
   binding: AgentBinding | undefined
   disabled: boolean
   archived: boolean
-}) {
+}>) {
   const queryClient = useQueryClient()
   const {
     control,
@@ -194,9 +194,9 @@ export function AgentDeploymentForm({
         </p>
       )}
       {deploy.isSuccess && (
-        <p role="status" className="text-xs text-muted-foreground">
+        <output className="block text-xs text-muted-foreground">
           Deployment saved.
-        </p>
+        </output>
       )}
     </form>
   )

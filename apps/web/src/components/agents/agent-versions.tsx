@@ -17,14 +17,14 @@ export function AgentVersions({
   archived,
   onLoad,
   onPublished,
-}: {
+}: Readonly<{
   agentId: string
   versions: AgentVersion[]
   contracts: AgentContract[]
   archived: boolean
   onLoad: (version: AgentVersion) => void
   onPublished: () => Promise<void>
-}) {
+}>) {
   const publish = useMutation({
     mutationFn: (versionId: string) =>
       publishAgentVersionFn({ data: { agentId, versionId } }),
@@ -103,9 +103,9 @@ export function AgentVersions({
         </p>
       )}
       {publish.isSuccess && (
-        <p role="status" className="text-xs text-muted-foreground">
+        <output className="block text-xs text-muted-foreground">
           Version published. Choose an Environment to deploy it.
-        </p>
+        </output>
       )}
     </section>
   )

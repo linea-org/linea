@@ -17,12 +17,12 @@ export function ApplicationAgents({
   applicationId,
   query,
   status,
-}: {
+}: Readonly<{
   workspaceSlug: string
   applicationId: string
   query: string
   status: "all" | "active" | "archived"
-}) {
+}>) {
   const queryKey = ["agents", workspaceSlug, applicationId]
   const {
     data: agents,
@@ -42,9 +42,9 @@ export function ApplicationAgents({
   return (
     <section className="flex flex-col">
       {isPending && (
-        <p role="status" className="px-4 py-8 text-xs text-muted-foreground">
+        <output className="block px-4 py-8 text-xs text-muted-foreground">
           Loading Agents…
-        </p>
+        </output>
       )}
       {error && (
         <p role="alert" className="px-4 py-8 text-xs text-destructive">

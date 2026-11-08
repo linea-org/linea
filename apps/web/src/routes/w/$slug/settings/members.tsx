@@ -83,12 +83,12 @@ function RowOptions({
   copyValue,
   removeLabel,
   onRemove,
-}: {
+}: Readonly<{
   label: string
   copyValue: string
   removeLabel?: string
   onRemove?: () => void
-}) {
+}>) {
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>

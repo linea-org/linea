@@ -16,10 +16,10 @@ import { workflowQueryOptions, type WorkflowSummary } from "@/lib/workflows-api"
 export function WorkflowHeading({
   slug,
   workflow: initialData,
-}: {
+}: Readonly<{
   slug: string
   workflow: WorkflowSummary
-}) {
+}>) {
   const { data: workflow } = useSuspenseQuery({
     ...workflowQueryOptions(slug, initialData.id),
     initialData,

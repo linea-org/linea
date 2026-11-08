@@ -34,12 +34,12 @@ export function ExecutionTraceWorkspace({
   detail,
   pendingReplayStepId,
   onReplayTriggered,
-}: {
+}: Readonly<{
   slug: string
   detail: ExecutionDetailResponse
   pendingReplayStepId: string | null
   onReplayTriggered: (stepId: string) => void
-}) {
+}>) {
   const [search, setSearch] = useState("")
   const [status, setStatus] =
     useState<z.infer<typeof statusFilterSchema>>("all")
@@ -87,8 +87,7 @@ export function ExecutionTraceWorkspace({
       <div className="flex h-12 flex-wrap items-center gap-2 border-b bg-muted/40 px-4">
         <h2 className="mr-auto text-xs font-medium">
           Trace
-          <span className="font-normal text-muted-foreground">
-            {" "}
+          <span className="ml-1 font-normal text-muted-foreground">
             · {recorded.length} steps
           </span>
         </h2>

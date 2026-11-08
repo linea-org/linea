@@ -29,10 +29,10 @@ import {
 export function ApplicationCardMenu({
   workspaceSlug,
   application,
-}: {
+}: Readonly<{
   workspaceSlug: string
   application: ApplicationSummary
-}) {
+}>) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const queryClient = useQueryClient()

@@ -16,16 +16,36 @@ export function AddAgentDialog({
   workspaceSlug,
   applicationId,
   trigger,
-}: {
+}: Readonly<{
   workspaceSlug: string
   applicationId?: string
   trigger: ReactElement
-}) {
+}>) {
   const [open, setOpen] = useState(false)
   const applications = useQuery({
     ...applicationsQueryOptions(workspaceSlug),
     enabled: open,
   })
+  function applicationsContent() {
+    if (applications.isPending) {
+      return <p className="text-xs text-muted-foreground">Loading…</p>
+    }
+    if (applications.isError) {
+      return (
+        <p className="text-xs text-destructive">{applications.error.message}</p>
+      )
+    }
+    if (!applications.data) return null
+    return (
+      <AgentOnboardingForm
+        key={applicationId ?? "new"}
+        workspaceSlug={workspaceSlug}
+        applications={applications.data}
+        initialApplicationId={applicationId}
+        plain
+      />
+    )
+  }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={trigger} />
@@ -33,21 +53,7 @@ export function AddAgentDialog({
         <DialogHeader>
           <DialogTitle>Add Agent</DialogTitle>
         </DialogHeader>
-        {applications.isPending ? (
-          <p className="text-xs text-muted-foreground">Loading…</p>
-        ) : applications.isError ? (
-          <p className="text-xs text-destructive">
-            {applications.error.message}
-          </p>
-        ) : applications.data ? (
-          <AgentOnboardingForm
-            key={applicationId ?? "new"}
-            workspaceSlug={workspaceSlug}
-            applications={applications.data}
-            initialApplicationId={applicationId}
-            plain
-          />
-        ) : null}
+        {applicationsContent()}
       </DialogContent>
     </Dialog>
   )

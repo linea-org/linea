@@ -15,14 +15,14 @@ export function AgentEnvironmentDeployment({
   versions,
   contracts,
   archived,
-}: {
+}: Readonly<{
   workspaceSlug: string
   agentId: string
   environments: EnvironmentSummary[]
   versions: AgentVersion[]
   contracts: AgentContract[]
   archived: boolean
-}) {
+}>) {
   const dev = environments.find(
     (environment) => environment.environment === "dev"
   )
@@ -62,13 +62,9 @@ export function AgentEnvironmentDeployment({
   const binding = deployments.data?.find(
     (candidate) => candidate.agentId === agentId
   )
-  const status = !environment.enabled
-    ? "Environment disabled"
-    : binding
-      ? binding.enabled
-        ? "Enabled"
-        : "Disabled"
-      : "Not deployed"
+  let status = "Not deployed"
+  if (!environment.enabled) status = "Environment disabled"
+  else if (binding) status = binding.enabled ? "Enabled" : "Disabled"
   return (
     <section aria-label="Agent deployments" className="flex flex-col gap-4">
       <div className="flex items-center gap-3">

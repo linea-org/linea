@@ -19,9 +19,9 @@ import type { AgentOnboardingInput } from "./agent-onboarding-schema"
 
 export function AgentApplicationFields({
   applications,
-}: {
+}: Readonly<{
   applications: ApplicationSummary[]
-}) {
+}>) {
   const { register, watch, setValue, getFieldState } =
     useFormContext<AgentOnboardingInput>()
   const application = watch("application")
@@ -78,7 +78,7 @@ export function AgentApplicationFields({
                 if (!getFieldState("application.slug").isDirty)
                   setValue(
                     "application.slug",
-                    slugify(event.target.value).replace(/-+$/, "")
+                    slugify(event.target.value).replace(/-$/, "")
                   )
               },
             })}

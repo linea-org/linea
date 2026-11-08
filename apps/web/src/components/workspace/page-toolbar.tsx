@@ -4,10 +4,10 @@ import { cn } from "@linea/ui/lib/utils"
 export function PageToolbar({
   children,
   className,
-}: {
+}: Readonly<{
   children: ReactNode
   className?: string
-}) {
+}>) {
   return (
     <div
       className={cn(

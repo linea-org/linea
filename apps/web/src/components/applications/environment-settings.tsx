@@ -91,7 +91,7 @@ const sections = [
   },
 ]
 
-export function EnvironmentSettings(props: EnvironmentSettingsProps) {
+export function EnvironmentSettings(props: Readonly<EnvironmentSettingsProps>) {
   const { environment } = props
   const name = environmentName(environment.environment)
   return (

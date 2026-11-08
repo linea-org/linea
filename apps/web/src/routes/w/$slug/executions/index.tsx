@@ -6,8 +6,6 @@ import {
 } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
 import {
-  ChevronDownIcon,
-  ChevronUpIcon,
   EllipsisVerticalIcon,
   EyeIcon,
   HistoryIcon,
@@ -70,6 +68,8 @@ import {
   type WorkspaceExecutionSummary,
 } from "@/lib/executions-api"
 import { formatElapsed } from "@/lib/format"
+import { SortDirectionIcon } from "@/components/workspace/sort-direction-icon"
+import { ariaSortValue, type SortDirection } from "@/lib/sort"
 
 const EXECUTION_STATUSES: ExecutionStatus[] = [
   "queued",
@@ -161,7 +161,6 @@ type ExecutionSortColumn =
   | "duration"
   | "cost"
   | "when"
-type SortDirection = "asc" | "desc"
 type ExecutionSort = { column: ExecutionSortColumn; direction: SortDirection }
 
 function durationMs(execution: WorkspaceExecutionSummary) {
@@ -235,23 +234,17 @@ function ExecutionSortHeader({
   label,
   sorts,
   onSort,
-}: {
+}: Readonly<{
   column: ExecutionSortColumn
   label: string
   sorts: ExecutionSort[]
   onSort: (column: ExecutionSortColumn) => void
-}) {
+}>) {
   const index = sorts.findIndex((item) => item.column === column)
   const active = sorts[index]
   return (
     <TableHead
-      aria-sort={
-        active
-          ? active.direction === "asc"
-            ? "ascending"
-            : "descending"
-          : "none"
-      }
+      aria-sort={ariaSortValue(active?.direction)}
       className="px-4 font-normal text-muted-foreground"
     >
       <button
@@ -261,13 +254,7 @@ function ExecutionSortHeader({
         onClick={() => onSort(column)}
       >
         {label}
-        {active ? (
-          active.direction === "asc" ? (
-            <ChevronUpIcon className="size-3" />
-          ) : (
-            <ChevronDownIcon className="size-3" />
-          )
-        ) : null}
+        {<SortDirectionIcon direction={active?.direction} />}
         {active && sorts.length > 1 ? (
           <span className="text-[10px] leading-none tabular-nums">
             {index + 1}

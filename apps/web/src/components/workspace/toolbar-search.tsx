@@ -21,7 +21,7 @@ export function ToolbarSearch({
   inputRef,
   shortcut,
   autoFocus,
-}: ToolbarSearchProps) {
+}: Readonly<ToolbarSearchProps>) {
   return (
     <div className="relative w-full max-w-md min-w-48 flex-1">
       <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />

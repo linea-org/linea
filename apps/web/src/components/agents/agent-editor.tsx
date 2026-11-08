@@ -30,14 +30,14 @@ export function AgentEditor({
   initialVersions,
   initialContracts,
   environments,
-}: {
+}: Readonly<{
   workspaceSlug: string
   agent: AgentSummary
   catalog: AgentCatalog
   initialVersions: AgentVersion[]
   initialContracts: AgentContract[]
   environments: EnvironmentSummary[]
-}) {
+}>) {
   const queryClient = useQueryClient()
   const versionsKey = ["agent-versions", workspaceSlug, agent.id]
   const contractsKey = ["agent-contracts", workspaceSlug, agent.id]

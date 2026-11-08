@@ -23,10 +23,10 @@ import {
 export function EnvironmentPreferences({
   environment,
   onSaved,
-}: {
+}: Readonly<{
   environment: EnvironmentSummary
   onSaved: () => Promise<void>
-}) {
+}>) {
   const {
     register,
     handleSubmit,
@@ -81,9 +81,9 @@ export function EnvironmentPreferences({
           Save retention
         </Button>
         {retention.isSuccess && (
-          <p role="status" className="text-xs text-muted-foreground">
+          <output className="block text-xs text-muted-foreground">
             Retention saved.
-          </p>
+          </output>
         )}
       </form>
       <div className="flex flex-col gap-3 border-t pt-4">

@@ -27,12 +27,12 @@ export function AgentOnboardingForm({
   applications,
   initialApplicationId,
   plain = false,
-}: {
+}: Readonly<{
   workspaceSlug: string
   applications: ApplicationSummary[]
   initialApplicationId: string | undefined
   plain?: boolean
-}) {
+}>) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [advanced, setAdvanced] = useState(false)
@@ -140,7 +140,7 @@ export function AgentOnboardingForm({
                   if (!getFieldState("slug").isDirty)
                     setValue(
                       "slug",
-                      slugify(event.target.value).replace(/-+$/, "")
+                      slugify(event.target.value).replace(/-$/, "")
                     )
                 },
               })}
@@ -151,10 +151,10 @@ export function AgentOnboardingForm({
           <AgentOnboardingAdvanced open={advanced} onOpenChange={setAdvanced} />
         </fieldset>
         {createdApplication && (
-          <p role="status" className="px-4 pb-4 text-xs text-muted-foreground">
+          <output className="block px-4 pb-4 text-xs text-muted-foreground">
             Application “{createdApplication.name}” was created. It is available
             in the Application selector.
-          </p>
+          </output>
         )}
         {create.error && (
           <p role="alert" className="px-4 pb-4 text-xs text-destructive">

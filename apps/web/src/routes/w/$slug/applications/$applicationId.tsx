@@ -89,8 +89,9 @@ function ApplicationPage() {
     environments.find((item) => item.environment === selectedName) ??
     dev ??
     production
-  const application = applications.find((value) => value.id === applicationId)
-  if (!application) throw new Error("Application not found")
+  if (!applications.some((value) => value.id === applicationId)) {
+    throw new Error("Application not found")
+  }
   async function onSaved() {
     await queryClient.invalidateQueries({
       queryKey: ["environments", slug, applicationId],

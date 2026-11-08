@@ -22,10 +22,10 @@ import { formatDate } from "@/lib/format"
 export function ApplicationWorkflowCreateButton({
   workspaceSlug,
   applicationId,
-}: {
+}: Readonly<{
   workspaceSlug: string
   applicationId: string
-}) {
+}>) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   return (
@@ -62,10 +62,10 @@ export function ApplicationWorkflowCreateButton({
 export function ApplicationWorkflows({
   workspaceSlug,
   workflows,
-}: {
+}: Readonly<{
   workspaceSlug: string
   workflows: WorkflowSummary[]
-}) {
+}>) {
   return (
     <section aria-label="Application Workflows" className="flex flex-col">
       {workflows.length === 0 && (

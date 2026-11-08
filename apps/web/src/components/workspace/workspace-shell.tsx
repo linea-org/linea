@@ -87,7 +87,10 @@ function workflowListStatus(search: unknown): WorkflowStatusFilter | undefined {
   }
   return isWorkflowStatusFilter(search.status) ? search.status : undefined
 }
-function MainNav({ slug, pathname }: { slug: string; pathname: string }) {
+function MainNav({
+  slug,
+  pathname,
+}: Readonly<{ slug: string; pathname: string }>) {
   const matchRoute = useMatchRoute()
   return (
     <>
@@ -182,11 +185,11 @@ function WorkflowSectionNav({
   slug,
   status,
   onIndex,
-}: {
+}: Readonly<{
   slug: string
   status: WorkflowStatusFilter | undefined
   onIndex: boolean
-}) {
+}>) {
   return (
     <>
       <SidebarGroup className="px-1 py-1 group-data-[collapsible=icon]:p-1">

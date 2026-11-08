@@ -14,11 +14,11 @@ export function AgentVersionReplacement({
   version,
   onCancel,
   onConfirm,
-}: {
+}: Readonly<{
   version: AgentVersion | null
   onCancel: () => void
   onConfirm: (version: AgentVersion) => void
-}) {
+}>) {
   return (
     <AlertDialog
       open={version !== null}

@@ -3,9 +3,6 @@ import { z } from "zod"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
 import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-  ChevronsUpDownIcon,
   EllipsisVerticalIcon,
   PencilIcon,
   PencilRulerIcon,
@@ -68,6 +65,8 @@ import {
   WORKFLOW_STATUS_FILTERS,
   isWorkflowStatusFilter,
 } from "@/lib/workflow-status-filter"
+import { SortDirectionIcon } from "@/components/workspace/sort-direction-icon"
+import { ariaSortValue, type SortDirection } from "@/lib/sort"
 
 const workflowsSearchSchema = z.object({
   applicationId: z.uuid().optional(),
@@ -75,7 +74,6 @@ const workflowsSearchSchema = z.object({
 })
 
 type WorkflowSortColumn = "workflow" | "application" | "status" | "updated"
-type SortDirection = "asc" | "desc"
 type WorkflowSort = { column: WorkflowSortColumn; direction: SortDirection }
 
 function workflowSortValue(
@@ -114,23 +112,17 @@ function WorkflowSortHeader({
   label,
   sorts,
   onSort,
-}: {
+}: Readonly<{
   column: WorkflowSortColumn
   label: string
   sorts: WorkflowSort[]
   onSort: (column: WorkflowSortColumn) => void
-}) {
+}>) {
   const index = sorts.findIndex((item) => item.column === column)
   const active = sorts[index]
   return (
     <TableHead
-      aria-sort={
-        active
-          ? active.direction === "asc"
-            ? "ascending"
-            : "descending"
-          : "none"
-      }
+      aria-sort={ariaSortValue(active?.direction)}
       className="px-4 font-normal text-muted-foreground"
     >
       <button
@@ -139,15 +131,7 @@ function WorkflowSortHeader({
         onClick={() => onSort(column)}
       >
         {label}
-        {active ? (
-          active.direction === "asc" ? (
-            <ChevronUpIcon className="size-3" />
-          ) : (
-            <ChevronDownIcon className="size-3" />
-          )
-        ) : (
-          <ChevronsUpDownIcon className="size-3 opacity-40" />
-        )}
+        {<SortDirectionIcon direction={active?.direction} showIdle />}
         {active && sorts.length > 1 ? (
           <span className="text-[10px] leading-none tabular-nums">
             {index + 1}

@@ -15,11 +15,14 @@ type WorkspaceTopBarProps = {
   workspaces: WorkspaceOption[]
 }
 
-export function WorkspaceTopBar({ slug, workspaces }: WorkspaceTopBarProps) {
+export function WorkspaceTopBar({
+  slug,
+  workspaces,
+}: Readonly<WorkspaceTopBarProps>) {
   const { isMobile, state } = useSidebar()
   const collapsed = !isMobile && state === "collapsed"
   const crumbs = useWorkspaceCrumbs(slug)
-  const title = crumbs[crumbs.length - 1]?.label
+  const title = crumbs.at(-1)?.label
   const parent = crumbs
     .slice(0, -1)
     .reverse()

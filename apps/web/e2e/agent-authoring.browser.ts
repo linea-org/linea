@@ -86,8 +86,8 @@ test("author, publish, and independently deploy immutable Agent versions", async
   await expect(page.getByRole("alert")).toContainText("schema is invalid")
   const inputSchema = page.getByLabel("Input JSON Schema")
   const prefix =
-    '{"type":"object","description":"say ' + String.fromCharCode(92)
-  const suffix = "hello" + String.fromCharCode(92) + '" now"}'
+    '{"type":"object","description":"say ' + String.fromCodePoint(92)
+  const suffix = "hello" + String.fromCodePoint(92) + '" now"}'
   await inputSchema.fill(prefix + suffix)
   await inputSchema.evaluate((element, position) => {
     if (!(element instanceof HTMLTextAreaElement))

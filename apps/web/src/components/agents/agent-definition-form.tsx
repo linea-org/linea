@@ -23,14 +23,14 @@ export function AgentDefinitionForm({
   sourceVersion,
   onSaved,
   onDirtyChange,
-}: {
+}: Readonly<{
   agentId: string
   catalog: AgentCatalog
   contracts: AgentContract[]
   sourceVersion: AgentVersion | null
   onSaved: (version: AgentVersion) => Promise<void>
   onDirtyChange: (dirty: boolean) => void
-}) {
+}>) {
   const form = useForm<z.infer<typeof createAgentVersionInputSchema>>({
     resolver: zodResolver(createAgentVersionInputSchema),
     defaultValues: {

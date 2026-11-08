@@ -29,22 +29,21 @@ import { formatDuration } from "@/lib/format"
 function StepPayload({
   label,
   value,
-}: {
+}: Readonly<{
   label: string
   value: Record<string, JsonValue> | null
-}) {
+}>) {
+  let emptyMessage: string | null = null
+  if (value === null) emptyMessage = `No ${label.toLowerCase()} recorded.`
+  else if (Object.keys(value).length === 0) emptyMessage = "Empty object."
   return (
     <section className="flex min-w-0 flex-col gap-3">
       <h3 className="text-xs font-medium">{label}</h3>
-      {value === null ? (
-        <p className="text-xs text-muted-foreground">
-          No {label.toLowerCase()} recorded.
-        </p>
-      ) : Object.keys(value).length === 0 ? (
-        <p className="text-xs text-muted-foreground">Empty object.</p>
+      {emptyMessage ? (
+        <p className="text-xs text-muted-foreground">{emptyMessage}</p>
       ) : (
         <dl className="divide-y rounded-lg border">
-          {Object.entries(value).map(([key, entry]) => (
+          {Object.entries(value ?? {}).map(([key, entry]) => (
             <div key={key} className="min-w-0 px-3 py-2">
               <dt className="mb-1 font-mono text-xs text-muted-foreground">
                 {key}
@@ -74,7 +73,7 @@ export function ExecutionStepDetails({
   replayable,
   resumedAt,
   onReplayTriggered,
-}: {
+}: Readonly<{
   executionId: string
   workflowId: string
   step: ExecutionStepSummary
@@ -82,7 +81,7 @@ export function ExecutionStepDetails({
   replayable: boolean
   resumedAt: string | undefined
   onReplayTriggered: (stepId: string) => void
-}) {
+}>) {
   const hydrated = useHydrated()
   const title = `${step.replayedFromStepId ? "Replay of " : ""}${stepTitle(step.name)}`
   const colors = isNodeTypeId(step.name)

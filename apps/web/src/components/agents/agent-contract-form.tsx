@@ -26,10 +26,10 @@ const schema = z.object({ inputSchema: schemaText, outputSchema: schemaText })
 export function AgentContractForm({
   agentId,
   onSaved,
-}: {
+}: Readonly<{
   agentId: string
   onSaved: () => Promise<void>
-}) {
+}>) {
   const {
     register,
     handleSubmit,
@@ -80,9 +80,9 @@ export function AgentContractForm({
         </p>
       )}
       {save.isSuccess && (
-        <p role="status" className="text-xs text-muted-foreground">
+        <output className="block text-xs text-muted-foreground">
           Contract revision saved. Select it in the definition editor.
-        </p>
+        </output>
       )}
       <Button
         type="submit"
