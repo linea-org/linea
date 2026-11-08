@@ -6,6 +6,8 @@ import type { WorkflowGraph } from "@linea/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
 import type { InterpreterService } from "../graph/interpreter.service"
 import { RunLeaseService } from "./run-lease.service"
+import { AgentExecutionService } from "./agent-execution.service"
+import { ConnectorGatewayService } from "../connectors/connector-gateway.service"
 import { RunsService } from "./runs.service"
 
 afterAll(async () => {
@@ -98,7 +100,11 @@ describe("RunsService failure accounting", () => {
       const runs = new RunsService(
         checkpoints,
         poisonInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       await expect(runs.execute(execution.id)).rejects.toThrow(
         "simulated failure after resume"
@@ -173,7 +179,11 @@ describe("RunsService failure accounting", () => {
       const runs = new RunsService(
         new CheckpointsService(),
         poisonInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       await expect(runs.execute(execution.id)).rejects.toThrow(
         "simulated failure for notification test"
@@ -273,7 +283,11 @@ describe("RunsService failure accounting", () => {
       const runs = new RunsService(
         checkpoints,
         midRunFailInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       await expect(runs.execute(execution.id)).rejects.toThrow(
         "simulated crash right after checkpointing"
@@ -360,7 +374,11 @@ describe("RunsService failure accounting", () => {
       const runs = new RunsService(
         checkpoints,
         unreachableInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       await expect(runs.execute(execution.id)).rejects.toThrow()
       const [finalExecution] = await repositories.execution.listExecutions(
@@ -431,7 +449,11 @@ describe("RunsService chat-preview message persistence", () => {
       const runs = new RunsService(
         new CheckpointsService(),
         fastInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       await runs.execute(execution.id)
       const messages = await repositories.chatMessage.listChatMessages(
@@ -508,7 +530,11 @@ describe("RunsService chat-preview message persistence", () => {
       const runs = new RunsService(
         new CheckpointsService(),
         fastInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       await runs.execute(execution.id)
       const messages = await repositories.chatMessage.listChatMessages(
@@ -583,7 +609,11 @@ describe("RunsService chat-preview message persistence", () => {
       const runs = new RunsService(
         new CheckpointsService(),
         fastInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       await runs.execute(execution.id)
       const messages = await repositories.chatMessage.listChatMessages(
@@ -666,7 +696,11 @@ describe("RunsService chat-preview message persistence", () => {
       const runs = new RunsService(
         new CheckpointsService(),
         fastInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       await runs.execute(execution.id)
       const messages = await repositories.chatMessage.listChatMessages(
@@ -733,7 +767,11 @@ describe("RunsService chat-preview message persistence", () => {
       const runs = new RunsService(
         new CheckpointsService(),
         fastInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       await runs.execute(execution.id)
       const { rows } = await pool.query(
@@ -804,7 +842,11 @@ describe("RunsService fencing identity", () => {
       const runs = new RunsService(
         new CheckpointsService(),
         fastInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       await runs.execute(executionA.id)
       await runs.execute(executionB.id)
@@ -920,7 +962,11 @@ describe("RunsService fencing identity", () => {
       const runs = new RunsService(
         new CheckpointsService(),
         racyInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       await runs.execute(execution.id)
       // Proves the loop actually re-ran the interpreter instead of pausing on the first pausedAt result.
@@ -1000,7 +1046,11 @@ describe("RunsService fencing identity", () => {
       const runs = new RunsService(
         new CheckpointsService(),
         leaseStealingInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       // Must surface as a real failure — a silent success would leave the row running under someone else's lease with a pending approval and nothing left to resume it.
       await expect(runs.execute(execution.id)).rejects.toThrow(/lease/i)
@@ -1087,7 +1137,11 @@ describe("RunsService fencing identity", () => {
       const runs = new RunsService(
         new CheckpointsService(),
         racyInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       await runs.execute(execution.id)
       // Proves the loop actually re-ran the interpreter instead of pausing on the first pausedAt result.
@@ -1164,7 +1218,11 @@ describe("RunsService fencing identity", () => {
       const runs = new RunsService(
         new CheckpointsService(),
         leaseStealingInterpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
       )
       // Must surface as a real failure — a silent success would leave the row running under someone else's lease with a pending wait timer and nothing left to resume it.
       await expect(runs.execute(execution.id)).rejects.toThrow(/lease/i)

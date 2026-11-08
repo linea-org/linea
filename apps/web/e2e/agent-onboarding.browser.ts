@@ -31,11 +31,16 @@ test("adds an Agent with inline Application creation and preserves partial succe
     password: environment.AGENT_UI_PASSWORD,
     slug: workspaceSlug,
   })
-  await page.goto(`${workspacePath}/applications`)
-  await page.getByRole("button", { name: "Add Agent", exact: true }).click()
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().endsWith("/v1/auth/get-session")
+    ),
+    page.goto(`${workspacePath}/applications`),
+  ])
+  await page.getByRole("link", { name: "Add Agent", exact: true }).click()
   await expect(
     page.getByRole("heading", {
-      name: "Add Agent",
+      name: "Add an Agent to your product",
       exact: true,
     })
   ).toBeVisible()
@@ -129,20 +134,22 @@ test("adds an Agent with inline Application creation and preserves partial succe
     page.getByRole("heading", { name: agentName, exact: true })
   ).toBeVisible()
   expect(applicationCreates).toBe(1)
+  await page.getByRole("button", { name: "Back", exact: true }).click()
   await page.getByRole("link", { name: "Applications", exact: true }).click()
   await page.getByRole("link", { name: new RegExp(applicationName) }).click()
-  await page.getByRole("tab", { name: "Agents", exact: true }).click()
+  await page.getByRole("link", { name: "Agents", exact: true }).click()
   await expect(
-    page.getByRole("tab", { name: "Agents", exact: true })
-  ).toHaveAttribute("aria-selected", "true")
+    page.getByRole("link", { name: "Agents", exact: true })
+  ).toHaveAttribute("aria-current", "page")
   await expect(
     page.getByRole("link", { name: new RegExp(agentName) })
   ).toBeVisible()
+  await page.getByRole("button", { name: "Back", exact: true }).click()
   await page.getByRole("link", { name: "Applications", exact: true }).click()
   await expect(
     page.getByRole("link", { name: new RegExp(applicationName) })
   ).toHaveCount(1)
-  await page.getByRole("button", { name: "Add Agent", exact: true }).click()
+  await page.getByRole("link", { name: "Add Agent", exact: true }).click()
   await page
     .getByLabel("Agent name", { exact: true })
     .fill(`Another analyst ${Date.now()}`)

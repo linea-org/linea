@@ -52,7 +52,7 @@ export const approvalRequests = snakeCase.table(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     environmentId: uuid(),
-    workflowId: uuid().notNull(),
+    workflowId: uuid(),
     executionId: uuid().notNull(),
     nodeId: text().notNull(),
     audience: approvalAudience().notNull(),
@@ -69,6 +69,26 @@ export const approvalRequests = snakeCase.table(
     cancelledAt: timestamp({ withTimezone: true }),
   },
   (table) => [
+    foreignKey({
+      name: "approval_requests_root_subject_fkey",
+      columns: [
+        table.executionId,
+        table.workspaceId,
+        table.environmentId,
+        table.externalSubjectId,
+      ],
+      foreignColumns: [
+        executions.id,
+        executions.workspaceId,
+        executions.environmentId,
+        executions.externalSubjectRecordId,
+      ],
+    }),
+    foreignKey({
+      name: "approval_requests_root_execution_fkey",
+      columns: [table.executionId, table.workspaceId],
+      foreignColumns: [executions.id, executions.workspaceId],
+    }).onDelete("cascade"),
     uniqueIndex("approval_requests_execution_node_uidx").on(
       table.executionId,
       table.nodeId

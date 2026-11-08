@@ -3,10 +3,12 @@ import { z } from "zod"
 import { connectorAccessPolicySchema } from "@linea/protocol/resources"
 import { apiFetch } from "./api-fetch"
 
+export const environmentNameSchema = z.enum(["dev", "production"])
+
 export const environmentSchema = z.object({
   id: z.uuid(),
   applicationId: z.uuid(),
-  environment: z.enum(["dev", "production"]),
+  environment: environmentNameSchema,
   displayName: z.string(),
   enabled: z.boolean(),
   contentRetentionDays: z.number(),

@@ -104,13 +104,13 @@ function crumbsForMatch(match: RouteMatch, slug: string): Crumb[] {
     case "/w/$slug/executions/$executionId":
       return [
         executionsCrumb(slug),
-        { label: match.loaderData?.workflow?.name ?? "Execution" },
+        { label: match.loaderData?.definitionName ?? "Execution" },
       ]
     case "/w/$slug/workflows/$workflowId/executions/$executionId":
       return [
         workflowsCrumb(slug),
         {
-          label: match.loaderData?.workflow?.name ?? "Workflow",
+          label: match.loaderData?.definitionName ?? "Workflow",
           to: "/w/$slug/workflows/$workflowId",
           params: { slug, workflowId: match.params.workflowId },
         },

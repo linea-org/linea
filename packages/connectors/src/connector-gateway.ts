@@ -95,6 +95,17 @@ function providerFailureStatus(
   return code === "precondition_failed" ? "stale" : "failed"
 }
 
+function maximumDispatchAttempts(
+  operation: ConnectorSideEffectOperation,
+  execution: { agentId: string | null }
+): number {
+  // Agent side effects are never retried automatically.
+  return operation.retrySafety === "provider_idempotency" &&
+    execution.agentId === null
+    ? 2
+    : 1
+}
+
 export class ConnectorGatewayError extends Error {
   constructor(
     message = "Connector operation rejected",
@@ -521,10 +532,15 @@ export class ConnectorGateway {
     input: SideEffectExecutionInput,
     claimed: Extract<ActionIntentClaim, { outcome: "claimed" | "recovered" }>
   ): Promise<SideEffectExecutionResult> {
+    const execution = await repositories.execution.getExecutionById(
+      this.db,
+      input.executionId
+    )
+    if (!execution) throw new Error("Connector Execution is missing")
     if (
       claimed.outcome === "recovered" &&
       claimed.intent.dispatchStartedAt &&
-      operation.retrySafety === "none"
+      (operation.retrySafety === "none" || execution.agentId !== null)
     ) {
       await this.failSideEffect(
         claimed.intent,
@@ -639,8 +655,12 @@ export class ConnectorGateway {
     const preconditions = operation.preconditionsSchema.parse(
       claimed.canonicalEnvelope.providerPreconditions
     )
-    const maximumAttempts =
-      operation.retrySafety === "provider_idempotency" ? 2 : 1
+    const execution = await repositories.execution.getExecutionById(
+      this.db,
+      claimed.executionId
+    )
+    if (!execution) throw new Error("Connector Execution is missing")
+    const maximumAttempts = maximumDispatchAttempts(operation, execution)
     if (!claimed.dispatchStartedAt) {
       await this.requireCurrentProviderPreconditions(
         operation,

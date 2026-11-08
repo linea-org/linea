@@ -38,6 +38,14 @@ const monitoredStatuses = new Set<ExecutionSummary["status"]>([
   "paused",
 ])
 
+// Filter by whichever definition rooted the run.
+function definitionId(execution: {
+  workflowId: string | null
+  agentId?: string | null
+}) {
+  return execution.workflowId ?? execution.agentId ?? ""
+}
+
 export function ExecutionsFeed({ workspaceId }: { workspaceId: string }) {
   const api = useMonitoringApi()
   const router = useRouter()
@@ -60,7 +68,7 @@ export function ExecutionsFeed({ workspaceId }: { workspaceId: string }) {
       Array.from(
         new Map(
           monitored.map((execution) => [
-            execution.workflowId,
+            definitionId(execution),
             execution.workflowName,
           ])
         )
@@ -70,7 +78,7 @@ export function ExecutionsFeed({ workspaceId }: { workspaceId: string }) {
   const executions = monitored.filter(
     (execution) =>
       (status === "all" || execution.status === status) &&
-      (workflowId === "all" || execution.workflowId === workflowId)
+      (workflowId === "all" || definitionId(execution) === workflowId)
   )
   if (query.isPending) return <LoadingState label="Loading executions" />
   if (query.isError) {

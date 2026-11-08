@@ -75,7 +75,7 @@ export function ExecutionStepDetails({
   onReplayTriggered,
 }: Readonly<{
   executionId: string
-  workflowId: string
+  workflowId: string | null
   step: ExecutionStepSummary
   nodeConfig: Record<string, JsonValue> | undefined
   replayable: boolean
@@ -159,7 +159,9 @@ export function ExecutionStepDetails({
             onReplayTriggered={onReplayTriggered}
           />
         )}
-        <AddToRegressionAction workflowId={workflowId} stepId={step.id} />
+        {workflowId && (
+          <AddToRegressionAction workflowId={workflowId} stepId={step.id} />
+        )}
       </div>
     </section>
   )

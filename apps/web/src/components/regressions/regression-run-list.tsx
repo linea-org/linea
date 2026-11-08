@@ -11,7 +11,6 @@ import {
 
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -47,7 +46,6 @@ export function RegressionRunList({
             Runs happen automatically on publish, or trigger one manually above.
           </EmptyDescription>
         </EmptyHeader>
-        <EmptyContent />
       </Empty>
     )
   }

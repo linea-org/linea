@@ -96,7 +96,7 @@ export function EnvironmentKeys({
           <Input id={`${environmentId}-key-name`} {...register("name")} />
           <FieldError>{errors.name?.message}</FieldError>
         </Field>
-        <fieldset className="grid gap-2 text-sm sm:grid-cols-2">
+        <fieldset className="grid gap-2 text-xs sm:grid-cols-2">
           <legend className="mb-2 font-medium">Permissions</legend>
           {environmentKeyScopes.map((scope) => (
             <label key={scope} className="flex items-center gap-2">
@@ -127,7 +127,7 @@ export function EnvironmentKeys({
       </form>
       {rawKey && (
         <div className="rounded-lg border bg-popover p-3">
-          <p className="text-sm">Copy this key now. It is shown once.</p>
+          <p className="text-xs">Copy this key now. It is shown once.</p>
           <code className="text-xs break-all">{rawKey}</code>
           <Button
             variant="ghost"
@@ -142,13 +142,13 @@ export function EnvironmentKeys({
           </Button>
         </div>
       )}
-      {error && <p className="text-sm text-destructive">{error.message}</p>}
+      {error && <p className="text-xs text-destructive">{error.message}</p>}
       {keys.map((key) => (
         <div
           key={key.id}
           className="flex flex-wrap items-center gap-2 rounded-lg border p-2"
         >
-          <span className="mr-auto text-sm">
+          <span className="mr-auto text-xs">
             {key.name} · {key.keyPrefix} ·{" "}
             {key.revokedAt ? "Revoked" : "Active"}
           </span>

@@ -1,3 +1,11 @@
+import { BracesIcon } from "lucide-react"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@linea/ui/components/empty"
 import {
   Accordion,
   AccordionItem,
@@ -22,11 +30,18 @@ export function AgentContracts({
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">
         {contracts.length === 0 ? (
-          <div className="overflow-hidden rounded-xl border bg-card">
-            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-              No contracts yet.
-            </p>
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <BracesIcon />
+              </EmptyMedia>
+              <EmptyTitle>No contracts yet</EmptyTitle>
+              <EmptyDescription>
+                Define the request and response schemas your application will
+                use.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <Accordion multiple>
             {contracts.map((contract) => (

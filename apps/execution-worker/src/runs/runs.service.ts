@@ -14,6 +14,7 @@ import {
   InterpreterService,
   type RunOutcome,
 } from "../graph/interpreter.service"
+import { AgentExecutionService } from "./agent-execution.service"
 import { RunLeaseService } from "./run-lease.service"
 
 function extractConversationId(triggerPayload: unknown): string | undefined {
@@ -64,7 +65,8 @@ export class RunsService {
   constructor(
     private readonly checkpoints: CheckpointsService,
     private readonly interpreter: InterpreterService,
-    private readonly lease: RunLeaseService
+    private readonly lease: RunLeaseService,
+    private readonly agents: AgentExecutionService
   ) {}
 
   async execute(executionId: string): Promise<void> {
@@ -99,6 +101,12 @@ export class RunsService {
       knownTokensOutput = resumeTokens.tokensOutput
       knownCostMicros = resumeTokens.costMicros
       knownCostUnpriced = resumeTokens.costUnpriced
+      if (execution.agentId) {
+        await this.agents.run(execution, attemptId, abortController.signal)
+        return
+      }
+      if (!execution.workflowId || !execution.workflowVersionId)
+        throw new Error("Workflow Execution pin is incomplete")
       const version = await repositories.workflow.getWorkflowVersionById(
         db,
         execution.workflowVersionId
@@ -292,6 +300,24 @@ export class RunsService {
     }
   }
 
+  private findExecutionDefinition(
+    execution: Execution
+  ): Promise<{ name: string } | undefined> {
+    if (execution.workflowId)
+      return repositories.workflow.getWorkflowById(
+        db,
+        execution.workspaceId,
+        execution.workflowId
+      )
+    if (execution.agentId)
+      return repositories.agent.getAgentById(
+        db,
+        execution.workspaceId,
+        execution.agentId
+      )
+    return Promise.resolve(undefined)
+  }
+
   /** Best-effort: a notification failure shouldn't fail the execution itself, which has already been finalized by the time this runs. Only called when completeExecution actually won the transition — a worker that lost the lease race stays silent so the winner's own call is the only one that notifies. */
   private async notifyExecutionFailed(
     execution: Execution,
@@ -299,11 +325,7 @@ export class RunsService {
   ): Promise<void> {
     try {
       const [workflow, memberUserIds] = await Promise.all([
-        repositories.workflow.getWorkflowById(
-          db,
-          execution.workspaceId,
-          execution.workflowId
-        ),
+        this.findExecutionDefinition(execution),
         repositories.organization.listMemberUserIds(db, execution.workspaceId),
       ])
       await repositories.notification.createNotificationsForUsers(
@@ -313,10 +335,10 @@ export class RunsService {
           workspaceId: execution.workspaceId,
           type: "execution.failed",
           severity: "error",
-          title: `${workflow?.name ?? "Workflow"} run failed`,
+          title: `${workflow?.name ?? (execution.agentId ? "Agent" : "Workflow")} run failed`,
           body: errorMessage,
           metadata: {
-            workflowId: execution.workflowId,
+            workflowId: execution.workflowId ?? undefined,
             executionId: execution.id,
             workspaceId: execution.workspaceId,
           },

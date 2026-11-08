@@ -1,5 +1,6 @@
 import {
   bigint,
+  check,
   boolean,
   foreignKey,
   index,
@@ -13,6 +14,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
+import { agents, agentVersions, agentContractRevisions } from "./agent.js"
 import { organizations } from "./organisation.js"
 import { users } from "./user.js"
 import { environments } from "./environment.js"
@@ -61,8 +63,13 @@ export const executions = snakeCase.table(
       .references(() => organizations.id, { onDelete: "cascade" }),
 
     // Composite FKs below also enforce the workflow/version actually match.
-    workflowId: uuid().notNull(),
-    workflowVersionId: uuid().notNull(),
+    workflowId: uuid(),
+    workflowVersionId: uuid(),
+    agentId: uuid(),
+    agentVersionId: uuid(),
+    agentContractRevisionId: uuid(),
+    output: jsonb().$type<unknown>(),
+    nextStepSequence: integer().notNull().default(0),
     environmentId: uuid(),
     workflowContractRevisionId: uuid(),
     externalSubjectRecordId: uuid(),
@@ -101,6 +108,41 @@ export const executions = snakeCase.table(
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    check(
+      "executions_root_check",
+      sql`(${table.workflowId} IS NOT NULL AND ${table.workflowVersionId} IS NOT NULL AND ${table.agentId} IS NULL AND ${table.agentVersionId} IS NULL AND ${table.agentContractRevisionId} IS NULL) OR (${table.workflowId} IS NULL AND ${table.workflowVersionId} IS NULL AND ${table.workflowContractRevisionId} IS NULL AND ${table.conversationId} IS NULL AND ${table.agentId} IS NOT NULL AND ${table.agentVersionId} IS NOT NULL AND ${table.agentContractRevisionId} IS NOT NULL AND ${table.environmentId} IS NOT NULL AND ${table.externalSubjectRecordId} IS NOT NULL)`
+    ),
+    foreignKey({
+      name: "executions_agent_workspace_fkey",
+      columns: [table.agentId, table.workspaceId],
+      foreignColumns: [agents.id, agents.workspaceId],
+    }),
+    foreignKey({
+      name: "executions_agent_version_fkey",
+      columns: [
+        table.agentId,
+        table.agentVersionId,
+        table.agentContractRevisionId,
+      ],
+      foreignColumns: [
+        agentVersions.agentId,
+        agentVersions.id,
+        agentVersions.agentContractRevisionId,
+      ],
+    }),
+    foreignKey({
+      name: "executions_agent_contract_fkey",
+      columns: [
+        table.agentId,
+        table.agentContractRevisionId,
+        table.workspaceId,
+      ],
+      foreignColumns: [
+        agentContractRevisions.agentId,
+        agentContractRevisions.id,
+        agentContractRevisions.workspaceId,
+      ],
+    }),
     index("executions_workflow_created_idx").on(
       table.workflowId,
       table.createdAt
@@ -123,6 +165,12 @@ export const executions = snakeCase.table(
       table.id,
       table.workspaceId,
       table.workflowId
+    ),
+    uniqueIndex("executions_root_subject_scope_uidx").on(
+      table.id,
+      table.workspaceId,
+      table.environmentId,
+      table.externalSubjectRecordId
     ),
     uniqueIndex("executions_approval_subject_scope_uidx").on(
       table.id,

@@ -231,7 +231,7 @@ describe("writeStepAndCheckpoint", () => {
 })
 
 describe("recordResumeEvent", () => {
-  it("records a resume event with the sentinel nodeId and a negative sequence", async () => {
+  it("records a resume event with the sentinel nodeId and an allocated sequence", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       const execution = await createExecution(tx, {
@@ -255,7 +255,7 @@ describe("recordResumeEvent", () => {
       )
 
       expect(event?.nodeId).toBe(RESUME_EVENT_NODE_ID)
-      expect(event?.sequence).toBeLessThan(0)
+      expect(event?.sequence).toBeGreaterThan(0)
       expect(event?.status).toBe("succeeded")
     })
   })
@@ -298,7 +298,7 @@ describe("recordResumeEvent", () => {
         "worker-1"
       )
 
-      expect(event?.sequence).toBe(-1)
+      expect(event?.sequence).toBe(1)
       expect(event?.attempt).toBe(2)
     })
   })

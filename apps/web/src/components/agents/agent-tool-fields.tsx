@@ -130,6 +130,10 @@ export function AgentToolFields({
           Add tool
         </Button>
       </div>
+      <p className="text-xs text-muted-foreground">
+        The Agent can choose from these tools while carrying out a request.
+        Access and approvals are enforced by its Environment.
+      </p>
       <div className="overflow-hidden rounded-xl border bg-card">
         {fields.length === 0 ? (
           <p className="px-4 py-8 text-center text-xs text-muted-foreground">

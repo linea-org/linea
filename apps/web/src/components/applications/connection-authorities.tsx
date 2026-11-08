@@ -56,7 +56,7 @@ export function ConnectionAuthorities() {
       ))}
       <ConnectionAuthorityForm />
       {(error || revoke.error) && (
-        <p className="text-sm text-destructive">
+        <p className="text-xs text-destructive">
           {error?.message ?? revoke.error?.message}
         </p>
       )}

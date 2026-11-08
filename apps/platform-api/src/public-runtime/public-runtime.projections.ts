@@ -48,6 +48,7 @@ export function executionProjection(
     id: execution.id,
     environmentId: execution.environmentId,
     workflowId: execution.workflowId,
+    ...(execution.agentId ? { agentId: execution.agentId } : {}),
     externalSubjectId: execution.externalSubjectRecordId,
     conversationId: execution.conversationId,
     status: execution.status,

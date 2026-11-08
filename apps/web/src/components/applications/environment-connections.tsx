@@ -35,7 +35,7 @@ export function EnvironmentConnections({
           await queryClient.invalidateQueries({ queryKey })
         }}
       />
-      {error && <p className="text-sm text-destructive">{error.message}</p>}
+      {error && <p className="text-xs text-destructive">{error.message}</p>}
       {connections.map((connection) => (
         <ConnectionManagementContext
           key={connection.id}

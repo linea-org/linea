@@ -175,7 +175,7 @@ export class ApprovalNode implements NodeHandler {
         db,
         request.executionId
       )
-      const workflow = execution
+      const workflow = execution?.workflowId
         ? await repositories.workflow.getWorkflowById(
             db,
             request.workspaceId,

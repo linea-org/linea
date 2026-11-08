@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "executions_root_subject_scope_uidx" ON "executions" ("id","workspace_id","environment_id","external_subject_record_id");--> statement-breakpoint
+ALTER TABLE "approval_requests" ADD CONSTRAINT "approval_requests_root_subject_fkey" FOREIGN KEY ("execution_id","workspace_id","environment_id","external_subject_id") REFERENCES "executions"("id","workspace_id","environment_id","external_subject_record_id");

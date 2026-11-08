@@ -1,9 +1,8 @@
-import { useState } from "react"
+import { useState, type ReactElement } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { PlusIcon } from "lucide-react"
 import { z } from "zod"
 import { Button } from "@linea/ui/components/button"
 import {
@@ -25,8 +24,10 @@ import { slugify } from "@/lib/auth-redirect"
 
 export function CreateApplicationDialog({
   workspaceSlug,
+  trigger,
 }: Readonly<{
   workspaceSlug: string
+  trigger: ReactElement
 }>) {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
@@ -59,10 +60,7 @@ export function CreateApplicationDialog({
   })
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="xs" variant="outline" />}>
-        <PlusIcon />
-        Create Application
-      </DialogTrigger>
+      <DialogTrigger render={trigger} />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Application</DialogTitle>

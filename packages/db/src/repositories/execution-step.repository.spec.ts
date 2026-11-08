@@ -1,3 +1,4 @@
+import { db, pool } from "../clients/index.js"
 import { eq } from "drizzle-orm"
 import { describe, expect, it, vi } from "vitest"
 import { checkpoints, executions, executionSteps } from "../schema/index.js"
@@ -578,5 +579,33 @@ describe("renewReplayClaim", () => {
         await renewReplayClaim(tx, replayId, abandoned.claimToken)
       ).toEqual({ outcome: "reclaimed" })
     })
+  })
+})
+
+describe("concurrent step allocation", () => {
+  it("reserves unique ordered sequences across independent Postgres transactions", async () => {
+    const fixture = await db.transaction(createTestFixtures)
+    try {
+      const [execution] = await db
+        .insert(executions)
+        .values({
+          workspaceId: fixture.organization.id,
+          workflowId: fixture.workflow.id,
+          workflowVersionId: fixture.version.id,
+          trigger: "manual",
+        })
+        .returning()
+      const sequences = await Promise.all(
+        Array.from({ length: 48 }, () => getNextStepSequence(db, execution.id))
+      )
+      expect(sequences.sort((a, b) => a - b)).toEqual(
+        Array.from({ length: 48 }, (_, index) => index + 1)
+      )
+      expect(await getNextStepSequence(db, execution.id)).toBe(49)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        fixture.organization.id,
+      ])
+    }
   })
 })

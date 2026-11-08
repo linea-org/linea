@@ -1,13 +1,6 @@
 import { useState } from "react"
+import { useNavigate, useSearch } from "@tanstack/react-router"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { Badge } from "@linea/ui/components/badge"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@linea/ui/components/tabs"
-import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { listAgentContractsFn } from "@/lib/agent-contracts-api"
 import { listAgentVersionsFn } from "@/lib/agents-api"
 import type {
@@ -17,6 +10,8 @@ import type {
   AgentVersion,
 } from "@/lib/agent-schemas"
 import type { EnvironmentSummary } from "@/lib/environments-api"
+import { AgentPageHeader } from "./agent-page-header"
+import { type AgentSection } from "./agent-sections"
 import { AgentDefinitionForm } from "./agent-definition-form"
 import { AgentContracts } from "./agent-contracts"
 import { AgentVersions } from "./agent-versions"
@@ -54,7 +49,13 @@ export function AgentEditor({
   const [sourceVersion, setSourceVersion] = useState<AgentVersion | null>(
     versions[0] ?? null
   )
-  const [tab, setTab] = useState<string>("definition")
+  const { section = "configuration" } = useSearch({
+    from: "/w/$slug/agents/$agentId",
+  })
+  const navigate = useNavigate({ from: "/w/$slug/agents/$agentId" })
+  function setSection(next: AgentSection) {
+    void navigate({ search: { section: next } })
+  }
   const [editorRevision, setEditorRevision] = useState(0)
   const [dirty, setDirty] = useState(false)
   const [pendingVersion, setPendingVersion] = useState<AgentVersion | null>(
@@ -65,87 +66,78 @@ export function AgentEditor({
     setSourceVersion(version)
     setEditorRevision((revision) => revision + 1)
     setPendingVersion(null)
-    setTab("definition")
+    setSection("configuration")
   }
   return (
-    <>
-      <Tabs value={tab} onValueChange={setTab} className="min-w-0 gap-0">
-        <PageToolbar className="border-b border-border/70">
-          {archived ? <Badge variant="outline">Archived</Badge> : null}
-          <TabsList className="h-8!">
-            <TabsTrigger value="definition">Definition</TabsTrigger>
-            <TabsTrigger value="contracts">
-              Contracts ({contracts.length})
-            </TabsTrigger>
-            <TabsTrigger value="versions">
-              Versions ({versions.length})
-            </TabsTrigger>
-            <TabsTrigger value="deployments">Deployments</TabsTrigger>
-          </TabsList>
-        </PageToolbar>
-        <div className="flex min-w-0 flex-col gap-4 px-4 py-4">
-          <TabsContent value="definition" keepMounted>
-            <fieldset disabled={archived}>
-              <AgentDefinitionForm
-                key={`${sourceVersion?.id}-${editorRevision}`}
-                agentId={agent.id}
-                catalog={catalog}
-                contracts={contracts}
-                sourceVersion={sourceVersion}
-                onDirtyChange={setDirty}
-                onSaved={async (version) => {
-                  await queryClient.invalidateQueries({ queryKey: versionsKey })
-                  setSourceVersion(version)
-                  setTab("versions")
-                }}
-              />
-            </fieldset>
-          </TabsContent>
-          <TabsContent value="contracts" keepMounted>
-            <AgentContracts
+    <div className="min-w-0">
+      <AgentPageHeader
+        workspaceSlug={workspaceSlug}
+        agent={agent}
+        section={section}
+        environments={environments}
+      />
+      <div className="flex min-w-0 flex-col gap-4 p-4">
+        <section
+          aria-label="Configuration"
+          hidden={section !== "configuration"}
+        >
+          <fieldset disabled={archived}>
+            <AgentDefinitionForm
+              key={`${sourceVersion?.id}-${editorRevision}`}
               agentId={agent.id}
+              catalog={catalog}
               contracts={contracts}
-              archived={archived}
-              onSaved={async () => {
-                await queryClient.invalidateQueries({ queryKey: contractsKey })
-              }}
-            />
-          </TabsContent>
-          <TabsContent value="versions">
-            <AgentVersions
-              agentId={agent.id}
-              versions={versions}
-              contracts={contracts}
-              archived={archived}
-              onPublished={async () => {
+              sourceVersion={sourceVersion}
+              onDirtyChange={setDirty}
+              onSaved={async (version) => {
                 await queryClient.invalidateQueries({ queryKey: versionsKey })
-              }}
-              onLoad={(version) => {
-                if (dirty) setPendingVersion(version)
-                else loadVersion(version)
+                setSourceVersion(version)
+                setSection("versions")
               }}
             />
-          </TabsContent>
-          <TabsContent value="deployments" keepMounted>
-            <AgentEnvironmentDeployment
-              workspaceSlug={workspaceSlug}
-              agentId={agent.id}
-              environments={environments}
-              versions={versions}
-              contracts={contracts}
-              archived={archived}
-            />
-          </TabsContent>
-        </div>
-      </Tabs>
-      <p className="px-4 pb-4 text-xs text-muted-foreground">
-        Agent execution and trace inspection are not available yet.
-      </p>
+          </fieldset>
+        </section>
+        <section aria-label="API Contract" hidden={section !== "contracts"}>
+          <AgentContracts
+            agentId={agent.id}
+            contracts={contracts}
+            archived={archived}
+            onSaved={async () => {
+              await queryClient.invalidateQueries({ queryKey: contractsKey })
+            }}
+          />
+        </section>
+        <section aria-label="Versions" hidden={section !== "versions"}>
+          <AgentVersions
+            agentId={agent.id}
+            versions={versions}
+            contracts={contracts}
+            archived={archived}
+            onPublished={async () => {
+              await queryClient.invalidateQueries({ queryKey: versionsKey })
+            }}
+            onLoad={(version) => {
+              if (dirty) setPendingVersion(version)
+              else loadVersion(version)
+            }}
+          />
+        </section>
+        <section aria-label="Deployments" hidden={section !== "deployments"}>
+          <AgentEnvironmentDeployment
+            workspaceSlug={workspaceSlug}
+            agentId={agent.id}
+            environments={environments}
+            versions={versions}
+            contracts={contracts}
+            archived={archived}
+          />
+        </section>
+      </div>
       <AgentVersionReplacement
         version={pendingVersion}
         onCancel={() => setPendingVersion(null)}
         onConfirm={loadVersion}
       />
-    </>
+    </div>
   )
 }

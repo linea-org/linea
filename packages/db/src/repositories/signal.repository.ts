@@ -16,17 +16,38 @@ export function deriveSignalStatus(signal: Signal): SignalStatus {
   return "open"
 }
 
-async function resolveWorkflowId(
+async function resolveDefinition(
   db: DbClient,
   flag: Flag
-): Promise<string | undefined> {
-  if (flag.workflowId) return flag.workflowId
-  if (!flag.executionId) return undefined
+): Promise<{ workflowId?: string; agentId?: string }> {
+  if (flag.workflowId) return { workflowId: flag.workflowId }
+  if (!flag.executionId) return {}
   const [execution] = await db
-    .select({ workflowId: executions.workflowId })
+    .select({ workflowId: executions.workflowId, agentId: executions.agentId })
     .from(executions)
-    .where(eq(executions.id, flag.executionId))
-  return execution?.workflowId
+    .where(
+      and(
+        eq(executions.id, flag.executionId),
+        eq(executions.workspaceId, flag.workspaceId)
+      )
+    )
+  return {
+    workflowId: execution?.workflowId ?? undefined,
+    agentId: execution?.agentId ?? undefined,
+  }
+}
+
+/** Flags with no Workflow or Agent are scoped to their workspace. */
+function signalKeyFor(
+  flag: Flag,
+  definition: { workflowId?: string; agentId?: string }
+): string {
+  const node = flag.nodeId ?? "none"
+  if (definition.workflowId)
+    return `${flag.flagType}:${definition.workflowId}:${node}`
+  if (definition.agentId)
+    return `${flag.flagType}:agent:${definition.agentId}:${node}`
+  return `${flag.flagType}:workspace:${flag.workspaceId}:${node}`
 }
 
 export type SignalOccurrenceResult = { signal: Signal; justRegressed: boolean }
@@ -36,14 +57,20 @@ export async function recordSignalOccurrence(
   db: DbClient,
   flag: Flag
 ): Promise<SignalOccurrenceResult> {
-  const workflowId = await resolveWorkflowId(db, flag)
-  const signalKey = `${flag.flagType}:${workflowId ?? "none"}:${flag.nodeId ?? "none"}`
+  const definition = await resolveDefinition(db, flag)
+  const workflowId = definition.workflowId
+  const signalKey = signalKeyFor(flag, definition)
 
   // Locked so two concurrent occurrences on the same signalKey serialize instead of both firing a regression notification.
   const [existing] = await db
     .select({ resolvedAt: signals.resolvedAt })
     .from(signals)
-    .where(eq(signals.signalKey, signalKey))
+    .where(
+      and(
+        eq(signals.signalKey, signalKey),
+        eq(signals.workspaceId, flag.workspaceId)
+      )
+    )
     .for("update")
 
   const [signal] = await db
@@ -145,12 +172,16 @@ export async function getSignalDetail(
       lastFlaggedAt: sql<Date>`max(${flags.createdAt})`,
     })
     .from(flags)
-    .where(eq(flags.signalId, signalId))
+    .where(
+      and(eq(flags.signalId, signalId), eq(flags.workspaceId, workspaceId))
+    )
 
   const recentFlags = await db
     .select()
     .from(flags)
-    .where(eq(flags.signalId, signalId))
+    .where(
+      and(eq(flags.signalId, signalId), eq(flags.workspaceId, workspaceId))
+    )
     .orderBy(desc(flags.createdAt))
     .limit(DETAIL_OCCURRENCE_LIMIT)
 
@@ -160,7 +191,9 @@ export async function getSignalDetail(
       count: sql<number>`count(*)::int`,
     })
     .from(flags)
-    .where(eq(flags.signalId, signalId))
+    .where(
+      and(eq(flags.signalId, signalId), eq(flags.workspaceId, workspaceId))
+    )
     .groupBy(sql`date_trunc('day', ${flags.createdAt})`)
     .orderBy(sql`date_trunc('day', ${flags.createdAt})`)
 

@@ -60,7 +60,7 @@ export const actionIntents = snakeCase.table(
     externalSubjectId: uuid().notNull(),
     connectionId: uuid().notNull(),
     connectionAccessGrantId: uuid().references(() => connectionAccessGrants.id),
-    workflowId: uuid().notNull(),
+    workflowId: uuid(),
     executionId: uuid().notNull(),
     nodeId: text().notNull(),
     approvalRequestId: uuid().notNull(),
@@ -86,6 +86,11 @@ export const actionIntents = snakeCase.table(
     updatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    foreignKey({
+      name: "action_intents_root_execution_fkey",
+      columns: [table.executionId, table.workspaceId],
+      foreignColumns: [executions.id, executions.workspaceId],
+    }).onDelete("cascade"),
     uniqueIndex("action_intents_invocation_uidx").on(
       table.executionId,
       table.nodeId,

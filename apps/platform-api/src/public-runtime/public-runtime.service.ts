@@ -228,6 +228,27 @@ export class PublicRuntimeService {
     input: StartEnvironmentExecution,
     idempotencyKey: string,
   ) {
+    if ('agentId' in input) {
+      const result = await repositories.agentExecution.startAgentExecution(db, {
+        workspaceId: principal.workspaceId,
+        environmentId: principal.environmentId,
+        externalSubjectId: input.externalSubjectId,
+        agentId: input.agentId,
+        triggerPayload: input.input,
+        idempotency: {
+          actor: { kind: 'environment_key', id: principal.keyId },
+          key: idempotencyKey,
+          requestHash: repositories.publicIdempotency.hashPublicRequest(input),
+        },
+      })
+      if (result.outcome === 'created' || result.outcome === 'replay') {
+        return this.projectExecution(result.execution)
+      }
+      throw new HttpException(
+        publicError(result.outcome, 'Execution start rejected'),
+        publicErrorStatuses[result.outcome],
+      )
+    }
     return this.startExecution(
       principal,
       input.externalSubjectId,
@@ -571,7 +592,31 @@ export class PublicRuntimeService {
     if (execution.status !== 'succeeded') {
       return executionProjection(execution, null)
     }
-    if (!execution.workflowContractRevisionId) {
+    if (execution.agentId) {
+      if (!execution.agentContractRevisionId)
+        throw new Error('Agent Contract is missing')
+      const contract =
+        await repositories.agentContract.getAgentContractRevision(
+          db,
+          execution.workspaceId,
+          execution.agentId,
+          execution.agentContractRevisionId,
+        )
+      if (
+        !contract ||
+        !outputValidator.compile(contract.outputSchema)(execution.output)
+      )
+        throw new Error('Agent output failed Contract validation')
+      return executionProjection(
+        execution,
+        jsonValueSchema.parse(execution.output),
+      )
+    }
+    if (
+      !execution.workflowId ||
+      !execution.workflowVersionId ||
+      !execution.workflowContractRevisionId
+    ) {
       throw new Error('Public Execution Contract is missing')
     }
     const [executionWithSteps, version, contract] = await Promise.all([

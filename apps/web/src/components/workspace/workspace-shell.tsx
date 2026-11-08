@@ -1,24 +1,19 @@
 import {
   createContext,
   useContext,
+  useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react"
-import { Link, useLocation, useMatchRoute } from "@tanstack/react-router"
+import { Link, useLocation } from "@tanstack/react-router"
 import {
-  ArchiveIcon,
-  ArrowLeftIcon,
   ChevronRightIcon,
-  CircleCheckIcon,
   BoxesIcon,
-  FilePenIcon,
   HistoryIcon,
   HouseIcon,
-  KeyIcon,
-  SettingsIcon,
-  UsersIcon,
   WorkflowIcon,
 } from "lucide-react"
 
@@ -44,12 +39,16 @@ import { TopBarNotifications } from "./top-bar-notifications"
 import { WhatsNew } from "./whats-new"
 import { TopBarSearch } from "./top-bar-search"
 import { WorkspaceSwitcher, type WorkspaceOption } from "./workspace-switcher"
+import { ApplicationSectionNav } from "./application-section-nav"
+import { AgentSectionNav } from "./agent-section-nav"
+import { ExecutionSectionNav } from "./execution-section-nav"
+import { WorkflowSectionNav } from "./workflow-section-nav"
+import { WorkspaceSettingsNav } from "./workspace-settings-nav"
+import { SidebarBranchStateContext } from "./sidebar-branch-state"
+import { SidebarBack } from "./sidebar-back"
+import { useSidebarHistory } from "./use-sidebar-history"
+import { sidebarContextKey, type SidebarContext } from "./sidebar-history"
 import { WorkspaceTopBar } from "./workspace-top-bar"
-import {
-  WORKFLOW_STATUS_FILTERS,
-  isWorkflowStatusFilter,
-  type WorkflowStatusFilter,
-} from "@/lib/workflow-status-filter"
 
 export const WorkspaceOverlayNavContext = createContext<(() => void) | null>(
   null
@@ -76,28 +75,16 @@ function InsetCollapseEdge() {
   )
 }
 
-const workflowSectionIcon = {
-  Draft: FilePenIcon,
-  Published: CircleCheckIcon,
-  Archived: ArchiveIcon,
-} as const
-function workflowListStatus(search: unknown): WorkflowStatusFilter | undefined {
-  if (typeof search !== "object" || search === null || !("status" in search)) {
-    return undefined
-  }
-  return isWorkflowStatusFilter(search.status) ? search.status : undefined
-}
 function MainNav({
   slug,
   pathname,
 }: Readonly<{ slug: string; pathname: string }>) {
-  const matchRoute = useMatchRoute()
   return (
     <>
       <SidebarMenuItem>
         <SidebarMenuButton
           size="sm"
-          isActive={!!matchRoute({ to: "/w/$slug", params: { slug } })}
+          isActive={pathname === `/w/${slug}` || pathname === `/w/${slug}/`}
           tooltip="Home"
           render={<Link to="/w/$slug" params={{ slug }} />}
         >
@@ -109,12 +96,8 @@ function MainNav({
         <SidebarMenuButton
           size="sm"
           isActive={
-            pathname.startsWith(`/w/${slug}/agents/`) ||
-            !!matchRoute({
-              to: "/w/$slug/applications",
-              params: { slug },
-              fuzzy: true,
-            })
+            pathname.startsWith(`/w/${slug}/applications`) ||
+            pathname.startsWith(`/w/${slug}/agents/`)
           }
           tooltip="Applications"
           render={<Link to="/w/$slug/applications" params={{ slug }} />}
@@ -126,13 +109,7 @@ function MainNav({
       <SidebarMenuItem>
         <SidebarMenuButton
           size="sm"
-          isActive={
-            !!matchRoute({
-              to: "/w/$slug/workflows",
-              params: { slug },
-              fuzzy: true,
-            })
-          }
+          isActive={pathname.startsWith(`/w/${slug}/workflows`)}
           tooltip="Workflows"
           render={<Link to="/w/$slug/workflows" params={{ slug }} />}
         >
@@ -148,124 +125,84 @@ function MainNav({
         <SidebarMenuButton
           size="sm"
           isActive={
-            !!matchRoute({
-              to: "/w/$slug/executions",
-              params: { slug },
-              fuzzy: true,
-            })
+            pathname.startsWith(`/w/${slug}/executions`) ||
+            pathname === `/w/${slug}/approvals`
           }
           tooltip="Executions"
           render={<Link to="/w/$slug/executions" params={{ slug }} />}
         >
           <HistoryIcon />
           <span>Executions</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          size="sm"
-          isActive={
-            !!matchRoute({
-              to: "/w/$slug/approvals",
-              params: { slug },
-              fuzzy: true,
-            })
-          }
-          tooltip="Approvals"
-          render={<Link to="/w/$slug/approvals" params={{ slug }} />}
-        >
-          <CircleCheckIcon />
-          <span>Approvals</span>
+          <ChevronRightIcon
+            aria-hidden
+            className="ml-auto group-data-[collapsible=icon]:hidden"
+          />
         </SidebarMenuButton>
       </SidebarMenuItem>
     </>
   )
 }
-function WorkflowSectionNav({
+function WorkspaceSectionNav({
   slug,
-  status,
-  onIndex,
+  context,
+}: Readonly<{ slug: string; context: SidebarContext }>) {
+  switch (context.kind) {
+    case "agent":
+      return <AgentSectionNav slug={slug} context={context} />
+    case "application":
+      return <ApplicationSectionNav slug={slug} context={context} />
+    case "executions":
+      return <ExecutionSectionNav slug={slug} context={context} />
+    case "workflow":
+    case "workflows":
+      return <WorkflowSectionNav slug={slug} context={context} />
+    case "main":
+      return (
+        <SidebarGroup className="px-1 pt-1 pb-2 group-data-[collapsible=icon]:p-1">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <MainNav slug={slug} pathname={context.pathname} />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      )
+    default: {
+      const unreachable: never = context
+      return unreachable
+    }
+  }
+}
+
+function SidebarContextPanel({
+  slug,
+  context,
+  expanded,
+  setExpanded,
 }: Readonly<{
   slug: string
-  status: WorkflowStatusFilter | undefined
-  onIndex: boolean
+  context: SidebarContext
+  expanded: Record<string, boolean>
+  setExpanded: (key: string, value: boolean) => void
 }>) {
+  const key = sidebarContextKey(context)
+  const setValue = useCallback(
+    (label: string, value: boolean) => setExpanded(`${key}/${label}`, value),
+    [key, setExpanded]
+  )
+  const branchState = useMemo(() => {
+    const values: Record<string, boolean> = {}
+    for (const [name, value] of Object.entries(expanded)) {
+      if (name.startsWith(`${key}/`)) values[name.slice(key.length + 1)] = value
+    }
+    return { values, setValue }
+  }, [expanded, key, setValue])
   return (
-    <>
-      <SidebarGroup className="px-1 py-1 group-data-[collapsible=icon]:p-1">
-        <SidebarGroupContent>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                size="sm"
-                tooltip="Back"
-                className="relative justify-center"
-                render={
-                  <Link
-                    to="/w/$slug"
-                    params={{ slug }}
-                    activeOptions={{ exact: true }}
-                  />
-                }
-              >
-                <ArrowLeftIcon className="absolute left-2 group-data-[collapsible=icon]:static" />
-                <span>Back</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
-      <SidebarSeparator className="mx-0 w-full data-horizontal:w-full" />
-      <SidebarGroup className="px-1 pt-1 pb-2 group-data-[collapsible=icon]:p-1">
-        <SidebarGroupContent>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                size="sm"
-                isActive={onIndex && !status}
-                tooltip="Overview"
-                render={
-                  <Link
-                    to="/w/$slug/workflows"
-                    params={{ slug }}
-                    search={{ status: undefined }}
-                    activeOptions={{ exact: true, includeSearch: true }}
-                  />
-                }
-              >
-                <WorkflowIcon />
-                <span>Overview</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            {WORKFLOW_STATUS_FILTERS.map((filter) => {
-              const Icon = workflowSectionIcon[filter]
-              return (
-                <SidebarMenuItem key={filter}>
-                  <SidebarMenuButton
-                    size="sm"
-                    isActive={onIndex && status === filter}
-                    tooltip={filter}
-                    render={
-                      <Link
-                        to="/w/$slug/workflows"
-                        params={{ slug }}
-                        search={{ status: filter }}
-                        activeOptions={{ exact: true, includeSearch: true }}
-                      />
-                    }
-                  >
-                    <Icon />
-                    <span>{filter}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )
-            })}
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    </>
+    <SidebarBranchStateContext.Provider value={branchState}>
+      <WorkspaceSectionNav slug={slug} context={context} />
+    </SidebarBranchStateContext.Provider>
   )
 }
+
 type WorkspaceShellProps = {
   slug: string
   workspaces: WorkspaceOption[]
@@ -277,11 +214,11 @@ export function WorkspaceShell({
   workspaces,
   children,
 }: WorkspaceShellProps) {
-  const matchRoute = useMatchRoute()
-  const { pathname, search } = useLocation()
+  const { pathname } = useLocation()
   const isBuilder = pathname.endsWith("/builder")
-  const inWorkflows = pathname.startsWith(`/w/${slug}/workflows`)
-  const workflowStatus = workflowListStatus(search)
+  const { history, back, setExpanded } = useSidebarHistory(slug)
+  const currentContext = history.trail[0]
+  const currentKey = sidebarContextKey(currentContext)
   const railOpenRef = useRef(true)
   const wasBuilderRef = useRef(isBuilder)
   const [open, setOpen] = useState(!isBuilder)
@@ -309,88 +246,17 @@ export function WorkspaceShell({
       )}
       <SidebarSeparator className="mx-0 -mt-px w-full data-horizontal:w-full" />
       <SidebarContent className="gap-0">
-        {inWorkflows ? (
-          <WorkflowSectionNav
-            slug={slug}
-            status={workflowStatus}
-            onIndex={
-              !!matchRoute({
-                to: "/w/$slug/workflows",
-                params: { slug },
-              })
-            }
-          />
-        ) : (
-          <SidebarGroup className="px-1 pt-1 pb-2 group-data-[collapsible=icon]:p-1">
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <MainNav slug={slug} pathname={pathname} />
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-        <SidebarSeparator className="mx-0 w-full data-horizontal:w-full" />
-        <SidebarGroup className="p-1 group-data-[collapsible=icon]:p-1">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="sm"
-                  isActive={
-                    !!matchRoute({
-                      to: "/w/$slug/settings/members",
-                      params: { slug },
-                      fuzzy: true,
-                    })
-                  }
-                  tooltip="Members"
-                  render={
-                    <Link to="/w/$slug/settings/members" params={{ slug }} />
-                  }
-                >
-                  <UsersIcon />
-                  <span>Members</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="sm"
-                  isActive={
-                    !!matchRoute({
-                      to: "/w/$slug/settings/secrets",
-                      params: { slug },
-                    })
-                  }
-                  tooltip="Secrets"
-                  render={
-                    <Link to="/w/$slug/settings/secrets" params={{ slug }} />
-                  }
-                >
-                  <KeyIcon />
-                  <span>Secrets</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  size="sm"
-                  isActive={
-                    !!matchRoute({
-                      to: "/w/$slug/settings",
-                      params: { slug },
-                    })
-                  }
-                  tooltip="Settings"
-                  render={<Link to="/w/$slug/settings" params={{ slug }} />}
-                >
-                  <SettingsIcon />
-                  <span>Settings</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {history.trail.length > 1 && <SidebarBack onBack={back} />}
+        <SidebarContextPanel
+          key={currentKey}
+          slug={slug}
+          context={currentContext}
+          expanded={history.expanded}
+          setExpanded={setExpanded}
+        />
       </SidebarContent>
-      <SidebarFooter className="h-12 flex-row items-center gap-0 px-2 group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1">
+      <WorkspaceSettingsNav slug={slug} />
+      <SidebarFooter className="h-12 flex-row items-center gap-0 border-t border-sidebar-border px-2 group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1">
         <UserMenu
           showDetails
           align="start"

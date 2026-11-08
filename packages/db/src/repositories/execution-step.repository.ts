@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto"
-import { and, eq, isNotNull, lt, max, sql } from "drizzle-orm"
-import { executionSteps, type ExecutionStep } from "../schema/index.js"
+import { and, eq, isNotNull, lt, sql } from "drizzle-orm"
+import {
+  executions,
+  executionSteps,
+  type ExecutionStep,
+} from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
 // A live replay renews its claim (see renewReplayClaim) well inside this window — older is presumed abandoned by a dead/redeployed worker, not just a slow HTTP/AI call still legitimately in flight.
@@ -47,16 +51,19 @@ export async function getExecutionStepById(
   return step
 }
 
-/** Cosmetic only — getExecutionWithSteps orders by (startedAt, createdAt), not sequence, so this just keeps `sequence` monotonic rather than deriving real display order. */
 export async function getNextStepSequence(
   db: DbClient,
   executionId: string
 ): Promise<number> {
-  const [{ latest }] = await db
-    .select({ latest: max(executionSteps.sequence) })
-    .from(executionSteps)
-    .where(eq(executionSteps.executionId, executionId))
-  return (latest ?? 0) + 1
+  const [execution] = await db
+    .update(executions)
+    .set({
+      nextStepSequence: sql`greatest(${executions.nextStepSequence}, coalesce((select max(${executionSteps.sequence}) from ${executionSteps} where ${executionSteps.executionId} = ${executionId}), 0)) + 1`,
+    })
+    .where(eq(executions.id, executionId))
+    .returning({ sequence: executions.nextStepSequence })
+  if (!execution) throw new Error("Execution not found")
+  return execution.sequence
 }
 
 export type ClaimReplayStepInput = {

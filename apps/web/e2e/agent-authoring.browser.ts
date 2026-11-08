@@ -1,5 +1,6 @@
-import { test, expect } from "@playwright/test"
+import { test, expect, type Locator } from "@playwright/test"
 import { z } from "zod"
+import { chooseSidebarPage } from "./choose-sidebar-page"
 import { chooseOption } from "./choose-option"
 import { signInWorkspace } from "./sign-in-workspace"
 
@@ -12,6 +13,15 @@ const environment = z
       .regex(/^\/w\/[a-z0-9-]+\/applications\/[a-f0-9-]+$/),
   })
   .parse(process.env)
+
+async function expandDeploymentSettings(region: Locator) {
+  const toggle = region.getByRole("button", {
+    name: "Deployment settings",
+    exact: true,
+  })
+  if ((await toggle.getAttribute("aria-expanded")) === "false")
+    await toggle.click()
+}
 
 test("author, publish, and independently deploy immutable Agent versions", async ({
   page,
@@ -26,8 +36,12 @@ test("author, publish, and independently deploy immutable Agent versions", async
     password: environment.AGENT_UI_PASSWORD,
     slug: workspaceSlug,
   })
-  await page.goto(environment.AGENT_UI_APPLICATION_PATH)
-  await page.getByRole("tab", { name: "Agents", exact: true }).click()
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().endsWith("/v1/auth/get-session")
+    ),
+    page.goto(environment.AGENT_UI_APPLICATION_PATH),
+  ])
   await page.getByRole("button", { name: "Add Agent", exact: true }).click()
   await expect(
     page.getByRole("combobox", { name: "Application", exact: true })
@@ -53,10 +67,7 @@ test("author, publish, and independently deploy immutable Agent versions", async
   ).toBeVisible()
   const agentUrl = page.url()
   await expect(
-    page.getByText(
-      "Agent execution and trace inspection are not available yet.",
-      { exact: false }
-    )
+    page.getByRole("link", { name: "Workspace executions", exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole("button", { name: "Save new version" })
@@ -75,7 +86,7 @@ test("author, publish, and independently deploy immutable Agent versions", async
   await expect(
     page.getByRole("heading", { name: "Development", exact: true })
   ).not.toBeVisible()
-  await page.getByRole("tab", { name: "Contracts (0)", exact: true }).click()
+  await page.getByRole("link", { name: "API Contract", exact: true }).click()
   await page.getByLabel("Input JSON Schema").fill("{")
   await page.getByRole("button", { name: "Create Contract revision" }).click()
   await expect(
@@ -105,12 +116,14 @@ test("author, publish, and independently deploy immutable Agent versions", async
     '{"type":"object","properties":{"task":{"type":"string"}},"required":["task"],"additionalProperties":false}'
   )
   const contractDraft = await page.getByLabel("Input JSON Schema").inputValue()
-  await page.getByRole("tab", { name: "Definition", exact: true }).click()
-  await page.getByRole("tab", { name: "Contracts (0)" }).click()
+  await page.getByRole("link", { name: "Configuration", exact: true }).click()
+  await page.getByRole("link", { name: "API Contract", exact: true }).click()
   await expect(page.getByLabel("Input JSON Schema")).toHaveValue(contractDraft)
   await page.getByRole("button", { name: "Create Contract revision" }).click()
-  await expect(page.getByRole("tab", { name: "Contracts (1)" })).toBeVisible()
-  await page.getByRole("tab", { name: "Definition", exact: true }).click()
+  await expect(
+    page.getByRole("button", { name: "Revision 1", exact: true })
+  ).toBeVisible()
+  await page.getByRole("link", { name: "Configuration", exact: true }).click()
   await expect(page.getByLabel("Instructions", { exact: true })).toHaveValue(
     /Propose two distinct/
   )
@@ -132,14 +145,9 @@ test("author, publish, and independently deploy immutable Agent versions", async
   ).toBeDisabled()
   await page.getByRole("option", { name: /^Create an issue/ }).click()
   await page.getByRole("button", { name: "Save new version" }).click()
-  await expect(page.getByRole("tab", { name: "Versions (1)" })).toHaveAttribute(
-    "aria-selected",
-    "true"
-  )
-  const deployments = page.getByRole("region", {
-    name: "Agent deployments",
-    exact: true,
-  })
+  await expect(
+    page.getByRole("link", { name: "Versions", exact: true })
+  ).toHaveAttribute("aria-current", "page")
   const development = page.getByRole("region", {
     name: "Development deployment",
     exact: true,
@@ -148,47 +156,64 @@ test("author, publish, and independently deploy immutable Agent versions", async
     name: "Production deployment",
     exact: true,
   })
-  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
+  await chooseSidebarPage({ page, parent: "Deployments", child: "Development" })
+  await expandDeploymentSettings(development)
   await expect(
     development.getByRole("button", { name: "Save deployment" })
   ).toBeDisabled()
-  await page.getByRole("tab", { name: "Versions (1)" }).click()
+  await page.getByRole("link", { name: "Versions", exact: true }).click()
   await page
     .getByRole("button", { name: "Inspect definition", exact: true })
     .click()
   await expect(
-    page.getByRole("tabpanel", { name: "Versions (1)" })
+    page.getByRole("region", { name: "Versions", exact: true })
   ).toContainText("github.issues.create")
   await page
     .getByRole("button", { name: "Publish version 1", exact: true })
     .click()
   await expect(page.getByText("Published", { exact: true })).toBeVisible()
-  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
+  await chooseSidebarPage({ page, parent: "Deployments", child: "Development" })
+  await expandDeploymentSettings(development)
   await chooseOption({
     page,
     control: development.getByLabel("Published version and Contract"),
     option: "Version 1 · Contract revision 1",
   })
-  await deployments
-    .getByRole("tab", { name: "Production", exact: true })
-    .click()
+  const deploymentToggle = page.getByRole("button", {
+    name: "Deployments",
+    exact: true,
+  })
+  await expect(deploymentToggle).toHaveAttribute("aria-expanded", "true")
+  const beforeToggle = page.url()
+  await deploymentToggle.click()
+  await expect(page).toHaveURL(beforeToggle)
   await expect(
-    deployments.getByText("Not deployed", { exact: true })
+    page.getByRole("link", { name: "Production", exact: true })
+  ).not.toBeVisible()
+  await deploymentToggle.click()
+  await expect(page).toHaveURL(beforeToggle)
+  await page.getByRole("link", { name: "Production", exact: true }).click()
+  await expandDeploymentSettings(production)
+  await expect(page).toHaveURL(/environment=production/)
+  await expect(
+    production.getByText("Not deployed", { exact: true })
   ).toBeVisible()
-  await deployments
-    .getByRole("tab", { name: "Development", exact: true })
-    .click()
-  await page.getByRole("tab", { name: "Versions (1)" }).click()
-  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
+  await page.getByRole("link", { name: "Development", exact: true }).click()
+  await expandDeploymentSettings(development)
+  await page.getByRole("link", { name: "Versions", exact: true }).click()
+  await chooseSidebarPage({ page, parent: "Deployments", child: "Development" })
+  await expandDeploymentSettings(development)
   await expect(
     development.getByLabel("Published version and Contract")
   ).toContainText("Version 1 · Contract revision 1")
   await development.getByRole("button", { name: "Save deployment" }).click()
   await expect(development.getByRole("status")).toHaveText("Deployment saved.")
-  await page.getByRole("tab", { name: "Contracts (1)" }).click()
+  await page.getByRole("link", { name: "API Contract", exact: true }).click()
   await page.getByRole("button", { name: "Create Contract revision" }).click()
-  await expect(page.getByRole("tab", { name: "Contracts (2)" })).toBeVisible()
-  await page.getByRole("tab", { name: "Definition", exact: true }).click()
+  await expect(
+    page.getByRole("button", { name: "Revision 2", exact: true })
+  ).toBeVisible()
+  await page.getByRole("link", { name: "Configuration", exact: true }).click()
   await chooseOption({
     page,
     control: page.getByLabel("Public Contract revision"),
@@ -203,10 +228,10 @@ test("author, publish, and independently deploy immutable Agent versions", async
   await page
     .getByRole("button", { name: "Publish version 2", exact: true })
     .click()
-  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
-  await deployments
-    .getByRole("tab", { name: "Production", exact: true })
-    .click()
+  await chooseSidebarPage({ page, parent: "Deployments", child: "Development" })
+  await expandDeploymentSettings(development)
+  await page.getByRole("link", { name: "Production", exact: true }).click()
+  await expandDeploymentSettings(production)
   await chooseOption({
     page,
     control: production.getByLabel("Published version and Contract"),
@@ -214,14 +239,35 @@ test("author, publish, and independently deploy immutable Agent versions", async
   })
   await production.getByRole("button", { name: "Save deployment" }).click()
   await expect(production.getByRole("status")).toHaveText("Deployment saved.")
-  await page.reload()
-  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().endsWith("/v1/auth/get-session")
+    ),
+    page.reload(),
+  ])
+  await expect(
+    production.getByRole("button", { name: "Deployment settings", exact: true })
+  ).toHaveAttribute("aria-expanded", "false")
+  await expect(production.getByText("Version 2", { exact: true })).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  expect(
+    await production.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth
+    )
+  ).toBe(true)
+  await page.screenshot({
+    path: testInfo.outputPath("deployment-mobile.png"),
+    fullPage: true,
+    animations: "disabled",
+  })
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await chooseSidebarPage({ page, parent: "Deployments", child: "Development" })
+  await expandDeploymentSettings(development)
   await expect(
     development.getByLabel("Published version and Contract")
   ).toContainText("Version 1 · Contract revision 1")
-  await deployments
-    .getByRole("tab", { name: "Production", exact: true })
-    .click()
+  await page.getByRole("link", { name: "Production", exact: true }).click()
+  await expandDeploymentSettings(production)
   await expect(
     production.getByLabel("Published version and Contract")
   ).toContainText("Version 2 · Contract revision 2")
@@ -232,29 +278,34 @@ test("author, publish, and independently deploy immutable Agent versions", async
   })
   await production.getByRole("button", { name: "Save deployment" }).click()
   await expect(
-    deployments.locator("[data-slot=badge]").filter({ hasText: "Disabled" })
+    production.locator("[data-slot=badge]").filter({ hasText: "Disabled" })
   ).toBeVisible()
-  await page.reload()
-  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
-  await deployments
-    .getByRole("tab", { name: "Production", exact: true })
-    .click()
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().endsWith("/v1/auth/get-session")
+    ),
+    page.reload(),
+  ])
+  await chooseSidebarPage({ page, parent: "Deployments", child: "Development" })
+  await expandDeploymentSettings(development)
+  await page.getByRole("link", { name: "Production", exact: true }).click()
+  await expandDeploymentSettings(production)
   await expect(production.getByLabel("Deployment status")).toContainText(
     /disabled/i
   )
-  await page.getByRole("tab", { name: "Definition", exact: true }).click()
+  await page.getByRole("link", { name: "Configuration", exact: true }).click()
   await page
     .getByLabel("Instructions", { exact: true })
     .fill("Unsaved instructions")
-  await page.getByRole("tab", { name: "Versions (2)" }).click()
+  await page.getByRole("link", { name: "Versions", exact: true }).click()
   await page.getByRole("button", { name: "Use as new version" }).last().click()
   await expect(page.getByRole("alertdialog")).toBeVisible()
   await page.getByRole("button", { name: "Keep editing", exact: true }).click()
-  await page.getByRole("tab", { name: "Definition", exact: true }).click()
+  await page.getByRole("link", { name: "Configuration", exact: true }).click()
   await expect(page.getByLabel("Instructions", { exact: true })).toHaveValue(
     "Unsaved instructions"
   )
-  await page.getByRole("tab", { name: "Versions (2)" }).click()
+  await page.getByRole("link", { name: "Versions", exact: true }).click()
   await page.getByRole("button", { name: "Use as new version" }).last().click()
   await page
     .getByRole("button", { name: "Replace changes", exact: true })
@@ -265,13 +316,13 @@ test("author, publish, and independently deploy immutable Agent versions", async
   await expect(page.getByLabel("Public Contract revision")).toContainText(
     "Revision 1"
   )
-  await page.getByRole("tab", { name: "Versions (2)" }).click()
+  await page.getByRole("link", { name: "Versions", exact: true }).click()
   await page.getByRole("button", { name: "Use as new version" }).first().click()
   await expect(page.getByLabel("Instructions", { exact: true })).toHaveValue(
     /Report partial success/
   )
   const editorWidth = await page
-    .getByRole("tabpanel", { name: "Definition", exact: true })
+    .getByRole("region", { name: "Configuration", exact: true })
     .evaluate((element) => element.getBoundingClientRect().width)
   const mainWidth = await page
     .locator("main")
@@ -307,10 +358,23 @@ test("author, publish, and independently deploy immutable Agent versions", async
     fullPage: true,
     animations: "disabled",
   })
-  await page.goto(environment.AGENT_UI_APPLICATION_PATH)
-  await page.getByRole("tab", { name: "Agents", exact: true }).click()
+  await page
+    .getByRole("button", { name: "Toggle Sidebar", exact: true })
+    .click()
+  await page.getByRole("link", { name: "API Contract", exact: true }).click()
+  await page.keyboard.press("Escape")
+  await expect(
+    page.getByRole("region", { name: "API Contract", exact: true })
+  ).toBeVisible()
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().endsWith("/v1/auth/get-session")
+    ),
+    page.goto(environment.AGENT_UI_APPLICATION_PATH),
+  ])
   await page.getByRole("link", { name: new RegExp(agentName) }).click()
-  await expect(page).toHaveURL(agentUrl)
+  await expect(page).toHaveURL(new URL(agentUrl).pathname)
   const agentId = z.uuid().parse(new URL(agentUrl).pathname.split("/").at(-1))
   const archived = await page.request.patch(
     `http://localhost:3000/v1/agents/${agentId}`,
@@ -319,8 +383,18 @@ test("author, publish, and independently deploy immutable Agent versions", async
     }
   )
   expect(archived.ok()).toBe(true)
-  await page.reload()
-  await page.getByRole("tab", { name: "Deployments", exact: true }).click()
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().endsWith("/v1/auth/get-session")
+    ),
+    page.reload(),
+  ])
+  await expect(page.getByRole("note")).toContainText(
+    "This Agent is archived. Configuration is read-only."
+  )
+  await expect(page.getByLabel("Instructions", { exact: true })).toBeDisabled()
+  await chooseSidebarPage({ page, parent: "Deployments", child: "Development" })
+  await expandDeploymentSettings(development)
   await expect(
     development.getByLabel("Published version and Contract")
   ).toBeDisabled()
@@ -331,14 +405,17 @@ test("author, publish, and independently deploy immutable Agent versions", async
   })
   await development.getByRole("button", { name: "Save deployment" }).click()
   await expect(
-    deployments.locator("[data-slot=badge]").filter({ hasText: "Disabled" })
+    development.locator("[data-slot=badge]").filter({ hasText: "Disabled" })
   ).toBeVisible()
-  await page
-    .getByRole("banner")
-    .getByRole("link", { name: /^Back to/ })
-    .click()
   await expect(
-    page.getByRole("tab", { name: "Agents", exact: true })
-  ).toHaveAttribute("aria-selected", "true")
+    page.getByRole("banner").getByRole("link", { name: /^Back to/ })
+  ).toHaveCount(0)
+  const beforeSidebarBack = page.url()
+  await page.getByRole("button", { name: "Back", exact: true }).click()
+  await expect(page).toHaveURL(beforeSidebarBack)
+  await page.getByRole("link", { name: "Agents", exact: true }).click()
+  await expect(
+    page.getByRole("region", { name: "Application Agents", exact: true })
+  ).toBeVisible()
   expect(pageErrors).toEqual([])
 })

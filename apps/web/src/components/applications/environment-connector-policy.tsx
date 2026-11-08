@@ -94,7 +94,7 @@ export function EnvironmentConnectorPolicy({
       }}
     >
       <h3 className="font-medium">GitHub installation policy</h3>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Choose the maximum installation permissions allowed in this Environment.
         Writes still require exact-action human approval.
       </p>
@@ -132,7 +132,7 @@ export function EnvironmentConnectorPolicy({
         </Field>
       ))}
       {save.error && (
-        <p className="text-sm text-destructive">{save.error.message}</p>
+        <p className="text-xs text-destructive">{save.error.message}</p>
       )}
       <Button
         type="submit"

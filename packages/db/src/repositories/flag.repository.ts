@@ -197,7 +197,11 @@ export async function getWorkflowIdsWithBranchSteps(
     .from(executionSteps)
     .innerJoin(executions, eq(executions.id, executionSteps.executionId))
     .where(eq(executionSteps.name, "branch"))
-  return rows
+  return rows.flatMap((row) =>
+    row.workflowId
+      ? [{ workflowId: row.workflowId, workspaceId: row.workspaceId }]
+      : []
+  )
 }
 
 /** The set of `branch` output values observed for one node, scoped to a single workflow version — a node id can be reused across versions with a different set of edges/conditions, so mixing versions could credit a condition as taken by coincidence. */
@@ -250,7 +254,7 @@ export async function detectToolErrors(
     )
 }
 
-/** An "ai" step that succeeded but returned no real text. */
+/** An "ai" step that succeeded with no text and no tool calls. */
 export async function detectEmptyResponses(
   db: DbClient
 ): Promise<TranscriptFlagResult[]> {
@@ -266,7 +270,9 @@ export async function detectEmptyResponses(
       and(
         eq(executionSteps.name, "ai"),
         eq(executionSteps.status, "succeeded"),
-        sql`trim(coalesce(${executionSteps.output}->>'text', '')) = ''`
+        sql`trim(coalesce(${executionSteps.output}->>'text', '')) = ''`,
+        // A turn that only requests tools has no text by design.
+        sql`case when jsonb_typeof(${executionSteps.output}->'toolCalls') = 'array' then jsonb_array_length(${executionSteps.output}->'toolCalls') else 0 end = 0`
       )
     )
 }

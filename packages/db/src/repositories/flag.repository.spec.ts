@@ -459,6 +459,34 @@ describe("detectEmptyResponses", () => {
       ])
     })
   })
+
+  it("ignores a succeeded ai step with blank text that requested tools", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "tool-turn",
+        output: { text: "", toolCalls: [{ id: "call-0", name: "read" }] },
+      })
+      const blank = await insertStep(tx, {
+        executionId: execution.id,
+        workspaceId: organization.id,
+        nodeId: "blank-turn",
+        output: { text: "", toolCalls: [] },
+      })
+      const results = await detectEmptyResponses(tx)
+      expect(ownRows(results, execution.id)).toEqual([
+        expect.objectContaining({ stepId: blank.id, nodeId: "blank-turn" }),
+      ])
+    })
+  })
 })
 
 describe("detectRefusals", () => {

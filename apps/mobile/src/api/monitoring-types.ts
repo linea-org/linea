@@ -11,7 +11,8 @@ export type MonitoredExecutionStatus = z.infer<
 
 export const executionSummarySchema = z.object({
   id: z.string(),
-  workflowId: z.string(),
+  workflowId: z.string().nullable(),
+  agentId: z.string().nullable().optional(),
   workflowName: z.string(),
   workflowSlug: z.string(),
   status: z.enum([

@@ -9,6 +9,7 @@ import {
   type NewCheckpoint,
   type NewExecutionStep,
 } from "../schema/index.js"
+import { getNextStepSequence } from "./execution-step.repository.js"
 import type { DbClient } from "./types.js"
 
 export type WriteStepAndCheckpointInput = {
@@ -41,14 +42,19 @@ export async function writeStepAndCheckpoint(
       return undefined
     }
 
+    const sequence = await getNextStepSequence(tx, input.step.executionId)
     const [step] = await tx
       .insert(executionSteps)
-      .values(input.step)
+      .values({ ...input.step, sequence })
       .returning()
 
     const [checkpoint] = await tx
       .insert(checkpoints)
-      .values({ ...input.checkpoint, executionId: input.step.executionId })
+      .values({
+        ...input.checkpoint,
+        sequence,
+        executionId: input.step.executionId,
+      })
       .returning()
 
     return { step, checkpoint }
@@ -82,7 +88,7 @@ export async function getStepsForExecution(
 /** Label for the synthetic resume-marker row, reserved from real node ids by validateGraphStructure in @linea/runtime — kept as a duplicated literal, not a cross-package import, so this package stays a lightweight dependency for workflow-JSON validation. Purely cosmetic: recordResumeEvent no longer uses this to identify prior resumes (see isSystemEvent), so a workflow-supplied node happening to share this id can't be misclassified. */
 export const RESUME_EVENT_NODE_ID = "__resumed__"
 
-/** Marks a genuine resume as a timeline event, not a real node step — negative `sequence` avoids colliding with real step numbers. isSystemEvent (never derived from nodeId) is what distinguishes this row from a real step, so a workflow node happening to be named RESUME_EVENT_NODE_ID can't be counted as a prior resume. Lease-fenced like writeStepAndCheckpoint (locks the execution row): returns undefined if `leasedBy` no longer owns it, and the lock serializes the count-then-insert against concurrent callers so two resumes can't land on the same sequence/attempt. */
+/** Lease-fenced; shares the step counter with node steps. */
 export async function recordResumeEvent(
   db: DbClient,
   executionId: string,
@@ -131,7 +137,7 @@ export async function recordResumeEvent(
         endedAt: now,
         status: "succeeded",
         nodeId: RESUME_EVENT_NODE_ID,
-        sequence: -(priorResumes.length + 1),
+        sequence: await getNextStepSequence(tx, executionId),
         attempt: priorResumes.length + 2,
         isSystemEvent: true,
       })

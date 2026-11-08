@@ -1,5 +1,5 @@
-import { Link, useMatches } from "@tanstack/react-router"
-import { ArrowLeftIcon, BookOpenIcon } from "lucide-react"
+import { useMatches } from "@tanstack/react-router"
+import { BookOpenIcon } from "lucide-react"
 
 import { buttonVariants } from "@linea/ui/components/button"
 import { Separator } from "@linea/ui/components/separator"
@@ -23,10 +23,6 @@ export function WorkspaceTopBar({
   const collapsed = !isMobile && state === "collapsed"
   const crumbs = useWorkspaceCrumbs(slug)
   const title = crumbs.at(-1)?.label
-  const parent = crumbs
-    .slice(0, -1)
-    .reverse()
-    .find((crumb) => "to" in crumb)
   const workflow = useMatches().find(
     (match) => match.routeId === "/w/$slug/workflows/$workflowId/"
   )?.loaderData?.workflow
@@ -50,18 +46,6 @@ export function WorkspaceTopBar({
       <div className="flex min-w-0 flex-1 items-center gap-2 px-2 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] md:gap-3 md:px-3">
         <div className="flex shrink-0 items-center justify-self-start">
           <SidebarTrigger size="icon-xs" className="-ml-1" />
-          {parent && (
-            <Link
-              to={parent.to}
-              params={parent.params}
-              search={parent.search}
-              aria-label={`Back to ${parent.label}`}
-              title={`Back to ${parent.label}`}
-              className={buttonVariants({ variant: "ghost", size: "icon-xs" })}
-            >
-              <ArrowLeftIcon />
-            </Link>
-          )}
         </div>
         <div className="min-w-0 flex-1 md:justify-self-center">
           {workflow ? (

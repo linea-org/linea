@@ -153,7 +153,10 @@ test("inspects recorded steps, replay lineage, and scoped approvals in a shared 
     page.getByText("Unrelated checkpoint", { exact: true })
   ).not.toBeVisible()
   await page
-    .getByRole("link", { name: "Back to Execution", exact: true })
+    .getByRole("link", {
+      name: environment.TRACE_UI_PAUSED_EXECUTION_ID,
+      exact: true,
+    })
     .click()
   await expect(page).toHaveURL(new URL(pausedPath, page.url()).href)
   await expect(inspector).toContainText(

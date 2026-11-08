@@ -50,3 +50,5 @@ export * as sharedConnection from "./shared-connection.repository.js"
 export * as agent from "./agent.repository.js"
 export * as agentContract from "./agent-contract.repository.js"
 export * as environmentAgentBinding from "./environment-agent-binding.repository.js"
+
+export * as agentExecution from "./agent-execution.repository.js"
