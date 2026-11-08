@@ -113,7 +113,7 @@ export function EnvironmentSecrets({
     remove,
   } = useEnvironmentSecrets(workspaceSlug, environmentId)
   return (
-    <section className="flex flex-1 flex-col px-4 py-4">
+    <section className="flex flex-1 flex-col">
       {forbidden ? (
         <Empty>
           <EmptyHeader>

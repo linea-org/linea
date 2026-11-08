@@ -32,5 +32,10 @@ export async function signInWorkspace({
     data: { organizationId: organization.id },
   })
   expect(active.ok()).toBe(true)
-  await page.goto(`/w/${slug}`)
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().endsWith("/v1/auth/get-session")
+    ),
+    page.goto(`/w/${slug}`),
+  ])
 }

@@ -92,7 +92,7 @@ export function EnvironmentDeploymentForm({
   })
   const error = versionsError ?? deploy.error
   return (
-    <section className="flex flex-col gap-3 border-t pt-4">
+    <section className="flex flex-col gap-3 not-first:border-t not-first:pt-4">
       <form
         onSubmit={(event) => {
           void handleSubmit((data) => deploy.mutate(data))(event)
@@ -107,7 +107,7 @@ export function EnvironmentDeploymentForm({
           published={published}
         />
         {deploymentFlags.map((flag) => (
-          <label key={flag.name} className="flex items-center gap-2 text-sm">
+          <label key={flag.name} className="flex items-center gap-2 text-xs">
             <Controller
               name={flag.name}
               control={control}
@@ -125,7 +125,7 @@ export function EnvironmentDeploymentForm({
           Save deployment
         </Button>
       </form>
-      {error && <p className="text-sm text-destructive">{error.message}</p>}
+      {error && <p className="text-xs text-destructive">{error.message}</p>}
     </section>
   )
 }

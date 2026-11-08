@@ -11,7 +11,8 @@ import {
   type ExecutionDetailResponse,
   type ExecutionTrigger,
 } from "@/lib/executions-api"
-import { getWorkflowFn, type WorkflowSummary } from "@/lib/workflows-api"
+import { getAgentFn } from "@/lib/agents-api"
+import { getWorkflowFn } from "@/lib/workflows-api"
 import { ErrorCallout } from "./error-callout"
 import { ExecutionStatusBadge } from "./execution-status-badge"
 import { ExecutionTraceWorkspace } from "./execution-trace-workspace"
@@ -33,7 +34,20 @@ const environmentLabel: Record<ExecutionDetail["environment"], string> = {
 
 export type ExecutionDetailData = {
   detail: ExecutionDetailResponse
-  workflow: WorkflowSummary | undefined
+  definitionName: string
+}
+
+/** A name the viewer cannot look up must not hide a run they can read. */
+async function lookupName(
+  load: () => Promise<{ name: string }>,
+  fallback: string
+): Promise<string> {
+  try {
+    return (await load()).name
+  } catch (error) {
+    console.warn(`Could not look up ${fallback} name`, error)
+    return fallback
+  }
 }
 
 export async function loadExecutionDetail(
@@ -41,17 +55,23 @@ export async function loadExecutionDetail(
   workflowId?: string
 ): Promise<ExecutionDetailData> {
   const detail = await getExecutionFn({ data: { id: executionId } })
-  if (workflowId && detail.execution.workflowId !== workflowId) {
+  const { agentId, workflowId: executionWorkflowId } = detail.execution
+  if (workflowId && executionWorkflowId !== workflowId) {
     throw new Error("Execution not found")
   }
-  const workflowResult = await Promise.allSettled([
-    getWorkflowFn({ data: { id: detail.execution.workflowId } }),
-  ])
-  const workflow =
-    workflowResult[0].status === "fulfilled"
-      ? workflowResult[0].value
-      : undefined
-  return { detail, workflow }
+  if (agentId) {
+    const definitionName = await lookupName(
+      () => getAgentFn({ data: { agentId } }),
+      "Agent"
+    )
+    return { detail, definitionName }
+  }
+  if (!executionWorkflowId) throw new Error("Execution definition is missing")
+  const definitionName = await lookupName(
+    () => getWorkflowFn({ data: { id: executionWorkflowId } }),
+    "Execution"
+  )
+  return { detail, definitionName }
 }
 
 function executionDuration(
@@ -115,7 +135,7 @@ export function ExecutionDetailView({
     },
   })
   const { execution } = detail
-  const workflowName = initialData.workflow?.name ?? "Execution"
+  const workflowName = initialData.definitionName
   return (
     <main className="flex min-w-0 flex-1 flex-col px-4 py-2">
       <div className="overflow-hidden rounded-xl border border-border bg-card">

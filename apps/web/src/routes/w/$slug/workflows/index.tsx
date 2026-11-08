@@ -344,7 +344,7 @@ function WorkflowsListPage() {
         <div className="ml-auto">{createDialog}</div>
       </PageToolbar>
       {workflows.length === 0 ? (
-        <Empty>
+        <Empty className="mx-4 my-2 w-auto">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <WorkflowIcon />
@@ -357,7 +357,7 @@ function WorkflowsListPage() {
           </EmptyHeader>
         </Empty>
       ) : filtered.length === 0 ? (
-        <Empty>
+        <Empty className="mx-4 my-2 w-auto">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <SearchIcon />

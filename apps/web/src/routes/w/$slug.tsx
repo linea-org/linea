@@ -1,6 +1,7 @@
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router"
 
 import { WorkspaceShell } from "@/components/workspace"
+import { WorkspaceLoadError } from "@/components/workspace/workspace-load-error"
 import { listOrganizations, requireWorkspace } from "@/lib/auth-redirect"
 import { setActiveOrganizationFn } from "@/lib/auth-session"
 
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/w/$slug")({
     return { workspace: match, workspaces: orgs }
   },
   component: WorkspaceLayout,
+  errorComponent: WorkspaceLoadError,
 })
 
 function WorkspaceLayout() {

@@ -57,7 +57,7 @@ export function TopBarSearch() {
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder="Search…" />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandEmpty className="py-10">No results found.</CommandEmpty>
         </CommandList>
       </CommandDialog>
     </>

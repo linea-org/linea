@@ -1,3 +1,11 @@
+import { BotIcon } from "lucide-react"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@linea/ui/components/empty"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
@@ -51,15 +59,22 @@ export function ApplicationAgents({
           {error.message}
         </p>
       )}
-      {agents?.length === 0 && (
-        <p className="px-4 py-8 text-xs text-muted-foreground">
-          No Agents in this Application yet.
-        </p>
-      )}
-      {!!agents?.length && visible.length === 0 && (
-        <p className="px-4 py-8 text-xs text-muted-foreground">
-          No Agents match that search.
-        </p>
+      {agents && visible.length === 0 && (
+        <Empty className="mx-4 my-2 w-auto">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <BotIcon />
+            </EmptyMedia>
+            <EmptyTitle>
+              {agents.length === 0 ? "No Agents yet" : "No matching Agents"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {agents.length === 0
+                ? "Add an Agent to this Application to configure the work it can do."
+                : "Try a different search or status filter."}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
       {visible.length > 0 && (
         <div className="px-4 py-2">

@@ -26,7 +26,7 @@ export function SharedConnectionCard({
     <section className="flex flex-col gap-3 rounded-lg border p-3">
       <div>
         <h3 className="font-medium">{connection.accountLabel}</h3>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Company GitHub App installation · {connection.status}
         </p>
         <p className="text-xs break-all text-muted-foreground">
@@ -47,7 +47,7 @@ export function SharedConnectionCard({
         GitHub App separately in GitHub.
       </p>
       {revoke.error && (
-        <p className="text-sm text-destructive">{revoke.error.message}</p>
+        <p className="text-xs text-destructive">{revoke.error.message}</p>
       )}
     </section>
   )

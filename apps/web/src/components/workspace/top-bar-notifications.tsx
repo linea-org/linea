@@ -116,7 +116,7 @@ export function TopBarNotifications({ slug }: { slug: string }) {
           {notificationsQuery.isPending ? (
             <p className="px-4 py-6 text-xs text-muted-foreground">Loading…</p>
           ) : notifications.length === 0 ? (
-            <Empty className="border-0 py-8">
+            <Empty className="min-h-0 rounded-none border-0 bg-transparent py-8 sm:p-8">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <BellIcon />

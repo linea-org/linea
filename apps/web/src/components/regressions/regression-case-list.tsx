@@ -17,7 +17,6 @@ import {
 } from "@linea/ui/components/dropdown-menu"
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -65,7 +64,6 @@ export function RegressionCaseList({
             building a regression suite for this workflow.
           </EmptyDescription>
         </EmptyHeader>
-        <EmptyContent />
       </Empty>
     )
   }

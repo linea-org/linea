@@ -113,7 +113,7 @@ function NotificationsPage() {
           {notificationsQuery.error.message}
         </p>
       ) : notifications.length === 0 ? (
-        <Empty>
+        <Empty className="mx-4 my-2 w-auto">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               {tab === "archived" ? <ArchiveIcon /> : <BellIcon />}

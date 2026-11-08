@@ -1,6 +1,6 @@
-import { Badge } from "@linea/ui/components/badge"
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
+import { InfoTip } from "./info-tip"
 import { EnvironmentDeployments } from "./environment-deployments"
 import { EnvironmentSecrets } from "./environment-secrets"
 import { EnvironmentConnections } from "./environment-connections"
@@ -33,7 +33,8 @@ export function environmentName(
 const sections = [
   {
     label: "Deployments",
-    description: "Choose the published Workflow versions to use.",
+    description:
+      "Choose the published Workflow versions to use. Publish in the builder, then deploy an exact version. Updating this Environment does not change the other one.",
     content: ({
       workspaceSlug,
       environment,
@@ -95,32 +96,19 @@ export function EnvironmentSettings(props: Readonly<EnvironmentSettingsProps>) {
   const { environment } = props
   const name = environmentName(environment.environment)
   return (
-    <section aria-label={`${name} Environment`} className="flex flex-col">
-      <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-        <div>
-          <h2 className="text-sm font-medium">{name}</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {environment.environment === "dev"
-              ? "Build and test changes."
-              : "Serve your users."}
-          </p>
-        </div>
-        <Badge variant="outline">
-          {environment.enabled ? "Enabled" : "Disabled"}
-        </Badge>
-      </div>
+    <section
+      aria-label={`${name} Environment`}
+      className="flex flex-col gap-6 p-4"
+    >
       {sections.map((section) => (
-        <section
-          key={section.label}
-          className="flex flex-col gap-4 border-b px-4 py-4"
-        >
-          <div>
+        <section key={section.label} className="flex flex-col gap-3">
+          <div className="flex items-center gap-1.5">
             <h3 className="text-sm font-medium">{section.label}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {section.description}
-            </p>
+            <InfoTip label={section.label} text={section.description} />
           </div>
-          {section.content(props)}
+          <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
+            {section.content(props)}
+          </div>
         </section>
       ))}
     </section>

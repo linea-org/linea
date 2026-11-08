@@ -20,12 +20,8 @@ export function EnvironmentDeployments({
   })
   return (
     <section className="flex flex-col gap-3">
-      <p className="text-xs text-muted-foreground">
-        Publish in the builder, then deploy an exact version. Updating this
-        Environment does not change the other one.
-      </p>
       {deployments.map((deployment) => (
-        <div key={deployment.id} className="rounded-lg border p-2 text-sm">
+        <div key={deployment.id} className="rounded-lg border p-2 text-xs">
           {workflows.find((workflow) => workflow.id === deployment.workflowId)
             ?.name ?? "Workflow"}{" "}
           · {deployment.enabled ? "Enabled" : "Disabled"}
@@ -40,7 +36,7 @@ export function EnvironmentDeployments({
         workflows={workflows}
         enabled={enabled}
       />
-      {error && <p className="text-sm text-destructive">{error.message}</p>}
+      {error && <p className="text-xs text-destructive">{error.message}</p>}
     </section>
   )
 }

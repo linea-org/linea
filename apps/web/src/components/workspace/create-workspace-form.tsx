@@ -140,7 +140,7 @@ export function CreateWorkspaceForm({
         type="submit"
         className="w-full"
         disabled={createMutation.isPending}
-        size="xs"
+        size="sm"
       >
         {createMutation.isPending ? "Creating…" : submitLabel}
       </Button>

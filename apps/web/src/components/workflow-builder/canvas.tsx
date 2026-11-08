@@ -26,7 +26,6 @@ import {
   type NodeTypes,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
-import { Link } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useTheme } from "next-themes"
 import { nodeRegistry, type NodeTypeId } from "@linea/runtime/browser"
@@ -45,7 +44,6 @@ import {
   ResizablePanelGroup,
 } from "@linea/ui/components/resizable"
 import {
-  ArrowLeftIcon,
   CheckIcon,
   MessageCircleIcon,
   PanelLeftIcon,
@@ -533,20 +531,6 @@ function WorkflowBuilderCanvasInner({
               <PanelLeftIcon />
             </Button>
           )}
-          <Button
-            nativeButton={false}
-            variant="ghost"
-            size="xs"
-            render={
-              <Link
-                to="/w/$slug/workflows/$workflowId"
-                params={{ slug, workflowId }}
-              />
-            }
-          >
-            <ArrowLeftIcon />
-            Back
-          </Button>
           {workflow && <WorkflowTitle slug={slug} workflow={workflow} />}
         </div>
         <div className="flex items-center justify-end gap-2">
