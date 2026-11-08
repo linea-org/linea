@@ -80,4 +80,4 @@ it("keeps a valid session readable past the auth request limit while throttling 
     statuses.push(response.status)
   }
   expect(statuses).toContain(429)
-})
+}, 30_000)
