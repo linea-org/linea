@@ -254,7 +254,7 @@ export async function detectToolErrors(
     )
 }
 
-/** An "ai" step that succeeded but returned no real text and requested no tools. */
+/** An "ai" step that succeeded with no text and no tool calls. */
 export async function detectEmptyResponses(
   db: DbClient
 ): Promise<TranscriptFlagResult[]> {

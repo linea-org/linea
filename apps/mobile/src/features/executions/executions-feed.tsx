@@ -38,7 +38,7 @@ const monitoredStatuses = new Set<ExecutionSummary["status"]>([
   "paused",
 ])
 
-// A Workflow run and an Agent run are filtered by whichever definition rooted them.
+// Filter by whichever definition rooted the run.
 function definitionId(execution: {
   workflowId: string | null
   agentId?: string | null

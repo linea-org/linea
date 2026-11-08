@@ -37,7 +37,7 @@ async function resolveDefinition(
   }
 }
 
-/** Workflows and Agents are globally unique ids; a flag with neither is scoped to its workspace so unrelated workspaces never share a signal. */
+/** Flags with no Workflow or Agent are scoped to their workspace. */
 function signalKeyFor(
   flag: Flag,
   definition: { workflowId?: string; agentId?: string }

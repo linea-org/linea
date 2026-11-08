@@ -88,7 +88,7 @@ export async function getStepsForExecution(
 /** Label for the synthetic resume-marker row, reserved from real node ids by validateGraphStructure in @linea/runtime — kept as a duplicated literal, not a cross-package import, so this package stays a lightweight dependency for workflow-JSON validation. Purely cosmetic: recordResumeEvent no longer uses this to identify prior resumes (see isSystemEvent), so a workflow-supplied node happening to share this id can't be misclassified. */
 export const RESUME_EVENT_NODE_ID = "__resumed__"
 
-/** Lease-fenced; shares the execution counter with node steps and replay claims. */
+/** Lease-fenced; shares the step counter with node steps. */
 export async function recordResumeEvent(
   db: DbClient,
   executionId: string,

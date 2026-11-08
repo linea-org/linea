@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common"
+import { Injectable, Logger } from "@nestjs/common"
 import { db, repositories, type Execution } from "@linea/db"
 import { agentDefinitionSchema } from "@linea/runtime"
 import {
@@ -61,7 +61,7 @@ type ToolOutcome =
   | { kind: "paused" }
   | { kind: "resume" }
 
-interface RunContext {
+type RunContext = {
   execution: Execution
   leasedBy: string
   signal: AbortSignal
@@ -74,6 +74,8 @@ interface RunContext {
 
 @Injectable()
 export class AgentExecutionService {
+  private readonly logger = new Logger(AgentExecutionService.name)
+
   constructor(
     private readonly checkpoints: CheckpointsService,
     private readonly gateway: ConnectorGatewayService
@@ -100,8 +102,7 @@ export class AgentExecutionService {
       }
       conversation.push({ role: "assistant", toolCalls: result.toolCalls })
       for (const [index, call] of result.toolCalls.entries()) {
-        // Tool calls run one at a time: each may pause for approval and the
-        // next must not start until the previous outcome is recorded.
+        // Sequential: a tool call may pause for approval before the next starts.
         const outcome = await this.toolTurn(context, iteration, index, call) // NOSONAR
         if (outcome.kind === "paused") return
         if (outcome.kind === "resume")
@@ -268,7 +269,7 @@ export class AgentExecutionService {
     return result
   }
 
-  /** Best-effort: a failed step makes the error visible in the trace and to flaggers. Lost leases and cancellations are not step failures, and a recording problem must never mask the original error. */
+  /** Best-effort: lost leases and cancellations are not step failures. */
   private async recordFailure(
     context: RunContext,
     failure: {
@@ -308,8 +309,10 @@ export class AgentExecutionService {
         model: failure.model,
         provider: failure.provider,
       })
-    } catch {
-      // The original error is what the Execution reports.
+    } catch (recordError) {
+      this.logger.warn(
+        `Could not record failed step ${failure.nodeId}: ${recordError instanceof Error ? recordError.message : String(recordError)}`
+      )
     }
   }
 

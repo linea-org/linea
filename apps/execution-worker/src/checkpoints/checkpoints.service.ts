@@ -102,7 +102,7 @@ export class CheckpointsService {
         input: input.input as Record<string, unknown>,
         output: input.output as Record<string, unknown> | undefined,
         error: input.error,
-        // A failed attempt must not block the same node's later success on the unique key.
+        // A failed attempt must not block a later success on the unique key.
         idempotencyKey:
           status === "succeeded"
             ? `${input.executionId}:${input.nodeId}`

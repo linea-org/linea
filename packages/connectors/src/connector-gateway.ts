@@ -99,8 +99,7 @@ function maximumDispatchAttempts(
   operation: ConnectorSideEffectOperation,
   execution: { agentId: string | null }
 ): number {
-  // Agent side effects are never retried automatically, even when the
-  // provider supports idempotency.
+  // Agent side effects are never retried automatically.
   return operation.retrySafety === "provider_idempotency" &&
     execution.agentId === null
     ? 2
