@@ -37,7 +37,7 @@ export type ExecutionDetailData = {
   definitionName: string
 }
 
-/** The name is decoration: a lookup the viewer is not permitted to make, or that fails, must not hide an Execution they are allowed to read. */
+/** A name the viewer cannot look up must not hide a run they can read. */
 async function lookupName(
   load: () => Promise<{ name: string }>,
   fallback: string
