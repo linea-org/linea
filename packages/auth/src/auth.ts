@@ -146,6 +146,11 @@ export const auth = betterAuth({
     enabled: true,
     window: 60,
     max: 100,
+    customRules: {
+      // Server-rendered identity reads share an IP across users and navigation.
+      "/get-session": false,
+      "/organization/list": false,
+    },
   },
   session: {
     freshAge: RECENT_AUTHENTICATION_WINDOW_SECONDS,
