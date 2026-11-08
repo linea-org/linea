@@ -56,8 +56,12 @@ function AnalysisState({
   )
 }
 
-export function ConversationAnalysisError({ error }: { error: Error }) {
-  const unauthorized = error.message.includes("do not have access")
+export function ConversationAnalysisError({ error }: { error: unknown }) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : "Conversation analysis could not be loaded"
+  const unauthorized = message.includes("do not have access")
   return (
     <AnalysisState
       label={unauthorized ? "Access denied" : "Analysis unavailable"}
@@ -66,7 +70,7 @@ export function ConversationAnalysisError({ error }: { error: Error }) {
           ? "You cannot view this conversation"
           : "This conversation analysis could not be loaded"
       }
-      description={error.message}
+      description={message}
       destructive
     />
   )

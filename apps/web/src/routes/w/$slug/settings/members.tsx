@@ -235,7 +235,7 @@ function MembersPage() {
       {isPending ? (
         <p className="px-4 py-8 text-xs text-muted-foreground">Loading…</p>
       ) : filteredMembers.length === 0 ? (
-        <Empty>
+        <Empty className="mx-4 my-2 w-auto">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               {query ? <SearchIcon /> : <UsersIcon />}

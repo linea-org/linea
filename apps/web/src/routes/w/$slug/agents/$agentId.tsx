@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { z } from "zod"
+import { agentSectionSchema } from "@/components/agents/agent-sections"
 import { AgentEditor } from "@/components/agents/agent-editor"
 import {
   getAgentFn,
@@ -7,9 +9,16 @@ import {
 } from "@/lib/agents-api"
 import { listAgentContractsFn } from "@/lib/agent-contracts-api"
 import { listApplicationsFn } from "@/lib/applications-api"
-import { listEnvironmentsFn } from "@/lib/environments-api"
+import {
+  environmentNameSchema,
+  listEnvironmentsFn,
+} from "@/lib/environments-api"
 
 export const Route = createFileRoute("/w/$slug/agents/$agentId")({
+  validateSearch: z.object({
+    section: agentSectionSchema.optional(),
+    environment: environmentNameSchema.optional(),
+  }),
   loader: async ({ params }) => {
     const [agent, catalog, versions, contracts, applications] =
       await Promise.all([
@@ -33,7 +42,7 @@ export const Route = createFileRoute("/w/$slug/agents/$agentId")({
     <main className="flex flex-1 flex-col gap-2 p-4">
       <h1 className="text-sm font-medium">Agent unavailable</h1>
       <p role="alert" className="text-sm text-destructive">
-        {error.message}
+        {error instanceof Error ? error.message : "Agent could not be loaded"}
       </p>
     </main>
   ),

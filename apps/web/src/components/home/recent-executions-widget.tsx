@@ -55,7 +55,7 @@ export function RecentExecutionsWidget({
       }
     >
       {executions.length === 0 ? (
-        <Empty className="border-0">
+        <Empty className="flex-1 rounded-none border-0 bg-transparent">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <HistoryIcon />

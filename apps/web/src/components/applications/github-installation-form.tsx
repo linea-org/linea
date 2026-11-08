@@ -70,17 +70,17 @@ export function GithubInstallationForm({
       }}
     >
       <h3 className="font-medium">Connect a company GitHub App</h3>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Install your GitHub App on the company account first. Match its
         permissions to the Environment policy below.
       </p>
       <GithubInstallationFields register={register} control={control} />
       {Object.keys(errors).length > 0 && (
-        <p className="text-sm text-destructive">
+        <p className="text-xs text-destructive">
           Enter an App ID, installation ID and PEM private key.
         </p>
       )}
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
       <Button size="xs" disabled={!enabled || pending} type="submit">
         Connect installation
       </Button>

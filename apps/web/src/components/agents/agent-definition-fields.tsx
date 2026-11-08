@@ -1,6 +1,11 @@
 import { Controller, useFormContext } from "react-hook-form"
 import { z } from "zod"
-import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@linea/ui/components/field"
 import {
   Select,
   SelectContent,
@@ -29,17 +34,22 @@ export function AgentDefinitionFields({
   } = useFormContext<z.infer<typeof createAgentVersionInputSchema>>()
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <Field>
+      <Field className="rounded-lg border border-border bg-card p-4">
         <FieldLabel htmlFor="agent-instructions">Instructions</FieldLabel>
+        <FieldDescription>
+          Describe the work to do, the expected result, and any rules the Agent
+          must follow.
+        </FieldDescription>
         <Textarea
           id="agent-instructions"
           rows={9}
+          className="min-h-36"
           placeholder="Describe the task, constraints, and expected outcome…"
           {...register("definition.instructions")}
         />
         <FieldError>{errors.definition?.instructions?.message}</FieldError>
       </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 rounded-lg border border-border bg-card p-4 sm:grid-cols-2">
         <Field>
           <FieldLabel htmlFor="agent-model">Model</FieldLabel>
           <Controller
@@ -66,6 +76,9 @@ export function AgentDefinitionFields({
               </Select>
             )}
           />
+          <FieldDescription>
+            The model used by this Agent version.
+          </FieldDescription>
           <FieldError>{errors.definition?.model?.message}</FieldError>
         </Field>
         <Field>
@@ -107,6 +120,9 @@ export function AgentDefinitionFields({
               </Select>
             )}
           />
+          <FieldDescription>
+            The input and output schemas your application integrates with.
+          </FieldDescription>
           <FieldError>{errors.agentContractRevisionId?.message}</FieldError>
         </Field>
       </div>

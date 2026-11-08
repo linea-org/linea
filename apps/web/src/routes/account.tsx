@@ -1,5 +1,5 @@
-import { Link, createFileRoute } from "@tanstack/react-router"
-import { ArrowLeftIcon, LogOutIcon, MoonIcon, SunIcon } from "lucide-react"
+import { createFileRoute } from "@tanstack/react-router"
+import { LogOutIcon, MoonIcon, SunIcon } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
 
@@ -40,19 +40,6 @@ function AccountPage() {
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,color-mix(in_oklch,var(--primary)_18%,transparent),transparent_70%),radial-gradient(ellipse_50%_40%_at_100%_100%,color-mix(in_oklch,var(--accent)_55%,transparent),transparent_65%)]"
       />
-
-      <header className="relative z-10 flex w-full justify-start px-4 pt-6 sm:px-6 sm:pt-8">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5 rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-secondary-foreground"
-          nativeButton={false}
-          render={<Link to="/workspaces" />}
-        >
-          <ArrowLeftIcon className="size-4" />
-          Workspaces
-        </Button>
-      </header>
 
       <main className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-6 pt-6 pb-10 sm:pt-8 sm:pb-14">
         <div className="animate-in duration-500 fade-in-0 fill-mode-both slide-in-from-bottom-2">

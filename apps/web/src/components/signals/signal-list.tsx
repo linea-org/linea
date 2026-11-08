@@ -11,7 +11,6 @@ import {
 
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -44,7 +43,6 @@ export function SignalList({
             here.
           </EmptyDescription>
         </EmptyHeader>
-        <EmptyContent />
       </Empty>
     )
   }

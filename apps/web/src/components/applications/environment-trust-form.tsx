@@ -106,7 +106,7 @@ export function EnvironmentTrustForm({
       }}
       className="flex flex-col gap-3"
     >
-      <p className="text-sm text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Configure the identity provider for users of your product. Enter
         multiple origins separated by commas. Updating trust revokes existing
         user sessions.
@@ -125,7 +125,7 @@ export function EnvironmentTrustForm({
         </Field>
       ))}
       {save.error && (
-        <p className="text-sm text-destructive">{save.error.message}</p>
+        <p className="text-xs text-destructive">{save.error.message}</p>
       )}
       <Button
         type="submit"

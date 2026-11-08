@@ -14,12 +14,11 @@ import {
 } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
+import { z } from "zod"
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@linea/ui/components/tabs"
+  workflowViewSchema,
+  workflowViews,
+} from "@/components/workflows/workflow-views"
 
 import { RegressionCaseList, RegressionRunList } from "@/components/regressions"
 import { ExecutionList } from "@/components/executions"
@@ -55,6 +54,7 @@ import {
 } from "@/lib/workflows-api"
 
 export const Route = createFileRoute("/w/$slug/workflows/$workflowId/")({
+  validateSearch: z.object({ view: workflowViewSchema.optional() }),
   loader: async ({ params }) => {
     const [workflow, executions] = await Promise.allSettled([
       getWorkflowFn({ data: { id: params.workflowId } }),
@@ -74,6 +74,7 @@ export const Route = createFileRoute("/w/$slug/workflows/$workflowId/")({
 
 function WorkflowDetailPage() {
   const { slug, workflowId } = Route.useParams()
+  const { view = "executions" } = Route.useSearch()
   const initialData = Route.useLoaderData()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -152,13 +153,9 @@ function WorkflowDetailPage() {
   })
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <Tabs defaultValue="executions">
+      <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <TabsList className="h-8!">
-            <TabsTrigger value="executions">Executions</TabsTrigger>
-            <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
-            <TabsTrigger value="regression">Regression</TabsTrigger>
-          </TabsList>
+          <h2 className="text-sm font-medium">{workflowViews[view]}</h2>
           <div className="flex shrink-0 items-center gap-2">
             <Button
               type="button"
@@ -202,136 +199,144 @@ function WorkflowDetailPage() {
         {run.isError && (
           <p className="mt-3 text-xs text-destructive">{run.error.message}</p>
         )}
-        <TabsContent value="executions">
-          {executionsErrored ? (
-            <p className="mt-4 text-xs text-destructive">
-              Could not load executions.
-            </p>
-          ) : executionsPending ? (
-            <p className="mt-4 text-xs text-muted-foreground">
-              Loading executions…
-            </p>
-          ) : (
-            <ExecutionList
-              executions={executions}
-              slug={slug}
-              workflowId={workflowId}
-            />
-          )}
-        </TabsContent>
-        <TabsContent value="monitoring">
-          {signalsErrored ? (
-            <p className="mt-4 text-xs text-destructive">
-              Could not load signals.
-            </p>
-          ) : signalsPending ? (
-            <p className="mt-4 text-xs text-muted-foreground">
-              Loading signals…
-            </p>
-          ) : (
-            <div className="mt-4 flex flex-col gap-4">
-              <SignalStatCards signals={signals} />
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <div className="flex flex-col gap-2 lg:col-span-2">
-                  <p className="pl-1 text-sm font-medium text-foreground">
-                    Trend
-                  </p>
-                  <div className="overflow-hidden rounded-xl border border-border bg-card">
-                    <div className="px-4 py-4">
-                      <SignalTrendChart trend={signalsTrend ?? []} />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <p className="pl-1 text-sm font-medium text-foreground">
-                    By type
-                  </p>
-                  <div className="overflow-hidden rounded-xl border border-border bg-card">
-                    <div className="px-4 py-4">
-                      <SignalFlagTypeBreakdown signals={signals} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <SignalList
-                signals={signals}
+        {view === "executions" && (
+          <section aria-label={workflowViews.executions}>
+            {executionsErrored ? (
+              <p className="mt-4 text-xs text-destructive">
+                Could not load executions.
+              </p>
+            ) : executionsPending ? (
+              <p className="mt-4 text-xs text-muted-foreground">
+                Loading executions…
+              </p>
+            ) : (
+              <ExecutionList
+                executions={executions}
                 slug={slug}
                 workflowId={workflowId}
               />
-            </div>
-          )}
-        </TabsContent>
-        <TabsContent value="regression">
-          <div className="mt-4 flex flex-col gap-6">
-            <div>
-              <div className="flex items-center justify-between gap-3 pl-1">
-                <p className="text-sm font-medium text-foreground">Runs</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  onClick={() => runRegression.mutate()}
-                  disabled={
-                    runRegression.isPending || !workflow.publishedVersionId
-                  }
-                  title={
-                    workflow.publishedVersionId
-                      ? undefined
-                      : "Publish a version before running the regression suite"
-                  }
-                >
-                  <FlaskConicalIcon />
-                  {runRegression.isPending ? "Queuing…" : "Run now"}
-                </Button>
-              </div>
-              {runRegression.isError && (
-                <p className="mt-2 text-xs text-destructive">
-                  {runRegression.error.message}
-                </p>
-              )}
-              {regressionRunsErrored ? (
-                <p className="mt-4 text-xs text-destructive">
-                  Could not load regression runs.
-                </p>
-              ) : regressionRunsPending ? (
-                <p className="mt-4 text-xs text-muted-foreground">
-                  Loading regression runs…
-                </p>
-              ) : (
-                <RegressionRunList
-                  runs={regressionRuns}
+            )}
+          </section>
+        )}
+        {view === "monitoring" && (
+          <section aria-label={workflowViews.monitoring}>
+            {signalsErrored ? (
+              <p className="mt-4 text-xs text-destructive">
+                Could not load signals.
+              </p>
+            ) : signalsPending ? (
+              <p className="mt-4 text-xs text-muted-foreground">
+                Loading signals…
+              </p>
+            ) : (
+              <div className="mt-4 flex flex-col gap-4">
+                <SignalStatCards signals={signals} />
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                  <div className="flex flex-col gap-2 lg:col-span-2">
+                    <p className="pl-1 text-sm font-medium text-foreground">
+                      Trend
+                    </p>
+                    <div className="overflow-hidden rounded-xl border border-border bg-card">
+                      <div className="px-4 py-4">
+                        <SignalTrendChart trend={signalsTrend ?? []} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <p className="pl-1 text-sm font-medium text-foreground">
+                      By type
+                    </p>
+                    <div className="overflow-hidden rounded-xl border border-border bg-card">
+                      <div className="px-4 py-4">
+                        <SignalFlagTypeBreakdown signals={signals} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <SignalList
+                  signals={signals}
                   slug={slug}
                   workflowId={workflowId}
                 />
-              )}
+              </div>
+            )}
+          </section>
+        )}
+        {view === "regression" && (
+          <section aria-label={workflowViews.regression}>
+            <div className="mt-4 flex flex-col gap-6">
+              <div>
+                <div className="flex items-center justify-between gap-3 pl-1">
+                  <p className="text-sm font-medium text-foreground">Runs</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    onClick={() => runRegression.mutate()}
+                    disabled={
+                      runRegression.isPending || !workflow.publishedVersionId
+                    }
+                    title={
+                      workflow.publishedVersionId
+                        ? undefined
+                        : "Publish a version before running the regression suite"
+                    }
+                  >
+                    <FlaskConicalIcon />
+                    {runRegression.isPending ? "Queuing…" : "Run now"}
+                  </Button>
+                </div>
+                {runRegression.isError && (
+                  <p className="mt-2 text-xs text-destructive">
+                    {runRegression.error.message}
+                  </p>
+                )}
+                {regressionRunsErrored ? (
+                  <p className="mt-4 text-xs text-destructive">
+                    Could not load regression runs.
+                  </p>
+                ) : regressionRunsPending ? (
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    Loading regression runs…
+                  </p>
+                ) : (
+                  <RegressionRunList
+                    runs={regressionRuns}
+                    slug={slug}
+                    workflowId={workflowId}
+                  />
+                )}
+              </div>
+              <div>
+                <p className="pl-1 text-sm font-medium text-foreground">
+                  Cases
+                </p>
+                {archiveCase.isError && (
+                  <p className="mt-2 text-xs text-destructive">
+                    {archiveCase.error.message}
+                  </p>
+                )}
+                {regressionCasesErrored ? (
+                  <p className="mt-4 text-xs text-destructive">
+                    Could not load regression cases.
+                  </p>
+                ) : regressionCasesPending ? (
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    Loading regression cases…
+                  </p>
+                ) : (
+                  <RegressionCaseList
+                    cases={regressionCases}
+                    onArchive={(regressionCase) =>
+                      archiveCase.mutate(regressionCase.id)
+                    }
+                  />
+                )}
+              </div>
             </div>
-            <div>
-              <p className="pl-1 text-sm font-medium text-foreground">Cases</p>
-              {archiveCase.isError && (
-                <p className="mt-2 text-xs text-destructive">
-                  {archiveCase.error.message}
-                </p>
-              )}
-              {regressionCasesErrored ? (
-                <p className="mt-4 text-xs text-destructive">
-                  Could not load regression cases.
-                </p>
-              ) : regressionCasesPending ? (
-                <p className="mt-4 text-xs text-muted-foreground">
-                  Loading regression cases…
-                </p>
-              ) : (
-                <RegressionCaseList
-                  cases={regressionCases}
-                  onArchive={(regressionCase) =>
-                    archiveCase.mutate(regressionCase.id)
-                  }
-                />
-              )}
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+          </section>
+        )}
+      </div>
       <WorkflowFormDialog
         workspaceSlug={slug}
         open={editOpen}

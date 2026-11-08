@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import {
+  BotIcon,
+  BoxesIcon,
   LayoutGridIcon,
   ListFilterIcon,
   ListIcon,
   PlusIcon,
+  WorkflowIcon,
 } from "lucide-react"
 import { Button } from "@linea/ui/components/button"
 import {
@@ -18,6 +21,7 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from "@linea/ui/components/empty"
 import {
@@ -30,9 +34,8 @@ import {
 } from "@linea/ui/components/table"
 import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
 import { PlayfulAvatar } from "@/components/avatar"
-import { ApplicationCardMenu } from "@/components/applications/application-rename-popover"
 import { CreateApplicationDialog } from "@/components/applications/create-application-dialog"
-import { AddAgentDialog } from "@/components/agents/add-agent-dialog"
+import { ApplicationCardMenu } from "@/components/applications/application-rename-popover"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import {
@@ -95,8 +98,11 @@ function ApplicationsPage() {
   function renderApplications() {
     if (applications.length === 0) {
       return (
-        <Empty>
+        <Empty className="mx-4 my-2 w-auto">
           <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <BoxesIcon />
+            </EmptyMedia>
             <EmptyTitle>Add your first Agent</EmptyTitle>
             <EmptyDescription>
               Start with an Agent and create its Application in the same flow.
@@ -107,14 +113,22 @@ function ApplicationsPage() {
     }
     if (visible.length === 0) {
       return (
-        <p className="px-4 py-8 text-sm text-muted-foreground">
-          No Applications match that search.
-        </p>
+        <Empty className="mx-4 my-2 w-auto">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <BoxesIcon />
+            </EmptyMedia>
+            <EmptyTitle>No matching Applications</EmptyTitle>
+            <EmptyDescription>
+              Try another name or clear your search.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )
     }
     if (view === "grid") {
       return (
-        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 px-4 pt-2 pb-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((application) => (
             <ApplicationCard
               key={application.id}
@@ -254,16 +268,22 @@ function ApplicationsPage() {
           </TabsList>
         </Tabs>
         <div className="ml-auto flex items-center gap-2">
-          <CreateApplicationDialog workspaceSlug={slug} />
-          <AddAgentDialog
+          <CreateApplicationDialog
             workspaceSlug={slug}
             trigger={
-              <Button size="xs">
+              <Button size="xs" variant="outline">
                 <PlusIcon />
-                Add Agent
+                Create Application
               </Button>
             }
           />
+          <Button
+            size="xs"
+            render={<Link to="/w/$slug/agents/new" params={{ slug }} />}
+          >
+            <PlusIcon />
+            Add Agent
+          </Button>
         </div>
       </PageToolbar>
       {renderApplications()}
@@ -282,35 +302,43 @@ function ApplicationCard({
   slug: string
   application: ApplicationSummary
 }>) {
-  const summary = `${countLabel(application.agentCount, "Agent", "Agents")} · ${countLabel(application.workflowCount, "Workflow", "Workflows")}`
   return (
-    <div className="relative rounded-lg border border-border/70 hover:bg-muted/40">
+    <div className="group relative rounded-lg border border-border bg-card transition-colors hover:border-foreground/20 hover:bg-muted/40">
       <Link
         to="/w/$slug/applications/$applicationId"
         params={{ slug, applicationId: application.id }}
-        className="flex flex-col gap-3 p-3 pr-10"
+        className="flex flex-col"
       >
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3 px-4 py-5 pr-12">
           <PlayfulAvatar
             name={application.name}
             shape="rounded"
-            className="size-8"
+            className="size-10"
           />
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-xs font-medium">{application.name}</h2>
+            <h2 className="truncate text-sm font-medium">{application.name}</h2>
             <p className="truncate text-xs text-muted-foreground">
               {application.slug}
             </p>
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <p className="truncate">{summary}</p>
+        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex items-center gap-1.5 whitespace-nowrap">
+              <BotIcon className="size-3.5" />
+              {countLabel(application.agentCount, "Agent", "Agents")}
+            </span>
+            <span className="flex items-center gap-1.5 whitespace-nowrap">
+              <WorkflowIcon className="size-3.5" />
+              {countLabel(application.workflowCount, "Workflow", "Workflows")}
+            </span>
+          </div>
           <p className="shrink-0 tabular-nums">
             {formatDate(application.updatedAt)}
           </p>
         </div>
       </Link>
-      <div className="absolute top-2.5 right-2.5">
+      <div className="absolute top-[15px] right-3">
         <ApplicationCardMenu workspaceSlug={slug} application={application} />
       </div>
     </div>

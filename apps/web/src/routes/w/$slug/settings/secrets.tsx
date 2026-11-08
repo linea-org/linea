@@ -31,7 +31,7 @@ function SecretsPage() {
           </Link>
         </div>
       </PageToolbar>
-      <Empty>
+      <Empty className="mx-4 my-2 w-auto">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <KeyIcon />

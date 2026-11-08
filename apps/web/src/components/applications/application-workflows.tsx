@@ -1,6 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { PlusIcon } from "lucide-react"
+import { PlusIcon, WorkflowIcon } from "lucide-react"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@linea/ui/components/empty"
 import { Button } from "@linea/ui/components/button"
 import {
   Table,
@@ -69,9 +76,18 @@ export function ApplicationWorkflows({
   return (
     <section aria-label="Application Workflows" className="flex flex-col">
       {workflows.length === 0 && (
-        <p className="px-4 py-8 text-xs text-muted-foreground">
-          No Workflows in this Application yet.
-        </p>
+        <Empty className="mx-4 my-2 w-auto">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <WorkflowIcon />
+            </EmptyMedia>
+            <EmptyTitle>No Workflows yet</EmptyTitle>
+            <EmptyDescription>
+              Create a Workflow to define a repeatable process for this
+              Application.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
       {workflows.length > 0 && (
         <div className="px-4 py-2">

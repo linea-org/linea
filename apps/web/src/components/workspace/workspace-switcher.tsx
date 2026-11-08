@@ -1,10 +1,5 @@
 import { useNavigate } from "@tanstack/react-router"
-import {
-  CheckIcon,
-  ChevronsUpDownIcon,
-  Link2Icon,
-  PlusIcon,
-} from "lucide-react"
+import { CheckIcon, ChevronsUpDownIcon, PlusIcon } from "lucide-react"
 import { useState } from "react"
 
 import { buttonVariants } from "@linea/ui/components/button"
@@ -122,7 +117,7 @@ export function WorkspaceSwitcher({
           align="start"
           side="bottom"
           sideOffset={8}
-          className="flex h-80 w-80 flex-col gap-0 overflow-hidden p-0"
+          className="flex max-h-80 w-80 flex-col gap-0 overflow-hidden p-0"
         >
           <div className="border-b border-border/70 p-2">
             <ToolbarSearch
@@ -135,7 +130,7 @@ export function WorkspaceSwitcher({
           </div>
           <div className="flex min-h-0 flex-1 flex-col">
             {visible.length > 0 ? (
-              <div className="max-h-40 overflow-auto p-1">
+              <div className="max-h-56 overflow-auto p-2">
                 {visible.map((workspace) => {
                   const active = workspace.slug === currentSlug
                   const pending = pendingId === workspace.id
@@ -178,25 +173,13 @@ export function WorkspaceSwitcher({
                 ) : null}
               </div>
             ) : null}
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 py-6 text-center">
-              {visible.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No workspaces match that search.
-                </p>
-              ) : (
-                <>
-                  <div className="flex size-9 items-center justify-center rounded-lg border border-border/70">
-                    <Link2Icon className="size-4 text-muted-foreground" />
-                  </div>
-                  <p className="max-w-52 text-xs text-muted-foreground">
-                    Workspaces you create and join appear here for quick context
-                    switching.
-                  </p>
-                </>
-              )}
-            </div>
+            {visible.length === 0 ? (
+              <p className="px-8 py-10 text-center text-xs text-muted-foreground">
+                No workspaces match that search.
+              </p>
+            ) : null}
           </div>
-          <div className="border-t border-border/70 p-1">
+          <div className="border-t border-border/70 p-2">
             <button
               type="button"
               className="flex w-full items-center justify-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium hover:bg-muted/40"

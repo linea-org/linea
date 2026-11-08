@@ -1,3 +1,11 @@
+import { GitBranchIcon } from "lucide-react"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@linea/ui/components/empty"
 import { useMutation } from "@tanstack/react-query"
 import {
   Accordion,
@@ -33,11 +41,17 @@ export function AgentVersions({
   return (
     <section className="flex flex-col gap-4">
       {versions.length === 0 ? (
-        <div className="overflow-hidden rounded-xl border bg-card">
-          <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-            No versions yet.
-          </p>
-        </div>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <GitBranchIcon />
+            </EmptyMedia>
+            <EmptyTitle>No versions yet</EmptyTitle>
+            <EmptyDescription>
+              Save a configuration to create the first version of this Agent.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : null}
       {versions.map((version) => (
         <article

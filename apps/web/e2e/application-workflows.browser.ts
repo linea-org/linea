@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { z } from "zod"
+import { chooseSidebarPage } from "./choose-sidebar-page"
 import { signInWorkspace } from "./sign-in-workspace"
 
 const environment = z
@@ -45,11 +46,16 @@ test("preserves Environment drafts and one-time keys while organizing Applicatio
   await expect(page.getByRole("alert")).not.toBeVisible()
   await page.getByRole("button", { name: "Mark all read", exact: true }).click()
   await page.keyboard.press("Escape")
-  await page.goto(environment.AGENT_UI_APPLICATION_PATH)
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().endsWith("/v1/auth/get-session")
+    ),
+    page.goto(environment.AGENT_UI_APPLICATION_PATH),
+  ])
   await expect(
-    page.getByRole("tab", { name: "Agents", exact: true })
-  ).toHaveAttribute("aria-selected", "true")
-  await page.getByRole("tab", { name: /^Workflows/ }).click()
+    page.getByRole("link", { name: "Agents", exact: true })
+  ).toHaveAttribute("aria-current", "page")
+  await page.getByRole("link", { name: "Workflows", exact: true }).click()
   await page
     .getByRole("button", { name: "Create Workflow", exact: true })
     .click()
@@ -81,7 +87,12 @@ test("preserves Environment drafts and one-time keys while organizing Applicatio
   await page.getByLabel("Workflow name", { exact: true }).fill(renamedWorkflow)
   await page.getByLabel("Workflow name", { exact: true }).press("Enter")
   await expect(page.getByText(renamedWorkflow, { exact: true })).toBeVisible()
+  await page
+    .getByRole("button", { name: "Toggle navigation", exact: true })
+    .click()
   await page.getByRole("button", { name: "Back", exact: true }).click()
+  await page.getByRole("link", { name: "Workflows", exact: true }).click()
+  await page.getByRole("link", { name: new RegExp(renamedWorkflow) }).click()
   const editedName = `${renamedWorkflow} edited`
   const editedSlug = `edited-${Date.now()}`
   const editedDescription = "Saved Workflow details update immediately."
@@ -101,9 +112,37 @@ test("preserves Environment drafts and one-time keys while organizing Applicatio
   await expect(
     page.getByRole("button", { name: new RegExp(editedDescription) })
   ).toBeVisible()
-  await page
-    .getByRole("link", { name: "Back to Application", exact: true })
-    .click()
+  await page.getByRole("link", { name: "Monitoring", exact: true }).click()
+  await expect(
+    page.getByRole("region", { name: "Monitoring", exact: true })
+  ).toBeVisible()
+  await expect(page).toHaveURL(/view=monitoring/)
+  const activityToggle = page.getByRole("button", {
+    name: "Activity",
+    exact: true,
+  })
+  await activityToggle.click()
+  await expect(
+    page.getByRole("link", { name: "Regression", exact: true })
+  ).not.toBeVisible()
+  await activityToggle.click()
+  await page.getByRole("link", { name: "Regression", exact: true }).click()
+  await expect(
+    page.getByRole("region", { name: "Regression", exact: true })
+  ).toBeVisible()
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().endsWith("/v1/auth/get-session")
+    ),
+    page.reload(),
+  ])
+  await expect(page).toHaveURL(/view=regression/)
+  await expect(
+    page.getByRole("region", { name: "Regression", exact: true })
+  ).toBeVisible()
+  await expect(activityToggle).toHaveAttribute("aria-expanded", "true")
+  await page.getByRole("button", { name: "Back", exact: true }).click()
+  await page.getByRole("link", { name: "Workflows", exact: true }).click()
   await expect(page).toHaveURL(
     `${new URL(environment.AGENT_UI_APPLICATION_PATH, page.url()).href}?view=workflows`
   )
@@ -114,7 +153,11 @@ test("preserves Environment drafts and one-time keys while organizing Applicatio
   await expect(
     workflows.getByRole("link", { name: new RegExp(editedName) })
   ).toBeVisible()
-  await page.getByRole("tab", { name: "Environments", exact: true }).click()
+  await chooseSidebarPage({
+    page,
+    parent: "Environments",
+    child: "Development",
+  })
   const development = page.getByRole("region", {
     name: "Development Environment",
     exact: true,
@@ -127,11 +170,11 @@ test("preserves Environment drafts and one-time keys while organizing Applicatio
     exact: true,
   })
   await devIssuer.fill("https://dev-draft.example.test")
-  await page.getByRole("tab", { name: "Production", exact: true }).click()
+  await page.getByRole("link", { name: "Production", exact: true }).click()
   await production
     .getByLabel("Identity provider issuer", { exact: true })
     .fill("https://prod-draft.example.test")
-  await page.getByRole("tab", { name: "Development", exact: true }).click()
+  await page.getByRole("link", { name: "Development", exact: true }).click()
   await expect(devIssuer).toHaveValue("https://dev-draft.example.test")
   const retention = development.getByLabel("Content retention in days", {
     exact: true,
@@ -166,14 +209,18 @@ test("preserves Environment drafts and one-time keys while organizing Applicatio
   const keyText = keyNotice.locator("..").locator("code")
   const originalKey = await keyText.textContent()
   expect(Boolean(originalKey)).toBe(true)
-  await page.getByRole("tab", { name: "Production", exact: true }).click()
+  await page.getByRole("link", { name: "Production", exact: true }).click()
   await expect(
     production.getByLabel("Identity provider issuer", { exact: true })
   ).toHaveValue("https://prod-draft.example.test")
-  await page.getByRole("tab", { name: "Development", exact: true }).click()
+  await page.getByRole("link", { name: "Development", exact: true }).click()
   expect((await keyText.textContent()) === originalKey).toBe(true)
-  await page.getByRole("tab", { name: "Agents", exact: true }).click()
-  await page.getByRole("tab", { name: "Environments", exact: true }).click()
+  await page.getByRole("link", { name: "Agents", exact: true }).click()
+  await chooseSidebarPage({
+    page,
+    parent: "Environments",
+    child: "Development",
+  })
   expect((await keyText.textContent()) === originalKey).toBe(true)
   await expect(devIssuer).toHaveValue("https://dev-draft.example.test")
   await expect(retention).toHaveValue(retainedDays)
@@ -211,7 +258,12 @@ test("preserves Environment drafts and one-time keys while organizing Applicatio
     animations: "disabled",
   })
   await page.setViewportSize({ width: 1440, height: 1100 })
-  await page.goto(`${workspacePath}/applications`)
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().endsWith("/v1/auth/get-session")
+    ),
+    page.goto(`${workspacePath}/applications`),
+  ])
   await page
     .getByRole("button", { name: "Create Application", exact: true })
     .click()
@@ -234,13 +286,12 @@ test("preserves Environment drafts and one-time keys while organizing Applicatio
       exact: true,
     })
   ).toBeVisible()
-  await page.getByRole("tab", { name: /^Workflows/ }).click()
+  await page.getByRole("link", { name: "Workflows", exact: true }).click()
   await expect(
     page.getByRole("link", { name: new RegExp(renamedWorkflow) })
   ).not.toBeVisible()
-  await page
-    .getByRole("link", { name: "Back to Applications", exact: true })
-    .click()
+  await page.getByRole("button", { name: "Back", exact: true }).click()
+  await page.getByRole("link", { name: "Applications", exact: true }).click()
   await expect(
     page.getByRole("heading", { name: "Applications", exact: true })
   ).toBeVisible()

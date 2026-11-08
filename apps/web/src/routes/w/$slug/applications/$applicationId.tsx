@@ -1,8 +1,16 @@
 import { useState } from "react"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { ListFilterIcon, PlusIcon } from "lucide-react"
+import { LayersIcon, ListFilterIcon, PlusIcon } from "lucide-react"
 import { z } from "zod"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@linea/ui/components/empty"
+import { Badge } from "@linea/ui/components/badge"
 import { Button } from "@linea/ui/components/button"
 import {
   DropdownMenu,
@@ -10,12 +18,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@linea/ui/components/dropdown-menu"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@linea/ui/components/tabs"
 import {
   EnvironmentSettings,
   environmentName,
@@ -32,16 +34,18 @@ import {
   applicationsQueryOptions,
   listApplicationsFn,
 } from "@/lib/applications-api"
-import { listEnvironmentsFn } from "@/lib/environments-api"
+import {
+  environmentNameSchema,
+  listEnvironmentsFn,
+} from "@/lib/environments-api"
 import { listApplicationWorkflowsFn } from "@/lib/workflows-api"
 
 const applicationViewSchema = z.enum(["workflows", "agents", "environments"])
-const environmentSchema = z.enum(["dev", "production"])
 
 export const Route = createFileRoute("/w/$slug/applications/$applicationId")({
   validateSearch: z.object({
     view: applicationViewSchema.optional(),
-    environment: environmentSchema.optional(),
+    environment: environmentNameSchema.optional(),
   }),
   loader: async ({ params }) => {
     const [applications, environments, workflows] = await Promise.all([
@@ -60,7 +64,6 @@ function ApplicationPage() {
   const { slug, applicationId } = Route.useParams()
   const { view = "agents", environment: selectedName = "dev" } =
     Route.useSearch()
-  const navigate = Route.useNavigate()
   const initial = Route.useLoaderData()
   const queryClient = useQueryClient()
   const { data: applications } = useSuspenseQuery({
@@ -99,23 +102,8 @@ function ApplicationPage() {
   }
   return (
     <main className="flex min-w-0 flex-1 flex-col">
-      <Tabs
-        value={view}
-        onValueChange={(value) => {
-          void navigate({
-            search: { view: applicationViewSchema.parse(value) },
-          })
-        }}
-        className="min-w-0 gap-0"
-      >
+      <div className="flex min-w-0 flex-col">
         <PageToolbar className="border-b border-border/70">
-          <TabsList className="h-8!">
-            <TabsTrigger value="agents">Agents</TabsTrigger>
-            <TabsTrigger value="workflows">
-              Workflows ({workflows.length})
-            </TabsTrigger>
-            <TabsTrigger value="environments">Environments</TabsTrigger>
-          </TabsList>
           {view === "agents" ? (
             <>
               <ToolbarSearch
@@ -183,51 +171,40 @@ function ApplicationPage() {
               />
             </div>
           ) : null}
-          {view === "environments" && environments.length > 0 ? (
-            <Tabs
-              value={selectedEnvironment?.environment ?? selectedName}
-              onValueChange={(value) => {
-                void navigate({
-                  search: {
-                    view: "environments",
-                    environment: environmentSchema.parse(value),
-                  },
-                })
-              }}
-            >
-              <TabsList className="h-8!">
-                {dev ? (
-                  <TabsTrigger value={dev.environment}>
-                    {environmentName(dev.environment)}
-                  </TabsTrigger>
-                ) : null}
-                {production ? (
-                  <TabsTrigger value={production.environment}>
-                    {environmentName(production.environment)}
-                  </TabsTrigger>
-                ) : null}
-              </TabsList>
-            </Tabs>
+          {view === "environments" && selectedEnvironment ? (
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-medium">
+                {environmentName(selectedEnvironment.environment)} Environment
+              </h2>
+              <Badge variant="outline">
+                {selectedEnvironment.enabled ? "Enabled" : "Disabled"}
+              </Badge>
+            </div>
           ) : null}
         </PageToolbar>
         <div className="flex flex-col">
-          <TabsContent value="workflows">
+          {view === "workflows" && (
             <ApplicationWorkflows
               key={applicationId}
               workspaceSlug={slug}
               workflows={workflows}
             />
-          </TabsContent>
-          <TabsContent value="agents">
-            <ApplicationAgents
-              key={applicationId}
-              workspaceSlug={slug}
-              applicationId={applicationId}
-              query={agentQuery}
-              status={agentStatus}
-            />
-          </TabsContent>
-          <TabsContent value="environments" keepMounted>
+          )}
+          {view === "agents" && (
+            <section aria-label="Application Agents">
+              <ApplicationAgents
+                key={applicationId}
+                workspaceSlug={slug}
+                applicationId={applicationId}
+                query={agentQuery}
+                status={agentStatus}
+              />
+            </section>
+          )}
+          <section
+            aria-label="Application Environments"
+            hidden={view !== "environments"}
+          >
             {selectedEnvironment ? (
               environments.map((environment) => (
                 <div
@@ -243,13 +220,21 @@ function ApplicationPage() {
                 </div>
               ))
             ) : (
-              <p className="px-4 py-8 text-xs text-muted-foreground">
-                No Environments for this Application yet.
-              </p>
+              <Empty className="mx-4 my-2 w-auto">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <LayersIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>No Environments yet</EmptyTitle>
+                  <EmptyDescription>
+                    This Application has no Environments to configure.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             )}
-          </TabsContent>
+          </section>
         </div>
-      </Tabs>
+      </div>
     </main>
   )
 }
