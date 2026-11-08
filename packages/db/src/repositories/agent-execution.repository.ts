@@ -22,7 +22,7 @@ import type { DbClient } from "./types.js"
 
 const validator = new Ajv2020({ strict: true, addUsedSchema: false })
 
-export async function startAgentExecution(
+export function startAgentExecution(
   db: DbClient,
   input: {
     workspaceId: string

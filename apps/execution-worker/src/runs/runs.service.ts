@@ -300,6 +300,24 @@ export class RunsService {
     }
   }
 
+  private findExecutionDefinition(
+    execution: Execution
+  ): Promise<{ name: string } | undefined> {
+    if (execution.workflowId)
+      return repositories.workflow.getWorkflowById(
+        db,
+        execution.workspaceId,
+        execution.workflowId
+      )
+    if (execution.agentId)
+      return repositories.agent.getAgentById(
+        db,
+        execution.workspaceId,
+        execution.agentId
+      )
+    return Promise.resolve(undefined)
+  }
+
   /** Best-effort: a notification failure shouldn't fail the execution itself, which has already been finalized by the time this runs. Only called when completeExecution actually won the transition — a worker that lost the lease race stays silent so the winner's own call is the only one that notifies. */
   private async notifyExecutionFailed(
     execution: Execution,
@@ -307,19 +325,7 @@ export class RunsService {
   ): Promise<void> {
     try {
       const [workflow, memberUserIds] = await Promise.all([
-        execution.workflowId
-          ? repositories.workflow.getWorkflowById(
-              db,
-              execution.workspaceId,
-              execution.workflowId
-            )
-          : execution.agentId
-            ? repositories.agent.getAgentById(
-                db,
-                execution.workspaceId,
-                execution.agentId
-              )
-            : undefined,
+        this.findExecutionDefinition(execution),
         repositories.organization.listMemberUserIds(db, execution.workspaceId),
       ])
       await repositories.notification.createNotificationsForUsers(

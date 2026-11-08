@@ -96,11 +96,7 @@ export async function createRegressionCaseFromStep(
   const step = await getExecutionStepById(db, input.stepId)
   if (!step || step.workspaceId !== input.workspaceId) return undefined
   const execution = await getExecutionById(db, step.executionId)
-  if (
-    !execution ||
-    !execution.workflowId ||
-    execution.workspaceId !== input.workspaceId
-  ) {
+  if (!execution?.workflowId || execution.workspaceId !== input.workspaceId) {
     return undefined
   }
 

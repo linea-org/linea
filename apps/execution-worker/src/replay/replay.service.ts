@@ -41,7 +41,7 @@ export class ReplayService {
       db,
       originalStep.executionId
     )
-    if (!execution || !execution.workflowVersionId || !execution.workflowId) {
+    if (!execution?.workflowVersionId || !execution.workflowId) {
       this.logger.error(
         `Replay ${job.replayStepId}: execution ${originalStep.executionId} not found`
       )

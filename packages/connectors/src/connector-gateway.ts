@@ -95,6 +95,18 @@ function providerFailureStatus(
   return code === "precondition_failed" ? "stale" : "failed"
 }
 
+function maximumDispatchAttempts(
+  operation: ConnectorSideEffectOperation,
+  execution: { agentId: string | null }
+): number {
+  // Agent side effects are never retried automatically, even when the
+  // provider supports idempotency.
+  return operation.retrySafety === "provider_idempotency" &&
+    execution.agentId === null
+    ? 2
+    : 1
+}
+
 export class ConnectorGatewayError extends Error {
   constructor(
     message = "Connector operation rejected",
@@ -649,11 +661,7 @@ export class ConnectorGateway {
       claimed.executionId
     )
     if (!execution) throw new Error("Connector Execution is missing")
-    const maximumAttempts =
-      operation.retrySafety === "provider_idempotency" &&
-      execution.agentId === null
-        ? 2
-        : 1
+    const maximumAttempts = maximumDispatchAttempts(operation, execution)
     if (!claimed.dispatchStartedAt) {
       await this.requireCurrentProviderPreconditions(
         operation,
