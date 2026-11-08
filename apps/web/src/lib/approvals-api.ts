@@ -41,7 +41,7 @@ export const listPendingApprovalsFn = createServerFn({
 })
 
 export const respondToApprovalFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { id: string; approved: boolean; comment?: string }) => data
   )
   .handler(async ({ data }): Promise<ApprovalSummary> => {

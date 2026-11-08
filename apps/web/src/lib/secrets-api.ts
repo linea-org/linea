@@ -20,7 +20,7 @@ async function parseErrorMessage(
 }
 
 export const listSecretsFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { environmentId: string }) => data)
+  .validator((data: { environmentId: string }) => data)
   .handler(async ({ data }): Promise<SecretSummary[]> => {
     const res = await apiFetch(`/environments/${data.environmentId}/secrets`)
     if (!res.ok) {
@@ -37,7 +37,7 @@ export type AiProviderKeyStatus = {
 }
 
 export const listAiProvidersFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { environmentId: string }) => data)
+  .validator((data: { environmentId: string }) => data)
   .handler(async ({ data }): Promise<AiProviderKeyStatus[]> => {
     const res = await apiFetch(
       `/environments/${data.environmentId}/secrets/providers`
@@ -51,7 +51,7 @@ export const listAiProvidersFn = createServerFn({ method: "GET" })
   })
 
 export const upsertSecretFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { environmentId: string; key: string; value: string }) => data
   )
   .handler(async ({ data }): Promise<SecretSummary> => {
@@ -70,7 +70,7 @@ export const upsertSecretFn = createServerFn({ method: "POST" })
   })
 
 export const deleteSecretFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { environmentId: string; key: string }) => data)
+  .validator((data: { environmentId: string; key: string }) => data)
   .handler(async ({ data }): Promise<void> => {
     const res = await apiFetch(
       `/environments/${data.environmentId}/secrets/${encodeURIComponent(data.key)}`,

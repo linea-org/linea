@@ -32,7 +32,7 @@ export const listOrganizationsFn = createServerFn({ method: "GET" }).handler(
 )
 
 export const setActiveOrganizationFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { organizationId: string }) => data)
+  .validator((data: { organizationId: string }) => data)
   .handler(async ({ data }) => {
     const res = await apiFetch("/auth/organization/set-active", {
       method: "POST",

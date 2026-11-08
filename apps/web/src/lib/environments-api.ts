@@ -23,7 +23,7 @@ export const environmentSchema = z.object({
 export type EnvironmentSummary = z.infer<typeof environmentSchema>
 
 export const listEnvironmentsFn = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ applicationId: z.uuid() }))
+  .validator(z.object({ applicationId: z.uuid() }))
   .handler(async ({ data }) => {
     const response = await apiFetch(
       `/applications/${data.applicationId}/environments`
@@ -44,7 +44,7 @@ const trustSchema = z.object({
 })
 
 export const replaceEnvironmentTrustFn = createServerFn({ method: "POST" })
-  .inputValidator(trustSchema)
+  .validator(trustSchema)
   .handler(async ({ data: { environmentId, ...trust } }) => {
     const response = await apiFetch(
       `/environments/${environmentId}/trust-configuration`,
@@ -62,7 +62,7 @@ export const replaceEnvironmentTrustFn = createServerFn({ method: "POST" })
   })
 
 export const updateEnvironmentRetentionFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     z.object({
       environmentId: z.uuid(),
       contentRetentionDays: z.number().int().min(1).max(3650),
@@ -79,7 +79,7 @@ export const updateEnvironmentRetentionFn = createServerFn({ method: "POST" })
   })
 
 export const disableEnvironmentFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ environmentId: z.uuid() }))
+  .validator(z.object({ environmentId: z.uuid() }))
   .handler(async ({ data }) => {
     const response = await apiFetch(
       `/environments/${data.environmentId}/disable`,

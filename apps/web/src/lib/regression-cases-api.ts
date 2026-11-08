@@ -22,9 +22,7 @@ export type RegressionCase = {
 }
 
 export const listRegressionCasesFn = createServerFn({ method: "GET" })
-  .inputValidator(
-    (data: { workflowId: string; includeArchived?: boolean }) => data
-  )
+  .validator((data: { workflowId: string; includeArchived?: boolean }) => data)
   .handler(async ({ data }): Promise<RegressionCase[]> => {
     const params = new URLSearchParams()
     if (data.includeArchived) params.set("includeArchived", "true")
@@ -39,7 +37,7 @@ export const listRegressionCasesFn = createServerFn({ method: "GET" })
   })
 
 export const createRegressionCaseFromStepFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { workflowId: string; stepId: string }) => data)
+  .validator((data: { workflowId: string; stepId: string }) => data)
   .handler(async ({ data }): Promise<RegressionCase> => {
     const res = await apiFetch(
       `/workflows/${data.workflowId}/regression-cases/from-step`,
@@ -61,7 +59,7 @@ export const createRegressionCaseFromStepFn = createServerFn({ method: "POST" })
   })
 
 export const createRegressionCaseFromFlagFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { workflowId: string; flagId: string }) => data)
+  .validator((data: { workflowId: string; flagId: string }) => data)
   .handler(async ({ data }): Promise<RegressionCase> => {
     const res = await apiFetch(
       `/workflows/${data.workflowId}/regression-cases/from-flag`,
@@ -83,7 +81,7 @@ export const createRegressionCaseFromFlagFn = createServerFn({ method: "POST" })
   })
 
 export const archiveRegressionCaseFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { workflowId: string; id: string }) => data)
+  .validator((data: { workflowId: string; id: string }) => data)
   .handler(async ({ data }): Promise<RegressionCase> => {
     const res = await apiFetch(
       `/workflows/${data.workflowId}/regression-cases/${data.id}/archive`,

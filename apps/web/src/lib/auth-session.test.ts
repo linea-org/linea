@@ -5,7 +5,7 @@ import { requireVerifiedUser } from "./auth-redirect"
 
 vi.mock("@tanstack/react-start", () => {
   const builder = {
-    inputValidator: () => builder,
+    validator: () => builder,
     handler: (handler: unknown) => handler,
   }
   return { createServerFn: () => builder }

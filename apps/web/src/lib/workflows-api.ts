@@ -52,7 +52,7 @@ export const listWorkflowsFn = createServerFn({ method: "GET" }).handler(
 )
 
 export const listApplicationWorkflowsFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { applicationId: string }) => data)
+  .validator((data: { applicationId: string }) => data)
   .handler(async ({ data }): Promise<WorkflowSummary[]> => {
     const res = await apiFetch(
       "/applications/" + data.applicationId + "/workflows"
@@ -78,7 +78,7 @@ export const listApplicationWorkflowsFn = createServerFn({ method: "GET" })
   })
 
 export const getWorkflowFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data }): Promise<WorkflowSummary> => {
     const res = await apiFetch(`/workflows/${data.id}`)
     if (!res.ok) {
@@ -88,7 +88,7 @@ export const getWorkflowFn = createServerFn({ method: "GET" })
   })
 
 export const createWorkflowFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       applicationId: string
       name: string
@@ -109,7 +109,7 @@ export const createWorkflowFn = createServerFn({ method: "POST" })
   })
 
 export const updateWorkflowFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { id: string; name: string; slug: string; description?: string }) =>
       data
   )
@@ -130,7 +130,7 @@ export const updateWorkflowFn = createServerFn({ method: "POST" })
   })
 
 export const getWorkflowVersionFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { id: string; versionId: string }) => data)
+  .validator((data: { id: string; versionId: string }) => data)
   .handler(async ({ data }): Promise<WorkflowVersionSummary> => {
     const res = await apiFetch(
       `/workflows/${data.id}/versions/${data.versionId}`
@@ -142,9 +142,7 @@ export const getWorkflowVersionFn = createServerFn({ method: "GET" })
   })
 
 export const saveWorkflowDraftFn = createServerFn({ method: "POST" })
-  .inputValidator(
-    (data: { id: string; graph: Record<string, JsonValue> }) => data
-  )
+  .validator((data: { id: string; graph: Record<string, JsonValue> }) => data)
   .handler(async ({ data }): Promise<WorkflowSummary> => {
     const res = await apiFetch(`/workflows/${data.id}/draft`, {
       method: "PUT",
@@ -160,7 +158,7 @@ export const saveWorkflowDraftFn = createServerFn({ method: "POST" })
 export type RealtimeToken = { token: string; expiresAt: number }
 
 export const mintWorkflowRealtimeTokenFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data }): Promise<RealtimeToken> => {
     const res = await apiFetch(`/workflows/${data.id}/realtime-token`, {
       method: "POST",
@@ -174,7 +172,7 @@ export const mintWorkflowRealtimeTokenFn = createServerFn({ method: "POST" })
   })
 
 export const createWorkflowVersionFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       id: string
       graph: Record<string, JsonValue>
@@ -196,7 +194,7 @@ export const createWorkflowVersionFn = createServerFn({ method: "POST" })
   })
 
 export const publishWorkflowVersionFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string; versionId: string }) => data)
+  .validator((data: { id: string; versionId: string }) => data)
   .handler(async ({ data }): Promise<WorkflowSummary> => {
     const res = await apiFetch(
       `/workflows/${data.id}/versions/${data.versionId}/publish`,

@@ -11,7 +11,7 @@ const versionSchema = z.object({
 })
 
 export const listDeploymentVersionsFn = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ workflowId: z.uuid() }))
+  .validator(z.object({ workflowId: z.uuid() }))
   .handler(async ({ data }) => {
     const response = await apiFetch(`/workflows/${data.workflowId}/versions`)
     if (!response.ok) throw new Error("Could not load Workflow versions")
@@ -19,7 +19,7 @@ export const listDeploymentVersionsFn = createServerFn({ method: "GET" })
   })
 
 export const listDeploymentsFn = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ environmentId: z.uuid() }))
+  .validator(z.object({ environmentId: z.uuid() }))
   .handler(async ({ data }) => {
     const response = await apiFetch(
       `/environments/${data.environmentId}/workflow-bindings`
@@ -31,7 +31,7 @@ export const listDeploymentsFn = createServerFn({ method: "GET" })
   })
 
 export const deployWorkflowFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     z.object({
       environmentId: z.uuid(),
       workflowId: z.uuid(),

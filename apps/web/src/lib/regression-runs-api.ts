@@ -36,7 +36,7 @@ export type RegressionRunDetail = RegressionRun & {
 }
 
 export const listRegressionRunsFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { workflowId: string }) => data)
+  .validator((data: { workflowId: string }) => data)
   .handler(async ({ data }): Promise<RegressionRun[]> => {
     const res = await apiFetch(`/workflows/${data.workflowId}/regression-runs`)
     if (!res.ok) {
@@ -46,7 +46,7 @@ export const listRegressionRunsFn = createServerFn({ method: "GET" })
   })
 
 export const getRegressionRunFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { workflowId: string; id: string }) => data)
+  .validator((data: { workflowId: string; id: string }) => data)
   .handler(async ({ data }): Promise<RegressionRunDetail> => {
     const res = await apiFetch(
       `/workflows/${data.workflowId}/regression-runs/${data.id}`
@@ -58,7 +58,7 @@ export const getRegressionRunFn = createServerFn({ method: "GET" })
   })
 
 export const triggerRegressionRunFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { workflowId: string }) => data)
+  .validator((data: { workflowId: string }) => data)
   .handler(async ({ data }): Promise<{ queued: true }> => {
     const res = await apiFetch(
       `/workflows/${data.workflowId}/regression-runs`,

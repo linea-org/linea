@@ -38,7 +38,7 @@ async function parseErrorMessage(
 }
 
 export const sendChatMessageFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       workflowId: string
       graph: Record<string, JsonValue>
@@ -65,9 +65,7 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
   })
 
 export const listChatMessagesFn = createServerFn({ method: "GET" })
-  .inputValidator(
-    (data: { workflowId: string; conversationId: string }) => data
-  )
+  .validator((data: { workflowId: string; conversationId: string }) => data)
   .handler(async ({ data }): Promise<ChatMessage[]> => {
     const res = await apiFetch(
       `/workflows/${data.workflowId}/chat-preview/${data.conversationId}/messages`
@@ -79,7 +77,7 @@ export const listChatMessagesFn = createServerFn({ method: "GET" })
   })
 
 export const listConversationsFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { workflowId: string }) => data)
+  .validator((data: { workflowId: string }) => data)
   .handler(async ({ data }): Promise<ConversationSummary[]> => {
     const res = await apiFetch(
       `/workflows/${data.workflowId}/chat-preview/conversations`

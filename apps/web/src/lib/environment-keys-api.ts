@@ -12,7 +12,7 @@ const keySchema = z.object({
 })
 
 export const listEnvironmentKeysFn = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ environmentId: z.uuid() }))
+  .validator(z.object({ environmentId: z.uuid() }))
   .handler(async ({ data }) => {
     const response = await apiFetch(`/environments/${data.environmentId}/keys`)
     if (!response.ok) throw new Error("Could not load Environment keys")
@@ -20,7 +20,7 @@ export const listEnvironmentKeysFn = createServerFn({ method: "GET" })
   })
 
 export const createEnvironmentKeyFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     z.object({
       environmentId: z.uuid(),
       name: z.string().trim().min(1).max(100),
@@ -38,7 +38,7 @@ export const createEnvironmentKeyFn = createServerFn({ method: "POST" })
   })
 
 export const revokeEnvironmentKeyFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ environmentId: z.uuid(), keyId: z.uuid() }))
+  .validator(z.object({ environmentId: z.uuid(), keyId: z.uuid() }))
   .handler(async ({ data }) => {
     const response = await apiFetch(
       `/environments/${data.environmentId}/keys/${data.keyId}`,
@@ -49,7 +49,7 @@ export const revokeEnvironmentKeyFn = createServerFn({ method: "POST" })
   })
 
 export const rotateEnvironmentKeyFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ environmentId: z.uuid(), keyId: z.uuid() }))
+  .validator(z.object({ environmentId: z.uuid(), keyId: z.uuid() }))
   .handler(async ({ data }) => {
     const response = await apiFetch(
       `/environments/${data.environmentId}/keys/${data.keyId}/rotate`,

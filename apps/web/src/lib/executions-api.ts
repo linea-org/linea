@@ -31,7 +31,7 @@ export type WorkspaceExecutionSummary = ExecutionSummary & {
 }
 
 export const listExecutionsFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { workflowId: string }) => data)
+  .validator((data: { workflowId: string }) => data)
   .handler(async ({ data }): Promise<ExecutionSummary[]> => {
     const res = await apiFetch(`/workflows/${data.workflowId}/executions`)
     if (!res.ok) {
@@ -41,7 +41,7 @@ export const listExecutionsFn = createServerFn({ method: "GET" })
   })
 
 export const triggerExecutionFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { workflowId: string }) => data)
+  .validator((data: { workflowId: string }) => data)
   .handler(async ({ data }): Promise<ExecutionSummary> => {
     const res = await apiFetch(`/workflows/${data.workflowId}/executions`, {
       method: "POST",
@@ -58,7 +58,7 @@ export const triggerExecutionFn = createServerFn({ method: "POST" })
   })
 
 export const testRunFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { workflowId: string; graph: Record<string, JsonValue> }) => data
   )
   .handler(async ({ data }): Promise<ExecutionSummary> => {
@@ -87,7 +87,7 @@ export const getExecutionFn = createServerFn({ method: "GET" })
   })
 
 export const replayStepFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       executionId: string
       stepId: string
@@ -133,7 +133,7 @@ export function encodeExecutionCursor(row: { createdAt: string; id: string }) {
 }
 
 export const listWorkspaceExecutionsFn = createServerFn({ method: "GET" })
-  .inputValidator((data: WorkspaceExecutionFilters) => data)
+  .validator((data: WorkspaceExecutionFilters) => data)
   .handler(async ({ data }): Promise<WorkspaceExecutionPage> => {
     const params = new URLSearchParams()
     if (data.status) params.set("status", data.status)
@@ -165,7 +165,7 @@ export type NewWorkspaceExecutionsFilters = {
 }
 
 export const countNewWorkspaceExecutionsFn = createServerFn({ method: "GET" })
-  .inputValidator((data: NewWorkspaceExecutionsFilters) => data)
+  .validator((data: NewWorkspaceExecutionsFilters) => data)
   .handler(async ({ data }): Promise<{ count: number }> => {
     const params = new URLSearchParams()
     if (data.status) params.set("status", data.status)
