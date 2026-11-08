@@ -45,6 +45,11 @@ import { WhatsNew } from "./whats-new"
 import { TopBarSearch } from "./top-bar-search"
 import { WorkspaceSwitcher, type WorkspaceOption } from "./workspace-switcher"
 import { WorkspaceTopBar } from "./workspace-top-bar"
+import {
+  WORKFLOW_STATUS_FILTERS,
+  isWorkflowStatusFilter,
+  type WorkflowStatusFilter,
+} from "@/lib/workflow-status-filter"
 
 export const WorkspaceOverlayNavContext = createContext<(() => void) | null>(
   null
@@ -71,22 +76,16 @@ function InsetCollapseEdge() {
   )
 }
 
-const WORKFLOW_LIST_STATUSES = ["Draft", "Published", "Archived"] as const
-type WorkflowListStatus = (typeof WORKFLOW_LIST_STATUSES)[number]
 const workflowSectionIcon = {
   Draft: FilePenIcon,
   Published: CircleCheckIcon,
   Archived: ArchiveIcon,
 } as const
-function workflowListStatus(search: unknown): WorkflowListStatus | undefined {
+function workflowListStatus(search: unknown): WorkflowStatusFilter | undefined {
   if (typeof search !== "object" || search === null || !("status" in search)) {
     return undefined
   }
-  const status = search.status
-  if (status === "Draft" || status === "Published" || status === "Archived") {
-    return status
-  }
-  return undefined
+  return isWorkflowStatusFilter(search.status) ? search.status : undefined
 }
 function MainNav({ slug, pathname }: { slug: string; pathname: string }) {
   const matchRoute = useMatchRoute()
@@ -185,7 +184,7 @@ function WorkflowSectionNav({
   onIndex,
 }: {
   slug: string
-  status: WorkflowListStatus | undefined
+  status: WorkflowStatusFilter | undefined
   onIndex: boolean
 }) {
   return (
@@ -235,7 +234,7 @@ function WorkflowSectionNav({
                 <span>Overview</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            {WORKFLOW_LIST_STATUSES.map((filter) => {
+            {WORKFLOW_STATUS_FILTERS.map((filter) => {
               const Icon = workflowSectionIcon[filter]
               return (
                 <SidebarMenuItem key={filter}>

@@ -20,11 +20,11 @@ import {
   stepTitle,
   stepStatusLabel,
   stepStatusVariant,
-  formatStepDuration,
   formatJson,
   isNodeTypeId,
 } from "./execution-step-presentation"
 import { ErrorCallout } from "./error-callout"
+import { formatDuration } from "@/lib/format"
 
 function StepPayload({
   label,
@@ -117,7 +117,7 @@ export function ExecutionStepDetails({
             {stepStatusLabel[step.status]}
           </Badge>
           <span className="tabular-nums">
-            {formatStepDuration(step.startedAt, step.endedAt)}
+            {formatDuration(step.startedAt, step.endedAt)}
           </span>
           <span>Attempt {step.attempt}</span>
           <span>

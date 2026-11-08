@@ -24,19 +24,13 @@ import type {
 } from "@/lib/executions-api"
 import { ExecutionStatusBadge, formatCost } from "../executions"
 import { HomePanel } from "./home-panel"
+import { formatDuration } from "@/lib/format"
 
 const triggerLabel: Record<ExecutionTrigger, string> = {
   manual: "Manual",
   schedule: "Schedule",
   webhook: "Webhook",
   api: "API",
-}
-
-function formatDuration(startedAt: string | null, completedAt: string | null) {
-  if (!startedAt) return "—"
-  if (!completedAt) return "Running…"
-  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 
 export function RecentExecutionsWidget({

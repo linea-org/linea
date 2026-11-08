@@ -10,14 +10,7 @@ import {
 } from "@linea/ui/components/table"
 import { PlayfulAvatar } from "@/components/avatar"
 import { listAgentsFn } from "@/lib/agents-api"
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value))
-}
+import { formatDate } from "@/lib/format"
 
 export function ApplicationAgents({
   workspaceSlug,

@@ -38,9 +38,3 @@ export function formatJson(value: unknown): string {
   }
   return JSON.stringify(value, null, 2)
 }
-
-export function formatStepDuration(startedAt: string, endedAt: string | null) {
-  if (!endedAt) return "Running…"
-  const ms = new Date(endedAt).getTime() - new Date(startedAt).getTime()
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
-}

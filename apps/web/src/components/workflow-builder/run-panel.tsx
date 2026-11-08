@@ -30,15 +30,9 @@ import {
   executionQueryOptions,
   executionsQueryOptions,
 } from "@/lib/executions-api"
+import { formatDuration } from "@/lib/format"
 
 const activeStatuses = new Set(["queued", "running", "paused"])
-
-function formatDuration(startedAt: string | null, completedAt: string | null) {
-  if (!startedAt) return "—"
-  if (!completedAt) return "Running…"
-  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
-}
 
 export function RunPanel({
   slug,

@@ -16,6 +16,7 @@ import { ErrorCallout } from "./error-callout"
 import { ExecutionStatusBadge } from "./execution-status-badge"
 import { ExecutionTraceWorkspace } from "./execution-trace-workspace"
 import { formatCost } from "./execution-list"
+import { formatElapsed } from "@/lib/format"
 
 const triggerLabel: Record<ExecutionTrigger, string> = {
   manual: "Manual",
@@ -53,18 +54,12 @@ export async function loadExecutionDetail(
   return { detail, workflow }
 }
 
-function formatDuration(startedAt: string | null, completedAt: string | null) {
-  if (!startedAt || !completedAt) return "—"
-  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
-}
-
 function executionDuration(
   execution: ExecutionDetail,
   steps: ExecutionDetailResponse["steps"]
 ) {
-  if (execution.completedAt) {
-    return formatDuration(execution.startedAt, execution.completedAt)
+  if (execution.startedAt && execution.completedAt) {
+    return formatElapsed(execution.startedAt, execution.completedAt)
   }
   switch (execution.status) {
     case "queued":
@@ -75,8 +70,8 @@ function executionDuration(
         .flatMap((step) => (step.endedAt ? [step.endedAt] : []))
         .sort()
         .at(-1)
-      return lastEnded
-        ? formatDuration(execution.startedAt, lastEnded)
+      return execution.startedAt && lastEnded
+        ? formatElapsed(execution.startedAt, lastEnded)
         : "Paused"
     }
     case "succeeded":

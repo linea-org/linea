@@ -61,6 +61,7 @@ import {
   removeMember,
   updateMemberRole,
 } from "@/lib/auth-queries"
+import { formatDate } from "@/lib/format"
 
 export const Route = createFileRoute("/w/$slug/settings/members")({
   component: MembersPage,
@@ -75,14 +76,6 @@ function roleLabel(role: string) {
   if (role === "owner") return "Owner"
   if (role === "admin") return "Admin"
   return "Member"
-}
-
-function formatDate(value: Date | string) {
-  return new Intl.DateTimeFormat(undefined, {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value))
 }
 
 function RowOptions({

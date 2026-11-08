@@ -17,6 +17,7 @@ import {
   workflowsQueryOptions,
   type WorkflowSummary,
 } from "@/lib/workflows-api"
+import { formatDate } from "@/lib/format"
 
 export function ApplicationWorkflowCreateButton({
   workspaceSlug,
@@ -56,14 +57,6 @@ export function ApplicationWorkflowCreateButton({
       }}
     />
   )
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value))
 }
 
 export function ApplicationWorkflows({

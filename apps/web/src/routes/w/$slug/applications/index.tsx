@@ -40,6 +40,7 @@ import {
   listApplicationsFn,
   type ApplicationSummary,
 } from "@/lib/applications-api"
+import { formatDate } from "@/lib/format"
 
 export const Route = createFileRoute("/w/$slug/applications/")({
   loader: () => listApplicationsFn(),
@@ -48,14 +49,6 @@ export const Route = createFileRoute("/w/$slug/applications/")({
 
 type ApplicationSort = "updated" | "name"
 type ApplicationView = "grid" | "list"
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value))
-}
 
 function ApplicationsPage() {
   const { slug } = Route.useParams()

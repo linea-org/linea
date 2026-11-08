@@ -29,6 +29,7 @@ import type {
   ExecutionSummary,
 } from "@/lib/executions-api"
 import { ExecutionStatusBadge } from "./execution-status-badge"
+import { formatDuration } from "@/lib/format"
 
 const triggerLabel: Record<ExecutionSummary["trigger"], string> = {
   manual: "Manual",
@@ -41,13 +42,6 @@ const environmentLabel: Record<ExecutionSummary["environment"], string> = {
   draft: "Draft",
   dev: "Dev",
   production: "Production",
-}
-
-function formatDuration(startedAt: string | null, completedAt: string | null) {
-  if (!startedAt) return "—"
-  if (!completedAt) return "Running…"
-  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 
 /** No attribute on a succeeded "ai" step means it predates cost tracking, same tri-state as checkpoints.service.ts's stepCostUnpricedState. */

@@ -50,6 +50,14 @@ export function AgentDeploymentForm({
     },
   })
   const published = versions.filter((version) => version.publishedAt)
+  const versionLabel = (version: (typeof versions)[number]) => {
+    const revision = contracts.find(
+      (contract) => contract.id === version.agentContractRevisionId
+    )?.revision
+    return revision === undefined
+      ? `Version ${version.version}`
+      : `Version ${version.version} · Contract revision ${revision}`
+  }
   const deploy = useMutation({
     mutationFn: (input: DeploymentInput) => {
       const version = published.find(
@@ -96,7 +104,7 @@ export function AgentDeploymentForm({
                 value={field.value || null}
                 items={published.map((version) => ({
                   value: version.id,
-                  label: `Version ${version.version} · Contract revision ${contracts.find((contract) => contract.id === version.agentContractRevisionId)?.revision}`,
+                  label: versionLabel(version),
                 }))}
                 disabled={
                   published.length === 0 ||
@@ -124,13 +132,7 @@ export function AgentDeploymentForm({
                 <SelectContent>
                   {published.map((version) => (
                     <SelectItem key={version.id} value={version.id}>
-                      Version {version.version} · Contract revision{" "}
-                      {
-                        contracts.find(
-                          (contract) =>
-                            contract.id === version.agentContractRevisionId
-                        )?.revision
-                      }
+                      {versionLabel(version)}
                     </SelectItem>
                   ))}
                 </SelectContent>

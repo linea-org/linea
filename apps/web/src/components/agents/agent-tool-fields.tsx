@@ -55,8 +55,7 @@ function toolName(id: string) {
       index === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
     )
     .join("")
-  if (!/^[a-zA-Z]\w*$/.test(name)) throw new Error(`Cannot name tool ${id}`)
-  return name
+  return /^[a-zA-Z]\w*$/.test(name) ? name : ""
 }
 
 function effectLabel(classification: "read" | "side_effect") {

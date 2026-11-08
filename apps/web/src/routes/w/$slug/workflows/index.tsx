@@ -63,25 +63,16 @@ import {
   applicationsQueryOptions,
   listApplicationsFn,
 } from "@/lib/applications-api"
+import { formatDate } from "@/lib/format"
+import {
+  WORKFLOW_STATUS_FILTERS,
+  isWorkflowStatusFilter,
+} from "@/lib/workflow-status-filter"
 
-const STATUS_FILTERS = ["Draft", "Published", "Archived"] as const
-type StatusFilter = (typeof STATUS_FILTERS)[number]
 const workflowsSearchSchema = z.object({
   applicationId: z.uuid().optional(),
-  status: z.enum(STATUS_FILTERS).optional(),
+  status: z.enum(WORKFLOW_STATUS_FILTERS).optional(),
 })
-
-function isStatusFilter(value: string): value is StatusFilter {
-  return STATUS_FILTERS.includes(value as StatusFilter)
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value))
-}
 
 type WorkflowSortColumn = "workflow" | "application" | "status" | "updated"
 type SortDirection = "asc" | "desc"
@@ -345,7 +336,9 @@ function WorkflowsListPage() {
               search: {
                 applicationId,
                 status:
-                  value !== "all" && isStatusFilter(value) ? value : undefined,
+                  value !== "all" && isWorkflowStatusFilter(value)
+                    ? value
+                    : undefined,
               },
             })
           }}
@@ -357,7 +350,7 @@ function WorkflowsListPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
-            {STATUS_FILTERS.map((filter) => (
+            {WORKFLOW_STATUS_FILTERS.map((filter) => (
               <SelectItem key={filter} value={filter}>
                 {filter}
               </SelectItem>

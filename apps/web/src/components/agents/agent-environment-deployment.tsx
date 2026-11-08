@@ -6,19 +6,7 @@ import { listAgentDeploymentsFn } from "@/lib/agent-deployments-api"
 import type { AgentContract, AgentVersion } from "@/lib/agent-schemas"
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import { AgentDeploymentForm } from "./agent-deployment-form"
-
-function environmentName(environment: EnvironmentSummary["environment"]) {
-  switch (environment) {
-    case "dev":
-      return "Development"
-    case "production":
-      return "Production"
-    default: {
-      const unreachable: never = environment
-      return unreachable
-    }
-  }
-}
+import { environmentName } from "@/components/applications/environment-settings"
 
 export function AgentEnvironmentDeployment({
   workspaceSlug,

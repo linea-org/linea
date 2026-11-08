@@ -69,6 +69,7 @@ import {
   type ExecutionTrigger,
   type WorkspaceExecutionSummary,
 } from "@/lib/executions-api"
+import { formatElapsed } from "@/lib/format"
 
 const EXECUTION_STATUSES: ExecutionStatus[] = [
   "queued",
@@ -134,8 +135,7 @@ function formatDuration(
   status: ExecutionStatus
 ) {
   if (startedAt && completedAt) {
-    const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
-    return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
+    return formatElapsed(startedAt, completedAt)
   }
   switch (status) {
     case "queued":
