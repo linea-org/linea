@@ -521,10 +521,15 @@ export class ConnectorGateway {
     input: SideEffectExecutionInput,
     claimed: Extract<ActionIntentClaim, { outcome: "claimed" | "recovered" }>
   ): Promise<SideEffectExecutionResult> {
+    const execution = await repositories.execution.getExecutionById(
+      this.db,
+      input.executionId
+    )
+    if (!execution) throw new Error("Connector Execution is missing")
     if (
       claimed.outcome === "recovered" &&
       claimed.intent.dispatchStartedAt &&
-      operation.retrySafety === "none"
+      (operation.retrySafety === "none" || execution.agentId !== null)
     ) {
       await this.failSideEffect(
         claimed.intent,
@@ -639,8 +644,16 @@ export class ConnectorGateway {
     const preconditions = operation.preconditionsSchema.parse(
       claimed.canonicalEnvelope.providerPreconditions
     )
+    const execution = await repositories.execution.getExecutionById(
+      this.db,
+      claimed.executionId
+    )
+    if (!execution) throw new Error("Connector Execution is missing")
     const maximumAttempts =
-      operation.retrySafety === "provider_idempotency" ? 2 : 1
+      operation.retrySafety === "provider_idempotency" &&
+      execution.agentId === null
+        ? 2
+        : 1
     if (!claimed.dispatchStartedAt) {
       await this.requireCurrentProviderPreconditions(
         operation,

@@ -89,12 +89,19 @@ export const publicExecutionStatusSchema = z.enum([
   "cancelled",
 ])
 
-export const startEnvironmentExecutionSchema = z.strictObject({
-  workflowId: publicRuntimeIdSchema,
-  externalSubjectId: publicRuntimeIdSchema,
-  conversationId: publicRuntimeIdSchema.optional(),
-  input: publicExecutionInputSchema,
-})
+export const startEnvironmentExecutionSchema = z.union([
+  z.strictObject({
+    workflowId: publicRuntimeIdSchema,
+    externalSubjectId: publicRuntimeIdSchema,
+    conversationId: publicRuntimeIdSchema.optional(),
+    input: publicExecutionInputSchema,
+  }),
+  z.strictObject({
+    agentId: publicRuntimeIdSchema,
+    externalSubjectId: publicRuntimeIdSchema,
+    input: publicExecutionInputSchema,
+  }),
+])
 
 export const startEndUserExecutionSchema = z.strictObject({
   workflowId: publicRuntimeIdSchema,
@@ -102,10 +109,9 @@ export const startEndUserExecutionSchema = z.strictObject({
   input: publicExecutionInputSchema,
 })
 
-export const publicExecutionSchema = z.strictObject({
+const publicExecutionFields = {
   id: publicRuntimeIdSchema,
   environmentId: publicRuntimeIdSchema,
-  workflowId: publicRuntimeIdSchema,
   externalSubjectId: publicRuntimeIdSchema,
   conversationId: publicRuntimeIdSchema.nullable(),
   status: publicExecutionStatusSchema,
@@ -116,7 +122,19 @@ export const publicExecutionSchema = z.strictObject({
   createdAt: timestampSchema,
   startedAt: timestampSchema.nullable(),
   completedAt: timestampSchema.nullable(),
-})
+}
+
+export const publicExecutionSchema = z.union([
+  z.strictObject({
+    ...publicExecutionFields,
+    workflowId: publicRuntimeIdSchema,
+  }),
+  z.strictObject({
+    ...publicExecutionFields,
+    workflowId: z.null(),
+    agentId: publicRuntimeIdSchema,
+  }),
+])
 
 export type StartEnvironmentExecution = z.infer<
   typeof startEnvironmentExecutionSchema

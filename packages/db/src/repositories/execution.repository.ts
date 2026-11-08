@@ -3,6 +3,7 @@ import {
   environments,
   environmentWorkflowBindings,
   workflowVersions,
+  agents,
   executions,
   executionSteps,
   workflows,
@@ -309,6 +310,7 @@ export async function renewLease(
 }
 
 export type CompleteExecutionInput = {
+  output?: unknown
   status: "succeeded" | "failed" | "cancelled"
   error?: { message: string; stepId?: string }
   costMicros: bigint
@@ -533,11 +535,12 @@ export async function listWorkspaceExecutions(
     db
       .select({
         execution: executions,
-        workflowName: workflows.name,
-        workflowSlug: workflows.slug,
+        workflowName: sql<string>`coalesce(${workflows.name}, ${agents.name})`,
+        workflowSlug: sql<string>`coalesce(${workflows.slug}, ${agents.slug})`,
       })
       .from(executions)
-      .innerJoin(workflows, eq(executions.workflowId, workflows.id))
+      .leftJoin(workflows, eq(executions.workflowId, workflows.id))
+      .leftJoin(agents, eq(executions.agentId, agents.id))
       .where(where)
       .orderBy(desc(executions.createdAt), desc(executions.id))
       // One extra row, so hasMore is known without a second query.

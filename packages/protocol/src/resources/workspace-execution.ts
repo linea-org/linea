@@ -24,8 +24,9 @@ export const workspaceExecutionEnvironmentSchema = z.enum([
 export const workspaceExecutionSchema = z.object({
   id: z.string(),
   workspaceId: z.string(),
-  workflowId: z.string(),
-  workflowVersionId: z.string(),
+  workflowId: z.string().nullable(),
+  agentId: z.string().nullable().optional(),
+  workflowVersionId: z.string().nullable(),
   environmentId: z.string().nullable(),
   workflowContractRevisionId: z.string().nullable(),
   status: workspaceExecutionStatusSchema,

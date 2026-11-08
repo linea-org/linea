@@ -34,6 +34,8 @@ import { TransformNode } from "../graph/nodes/transform.node"
 import { VariablesNode } from "../graph/nodes/variables.node"
 import { WaitNode } from "../graph/nodes/wait.node"
 import { RunLeaseService } from "../runs/run-lease.service"
+import { AgentExecutionService } from "../runs/agent-execution.service"
+import { ConnectorGatewayService } from "./connector-gateway.service"
 import { RunsService } from "../runs/runs.service"
 
 type ProviderRequest = {
@@ -405,7 +407,12 @@ function runs(): RunsService {
     new VariablesNode(),
     new ConnectorNode()
   )
-  return new RunsService(checkpoints, interpreter, new RunLeaseService())
+  return new RunsService(
+    checkpoints,
+    interpreter,
+    new RunLeaseService(),
+    new AgentExecutionService(checkpoints, new ConnectorGatewayService())
+  )
 }
 
 function invoke(

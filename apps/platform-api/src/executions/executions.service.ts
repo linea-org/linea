@@ -277,10 +277,12 @@ export class ExecutionsService {
       throw new NotFoundException('Execution not found')
     }
 
-    const version = await repositories.workflow.getWorkflowVersionById(
-      db,
-      result.execution.workflowVersionId,
-    )
+    const version = result.execution.workflowVersionId
+      ? await repositories.workflow.getWorkflowVersionById(
+          db,
+          result.execution.workflowVersionId,
+        )
+      : undefined
     const nodeConfigs: Record<string, Record<string, unknown>> = {}
     const nodeTypes: Record<string, string> = {}
     if (version) {
@@ -292,6 +294,7 @@ export class ExecutionsService {
     }
 
     const replayable =
+      result.execution.workflowId !== null &&
       result.execution.origin === 'native' &&
       repositories.execution.terminalStatuses.includes(result.execution.status)
 
@@ -305,8 +308,8 @@ export class ExecutionsService {
         repositories.waitTimer.getPendingWaitTimerForExecution(db, id),
       ])
       const nodeId = pendingApproval?.nodeId ?? pendingWaitTimer?.nodeId
-      if (nodeId && nodeTypes[nodeId]) {
-        pausedAtNode = { nodeId, type: nodeTypes[nodeId] }
+      if (nodeId && (nodeTypes[nodeId] || result.execution.agentId)) {
+        pausedAtNode = { nodeId, type: nodeTypes[nodeId] ?? 'connector' }
       }
     }
 
@@ -327,6 +330,7 @@ export class ExecutionsService {
       throw new NotFoundException('Execution not found')
     }
     if (
+      result.execution.agentId !== null ||
       result.execution.origin !== 'native' ||
       !repositories.execution.terminalStatuses.includes(result.execution.status)
     ) {

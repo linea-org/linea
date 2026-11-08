@@ -40,7 +40,7 @@ type Idempotency = {
   requestHash: string
 }
 
-async function resolveSubject(
+export async function resolveSubject(
   db: DbClient,
   workspaceId: string,
   environmentId: string,

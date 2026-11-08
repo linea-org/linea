@@ -197,7 +197,11 @@ export async function getWorkflowIdsWithBranchSteps(
     .from(executionSteps)
     .innerJoin(executions, eq(executions.id, executionSteps.executionId))
     .where(eq(executionSteps.name, "branch"))
-  return rows
+  return rows.flatMap((row) =>
+    row.workflowId
+      ? [{ workflowId: row.workflowId, workspaceId: row.workspaceId }]
+      : []
+  )
 }
 
 /** The set of `branch` output values observed for one node, scoped to a single workflow version — a node id can be reused across versions with a different set of edges/conditions, so mixing versions could credit a condition as taken by coincidence. */

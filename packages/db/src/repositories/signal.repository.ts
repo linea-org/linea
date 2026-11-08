@@ -26,7 +26,7 @@ async function resolveWorkflowId(
     .select({ workflowId: executions.workflowId })
     .from(executions)
     .where(eq(executions.id, flag.executionId))
-  return execution?.workflowId
+  return execution?.workflowId ?? undefined
 }
 
 export type SignalOccurrenceResult = { signal: Signal; justRegressed: boolean }

@@ -21,7 +21,6 @@
     "test:cov": "jest --coverage"
   },
   "dependencies": {
-    "dotenv": "17.4.2",
     "@linea/ai": "workspace:*",
     "@linea/auth": "workspace:*",
     "@linea/config": "workspace:*",
@@ -32,9 +31,12 @@
     "@linea/runtime": "workspace:*",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
+    "ajv": "8.20.0",
     "bullmq": "^5",
+    "dotenv": "17.4.2",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",

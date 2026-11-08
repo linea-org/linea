@@ -41,7 +41,7 @@ export class ReplayService {
       db,
       originalStep.executionId
     )
-    if (!execution) {
+    if (!execution || !execution.workflowVersionId || !execution.workflowId) {
       this.logger.error(
         `Replay ${job.replayStepId}: execution ${originalStep.executionId} not found`
       )
@@ -249,7 +249,7 @@ export class ReplayService {
         // since a node like Wait can't tell "no execution" apart from "id genuinely absent."
         execution.id,
         undefined,
-        execution.workflowId,
+        execution.workflowId ?? undefined,
         undefined,
         undefined,
         undefined,

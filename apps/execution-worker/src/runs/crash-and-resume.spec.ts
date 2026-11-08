@@ -17,6 +17,8 @@ import { MergeNode } from "../graph/nodes/merge.node"
 import { VariablesNode } from "../graph/nodes/variables.node"
 import { TransformNode } from "../graph/nodes/transform.node"
 import { RunLeaseService } from "./run-lease.service"
+import { AgentExecutionService } from "./agent-execution.service"
+import { ConnectorGatewayService } from "../connectors/connector-gateway.service"
 import { RunsService } from "./runs.service"
 
 function buildLinearTransformGraph(nodeCount: number): WorkflowGraph {
@@ -125,7 +127,8 @@ describe("crash-and-resume", () => {
       const runs = new RunsService(
         checkpoints,
         interpreter,
-        new RunLeaseService()
+        new RunLeaseService(),
+        new AgentExecutionService(checkpoints, new ConnectorGatewayService())
       )
       await runs.execute(execution.id)
       const [finalExecution] = await repositories.execution.listExecutions(
