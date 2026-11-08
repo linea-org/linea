@@ -403,13 +403,11 @@ it("records a failed ai step when the model provider fails", async () => {
   await expect(runs.execute(execution.id)).rejects.toThrow(
     "provider unavailable"
   )
-  expect(await failedSteps(execution.id)).toEqual([
-    expect.objectContaining({
-      name: "ai",
-      node_id: "agent:model:0",
-      error: expect.objectContaining({ message: "provider unavailable" }),
-    }),
-  ])
+  const [step, ...rest] = await failedSteps(execution.id)
+  expect(rest).toEqual([])
+  expect(step.name).toBe("ai")
+  expect(step.node_id).toBe("agent:model:0")
+  expect(step.error?.message).toBe("provider unavailable")
 })
 
 it("records a failed connector step when a tool call fails, but not for an approval pause", async () => {
