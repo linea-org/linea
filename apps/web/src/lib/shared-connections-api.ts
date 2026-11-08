@@ -43,7 +43,7 @@ async function response(
   return responseBody
 }
 export const listSharedConnectionsFn = createServerFn({ method: "GET" })
-  .inputValidator(environmentInput)
+  .validator(environmentInput)
   .handler(async ({ data }) =>
     environmentConnectionsSchema.parse(
       await response(
@@ -54,7 +54,7 @@ export const listSharedConnectionsFn = createServerFn({ method: "GET" })
     )
   )
 export const createGithubInstallationFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     createGithubInstallationConnectionSchema.extend({ environmentId: z.uuid() })
   )
   .handler(async ({ data: { environmentId, ...input } }) =>
@@ -67,7 +67,7 @@ export const createGithubInstallationFn = createServerFn({ method: "POST" })
     )
   )
 export const listConnectionAuthoritiesFn = createServerFn({ method: "GET" })
-  .inputValidator(connectionInput)
+  .validator(connectionInput)
   .handler(async ({ data }) =>
     connectionAuthoritiesSchema.parse(
       await response(
@@ -78,7 +78,7 @@ export const listConnectionAuthoritiesFn = createServerFn({ method: "GET" })
     )
   )
 export const assignConnectionAuthorityFn = createServerFn({ method: "POST" })
-  .inputValidator(assignmentInput.extend({ externalSubjectId: z.uuid() }))
+  .validator(assignmentInput.extend({ externalSubjectId: z.uuid() }))
   .handler(async ({ data }) =>
     connectionAuthorityRecordSchema.parse(
       await response(
@@ -89,7 +89,7 @@ export const assignConnectionAuthorityFn = createServerFn({ method: "POST" })
     )
   )
 export const revokeConnectionAuthorityFn = createServerFn({ method: "POST" })
-  .inputValidator(assignmentInput.extend({ authorizationId: z.uuid() }))
+  .validator(assignmentInput.extend({ authorizationId: z.uuid() }))
   .handler(async ({ data }) =>
     connectionAuthorityRecordSchema.parse(
       await response(
@@ -100,7 +100,7 @@ export const revokeConnectionAuthorityFn = createServerFn({ method: "POST" })
     )
   )
 export const revokeSharedConnectionFn = createServerFn({ method: "POST" })
-  .inputValidator(connectionInput)
+  .validator(connectionInput)
   .handler(async ({ data }) =>
     connectionSchema.parse(
       await response(
@@ -111,9 +111,7 @@ export const revokeSharedConnectionFn = createServerFn({ method: "POST" })
     )
   )
 export const replaceConnectorPolicyFn = createServerFn({ method: "POST" })
-  .inputValidator(
-    environmentInput.extend({ policy: connectorAccessPolicySchema })
-  )
+  .validator(environmentInput.extend({ policy: connectorAccessPolicySchema }))
   .handler(async ({ data }) => {
     await response(
       `/environments/${data.environmentId}/connector-access-policy`,
@@ -124,7 +122,7 @@ export const replaceConnectorPolicyFn = createServerFn({ method: "POST" })
 export const listEnvironmentConnectionOutcomesFn = createServerFn({
   method: "GET",
 })
-  .inputValidator(environmentInput.extend({ cursor: z.string().optional() }))
+  .validator(environmentInput.extend({ cursor: z.string().optional() }))
   .handler(async ({ data }) => {
     const query = new URLSearchParams({
       environmentId: data.environmentId,

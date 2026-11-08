@@ -6,7 +6,9 @@ import { apiFetch } from "./api-fetch"
 export const fetchSessionFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<SessionData | null> => {
     const res = await apiFetch("/auth/get-session")
-    if (!res.ok) return null
+    if (res.status === 401) return null
+    if (!res.ok)
+      throw new Error("Could not verify your session. Please try again.")
     const data = (await res.json()) as SessionData | null
     if (!data?.user || !data?.session) return null
     return data
@@ -22,14 +24,15 @@ export type OrganizationSummary = {
 export const listOrganizationsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<OrganizationSummary[]> => {
     const res = await apiFetch("/auth/organization/list")
-    if (!res.ok) return []
+    if (!res.ok)
+      throw new Error("Could not load your workspaces. Please try again.")
     const data = (await res.json()) as OrganizationSummary[] | null
     return data ?? []
   }
 )
 
 export const setActiveOrganizationFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { organizationId: string }) => data)
+  .validator((data: { organizationId: string }) => data)
   .handler(async ({ data }) => {
     const res = await apiFetch("/auth/organization/set-active", {
       method: "POST",

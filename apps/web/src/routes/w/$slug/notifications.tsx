@@ -14,6 +14,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
 
 import { NotificationRow } from "@/components/notifications"
+import { PageToolbar } from "@/components/workspace/page-toolbar"
 import {
   archiveNotificationFn,
   deleteNotificationFn,
@@ -71,15 +72,15 @@ function NotificationsPage() {
   const notifications = notificationsQuery.data ?? []
   const unreadCount = unreadCountQuery.data?.count ?? 0
   return (
-    <main className="flex flex-1 flex-col px-4 py-4">
-      <div className="mb-4 flex flex-wrap items-center gap-2 pl-1">
+    <main className="flex min-w-0 flex-1 flex-col">
+      <PageToolbar className="border-b border-border/70">
         <Tabs
           value={tab}
           onValueChange={(value) => {
             if (isInboxTab(value)) setTab(value)
           }}
         >
-          <TabsList>
+          <TabsList className="h-8!">
             <TabsTrigger value="inbox">
               Inbox
               {unreadCount > 0 ? (
@@ -95,7 +96,7 @@ function NotificationsPage() {
           <div className="ml-auto">
             <Button
               variant="outline"
-              size="sm"
+              size="xs"
               onClick={() => markAllRead.mutate()}
               disabled={unreadCount === 0 || markAllRead.isPending}
             >
@@ -104,17 +105,13 @@ function NotificationsPage() {
             </Button>
           </div>
         ) : null}
-      </div>
+      </PageToolbar>
       {notificationsQuery.isPending ? (
-        <div className="rounded-xl border border-border bg-card px-4 py-8">
-          <p className="text-xs text-muted-foreground">Loading…</p>
-        </div>
+        <p className="px-4 py-8 text-xs text-muted-foreground">Loading…</p>
       ) : notificationsQuery.isError ? (
-        <div className="rounded-xl border border-border bg-card px-4 py-8">
-          <p className="text-xs text-destructive">
-            {notificationsQuery.error.message}
-          </p>
-        </div>
+        <p className="px-4 py-8 text-xs text-destructive">
+          {notificationsQuery.error.message}
+        </p>
       ) : notifications.length === 0 ? (
         <Empty>
           <EmptyHeader>
@@ -132,8 +129,8 @@ function NotificationsPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <div className="divide-y divide-border">
+        <div className="px-4 py-2">
+          <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border bg-card">
             {notifications.map((notification) => (
               <NotificationRow
                 key={notification.id}

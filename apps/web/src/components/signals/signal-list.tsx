@@ -1,5 +1,13 @@
 import { Link } from "@tanstack/react-router"
 import { ActivityIcon } from "lucide-react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@linea/ui/components/table"
 
 import {
   Empty,
@@ -9,14 +17,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@linea/ui/components/empty"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@linea/ui/components/table"
 
 import type { SignalSummary } from "@/lib/signals-api"
 import { flagTypeLabel } from "./flag-type-label"
@@ -50,43 +50,55 @@ export function SignalList({
   }
 
   return (
-    <Table className="mt-4">
-      <TableHeader>
-        <TableRow>
-          <TableHead>Status</TableHead>
-          <TableHead>Signal</TableHead>
-          <TableHead>Node</TableHead>
-          <TableHead>Occurrences</TableHead>
-          <TableHead>Last seen</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {signals.map((signal) => (
-          <TableRow key={signal.id} className="cursor-pointer">
-            <TableCell>
-              <SignalStatusBadge status={signal.status} />
-            </TableCell>
-            <TableCell className="text-foreground">
-              <Link
-                to="/w/$slug/workflows/$workflowId/signals/$signalId"
-                params={{ slug, workflowId, signalId: signal.id }}
-                className="hover:underline"
-              >
-                {flagTypeLabel[signal.flagType] ?? signal.flagType}
-              </Link>
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {signal.nodeId ?? "—"}
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {signal.occurrenceCount}
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {new Date(signal.lastFlaggedAt).toLocaleString()}
-            </TableCell>
+    <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+      <Table>
+        <TableHeader className="bg-muted/40">
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Signal
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Node
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Status
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Count
+            </TableHead>
+            <TableHead className="px-4 font-normal text-muted-foreground">
+              Last seen
+            </TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {signals.map((signal) => (
+            <TableRow key={signal.id} className="hover:bg-muted/40">
+              <TableCell className="px-4 py-3">
+                <Link
+                  to="/w/$slug/workflows/$workflowId/signals/$signalId"
+                  params={{ slug, workflowId, signalId: signal.id }}
+                  className="text-xs font-medium"
+                >
+                  {flagTypeLabel[signal.flagType] ?? signal.flagType}
+                </Link>
+              </TableCell>
+              <TableCell className="px-4 py-3 text-muted-foreground">
+                {signal.nodeId ?? "—"}
+              </TableCell>
+              <TableCell className="px-4 py-3">
+                <SignalStatusBadge status={signal.status} />
+              </TableCell>
+              <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                {signal.occurrenceCount}
+              </TableCell>
+              <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                {new Date(signal.lastFlaggedAt).toLocaleString()}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

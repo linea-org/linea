@@ -127,7 +127,11 @@ export function EnvironmentTrustForm({
       {save.error && (
         <p className="text-sm text-destructive">{save.error.message}</p>
       )}
-      <Button type="submit" disabled={save.isPending || !environment.enabled}>
+      <Button
+        type="submit"
+        size="xs"
+        disabled={save.isPending || !environment.enabled}
+      >
         {save.isPending ? "Saving…" : "Save identity trust"}
       </Button>
     </form>

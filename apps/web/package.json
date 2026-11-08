@@ -8,12 +8,17 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:agent-ui": "playwright test agent-authoring.browser.ts",
+    "test:agent-onboarding": "playwright test agent-onboarding.browser.ts",
+    "test:execution-trace": "playwright test execution-trace.browser.ts",
+    "test:application-ui": "playwright test application-workflows.browser.ts",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
+    "@linea/protocol": "workspace:*",
     "@linea/runtime": "workspace:*",
     "@linea/ui": "workspace:*",
     "@paper-design/shaders-react": "^0.0.78",
@@ -22,7 +27,7 @@
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "latest",
     "@tanstack/react-router-devtools": "latest",
-    "@tanstack/react-start": "latest",
+    "@tanstack/react-start": "^1.168.60",
     "@tanstack/router-plugin": "latest",
     "@xyflow/react": "^12.11.3",
     "better-auth": "^1.6.25",
@@ -37,11 +42,11 @@
     "remark-gfm": "^4.0.1",
     "socket.io-client": "^4.8.3",
     "tailwindcss": "^4",
-    "zod": "^4.4.3",
-    "@linea/protocol": "workspace:*"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@linea/config": "workspace:*",
+    "@playwright/test": "^1.64.1",
     "@tanstack/devtools-vite": "latest",
     "@types/node": "^22",
     "@types/react": "^19",

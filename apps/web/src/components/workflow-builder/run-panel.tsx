@@ -1,8 +1,18 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
 import { ChevronsDownIcon, ChevronsUpIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
+import { Button, buttonVariants } from "@linea/ui/components/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@linea/ui/components/sheet"
+import { ExecutionStepDetails } from "../executions/execution-step-details"
+import { attachResumeMarkers } from "../executions/execution-step-order"
 import {
   Select,
   SelectContent,
@@ -20,22 +30,10 @@ import {
   executionQueryOptions,
   executionsQueryOptions,
 } from "@/lib/executions-api"
+import { formatDuration } from "@/lib/format"
 
 const activeStatuses = new Set(["queued", "running", "paused"])
 
-function formatDuration(startedAt: string | null, completedAt: string | null) {
-  if (!startedAt) return "—"
-  if (!completedAt) return "Running…"
-  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
-}
-
-/** The bottom, collapsible run panel — a quick visual read of the most recent test run without
- * leaving the canvas, mirroring how a code editor's terminal sits below the source instead of
- * replacing it. Deliberately a summary, not a replacement for the full execution detail page
- * (JSON inspection, replay) linked from its header — this is "did it work, and roughly how,"
- * not the deep-dive surface. Lives inside the canvas's own card (no border/rounding of its own)
- * so it reads as one continuous surface with a divider, not a separate floating box. */
 export function RunPanel({
   slug,
   workflowId,
@@ -48,21 +46,26 @@ export function RunPanel({
   onSelectExecution: (executionId: string) => void
 }) {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
+  const [pendingReplayStepId, setPendingReplayStepId] = useState<string | null>(
+    null
+  )
   const { data, isError, refetch } = useQuery({
     ...executionQueryOptions(slug, executionId),
-    // Only while the run is still active — a terminal execution never changes again, so polling
-    // it forever would just be wasted requests.
     refetchInterval: (query) => {
       const status = query.state.data?.execution.status
-      return status && activeStatuses.has(status) ? 1500 : false
+      if (status && activeStatuses.has(status)) return 1500
+      if (!pendingReplayStepId) return false
+      const replay = query.state.data?.steps.find(
+        (step) => step.id === pendingReplayStepId
+      )
+      return !replay || replay.status === "running" ? 1500 : false
     },
   })
-  // Recent runs for this workflow, so switching between them doesn't require leaving the canvas —
-  // this is what replaced the old "open full execution view" link, which only ever showed the one
-  // run just triggered with no way to look back at history from here.
   const { data: recentExecutions } = useQuery(
     executionsQueryOptions(slug, workflowId)
   )
+  const selectedStep = data?.steps.find((step) => step.id === selectedStepId)
+  const { resumedAtByStepId } = attachResumeMarkers(data?.steps ?? [])
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden border-t border-border bg-card">
@@ -94,6 +97,14 @@ export function RunPanel({
           <span className="text-xs text-muted-foreground">Loading run…</span>
         )}
         <div className="ml-auto flex items-center gap-1">
+          <Link
+            to="/w/$slug/executions/$executionId"
+            params={{ slug, executionId }}
+            hash={selectedStepId ? `step-${selectedStepId}` : ""}
+            className={buttonVariants({ variant: "ghost", size: "xs" })}
+          >
+            Open trace
+          </Link>
           {recentExecutions && recentExecutions.length > 1 && (
             <Select
               value={executionId}
@@ -127,9 +138,6 @@ export function RunPanel({
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-2 py-2">
         {data ? (
-          // A background refetch (active-run polling) failing must not blank out an already-
-          // rendered timeline — data alone decides whether to render it, same precedence the
-          // header above already uses, so one flaky poll doesn't hide otherwise-valid results.
           <ExecutionGanttChart
             steps={data.steps}
             executionStartedAt={data.execution.startedAt}
@@ -143,7 +151,7 @@ export function RunPanel({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="xs"
               onClick={() => void refetch()}
             >
               Retry
@@ -156,11 +164,44 @@ export function RunPanel({
           {data.execution.error.message}
         </p>
       ) : null}
+      <Sheet
+        open={selectedStepId !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedStepId(null)
+        }}
+      >
+        <SheetContent className="overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-2xl">
+          <SheetHeader className="border-b pr-12">
+            <SheetTitle>Execution step</SheetTitle>
+            <SheetDescription>Recorded details for this run.</SheetDescription>
+          </SheetHeader>
+          <div className="min-w-0 px-4 pb-6">
+            {selectedStep && data ? (
+              <ExecutionStepDetails
+                key={selectedStep.id}
+                executionId={executionId}
+                workflowId={workflowId}
+                step={selectedStep}
+                nodeConfig={data.nodeConfigs[selectedStep.nodeId]}
+                replayable={data.replayable}
+                resumedAt={resumedAtByStepId.get(selectedStep.id)}
+                onReplayTriggered={(stepId) => {
+                  setPendingReplayStepId(stepId)
+                  setSelectedStepId(stepId)
+                }}
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Waiting for the recorded step…
+              </p>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
 
-/** Overlaps the run-panel seam the same way the palette button overlaps its right edge. */
 export function RunPanelTrigger({
   open,
   hasRun,

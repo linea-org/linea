@@ -65,7 +65,7 @@ export type SignalDetail = SignalSummary & {
 }
 
 export const listSignalsFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { workflowId?: string }) => data)
+  .validator((data: { workflowId?: string }) => data)
   .handler(async ({ data }): Promise<SignalSummary[]> => {
     const params = new URLSearchParams()
     if (data.workflowId) params.set("workflowId", data.workflowId)
@@ -78,7 +78,7 @@ export const listSignalsFn = createServerFn({ method: "GET" })
   })
 
 export const getSignalsTrendFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { workflowId?: string }) => data)
+  .validator((data: { workflowId?: string }) => data)
   .handler(async ({ data }): Promise<SignalTrendPoint[]> => {
     const params = new URLSearchParams()
     if (data.workflowId) params.set("workflowId", data.workflowId)
@@ -91,9 +91,7 @@ export const getSignalsTrendFn = createServerFn({ method: "GET" })
   })
 
 export const getSignalFn = createServerFn({ method: "GET" })
-  .inputValidator(
-    (data: { id: string; environment: SignalEnvironment }) => data
-  )
+  .validator((data: { id: string; environment: SignalEnvironment }) => data)
   .handler(async ({ data }): Promise<SignalDetail> => {
     const params = new URLSearchParams({ environment: data.environment })
     const res = await apiFetch(`/signals/${data.id}?${params}`)
@@ -104,7 +102,7 @@ export const getSignalFn = createServerFn({ method: "GET" })
   })
 
 export const resolveSignalFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data }): Promise<SignalSummary> => {
     const res = await apiFetch(`/signals/${data.id}/resolve`, {
       method: "POST",

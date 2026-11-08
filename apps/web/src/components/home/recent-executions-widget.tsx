@@ -3,13 +3,6 @@ import { HistoryIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@linea/ui/components/empty"
-import {
   Table,
   TableBody,
   TableCell,
@@ -17,26 +10,27 @@ import {
   TableHeader,
   TableRow,
 } from "@linea/ui/components/table"
-
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@linea/ui/components/empty"
+import { PlayfulAvatar } from "@/components/avatar"
 import type {
   ExecutionTrigger,
   WorkspaceExecutionSummary,
 } from "@/lib/executions-api"
 import { ExecutionStatusBadge, formatCost } from "../executions"
 import { HomePanel } from "./home-panel"
+import { formatDuration } from "@/lib/format"
 
 const triggerLabel: Record<ExecutionTrigger, string> = {
   manual: "Manual",
   schedule: "Schedule",
   webhook: "Webhook",
   api: "API",
-}
-
-function formatDuration(startedAt: string | null, completedAt: string | null) {
-  if (!startedAt) return "—"
-  if (!completedAt) return "Running…"
-  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 
 export function RecentExecutionsWidget({
@@ -52,7 +46,7 @@ export function RecentExecutionsWidget({
       action={
         <Button
           variant="secondary"
-          size="sm"
+          size="xs"
           nativeButton={false}
           render={<Link to="/w/$slug/executions" params={{ slug }} />}
         >
@@ -76,28 +70,47 @@ export function RecentExecutionsWidget({
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="px-4">Workflow</TableHead>
-              <TableHead className="px-4">Status</TableHead>
-              <TableHead className="px-4">Trigger</TableHead>
-              <TableHead className="px-4">Duration</TableHead>
-              <TableHead className="px-4">Cost</TableHead>
-              <TableHead className="px-4">When</TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                Workflow
+              </TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                Status
+              </TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                Trigger
+              </TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                Duration
+              </TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                Cost
+              </TableHead>
+              <TableHead className="px-4 font-normal text-muted-foreground">
+                When
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {executions.map((execution) => (
-              <TableRow key={execution.id}>
+              <TableRow key={execution.id} className="hover:bg-muted/40">
                 <TableCell className="px-4 py-3">
                   <Link
                     to="/w/$slug/executions/$executionId"
                     params={{ slug, executionId: execution.id }}
-                    className="block min-w-0"
+                    className="flex min-w-0 items-center gap-3"
                   >
-                    <span className="block truncate font-medium text-foreground hover:underline">
-                      {execution.workflowName}
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                      {execution.workflowSlug}
+                    <PlayfulAvatar
+                      name={execution.workflowName}
+                      shape="rounded"
+                      className="size-8"
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-medium">
+                        {execution.workflowName}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {execution.workflowSlug}
+                      </span>
                     </span>
                   </Link>
                 </TableCell>
@@ -113,7 +126,7 @@ export function RecentExecutionsWidget({
                 <TableCell className="px-4 py-3 text-muted-foreground">
                   {formatCost(execution.costMicros, execution.costUnpriced)}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-muted-foreground">
+                <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
                   {new Date(execution.createdAt).toLocaleString()}
                 </TableCell>
               </TableRow>

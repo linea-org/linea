@@ -9,77 +9,44 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WorkspacesRouteImport } from './routes/workspaces'
-import { Route as VerifyEmailRouteImport } from './routes/verify-email'
-import { Route as SignUpRouteImport } from './routes/sign-up'
-import { Route as SignInRouteImport } from './routes/sign-in'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as MagicLinkRouteImport } from './routes/magic-link'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as AppRouteImport } from './routes/app'
-import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as WSlugRouteImport } from './routes/w/$slug'
-import { Route as OnboardingWorkspaceRouteImport } from './routes/onboarding/workspace'
-import { Route as OnboardingInviteRouteImport } from './routes/onboarding/invite'
+import { Route as AccountRouteImport } from './routes/account'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as MagicLinkRouteImport } from './routes/magic-link'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as VerifyEmailRouteImport } from './routes/verify-email'
+import { Route as WorkspacesRouteImport } from './routes/workspaces'
 import { Route as AcceptInvitationInvitationIdRouteImport } from './routes/accept-invitation.$invitationId'
+import { Route as OnboardingInviteRouteImport } from './routes/onboarding/invite'
+import { Route as OnboardingWorkspaceRouteImport } from './routes/onboarding/workspace'
+import { Route as WSlugRouteImport } from './routes/w/$slug'
 import { Route as WSlugIndexRouteImport } from './routes/w/$slug/index'
-import { Route as WSlugNotificationsRouteImport } from './routes/w/$slug/notifications'
 import { Route as WSlugApprovalsRouteImport } from './routes/w/$slug/approvals'
-import { Route as WSlugWorkflowsIndexRouteImport } from './routes/w/$slug/workflows/index'
-import { Route as WSlugSettingsIndexRouteImport } from './routes/w/$slug/settings/index'
-import { Route as WSlugExecutionsIndexRouteImport } from './routes/w/$slug/executions/index'
+import { Route as WSlugNotificationsRouteImport } from './routes/w/$slug/notifications'
+import { Route as WSlugAgentsAgentIdRouteImport } from './routes/w/$slug/agents/$agentId'
+import { Route as WSlugAgentsNewRouteImport } from './routes/w/$slug/agents/new'
 import { Route as WSlugApplicationsIndexRouteImport } from './routes/w/$slug/applications/index'
-import { Route as WSlugWorkflowsWorkflowIdRouteImport } from './routes/w/$slug/workflows/$workflowId'
-import { Route as WSlugSettingsSecretsRouteImport } from './routes/w/$slug/settings/secrets'
-import { Route as WSlugSettingsMembersRouteImport } from './routes/w/$slug/settings/members'
-import { Route as WSlugExecutionsExecutionIdRouteImport } from './routes/w/$slug/executions/$executionId'
 import { Route as WSlugApplicationsApplicationIdRouteImport } from './routes/w/$slug/applications/$applicationId'
+import { Route as WSlugExecutionsIndexRouteImport } from './routes/w/$slug/executions/index'
+import { Route as WSlugExecutionsExecutionIdRouteImport } from './routes/w/$slug/executions/$executionId'
+import { Route as WSlugSettingsIndexRouteImport } from './routes/w/$slug/settings/index'
+import { Route as WSlugSettingsMembersRouteImport } from './routes/w/$slug/settings/members'
+import { Route as WSlugSettingsSecretsRouteImport } from './routes/w/$slug/settings/secrets'
+import { Route as WSlugWorkflowsIndexRouteImport } from './routes/w/$slug/workflows/index'
+import { Route as WSlugWorkflowsWorkflowIdRouteImport } from './routes/w/$slug/workflows/$workflowId'
 import { Route as WSlugWorkflowsWorkflowIdIndexRouteImport } from './routes/w/$slug/workflows/$workflowId/index'
 import { Route as WSlugWorkflowsWorkflowIdBuilderRouteImport } from './routes/w/$slug/workflows/$workflowId/builder'
-import { Route as WSlugWorkflowsWorkflowIdSignalsSignalIdRouteImport } from './routes/w/$slug/workflows/$workflowId/signals/$signalId'
-import { Route as WSlugWorkflowsWorkflowIdRegressionRunsRunIdRouteImport } from './routes/w/$slug/workflows/$workflowId/regression-runs/$runId'
-import { Route as WSlugWorkflowsWorkflowIdExecutionsExecutionIdRouteImport } from './routes/w/$slug/workflows/$workflowId/executions/$executionId'
 import { Route as WSlugWorkflowsWorkflowIdConversationsConversationIdRouteImport } from './routes/w/$slug/workflows/$workflowId/conversations/$conversationId'
+import { Route as WSlugWorkflowsWorkflowIdExecutionsExecutionIdRouteImport } from './routes/w/$slug/workflows/$workflowId/executions/$executionId'
+import { Route as WSlugWorkflowsWorkflowIdRegressionRunsRunIdRouteImport } from './routes/w/$slug/workflows/$workflowId/regression-runs/$runId'
+import { Route as WSlugWorkflowsWorkflowIdSignalsSignalIdRouteImport } from './routes/w/$slug/workflows/$workflowId/signals/$signalId'
 
-const WorkspacesRoute = WorkspacesRouteImport.update({
-  id: '/workspaces',
-  path: '/workspaces',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const VerifyEmailRoute = VerifyEmailRouteImport.update({
-  id: '/verify-email',
-  path: '/verify-email',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignUpRoute = SignUpRouteImport.update({
-  id: '/sign-up',
-  path: '/sign-up',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignInRoute = SignInRouteImport.update({
-  id: '/sign-in',
-  path: '/sign-in',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MagicLinkRoute = MagicLinkRouteImport.update({
-  id: '/magic-link',
-  path: '/magic-link',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppRoute = AppRouteImport.update({
-  id: '/app',
-  path: '/app',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountRoute = AccountRouteImport.update({
@@ -87,24 +54,44 @@ const AccountRoute = AccountRouteImport.update({
   path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WSlugRoute = WSlugRouteImport.update({
-  id: '/w/$slug',
-  path: '/w/$slug',
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OnboardingWorkspaceRoute = OnboardingWorkspaceRouteImport.update({
-  id: '/onboarding/workspace',
-  path: '/onboarding/workspace',
+const MagicLinkRoute = MagicLinkRouteImport.update({
+  id: '/magic-link',
+  path: '/magic-link',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OnboardingInviteRoute = OnboardingInviteRouteImport.update({
-  id: '/onboarding/invite',
-  path: '/onboarding/invite',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignUpRoute = SignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyEmailRoute = VerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkspacesRoute = WorkspacesRouteImport.update({
+  id: '/workspaces',
+  path: '/workspaces',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AcceptInvitationInvitationIdRoute =
@@ -113,14 +100,24 @@ const AcceptInvitationInvitationIdRoute =
     path: '/accept-invitation/$invitationId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const OnboardingInviteRoute = OnboardingInviteRouteImport.update({
+  id: '/onboarding/invite',
+  path: '/onboarding/invite',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingWorkspaceRoute = OnboardingWorkspaceRouteImport.update({
+  id: '/onboarding/workspace',
+  path: '/onboarding/workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WSlugRoute = WSlugRouteImport.update({
+  id: '/w/$slug',
+  path: '/w/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WSlugIndexRoute = WSlugIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => WSlugRoute,
-} as any)
-const WSlugNotificationsRoute = WSlugNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
   getParentRoute: () => WSlugRoute,
 } as any)
 const WSlugApprovalsRoute = WSlugApprovalsRouteImport.update({
@@ -128,19 +125,19 @@ const WSlugApprovalsRoute = WSlugApprovalsRouteImport.update({
   path: '/approvals',
   getParentRoute: () => WSlugRoute,
 } as any)
-const WSlugWorkflowsIndexRoute = WSlugWorkflowsIndexRouteImport.update({
-  id: '/workflows/',
-  path: '/workflows/',
+const WSlugNotificationsRoute = WSlugNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => WSlugRoute,
 } as any)
-const WSlugSettingsIndexRoute = WSlugSettingsIndexRouteImport.update({
-  id: '/settings/',
-  path: '/settings/',
+const WSlugAgentsAgentIdRoute = WSlugAgentsAgentIdRouteImport.update({
+  id: '/agents/$agentId',
+  path: '/agents/$agentId',
   getParentRoute: () => WSlugRoute,
 } as any)
-const WSlugExecutionsIndexRoute = WSlugExecutionsIndexRouteImport.update({
-  id: '/executions/',
-  path: '/executions/',
+const WSlugAgentsNewRoute = WSlugAgentsNewRouteImport.update({
+  id: '/agents/new',
+  path: '/agents/new',
   getParentRoute: () => WSlugRoute,
 } as any)
 const WSlugApplicationsIndexRoute = WSlugApplicationsIndexRouteImport.update({
@@ -148,20 +145,15 @@ const WSlugApplicationsIndexRoute = WSlugApplicationsIndexRouteImport.update({
   path: '/applications/',
   getParentRoute: () => WSlugRoute,
 } as any)
-const WSlugWorkflowsWorkflowIdRoute =
-  WSlugWorkflowsWorkflowIdRouteImport.update({
-    id: '/workflows/$workflowId',
-    path: '/workflows/$workflowId',
+const WSlugApplicationsApplicationIdRoute =
+  WSlugApplicationsApplicationIdRouteImport.update({
+    id: '/applications/$applicationId',
+    path: '/applications/$applicationId',
     getParentRoute: () => WSlugRoute,
   } as any)
-const WSlugSettingsSecretsRoute = WSlugSettingsSecretsRouteImport.update({
-  id: '/settings/secrets',
-  path: '/settings/secrets',
-  getParentRoute: () => WSlugRoute,
-} as any)
-const WSlugSettingsMembersRoute = WSlugSettingsMembersRouteImport.update({
-  id: '/settings/members',
-  path: '/settings/members',
+const WSlugExecutionsIndexRoute = WSlugExecutionsIndexRouteImport.update({
+  id: '/executions/',
+  path: '/executions/',
   getParentRoute: () => WSlugRoute,
 } as any)
 const WSlugExecutionsExecutionIdRoute =
@@ -170,10 +162,30 @@ const WSlugExecutionsExecutionIdRoute =
     path: '/executions/$executionId',
     getParentRoute: () => WSlugRoute,
   } as any)
-const WSlugApplicationsApplicationIdRoute =
-  WSlugApplicationsApplicationIdRouteImport.update({
-    id: '/applications/$applicationId',
-    path: '/applications/$applicationId',
+const WSlugSettingsIndexRoute = WSlugSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => WSlugRoute,
+} as any)
+const WSlugSettingsMembersRoute = WSlugSettingsMembersRouteImport.update({
+  id: '/settings/members',
+  path: '/settings/members',
+  getParentRoute: () => WSlugRoute,
+} as any)
+const WSlugSettingsSecretsRoute = WSlugSettingsSecretsRouteImport.update({
+  id: '/settings/secrets',
+  path: '/settings/secrets',
+  getParentRoute: () => WSlugRoute,
+} as any)
+const WSlugWorkflowsIndexRoute = WSlugWorkflowsIndexRouteImport.update({
+  id: '/workflows/',
+  path: '/workflows/',
+  getParentRoute: () => WSlugRoute,
+} as any)
+const WSlugWorkflowsWorkflowIdRoute =
+  WSlugWorkflowsWorkflowIdRouteImport.update({
+    id: '/workflows/$workflowId',
+    path: '/workflows/$workflowId',
     getParentRoute: () => WSlugRoute,
   } as any)
 const WSlugWorkflowsWorkflowIdIndexRoute =
@@ -188,16 +200,10 @@ const WSlugWorkflowsWorkflowIdBuilderRoute =
     path: '/builder',
     getParentRoute: () => WSlugWorkflowsWorkflowIdRoute,
   } as any)
-const WSlugWorkflowsWorkflowIdSignalsSignalIdRoute =
-  WSlugWorkflowsWorkflowIdSignalsSignalIdRouteImport.update({
-    id: '/signals/$signalId',
-    path: '/signals/$signalId',
-    getParentRoute: () => WSlugWorkflowsWorkflowIdRoute,
-  } as any)
-const WSlugWorkflowsWorkflowIdRegressionRunsRunIdRoute =
-  WSlugWorkflowsWorkflowIdRegressionRunsRunIdRouteImport.update({
-    id: '/regression-runs/$runId',
-    path: '/regression-runs/$runId',
+const WSlugWorkflowsWorkflowIdConversationsConversationIdRoute =
+  WSlugWorkflowsWorkflowIdConversationsConversationIdRouteImport.update({
+    id: '/conversations/$conversationId',
+    path: '/conversations/$conversationId',
     getParentRoute: () => WSlugWorkflowsWorkflowIdRoute,
   } as any)
 const WSlugWorkflowsWorkflowIdExecutionsExecutionIdRoute =
@@ -206,10 +212,16 @@ const WSlugWorkflowsWorkflowIdExecutionsExecutionIdRoute =
     path: '/executions/$executionId',
     getParentRoute: () => WSlugWorkflowsWorkflowIdRoute,
   } as any)
-const WSlugWorkflowsWorkflowIdConversationsConversationIdRoute =
-  WSlugWorkflowsWorkflowIdConversationsConversationIdRouteImport.update({
-    id: '/conversations/$conversationId',
-    path: '/conversations/$conversationId',
+const WSlugWorkflowsWorkflowIdRegressionRunsRunIdRoute =
+  WSlugWorkflowsWorkflowIdRegressionRunsRunIdRouteImport.update({
+    id: '/regression-runs/$runId',
+    path: '/regression-runs/$runId',
+    getParentRoute: () => WSlugWorkflowsWorkflowIdRoute,
+  } as any)
+const WSlugWorkflowsWorkflowIdSignalsSignalIdRoute =
+  WSlugWorkflowsWorkflowIdSignalsSignalIdRouteImport.update({
+    id: '/signals/$signalId',
+    path: '/signals/$signalId',
     getParentRoute: () => WSlugWorkflowsWorkflowIdRoute,
   } as any)
 
@@ -231,6 +243,8 @@ export interface FileRoutesByFullPath {
   '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
   '/w/$slug/': typeof WSlugIndexRoute
+  '/w/$slug/agents/$agentId': typeof WSlugAgentsAgentIdRoute
+  '/w/$slug/agents/new': typeof WSlugAgentsNewRoute
   '/w/$slug/applications/$applicationId': typeof WSlugApplicationsApplicationIdRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
@@ -264,6 +278,8 @@ export interface FileRoutesByTo {
   '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
   '/w/$slug': typeof WSlugIndexRoute
+  '/w/$slug/agents/$agentId': typeof WSlugAgentsAgentIdRoute
+  '/w/$slug/agents/new': typeof WSlugAgentsNewRoute
   '/w/$slug/applications/$applicationId': typeof WSlugApplicationsApplicationIdRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
@@ -298,6 +314,8 @@ export interface FileRoutesById {
   '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
   '/w/$slug/': typeof WSlugIndexRoute
+  '/w/$slug/agents/$agentId': typeof WSlugAgentsAgentIdRoute
+  '/w/$slug/agents/new': typeof WSlugAgentsNewRoute
   '/w/$slug/applications/$applicationId': typeof WSlugApplicationsApplicationIdRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
@@ -334,6 +352,8 @@ export interface FileRouteTypes {
     | '/w/$slug/approvals'
     | '/w/$slug/notifications'
     | '/w/$slug/'
+    | '/w/$slug/agents/$agentId'
+    | '/w/$slug/agents/new'
     | '/w/$slug/applications/$applicationId'
     | '/w/$slug/executions/$executionId'
     | '/w/$slug/settings/members'
@@ -367,6 +387,8 @@ export interface FileRouteTypes {
     | '/w/$slug/approvals'
     | '/w/$slug/notifications'
     | '/w/$slug'
+    | '/w/$slug/agents/$agentId'
+    | '/w/$slug/agents/new'
     | '/w/$slug/applications/$applicationId'
     | '/w/$slug/executions/$executionId'
     | '/w/$slug/settings/members'
@@ -400,6 +422,8 @@ export interface FileRouteTypes {
     | '/w/$slug/approvals'
     | '/w/$slug/notifications'
     | '/w/$slug/'
+    | '/w/$slug/agents/$agentId'
+    | '/w/$slug/agents/new'
     | '/w/$slug/applications/$applicationId'
     | '/w/$slug/executions/$executionId'
     | '/w/$slug/settings/members'
@@ -436,60 +460,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/workspaces': {
-      id: '/workspaces'
-      path: '/workspaces'
-      fullPath: '/workspaces'
-      preLoaderRoute: typeof WorkspacesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/verify-email': {
-      id: '/verify-email'
-      path: '/verify-email'
-      fullPath: '/verify-email'
-      preLoaderRoute: typeof VerifyEmailRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sign-up': {
-      id: '/sign-up'
-      path: '/sign-up'
-      fullPath: '/sign-up'
-      preLoaderRoute: typeof SignUpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sign-in': {
-      id: '/sign-in'
-      path: '/sign-in'
-      fullPath: '/sign-in'
-      preLoaderRoute: typeof SignInRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/magic-link': {
-      id: '/magic-link'
-      path: '/magic-link'
-      fullPath: '/magic-link'
-      preLoaderRoute: typeof MagicLinkRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/app': {
-      id: '/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof AppRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/account': {
@@ -499,32 +474,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/w/$slug': {
-      id: '/w/$slug'
-      path: '/w/$slug'
-      fullPath: '/w/$slug'
-      preLoaderRoute: typeof WSlugRouteImport
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/onboarding/workspace': {
-      id: '/onboarding/workspace'
-      path: '/onboarding/workspace'
-      fullPath: '/onboarding/workspace'
-      preLoaderRoute: typeof OnboardingWorkspaceRouteImport
+    '/magic-link': {
+      id: '/magic-link'
+      path: '/magic-link'
+      fullPath: '/magic-link'
+      preLoaderRoute: typeof MagicLinkRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/onboarding/invite': {
-      id: '/onboarding/invite'
-      path: '/onboarding/invite'
-      fullPath: '/onboarding/invite'
-      preLoaderRoute: typeof OnboardingInviteRouteImport
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-up': {
+      id: '/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify-email': {
+      id: '/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof VerifyEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workspaces': {
+      id: '/workspaces'
+      path: '/workspaces'
+      fullPath: '/workspaces'
+      preLoaderRoute: typeof WorkspacesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/accept-invitation/$invitationId': {
@@ -534,18 +537,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AcceptInvitationInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding/invite': {
+      id: '/onboarding/invite'
+      path: '/onboarding/invite'
+      fullPath: '/onboarding/invite'
+      preLoaderRoute: typeof OnboardingInviteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/workspace': {
+      id: '/onboarding/workspace'
+      path: '/onboarding/workspace'
+      fullPath: '/onboarding/workspace'
+      preLoaderRoute: typeof OnboardingWorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/w/$slug': {
+      id: '/w/$slug'
+      path: '/w/$slug'
+      fullPath: '/w/$slug'
+      preLoaderRoute: typeof WSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/w/$slug/': {
       id: '/w/$slug/'
       path: '/'
       fullPath: '/w/$slug/'
       preLoaderRoute: typeof WSlugIndexRouteImport
-      parentRoute: typeof WSlugRoute
-    }
-    '/w/$slug/notifications': {
-      id: '/w/$slug/notifications'
-      path: '/notifications'
-      fullPath: '/w/$slug/notifications'
-      preLoaderRoute: typeof WSlugNotificationsRouteImport
       parentRoute: typeof WSlugRoute
     }
     '/w/$slug/approvals': {
@@ -555,25 +572,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugApprovalsRouteImport
       parentRoute: typeof WSlugRoute
     }
-    '/w/$slug/workflows/': {
-      id: '/w/$slug/workflows/'
-      path: '/workflows'
-      fullPath: '/w/$slug/workflows/'
-      preLoaderRoute: typeof WSlugWorkflowsIndexRouteImport
+    '/w/$slug/notifications': {
+      id: '/w/$slug/notifications'
+      path: '/notifications'
+      fullPath: '/w/$slug/notifications'
+      preLoaderRoute: typeof WSlugNotificationsRouteImport
       parentRoute: typeof WSlugRoute
     }
-    '/w/$slug/settings/': {
-      id: '/w/$slug/settings/'
-      path: '/settings'
-      fullPath: '/w/$slug/settings/'
-      preLoaderRoute: typeof WSlugSettingsIndexRouteImport
+    '/w/$slug/agents/$agentId': {
+      id: '/w/$slug/agents/$agentId'
+      path: '/agents/$agentId'
+      fullPath: '/w/$slug/agents/$agentId'
+      preLoaderRoute: typeof WSlugAgentsAgentIdRouteImport
       parentRoute: typeof WSlugRoute
     }
-    '/w/$slug/executions/': {
-      id: '/w/$slug/executions/'
-      path: '/executions'
-      fullPath: '/w/$slug/executions/'
-      preLoaderRoute: typeof WSlugExecutionsIndexRouteImport
+    '/w/$slug/agents/new': {
+      id: '/w/$slug/agents/new'
+      path: '/agents/new'
+      fullPath: '/w/$slug/agents/new'
+      preLoaderRoute: typeof WSlugAgentsNewRouteImport
       parentRoute: typeof WSlugRoute
     }
     '/w/$slug/applications/': {
@@ -583,25 +600,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugApplicationsIndexRouteImport
       parentRoute: typeof WSlugRoute
     }
-    '/w/$slug/workflows/$workflowId': {
-      id: '/w/$slug/workflows/$workflowId'
-      path: '/workflows/$workflowId'
-      fullPath: '/w/$slug/workflows/$workflowId'
-      preLoaderRoute: typeof WSlugWorkflowsWorkflowIdRouteImport
+    '/w/$slug/applications/$applicationId': {
+      id: '/w/$slug/applications/$applicationId'
+      path: '/applications/$applicationId'
+      fullPath: '/w/$slug/applications/$applicationId'
+      preLoaderRoute: typeof WSlugApplicationsApplicationIdRouteImport
       parentRoute: typeof WSlugRoute
     }
-    '/w/$slug/settings/secrets': {
-      id: '/w/$slug/settings/secrets'
-      path: '/settings/secrets'
-      fullPath: '/w/$slug/settings/secrets'
-      preLoaderRoute: typeof WSlugSettingsSecretsRouteImport
-      parentRoute: typeof WSlugRoute
-    }
-    '/w/$slug/settings/members': {
-      id: '/w/$slug/settings/members'
-      path: '/settings/members'
-      fullPath: '/w/$slug/settings/members'
-      preLoaderRoute: typeof WSlugSettingsMembersRouteImport
+    '/w/$slug/executions/': {
+      id: '/w/$slug/executions/'
+      path: '/executions'
+      fullPath: '/w/$slug/executions/'
+      preLoaderRoute: typeof WSlugExecutionsIndexRouteImport
       parentRoute: typeof WSlugRoute
     }
     '/w/$slug/executions/$executionId': {
@@ -611,11 +621,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugExecutionsExecutionIdRouteImport
       parentRoute: typeof WSlugRoute
     }
-    '/w/$slug/applications/$applicationId': {
-      id: '/w/$slug/applications/$applicationId'
-      path: '/applications/$applicationId'
-      fullPath: '/w/$slug/applications/$applicationId'
-      preLoaderRoute: typeof WSlugApplicationsApplicationIdRouteImport
+    '/w/$slug/settings/': {
+      id: '/w/$slug/settings/'
+      path: '/settings'
+      fullPath: '/w/$slug/settings/'
+      preLoaderRoute: typeof WSlugSettingsIndexRouteImport
+      parentRoute: typeof WSlugRoute
+    }
+    '/w/$slug/settings/members': {
+      id: '/w/$slug/settings/members'
+      path: '/settings/members'
+      fullPath: '/w/$slug/settings/members'
+      preLoaderRoute: typeof WSlugSettingsMembersRouteImport
+      parentRoute: typeof WSlugRoute
+    }
+    '/w/$slug/settings/secrets': {
+      id: '/w/$slug/settings/secrets'
+      path: '/settings/secrets'
+      fullPath: '/w/$slug/settings/secrets'
+      preLoaderRoute: typeof WSlugSettingsSecretsRouteImport
+      parentRoute: typeof WSlugRoute
+    }
+    '/w/$slug/workflows/': {
+      id: '/w/$slug/workflows/'
+      path: '/workflows'
+      fullPath: '/w/$slug/workflows/'
+      preLoaderRoute: typeof WSlugWorkflowsIndexRouteImport
+      parentRoute: typeof WSlugRoute
+    }
+    '/w/$slug/workflows/$workflowId': {
+      id: '/w/$slug/workflows/$workflowId'
+      path: '/workflows/$workflowId'
+      fullPath: '/w/$slug/workflows/$workflowId'
+      preLoaderRoute: typeof WSlugWorkflowsWorkflowIdRouteImport
       parentRoute: typeof WSlugRoute
     }
     '/w/$slug/workflows/$workflowId/': {
@@ -632,18 +670,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugWorkflowsWorkflowIdBuilderRouteImport
       parentRoute: typeof WSlugWorkflowsWorkflowIdRoute
     }
-    '/w/$slug/workflows/$workflowId/signals/$signalId': {
-      id: '/w/$slug/workflows/$workflowId/signals/$signalId'
-      path: '/signals/$signalId'
-      fullPath: '/w/$slug/workflows/$workflowId/signals/$signalId'
-      preLoaderRoute: typeof WSlugWorkflowsWorkflowIdSignalsSignalIdRouteImport
-      parentRoute: typeof WSlugWorkflowsWorkflowIdRoute
-    }
-    '/w/$slug/workflows/$workflowId/regression-runs/$runId': {
-      id: '/w/$slug/workflows/$workflowId/regression-runs/$runId'
-      path: '/regression-runs/$runId'
-      fullPath: '/w/$slug/workflows/$workflowId/regression-runs/$runId'
-      preLoaderRoute: typeof WSlugWorkflowsWorkflowIdRegressionRunsRunIdRouteImport
+    '/w/$slug/workflows/$workflowId/conversations/$conversationId': {
+      id: '/w/$slug/workflows/$workflowId/conversations/$conversationId'
+      path: '/conversations/$conversationId'
+      fullPath: '/w/$slug/workflows/$workflowId/conversations/$conversationId'
+      preLoaderRoute: typeof WSlugWorkflowsWorkflowIdConversationsConversationIdRouteImport
       parentRoute: typeof WSlugWorkflowsWorkflowIdRoute
     }
     '/w/$slug/workflows/$workflowId/executions/$executionId': {
@@ -653,11 +684,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugWorkflowsWorkflowIdExecutionsExecutionIdRouteImport
       parentRoute: typeof WSlugWorkflowsWorkflowIdRoute
     }
-    '/w/$slug/workflows/$workflowId/conversations/$conversationId': {
-      id: '/w/$slug/workflows/$workflowId/conversations/$conversationId'
-      path: '/conversations/$conversationId'
-      fullPath: '/w/$slug/workflows/$workflowId/conversations/$conversationId'
-      preLoaderRoute: typeof WSlugWorkflowsWorkflowIdConversationsConversationIdRouteImport
+    '/w/$slug/workflows/$workflowId/regression-runs/$runId': {
+      id: '/w/$slug/workflows/$workflowId/regression-runs/$runId'
+      path: '/regression-runs/$runId'
+      fullPath: '/w/$slug/workflows/$workflowId/regression-runs/$runId'
+      preLoaderRoute: typeof WSlugWorkflowsWorkflowIdRegressionRunsRunIdRouteImport
+      parentRoute: typeof WSlugWorkflowsWorkflowIdRoute
+    }
+    '/w/$slug/workflows/$workflowId/signals/$signalId': {
+      id: '/w/$slug/workflows/$workflowId/signals/$signalId'
+      path: '/signals/$signalId'
+      fullPath: '/w/$slug/workflows/$workflowId/signals/$signalId'
+      preLoaderRoute: typeof WSlugWorkflowsWorkflowIdSignalsSignalIdRouteImport
       parentRoute: typeof WSlugWorkflowsWorkflowIdRoute
     }
   }
@@ -695,6 +733,8 @@ interface WSlugRouteChildren {
   WSlugApprovalsRoute: typeof WSlugApprovalsRoute
   WSlugNotificationsRoute: typeof WSlugNotificationsRoute
   WSlugIndexRoute: typeof WSlugIndexRoute
+  WSlugAgentsAgentIdRoute: typeof WSlugAgentsAgentIdRoute
+  WSlugAgentsNewRoute: typeof WSlugAgentsNewRoute
   WSlugApplicationsApplicationIdRoute: typeof WSlugApplicationsApplicationIdRoute
   WSlugExecutionsExecutionIdRoute: typeof WSlugExecutionsExecutionIdRoute
   WSlugSettingsMembersRoute: typeof WSlugSettingsMembersRoute
@@ -710,6 +750,8 @@ const WSlugRouteChildren: WSlugRouteChildren = {
   WSlugApprovalsRoute: WSlugApprovalsRoute,
   WSlugNotificationsRoute: WSlugNotificationsRoute,
   WSlugIndexRoute: WSlugIndexRoute,
+  WSlugAgentsAgentIdRoute: WSlugAgentsAgentIdRoute,
+  WSlugAgentsNewRoute: WSlugAgentsNewRoute,
   WSlugApplicationsApplicationIdRoute: WSlugApplicationsApplicationIdRoute,
   WSlugExecutionsExecutionIdRoute: WSlugExecutionsExecutionIdRoute,
   WSlugSettingsMembersRoute: WSlugSettingsMembersRoute,

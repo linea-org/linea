@@ -16,6 +16,7 @@ export function GithubInstallationForm({
   readonly onSaved: () => Promise<void>
 }) {
   const {
+    control,
     register,
     handleSubmit,
     resetField,
@@ -73,14 +74,14 @@ export function GithubInstallationForm({
         Install your GitHub App on the company account first. Match its
         permissions to the Environment policy below.
       </p>
-      <GithubInstallationFields register={register} />
+      <GithubInstallationFields register={register} control={control} />
       {Object.keys(errors).length > 0 && (
         <p className="text-sm text-destructive">
           Enter an App ID, installation ID and PEM private key.
         </p>
       )}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button disabled={!enabled || pending} type="submit">
+      <Button size="xs" disabled={!enabled || pending} type="submit">
         Connect installation
       </Button>
     </form>

@@ -121,13 +121,16 @@ export function WorkflowFormDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <form
+          className="flex flex-col gap-4"
           onSubmit={(e) => {
             void handleSubmit((values) => mutation.mutate(values))(e)
           }}
         >
-          <FieldGroup>
+          <FieldGroup className="gap-4">
             <Field>
-              <FieldLabel>Application</FieldLabel>
+              <FieldLabel htmlFor="workflow-application">
+                Application
+              </FieldLabel>
               <Controller
                 name="applicationId"
                 control={control}
@@ -137,8 +140,14 @@ export function WorkflowFormDialog({
                     onValueChange={field.onChange}
                     disabled={!!defaultValues}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an Application" />
+                    <SelectTrigger id="workflow-application">
+                      <SelectValue placeholder="Select an Application">
+                        {(value: string) =>
+                          applications.find(
+                            (application) => application.id === value
+                          )?.name ?? "Select an Application"
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {applications.map((application) => (
@@ -163,6 +172,7 @@ export function WorkflowFormDialog({
               <FieldLabel htmlFor="workflow-name">Name</FieldLabel>
               <Input
                 id="workflow-name"
+                className="h-9"
                 placeholder="Order fulfillment"
                 autoFocus
                 {...register("name", {
@@ -176,6 +186,7 @@ export function WorkflowFormDialog({
               <FieldLabel htmlFor="workflow-slug">Slug</FieldLabel>
               <Input
                 id="workflow-slug"
+                className="h-9"
                 placeholder={slugify(name) || "order-fulfillment"}
                 {...register("slug")}
               />
@@ -199,8 +210,8 @@ export function WorkflowFormDialog({
               {mutation.error.message}
             </p>
           )}
-          <DialogFooter className="mt-6">
-            <Button type="submit" disabled={mutation.isPending}>
+          <DialogFooter>
+            <Button type="submit" size="xs" disabled={mutation.isPending}>
               {mutation.isPending ? "Saving…" : submitLabel}
             </Button>
           </DialogFooter>

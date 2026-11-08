@@ -85,17 +85,17 @@ export function SecretFormDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
-            Encrypted at rest. You won&apos;t be able to read it back after
-            saving.
-          </DialogDescription>
         </DialogHeader>
+        <DialogDescription>
+          Encrypted at rest. You won&apos;t be able to read it back after
+          saving.
+        </DialogDescription>
         <form
           onSubmit={(event) => {
             void handleSubmit((values) => mutation.mutate(values))(event)
           }}
         >
-          <FieldGroup>
+          <FieldGroup className="gap-4">
             {nameField === "none" ? (
               <input type="hidden" {...register("name")} />
             ) : (
@@ -103,6 +103,7 @@ export function SecretFormDialog({
                 <FieldLabel htmlFor="secret-name">Name</FieldLabel>
                 <Input
                   id="secret-name"
+                  className="h-9"
                   placeholder="Stripe"
                   autoFocus={nameField === "open"}
                   readOnly={nameField === "locked"}
@@ -131,8 +132,8 @@ export function SecretFormDialog({
               {mutation.error.message}
             </p>
           ) : null}
-          <DialogFooter className="mt-6">
-            <Button type="submit" disabled={mutation.isPending}>
+          <DialogFooter>
+            <Button type="submit" size="xs" disabled={mutation.isPending}>
               {mutation.isPending ? "Saving…" : submitLabel}
             </Button>
           </DialogFooter>

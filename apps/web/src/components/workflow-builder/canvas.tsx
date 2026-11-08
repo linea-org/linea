@@ -74,8 +74,10 @@ import {
   createWorkflowVersionFn,
   publishWorkflowVersionFn,
   saveWorkflowDraftFn,
+  workflowQueryOptions,
 } from "@/lib/workflows-api"
 import { WorkflowPalette, PALETTE_DRAG_MIME } from "./palette"
+import { WorkflowTitle } from "./workflow-title"
 import { NodeConfigPanel } from "./node-config-panel"
 import { NodeShell } from "./node-shell"
 import { RunPanel, RunPanelTrigger } from "./run-panel"
@@ -206,6 +208,7 @@ function WorkflowBuilderCanvasInner({
   slug,
   initialGraph,
 }: WorkflowBuilderCanvasProps) {
+  const { data: workflow } = useQuery(workflowQueryOptions(slug, workflowId))
   const seeded = ensureStartNode(initialGraph)
   const initial = graphToFlow(seeded)
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes)
@@ -544,6 +547,7 @@ function WorkflowBuilderCanvasInner({
             <ArrowLeftIcon />
             Back
           </Button>
+          {workflow && <WorkflowTitle slug={slug} workflow={workflow} />}
         </div>
         <div className="flex items-center justify-end gap-2">
           {otherViewers.length > 0 && (
@@ -656,7 +660,7 @@ function WorkflowBuilderCanvasInner({
             <Button
               type="button"
               variant="ghost"
-              size="sm"
+              size="xs"
               onClick={() => setPendingRemoteUpdate(null)}
             >
               Dismiss
@@ -664,7 +668,7 @@ function WorkflowBuilderCanvasInner({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="xs"
               onClick={() => applyRemoteGraph(pendingRemoteUpdate)}
             >
               <RefreshCwIcon />
@@ -792,6 +796,7 @@ function WorkflowBuilderCanvasInner({
                       className="min-h-0"
                     >
                       <RunPanel
+                        key={activeRunExecutionId}
                         slug={slug}
                         workflowId={workflowId}
                         executionId={activeRunExecutionId}
@@ -890,11 +895,12 @@ function WorkflowBuilderCanvasInner({
             <Button
               type="button"
               variant="ghost"
+              size="xs"
               onClick={() => setCommitDialog(null)}
             >
               Cancel
             </Button>
-            <Button type="button" onClick={confirmCommit}>
+            <Button type="button" size="xs" onClick={confirmCommit}>
               {commitDialog === "publish" ? "Publish" : "Commit"}
             </Button>
           </DialogFooter>

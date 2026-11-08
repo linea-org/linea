@@ -121,7 +121,7 @@ export function EnvironmentDeploymentForm({
             {flag.label}
           </label>
         ))}
-        <Button type="submit" disabled={!enabled || deploy.isPending}>
+        <Button type="submit" size="xs" disabled={!enabled || deploy.isPending}>
           Save deployment
         </Button>
       </form>
@@ -164,6 +164,12 @@ function DeploymentVersionFields({
           render={({ field }) => (
             <Select
               value={field.value}
+              items={workflows
+                .filter((workflow) => !workflow.archivedAt)
+                .map((workflow) => ({
+                  value: workflow.id,
+                  label: workflow.name,
+                }))}
               onValueChange={(value) => {
                 field.onChange(value)
                 setValue("versionId", "")
@@ -193,7 +199,14 @@ function DeploymentVersionFields({
           control={control}
           rules={{ required: "Select a published version" }}
           render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
+            <Select
+              value={field.value}
+              onValueChange={field.onChange}
+              items={published.map((version) => ({
+                value: version.id,
+                label: `Version ${version.version}`,
+              }))}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select version" />
               </SelectTrigger>

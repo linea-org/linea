@@ -1,6 +1,4 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
-import { ArrowLeftIcon } from "lucide-react"
 
 import { Badge } from "@linea/ui/components/badge"
 
@@ -57,16 +55,7 @@ export function RegressionRunDetailView({
 
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <Link
-        to="/w/$slug/workflows/$workflowId"
-        params={{ slug, workflowId }}
-        className="inline-flex w-fit items-center gap-1.5 pl-1 text-xs text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeftIcon className="size-3.5" />
-        Back to workflow
-      </Link>
-
-      <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
             <p className="truncate text-xs font-medium text-foreground">

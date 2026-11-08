@@ -1,13 +1,11 @@
-import {
-  nodeRegistry,
-  type NodeTypeId,
-  type NodeUICategory,
-} from "@linea/runtime/browser"
+import { nodeRegistry, type NodeUICategory } from "@linea/runtime/browser"
 import { cn } from "@linea/ui/lib/utils"
+import { useHydrated } from "@tanstack/react-router"
 
 import type { ExecutionStepSummary } from "@/lib/executions-api"
 import { NODE_CATEGORY_COLORS } from "../workflow-builder/node-category-colors"
 import { NodeIcon } from "../workflow-builder/node-icon"
+import { isNodeTypeId, stepTitle } from "./execution-step-presentation"
 
 const MIN_BAR_WIDTH_PCT = 1.5
 const TICK_COUNT = 4
@@ -20,22 +18,18 @@ const CATEGORY_BAR: Record<NodeUICategory, string> = {
   trigger: "bg-node-trigger",
 }
 
-function isNodeTypeId(value: string): value is NodeTypeId {
-  return value in nodeRegistry
-}
-
-function stepTitle(name: string): string {
-  if (!isNodeTypeId(name)) return name
-  return nodeRegistry[name].ui.label
-}
-
 function formatElapsed(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`
   const totalSeconds = ms / 1000
   if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`
-  const minutes = Math.floor(totalSeconds / 60)
+  const totalMinutes = Math.floor(totalSeconds / 60)
   const seconds = Math.round(totalSeconds % 60)
-  return `${minutes}m${seconds.toString().padStart(2, "0")}s`
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m${seconds.toString().padStart(2, "0")}s`
+  }
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  return `${hours}h${minutes.toString().padStart(2, "0")}m`
 }
 
 function barClass(
@@ -73,6 +67,7 @@ export function ExecutionGanttChart({
   selectedStepId?: string | null
   onStepSelect?: (stepId: string) => void
 }) {
+  const hydrated = useHydrated()
   const rows = steps
     .filter((step) => !step.isSystemEvent)
     .slice()
@@ -87,13 +82,25 @@ export function ExecutionGanttChart({
       </p>
     )
   }
-  const now = Date.now()
+  const now = hydrated
+    ? Date.now()
+    : Math.max(
+        ...rows.map((step) =>
+          new Date(step.endedAt ?? step.startedAt).getTime()
+        )
+      )
   const rangeStartMs = executionStartedAt
     ? new Date(executionStartedAt).getTime()
     : Math.min(...rows.map((s) => new Date(s.startedAt).getTime()))
+  const recordedEndMs = Math.max(
+    ...rows.map((step) => new Date(step.endedAt ?? step.startedAt).getTime())
+  )
+  const hasOpenStep = rows.some((step) => !step.endedAt)
   const rangeEndMs = Math.max(
-    executionCompletedAt ? new Date(executionCompletedAt).getTime() : now,
-    ...rows.map((s) => (s.endedAt ? new Date(s.endedAt).getTime() : now))
+    executionCompletedAt
+      ? new Date(executionCompletedAt).getTime()
+      : recordedEndMs,
+    hasOpenStep ? now : recordedEndMs
   )
   const rangeMs = Math.max(rangeEndMs - rangeStartMs, 1000)
   const ticks = Array.from({ length: TICK_COUNT + 1 }, (_, i) => {
@@ -102,7 +109,7 @@ export function ExecutionGanttChart({
   })
   return (
     <div className="flex flex-col text-xs">
-      <div className="sticky top-0 z-10 flex bg-card pb-2">
+      <div className="sticky top-0 z-10 flex bg-inherit pb-2">
         <div className="w-40 shrink-0" />
         <div className="relative h-4 min-w-0 flex-1">
           {ticks.map((tick) => (
@@ -137,6 +144,8 @@ export function ExecutionGanttChart({
               type="button"
               onClick={() => onStepSelect?.(step.id)}
               title={`${label} · ${formatElapsed(endMs - startMs)}`}
+              aria-label={`${label} · ${step.status} · attempt ${step.attempt}`}
+              aria-pressed={selectedStepId === step.id}
               className={cn(
                 "flex w-full items-center gap-2 rounded-md py-1 pr-1 text-left hover:bg-muted/50",
                 selectedStepId === step.id && "bg-muted"

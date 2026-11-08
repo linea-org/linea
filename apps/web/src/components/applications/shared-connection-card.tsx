@@ -35,6 +35,7 @@ export function SharedConnectionCard({
       </div>
       <ConnectionAuthorities />
       <Button
+        size="xs"
         variant="destructive"
         disabled={connection.status === "revoked" || revoke.isPending}
         onClick={() => revoke.mutate()}

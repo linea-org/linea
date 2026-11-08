@@ -1,6 +1,9 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { PlusIcon } from "lucide-react"
+import { Button } from "@linea/ui/components/button"
 
+import { AddAgentDialog } from "@/components/agents/add-agent-dialog"
 import {
   HomeStats,
   OpenSignalsWidget,
@@ -44,6 +47,23 @@ function WorkspaceHomePage() {
   })
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-3 pl-1">
+        <div>
+          <h1 className="text-sm font-medium">Add an Agent to your product</h1>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Start with a task, then configure and deploy your Agent.
+          </p>
+        </div>
+        <AddAgentDialog
+          workspaceSlug={slug}
+          trigger={
+            <Button size="xs">
+              <PlusIcon />
+              Add Agent
+            </Button>
+          }
+        />
+      </header>
       <HomeStats
         workflows={workflows}
         signals={signals}

@@ -30,7 +30,7 @@ async function parseErrorMessage(
 }
 
 export const listNotificationsFn = createServerFn({ method: "GET" })
-  .inputValidator(
+  .validator(
     (data: { unreadOnly?: boolean; archived?: boolean } | undefined) => data
   )
   .handler(async ({ data }): Promise<NotificationSummary[]> => {
@@ -60,7 +60,7 @@ export const unreadNotificationCountFn = createServerFn({
 })
 
 export const markNotificationReadFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data }): Promise<NotificationSummary> => {
     const res = await apiFetch(`/notifications/${data.id}/read`, {
       method: "POST",
@@ -74,7 +74,7 @@ export const markNotificationReadFn = createServerFn({ method: "POST" })
   })
 
 export const markNotificationUnreadFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data }): Promise<NotificationSummary> => {
     const res = await apiFetch(`/notifications/${data.id}/unread`, {
       method: "POST",
@@ -100,7 +100,7 @@ export const markAllNotificationsReadFn = createServerFn({
 })
 
 export const archiveNotificationFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data }): Promise<NotificationSummary> => {
     const res = await apiFetch(`/notifications/${data.id}/archive`, {
       method: "POST",
@@ -112,7 +112,7 @@ export const archiveNotificationFn = createServerFn({ method: "POST" })
   })
 
 export const unarchiveNotificationFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data }): Promise<NotificationSummary> => {
     const res = await apiFetch(`/notifications/${data.id}/unarchive`, {
       method: "POST",
@@ -124,7 +124,7 @@ export const unarchiveNotificationFn = createServerFn({ method: "POST" })
   })
 
 export const deleteNotificationFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data }): Promise<void> => {
     const res = await apiFetch(`/notifications/${data.id}`, {
       method: "DELETE",

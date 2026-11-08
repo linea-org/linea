@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing'
+import { z } from 'zod'
 import type { INestApplication } from '@nestjs/common'
 import type { Request, Response, NextFunction } from 'express'
 import request from 'supertest'
@@ -79,10 +80,43 @@ describe('Agent management authorization', () => {
     await app.close()
   })
   const paths = [
+    '/agents/authoring-catalog',
     `/agents?applicationId=${applicationId}`,
     `/agents/${applicationId}/contracts`,
     `/environments/${applicationId}/agent-bindings`,
   ]
+  it('exposes only authoring metadata from registered models and operations', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/agents/authoring-catalog')
+      .expect(200)
+    const catalog = z
+      .strictObject({
+        models: z.array(z.string()),
+        operations: z.array(
+          z.strictObject({
+            id: z.string(),
+            provider: z.string(),
+            classification: z.enum(['read', 'side_effect']),
+          }),
+        ),
+      })
+      .parse(response.body)
+    expect(catalog.models).toContain('gpt-5')
+    expect(catalog.operations).toEqual(
+      expect.arrayContaining([
+        {
+          id: 'github.issues.list',
+          provider: 'github',
+          classification: 'read',
+        },
+        {
+          id: 'github.issues.create',
+          provider: 'github',
+          classification: 'side_effect',
+        },
+      ]),
+    )
+  })
   it('requires authentication on every management resource', async () => {
     signedIn = false
     for (const path of paths)

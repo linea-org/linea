@@ -1,11 +1,14 @@
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { useMutation } from "@tanstack/react-query"
 import { Button } from "@linea/ui/components/button"
 import { Field, FieldLabel } from "@linea/ui/components/field"
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@linea/ui/components/native-select"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@linea/ui/components/select"
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import { replaceConnectorPolicyFn } from "@/lib/shared-connections-api"
 type PolicyForm = {
@@ -33,7 +36,7 @@ export function EnvironmentConnectorPolicy({
     else if (current?.maxScopes.includes(permission.name + ":read"))
       defaultValues[permission.name] = "read"
   }
-  const { register, handleSubmit } = useForm<PolicyForm>({ defaultValues })
+  const { control, handleSubmit } = useForm<PolicyForm>({ defaultValues })
   const save = useMutation({
     mutationFn: (input: PolicyForm) => {
       const selected = permissions.filter(
@@ -100,22 +103,42 @@ export function EnvironmentConnectorPolicy({
           <FieldLabel htmlFor={environment.id + "-policy-" + permission.name}>
             {permission.label}
           </FieldLabel>
-          <NativeSelect
-            id={environment.id + "-policy-" + permission.name}
-            {...register(permission.name)}
-          >
-            <NativeSelectOption value="none">None</NativeSelectOption>
-            <NativeSelectOption value="read">Read</NativeSelectOption>
-            <NativeSelectOption value="write">
-              Read and write
-            </NativeSelectOption>
-          </NativeSelect>
+          <Controller
+            control={control}
+            name={permission.name}
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onValueChange={(value) => {
+                  if (value !== "none" && value !== "read" && value !== "write")
+                    return
+                  field.onChange(value)
+                }}
+              >
+                <SelectTrigger
+                  id={environment.id + "-policy-" + permission.name}
+                  className="w-full"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="read">Read</SelectItem>
+                  <SelectItem value="write">Read and write</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
         </Field>
       ))}
       {save.error && (
         <p className="text-sm text-destructive">{save.error.message}</p>
       )}
-      <Button type="submit" disabled={!environment.enabled || save.isPending}>
+      <Button
+        type="submit"
+        size="xs"
+        disabled={!environment.enabled || save.isPending}
+      >
         Save GitHub policy
       </Button>
     </form>

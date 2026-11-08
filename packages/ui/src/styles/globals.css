@@ -16,6 +16,8 @@
   --card-foreground: oklch(0.153 0.006 107.1);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.153 0.006 107.1);
+  --auth-panel: oklch(0 0 0);
+  --auth-panel-foreground: oklch(1 0 0);
   --primary: oklch(0.228 0.013 107.4);
   --primary-foreground: oklch(0.988 0.003 106.5);
   --secondary: oklch(0.966 0.005 106.5);
@@ -26,6 +28,7 @@
   --accent-foreground: oklch(0.228 0.013 107.4);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.988 0.003 106.5);
+  --success: oklch(0.55 0.14 165);
   --border: oklch(0.93 0.007 106.5);
   --input: oklch(0.93 0.007 106.5);
   --ring: oklch(0.737 0.021 106.9);
@@ -88,6 +91,8 @@
   --card-foreground: oklch(0.97 0 0);
   --popover: oklch(0.24 0 0);
   --popover-foreground: oklch(0.97 0 0);
+  --auth-panel: oklch(0 0 0);
+  --auth-panel-foreground: oklch(1 0 0);
   --primary: oklch(0.93 0 0);
   --primary-foreground: oklch(0.2 0 0);
   --secondary: oklch(0.255 0 0);
@@ -98,6 +103,7 @@
   --accent-foreground: oklch(0.97 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.97 0 0);
+  --success: oklch(0.75 0.14 165);
   --border: oklch(0.32 0 0);
   --input: oklch(0.32 0 0);
   --ring: oklch(0.58 0 0);
@@ -153,6 +159,8 @@
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+  --color-auth-panel: var(--auth-panel);
+  --color-auth-panel-foreground: var(--auth-panel-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
@@ -163,6 +171,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -190,6 +199,14 @@
 
   --font-sans: var(--font-sans);
   --font-heading: var(--font-sans);
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.375rem;
+  --text-base: 1.125rem;
+  --text-base--line-height: 1.625rem;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.75rem;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
