@@ -12,7 +12,7 @@ const environment = z
   })
   .parse(process.env)
 
-test("sidebar Back restores visited menus without changing the page or browser history", async ({
+test("sidebar Back restores visited menus, and from the first layer returns to the previous page", async ({
   page,
 }) => {
   const applicationPath = environment.AGENT_UI_APPLICATION_PATH
@@ -84,17 +84,14 @@ test("sidebar Back restores visited menus without changing the page or browser h
     .getByLabel("Identity provider issuer", { exact: true })
   await issuer.fill("https://sidebar-draft.example.test")
   await page.getByRole("button", { name: "Back", exact: true }).click()
-  await expect(page).toHaveURL(
-    `${applicationPath}?view=environments&environment=production`
-  )
+  await expect(page).toHaveURL(`${workspacePath}/applications`)
   await expect(
     page.getByRole("link", { name: "Applications", exact: true })
   ).toBeVisible()
-  await expect(issuer).toHaveValue("https://sidebar-draft.example.test")
   await page.getByRole("link", { name: "Workflows", exact: true }).click()
   await expect(page).toHaveURL(`${workspacePath}/workflows`)
   await page.getByRole("button", { name: "Back", exact: true }).click()
-  await expect(page).toHaveURL(`${workspacePath}/workflows`)
+  await expect(page).toHaveURL(`${workspacePath}/applications`)
   await expect(
     page.getByRole("link", { name: "Applications", exact: true })
   ).toBeVisible()

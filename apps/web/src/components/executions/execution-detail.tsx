@@ -44,7 +44,8 @@ async function lookupName(
 ): Promise<string> {
   try {
     return (await load()).name
-  } catch {
+  } catch (error) {
+    console.warn(`Could not look up ${fallback} name`, error)
     return fallback
   }
 }
