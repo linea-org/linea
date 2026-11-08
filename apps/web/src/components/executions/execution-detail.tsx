@@ -37,30 +37,40 @@ export type ExecutionDetailData = {
   definitionName: string
 }
 
+/** The name is decoration: a lookup the viewer is not permitted to make, or that fails, must not hide an Execution they are allowed to read. */
+async function lookupName(
+  load: () => Promise<{ name: string }>,
+  fallback: string
+): Promise<string> {
+  try {
+    return (await load()).name
+  } catch {
+    return fallback
+  }
+}
+
 export async function loadExecutionDetail(
   executionId: string,
   workflowId?: string
 ): Promise<ExecutionDetailData> {
   const detail = await getExecutionFn({ data: { id: executionId } })
-  if (workflowId && detail.execution.workflowId !== workflowId) {
+  const { agentId, workflowId: executionWorkflowId } = detail.execution
+  if (workflowId && executionWorkflowId !== workflowId) {
     throw new Error("Execution not found")
   }
-  if (detail.execution.agentId) {
-    const agent = await getAgentFn({
-      data: { agentId: detail.execution.agentId },
-    })
-    return { detail, definitionName: agent.name }
+  if (agentId) {
+    const definitionName = await lookupName(
+      () => getAgentFn({ data: { agentId } }),
+      "Agent"
+    )
+    return { detail, definitionName }
   }
-  if (!detail.execution.workflowId)
-    throw new Error("Execution definition is missing")
-  const workflowResult = await Promise.allSettled([
-    getWorkflowFn({ data: { id: detail.execution.workflowId } }),
-  ])
-  const workflow =
-    workflowResult[0].status === "fulfilled"
-      ? workflowResult[0].value
-      : undefined
-  return { detail, definitionName: workflow?.name ?? "Execution" }
+  if (!executionWorkflowId) throw new Error("Execution definition is missing")
+  const definitionName = await lookupName(
+    () => getWorkflowFn({ data: { id: executionWorkflowId } }),
+    "Execution"
+  )
+  return { detail, definitionName }
 }
 
 function executionDuration(

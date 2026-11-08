@@ -1,9 +1,8 @@
-import { Link } from "@tanstack/react-router"
+import { Link, useSearch } from "@tanstack/react-router"
 import { Button } from "@linea/ui/components/button"
 import { Badge } from "@linea/ui/components/badge"
 import type { AgentSummary } from "@/lib/agent-schemas"
 import type { EnvironmentSummary } from "@/lib/environments-api"
-import { useSearch } from "@tanstack/react-router"
 import { environmentName } from "@/components/applications/environment-settings"
 import { agentSections, type AgentSection } from "./agent-sections"
 

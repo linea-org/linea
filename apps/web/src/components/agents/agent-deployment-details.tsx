@@ -16,29 +16,55 @@ import type { EnvironmentSummary } from "@/lib/environments-api"
 import { environmentName } from "@/components/applications/environment-settings"
 import { formatDate } from "@/lib/format"
 
-export function AgentDeploymentDetails({
-  environment,
-  binding,
-  version,
-  contract,
-  archived,
-  children,
-}: Readonly<{
-  environment: EnvironmentSummary
+function deploymentStatus(
+  environment: EnvironmentSummary,
   binding: AgentBinding | undefined
-  version: AgentVersion | undefined
+) {
+  if (!environment.enabled) return "Environment disabled"
+  if (!binding) return "Not deployed"
+  return binding.enabled ? "Enabled" : "Disabled"
+}
+
+function versionHeadline(
+  version: AgentVersion | undefined,
+  binding: AgentBinding | undefined
+) {
+  if (version) return `Version ${version.version}`
+  return binding ? "Version unavailable" : "No version deployed"
+}
+
+function versionHint(
+  environment: EnvironmentSummary,
+  binding: AgentBinding | undefined
+) {
+  if (!binding)
+    return "Publish a version, then select it in Deployment settings."
+  return binding.enabled && environment.enabled
+    ? "This version is pinned to the Environment."
+    : "This deployment is not accepting new requests."
+}
+
+function ArchivedNote({
+  binding,
+}: Readonly<{ binding: AgentBinding | undefined }>) {
+  return (
+    <p
+      role="note"
+      className="border-t border-border px-5 py-3 text-xs leading-relaxed text-muted-foreground"
+    >
+      {binding?.enabled
+        ? "This Agent is archived. Its version cannot be changed, but you can disable this deployment below."
+        : "This Agent is archived. This deployment is read-only."}
+    </p>
+  )
+}
+
+function deploymentFacts(
+  environment: EnvironmentSummary,
+  version: AgentVersion | undefined,
   contract: AgentContract | undefined
-  archived: boolean
-  children: ReactNode
-}>) {
-  const status = !environment.enabled
-    ? "Environment disabled"
-    : binding
-      ? binding.enabled
-        ? "Enabled"
-        : "Disabled"
-      : "Not deployed"
-  const details = [
+) {
+  return [
     { label: "Environment", value: environmentName(environment.environment) },
     {
       label: "API Contract",
@@ -58,6 +84,25 @@ export function AgentDeploymentDetails({
       value: version?.publishedAt ? formatDate(version.publishedAt) : "—",
     },
   ]
+}
+
+export function AgentDeploymentDetails({
+  environment,
+  binding,
+  version,
+  contract,
+  archived,
+  children,
+}: Readonly<{
+  environment: EnvironmentSummary
+  binding: AgentBinding | undefined
+  version: AgentVersion | undefined
+  contract: AgentContract | undefined
+  archived: boolean
+  children: ReactNode
+}>) {
+  const status = deploymentStatus(environment, binding)
+  const details = deploymentFacts(environment, version, contract)
   return (
     <article className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
@@ -78,18 +123,10 @@ export function AgentDeploymentDetails({
           <div className="flex flex-col gap-1">
             <p className="text-xs text-muted-foreground">Deployed version</p>
             <p className="text-xl font-medium">
-              {version
-                ? `Version ${version.version}`
-                : binding
-                  ? "Version unavailable"
-                  : "No version deployed"}
+              {versionHeadline(version, binding)}
             </p>
             <p className="max-w-64 text-xs leading-relaxed text-muted-foreground">
-              {binding
-                ? binding.enabled && environment.enabled
-                  ? "This version is pinned to the Environment."
-                  : "This deployment is not accepting new requests."
-                : "Publish a version, then select it in Deployment settings."}
+              {versionHint(environment, binding)}
             </p>
           </div>
         </div>
@@ -102,16 +139,7 @@ export function AgentDeploymentDetails({
           ))}
         </dl>
       </div>
-      {archived && (
-        <p
-          role="note"
-          className="border-t border-border px-5 py-3 text-xs leading-relaxed text-muted-foreground"
-        >
-          {binding?.enabled
-            ? "This Agent is archived. Its version cannot be changed, but you can disable this deployment below."
-            : "This Agent is archived. This deployment is read-only."}
-        </p>
-      )}
+      {archived && <ArchivedNote binding={binding} />}
       {!environment.enabled && (
         <p
           role="note"

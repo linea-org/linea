@@ -3,6 +3,7 @@ import {
   useContext,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -188,12 +189,15 @@ function SidebarContextPanel({
     (label: string, value: boolean) => setExpanded(`${key}/${label}`, value),
     [key, setExpanded]
   )
-  const values: Record<string, boolean> = {}
-  for (const [name, value] of Object.entries(expanded)) {
-    if (name.startsWith(`${key}/`)) values[name.slice(key.length + 1)] = value
-  }
+  const branchState = useMemo(() => {
+    const values: Record<string, boolean> = {}
+    for (const [name, value] of Object.entries(expanded)) {
+      if (name.startsWith(`${key}/`)) values[name.slice(key.length + 1)] = value
+    }
+    return { values, setValue }
+  }, [expanded, key, setValue])
   return (
-    <SidebarBranchStateContext.Provider value={{ values, setValue }}>
+    <SidebarBranchStateContext.Provider value={branchState}>
       <WorkspaceSectionNav slug={slug} context={context} />
     </SidebarBranchStateContext.Provider>
   )

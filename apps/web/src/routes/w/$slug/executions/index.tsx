@@ -379,11 +379,9 @@ function ExecutionsPage() {
           <SelectTrigger size="xs">
             <SelectValue placeholder="Status">
               {(value: string) =>
-                value === "all"
-                  ? "All statuses"
-                  : isExecutionStatus(value)
-                    ? executionStatusDefinition[value].label
-                    : "All statuses"
+                isExecutionStatus(value)
+                  ? executionStatusDefinition[value].label
+                  : "All statuses"
               }
             </SelectValue>
           </SelectTrigger>

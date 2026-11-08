@@ -22,18 +22,21 @@ test("keeps sessions available during navigation and recovers from a temporary s
     password: environment.AGENT_UI_PASSWORD,
     slug,
   })
-  for (let index = 0; index < 105; index += 1) {
-    const response = await page.request.get("/v1/auth/get-session")
-    expect(response.status(), `session check ${index + 1}`).toBe(200)
-    expect(await response.json()).toMatchObject({
-      user: { email: environment.AGENT_UI_EMAIL },
+  // More identity reads than the 100/minute auth limit allows for other routes.
+  await Promise.all(
+    Array.from({ length: 105 }, async (_, index) => {
+      const response = await page.request.get("/v1/auth/get-session")
+      expect(response.status(), `session check ${index + 1}`).toBe(200)
+      expect(await response.json()).toMatchObject({
+        user: { email: environment.AGENT_UI_EMAIL },
+      })
+      const workspaces = await page.request.get("/v1/auth/organization/list")
+      expect(workspaces.status(), `workspace check ${index + 1}`).toBe(200)
+      expect(await workspaces.json()).toEqual(
+        expect.arrayContaining([expect.objectContaining({ slug })])
+      )
     })
-    const workspaces = await page.request.get("/v1/auth/organization/list")
-    expect(workspaces.status(), `workspace check ${index + 1}`).toBe(200)
-    expect(await workspaces.json()).toEqual(
-      expect.arrayContaining([expect.objectContaining({ slug })])
-    )
-  }
+  )
   await page.route("**/_serverFn/**", async (route) => {
     const identifier =
       new URL(route.request().url()).pathname.split("/").at(-1) ?? ""

@@ -9,6 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
+  useSidebar,
 } from "@linea/ui/components/sidebar"
 
 import { useSidebarBranchState } from "./sidebar-branch-state"
@@ -25,6 +26,7 @@ export function SidebarSectionBranch({
   children: ReactNode
 }>) {
   const { values, setValue } = useSidebarBranchState()
+  const { state, isMobile, setOpen } = useSidebar()
   const previousActive = useRef(active)
   useEffect(() => {
     if (active && !previousActive.current) setValue(label, true)
@@ -34,7 +36,15 @@ export function SidebarSectionBranch({
   return (
     <Collapsible
       open={expanded}
-      onOpenChange={(next) => setValue(label, next)}
+      onOpenChange={(next) => {
+        // Children are hidden while the rail is collapsed, so expand it first.
+        if (state === "collapsed" && !isMobile) {
+          setOpen(true)
+          setValue(label, true)
+          return
+        }
+        setValue(label, next)
+      }}
       className="group/branch"
       render={<SidebarMenuItem />}
     >
