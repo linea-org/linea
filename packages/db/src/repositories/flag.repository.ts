@@ -254,7 +254,7 @@ export async function detectToolErrors(
     )
 }
 
-/** An "ai" step that succeeded but returned no real text. */
+/** An "ai" step that succeeded but returned no real text and requested no tools. */
 export async function detectEmptyResponses(
   db: DbClient
 ): Promise<TranscriptFlagResult[]> {
@@ -270,7 +270,9 @@ export async function detectEmptyResponses(
       and(
         eq(executionSteps.name, "ai"),
         eq(executionSteps.status, "succeeded"),
-        sql`trim(coalesce(${executionSteps.output}->>'text', '')) = ''`
+        sql`trim(coalesce(${executionSteps.output}->>'text', '')) = ''`,
+        // A turn that only requests tools has no text by design.
+        sql`case when jsonb_typeof(${executionSteps.output}->'toolCalls') = 'array' then jsonb_array_length(${executionSteps.output}->'toolCalls') else 0 end = 0`
       )
     )
 }

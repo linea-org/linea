@@ -426,3 +426,36 @@ describe("getSignalsTrend", () => {
     })
   })
 })
+
+describe("signal scoping for flags without a workflow", () => {
+  it("never groups the same pattern from different workspaces into one signal", async () => {
+    await withRollback(async (tx) => {
+      const first = await createTestFixtures(tx)
+      const second = await createTestFixtures(tx)
+      for (const { organization } of [first, second]) {
+        await createFlagIfNew(tx, {
+          workspaceId: organization.id,
+          nodeId: "agent:model:0",
+          flagType: "empty_response",
+          dedupeKey: `empty_response:${organization.id}:agent:model:0`,
+        })
+      }
+      const firstSignals = await listSignals(tx, first.organization.id)
+      const secondSignals = await listSignals(tx, second.organization.id)
+      expect(firstSignals).toHaveLength(1)
+      expect(secondSignals).toHaveLength(1)
+      expect(firstSignals[0].id).not.toBe(secondSignals[0].id)
+      const detail = await getSignalDetail(
+        tx,
+        first.organization.id,
+        firstSignals[0].id
+      )
+      expect(detail?.occurrenceCount).toBe(1)
+      expect(
+        detail?.flags.every(
+          (flag) => flag.workspaceId === first.organization.id
+        )
+      ).toBe(true)
+    })
+  })
+})

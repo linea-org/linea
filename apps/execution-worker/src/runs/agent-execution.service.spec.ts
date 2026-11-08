@@ -382,3 +382,49 @@ it("rejects output outside the pinned Contract", async () => {
     (await repositories.execution.getExecutionById(db, execution.id))?.status
   ).toBe("failed")
 })
+
+async function failedSteps(executionId: string) {
+  const { rows } = await pool.query<{
+    name: string
+    node_id: string
+    error: { message: string } | null
+  }>(
+    "SELECT name, node_id, error FROM execution_steps WHERE execution_id = $1 AND status = 'failed' ORDER BY sequence",
+    [executionId]
+  )
+  return rows
+}
+
+it("records a failed ai step when the model provider fails", async () => {
+  jest
+    .spyOn(registry["gpt-5"], "complete")
+    .mockRejectedValue(new Error("provider unavailable"))
+  const execution = await start()
+  await expect(runs.execute(execution.id)).rejects.toThrow(
+    "provider unavailable"
+  )
+  expect(await failedSteps(execution.id)).toEqual([
+    expect.objectContaining({
+      name: "ai",
+      node_id: "agent:model:0",
+      error: expect.objectContaining({ message: "provider unavailable" }),
+    }),
+  ])
+})
+
+it("records a failed connector step when a tool call fails, but not for an approval pause", async () => {
+  jest
+    .spyOn(registry["gpt-5"], "complete")
+    .mockResolvedValue(modelTurn(["unknown", "never"]))
+  const execution = await start()
+  await runs.execute(execution.id)
+  expect(await failedSteps(execution.id)).toEqual([])
+  await decide(execution.id, "approved")
+  await expect(runs.execute(execution.id)).rejects.toThrow("unknown")
+  expect(await failedSteps(execution.id)).toEqual([
+    expect.objectContaining({
+      name: "connector",
+      node_id: "agent:tool:0:0",
+    }),
+  ])
+})

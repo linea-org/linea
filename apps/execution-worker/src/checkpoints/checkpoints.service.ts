@@ -84,13 +84,14 @@ export class CheckpointsService {
     const sequence =
       status === "succeeded" ? input.completed.size : input.completed.size + 1
 
+    const spanId = randomUUID()
     const result = await repositories.checkpoint.writeStepAndCheckpoint(db, {
       leasedBy: input.leasedBy,
       step: {
         executionId: input.executionId,
         workspaceId: input.workspaceId,
         traceId: input.executionId,
-        spanId: randomUUID(),
+        spanId,
         name: input.nodeType,
         startedAt: input.startedAt,
         endedAt: input.endedAt,
@@ -101,7 +102,11 @@ export class CheckpointsService {
         input: input.input as Record<string, unknown>,
         output: input.output as Record<string, unknown> | undefined,
         error: input.error,
-        idempotencyKey: `${input.executionId}:${input.nodeId}`,
+        // A failed attempt must not block the same node's later success on the unique key.
+        idempotencyKey:
+          status === "succeeded"
+            ? `${input.executionId}:${input.nodeId}`
+            : `${input.executionId}:${input.nodeId}:failed:${spanId}`,
         costMicros: input.costMicros ?? 0n,
         attributes: buildStepAttributes(input),
         tokensInput: input.tokensInput ?? 0,

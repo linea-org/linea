@@ -6,10 +6,11 @@ import {
   createMonitoringApi,
   MonitoringApiProvider,
 } from "../src/api/monitoring-api"
-import type {
-  ExecutionDetail,
-  ExecutionPage,
-  SignalSummary,
+import {
+  executionSummarySchema,
+  type ExecutionDetail,
+  type ExecutionPage,
+  type SignalSummary,
 } from "../src/api/monitoring-types"
 import {
   MobileAuthProvider,
@@ -150,6 +151,20 @@ function withMonitoring(screen: React.ReactNode, api = createApi()) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+})
+
+it("accepts a standalone Agent execution with no workflow", () => {
+  const { workflowId, ...rest } = executionPage.executions[0]
+  expect(workflowId).toBeTruthy()
+  const parsed = executionSummarySchema.parse({
+    ...rest,
+    workflowId: null,
+    agentId: "agent-alpha",
+    workflowName: "Backlog analyst",
+    workflowSlug: "backlog-analyst",
+  })
+  expect(parsed.workflowId).toBeNull()
+  expect(parsed.agentId).toBe("agent-alpha")
 })
 
 it("uses the native session cookie and follows every execution page", async () => {

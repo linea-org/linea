@@ -191,32 +191,26 @@ export class AgentExecutionService {
     conversation: ConversationTurn[],
     iteration: number
   ): Promise<Completion> {
-    const { execution, leasedBy, signal, definition, contract, completed } =
-      context
+    const { execution, leasedBy, definition, completed } = context
     const modelNodeId = `agent:model:${iteration}`
     if (completed.has(modelNodeId))
       return completionSchema.parse(completed.get(modelNodeId))
     await this.checkpoints.assertOwnsLease(execution.id, leasedBy)
-    const { apiKey } = await resolveApiKey(
-      db,
-      execution.environmentId ?? undefined,
-      resolveKeyName(definition.model)
-    )
     const startedAt = new Date()
-    const result = completionSchema.parse(
-      await resolveProvider(definition.model).complete(apiKey, {
+    let result: Completion
+    try {
+      result = await this.complete(context, conversation)
+    } catch (error) {
+      await this.recordFailure(context, {
+        nodeId: modelNodeId,
+        nodeType: "ai",
+        input: { iteration },
+        startedAt,
+        error,
         model: definition.model,
-        systemPrompt: `${definition.instructions}\nReturn a final JSON value satisfying this output schema: ${JSON.stringify(contract.outputSchema)}`,
-        history: [...conversation],
-        tools: context.tools,
-        signal,
+        provider: resolveProviderId(definition.model),
       })
-    )
-    for (const call of result.toolCalls ?? []) {
-      const operation = context.registeredTools.get(call.name)
-      if (!operation)
-        throw new Error(`Agent requested undeclared tool: ${call.name}`)
-      operation.inputSchema.parse(requestSchema.parse(call.arguments).input)
+      throw error
     }
     const cost = calculateCostMicros(
       definition.model,
@@ -244,6 +238,79 @@ export class AgentExecutionService {
       provider: resolveProviderId(definition.model),
     })
     return result
+  }
+
+  private async complete(
+    context: RunContext,
+    conversation: ConversationTurn[]
+  ): Promise<Completion> {
+    const { execution, signal, definition, contract } = context
+    const { apiKey } = await resolveApiKey(
+      db,
+      execution.environmentId ?? undefined,
+      resolveKeyName(definition.model)
+    )
+    const result = completionSchema.parse(
+      await resolveProvider(definition.model).complete(apiKey, {
+        model: definition.model,
+        systemPrompt: `${definition.instructions}\nReturn a final JSON value satisfying this output schema: ${JSON.stringify(contract.outputSchema)}`,
+        history: [...conversation],
+        tools: context.tools,
+        signal,
+      })
+    )
+    for (const call of result.toolCalls ?? []) {
+      const operation = context.registeredTools.get(call.name)
+      if (!operation)
+        throw new Error(`Agent requested undeclared tool: ${call.name}`)
+      operation.inputSchema.parse(requestSchema.parse(call.arguments).input)
+    }
+    return result
+  }
+
+  /** Best-effort: a failed step makes the error visible in the trace and to flaggers. Lost leases and cancellations are not step failures, and a recording problem must never mask the original error. */
+  private async recordFailure(
+    context: RunContext,
+    failure: {
+      nodeId: string
+      nodeType: string
+      input: unknown
+      startedAt: Date
+      error: unknown
+      model?: string
+      provider?: string
+    }
+  ): Promise<void> {
+    if (failure.error instanceof LeaseLostError || context.signal.aborted)
+      return
+    const { execution, leasedBy, completed } = context
+    const message =
+      failure.error instanceof Error
+        ? failure.error.message
+        : String(failure.error)
+    try {
+      await this.checkpoints.recordStep({
+        executionId: execution.id,
+        workspaceId: execution.workspaceId,
+        leasedBy,
+        nodeId: failure.nodeId,
+        nodeType: failure.nodeType,
+        input: failure.input,
+        error: {
+          message,
+          stack:
+            failure.error instanceof Error ? failure.error.stack : undefined,
+        },
+        startedAt: failure.startedAt,
+        endedAt: new Date(),
+        completed,
+        variables: {},
+        model: failure.model,
+        provider: failure.provider,
+      })
+    } catch {
+      // The original error is what the Execution reports.
+    }
   }
 
   private async finish(context: RunContext, result: Completion): Promise<void> {
@@ -276,17 +343,30 @@ export class AgentExecutionService {
     const request = requestSchema.parse(call.arguments)
     await this.checkpoints.assertOwnsLease(execution.id, leasedBy)
     const startedAt = new Date()
-    const response = await this.gateway.execute({
-      executionId: execution.id,
-      workspaceId: execution.workspaceId,
-      nodeId,
-      connectionId: request.connectionId,
-      operationId: tool.operation,
-      operationInput: request.input,
-      invocationIdempotencyKey: `${execution.id}:${nodeId}`,
-      executionClaimId: leasedBy,
-      signal,
-    })
+    const toolInput = { operation: tool.operation, ...request }
+    let response: Awaited<ReturnType<ConnectorGatewayService["execute"]>>
+    try {
+      response = await this.gateway.execute({
+        executionId: execution.id,
+        workspaceId: execution.workspaceId,
+        nodeId,
+        connectionId: request.connectionId,
+        operationId: tool.operation,
+        operationInput: request.input,
+        invocationIdempotencyKey: `${execution.id}:${nodeId}`,
+        executionClaimId: leasedBy,
+        signal,
+      })
+    } catch (error) {
+      await this.recordFailure(context, {
+        nodeId,
+        nodeType: "connector",
+        input: toolInput,
+        startedAt,
+        error,
+      })
+      throw error
+    }
     if (response.outcome === "awaiting_consent")
       return this.pauseForApproval(context, nodeId)
     if (response.outcome === "rejected")
@@ -299,7 +379,7 @@ export class AgentExecutionService {
       leasedBy,
       nodeId,
       nodeType: "connector",
-      input: { operation: tool.operation, ...request },
+      input: toolInput,
       output,
       startedAt,
       endedAt: new Date(),
