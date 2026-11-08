@@ -4,7 +4,8 @@ const jsonValueSchema = z.json()
 
 export const executionSummarySchema = z.object({
   id: z.uuid(),
-  workflowId: z.uuid(),
+  workflowId: z.uuid().nullable(),
+  agentId: z.uuid().nullable().optional(),
   status: z.enum([
     "queued",
     "running",

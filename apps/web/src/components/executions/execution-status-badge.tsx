@@ -1,32 +1,12 @@
 import { Badge } from "@linea/ui/components/badge"
 
+import { executionStatusDefinition } from "@/lib/execution-status"
 import type { ExecutionStatus } from "@/lib/executions-api"
-
-export const executionStatusLabel: Record<ExecutionStatus, string> = {
-  queued: "Queued",
-  running: "Running",
-  paused: "Paused",
-  succeeded: "Succeeded",
-  failed: "Failed",
-  cancelled: "Cancelled",
-}
-
-const variantByStatus: Record<
-  ExecutionStatus,
-  "default" | "secondary" | "outline" | "destructive"
-> = {
-  queued: "outline",
-  running: "default",
-  paused: "outline",
-  succeeded: "secondary",
-  failed: "destructive",
-  cancelled: "outline",
-}
 
 export function ExecutionStatusBadge({ status }: { status: ExecutionStatus }) {
   return (
-    <Badge variant={variantByStatus[status]}>
-      {executionStatusLabel[status]}
+    <Badge variant={executionStatusDefinition[status].variant}>
+      {executionStatusDefinition[status].label}
     </Badge>
   )
 }

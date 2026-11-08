@@ -53,11 +53,7 @@ import {
 } from "@linea/ui/components/table"
 
 import { PlayfulAvatar } from "@/components/avatar"
-import {
-  ExecutionStatusBadge,
-  executionStatusLabel,
-  formatCost,
-} from "@/components/executions"
+import { ExecutionStatusBadge, formatCost } from "@/components/executions"
 import {
   encodeExecutionCursor,
   listWorkspaceExecutionsFn,
@@ -71,24 +67,18 @@ import { formatElapsed } from "@/lib/format"
 import { SortDirectionIcon } from "@/components/workspace/sort-direction-icon"
 import { ariaSortValue, type SortDirection } from "@/lib/sort"
 
-const EXECUTION_STATUSES: ExecutionStatus[] = [
-  "queued",
-  "running",
-  "paused",
-  "succeeded",
-  "failed",
-  "cancelled",
-]
+import {
+  EXECUTION_STATUSES,
+  executionStatusDefinition,
+  isExecutionStatus,
+} from "@/lib/execution-status"
+
 const EXECUTION_TRIGGERS: ExecutionTrigger[] = [
   "manual",
   "schedule",
   "webhook",
   "api",
 ]
-
-function isExecutionStatus(value: unknown): value is ExecutionStatus {
-  return EXECUTION_STATUSES.includes(value as ExecutionStatus)
-}
 
 function isExecutionTrigger(value: unknown): value is ExecutionTrigger {
   return EXECUTION_TRIGGERS.includes(value as ExecutionTrigger)
@@ -180,7 +170,7 @@ function sortValue(
     case "workflow":
       return execution.workflowName.toLowerCase()
     case "status":
-      return executionStatusLabel[execution.status]
+      return executionStatusDefinition[execution.status].label
     case "trigger":
       return triggerLabel[execution.trigger]
     case "duration":
@@ -378,8 +368,7 @@ function ExecutionsPage() {
             void navigate({
               search: (prev) => ({
                 ...prev,
-                status:
-                  value === "all" ? undefined : (value as ExecutionStatus),
+                status: isExecutionStatus(value) ? value : undefined,
                 cursor: undefined,
                 trail: undefined,
                 anchor: undefined,
@@ -392,7 +381,9 @@ function ExecutionsPage() {
               {(value: string) =>
                 value === "all"
                   ? "All statuses"
-                  : executionStatusLabel[value as ExecutionStatus]
+                  : isExecutionStatus(value)
+                    ? executionStatusDefinition[value].label
+                    : "All statuses"
               }
             </SelectValue>
           </SelectTrigger>
@@ -400,7 +391,7 @@ function ExecutionsPage() {
             <SelectItem value="all">All statuses</SelectItem>
             {EXECUTION_STATUSES.map((status) => (
               <SelectItem key={status} value={status}>
-                {executionStatusLabel[status]}
+                {executionStatusDefinition[status].label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -479,12 +470,6 @@ function ExecutionsPage() {
       ) : (
         <>
           <div className="overflow-hidden rounded-xl border border-border bg-card">
-            {sorts.length > 0 && (
-              <p className="border-b px-4 py-2 text-xs text-muted-foreground">
-                Sorting applies to this page only. Pages remain ordered newest
-                first.
-              </p>
-            )}
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow className="hover:bg-transparent">
@@ -602,18 +587,24 @@ function ExecutionsPage() {
                             View execution
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() =>
-                              void navigate({
-                                to: "/w/$slug/workflows/$workflowId",
-                                params: {
-                                  slug,
-                                  workflowId: execution.workflowId,
-                                },
-                              })
-                            }
+                            onClick={() => {
+                              if (execution.workflowId)
+                                void navigate({
+                                  to: "/w/$slug/workflows/$workflowId",
+                                  params: {
+                                    slug,
+                                    workflowId: execution.workflowId,
+                                  },
+                                })
+                              else if (execution.agentId)
+                                void navigate({
+                                  to: "/w/$slug/agents/$agentId",
+                                  params: { slug, agentId: execution.agentId },
+                                })
+                            }}
                           >
                             <WorkflowIcon />
-                            Open workflow
+                            {execution.agentId ? "Open Agent" : "Open workflow"}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
