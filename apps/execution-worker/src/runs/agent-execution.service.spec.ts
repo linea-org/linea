@@ -20,6 +20,10 @@ import {
 } from "./agent-execution.fixture"
 
 const originalKey = process.env.OPENAI_API_KEY
+const originalCredentialKeys = {
+  active: process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY,
+  keys: process.env.CONNECTION_CREDENTIAL_KEYS,
+}
 let server: Server
 let fixture: AgentExecutionFixture
 let runs: RunsService
@@ -92,6 +96,11 @@ async function decide(executionId: string, outcome: "approved" | "rejected") {
 
 beforeAll(async () => {
   process.env.OPENAI_API_KEY = "deterministic-model-key"
+  // The fixture encrypts a Connection credential, so the spec owns its key ring.
+  process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY = "agent-execution-test-v1"
+  process.env.CONNECTION_CREDENTIAL_KEYS = JSON.stringify({
+    "agent-execution-test-v1": Buffer.alloc(32, 7).toString("base64"),
+  })
   server = createServer((request, response) => {
     const path = request.url ?? ""
     response.setHeader("content-type", "application/json")
@@ -151,6 +160,13 @@ afterEach(async () => {
 afterAll(async () => {
   if (originalKey === undefined) delete process.env.OPENAI_API_KEY
   else process.env.OPENAI_API_KEY = originalKey
+  if (originalCredentialKeys.active === undefined)
+    delete process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY
+  else
+    process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY = originalCredentialKeys.active
+  if (originalCredentialKeys.keys === undefined)
+    delete process.env.CONNECTION_CREDENTIAL_KEYS
+  else process.env.CONNECTION_CREDENTIAL_KEYS = originalCredentialKeys.keys
   delete process.env.DETERMINISTIC_CONNECTOR_BASE_URL
   await moduleRef.close()
   await new Promise<void>((resolve, reject) =>
