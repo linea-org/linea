@@ -74,10 +74,14 @@ ordered by `sequence`:
    with differences** and lists them. It is not a pass.
 
 Repeated identical calls therefore consume successive recordings in order and
-cannot reuse one response arbitrarily. If two recordings share an identity but
-their recorded results differ, they are still matched by position; a diagnostic
-run that reaches that identity out of position is unavailable
-(`ambiguous_match`).
+cannot reuse one response arbitrarily.
+
+An ordinal alone cannot say which occurrence a changed run meant when it makes
+fewer repeated calls than the source. So when an identity was recorded more than
+once with results that are not byte-identical, the run must make exactly the
+recorded number of calls with that identity. Fewer or more is `ambiguous_match`
+for that identity, and the run is unavailable rather than reusing the earlier
+occurrence's response for a call that may have meant a later one.
 
 ## Recorded outcomes
 
@@ -96,6 +100,9 @@ run are not recreated. A recording of a write that never reached the provider
 
 A recording is usable only when all hold at run time:
 
+- its `contentComplete` is true. A redacted or truncated response is
+  unavailable (`redacted`) because the rerun would reason over a replacement
+  rather than what the source Agent saw;
 - same source `environmentId` and, where recorded, same `externalSubjectId`;
 - same `connectionId`;
 - not expired under the source Environment's retention window;
@@ -103,7 +110,9 @@ A recording is usable only when all hold at run time:
 - the caller is a signed-in workspace admin or owner authorized in that
   Environment. Workspace API keys and End Users are denied (ADR 0026).
 
-Any failure here is unavailable with `expired`, `erased`, `wrong_environment`
+Authorization is checked before a run exists: a denied caller receives an
+authorization error and no diagnostic record is created. Every other failure
+here is unavailable with `expired`, `erased`, `redacted`, `wrong_environment`
 or `wrong_subject`. Expiry is checked at run time, before the purge job runs,
 and again when each recording is read so an expiry during a long run is honored.
 
@@ -111,7 +120,9 @@ and again when each recording is read so an expiry during a long run is honored.
 
 A diagnostic run ends in exactly one of:
 
-- `unavailable` with a reason from the list above and the call that stopped it;
+- `unavailable` with a reason from the list above and, when a call stopped it,
+  that call. A failure found before any call (for example the initial expiry or
+  erasure check) is unavailable with no call;
 - `completed`, carrying the changed output and trajectory, the source output
   for comparison, every reused recording labeled `recorded`, any unconsumed
   recordings, and the model usage of the rerun.
@@ -138,7 +149,10 @@ Each is a named test before diagnostic dispatch is enabled:
 - another Environment, subject, or Connection cannot read the recording;
 - expired and erased recordings are unavailable, including expiry between two
   calls of one run;
-- an `unknown` recording and a never-executed write are unavailable;
+- an `unknown` recording, a never-executed write, and a redacted or truncated
+  response are unavailable;
+- two recordings with the same identity and different results make a run with
+  fewer or more calls of that identity unavailable (`ambiguous_match`);
 - the source Execution row, steps, approvals and Action Intents are unchanged
   after a run;
 - API keys and End Users are denied; a non-admin member is denied;
