@@ -929,6 +929,50 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
+  it("cancels after an approving Decision without deadlocking a claim that holds the Approval Request first", async () => {
+    const fixture = await createFixture()
+    const client = await pool.connect()
+    let transactionOpen = false
+    try {
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      await client.query("BEGIN")
+      transactionOpen = true
+      await client.query(
+        "SELECT id FROM approval_requests WHERE workspace_id = $1 FOR UPDATE",
+        [fixture.workspaceId]
+      )
+      const cancelling = cancelExecution(fixture)
+      // Proceed only once PostgreSQL reports the cancel blocked behind this transaction's lock.
+      const { rows } = await client.query<{ pid: number }>(
+        "SELECT pg_backend_pid() AS pid"
+      )
+      const holderPid = rows[0].pid
+      for (let attempt = 0; ; attempt += 1) {
+        const blocked = await pool.query<{ count: string }>(
+          "SELECT count(*) FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))",
+          [holderPid]
+        )
+        if (Number(blocked.rows[0].count) > 0) break
+        if (attempt > 100) throw new Error("Cancellation never blocked")
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      // A claim takes the request, then the Execution; a cancel holding the Execution first would deadlock here.
+      await client.query("SET LOCAL lock_timeout = '5s'")
+      await client.query("SELECT id FROM executions WHERE id = $1 FOR UPDATE", [
+        fixture.executionId,
+      ])
+      await client.query("COMMIT")
+      transactionOpen = false
+      expect(["cancelled", "execution_not_cancellable"]).toContain(
+        (await cancelling).outcome
+      )
+    } finally {
+      if (transactionOpen) await client.query("ROLLBACK")
+      client.release()
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
   it("resolves concurrent conflicting invocation content to one intent and one conflict", async () => {
     const fixture = await createFixture()
     try {
