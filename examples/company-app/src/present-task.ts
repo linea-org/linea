@@ -51,8 +51,7 @@ export function presentTask(execution: PublicExecution): TaskView {
       return {
         headline: "This request did not finish",
         detail:
-          execution.error?.message ??
-          "It stopped before finishing. Completed actions are kept and are not repeated.",
+          "It stopped before finishing. Completed actions are kept and are not repeated. Your developer can see exactly which actions ran.",
         tone: "problem",
         result,
       }

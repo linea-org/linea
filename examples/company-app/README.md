@@ -21,6 +21,10 @@ It shows who configures what.
    and a separate reviewer.
 3. Create an Environment key (Environment → Keys). Treat it like a password.
 4. Find the Environment ID and the Agent ID in the Linea UI.
+5. To let people sign in and review on the page, edit the Environment's trust
+   settings: add `http://localhost:4000` to **Allowed browser origins** and to
+   **Allowed redirect origins**, configure your identity provider details, and
+   register `http://localhost:4000/` as a redirect URI at the identity provider.
 
 ## Run
 
@@ -53,5 +57,8 @@ your server and links to the same Execution in Linea.
 - Reviews appear through the End User session. Sign in with your identity
   provider as in `examples/sdk-react`; a signed-out visitor sees that reviews
   are unavailable rather than an Approve button.
+- A failed request shows a general message. The public API reports every
+  failure as `Execution failed`, so the page cannot tell the End User which
+  action was rejected; developers see the full reason in the Developer view.
 - If the outcome of an external write cannot be confirmed, the run stays
   stopped and the app never offers an automatic retry.

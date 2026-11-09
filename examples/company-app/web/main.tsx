@@ -29,6 +29,25 @@ const client = new LineaUserClient({
 })
 
 const taskIdPattern = /^[0-9a-f-]{36}$/
+const taskKey = "company-app-task"
+
+function savedTaskId(): string | undefined {
+  try {
+    const id = sessionStorage.getItem(taskKey)
+    return id && taskIdPattern.test(id) ? id : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function saveTaskId(id: string | undefined) {
+  try {
+    if (id) sessionStorage.setItem(taskKey, id)
+    else sessionStorage.removeItem(taskKey)
+  } catch {
+    // Storage can be unavailable; the task simply is not restored after sign-in.
+  }
+}
 
 class Unauthorized extends Error {}
 
@@ -201,6 +220,21 @@ function App() {
   const [error, setError] = useState<string>()
   const [needsCode, setNeedsCode] = useState(false)
   const taskId = task?.id
+  useEffect(() => {
+    const id = savedTaskId()
+    if (!id) return
+    const controller = new AbortController()
+    api(`/api/tasks/${encodeURIComponent(id)}`, {
+      signal: controller.signal,
+    }).then(
+      (restored) => setTask({ ...restored, id }),
+      () => saveTaskId(undefined)
+    )
+    return () => controller.abort()
+  }, [])
+  useEffect(() => {
+    if (taskId) saveTaskId(taskId)
+  }, [taskId])
   const finished = task?.tone === "done" || task?.tone === "problem"
   useEffect(() => {
     if (!taskId || finished || !taskIdPattern.test(taskId)) return
