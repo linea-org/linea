@@ -782,17 +782,19 @@ export async function cancelExecutionWithPendingApproval(
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
   )
-  const pending = await tx
+  // Every Approval Request of the Execution, decided or not, is locked before the Execution row: claiming an approved Action Intent locks the request first, and the opposite order deadlocks the two.
+  const requests = await tx
     .select()
     .from(approvalRequests)
     .where(
       and(
         eq(approvalRequests.workspaceId, workspaceId),
-        eq(approvalRequests.executionId, executionId),
-        eq(approvalRequests.status, "pending")
+        eq(approvalRequests.executionId, executionId)
       )
     )
+    .orderBy(approvalRequests.id)
     .for("update")
+  const pending = requests.filter(({ status }) => status === "pending")
   if (pending.length > 1) {
     throw new Error("Execution has multiple pending Approval Requests")
   }

@@ -929,6 +929,34 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
+  it("cancels after an approving Decision without deadlocking a claim that holds the Approval Request first", async () => {
+    const fixture = await createFixture()
+    const client = await pool.connect()
+    try {
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      await client.query("BEGIN")
+      await client.query(
+        "SELECT id FROM approval_requests WHERE workspace_id = $1 FOR UPDATE",
+        [fixture.workspaceId]
+      )
+      const cancelling = cancelExecution(fixture)
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      // A claim takes the request, then the Execution; a cancel holding the Execution first would deadlock here.
+      await client.query("SET LOCAL lock_timeout = '5s'")
+      await client.query("SELECT id FROM executions WHERE id = $1 FOR UPDATE", [
+        fixture.executionId,
+      ])
+      await client.query("COMMIT")
+      expect(["cancelled", "execution_not_cancellable"]).toContain(
+        (await cancelling).outcome
+      )
+    } finally {
+      await client.query("ROLLBACK").catch(() => undefined)
+      client.release()
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
   it("resolves concurrent conflicting invocation content to one intent and one conflict", async () => {
     const fixture = await createFixture()
     try {
