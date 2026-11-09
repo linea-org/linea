@@ -15,6 +15,7 @@ import {
 import { AiNode } from "./nodes/ai.node"
 import { ApprovalNode } from "./nodes/approval.node"
 import { BranchNode } from "./nodes/branch.node"
+import { AgentNode } from "./nodes/agent.node"
 import { ConnectorNode } from "./nodes/connector.node"
 import { DatetimeNode } from "./nodes/datetime.node"
 import { EndNode } from "./nodes/end.node"
@@ -167,7 +168,8 @@ export class InterpreterService {
     filterNode: FilterNode,
     mergeNode: MergeNode,
     variablesNode: VariablesNode,
-    connectorNode: ConnectorNode = new ConnectorNode()
+    connectorNode: ConnectorNode = new ConnectorNode(),
+    agentNode: AgentNode = new AgentNode()
   ) {
     this.handlers = {
       http: httpNode,
@@ -187,6 +189,7 @@ export class InterpreterService {
       end: new EndNode(),
     }
     this.handlers.connector = connectorNode
+    this.handlers.agent = agentNode
   }
 
   /** The reusable "run one node" unit, independent of the walker/checkpoints/leases — `run()` uses it per graph step, and step-level replay (apps/execution-worker/src/replay) calls it directly for one node with a substituted config, bypassing the walker since a replay target's input is already known. */

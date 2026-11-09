@@ -271,6 +271,7 @@ export class ExecutionsService {
     // real checkpointed step instead) or if the execution isn't paused. Neither Approval nor Wait
     // checkpoints before pausing, so there's no other way to know which node it stopped at.
     pausedAtNode?: { nodeId: string; type: string }
+    nestedAgents: repositories.nestedAgentExecution.NestedAgentInvocation[]
   }> {
     const result = await repositories.execution.getExecutionWithSteps(db, id)
     if (!result || result.execution.workspaceId !== workspaceId) {
@@ -313,7 +314,22 @@ export class ExecutionsService {
       }
     }
 
-    return { ...result, nodeConfigs, replayable, pausedAtNode }
+    const nestedAgents =
+      await repositories.nestedAgentExecution.listNestedAgentInvocations(
+        db,
+        workspaceId,
+        id,
+      )
+    if (!pausedAtNode && result.execution.status === 'paused') {
+      const waitingOn = nestedAgents.find(
+        (invocation) =>
+          !repositories.execution.terminalStatuses.includes(invocation.status),
+      )
+      if (waitingOn) {
+        pausedAtNode = { nodeId: waitingOn.nodeId, type: 'agent' }
+      }
+    }
+    return { ...result, nodeConfigs, replayable, pausedAtNode, nestedAgents }
   }
 
   async replayStep(
@@ -350,6 +366,11 @@ export class ExecutionsService {
       )
     }
 
+    if (step.name === 'agent') {
+      throw new BadRequestException(
+        'Run Agent steps cannot be replayed; start a new Workflow run',
+      )
+    }
     const replayStepId = randomUUID()
     await this.stepReplayQueue.enqueue({
       replayStepId,

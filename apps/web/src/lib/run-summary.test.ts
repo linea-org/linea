@@ -26,6 +26,7 @@ function detail(
     steps: [],
     nodeConfigs: {},
     replayable: false,
+    nestedAgents: [],
   }
 }
 
@@ -56,6 +57,16 @@ describe("summarizeRun", () => {
       ...detail({ status: "paused" }),
       pausedAtNode: { nodeId: "w", type: "wait" },
     })
+    expect(summary.attention).toBeNull()
+    expect(summary.nextAction).toMatch(/resumes by itself/)
+  })
+
+  it("says a run waiting on its Agent needs no reviewer", () => {
+    const summary = summarizeRun({
+      ...detail({ status: "paused" }),
+      pausedAtNode: { nodeId: "a", type: "agent" },
+    })
+    expect(summary.outcome).toBe("Waiting for an Agent.")
     expect(summary.attention).toBeNull()
     expect(summary.nextAction).toMatch(/resumes by itself/)
   })

@@ -5,6 +5,7 @@ import { InterpreterService } from "./interpreter.service"
 import { AiNode } from "./nodes/ai.node"
 import { ApprovalNode } from "./nodes/approval.node"
 import { BranchNode } from "./nodes/branch.node"
+import { AgentNode } from "./nodes/agent.node"
 import { ConnectorNode } from "./nodes/connector.node"
 import { DatetimeNode } from "./nodes/datetime.node"
 import { FilterNode } from "./nodes/filter.node"
@@ -32,6 +33,7 @@ import { WaitNode } from "./nodes/wait.node"
     VariablesNode,
     ConnectorGatewayService,
     ConnectorNode,
+    AgentNode,
   ],
   exports: [InterpreterService, AiNode],
 })

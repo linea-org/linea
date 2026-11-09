@@ -81,6 +81,25 @@ describe('RegressionCasesService', () => {
             stepId: step.id,
           }),
         ).rejects.toThrow()
+        const [agentStep] = await db
+          .insert(schema.executionSteps)
+          .values({
+            executionId: execution.id,
+            workspaceId,
+            traceId: randomUUID(),
+            spanId: randomUUID(),
+            name: 'agent',
+            nodeId: 'n2',
+            sequence: 2,
+            startedAt: new Date(),
+            input: { request: 'hello' },
+          })
+          .returning()
+        await expect(
+          service.createFromStep(workspaceId, workflow.id, {
+            stepId: agentStep.id,
+          }),
+        ).rejects.toThrow(/Run Agent steps/)
         const created = await service.createFromStep(workspaceId, workflow.id, {
           stepId: step.id,
         })
