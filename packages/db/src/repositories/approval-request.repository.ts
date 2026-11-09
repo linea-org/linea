@@ -782,17 +782,19 @@ export async function cancelExecutionWithPendingApproval(
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
   )
-  const pending = await tx
+  // Every Approval Request of the Execution, decided or not, is locked before the Execution row: claiming an approved Action Intent locks the request first, and the opposite order deadlocks the two.
+  const requests = await tx
     .select()
     .from(approvalRequests)
     .where(
       and(
         eq(approvalRequests.workspaceId, workspaceId),
-        eq(approvalRequests.executionId, executionId),
-        eq(approvalRequests.status, "pending")
+        eq(approvalRequests.executionId, executionId)
       )
     )
+    .orderBy(approvalRequests.id)
     .for("update")
+  const pending = requests.filter(({ status }) => status === "pending")
   if (pending.length > 1) {
     throw new Error("Execution has multiple pending Approval Requests")
   }
@@ -919,9 +921,11 @@ export type ClaimTimedOutApprovalRequestResult =
   | { outcome: "empty" }
   | { outcome: "decided"; request: ApprovalRequest; decision: ApprovalDecision }
 
+/** Claims any due request across all workspaces unless `workspaceId` narrows it; tests sharing a database must narrow it so they cannot decide each other's requests. */
 export async function claimAndDecideTimedOutApprovalRequest(
   db: DbClient,
-  now: Date = new Date()
+  now: Date = new Date(),
+  workspaceId?: string
 ): Promise<ClaimTimedOutApprovalRequestResult> {
   return db.transaction(async (tx) => {
     const [due] = await tx
@@ -931,7 +935,10 @@ export async function claimAndDecideTimedOutApprovalRequest(
         and(
           eq(approvalRequests.status, "pending"),
           isNotNull(approvalRequests.expiresAt),
-          lte(approvalRequests.expiresAt, now)
+          lte(approvalRequests.expiresAt, now),
+          workspaceId
+            ? eq(approvalRequests.workspaceId, workspaceId)
+            : undefined
         )
       )
       .for("update", { skipLocked: true })

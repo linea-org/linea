@@ -202,7 +202,8 @@ describe("ApprovalNode", () => {
       ).rejects.toThrow()
       await repositories.approvalRequest.claimAndDecideTimedOutApprovalRequest(
         db,
-        new Date(Date.now() + 120_000)
+        new Date(Date.now() + 120_000),
+        organization.id
       )
       const output = await node.execute({}, undefined, context)
       expect(output).toMatchObject({ approved: false, timedOut: true })
