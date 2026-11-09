@@ -404,6 +404,7 @@ describe('first-launch approval protocol', () => {
       repositories.approvalRequest.claimAndDecideTimedOutApprovalRequest(
         db,
         new Date(Date.now() + 10_000),
+        fixture.workspaceId,
       ),
     ])
     expect([201, 409]).toContain(humanResponse.status)
