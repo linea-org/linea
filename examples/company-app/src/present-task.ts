@@ -29,7 +29,7 @@ export function presentTask(execution: PublicExecution): TaskView {
       return {
         headline: "Waiting for a review",
         detail:
-          "An action needs a decision from an authorized reviewer before anything is changed.",
+          "The next action needs an authorized review. Earlier completed actions stay.",
         tone: "waiting",
         result: null,
       }

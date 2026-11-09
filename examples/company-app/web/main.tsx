@@ -28,11 +28,96 @@ const client = new LineaUserClient({
   baseUrl: config.apiUrl,
 })
 
+const taskIdPattern = /^[0-9a-f-]{36}$/
+
 async function api(path: string, init?: RequestInit): Promise<Task> {
-  const response = await fetch(path, init)
+  const response = await fetch(path, { credentials: "same-origin", ...init })
   const body = (await response.json()) as Task & { message?: string }
   if (!response.ok) throw new Error(body.message ?? "Request failed")
   return body
+}
+
+type FollowUp = { title: string; body?: string; url?: string }
+
+function followUps(result: unknown): FollowUp[] {
+  if (typeof result !== "object" || result === null || !("issues" in result))
+    return []
+  const issues: unknown = result.issues
+  if (!Array.isArray(issues)) return []
+  return issues.flatMap((issue: unknown) => {
+    if (typeof issue !== "object" || issue === null || !("title" in issue))
+      return []
+    const { title } = issue
+    if (typeof title !== "string") return []
+    const body =
+      "body" in issue && typeof issue.body === "string" ? issue.body : undefined
+    const url =
+      "url" in issue && typeof issue.url === "string" ? issue.url : undefined
+    return [{ title, body, url }]
+  })
+}
+
+function Result({ result }: Readonly<{ result: unknown }>) {
+  if (result === null || result === undefined) return null
+  const issues = followUps(result)
+  if (issues.length === 0) return <p>Your result is ready.</p>
+  return (
+    <ul aria-label="Follow-up issues">
+      {issues.map((issue) => (
+        <li key={issue.title}>
+          <strong>{issue.title}</strong>
+          {issue.body ? <p>{issue.body}</p> : null}
+          {issue.url?.startsWith("https://") ? (
+            <a href={issue.url}>Open on GitHub</a>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function SignIn() {
+  const [signedIn, setSignedIn] = useState<boolean>()
+  const [error, setError] = useState<string>()
+  useEffect(() => {
+    const callback = new URL(location.href)
+    const code = callback.searchParams.get("code")
+    const state = callback.searchParams.get("state")
+    const finish =
+      code && state
+        ? client
+            .completeAuthorization({ code, state })
+            .then(() => history.replaceState({}, "", callback.pathname))
+        : Promise.resolve()
+    finish
+      .then(() => client.session())
+      .then(
+        (session) => setSignedIn(session !== undefined),
+        (cause: unknown) =>
+          setError(cause instanceof Error ? cause.message : "Sign-in failed")
+      )
+  }, [])
+  if (error) return <p role="alert">{error}</p>
+  if (signedIn === undefined) return <p>Checking your sign-in…</p>
+  if (signedIn) return null
+  return (
+    <button
+      onClick={() => {
+        void client
+          .startAuthorization({
+            redirectUri: `${location.origin}${location.pathname}`,
+          })
+          .then((authorization) =>
+            location.assign(authorization.authorizationUrl)
+          )
+          .catch((cause: unknown) =>
+            setError(cause instanceof Error ? cause.message : "Sign-in failed")
+          )
+      }}
+    >
+      Sign in to review
+    </button>
+  )
 }
 
 function Reviews() {
@@ -66,15 +151,23 @@ function App() {
   const taskId = task?.id
   const finished = task?.tone === "done" || task?.tone === "problem"
   useEffect(() => {
-    if (!taskId || finished) return
+    if (!taskId || finished || !taskIdPattern.test(taskId)) return
+    const controller = new AbortController()
     const timer = setInterval(() => {
-      api(`/api/tasks/${taskId}`).then(
+      api(`/api/tasks/${encodeURIComponent(taskId)}`, {
+        signal: controller.signal,
+      }).then(
         (next) => setTask({ ...next, id: taskId }),
-        (cause: unknown) =>
+        (cause: unknown) => {
+          if (controller.signal.aborted) return
           setError(cause instanceof Error ? cause.message : "Lost connection")
+        }
       )
     }, 2000)
-    return () => clearInterval(timer)
+    return () => {
+      clearInterval(timer)
+      controller.abort()
+    }
   }, [taskId, finished])
   async function submit() {
     setError(undefined)
@@ -95,7 +188,7 @@ function App() {
       <main>
         <h1>Suggest follow-up issues</h1>
         <label>
-          Repository
+          <span>Repository </span>
           <input
             value={repository}
             placeholder="owner/name"
@@ -118,6 +211,7 @@ function App() {
         ) : null}
         <section aria-label="Reviews">
           <h2>Reviews</h2>
+          <SignIn />
           <Reviews />
         </section>
       </main>

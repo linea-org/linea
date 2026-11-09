@@ -22,10 +22,48 @@ const dashboardUrl = process.env.LINEA_DASHBOARD_URL ?? "http://localhost:3001"
 const workspaceSlug = required("LINEA_WORKSPACE_SLUG")
 const issuerSubject = required("DEMO_END_USER_SUBJECT")
 
+const maxBodyBytes = 4096
+const maxTasksPerSession = 5
+
+class HttpError extends Error {
+  readonly status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
 async function readBody(request: AsyncIterable<Buffer>): Promise<unknown> {
   const chunks: Buffer[] = []
-  for await (const chunk of request) chunks.push(chunk)
+  let size = 0
+  for await (const chunk of request) {
+    size += chunk.length
+    if (size > maxBodyBytes) throw new HttpError(413, "Request is too large")
+    chunks.push(chunk)
+  }
   return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown
+}
+
+// Demo only: each browser gets an opaque session and can only read tasks it started. A real app uses its own sign-in and derives the End User subject from it.
+const sessions = new Map<string, Set<string>>()
+
+function sessionFor(
+  request: import("node:http").IncomingMessage,
+  response: import("node:http").ServerResponse
+): Set<string> {
+  const cookie = /(?:^|; )demo_session=([0-9a-f-]{36})/.exec(
+    request.headers.cookie ?? ""
+  )
+  const existing = cookie?.[1] ? sessions.get(cookie[1]) : undefined
+  if (existing) return existing
+  const id = crypto.randomUUID()
+  const tasks = new Set<string>()
+  sessions.set(id, tasks)
+  response.setHeader(
+    "set-cookie",
+    `demo_session=${id}; HttpOnly; SameSite=Strict; Path=/`
+  )
+  return tasks
 }
 
 function json(
@@ -54,11 +92,11 @@ const files: Record<string, [string, string]> = {
 
 createServer((request, response) => {
   void handle(request, response).catch((error: unknown) => {
-    json(response, 400, {
+    json(response, error instanceof HttpError ? error.status : 400, {
       message: error instanceof Error ? error.message : "Request failed",
     })
   })
-}).listen(Number(process.env.PORT ?? 4000))
+}).listen(Number(process.env.PORT ?? 4000), process.env.HOST ?? "127.0.0.1")
 
 async function handle(
   request: import("node:http").IncomingMessage,
@@ -76,6 +114,9 @@ async function handle(
     return
   }
   if (request.method === "POST" && path === "/api/tasks") {
+    const owned = sessionFor(request, response)
+    if (owned.size >= maxTasksPerSession)
+      throw new HttpError(429, "Task limit reached for this demo session")
     const repository = repositoryFrom(await readBody(request))
     const subject = await client.provisionSubject({
       issuerSubject,
@@ -86,11 +127,14 @@ async function handle(
       externalSubjectId: subject.id,
       input: { repository },
     })
+    owned.add(execution.id)
     json(response, 202, { id: execution.id, ...taskFor(execution) })
     return
   }
-  const match = /^\/api\/tasks\/([\w-]+)$/.exec(path)
+  const match = /^\/api\/tasks\/([0-9a-f-]{36})$/.exec(path)
   if (request.method === "GET" && match?.[1]) {
+    if (!sessionFor(request, response).has(match[1]))
+      throw new HttpError(404, "Not found")
     json(response, 200, taskFor(await client.getExecution(match[1])))
     return
   }

@@ -41,6 +41,10 @@ your server and links to the same Execution in Linea.
 
 ## Notes
 
+- The server binds to 127.0.0.1 and gives each browser an opaque demo session
+  that can only read the tasks it started. This stands in for your real sign-in:
+  a production app authenticates its user and derives the End User subject from
+  that identity instead of using `DEMO_END_USER_SUBJECT`.
 - The browser never receives the Environment key. It only talks to this
   example's server and, for reviews, to Linea with an End User session.
 - Reviews appear through the End User session. Sign in with your identity
