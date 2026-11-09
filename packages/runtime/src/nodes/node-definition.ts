@@ -6,6 +6,7 @@ export type NodeUIFieldWidget =
   | "select"
   | "code"
   | "key-value"
+  | "agent"
 
 export type NodeUIField = {
   key: string

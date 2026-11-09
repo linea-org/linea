@@ -15,8 +15,6 @@ import {
   hashWorkflowGraph,
   validateGraphStructure,
   WorkflowGraphError,
-  workflowGraphSchema,
-  type WorkflowGraph,
 } from '@linea/runtime'
 import { z } from 'zod'
 import type { UserSession } from '@thallesp/nestjs-better-auth'
@@ -111,35 +109,76 @@ export class WorkflowsService {
     return workflow
   }
 
-  /** A Run Agent step may only name an active Agent of the Workflow's own Application; a draft may still leave it unset. */
+  /** A Run Agent step may only name an active Agent of the Workflow's own Application and one of its Contract revisions; a draft may still leave them unset. */
   private async assertAgentReferences(
     workflow: Workflow,
-    graph: WorkflowGraph,
+    graph: unknown,
     options: { requireAgent: boolean },
   ): Promise<void> {
-    for (const node of graph.nodes) {
-      if (node.type !== 'agent') continue
-      const agentId: unknown = node.config.agentId
-      if (agentId === undefined || agentId === '') {
-        if (options.requireAgent)
-          throw new BadRequestException(`Choose an Agent for step ${node.id}`)
-        continue
-      }
-      const parsed = z.uuid().safeParse(agentId)
-      const agent = parsed.success
-        ? await repositories.agent.getAgentById(
-            db,
-            workflow.workspaceId,
-            parsed.data,
-          )
-        : undefined
-      if (!agent || agent.applicationId !== workflow.applicationId)
-        throw new BadRequestException(
-          `Step ${node.id} must use an Agent from this Workflow's Application`,
-        )
-      if (agent.archivedAt)
-        throw new BadRequestException(`Step ${node.id} uses an archived Agent`)
+    const nodes = z
+      .object({
+        nodes: z.array(
+          z.object({
+            id: z.string(),
+            type: z.string(),
+            config: z.record(z.string(), z.unknown()).optional(),
+          }),
+        ),
+      })
+      .safeParse(graph)
+    if (!nodes.success) return
+    await Promise.all(
+      nodes.data.nodes
+        .filter((node) => node.type === 'agent')
+        .map((node) =>
+          this.assertAgentStep(workflow, node.id, node.config ?? {}, options),
+        ),
+    )
+  }
+
+  private async assertAgentStep(
+    workflow: Workflow,
+    nodeId: string,
+    config: Record<string, unknown>,
+    options: { requireAgent: boolean },
+  ): Promise<void> {
+    const { agentId, agentContractRevisionId } = config
+    const unset = (value: unknown) => value === undefined || value === ''
+    if (unset(agentId) || unset(agentContractRevisionId)) {
+      if (
+        options.requireAgent ||
+        !unset(agentId) !== !unset(agentContractRevisionId)
+      )
+        throw new BadRequestException(`Choose an Agent for step ${nodeId}`)
+      return
     }
+    const ids = z.uuid().safeParse(agentId)
+    const revisionId = z.uuid().safeParse(agentContractRevisionId)
+    const agent = ids.success
+      ? await repositories.agent.getAgentById(
+          db,
+          workflow.workspaceId,
+          ids.data,
+        )
+      : undefined
+    if (!agent || agent.applicationId !== workflow.applicationId)
+      throw new BadRequestException(
+        `Step ${nodeId} must use an Agent from this Workflow's Application`,
+      )
+    if (agent.archivedAt)
+      throw new BadRequestException(`Step ${nodeId} uses an archived Agent`)
+    const revision = revisionId.success
+      ? await repositories.agentContract.getAgentContractRevision(
+          db,
+          workflow.workspaceId,
+          agent.id,
+          revisionId.data,
+        )
+      : undefined
+    if (!revision)
+      throw new BadRequestException(
+        `Step ${nodeId} names a Contract revision the Agent does not have`,
+      )
   }
 
   async saveDraft(
@@ -148,13 +187,11 @@ export class WorkflowsService {
     input: SaveWorkflowDraftDto,
     savedBy?: { userId: string; name: string },
   ): Promise<Workflow> {
-    const draft = workflowGraphSchema.safeParse(input.graph)
-    if (draft.success)
-      await this.assertAgentReferences(
-        await this.get(workspaceId, id),
-        draft.data,
-        { requireAgent: false },
-      )
+    await this.assertAgentReferences(
+      await this.get(workspaceId, id),
+      input.graph,
+      { requireAgent: false },
+    )
     const workflow = await repositories.workflow.saveWorkflowDraft(
       db,
       workspaceId,

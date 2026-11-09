@@ -113,7 +113,6 @@ export class RunsService {
       this.logger.warn(
         `Execution ${executionId} was not claimable (already running or terminal) — skipping`
       )
-      await this.resumeParent(executionId)
       return
     }
     // Aborts whatever node handler call is in flight the moment the lease is lost, instead of letting a duplicate HTTP mutation or billed AI completion run in parallel with whoever reclaimed the lease.
@@ -321,22 +320,6 @@ export class RunsService {
       throw error
     } finally {
       this.lease.stopHeartbeat(attemptId)
-      await this.resumeParent(executionId)
-    }
-  }
-
-  /** A finished nested Agent invocation wakes the Workflow Execution waiting on it; a failed wake-up is logged and repaired by the child's next delivery. */
-  private async resumeParent(executionId: string): Promise<void> {
-    try {
-      await repositories.nestedAgentExecution.resumeParentOfFinishedExecution(
-        db,
-        executionId
-      )
-    } catch (error) {
-      this.logger.error(
-        `Execution ${executionId}: could not resume its parent Workflow Execution`,
-        error instanceof Error ? error.stack : String(error)
-      )
     }
   }
 

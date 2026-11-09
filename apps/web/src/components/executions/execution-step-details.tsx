@@ -26,42 +26,65 @@ import {
 import { ErrorCallout } from "./error-callout"
 import { formatDuration } from "@/lib/format"
 
+function isJsonObject(
+  value: JsonValue | null
+): value is Record<string, JsonValue> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
 function StepPayload({
   label,
   value,
 }: Readonly<{
   label: string
-  value: Record<string, JsonValue> | null
+  value: JsonValue | null
 }>) {
-  let emptyMessage: string | null = null
-  if (value === null) emptyMessage = `No ${label.toLowerCase()} recorded.`
-  else if (Object.keys(value).length === 0) emptyMessage = "Empty object."
   return (
     <section className="flex min-w-0 flex-col gap-3">
       <h3 className="text-xs font-medium">{label}</h3>
-      {emptyMessage ? (
-        <p className="text-xs text-muted-foreground">{emptyMessage}</p>
-      ) : (
-        <dl className="divide-y rounded-lg border">
-          {Object.entries(value ?? {}).map(([key, entry]) => (
-            <div key={key} className="min-w-0 px-3 py-2">
-              <dt className="mb-1 font-mono text-xs text-muted-foreground">
-                {key}
-              </dt>
-              <dd className="max-h-64 overflow-auto text-xs break-words whitespace-pre-wrap">
-                {typeof entry === "string" ? (
-                  entry
-                ) : (
-                  <pre className="font-mono whitespace-pre-wrap">
-                    {formatJson(entry)}
-                  </pre>
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
+      <PayloadBody label={label} value={value} />
     </section>
+  )
+}
+
+function PayloadBody({
+  label,
+  value,
+}: Readonly<{ label: string; value: JsonValue | null }>) {
+  if (value === null)
+    return (
+      <p className="text-xs text-muted-foreground">
+        No {label.toLowerCase()} recorded.
+      </p>
+    )
+  if (!isJsonObject(value))
+    return (
+      <pre className="max-h-64 overflow-auto rounded-lg border px-3 py-2 font-mono text-xs whitespace-pre-wrap">
+        {formatJson(value)}
+      </pre>
+    )
+  const entries = Object.entries(value)
+  if (entries.length === 0)
+    return <p className="text-xs text-muted-foreground">Empty object.</p>
+  return (
+    <dl className="divide-y rounded-lg border">
+      {entries.map(([key, entry]) => (
+        <div key={key} className="min-w-0 px-3 py-2">
+          <dt className="mb-1 font-mono text-xs text-muted-foreground">
+            {key}
+          </dt>
+          <dd className="max-h-64 overflow-auto text-xs break-words whitespace-pre-wrap">
+            {typeof entry === "string" ? (
+              entry
+            ) : (
+              <pre className="font-mono whitespace-pre-wrap">
+                {formatJson(entry)}
+              </pre>
+            )}
+          </dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 

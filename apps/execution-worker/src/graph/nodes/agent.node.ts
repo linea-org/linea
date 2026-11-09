@@ -18,7 +18,8 @@ export class AgentNode implements NodeHandler {
     const { executionId, nodeId } = context
     if (!executionId || !nodeId)
       throw new Error("Agent node requires an invocation identity")
-    const { agentId } = nodeRegistry.agent.inputSchema.parse(config)
+    const { agentId, agentContractRevisionId } =
+      nodeRegistry.agent.inputSchema.parse(config)
     const request = agentRequestSchema.safeParse(input)
     if (!request.success)
       throw new NonRetryableError("The Agent step input must be an object")
@@ -28,6 +29,7 @@ export class AgentNode implements NodeHandler {
         parentExecutionId: executionId,
         nodeId,
         agentId,
+        agentContractRevisionId,
         input: request.data,
       })
     if (started.outcome === "created" || started.outcome === "existing")

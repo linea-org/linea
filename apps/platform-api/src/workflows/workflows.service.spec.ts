@@ -393,7 +393,10 @@ describe('WorkflowsService', () => {
         if (!created) throw new Error('Agent fixture failed')
         return created
       }
-      const graphFor = (agentId?: string): WorkflowGraph => ({
+      const graphFor = (
+        agentId?: string,
+        agentContractRevisionId?: string,
+      ): WorkflowGraph => ({
         version: 1,
         trigger: { type: 'manual' },
         entryNodeId: 'run',
@@ -401,37 +404,75 @@ describe('WorkflowsService', () => {
           {
             id: 'run',
             type: 'agent',
-            config: agentId === undefined ? {} : { agentId },
+            config:
+              agentId === undefined ? {} : { agentId, agentContractRevisionId },
           },
         ],
         edges: [],
       })
       const same = await agent(application.id)
       const foreign = await agent(other.id)
+      const revisionOf = async (agentId: string) => {
+        const created =
+          await repositories.agentContract.createAgentContractRevision(
+            db,
+            workspaceId,
+            agentId,
+            {
+              inputSchema: { type: 'object' },
+              outputSchema: { type: 'string' },
+            },
+          )
+        if (created.outcome !== 'created') throw new Error('Contract failed')
+        return created.revision.id
+      }
+      const sameRevision = await revisionOf(same.id)
+      const foreignRevision = await revisionOf(foreign.id)
       await expect(
         service.saveDraft(workspaceId, workflow.id, { graph: graphFor() }),
       ).resolves.toBeDefined()
       await expect(
         service.saveDraft(workspaceId, workflow.id, {
-          graph: graphFor(same.id),
+          graph: graphFor(same.id, sameRevision),
         }),
       ).resolves.toBeDefined()
       await expect(
         service.saveDraft(workspaceId, workflow.id, {
-          graph: graphFor(foreign.id),
+          graph: graphFor(foreign.id, foreignRevision),
         }),
       ).rejects.toThrow(/Agent from this Workflow's Application/)
       await expect(
         service.saveDraft(workspaceId, workflow.id, {
-          graph: graphFor(randomUUID()),
+          graph: graphFor(randomUUID(), randomUUID()),
         }),
       ).rejects.toThrow(/Agent from this Workflow's Application/)
+      await expect(
+        service.saveDraft(workspaceId, workflow.id, {
+          graph: {
+            nodes: [
+              {
+                id: 'run',
+                type: 'agent',
+                config: {
+                  agentId: foreign.id,
+                  agentContractRevisionId: foreignRevision,
+                },
+              },
+            ],
+          },
+        }),
+      ).rejects.toThrow(/Agent from this Workflow's Application/)
+      await expect(
+        service.saveDraft(workspaceId, workflow.id, {
+          graph: graphFor(same.id, foreignRevision),
+        }),
+      ).rejects.toThrow(/Contract revision the Agent does not have/)
       await expect(
         service.createVersion(workspaceId, workflow.id, { graph: graphFor() }),
       ).rejects.toThrow(/Choose an Agent/)
       await expect(
         service.createVersion(workspaceId, workflow.id, {
-          graph: graphFor(foreign.id),
+          graph: graphFor(foreign.id, foreignRevision),
         }),
       ).rejects.toThrow(/Agent from this Workflow's Application/)
     })

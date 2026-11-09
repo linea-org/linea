@@ -135,6 +135,81 @@ export function NodeConfigPanel({
     }
     onChange({ ...config, [field.key]: rawValue })
   }
+  function renderControl(field: NodeUIField, invalid: boolean) {
+    const id = `node-field-${field.key}`
+    if (field.widget === "agent") {
+      if (!applicationId) return null
+      return (
+        <AgentStepField
+          id={id}
+          applicationId={applicationId}
+          value={draft[field.key] ?? ""}
+          onChange={(selection) => {
+            setDraft((prev) => ({ ...prev, agentId: selection.agentId }))
+            onChange({ ...config, ...selection })
+          }}
+        />
+      )
+    }
+    if (field.widget === "select") {
+      return (
+        <Select
+          items={field.options}
+          value={draft[field.key] || null}
+          onValueChange={(value) => {
+            if (typeof value === "string") setField(field, value)
+          }}
+          modal={false}
+        >
+          <SelectTrigger id={id} className="w-full">
+            <SelectValue placeholder={field.label} />
+          </SelectTrigger>
+          <SelectContent>
+            {field.options?.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )
+    }
+    if (field.widget === "key-value") {
+      return (
+        <KeyValueEditor
+          id={id}
+          value={config[field.key]}
+          typed={nodeType === "variables"}
+          onChange={(value) => onChange({ ...config, [field.key]: value })}
+        />
+      )
+    }
+    if (field.widget === "textarea" || field.widget === "code") {
+      return (
+        <Textarea
+          id={id}
+          value={draft[field.key] ?? ""}
+          onChange={(e) => setField(field, e.target.value)}
+          rows={field.widget === "textarea" ? 4 : 6}
+          aria-invalid={invalid || undefined}
+          className={
+            isJsonWidget(field.widget)
+              ? "field-sizing-fixed font-mono text-xs"
+              : undefined
+          }
+          placeholder={isJsonWidget(field.widget) ? "{}" : undefined}
+        />
+      )
+    }
+    return (
+      <Input
+        id={id}
+        value={draft[field.key] ?? ""}
+        onChange={(e) => setField(field, e.target.value)}
+        aria-invalid={invalid || undefined}
+      />
+    )
+  }
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
@@ -192,71 +267,7 @@ export function NodeConfigPanel({
                       </Tooltip>
                     )}
                   </div>
-                  {nodeType === "agent" &&
-                  field.key === "agentId" &&
-                  applicationId ? (
-                    <AgentStepField
-                      id={`node-field-${field.key}`}
-                      applicationId={applicationId}
-                      value={draft[field.key] ?? ""}
-                      onChange={(agentId) => setField(field, agentId)}
-                    />
-                  ) : field.widget === "select" ? (
-                    <Select
-                      items={field.options}
-                      value={draft[field.key] || null}
-                      onValueChange={(value) => {
-                        if (typeof value === "string") setField(field, value)
-                      }}
-                      modal={false}
-                    >
-                      <SelectTrigger
-                        id={`node-field-${field.key}`}
-                        className="w-full"
-                      >
-                        <SelectValue placeholder={field.label} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {field.options?.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : field.widget === "key-value" ? (
-                    <KeyValueEditor
-                      id={`node-field-${field.key}`}
-                      value={config[field.key]}
-                      typed={nodeType === "variables"}
-                      onChange={(value) =>
-                        onChange({ ...config, [field.key]: value })
-                      }
-                    />
-                  ) : field.widget === "textarea" || field.widget === "code" ? (
-                    <Textarea
-                      id={`node-field-${field.key}`}
-                      value={draft[field.key] ?? ""}
-                      onChange={(e) => setField(field, e.target.value)}
-                      rows={field.widget === "textarea" ? 4 : 6}
-                      aria-invalid={invalid || undefined}
-                      className={
-                        isJsonWidget(field.widget)
-                          ? "field-sizing-fixed font-mono text-xs"
-                          : undefined
-                      }
-                      placeholder={
-                        isJsonWidget(field.widget) ? "{}" : undefined
-                      }
-                    />
-                  ) : (
-                    <Input
-                      id={`node-field-${field.key}`}
-                      value={draft[field.key] ?? ""}
-                      onChange={(e) => setField(field, e.target.value)}
-                      aria-invalid={invalid || undefined}
-                    />
-                  )}
+                  {renderControl(field, invalid)}
                   <FieldError>{jsonErrors[field.key]}</FieldError>
                 </Field>
               )

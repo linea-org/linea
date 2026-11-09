@@ -10,6 +10,7 @@ import {
   type Execution,
   type ExecutionStep,
 } from "../schema/index.js"
+import { wakeParentOfFinishedChild } from "./nested-parent-wake.js"
 import { getWorkflowEnvironment } from "./environment.repository.js"
 import { upsertEndSubject } from "./end-subject.repository.js"
 import {
@@ -369,6 +370,7 @@ export async function completeExecution(
         },
       })
     }
+    if (execution) await wakeParentOfFinishedChild(tx, execution)
     return execution
   })
 }
@@ -400,12 +402,17 @@ export async function failQueuedExecution(
   executionId: string,
   error: { message: string }
 ): Promise<Execution | undefined> {
-  const [execution] = await db
-    .update(executions)
-    .set({ status: "failed", error, completedAt: new Date() })
-    .where(and(eq(executions.id, executionId), eq(executions.status, "queued")))
-    .returning()
-  return execution
+  return db.transaction(async (tx) => {
+    const [execution] = await tx
+      .update(executions)
+      .set({ status: "failed", error, completedAt: new Date() })
+      .where(
+        and(eq(executions.id, executionId), eq(executions.status, "queued"))
+      )
+      .returning()
+    if (execution) await wakeParentOfFinishedChild(tx, execution)
+    return execution
+  })
 }
 
 /** Current `leasedBy`, or undefined if the execution doesn't exist — used to check ownership before a risky operation, not just before persisting its result. */

@@ -26,12 +26,18 @@ let moduleRef: Awaited<
   ReturnType<ReturnType<typeof Test.createTestingModule>["compile"]>
 >
 
-async function startWorkflow(agentId: string) {
+async function startWorkflow(agentId: string, agentContractRevisionId: string) {
   const graph: WorkflowGraph = {
     version: 1,
     trigger: { type: "manual" },
     entryNodeId: "run-agent",
-    nodes: [{ id: "run-agent", type: "agent", config: { agentId } }],
+    nodes: [
+      {
+        id: "run-agent",
+        type: "agent",
+        config: { agentId, agentContractRevisionId },
+      },
+    ],
     edges: [],
   }
   const workflow = await repositories.workflow.createWorkflow(db, {
@@ -111,7 +117,7 @@ it("waits for the nested Agent, then continues with its Contract-valid result", 
     tokensInput: 10,
     tokensOutput: 5,
   })
-  const parent = await startWorkflow(fixture.agentId)
+  const parent = await startWorkflow(fixture.agentId, fixture.contractId)
   await runs.execute(parent.id)
   expect(await statusOf(parent.id)).toBe("paused")
   const detail = await repositories.execution.getExecutionWithSteps(
@@ -158,7 +164,7 @@ it("fails the Workflow step before any Agent work when the Agent is no longer de
       enabled: false,
     }
   )
-  const parent = await startWorkflow(fixture.agentId)
+  const parent = await startWorkflow(fixture.agentId, fixture.contractId)
   await runs.execute(parent.id)
   const result = await repositories.execution.getExecutionWithSteps(
     db,

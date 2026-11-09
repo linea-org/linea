@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import { eq } from "drizzle-orm"
 import { executions } from "../schema/index.js"
@@ -9,6 +10,7 @@ import {
 import { createAgentContractRevision } from "./agent-contract.repository.js"
 import { putEnvironmentAgentBinding } from "./environment-agent-binding.repository.js"
 import {
+  completeExecution,
   createExecution,
   getExecutionById,
   listWorkspaceExecutions,
@@ -16,7 +18,6 @@ import {
 } from "./execution.repository.js"
 import {
   claimPauseForNestedAgent,
-  resumeParentOfFinishedExecution,
   startNestedAgentExecution,
 } from "./nested-agent-execution.repository.js"
 import {
@@ -112,6 +113,7 @@ describe("startNestedAgentExecution", () => {
           parentExecutionId: f.parent.id,
           nodeId: "run-agent",
           agentId: deployed.agent.id,
+          agentContractRevisionId: deployed.contract.id,
           input: { topic: "a" },
         })
       const first = await start()
@@ -192,19 +194,29 @@ describe("startNestedAgentExecution", () => {
           properties: { topic: { type: "string" } },
         }
       )
-      const attempt = (agentId: string, input: Record<string, unknown>) =>
+      const attempt = (
+        agentId: string,
+        input: Record<string, unknown>,
+        agentContractRevisionId: string = randomUUID()
+      ) =>
         startNestedAgentExecution(tx, {
           workspaceId: f.organization.id,
           parentExecutionId: f.parent.id,
           nodeId: "n",
           agentId,
+          agentContractRevisionId,
           input,
         })
       expect((await attempt(foreign.agent.id, {})).outcome).toBe(
         "agent_not_in_application"
       )
       expect((await attempt(undeployed.id, {})).outcome).toBe("not_deployed")
-      expect((await attempt(strict.agent.id, {})).outcome).toBe("input_invalid")
+      expect((await attempt(strict.agent.id, {})).outcome).toBe(
+        "contract_changed"
+      )
+      expect(
+        (await attempt(strict.agent.id, {}, strict.contract.id)).outcome
+      ).toBe("input_invalid")
       const children = await tx
         .select()
         .from(executions)
@@ -228,11 +240,11 @@ describe("startNestedAgentExecution", () => {
         parentExecutionId: f.parent.id,
         nodeId: "n",
         agentId: deployed.agent.id,
+        agentContractRevisionId: deployed.contract.id,
         input: {},
       })
       if (started.outcome !== "created") throw new Error(started.outcome)
       await startExecution(tx, f.parent.id, "a", new Date(Date.now() + 60_000))
-      await resumeParentOfFinishedExecution(tx, started.execution.id)
       expect((await getExecutionById(tx, f.parent.id))?.status).toBe("running")
       const claim = (leasedBy: string) =>
         claimPauseForNestedAgent(
@@ -244,13 +256,21 @@ describe("startNestedAgentExecution", () => {
         )
       expect(await claim("someone-else")).toEqual({ outcome: "lease-lost" })
       expect(await claim("a")).toEqual({ outcome: "paused" })
-      await resumeParentOfFinishedExecution(tx, started.execution.id)
       expect((await getExecutionById(tx, f.parent.id))?.status).toBe("paused")
-      await tx
-        .update(executions)
-        .set({ status: "succeeded", output: "done" })
-        .where(eq(executions.id, started.execution.id))
-      await resumeParentOfFinishedExecution(tx, started.execution.id)
+      await startExecution(
+        tx,
+        started.execution.id,
+        "c",
+        new Date(Date.now() + 60_000)
+      )
+      await completeExecution(tx, started.execution.id, "c", {
+        status: "succeeded",
+        output: "done",
+        costMicros: 0n,
+        costUnpriced: false,
+        tokensInput: 0,
+        tokensOutput: 0,
+      })
       expect((await getExecutionById(tx, f.parent.id))?.status).toBe("queued")
       expect(await claim("a")).toEqual({ outcome: "already-decided" })
     })

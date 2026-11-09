@@ -2,7 +2,6 @@ import { Link, useParams } from "@tanstack/react-router"
 import { ExecutionStatusBadge } from "./execution-status-badge"
 import type { NestedAgentInvocation } from "@/lib/execution-detail-schema"
 
-/** Agent invocations started by this Workflow run: attributed to it, not separate requests. */
 export function NestedAgentRuns({
   nested,
 }: Readonly<{ nested: NestedAgentInvocation[] }>) {

@@ -22,6 +22,7 @@ export type NestedAgentExecutionResult =
         | "parent_not_found"
         | "agent_not_in_application"
         | "not_deployed"
+        | "contract_changed"
         | "input_invalid"
       message: string
     }
@@ -34,6 +35,7 @@ export function startNestedAgentExecution(
     parentExecutionId: string
     nodeId: string
     agentId: string
+    agentContractRevisionId: string
     input: Record<string, unknown>
   }
 ): Promise<NestedAgentExecutionResult> {
@@ -120,6 +122,12 @@ export function startNestedAgentExecution(
         message:
           "The Agent is not deployed and enabled in this Execution's Environment",
       }
+    if (deployment.contract.id !== input.agentContractRevisionId)
+      return {
+        outcome: "contract_changed",
+        message:
+          "The Agent's deployed Contract differs from the revision this Workflow was saved with",
+      }
     if (!validator.compile(deployment.contract.inputSchema)(input.input))
       return {
         outcome: "input_invalid",
@@ -182,36 +190,6 @@ export function claimPauseForNestedAgent(
   })
 }
 
-/** Re-queues a paused parent once its nested Agent invocation has finished; a parent that has not paused yet reads the result itself. */
-export function resumeParentOfFinishedExecution(
-  db: DbClient,
-  executionId: string
-): Promise<void> {
-  return db.transaction(async (tx) => {
-    const [child] = await tx
-      .select()
-      .from(executions)
-      .where(eq(executions.id, executionId))
-    if (!child?.parentExecutionId || !terminalStatuses.includes(child.status))
-      return
-    const [parent] = await tx
-      .update(executions)
-      .set({ status: "queued" })
-      .where(
-        and(
-          eq(executions.id, child.parentExecutionId),
-          eq(executions.status, "paused")
-        )
-      )
-      .returning()
-    if (!parent) return
-    await createWorkflowExecutionMessage(tx, {
-      workspaceId: parent.workspaceId,
-      executionId: parent.id,
-    })
-  })
-}
-
 export type NestedAgentInvocation = {
   nodeId: string
   executionId: string
@@ -220,7 +198,6 @@ export type NestedAgentInvocation = {
   status: (typeof executions.$inferSelect)["status"]
 }
 
-/** The pinned Agent invocations a Workflow Execution started, for linking from its trace. */
 export async function listNestedAgentInvocations(
   db: DbClient,
   workspaceId: string,

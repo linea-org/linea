@@ -1,7 +1,10 @@
 import { z } from "zod"
 import type { NodeDefinition } from "../node-definition.js"
 
-const agentInputSchema = z.object({ agentId: z.uuid() })
+const agentInputSchema = z.object({
+  agentId: z.uuid(),
+  agentContractRevisionId: z.uuid(),
+})
 
 export const agentRequestSchema = z.record(z.string(), z.unknown())
 
@@ -25,9 +28,9 @@ export const agentNode: NodeDefinition<
       {
         key: "agentId",
         label: "Agent",
-        widget: "text",
+        widget: "agent",
         description:
-          "An Agent in this Workflow's Application, deployed and enabled in the run's Environment.",
+          "An Agent in this Workflow's Application, deployed and enabled in the run's Environment. The Contract revision is saved with the step.",
       },
     ],
     summaryField: "agentId",

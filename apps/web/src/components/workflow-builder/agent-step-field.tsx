@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   Select,
@@ -6,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@linea/ui/components/select"
+import { listAgentContractsFn } from "@/lib/agent-contracts-api"
 import { listAgentsFn } from "@/lib/agents-api"
 
 export function AgentStepField({
@@ -17,8 +19,32 @@ export function AgentStepField({
   id: string
   applicationId: string
   value: string
-  onChange: (agentId: string) => void
+  onChange: (selection: {
+    agentId: string
+    agentContractRevisionId: string
+  }) => void
 }>) {
+  const [selectionError, setSelectionError] = useState<string>()
+  async function select(agentId: string) {
+    setSelectionError(undefined)
+    try {
+      const contracts = await listAgentContractsFn({ data: { agentId } })
+      const latest = contracts.reduce<(typeof contracts)[number] | undefined>(
+        (best, contract) =>
+          !best || contract.revision > best.revision ? contract : best,
+        undefined
+      )
+      if (!latest) {
+        setSelectionError("This Agent has no Contract yet. Add one first.")
+        return
+      }
+      onChange({ agentId, agentContractRevisionId: latest.id })
+    } catch (cause) {
+      setSelectionError(
+        cause instanceof Error ? cause.message : "Could not load the Contract"
+      )
+    }
+  }
   const agents = useQuery({
     queryKey: ["application-agents", applicationId],
     queryFn: () => listAgentsFn({ data: { applicationId } }),
@@ -37,7 +63,7 @@ export function AgentStepField({
         items={items}
         value={value || null}
         onValueChange={(next) => {
-          if (typeof next === "string") onChange(next)
+          if (typeof next === "string") void select(next)
         }}
         modal={false}
       >
@@ -56,6 +82,11 @@ export function AgentStepField({
           ))}
         </SelectContent>
       </Select>
+      {selectionError ? (
+        <p role="alert" className="text-xs text-destructive">
+          {selectionError}
+        </p>
+      ) : null}
       {agents.data && items.length === 0 ? (
         <p className="text-xs text-muted-foreground">
           This Application has no active Agents yet. Add one from Applications.

@@ -43,8 +43,8 @@ const executionStepSchema = z.object({
   endedAt: z.string().nullable(),
   sequence: z.number(),
   attempt: z.number(),
-  input: z.record(z.string(), jsonValueSchema).nullable(),
-  output: z.record(z.string(), jsonValueSchema).nullable(),
+  input: jsonValueSchema.nullable(),
+  output: jsonValueSchema.nullable(),
   error: z
     .object({ message: z.string(), stack: z.string().optional() })
     .nullable(),

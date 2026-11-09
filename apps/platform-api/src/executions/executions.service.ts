@@ -357,6 +357,11 @@ export class ExecutionsService {
       )
     }
 
+    if (step.name === 'agent') {
+      throw new BadRequestException(
+        'Run Agent steps cannot be replayed; start a new Workflow run',
+      )
+    }
     const replayStepId = randomUUID()
     await this.stepReplayQueue.enqueue({
       replayStepId,
