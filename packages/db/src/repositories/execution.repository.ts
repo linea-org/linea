@@ -397,7 +397,7 @@ export async function pauseExecution(
 }
 
 /** Only transitions queued rows, so a worker claim wins races with administrative failure. */
-export async function failQueuedExecution(
+export function failQueuedExecution(
   db: DbClient,
   executionId: string,
   error: { message: string }

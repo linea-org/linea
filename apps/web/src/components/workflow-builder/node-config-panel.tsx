@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   nodeRegistry,
   retryPolicySchema,
@@ -135,6 +135,13 @@ export function NodeConfigPanel({
     }
     onChange({ ...config, [field.key]: rawValue })
   }
+  const onAgentSelection = useCallback(
+    (selection: { agentId: string; agentContractRevisionId: string }) => {
+      setDraft((prev) => ({ ...prev, agentId: selection.agentId }))
+      onChange({ ...config, ...selection })
+    },
+    [config, onChange]
+  )
   function renderControl(field: NodeUIField, invalid: boolean) {
     const id = `node-field-${field.key}`
     if (field.widget === "agent") {
@@ -144,10 +151,12 @@ export function NodeConfigPanel({
           id={id}
           applicationId={applicationId}
           value={draft[field.key] ?? ""}
-          onChange={(selection) => {
-            setDraft((prev) => ({ ...prev, agentId: selection.agentId }))
-            onChange({ ...config, ...selection })
-          }}
+          revisionValue={
+            typeof config.agentContractRevisionId === "string"
+              ? config.agentContractRevisionId
+              : ""
+          }
+          onChange={onAgentSelection}
         />
       )
     }

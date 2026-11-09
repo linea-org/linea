@@ -174,13 +174,19 @@ export function ExecutionStepDetails({
         </TabsContent>
       </Tabs>
       <div className="flex flex-wrap items-start gap-2">
-        {replayable && !step.replayedFromStepId && (
+        {replayable && !step.replayedFromStepId && step.name !== "agent" && (
           <ReplayAction
             executionId={executionId}
             step={step}
             nodeConfig={nodeConfig}
             onReplayTriggered={onReplayTriggered}
           />
+        )}
+        {step.name === "agent" && (
+          <p className="text-xs text-muted-foreground">
+            Run Agent steps can't be replayed. Start a new Workflow run to try
+            again.
+          </p>
         )}
         {workflowId && (
           <AddToRegressionAction workflowId={workflowId} stepId={step.id} />

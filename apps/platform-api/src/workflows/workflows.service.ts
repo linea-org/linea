@@ -144,14 +144,15 @@ export class WorkflowsService {
   ): Promise<void> {
     const { agentId, agentContractRevisionId } = config
     const unset = (value: unknown) => value === undefined || value === ''
-    if (unset(agentId) || unset(agentContractRevisionId)) {
-      if (
-        options.requireAgent ||
-        !unset(agentId) !== !unset(agentContractRevisionId)
-      )
+    if (unset(agentId)) {
+      if (options.requireAgent)
         throw new BadRequestException(`Choose an Agent for step ${nodeId}`)
       return
     }
+    if (options.requireAgent && unset(agentContractRevisionId))
+      throw new BadRequestException(
+        `Choose a Contract revision for step ${nodeId}`,
+      )
     const ids = z.uuid().safeParse(agentId)
     const revisionId = z.uuid().safeParse(agentContractRevisionId)
     const agent = ids.success
@@ -167,6 +168,7 @@ export class WorkflowsService {
       )
     if (agent.archivedAt)
       throw new BadRequestException(`Step ${nodeId} uses an archived Agent`)
+    if (unset(agentContractRevisionId)) return
     const revision = revisionId.success
       ? await repositories.agentContract.getAgentContractRevision(
           db,
