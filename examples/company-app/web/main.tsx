@@ -44,21 +44,31 @@ async function api(path: string, init?: RequestInit): Promise<Task> {
 function AccessCode({ onSignedIn }: Readonly<{ onSignedIn: () => void }>) {
   const [code, setCode] = useState("")
   const [error, setError] = useState<string>()
+  const [pending, setPending] = useState(false)
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault()
+        if (pending) return
+        setPending(true)
         setError(undefined)
         void fetch("/api/session", {
           method: "POST",
           credentials: "same-origin",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ code }),
-        }).then(async (response) => {
-          if (response.ok) return onSignedIn()
-          const body = (await response.json()) as { message?: string }
-          setError(body.message ?? "Sign-in failed")
-        })
+        }).then(
+          async (response) => {
+            if (response.ok) return onSignedIn()
+            const body = (await response.json()) as { message?: string }
+            setError(body.message ?? "Sign-in failed")
+            setPending(false)
+          },
+          () => {
+            setError("Could not reach the example server")
+            setPending(false)
+          }
+        )
       }}
     >
       <label>
@@ -69,7 +79,9 @@ function AccessCode({ onSignedIn }: Readonly<{ onSignedIn: () => void }>) {
           onChange={(event) => setCode(event.target.value)}
         />
       </label>
-      <button disabled={!code}>Continue</button>
+      <button type="submit" disabled={!code || pending}>
+        Continue
+      </button>
       {error ? <p role="alert">{error}</p> : null}
     </form>
   )
@@ -140,6 +152,7 @@ function SignIn() {
   if (signedIn) return null
   return (
     <button
+      type="button"
       onClick={() => {
         void client
           .startAuthorization({
@@ -236,7 +249,11 @@ function App() {
             onChange={(event) => setRepository(event.target.value)}
           />
         </label>
-        <button disabled={!repository} onClick={() => void submit()}>
+        <button
+          type="button"
+          disabled={!repository}
+          onClick={() => void submit()}
+        >
           Suggest two follow-ups
         </button>
         {error ? <p role="alert">{error}</p> : null}
