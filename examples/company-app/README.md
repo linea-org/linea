@@ -1,0 +1,64 @@
+# Company app example
+
+A small company app that lets its End Users ask a deployed Linea Agent to
+suggest two follow-up GitHub issues and review each write before it happens.
+It shows who configures what.
+
+## Who owns what
+
+| Company developer (you)                                                   | End User (your customer)                                 |
+| ------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Creates the Application, Agent, GitHub Connection and the Environment key | Types a repository and sees progress and results         |
+| Keeps `LINEA_ENVIRONMENT_KEY` on the server only                          | Never sees model IDs, tokens, raw JSON or internal IDs   |
+| Assigns the separate reviewer in Linea                                    | Reviews exact proposed actions only if assigned reviewer |
+| Opens the **Developer view** link to inspect the same Execution in Linea  | A requester's access alone cannot approve an action      |
+
+## Prerequisites
+
+1. In Linea, publish an Agent whose Contract takes `{ "repository": string }`
+   and deploy it to an Environment (Agent → Deployment).
+2. Add a GitHub Connection to that Environment and assign a requester grant
+   and a separate reviewer.
+3. Create an Environment key (Environment → Keys). Treat it like a password.
+4. Find the Environment ID and the Agent ID in the Linea UI.
+5. To let people sign in and review on the page, edit the Environment's trust
+   settings: add `http://localhost:4000` to **Allowed browser origins** and to
+   **Allowed redirect origins**, configure your identity provider details, and
+   register `http://localhost:4000/` as a redirect URI at the identity provider.
+
+## Run
+
+```bash
+export LINEA_ENVIRONMENT_ID=...        # Environment ID
+export LINEA_ENVIRONMENT_KEY=lin_env_… # server-side only
+export LINEA_AGENT_ID=...              # the deployed Agent
+export LINEA_WORKSPACE_SLUG=...        # for the Developer view link
+export DEMO_END_USER_SUBJECT=demo-user # the End User's identity in your IdP
+export DEMO_ACCESS_CODE=...            # visitors must enter this to start work
+# optional: LINEA_API_URL (default http://localhost:3000),
+#           LINEA_DASHBOARD_URL (default http://localhost:3001), PORT (4000)
+pnpm install
+pnpm --filter linea-company-app-example start   # builds the SDK packages, then the page
+```
+
+Open http://localhost:4000. The server starts the Agent through the Environment
+API and returns the Execution identifier; the page follows progress through
+your server and links to the same Execution in Linea.
+
+## Notes
+
+- The server binds to 127.0.0.1. A visitor must enter `DEMO_ACCESS_CODE` before
+  anything starts, and each signed-in browser can only read the tasks it
+  started. This stands in for your real sign-in:
+  a production app authenticates its user and derives the End User subject from
+  that identity instead of using `DEMO_END_USER_SUBJECT`.
+- The browser never receives the Environment key. It only talks to this
+  example's server and, for reviews, to Linea with an End User session.
+- Reviews appear through the End User session. Sign in with your identity
+  provider as in `examples/sdk-react`; a signed-out visitor sees that reviews
+  are unavailable rather than an Approve button.
+- A failed request shows a general message. The public API reports every
+  failure as `Execution failed`, so the page cannot tell the End User which
+  action was rejected; developers see the full reason in the Developer view.
+- If the outcome of an external write cannot be confirmed, the run stays
+  stopped and the app never offers an automatic retry.

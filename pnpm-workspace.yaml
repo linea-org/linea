@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "examples/company-app"
 
 allowBuilds:
   esbuild: true

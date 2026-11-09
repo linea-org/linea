@@ -490,7 +490,7 @@ describe("Approval Request repository", () => {
       const expiresAt = new Date("2026-01-01T00:01:00.000Z")
       const now = new Date("2026-01-01T00:02:00.000Z")
       const requests = []
-      for (const _ of [0, 1]) {
+      for (let index = 0; index < 2; index += 1) {
         const { organization, workflow, execution } =
           await createWorkspaceExecution(tx)
         const request = await createApprovalRequest(tx, {

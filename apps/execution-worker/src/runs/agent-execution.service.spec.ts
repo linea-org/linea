@@ -283,7 +283,9 @@ it("stops after rejection while preserving a completed effect", async () => {
   await decide(execution.id, "approved")
   await runs.execute(execution.id)
   await decide(execution.id, "rejected")
-  await expect(runs.execute(execution.id)).rejects.toThrow("rejected")
+  await expect(runs.execute(execution.id)).rejects.toThrow(
+    "1 earlier external action was completed and kept"
+  )
   expect(effects).toEqual(["one"])
   expect(
     (await repositories.execution.getExecutionById(db, execution.id))?.status
