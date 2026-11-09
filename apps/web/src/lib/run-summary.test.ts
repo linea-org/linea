@@ -51,6 +51,33 @@ describe("summarizeRun", () => {
     expect(summary.nextAction).toMatch(/does not grant approval/)
   })
 
+  it("treats a timed wait as automatic", () => {
+    const summary = summarizeRun({
+      ...detail({ status: "paused" }),
+      pausedAtNode: { nodeId: "w", type: "wait" },
+    })
+    expect(summary.attention).toBeNull()
+    expect(summary.nextAction).toMatch(/resumes by itself/)
+  })
+
+  it("keeps falsy results such as false, 0 and an empty string", () => {
+    for (const output of [false, 0, ""]) {
+      expect(summarizeRun(detail({ output })).result).toBe(output)
+    }
+  })
+
+  it("recognises the gateway's unknown-outcome message", () => {
+    const summary = summarizeRun(
+      detail({
+        status: "failed",
+        error: {
+          message: "Connector provider outcome could not be reconciled",
+        },
+      })
+    )
+    expect(summary.outcome).toBe("The external result is unknown.")
+  })
+
   it("never advises retrying an unknown outcome", () => {
     const summary = summarizeRun(
       detail({

@@ -20,7 +20,9 @@ export function previewJson(value: JsonValue): string {
 }
 
 function isUnknownOutcome(message: string) {
-  return /outcome[ _]unknown|unknown outcome/i.test(message)
+  return /outcome[ _]unknown|unknown outcome|outcome could not be reconciled/i.test(
+    message
+  )
 }
 
 function failureAdvice(message: string | undefined) {
@@ -57,6 +59,13 @@ export function summarizeRun(detail: ExecutionDetailResponse): RunSummary {
         nextAction: "This page updates while the run works.",
       }
     case "paused":
+      if (detail.pausedAtNode?.type === "wait")
+        return {
+          ...base,
+          outcome: "Waiting for a timer.",
+          attention: null,
+          nextAction: "The run resumes by itself when the wait ends.",
+        }
       return {
         ...base,
         outcome: "Waiting for a decision.",

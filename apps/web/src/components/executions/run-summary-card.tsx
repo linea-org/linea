@@ -34,7 +34,7 @@ export function RunSummaryCard({
         </Field>
         <Field label="What happened">
           <p className="font-medium">{summary.outcome}</p>
-          {summary.result ? (
+          {summary.result !== null ? (
             <pre className="mt-1 max-h-32 overflow-auto font-mono break-words whitespace-pre-wrap">
               {previewJson(summary.result)}
             </pre>
