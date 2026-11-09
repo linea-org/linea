@@ -484,6 +484,52 @@ describe("Approval Request repository", () => {
       })
     })
   })
+  it("claims timed-out requests only within the requested workspace", async () => {
+    await withRollback(async (tx) => {
+      const requestedAt = new Date("2026-01-01T00:00:00.000Z")
+      const expiresAt = new Date("2026-01-01T00:01:00.000Z")
+      const now = new Date("2026-01-01T00:02:00.000Z")
+      const requests = []
+      for (const _ of [0, 1]) {
+        const { organization, workflow, execution } =
+          await createWorkspaceExecution(tx)
+        const request = await createApprovalRequest(tx, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          executionId: execution.id,
+          nodeId: "approval-1",
+          audience: "workspace",
+          display: { title: "Deploy?" },
+          requestedAt,
+          expiresAt,
+          timeoutAction: "auto_reject",
+        })
+        if (!request) throw new Error("Approval Request was not created")
+        requests.push(request)
+      }
+      const [first, second] = requests
+      const claimed = await claimAndDecideTimedOutApprovalRequest(
+        tx,
+        now,
+        first.workspaceId
+      )
+      expect(claimed).toMatchObject({
+        outcome: "decided",
+        request: { id: first.id },
+      })
+      const again = await claimAndDecideTimedOutApprovalRequest(
+        tx,
+        now,
+        first.workspaceId
+      )
+      expect(again.outcome).toBe("empty")
+      const [untouched] = await tx
+        .select()
+        .from(approvalRequests)
+        .where(eq(approvalRequests.id, second.id))
+      expect(untouched.status).toBe("pending")
+    })
+  })
   it("enforces bounded display and comment snapshots", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, execution } =
