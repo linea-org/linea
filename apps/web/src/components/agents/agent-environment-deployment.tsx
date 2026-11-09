@@ -82,6 +82,7 @@ export function AgentEnvironmentDeployment({
             )}
             {query.data && (
               <AgentDeploymentDetails
+                workspaceSlug={workspaceSlug}
                 environment={candidate}
                 binding={candidateBinding}
                 version={versions.find(
