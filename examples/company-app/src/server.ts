@@ -117,18 +117,25 @@ async function handle(
     const owned = sessionFor(request, response)
     if (owned.size >= maxTasksPerSession)
       throw new HttpError(429, "Task limit reached for this demo session")
-    const repository = repositoryFrom(await readBody(request))
-    const subject = await client.provisionSubject({
-      issuerSubject,
-      metadata: {},
-    })
-    const execution = await client.startExecution({
-      agentId,
-      externalSubjectId: subject.id,
-      input: { repository },
-    })
-    owned.add(execution.id)
-    json(response, 202, { id: execution.id, ...taskFor(execution) })
+    // Reserve the slot before any await so overlapping requests cannot all pass the limit.
+    const slot = crypto.randomUUID()
+    owned.add(slot)
+    try {
+      const repository = repositoryFrom(await readBody(request))
+      const subject = await client.provisionSubject({
+        issuerSubject,
+        metadata: {},
+      })
+      const execution = await client.startExecution({
+        agentId,
+        externalSubjectId: subject.id,
+        input: { repository },
+      })
+      owned.add(execution.id)
+      json(response, 202, { id: execution.id, ...taskFor(execution) })
+    } finally {
+      owned.delete(slot)
+    }
     return
   }
   const match = /^\/api\/tasks\/([0-9a-f-]{36})$/.exec(path)
