@@ -807,6 +807,7 @@ function WorkflowBuilderCanvasInner({
                   key={selectedNode.id}
                   nodeType={selectedNode.data.nodeType}
                   config={selectedNode.data.config}
+                  applicationId={workflow?.applicationId}
                   onClose={() => {
                     setRightPanel(null)
                     setSelectedNodeId(null)

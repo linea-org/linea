@@ -45,8 +45,8 @@ const executionStepSchema = z.object({
   endedAt: z.string().nullable(),
   sequence: z.number(),
   attempt: z.number(),
-  input: z.record(z.string(), jsonValueSchema).nullable(),
-  output: z.record(z.string(), jsonValueSchema).nullable(),
+  input: jsonValueSchema.nullable(),
+  output: jsonValueSchema.nullable(),
   error: z
     .object({ message: z.string(), stack: z.string().optional() })
     .nullable(),
@@ -60,12 +60,21 @@ const executionStepSchema = z.object({
   replayedFromStepId: z.uuid().nullable(),
 })
 
+const nestedAgentSchema = z.object({
+  nodeId: z.string(),
+  executionId: z.uuid(),
+  agentId: z.uuid(),
+  agentVersionId: z.uuid(),
+  status: executionSummarySchema.shape.status,
+})
+
 export const executionDetailResponseSchema = z.object({
   execution: executionDetailSchema,
   steps: z.array(executionStepSchema),
   nodeConfigs: z.record(z.string(), z.record(z.string(), jsonValueSchema)),
   replayable: z.boolean(),
   pausedAtNode: z.object({ nodeId: z.string(), type: z.string() }).optional(),
+  nestedAgents: z.array(nestedAgentSchema).default([]),
 })
 
 export type ExecutionSummary = z.infer<typeof executionSummarySchema>
@@ -73,6 +82,7 @@ export type ExecutionStatus = ExecutionSummary["status"]
 export type ExecutionTrigger = ExecutionSummary["trigger"]
 export type ExecutionEnvironment = ExecutionSummary["environment"]
 export type ExecutionDetail = z.infer<typeof executionDetailSchema>
+export type NestedAgentInvocation = z.infer<typeof nestedAgentSchema>
 export type ExecutionStepSummary = z.infer<typeof executionStepSchema>
 export type ExecutionStepStatus = ExecutionStepSummary["status"]
 export type ExecutionDetailResponse = z.infer<

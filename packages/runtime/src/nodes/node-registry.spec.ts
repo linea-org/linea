@@ -4,6 +4,7 @@ import { nodeRegistry } from "./node-registry.js"
 describe("nodeRegistry", () => {
   it("has exactly the current node types", () => {
     expect(Object.keys(nodeRegistry).sort()).toEqual([
+      "agent",
       "ai",
       "approval",
       "branch",

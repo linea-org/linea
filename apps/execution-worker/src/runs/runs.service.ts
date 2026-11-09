@@ -69,6 +69,38 @@ export class RunsService {
     private readonly agents: AgentExecutionService
   ) {}
 
+  private claimPause(
+    nodeType: string | undefined,
+    workspaceId: string,
+    executionId: string,
+    nodeId: string,
+    attemptId: string
+  ) {
+    if (nodeType === "wait")
+      return repositories.waitTimer.claimPauseForPendingWait(
+        db,
+        workspaceId,
+        executionId,
+        nodeId,
+        attemptId
+      )
+    if (nodeType === "agent")
+      return repositories.nestedAgentExecution.claimPauseForNestedAgent(
+        db,
+        workspaceId,
+        executionId,
+        nodeId,
+        attemptId
+      )
+    return repositories.approvalRequest.claimPauseForPendingApprovalRequest(
+      db,
+      workspaceId,
+      executionId,
+      nodeId,
+      attemptId
+    )
+  }
+
   async execute(executionId: string): Promise<void> {
     const attemptId = `${this.processId}:${randomUUID()}`
     const execution = await repositories.execution.startExecution(
@@ -158,22 +190,13 @@ export class RunsService {
         const pausedNode = graph.nodes.find(
           (node) => node.id === outcome.pausedAt
         )
-        const claim =
-          pausedNode?.type === "wait"
-            ? await repositories.waitTimer.claimPauseForPendingWait(
-                db,
-                execution.workspaceId,
-                executionId,
-                outcome.pausedAt,
-                attemptId
-              )
-            : await repositories.approvalRequest.claimPauseForPendingApprovalRequest(
-                db,
-                execution.workspaceId,
-                executionId,
-                outcome.pausedAt,
-                attemptId
-              )
+        const claim = await this.claimPause(
+          pausedNode?.type,
+          execution.workspaceId,
+          executionId,
+          outcome.pausedAt,
+          attemptId
+        )
         if (claim.outcome === "paused") {
           paused = true
           break

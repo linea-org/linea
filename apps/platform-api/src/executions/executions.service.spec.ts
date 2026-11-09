@@ -1108,6 +1108,37 @@ describe('ExecutionsService', () => {
         ])
       }
     })
+    it('rejects replaying a Run Agent step', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [ExecutionsService, StepReplayQueueService],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Replay Agent Step Test Org',
+          slug: `replay-agent-step-${randomUUID()}`,
+          createdAt: new Date(),
+        })
+        .returning()
+      try {
+        const { execution, step } = await setUpTerminalExecutionWithStep(
+          organization.id,
+        )
+        await pool.query(
+          "UPDATE execution_steps SET name = 'agent' WHERE id = $1",
+          [step.id],
+        )
+        await expect(
+          service.replayStep(organization.id, execution.id, step.id, {}),
+        ).rejects.toThrow('Run Agent steps cannot be replayed')
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
     it('rejects a non-terminal execution, a missing step, and a replay-of-a-replay', async () => {
       const moduleRef = await Test.createTestingModule({
         providers: [ExecutionsService, StepReplayQueueService],

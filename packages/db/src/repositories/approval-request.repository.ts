@@ -1,3 +1,4 @@
+import { wakeParentOfFinishedChild } from "./nested-parent-wake.js"
 import {
   getApprovalReviewerAuthority,
   externalApprovalEligibility,
@@ -836,6 +837,7 @@ export async function cancelExecutionWithPendingApproval(
       )
     )
     .returning()
+  if (execution) await wakeParentOfFinishedChild(tx, execution)
   if (!execution || actionIntents.cancelled.length > 0 || !request) {
     return execution
   }

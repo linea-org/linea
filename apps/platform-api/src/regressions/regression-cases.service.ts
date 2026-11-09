@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
 import { db, repositories, type RegressionCase } from '@linea/db'
 import type { CreateRegressionCaseFromFlagDto } from './dto/create-regression-case-from-flag.dto'
 import type { CreateRegressionCaseFromStepDto } from './dto/create-regression-case-from-step.dto'
@@ -41,6 +45,11 @@ export class RegressionCasesService {
       execution.workflowId !== workflowId
     ) {
       throw new NotFoundException('Execution step not found')
+    }
+    if (step.name === 'agent') {
+      throw new BadRequestException(
+        'Run Agent steps cannot be saved as regression cases yet',
+      )
     }
 
     const regressionCase =
