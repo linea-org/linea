@@ -61,6 +61,16 @@ describe("summarizeRun", () => {
     expect(summary.nextAction).toMatch(/resumes by itself/)
   })
 
+  it("says a run waiting on its Agent needs no reviewer", () => {
+    const summary = summarizeRun({
+      ...detail({ status: "paused" }),
+      pausedAtNode: { nodeId: "a", type: "agent" },
+    })
+    expect(summary.outcome).toBe("Waiting for an Agent.")
+    expect(summary.attention).toBeNull()
+    expect(summary.nextAction).toMatch(/resumes by itself/)
+  })
+
   it("keeps falsy results such as false, 0 and an empty string", () => {
     for (const output of [false, 0, ""]) {
       expect(summarizeRun(detail({ output })).result).toBe(output)

@@ -184,11 +184,11 @@ export function ExecutionStepDetails({
         )}
         {step.name === "agent" && (
           <p className="text-xs text-muted-foreground">
-            Run Agent steps can't be replayed. Start a new Workflow run to try
-            again.
+            Run Agent steps can't be replayed or saved as regression cases.
+            Start a new Workflow run to try again.
           </p>
         )}
-        {workflowId && (
+        {workflowId && step.name !== "agent" && (
           <AddToRegressionAction workflowId={workflowId} stepId={step.id} />
         )}
       </div>

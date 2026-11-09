@@ -66,6 +66,14 @@ export function summarizeRun(detail: ExecutionDetailResponse): RunSummary {
           attention: null,
           nextAction: "The run resumes by itself when the wait ends.",
         }
+      if (detail.pausedAtNode?.type === "agent")
+        return {
+          ...base,
+          outcome: "Waiting for an Agent.",
+          attention: null,
+          nextAction:
+            "The run resumes by itself when the Agent finishes. Open the Agent run below to follow it.",
+        }
       return {
         ...base,
         outcome: "Waiting for a decision.",

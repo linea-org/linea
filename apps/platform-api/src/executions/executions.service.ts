@@ -320,6 +320,15 @@ export class ExecutionsService {
         workspaceId,
         id,
       )
+    if (!pausedAtNode && result.execution.status === 'paused') {
+      const waitingOn = nestedAgents.find(
+        (invocation) =>
+          !repositories.execution.terminalStatuses.includes(invocation.status),
+      )
+      if (waitingOn) {
+        pausedAtNode = { nodeId: waitingOn.nodeId, type: 'agent' }
+      }
+    }
     return { ...result, nodeConfigs, replayable, pausedAtNode, nestedAgents }
   }
 
