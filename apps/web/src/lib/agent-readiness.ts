@@ -10,6 +10,13 @@ export type ReadinessItem = {
 type CatalogOperation = { id: string; provider: string }
 type ReadinessConnection = { provider: string; status: string }
 
+function deploymentAction(accepting: boolean, environmentEnabled: boolean) {
+  if (accepting) return null
+  if (!environmentEnabled)
+    return "This Environment is disabled. Re-enable it in the Environment's settings first."
+  return "Publish a version and enable it in Deployment settings."
+}
+
 export function agentReadiness({
   environmentEnabled,
   binding,
@@ -32,9 +39,7 @@ export function agentReadiness({
       label: accepting
         ? "A version is deployed and accepting requests."
         : "No enabled deployment is accepting requests.",
-      action: accepting
-        ? null
-        : "Publish a version and enable it in Deployment settings.",
+      action: deploymentAction(accepting, environmentEnabled),
     },
   ]
   if (!version) return items
@@ -43,9 +48,9 @@ export function agentReadiness({
   for (const tool of version.definition.tools) {
     const operation = operations.find((item) => item.id === tool.operation)
     if (operation) providers.add(operation.provider)
-    else unknown.push(tool.operation)
+    else if (!unknown.includes(tool.operation)) unknown.push(tool.operation)
   }
-  for (const provider of [...providers].sort()) {
+  for (const provider of [...providers].sort((a, b) => a.localeCompare(b))) {
     const ready = connections.some(
       (connection) =>
         connection.provider === provider && connection.status === "active"
@@ -59,7 +64,7 @@ export function agentReadiness({
       action: ready ? null : `Connect ${provider} in this Environment.`,
     })
   }
-  for (const operation of unknown.sort()) {
+  for (const operation of unknown.sort((a, b) => a.localeCompare(b))) {
     items.push({
       key: `operation:${operation}`,
       ready: false,

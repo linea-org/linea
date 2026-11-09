@@ -2,10 +2,29 @@ import { describe, expect, it } from "vitest"
 import type { AgentBinding, AgentVersion } from "./agent-schemas"
 import { agentReadiness } from "./agent-readiness"
 
-const binding = { enabled: true } as AgentBinding
-const version = {
-  definition: { tools: [{ name: "x", operation: "github.issues.create" }] },
-} as AgentVersion
+const id = "00000000-0000-4000-8000-000000000001"
+const binding: AgentBinding = {
+  id,
+  environmentId: id,
+  agentId: id,
+  agentVersionId: id,
+  agentContractRevisionId: id,
+  enabled: true,
+}
+const version: AgentVersion = {
+  id,
+  agentId: id,
+  version: 1,
+  definition: {
+    version: 1,
+    instructions: "Create issues",
+    model: "gpt-5",
+    tools: [{ name: "x", operation: "github.issues.create" }],
+    maxIterations: 4,
+  },
+  agentContractRevisionId: id,
+  publishedAt: null,
+}
 const operations = [{ id: "github.issues.create", provider: "github" }]
 
 describe("agentReadiness", () => {
@@ -40,6 +59,40 @@ describe("agentReadiness", () => {
       connections: [{ provider: "github", status: "active" }],
     })
     expect(ok.every((item) => item.ready)).toBe(true)
+  })
+
+  it("explains a disabled Environment without pointing at read-only settings", () => {
+    const [deployment] = agentReadiness({
+      environmentEnabled: false,
+      binding,
+      version,
+      operations,
+      connections: [],
+    })
+    expect(deployment?.action).toMatch(/Environment is disabled/)
+  })
+
+  it("reports a shared missing operation once", () => {
+    const shared: AgentVersion = {
+      ...version,
+      definition: {
+        ...version.definition,
+        tools: [
+          { name: "a", operation: "gone.op" },
+          { name: "b", operation: "gone.op" },
+        ],
+      },
+    }
+    const items = agentReadiness({
+      environmentEnabled: true,
+      binding,
+      version: shared,
+      operations: [],
+      connections: [],
+    })
+    expect(
+      items.filter((item) => item.key === "operation:gone.op")
+    ).toHaveLength(1)
   })
 
   it("reports tools whose operation is not registered", () => {

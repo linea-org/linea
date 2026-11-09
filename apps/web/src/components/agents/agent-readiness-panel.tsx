@@ -22,12 +22,11 @@ export function AgentReadinessPanel({
     queryFn: () => getAgentCatalogFn(),
   })
   const connections = useQuery({
-    queryKey: ["environment-connections", workspaceSlug, environment.id],
+    queryKey: ["shared-connections", environment.id],
     queryFn: () =>
       listSharedConnectionsFn({ data: { environmentId: environment.id } }),
   })
   const failed = catalog.error ?? connections.error
-  const ready = catalog.data && connections.data
   return (
     <section
       aria-label="Readiness"
@@ -39,10 +38,10 @@ export function AgentReadinessPanel({
           Could not check readiness: {failed.message}
         </p>
       ) : null}
-      {!failed && !ready ? (
+      {!failed && !(catalog.data && connections.data) ? (
         <p className="mt-2 text-xs text-muted-foreground">Checking…</p>
       ) : null}
-      {ready ? (
+      {!failed && catalog.data && connections.data ? (
         <ul className="mt-2 flex flex-col gap-2">
           {agentReadiness({
             environmentEnabled: environment.enabled,
