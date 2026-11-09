@@ -32,7 +32,8 @@ export LINEA_WORKSPACE_SLUG=...        # for the Developer view link
 export DEMO_END_USER_SUBJECT=demo-user # the End User's identity in your IdP
 # optional: LINEA_API_URL (default http://localhost:3000),
 #           LINEA_DASHBOARD_URL (default http://localhost:3001), PORT (4000)
-pnpm --filter linea-company-app-example start
+pnpm install
+pnpm --filter linea-company-app-example start   # builds the SDK packages, then the page
 ```
 
 Open http://localhost:4000. The server starts the Agent through the Environment
