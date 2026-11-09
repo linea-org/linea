@@ -30,6 +30,7 @@ export LINEA_ENVIRONMENT_KEY=lin_env_… # server-side only
 export LINEA_AGENT_ID=...              # the deployed Agent
 export LINEA_WORKSPACE_SLUG=...        # for the Developer view link
 export DEMO_END_USER_SUBJECT=demo-user # the End User's identity in your IdP
+export DEMO_ACCESS_CODE=...            # visitors must enter this to start work
 # optional: LINEA_API_URL (default http://localhost:3000),
 #           LINEA_DASHBOARD_URL (default http://localhost:3001), PORT (4000)
 pnpm install
@@ -42,8 +43,9 @@ your server and links to the same Execution in Linea.
 
 ## Notes
 
-- The server binds to 127.0.0.1 and gives each browser an opaque demo session
-  that can only read the tasks it started. This stands in for your real sign-in:
+- The server binds to 127.0.0.1. A visitor must enter `DEMO_ACCESS_CODE` before
+  anything starts, and each signed-in browser can only read the tasks it
+  started. This stands in for your real sign-in:
   a production app authenticates its user and derives the End User subject from
   that identity instead of using `DEMO_END_USER_SUBJECT`.
 - The browser never receives the Environment key. It only talks to this

@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto"
 import { createServer } from "node:http"
 import { readFile } from "node:fs/promises"
 import { LineaEnvironmentClient, environmentKey } from "@linea/sdk/server"
@@ -21,9 +22,13 @@ const agentId = required("LINEA_AGENT_ID")
 const dashboardUrl = process.env.LINEA_DASHBOARD_URL ?? "http://localhost:3001"
 const workspaceSlug = required("LINEA_WORKSPACE_SLUG")
 const issuerSubject = required("DEMO_END_USER_SUBJECT")
+const accessCode = createHash("sha256")
+  .update(required("DEMO_ACCESS_CODE"))
+  .digest()
 
 const maxBodyBytes = 4096
 const maxTasksPerSession = 5
+const maxSessions = 50
 
 class HttpError extends Error {
   readonly status: number
@@ -44,26 +49,42 @@ async function readBody(request: AsyncIterable<Buffer>): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown
 }
 
-// Demo only: each browser gets an opaque session and can only read tasks it started. A real app uses its own sign-in and derives the End User subject from it.
+// Demo only: visitors sign in with a shared access code and can only read tasks they started. A real app uses its own sign-in and derives the End User subject from the verified identity.
 const sessions = new Map<string, Set<string>>()
 
-function sessionFor(
-  request: import("node:http").IncomingMessage,
-  response: import("node:http").ServerResponse
-): Set<string> {
-  const cookie = /(?:^|; )demo_session=([0-9a-f-]{36})/.exec(
-    request.headers.cookie ?? ""
-  )
-  const existing = cookie?.[1] ? sessions.get(cookie[1]) : undefined
-  if (existing) return existing
+function codeMatches(candidate: unknown): boolean {
+  if (typeof candidate !== "string") return false
+  const digest = createHash("sha256").update(candidate).digest()
+  return timingSafeEqual(digest, accessCode)
+}
+
+function signIn(
+  response: import("node:http").ServerResponse,
+  body: unknown
+): void {
+  const candidate =
+    typeof body === "object" && body !== null && "code" in body
+      ? body.code
+      : undefined
+  if (!codeMatches(candidate))
+    throw new HttpError(401, "Access code not recognised")
+  if (sessions.size >= maxSessions)
+    throw new HttpError(429, "Too many demo sessions; restart the example")
   const id = crypto.randomUUID()
-  const tasks = new Set<string>()
-  sessions.set(id, tasks)
+  sessions.set(id, new Set())
   response.setHeader(
     "set-cookie",
     `demo_session=${id}; HttpOnly; SameSite=Strict; Path=/`
   )
-  return tasks
+}
+
+function sessionFor(request: import("node:http").IncomingMessage): Set<string> {
+  const cookie = /(?:^|; )demo_session=([0-9a-f-]{36})/.exec(
+    request.headers.cookie ?? ""
+  )
+  const existing = cookie?.[1] ? sessions.get(cookie[1]) : undefined
+  if (!existing) throw new HttpError(401, "Sign in with the access code first")
+  return existing
 }
 
 function json(
@@ -113,8 +134,13 @@ async function handle(
     json(response, 200, { environmentId, apiUrl })
     return
   }
+  if (request.method === "POST" && path === "/api/session") {
+    signIn(response, await readBody(request))
+    json(response, 204, {})
+    return
+  }
   if (request.method === "POST" && path === "/api/tasks") {
-    const owned = sessionFor(request, response)
+    const owned = sessionFor(request)
     if (owned.size >= maxTasksPerSession)
       throw new HttpError(429, "Task limit reached for this demo session")
     // Reserve the slot before any await so overlapping requests cannot all pass the limit.
@@ -140,7 +166,7 @@ async function handle(
   }
   const match = /^\/api\/tasks\/([0-9a-f-]{36})$/.exec(path)
   if (request.method === "GET" && match?.[1]) {
-    if (!sessionFor(request, response).has(match[1]))
+    if (!sessionFor(request).has(match[1]))
       throw new HttpError(404, "Not found")
     json(response, 200, taskFor(await client.getExecution(match[1])))
     return
