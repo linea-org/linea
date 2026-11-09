@@ -271,6 +271,7 @@ export class ExecutionsService {
     // real checkpointed step instead) or if the execution isn't paused. Neither Approval nor Wait
     // checkpoints before pausing, so there's no other way to know which node it stopped at.
     pausedAtNode?: { nodeId: string; type: string }
+    nestedAgents: repositories.nestedAgentExecution.NestedAgentInvocation[]
   }> {
     const result = await repositories.execution.getExecutionWithSteps(db, id)
     if (!result || result.execution.workspaceId !== workspaceId) {
@@ -313,7 +314,13 @@ export class ExecutionsService {
       }
     }
 
-    return { ...result, nodeConfigs, replayable, pausedAtNode }
+    const nestedAgents =
+      await repositories.nestedAgentExecution.listNestedAgentInvocations(
+        db,
+        workspaceId,
+        id,
+      )
+    return { ...result, nodeConfigs, replayable, pausedAtNode, nestedAgents }
   }
 
   async replayStep(

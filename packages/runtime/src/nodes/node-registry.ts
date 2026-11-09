@@ -1,3 +1,4 @@
+import { agentNode } from "./definitions/agent.node.js"
 import { aiNode } from "./definitions/ai.node.js"
 import { approvalNode } from "./definitions/approval.node.js"
 import { branchNode } from "./definitions/branch.node.js"
@@ -25,6 +26,7 @@ export const nodeRegistry = {
   transform: transformNode,
   branch: branchNode,
   ai: aiNode,
+  agent: agentNode,
   extract: extractNode,
   approval: approvalNode,
   memory: memoryNode,

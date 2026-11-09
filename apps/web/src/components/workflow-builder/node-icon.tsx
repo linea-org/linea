@@ -1,4 +1,5 @@
 import {
+  Bot,
   Brain,
   Braces,
   CalendarClock,
@@ -20,6 +21,7 @@ import type { LucideIcon } from "lucide-react"
 
 // Keyed by each definition's ui.icon — a static map so an unrecognized key falls back visibly instead of rendering nothing.
 const ICONS: Record<string, LucideIcon> = {
+  bot: Bot,
   globe: Globe,
   sparkles: Sparkles,
   "git-branch": GitBranch,

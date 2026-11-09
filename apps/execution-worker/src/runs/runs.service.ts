@@ -69,6 +69,38 @@ export class RunsService {
     private readonly agents: AgentExecutionService
   ) {}
 
+  private claimPause(
+    nodeType: string | undefined,
+    workspaceId: string,
+    executionId: string,
+    nodeId: string,
+    attemptId: string
+  ) {
+    if (nodeType === "wait")
+      return repositories.waitTimer.claimPauseForPendingWait(
+        db,
+        workspaceId,
+        executionId,
+        nodeId,
+        attemptId
+      )
+    if (nodeType === "agent")
+      return repositories.nestedAgentExecution.claimPauseForNestedAgent(
+        db,
+        workspaceId,
+        executionId,
+        nodeId,
+        attemptId
+      )
+    return repositories.approvalRequest.claimPauseForPendingApprovalRequest(
+      db,
+      workspaceId,
+      executionId,
+      nodeId,
+      attemptId
+    )
+  }
+
   async execute(executionId: string): Promise<void> {
     const attemptId = `${this.processId}:${randomUUID()}`
     const execution = await repositories.execution.startExecution(
@@ -81,6 +113,7 @@ export class RunsService {
       this.logger.warn(
         `Execution ${executionId} was not claimable (already running or terminal) — skipping`
       )
+      await this.resumeParent(executionId)
       return
     }
     // Aborts whatever node handler call is in flight the moment the lease is lost, instead of letting a duplicate HTTP mutation or billed AI completion run in parallel with whoever reclaimed the lease.
@@ -158,22 +191,13 @@ export class RunsService {
         const pausedNode = graph.nodes.find(
           (node) => node.id === outcome.pausedAt
         )
-        const claim =
-          pausedNode?.type === "wait"
-            ? await repositories.waitTimer.claimPauseForPendingWait(
-                db,
-                execution.workspaceId,
-                executionId,
-                outcome.pausedAt,
-                attemptId
-              )
-            : await repositories.approvalRequest.claimPauseForPendingApprovalRequest(
-                db,
-                execution.workspaceId,
-                executionId,
-                outcome.pausedAt,
-                attemptId
-              )
+        const claim = await this.claimPause(
+          pausedNode?.type,
+          execution.workspaceId,
+          executionId,
+          outcome.pausedAt,
+          attemptId
+        )
         if (claim.outcome === "paused") {
           paused = true
           break
@@ -297,6 +321,22 @@ export class RunsService {
       throw error
     } finally {
       this.lease.stopHeartbeat(attemptId)
+      await this.resumeParent(executionId)
+    }
+  }
+
+  /** A finished nested Agent invocation wakes the Workflow Execution waiting on it; a failed wake-up is logged and repaired by the child's next delivery. */
+  private async resumeParent(executionId: string): Promise<void> {
+    try {
+      await repositories.nestedAgentExecution.resumeParentOfFinishedExecution(
+        db,
+        executionId
+      )
+    } catch (error) {
+      this.logger.error(
+        `Execution ${executionId}: could not resume its parent Workflow Execution`,
+        error instanceof Error ? error.stack : String(error)
+      )
     }
   }
 

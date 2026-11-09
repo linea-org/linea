@@ -364,4 +364,77 @@ describe('WorkflowsService', () => {
     })
     await moduleRef.close()
   })
+  it('accepts a Run Agent step only for an active Agent of the same Application, on drafts and versions', async () => {
+    const moduleRef = await Test.createTestingModule({ providers }).compile()
+    const service = moduleRef.get(WorkflowsService)
+    await withOrg(async (workspaceId) => {
+      const application = await repositories.application.createApplication(db, {
+        workspaceId,
+        name: 'Home',
+        slug: randomUUID(),
+      })
+      const other = await repositories.application.createApplication(db, {
+        workspaceId,
+        name: 'Other',
+        slug: randomUUID(),
+      })
+      const workflow = await service.create(workspaceId, {
+        applicationId: application.id,
+        name: 'Reuses an Agent',
+        slug: `reuse-${randomUUID()}`,
+      })
+      const agent = async (applicationId: string) => {
+        const created = await repositories.agent.createAgent(db, {
+          workspaceId,
+          applicationId,
+          name: 'Agent',
+          slug: randomUUID(),
+        })
+        if (!created) throw new Error('Agent fixture failed')
+        return created
+      }
+      const graphFor = (agentId?: string): WorkflowGraph => ({
+        version: 1,
+        trigger: { type: 'manual' },
+        entryNodeId: 'run',
+        nodes: [
+          {
+            id: 'run',
+            type: 'agent',
+            config: agentId === undefined ? {} : { agentId },
+          },
+        ],
+        edges: [],
+      })
+      const same = await agent(application.id)
+      const foreign = await agent(other.id)
+      await expect(
+        service.saveDraft(workspaceId, workflow.id, { graph: graphFor() }),
+      ).resolves.toBeDefined()
+      await expect(
+        service.saveDraft(workspaceId, workflow.id, {
+          graph: graphFor(same.id),
+        }),
+      ).resolves.toBeDefined()
+      await expect(
+        service.saveDraft(workspaceId, workflow.id, {
+          graph: graphFor(foreign.id),
+        }),
+      ).rejects.toThrow(/Agent from this Workflow's Application/)
+      await expect(
+        service.saveDraft(workspaceId, workflow.id, {
+          graph: graphFor(randomUUID()),
+        }),
+      ).rejects.toThrow(/Agent from this Workflow's Application/)
+      await expect(
+        service.createVersion(workspaceId, workflow.id, { graph: graphFor() }),
+      ).rejects.toThrow(/Choose an Agent/)
+      await expect(
+        service.createVersion(workspaceId, workflow.id, {
+          graph: graphFor(foreign.id),
+        }),
+      ).rejects.toThrow(/Agent from this Workflow's Application/)
+    })
+    await moduleRef.close()
+  })
 })

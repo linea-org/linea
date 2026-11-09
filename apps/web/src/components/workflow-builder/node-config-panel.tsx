@@ -28,11 +28,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@linea/ui/components/tooltip"
+import { AgentStepField } from "./agent-step-field"
 import { KeyValueEditor } from "./key-value-editor"
 
 type NodeConfigPanelProps = {
   nodeType: NodeTypeId
   config: Record<string, unknown>
+  applicationId?: string
   onClose: () => void
   onChange: (config: Record<string, unknown>) => void
 }
@@ -82,6 +84,7 @@ function selectDefaults(
 export function NodeConfigPanel({
   nodeType,
   config,
+  applicationId,
   onClose,
   onChange,
 }: NodeConfigPanelProps) {
@@ -189,7 +192,16 @@ export function NodeConfigPanel({
                       </Tooltip>
                     )}
                   </div>
-                  {field.widget === "select" ? (
+                  {nodeType === "agent" &&
+                  field.key === "agentId" &&
+                  applicationId ? (
+                    <AgentStepField
+                      id={`node-field-${field.key}`}
+                      applicationId={applicationId}
+                      value={draft[field.key] ?? ""}
+                      onChange={(agentId) => setField(field, agentId)}
+                    />
+                  ) : field.widget === "select" ? (
                     <Select
                       items={field.options}
                       value={draft[field.key] || null}

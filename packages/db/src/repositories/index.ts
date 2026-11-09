@@ -52,3 +52,4 @@ export * as agentContract from "./agent-contract.repository.js"
 export * as environmentAgentBinding from "./environment-agent-binding.repository.js"
 
 export * as agentExecution from "./agent-execution.repository.js"
+export * as nestedAgentExecution from "./nested-agent-execution.repository.js"

@@ -14,6 +14,7 @@ import {
 import { getAgentFn } from "@/lib/agents-api"
 import { getWorkflowFn } from "@/lib/workflows-api"
 import { ErrorCallout } from "./error-callout"
+import { NestedAgentRuns } from "./nested-agent-runs"
 import { ExecutionStatusBadge } from "./execution-status-badge"
 import { ExecutionTraceWorkspace } from "./execution-trace-workspace"
 import { formatCost } from "./execution-list"
@@ -180,6 +181,7 @@ export function ExecutionDetailView({
             ))}
           </div>
         </header>
+        <NestedAgentRuns nested={detail.nestedAgents} />
         {execution.error ? (
           <div className="border-b px-4 py-3">
             <ErrorCallout

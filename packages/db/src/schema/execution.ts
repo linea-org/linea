@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   bigint,
   check,
   boolean,
@@ -74,6 +75,11 @@ export const executions = snakeCase.table(
     workflowContractRevisionId: uuid(),
     externalSubjectRecordId: uuid(),
     conversationId: uuid(),
+    // Set only on an Agent invocation nested inside a Workflow Execution: the Workflow Execution and node that started it.
+    parentExecutionId: uuid().references((): AnyPgColumn => executions.id, {
+      onDelete: "cascade",
+    }),
+    parentNodeId: text(),
 
     status: executionStatus().notNull().default("queued"),
     origin: executionOrigin().notNull().default("native"),
@@ -110,8 +116,15 @@ export const executions = snakeCase.table(
   (table) => [
     check(
       "executions_root_check",
-      sql`(${table.workflowId} IS NOT NULL AND ${table.workflowVersionId} IS NOT NULL AND ${table.agentId} IS NULL AND ${table.agentVersionId} IS NULL AND ${table.agentContractRevisionId} IS NULL) OR (${table.workflowId} IS NULL AND ${table.workflowVersionId} IS NULL AND ${table.workflowContractRevisionId} IS NULL AND ${table.conversationId} IS NULL AND ${table.agentId} IS NOT NULL AND ${table.agentVersionId} IS NOT NULL AND ${table.agentContractRevisionId} IS NOT NULL AND ${table.environmentId} IS NOT NULL AND ${table.externalSubjectRecordId} IS NOT NULL)`
+      sql`(${table.workflowId} IS NOT NULL AND ${table.workflowVersionId} IS NOT NULL AND ${table.agentId} IS NULL AND ${table.agentVersionId} IS NULL AND ${table.agentContractRevisionId} IS NULL) OR (${table.workflowId} IS NULL AND ${table.workflowVersionId} IS NULL AND ${table.workflowContractRevisionId} IS NULL AND ${table.conversationId} IS NULL AND ${table.agentId} IS NOT NULL AND ${table.agentVersionId} IS NOT NULL AND ${table.agentContractRevisionId} IS NOT NULL AND ${table.environmentId} IS NOT NULL AND (${table.externalSubjectRecordId} IS NOT NULL OR ${table.parentExecutionId} IS NOT NULL))`
     ),
+    check(
+      "executions_parent_check",
+      sql`(${table.parentExecutionId} IS NULL AND ${table.parentNodeId} IS NULL) OR (${table.parentExecutionId} IS NOT NULL AND ${table.parentNodeId} IS NOT NULL AND ${table.agentId} IS NOT NULL)`
+    ),
+    uniqueIndex("executions_parent_node_uidx")
+      .on(table.parentExecutionId, table.parentNodeId)
+      .where(sql`${table.parentExecutionId} IS NOT NULL`),
     foreignKey({
       name: "executions_agent_workspace_fkey",
       columns: [table.agentId, table.workspaceId],

@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, lt, notInArray, or, sql } from "drizzle-orm"
+import { and, desc, eq, gt, isNull, lt, notInArray, or, sql } from "drizzle-orm"
 import {
   environments,
   environmentWorkflowBindings,
@@ -516,6 +516,7 @@ export async function listWorkspaceExecutions(
   const limit = options.limit ?? DEFAULT_WORKSPACE_EXECUTIONS_LIMIT
   const baseWhere = and(
     eq(executions.workspaceId, workspaceId),
+    isNull(executions.parentExecutionId),
     options.status ? eq(executions.status, options.status) : undefined,
     options.trigger ? eq(executions.trigger, options.trigger) : undefined
   )
@@ -575,6 +576,7 @@ export async function countNewWorkspaceExecutions(
 ): Promise<number> {
   const where = and(
     eq(executions.workspaceId, workspaceId),
+    isNull(executions.parentExecutionId),
     options.status ? eq(executions.status, options.status) : undefined,
     options.trigger ? eq(executions.trigger, options.trigger) : undefined,
     or(

@@ -8,6 +8,7 @@ export const nodeTypeSchema = z.enum([
   "transform",
   "branch",
   "ai",
+  "agent",
   "extract",
   "evaluator",
   "approval",
