@@ -373,7 +373,7 @@ export class AgentExecutionService {
     if (response.outcome === "awaiting_consent")
       return this.pauseForApproval(context, nodeId)
     if (response.outcome === "rejected")
-      throw new Error("Agent action was rejected; further Agent work stopped")
+      throw new Error(await this.rejectionMessage(execution.id))
     const output = response.result
     completed.set(nodeId, output)
     await this.checkpoints.recordStep({
@@ -390,6 +390,26 @@ export class AgentExecutionService {
       variables: {},
     })
     return { kind: "output", output }
+  }
+
+  /** Reports earlier completed external writes so a rejection is never mistaken for nothing having happened. */
+  private async rejectionMessage(executionId: string): Promise<string> {
+    const result = await repositories.execution.getExecutionWithSteps(
+      db,
+      executionId
+    )
+    const written = (result?.steps ?? []).filter((step) => {
+      const operation = step.input?.operation
+      return (
+        step.status === "succeeded" &&
+        typeof operation === "string" &&
+        registeredSideEffectOperation(connectorOperationRegistry, operation) !==
+          undefined
+      )
+    }).length
+    const stopped = "Agent action was rejected; further Agent work stopped"
+    if (written === 0) return `${stopped}. No external action was completed.`
+    return `${stopped}. ${written} earlier external action${written === 1 ? " was" : "s were"} completed and kept.`
   }
 
   private async pauseForApproval(
