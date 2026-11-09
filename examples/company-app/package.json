@@ -1,0 +1,24 @@
+{
+  "name": "linea-company-app-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:web": "esbuild web/main.tsx --bundle --format=esm --target=es2022 --jsx=automatic --outfile=dist/main.js",
+    "start": "pnpm build:web && node --experimental-strip-types src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@linea/sdk": "workspace:*",
+    "@linea/sdk-react": "workspace:*",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "esbuild": "^0.25.0",
+    "typescript": "^6"
+  }
+}
