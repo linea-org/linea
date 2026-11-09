@@ -26,6 +26,7 @@ function detail(
     steps: [],
     nodeConfigs: {},
     replayable: false,
+    nestedAgents: [],
   }
 }
 
