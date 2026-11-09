@@ -15,6 +15,7 @@ import type {
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import { environmentName } from "@/components/applications/environment-settings"
 import { formatDate } from "@/lib/format"
+import { AgentReadinessPanel } from "./agent-readiness-panel"
 
 function deploymentStatus(
   environment: EnvironmentSummary,
@@ -92,8 +93,10 @@ export function AgentDeploymentDetails({
   version,
   contract,
   archived,
+  workspaceSlug,
   children,
 }: Readonly<{
+  workspaceSlug: string
   environment: EnvironmentSummary
   binding: AgentBinding | undefined
   version: AgentVersion | undefined
@@ -139,6 +142,12 @@ export function AgentDeploymentDetails({
           ))}
         </dl>
       </div>
+      <AgentReadinessPanel
+        workspaceSlug={workspaceSlug}
+        environment={environment}
+        binding={binding}
+        version={version}
+      />
       {archived && <ArchivedNote binding={binding} />}
       {!environment.enabled && (
         <p
