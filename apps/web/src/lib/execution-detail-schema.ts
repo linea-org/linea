@@ -26,6 +26,8 @@ export const executionSummarySchema = z.object({
 })
 
 const executionDetailSchema = executionSummarySchema.extend({
+  triggerPayload: z.record(z.string(), jsonValueSchema).nullable().optional(),
+  output: jsonValueSchema.nullable().optional(),
   error: z
     .object({ message: z.string(), stepId: z.string().optional() })
     .nullable(),
