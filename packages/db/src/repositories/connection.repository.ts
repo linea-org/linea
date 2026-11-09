@@ -858,13 +858,14 @@ export async function stageAuthorizationCredentialRevocation(
 
 export async function completeRevocationDelivery(
   db: DbClient,
-  input: { deliveryId: string; claimedBy: string; deliveredAt: Date }
+  input: { deliveryId: string; claimedBy: string; deliveredAt?: Date }
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
     const [delivery] = await tx
       .update(connectionRevocationDeliveries)
       .set({
-        deliveredAt: input.deliveredAt,
+        // The authorization fence compares this with the request's database-stamped createdAt, so the default must come from the same clock.
+        deliveredAt: input.deliveredAt ?? sql`now()`,
         credentialEncrypted: null,
         claimedBy: null,
         claimExpiresAt: null,
@@ -887,7 +888,7 @@ export async function completeRevocationDelivery(
       await recordConnectionFact(tx, {
         connection,
         factType: "connection.revocation_payload_destroyed",
-        occurredAt: input.deliveredAt,
+        occurredAt: delivery.deliveredAt ?? new Date(),
         outcome: "delivered",
       })
     }
