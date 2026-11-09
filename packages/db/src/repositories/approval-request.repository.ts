@@ -919,9 +919,11 @@ export type ClaimTimedOutApprovalRequestResult =
   | { outcome: "empty" }
   | { outcome: "decided"; request: ApprovalRequest; decision: ApprovalDecision }
 
+/** Claims any due request across all workspaces unless `workspaceId` narrows it; tests sharing a database must narrow it so they cannot decide each other's requests. */
 export async function claimAndDecideTimedOutApprovalRequest(
   db: DbClient,
-  now: Date = new Date()
+  now: Date = new Date(),
+  workspaceId?: string
 ): Promise<ClaimTimedOutApprovalRequestResult> {
   return db.transaction(async (tx) => {
     const [due] = await tx
@@ -931,7 +933,10 @@ export async function claimAndDecideTimedOutApprovalRequest(
         and(
           eq(approvalRequests.status, "pending"),
           isNotNull(approvalRequests.expiresAt),
-          lte(approvalRequests.expiresAt, now)
+          lte(approvalRequests.expiresAt, now),
+          workspaceId
+            ? eq(approvalRequests.workspaceId, workspaceId)
+            : undefined
         )
       )
       .for("update", { skipLocked: true })

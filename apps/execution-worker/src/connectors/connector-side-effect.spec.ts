@@ -673,7 +673,8 @@ describe("exact Action Intent consent", () => {
         const timeout =
           await repositories.approvalRequest.claimAndDecideTimedOutApprovalRequest(
             db,
-            new Date(view.approvalRequest.expiresAt!.getTime() + 1)
+            new Date(view.approvalRequest.expiresAt!.getTime() + 1),
+            fixture.workspaceId
           )
         expect(timeout.outcome).toBe("decided")
       }
