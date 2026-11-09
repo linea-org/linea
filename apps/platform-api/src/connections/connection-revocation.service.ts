@@ -137,7 +137,6 @@ export class ConnectionRevocationService
         await repositories.connection.completeRevocationDelivery(db, {
           deliveryId: delivery.id,
           claimedBy: this.workerId,
-          deliveredAt: new Date(),
         })
       if (!completed) throw new Error('Connection revocation claim was lost')
     } catch (error) {
