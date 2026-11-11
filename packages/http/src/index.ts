@@ -195,8 +195,14 @@ export async function requestPublic(
           return await readResponse(response, options.maxResponseBytes)
         }
         const location = response.headers.get("location")
+        if (location === null && options.redirectMode === "fetch") {
+          return await readResponse(response, options.maxResponseBytes)
+        }
         await response.body?.cancel()
-        if (!location)
+        if (
+          location === null ||
+          (location === "" && options.redirectMode === "preserve")
+        )
           throw new PermanentRequestError("Outbound redirect has no location")
         if (redirects === 3)
           throw new PermanentRequestError("Outbound redirect limit exceeded")

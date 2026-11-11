@@ -9,8 +9,9 @@ import {
 } from "@linea/ai"
 import { db, repositories } from "@linea/db"
 import type { Memory } from "@linea/db"
-import { requestPublic } from "@linea/http"
+import { PermanentRequestError, requestPublic } from "@linea/http"
 import { nodeRegistry } from "@linea/runtime"
+import { NonRetryableError } from "./non-retryable-error"
 import { resolveNamespace, resolveSubjectId } from "./memory-scope"
 import type {
   NodeExecutionContext,
@@ -167,6 +168,10 @@ async function callTool(
       process.env.EXECUTION_HTTP_ALLOW_LOCAL === "true",
     requireHttps: false,
     redirectMode: "fetch",
+  }).catch((error: unknown) => {
+    if (error instanceof PermanentRequestError)
+      throw new NonRetryableError(error.message, { cause: error })
+    throw error
   })
   const contentType = response.headers.get("content-type") ?? ""
   const body: unknown = contentType.includes("application/json")
