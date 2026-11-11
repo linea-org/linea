@@ -1,6 +1,13 @@
+import { setTimeout as sleep } from "node:timers/promises"
 import { Injectable } from "@nestjs/common"
 import { calculateCostMicros, resolveProviderId } from "@linea/ai"
-import { retryPolicySchema, walk, type RetryPolicy } from "@linea/runtime"
+import {
+  MAX_RETRY_DELAY_MS,
+  MAX_NODE_ATTEMPT_MS,
+  retryPolicySchema,
+  walk,
+  type RetryPolicy,
+} from "@linea/runtime"
 import type {
   StepResult,
   WalkResult,
@@ -34,32 +41,21 @@ import { VariablesNode } from "./nodes/variables.node"
 import { WaitNode } from "./nodes/wait.node"
 import { resolveNodeModel } from "./resolve-node-model"
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 function computeBackoffDelayMs(
   backoff: RetryPolicy["backoff"],
   attemptsMade: number
 ): number {
-  if (backoff.type === "fixed") return backoff.delayMs
-  return backoff.delayMs * 2 ** (attemptsMade - 1)
+  return Math.min(
+    MAX_RETRY_DELAY_MS,
+    backoff.type === "fixed"
+      ? backoff.delayMs
+      : backoff.delayMs * 2 ** (attemptsMade - 1)
+  )
 }
 
-// Invalid shape is no retry, not a hard fail — a graph committed before the builder's own
-// validation existed (or authored outside the builder entirely) shouldn't suddenly hard-fail a
-// node that used to run fine without retries. Logged rather than silently swallowed, though —
-// an author who thinks they configured retries deserves to know they're actually getting none.
 function parseRetryPolicy(raw: unknown): RetryPolicy | undefined {
   if (raw === undefined || raw === null) return undefined
-  const result = retryPolicySchema.safeParse(raw)
-  if (!result.success) {
-    console.warn(
-      `Node has a retryPolicy configured but it doesn't match the expected shape — retries are disabled for this run: ${result.error.message}`
-    )
-    return undefined
-  }
-  return result.data
+  return retryPolicySchema.parse(raw)
 }
 
 // Must not abort input.signal — the outer catch treats that abort as lease loss.
@@ -67,8 +63,9 @@ function withAttemptTimeout(
   leaseSignal: AbortSignal | undefined,
   timeoutMs: number | undefined
 ): AbortSignal | undefined {
-  if (timeoutMs === undefined) return leaseSignal
-  const timeoutSignal = AbortSignal.timeout(timeoutMs)
+  const timeoutSignal = AbortSignal.timeout(
+    Math.min(timeoutMs ?? MAX_NODE_ATTEMPT_MS, MAX_NODE_ATTEMPT_MS)
+  )
   return leaseSignal
     ? AbortSignal.any([leaseSignal, timeoutSignal])
     : timeoutSignal
@@ -239,6 +236,10 @@ export class InterpreterService {
   }
 
   async run(input: RunInput): Promise<RunOutcome> {
+    const deadline = AbortSignal.timeout(30 * 60_000)
+    const runSignal = input.signal
+      ? AbortSignal.any([input.signal, deadline])
+      : deadline
     const generator = walk(input.graph, {
       completed: input.resumeFrom,
       triggerPayload: input.triggerPayload,
@@ -266,6 +267,7 @@ export class InterpreterService {
       const model = resolveNodeModel(node)
       const provider = model ? resolveProviderId(model) : undefined
       try {
+        runSignal.throwIfAborted()
         await this.checkpoints.assertOwnsLease(
           input.executionId,
           input.leasedBy
@@ -284,7 +286,7 @@ export class InterpreterService {
               step.input,
               input.workspaceId,
               `${input.executionId}:${step.nodeId}`,
-              withAttemptTimeout(input.signal, retryPolicy?.timeoutMs),
+              withAttemptTimeout(runSignal, retryPolicy?.timeoutMs),
               input.executionId,
               extractConversationId(input.triggerPayload),
               input.workflowId,
@@ -297,7 +299,7 @@ export class InterpreterService {
             break
           } catch (attemptError) {
             // Don't spend retry budget on a call that was never ours.
-            if (input.signal?.aborted) throw attemptError
+            if (runSignal.aborted) throw attemptError
             if (attemptError instanceof NonRetryableError) throw attemptError
             if (attemptsMade >= maxAttempts) throw attemptError
             attemptsMade += 1
@@ -308,7 +310,9 @@ export class InterpreterService {
             )
             if (retryPolicy) {
               await sleep(
-                computeBackoffDelayMs(retryPolicy.backoff, attemptsMade - 1)
+                computeBackoffDelayMs(retryPolicy.backoff, attemptsMade - 1),
+                undefined,
+                { signal: runSignal }
               )
               // And again after — the lease that just passed above can still expire and be
               // reclaimed during the backoff itself (which can run to tens of seconds under
