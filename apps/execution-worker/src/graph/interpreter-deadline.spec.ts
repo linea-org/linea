@@ -73,7 +73,7 @@ describe("Interpreter deadlines", () => {
         new Promise((_resolve, reject) => {
           context.signal?.addEventListener(
             "abort",
-            () => reject(context.signal?.reason),
+            () => reject(new Error("Attempt timed out")),
             { once: true }
           )
         })
