@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native"
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native"
 import {
   MobileAuthProvider,
   type MobileAuthClient,
@@ -74,10 +74,14 @@ it("requests a magic link that returns to the native app", async () => {
   expect(screen.getByText("Check your email")).toBeTruthy()
 })
 
-it("verifies a token received by deep link and enters the app", async () => {
-  await render(
+it("requires confirmation before verifying a deep-link token and replacing a session", async () => {
+  const screen = await render(
     withAuth(<MagicLinkScreen onVerified={onVerified} token="magic-token" />)
   )
+  expect(verifyMagicLink).not.toHaveBeenCalled()
+  expect(screen.getByText("Switch account?")).toBeTruthy()
+  expect(screen.getByText(/rohit@example.com/)).toBeTruthy()
+  await fireEvent.press(screen.getByText("Use this sign-in link"))
   await waitFor(() => {
     expect(verifyMagicLink).toHaveBeenCalledWith("magic-token")
     expect(onVerified).toHaveBeenCalledTimes(1)
@@ -133,4 +137,63 @@ it("retries workspace loading after a transient failure", async () => {
   await fireEvent.press(screen.getByText("Try again"))
   expect(await screen.findByText("Support")).toBeTruthy()
   expect(listWorkspaces).toHaveBeenCalledTimes(2)
+})
+
+it("does not consume a missing token", async () => {
+  const screen = await render(
+    withAuth(<MagicLinkScreen onVerified={onVerified} token={undefined} />)
+  )
+  expect(
+    screen.getByText("This sign-in link is missing its token.")
+  ).toBeTruthy()
+  await fireEvent.press(screen.getByText("Use this sign-in link"))
+  expect(verifyMagicLink).not.toHaveBeenCalled()
+})
+
+it("surfaces verification failures after confirmation", async () => {
+  verifyMagicLink.mockRejectedValueOnce(new Error("Network unavailable"))
+  const screen = await render(
+    withAuth(<MagicLinkScreen onVerified={onVerified} token="magic-token" />)
+  )
+  await fireEvent.press(screen.getByText("Use this sign-in link"))
+  expect(await screen.findByRole("alert")).toBeTruthy()
+  expect(onVerified).not.toHaveBeenCalled()
+})
+
+it("waits for the current session to load before allowing confirmation", async () => {
+  let isPending = true
+  const loadingClient = {
+    ...authClient,
+    useSession: () => ({ ...authClient.useSession(), isPending }),
+  }
+  const view = () => (
+    <MobileAuthProvider client={loadingClient}>
+      <MagicLinkScreen onVerified={onVerified} token="magic-token" />
+    </MobileAuthProvider>
+  )
+  const screen = await render(view())
+  await fireEvent.press(screen.getByText("Use this sign-in link"))
+  expect(verifyMagicLink).not.toHaveBeenCalled()
+  isPending = false
+  await screen.rerender(view())
+  await fireEvent.press(screen.getByText("Use this sign-in link"))
+  await waitFor(() => expect(verifyMagicLink).toHaveBeenCalledTimes(1))
+})
+
+it("ignores a verification that finishes after the screen unmounts", async () => {
+  let finishVerification = () => {}
+  verifyMagicLink.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishVerification = () => resolve({ data: {}, error: null })
+    })
+  )
+  const screen = await render(
+    withAuth(<MagicLinkScreen onVerified={onVerified} token="magic-token" />)
+  )
+  await fireEvent.press(screen.getByText("Use this sign-in link"))
+  await screen.unmount()
+  await act(async () => {
+    finishVerification()
+  })
+  expect(onVerified).not.toHaveBeenCalled()
 })
