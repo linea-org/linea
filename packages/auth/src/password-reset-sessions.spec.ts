@@ -12,6 +12,7 @@ beforeAll(() => {
 })
 afterAll(() => vi.unstubAllEnvs())
 
+// Real password hashing shares CI runner CPU with the other integration suites.
 it("invalidates both existing sessions when the password is reset", async () => {
   const { auth } = await import("./auth.js")
   let resetToken = ""
@@ -66,4 +67,4 @@ it("invalidates both existing sessions when the password is reset", async () => 
   })
   for (const headers of sessions)
     expect(await isolated.api.getSession({ headers })).toBeNull()
-})
+}, 30_000)
