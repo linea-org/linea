@@ -5,8 +5,9 @@ import {
   type ApprovalRequest,
   type ApprovalRequestDisplay,
 } from "@linea/db"
-import { nodeRegistry } from "@linea/runtime"
+import { approvalInputSchema, nodeRegistry } from "@linea/runtime"
 import { Injectable, Logger } from "@nestjs/common"
+import { consumeApprovalEmailQuota } from "./approval-email-quota"
 import { PauseExecutionError } from "../../checkpoints/checkpoints.service"
 import type {
   NodeExecutionContext,
@@ -16,14 +17,6 @@ import type {
 function assertWorkspaceAudience(raw: unknown): void {
   if (raw === undefined || raw === "workspace") return
   throw new Error('Approval node audience must be "workspace"')
-}
-
-function parseApproverEmails(raw: unknown): string[] | undefined {
-  if (typeof raw !== "string" || raw.trim() === "") return undefined
-  return raw
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean)
 }
 
 function parseTimeoutAt(raw: unknown): Date | undefined {
@@ -104,6 +97,7 @@ export class ApprovalNode implements NodeHandler {
       throw new Error("External-subject Approval Requests are not active yet")
     }
     if (!request) {
+      const { approverEmails } = approvalInputSchema.parse(config)
       const display = parseDisplay(config)
       const execution = await repositories.execution.getExecutionById(
         db,
@@ -124,7 +118,7 @@ export class ApprovalNode implements NodeHandler {
           audience: "workspace",
           conversationId: execution.conversationId,
           display,
-          approverEmails: parseApproverEmails(config.approverEmails),
+          approverEmails: approverEmails?.length ? approverEmails : undefined,
           expiresAt,
           timeoutAction: expiresAt
             ? config.timeoutAction === "auto_approve"
@@ -182,12 +176,15 @@ export class ApprovalNode implements NodeHandler {
             execution.workflowId
           )
         : undefined
-      const recipientUserIds = request.approverEmails?.length
-        ? await repositories.organization.listMemberUserIdsByEmail(
+      const recipients = request.approverEmails?.length
+        ? await repositories.organization.listMembersByEmail(
             db,
             request.workspaceId,
             request.approverEmails
           )
+        : []
+      const recipientUserIds = request.approverEmails?.length
+        ? recipients.map((member) => member.userId)
         : await repositories.organization.listMemberUserIds(
             db,
             request.workspaceId
@@ -209,10 +206,23 @@ export class ApprovalNode implements NodeHandler {
           },
         }
       )
-      if (request.approverEmails?.length) {
+      const emailRecipients = [
+        ...new Map(
+          recipients.map(({ email }) => [email.toLowerCase(), email])
+        ).values(),
+      ]
+      if (emailRecipients.length) {
+        if (
+          !(await consumeApprovalEmailQuota(
+            request.workspaceId,
+            emailRecipients.length
+          ))
+        ) {
+          throw new Error("Workspace approval email quota exceeded")
+        }
         const message = request.display.description ?? request.display.title
         await Promise.all(
-          request.approverEmails.map((to) =>
+          emailRecipients.map((to) =>
             sendEmail({
               to,
               subject: `${workflow?.name ?? "A workflow"} needs your approval`,

@@ -112,6 +112,16 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
   }
 
   for (const node of graph.nodes) {
+    if (node.type !== "approval") continue
+    const result = nodeRegistry.approval.inputSchema.safeParse(node.config)
+    if (!result.success) {
+      throw new WorkflowGraphError(
+        `Approval node "${node.id}" has invalid configuration: ${result.error.message}`
+      )
+    }
+  }
+
+  for (const node of graph.nodes) {
     if (node.type !== "extract") continue
     const result = nodeRegistry.extract.inputSchema.safeParse(node.config)
     if (!result.success) {

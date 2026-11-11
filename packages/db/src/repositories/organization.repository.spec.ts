@@ -7,6 +7,7 @@ import {
   findOrCreateOrganizationBySlug,
   getOrganizationBySlug,
   listMemberUserIdsByEmail,
+  listMembersByEmail,
 } from "./organization.repository.js"
 
 describe("findOrCreateOrganizationBySlug", () => {
@@ -79,6 +80,15 @@ describe("listMemberUserIdsByEmail", () => {
         member.email.toLowerCase(),
       ])
       expect(userIds).toEqual([member.id])
+      expect(
+        await listMembersByEmail(tx, organization.id, [
+          member.email.toUpperCase(),
+          member.email,
+          "outsider@test.dev",
+        ])
+      ).toEqual([{ userId: member.id, email: member.email }])
+      const { organization: other } = await createTestFixtures(tx)
+      expect(await listMembersByEmail(tx, other.id, [member.email])).toEqual([])
     })
   })
 })

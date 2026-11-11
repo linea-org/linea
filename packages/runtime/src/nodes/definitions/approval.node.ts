@@ -1,7 +1,19 @@
 import { z } from "zod"
 import type { NodeDefinition } from "../node-definition.js"
 
-const approvalInputSchema = z.unknown()
+export const approvalInputSchema = z.object({
+  approverEmails: z
+    .string()
+    .max(5_120)
+    .transform((raw) =>
+      raw.trim() === ""
+        ? []
+        : raw.split(",").map((email) => email.trim().toLowerCase())
+    )
+    .pipe(z.array(z.email()).max(20))
+    .transform((emails) => [...new Set(emails)])
+    .optional(),
+})
 
 const approvalOutputSchema = z.object({
   approved: z.boolean(),
@@ -37,7 +49,7 @@ export const approvalNode: NodeDefinition<
         label: "Approvers",
         widget: "text",
         description:
-          "Comma-separated workspace member emails. Leave empty to let any workspace member respond.",
+          "Up to 20 comma-separated workspace member emails. Leave empty to let any workspace member respond.",
       },
       {
         key: "timeoutMinutes",
