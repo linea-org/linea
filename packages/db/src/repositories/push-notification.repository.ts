@@ -148,79 +148,86 @@ export async function claimPushDelivery(
   db: DbClient,
   now = new Date()
 ): Promise<ClaimedPushDelivery | undefined> {
-  return db.transaction(async (tx) => {
-    const staleAt = new Date(now.getTime() - CLAIM_TIMEOUT_MS)
-    const [candidate] = await tx
-      .select({ delivery: pushDeliveries })
-      .from(pushDeliveries)
-      .where(
-        and(
-          lte(pushDeliveries.nextAttemptAt, now),
-          or(
-            inArray(pushDeliveries.status, ["pending", "retry"]),
-            and(
-              eq(pushDeliveries.status, "sending"),
-              lte(pushDeliveries.claimedAt, staleAt)
+  const startedAt = Date.now()
+  for (;;) {
+    const result = await db.transaction(async (tx) => {
+      const claimTime = new Date(now.getTime() + Date.now() - startedAt)
+      const staleAt = new Date(claimTime.getTime() - CLAIM_TIMEOUT_MS)
+      const [candidate] = await tx
+        .select({ delivery: pushDeliveries })
+        .from(pushDeliveries)
+        .where(
+          and(
+            lte(pushDeliveries.nextAttemptAt, claimTime),
+            or(
+              inArray(pushDeliveries.status, ["pending", "retry"]),
+              and(
+                eq(pushDeliveries.status, "sending"),
+                lte(pushDeliveries.claimedAt, staleAt)
+              )
             )
           )
         )
-      )
-      .limit(1)
-      .for("update", { skipLocked: true })
-    if (!candidate) return undefined
-    const [claimed] = await tx
-      .update(pushDeliveries)
-      .set({
-        status: "sending",
-        attempts: candidate.delivery.attempts + 1,
-        claimedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(pushDeliveries.id, candidate.delivery.id))
-      .returning()
-    const [joined] = await tx
-      .select({
-        notification: notifications,
-        token: pushDeviceRegistrations.token,
-      })
-      .from(pushDeliveries)
-      .innerJoin(
-        notifications,
-        eq(pushDeliveries.notificationId, notifications.id)
-      )
-      .innerJoin(
-        pushDeviceRegistrations,
-        eq(pushDeliveries.deviceRegistrationId, pushDeviceRegistrations.id)
-      )
-      .innerJoin(
-        sessions,
-        and(
-          eq(sessions.id, pushDeviceRegistrations.sessionId),
-          eq(sessions.userId, pushDeviceRegistrations.userId),
-          gt(sessions.expiresAt, now)
-        )
-      )
-      .where(
-        and(
-          eq(pushDeliveries.id, claimed.id),
-          eq(notifications.userId, pushDeviceRegistrations.userId)
-        )
-      )
-    if (!joined) {
-      await tx
+        .orderBy(pushDeliveries.nextAttemptAt, pushDeliveries.id)
+        .limit(1)
+        .for("update", { skipLocked: true })
+      if (!candidate) return undefined
+      const [claimed] = await tx
         .update(pushDeliveries)
         .set({
-          status: "failed",
-          lastError: "Device registration or owning session is no longer valid",
-          failedAt: now,
-          claimedAt: null,
-          updatedAt: now,
+          status: "sending",
+          attempts: candidate.delivery.attempts + 1,
+          claimedAt: claimTime,
+          updatedAt: claimTime,
         })
-        .where(eq(pushDeliveries.id, claimed.id))
-      return undefined
-    }
-    return { delivery: claimed, ...joined }
-  })
+        .where(eq(pushDeliveries.id, candidate.delivery.id))
+        .returning()
+      const [joined] = await tx
+        .select({
+          notification: notifications,
+          token: pushDeviceRegistrations.token,
+        })
+        .from(pushDeliveries)
+        .innerJoin(
+          notifications,
+          eq(pushDeliveries.notificationId, notifications.id)
+        )
+        .innerJoin(
+          pushDeviceRegistrations,
+          eq(pushDeliveries.deviceRegistrationId, pushDeviceRegistrations.id)
+        )
+        .innerJoin(
+          sessions,
+          and(
+            eq(sessions.id, pushDeviceRegistrations.sessionId),
+            eq(sessions.userId, pushDeviceRegistrations.userId),
+            gt(sessions.expiresAt, claimTime)
+          )
+        )
+        .where(
+          and(
+            eq(pushDeliveries.id, claimed.id),
+            eq(notifications.userId, pushDeviceRegistrations.userId)
+          )
+        )
+      if (!joined) {
+        await tx
+          .update(pushDeliveries)
+          .set({
+            status: "failed",
+            lastError:
+              "Device registration or owning session is no longer valid",
+            failedAt: claimTime,
+            claimedAt: null,
+            updatedAt: claimTime,
+          })
+          .where(eq(pushDeliveries.id, claimed.id))
+        return null
+      }
+      return { delivery: claimed, ...joined }
+    })
+    if (result !== null) return result
+  }
 }
 
 export async function claimPushReceipt(

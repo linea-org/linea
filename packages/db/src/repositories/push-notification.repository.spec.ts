@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { eq } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import {
   pushDeliveries,
@@ -360,4 +360,58 @@ it("refreshes only the owning session and preserves other sessions' devices on r
     expect(remaining).toHaveLength(1)
     expect(remaining[0].id).toBe(second.id)
     expect(remaining[0].sessionId).toBe(otherSession.id)
+  }))
+
+it("drains invalid due deliveries and claims the next live alert in the same call", () =>
+  withRollback(async (tx) => {
+    const { organization } = await createTestFixtures(tx)
+    const expired = await createUser(tx)
+    const active = await createUser(tx)
+    for (const user of [expired, active]) {
+      await registerPushDevice(tx, {
+        userId: user.id,
+        sessionId: user.sessionId,
+        token: `ExponentPushToken[${user.id}]`,
+        platform: "ios",
+      })
+    }
+    const invalidIds: string[] = []
+    for (let index = 0; index < 5; index += 1) {
+      const [notification] = await createNotificationsForUsers(
+        tx,
+        [expired.id],
+        {
+          workspaceId: organization.id,
+          type: "execution.failed",
+          title: "Expired",
+          body: "Expired",
+        }
+      )
+      invalidIds.push(notification.id)
+    }
+    await tx
+      .update(sessions)
+      .set({ expiresAt: new Date(0) })
+      .where(eq(sessions.id, expired.sessionId))
+    const [live] = await createNotificationsForUsers(tx, [active.id], {
+      workspaceId: organization.id,
+      type: "execution.failed",
+      title: "Live",
+      body: "Live",
+    })
+    await tx
+      .update(pushDeliveries)
+      .set({ nextAttemptAt: new Date(0) })
+      .where(inArray(pushDeliveries.notificationId, invalidIds))
+    const claimed = await claimPushDelivery(tx, new Date(Date.now() + 1000))
+    expect(claimed?.notification.id).toBe(live.id)
+    const invalid = await tx
+      .select()
+      .from(pushDeliveries)
+      .where(inArray(pushDeliveries.notificationId, invalidIds))
+    expect(invalid).toHaveLength(5)
+    expect(invalid.every((delivery) => delivery.status === "failed")).toBe(true)
+    expect(
+      await claimPushDelivery(tx, new Date(Date.now() + 1000))
+    ).toBeUndefined()
   }))

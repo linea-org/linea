@@ -1,3 +1,4 @@
+import { AppState, type AppStateStatus } from "react-native"
 import { act, render, waitFor } from "@testing-library/react-native"
 import {
   MobileAuthProvider,
@@ -89,4 +90,27 @@ it("does not register an old effect after the session changes during token retri
   expect(mockRegister).toHaveBeenCalledWith(
     expect.objectContaining({ cookie: "session=b" })
   )
+})
+
+it("refreshes on foreground without an identity change and removes the listener on cleanup", async () => {
+  let listener: ((state: AppStateStatus) => void) | undefined
+  const remove = jest.fn()
+  const subscription = jest
+    .spyOn(AppState, "addEventListener")
+    .mockImplementation((_event, callback) => {
+      listener = callback
+      return { remove }
+    })
+  try {
+    const screen = await render(view())
+    await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(1))
+    await act(async () => listener?.("background"))
+    expect(mockRegister).toHaveBeenCalledTimes(1)
+    await act(async () => listener?.("active"))
+    await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(2))
+    await screen.unmount()
+    expect(remove).toHaveBeenCalledTimes(1)
+  } finally {
+    subscription.mockRestore()
+  }
 })
