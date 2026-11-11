@@ -1,11 +1,13 @@
 import 'dotenv/config'
-import type { NextFunction, Request, Response } from 'express'
+import type { Request } from 'express'
 import helmet from 'helmet'
 import { NestFactory } from '@nestjs/core'
+import type { NestExpressApplication } from '@nestjs/platform-express'
 import { IoAdapter } from '@nestjs/platform-socket.io'
 import { enabledSocialProviders } from '@linea/auth'
 import { AppModule } from './app.module'
 import { API_PREFIX } from './common/api-prefix'
+import { configureAuthClientIp } from './common/auth-client-ip'
 import { bigIntJsonReplacer } from './common/bigint-json-replacer'
 import {
   getTrustedOrigins,
@@ -13,33 +15,14 @@ import {
   usesEnvironmentOriginPolicy,
 } from './common/trusted-origin'
 
-function normalizeClientIp(raw: string | undefined) {
-  if (!raw) return '127.0.0.1'
-  if (raw === '::1' || raw === '::ffff:127.0.0.1') return '127.0.0.1'
-  return raw.startsWith('::ffff:') ? raw.slice('::ffff:'.length) : raw
-}
-
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   })
   app.setGlobalPrefix(API_PREFIX)
-  const expressApp = app.getHttpAdapter().getInstance() as {
-    set: (key: string, value: unknown) => void
-  }
-  expressApp.set('trust proxy', 1)
-  expressApp.set('json replacer', bigIntJsonReplacer)
+  app.set('json replacer', bigIntJsonReplacer)
+  configureAuthClientIp(app, process.env.TRUSTED_PROXIES)
   app.useWebSocketAdapter(new IoAdapter(app))
-  app.use((req: Request, _res: Response, next: NextFunction) => {
-    const ip = normalizeClientIp(req.socket.remoteAddress)
-    if (!req.headers['x-real-ip']) {
-      req.headers['x-real-ip'] = ip
-    }
-    if (!req.headers['x-forwarded-for']) {
-      req.headers['x-forwarded-for'] = ip
-    }
-    next()
-  })
   const trustedOrigins = getTrustedOrigins()
   app.use(
     helmet({
