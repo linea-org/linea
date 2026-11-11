@@ -1,3 +1,15 @@
+jest.mock("@linea/http", () => ({
+  requestPublic: (
+    url: string | URL,
+    options: {
+      method: string
+      headers: Record<string, string>
+      body: string | undefined
+      signal: AbortSignal | undefined
+    }
+  ) => global.fetch(url, options),
+}))
+
 const complete = jest.fn()
 const resolveProvider = jest.fn(() => ({ complete }))
 const resolveKeyName = jest.fn(() => "anthropic")
