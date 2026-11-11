@@ -5,9 +5,10 @@ export async function consumeApprovalEmailQuota(
   recipientCount: number
 ): Promise<boolean> {
   const connection = createConnection()
+  let timeout: ReturnType<typeof setTimeout> | undefined
   try {
     const now = Date.now()
-    const result = await connection.eval(
+    const command = connection.eval(
       `local count = tonumber(ARGV[1])
        if tonumber(redis.call('GET', KEYS[1]) or '0') + count > 100
           or tonumber(redis.call('GET', KEYS[2]) or '0') + count > 1000 then
@@ -23,8 +24,18 @@ export async function consumeApprovalEmailQuota(
       `approval-email:${workspaceId}:day:${Math.floor(now / 86_400_000)}`,
       recipientCount
     )
+    const result = await Promise.race([
+      command,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("Approval email quota lookup timed out")),
+          5_000
+        )
+      }),
+    ])
     return result === 1
   } finally {
-    await connection.quit()
+    clearTimeout(timeout)
+    connection.disconnect()
   }
 }

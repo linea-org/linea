@@ -1,4 +1,5 @@
 import "dotenv/config"
+import { createServer } from "node:net"
 import { randomUUID } from "node:crypto"
 import { createConnection } from "@linea/queue"
 import { consumeApprovalEmailQuota } from "./approval-email-quota"
@@ -25,5 +26,36 @@ it("refuses the send that would exceed the daily quota without consuming hourly 
   } finally {
     await connection.del(dayKey)
     await connection.quit()
+  }
+})
+
+it("bounds a quota lookup when Redis accepts a connection but never replies", async () => {
+  const sockets = new Set<import("node:net").Socket>()
+  const server = createServer((socket) => sockets.add(socket))
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+  const address = server.address()
+  if (!address || typeof address === "string")
+    throw new Error("Expected TCP listener")
+  jest.replaceProperty(process, "env", {
+    ...process.env,
+    REDIS_URL: `redis://127.0.0.1:${address.port}`,
+  })
+  jest.useFakeTimers({ doNotFake: ["nextTick", "setImmediate"] })
+  try {
+    const connected = new Promise<void>((resolve) =>
+      server.once("connection", () => resolve())
+    )
+    const pending = consumeApprovalEmailQuota(randomUUID(), 1)
+    const rejected = expect(pending).rejects.toThrow("quota lookup timed out")
+    await connected
+    await jest.advanceTimersByTimeAsync(5_000)
+    await rejected
+  } finally {
+    jest.useRealTimers()
+    jest.restoreAllMocks()
+    for (const socket of sockets) socket.destroy()
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve()))
+    )
   }
 })
