@@ -220,12 +220,24 @@ it("uses browser credentials without trying to set a Cookie header", async () =>
 })
 
 it("filters the execution response by monitored status and workflow", async () => {
+  const api = createApi()
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { gcTime: Infinity, retry: false, staleTime: Infinity },
+    },
+  })
+  await queryClient.fetchQuery({
+    queryKey: ["monitoring", "workspace-1", "executions"],
+    queryFn: api.listExecutions,
+  })
   const screen = await render(
-    withMonitoring(<ExecutionsFeed workspaceId="workspace-1" />)
+    <QueryClientProvider client={queryClient}>
+      <MonitoringApiProvider api={api}>
+        <ExecutionsFeed workspaceId="workspace-1" />
+      </MonitoringApiProvider>
+    </QueryClientProvider>
   )
-  expect(
-    await screen.findByLabelText("Open execution Alpha intake")
-  ).toBeTruthy()
+  expect(screen.getByLabelText("Open execution Alpha intake")).toBeTruthy()
   expect(screen.getByLabelText("Open execution Beta triage")).toBeTruthy()
   expect(screen.queryByText("Succeeded")).toBeNull()
   await fireEvent.press(screen.getByLabelText("Filter: failed"))
