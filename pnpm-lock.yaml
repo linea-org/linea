@@ -477,6 +477,9 @@ importers:
       '@linea/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@linea/http':
+        specifier: workspace:*
+        version: link:../../packages/http
       '@linea/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

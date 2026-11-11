@@ -25,7 +25,7 @@ export type PublicRequestOptions = {
   maxResponseBytes: number
   allowLocalDevelopment: boolean
   requireHttps: boolean
-  redirectMode: "fetch" | "preserve"
+  redirectMode: "fetch" | "preserve" | "error"
 }
 
 function parseUrl(input: string | URL, base: URL | undefined): URL {
@@ -193,6 +193,10 @@ export async function requestPublic(
         const response = await fetch(url, init)
         if (![301, 302, 303, 307, 308].includes(response.status)) {
           return await readResponse(response, options.maxResponseBytes)
+        }
+        if (options.redirectMode === "error") {
+          await response.body?.cancel()
+          throw new PermanentRequestError("Outbound redirects are disabled")
         }
         const location = response.headers.get("location")
         if (location === null && options.redirectMode === "fetch") {
