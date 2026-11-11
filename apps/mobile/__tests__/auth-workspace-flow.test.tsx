@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react-native"
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native"
 import {
   MobileAuthProvider,
   type MobileAuthClient,
@@ -157,5 +157,43 @@ it("surfaces verification failures after confirmation", async () => {
   )
   await fireEvent.press(screen.getByText("Use this sign-in link"))
   expect(await screen.findByRole("alert")).toBeTruthy()
+  expect(onVerified).not.toHaveBeenCalled()
+})
+
+it("waits for the current session to load before allowing confirmation", async () => {
+  let isPending = true
+  const loadingClient = {
+    ...authClient,
+    useSession: () => ({ ...authClient.useSession(), isPending }),
+  }
+  const view = () => (
+    <MobileAuthProvider client={loadingClient}>
+      <MagicLinkScreen onVerified={onVerified} token="magic-token" />
+    </MobileAuthProvider>
+  )
+  const screen = await render(view())
+  await fireEvent.press(screen.getByText("Use this sign-in link"))
+  expect(verifyMagicLink).not.toHaveBeenCalled()
+  isPending = false
+  await screen.rerender(view())
+  await fireEvent.press(screen.getByText("Use this sign-in link"))
+  await waitFor(() => expect(verifyMagicLink).toHaveBeenCalledTimes(1))
+})
+
+it("ignores a verification that finishes after the screen unmounts", async () => {
+  let finishVerification = () => {}
+  verifyMagicLink.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finishVerification = () => resolve({ data: {}, error: null })
+    })
+  )
+  const screen = await render(
+    withAuth(<MagicLinkScreen onVerified={onVerified} token="magic-token" />)
+  )
+  await fireEvent.press(screen.getByText("Use this sign-in link"))
+  await screen.unmount()
+  await act(async () => {
+    finishVerification()
+  })
   expect(onVerified).not.toHaveBeenCalled()
 })

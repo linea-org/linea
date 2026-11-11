@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Pressable,
@@ -20,12 +20,24 @@ export function MagicLinkScreen({ onVerified, token }: MagicLinkScreenProps) {
   const { data: session, isPending } = auth.useSession()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string>()
+  const currentFlow = useRef({ active: true })
+  useEffect(() => {
+    const flow = { active: true }
+    currentFlow.current = flow
+    setPending(false)
+    setError(undefined)
+    return () => {
+      flow.active = false
+    }
+  }, [token])
   async function verify() {
     if (!token || pending || isPending) return
+    const flow = currentFlow.current
     setPending(true)
     setError(undefined)
     try {
       const result = await auth.verifyMagicLink(token)
+      if (!flow.active) return
       if (result.error) {
         setError(
           authErrorMessage(
@@ -37,9 +49,10 @@ export function MagicLinkScreen({ onVerified, token }: MagicLinkScreenProps) {
       }
       onVerified()
     } catch (error) {
-      setError(authErrorMessage(error, "Could not complete sign in."))
+      if (flow.active)
+        setError(authErrorMessage(error, "Could not complete sign in."))
     } finally {
-      setPending(false)
+      if (flow.active) setPending(false)
     }
   }
   return (
