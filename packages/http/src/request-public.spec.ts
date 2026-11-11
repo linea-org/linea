@@ -174,6 +174,57 @@ describe("public destination policy", () => {
 })
 
 describe("redirect policy", () => {
+  it.each([301, 302, 303, 307, 308])(
+    "returns a fetch-mode %i response without Location",
+    async (status) => {
+      transport.mockResolvedValueOnce(
+        new UndiciResponse("redirect response body", {
+          status,
+          headers: { "x-result": "unchanged" },
+        })
+      )
+      const response = await requestPublic("https://public.example", options)
+      expect(response.status).toBe(status)
+      expect(response.headers.get("x-result")).toBe("unchanged")
+      expect(await response.text()).toBe("redirect response body")
+      expect(transport).toHaveBeenCalledTimes(1)
+    }
+  )
+  it("still bounds a redirect response without Location", async () => {
+    transport.mockResolvedValueOnce(
+      new UndiciResponse("x".repeat(2048), { status: 302 })
+    )
+    await expect(
+      requestPublic("https://public.example", options)
+    ).rejects.toThrow("exceeds 1024 bytes")
+  })
+  it.each([null, ""])(
+    "rejects webhook redirects without a usable Location (%s)",
+    async (location) => {
+      transport.mockResolvedValueOnce(
+        new UndiciResponse("redirect response body", {
+          status: 302,
+          headers: location === null ? {} : { location },
+        })
+      )
+      await expect(
+        requestPublic("https://public.example", {
+          ...options,
+          redirectMode: "preserve",
+        })
+      ).rejects.toThrow("redirect has no location")
+    }
+  )
+  it("treats an empty Location as a relative redirect", async () => {
+    transport.mockImplementation(
+      async () =>
+        new UndiciResponse(null, { status: 302, headers: { location: "" } })
+    )
+    await expect(
+      requestPublic("https://public.example", options)
+    ).rejects.toThrow("redirect limit")
+    expect(transport).toHaveBeenCalledTimes(4)
+  })
   it("rejects a private redirect without connecting to its destination", async () => {
     dns
       .mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }])

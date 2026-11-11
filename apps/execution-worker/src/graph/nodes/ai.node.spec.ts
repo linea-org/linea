@@ -1,4 +1,7 @@
 jest.mock("@linea/http", () => ({
+  PermanentRequestError:
+    jest.requireActual<typeof import("@linea/http")>("@linea/http")
+      .PermanentRequestError,
   requestPublic: (
     url: string | URL,
     options: {
@@ -94,6 +97,8 @@ jest.mock("@linea/db", () => ({
   },
 }))
 
+import { PermanentRequestError } from "@linea/http"
+import { NonRetryableError } from "./non-retryable-error"
 import { AiNode } from "./ai.node"
 
 const context = { workspaceId: "ws1", workflowId: "wf1" }
@@ -282,6 +287,50 @@ describe("AiNode", () => {
       saveAiNodeProgress.mockClear()
       isLeaseValid.mockClear()
       isLeaseValid.mockResolvedValue(true)
+    })
+
+    it.each([
+      new PermanentRequestError(
+        "Outbound hostname resolves to a non-public address"
+      ),
+      new PermanentRequestError("Outbound response exceeds 1048576 bytes"),
+      new Error("Connection closed"),
+    ])("classifies HTTP tool failure: %s", async (error) => {
+      complete.mockResolvedValueOnce({
+        text: "",
+        tokensInput: 1,
+        tokensOutput: 1,
+        toolCalls: [{ id: "call_1", name: "write", arguments: {} }],
+      })
+      const fetchMock = mockFetch().mockRejectedValueOnce(error)
+      const pending = new AiNode().execute(
+        {
+          prompt: "write",
+          model: "claude-sonnet-5",
+          tools: [
+            {
+              name: "write",
+              parameters: {},
+              url: "https://api.example.com/write",
+              method: "POST",
+            },
+          ],
+        },
+        undefined,
+        contextWithLedger
+      )
+      if (error instanceof PermanentRequestError) {
+        await expect(pending).rejects.toBeInstanceOf(NonRetryableError)
+        await expect(pending).rejects.toMatchObject({
+          message: error.message,
+          cause: error,
+        })
+      } else {
+        await expect(pending).rejects.toBe(error)
+      }
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(complete).toHaveBeenCalledTimes(1)
+      expect(recordToolCall).not.toHaveBeenCalled()
     })
 
     it("calls a configured HTTP tool, feeds the result back, and returns the model's final answer", async () => {
