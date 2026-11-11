@@ -35,8 +35,21 @@ async function renderApprovals(container: HTMLElement): Promise<void> {
     const item = document.createElement("article")
     const title = document.createElement("h2")
     title.textContent = approval.display.title
+    item.append(title)
+    if (approval.display.description) {
+      const description = document.createElement("p")
+      description.textContent = approval.display.description
+      item.append(description)
+    }
+    for (const [label, value] of Object.entries(
+      approval.display.details ?? {}
+    )) {
+      const detail = document.createElement("p")
+      detail.textContent = `${label}: ${value}`
+      detail.style.whiteSpace = "pre-wrap"
+      item.append(detail)
+    }
     item.append(
-      title,
       button("Approve", async () => {
         await client.decide(approval.id, { decision: "approved" })
         await renderApprovals(container)
