@@ -44,11 +44,10 @@ const requestSchema = z
   })
 
 export function getDocsClientId(request: Request) {
-  const header = process.env.VERCEL
-    ? "x-vercel-forwarded-for"
-    : process.env.DOCS_ASSISTANT_TRUST_PROXY === "1"
-      ? "x-forwarded-for"
-      : null
+  let header: string | undefined
+  if (process.env.VERCEL) header = "x-vercel-forwarded-for"
+  else if (process.env.DOCS_ASSISTANT_TRUST_PROXY === "1")
+    header = "x-forwarded-for"
   if (!header) return process.env.NODE_ENV !== "production" ? "local" : null
   const ip = request.headers.get(header)?.split(",").at(-1)?.trim()
   if (!ip || ip.includes("%") || !isIP(ip)) return null
@@ -62,13 +61,16 @@ export function getDocsClientId(request: Request) {
       ? start
       : [
           ...start,
-          ...Array<string>(8 - start.length - end.length).fill("0"),
+          ...new Array<string>(8 - start.length - end.length).fill("0"),
           ...end,
         ]
   if (words.slice(0, 5).every((word) => word === "0") && words[5] === "ffff") {
     return words
       .slice(6)
-      .flatMap((word) => [parseInt(word, 16) >> 8, parseInt(word, 16) & 255])
+      .flatMap((word) => [
+        Number.parseInt(word, 16) >> 8,
+        Number.parseInt(word, 16) & 255,
+      ])
       .join(".")
   }
   return `${words.slice(0, 4).join(":")}::/64`
