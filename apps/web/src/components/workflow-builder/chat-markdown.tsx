@@ -57,7 +57,11 @@ const components: Components = {
 
 export function ChatMarkdown({ content }: { content: string }) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={components}
+      disallowedElements={["img"]}
+    >
       {content}
     </ReactMarkdown>
   )
