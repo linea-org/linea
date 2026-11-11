@@ -6,5 +6,6 @@ packages:
 allowBuilds:
   esbuild: true
   lightningcss: true
+  re2: true
   unrs-resolver: true
   msw: false

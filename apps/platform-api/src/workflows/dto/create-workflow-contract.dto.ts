@@ -1,12 +1,18 @@
 import { jsonSchemaDocumentSchema } from '@linea/protocol/resources'
-import Ajv2020 from 'ajv/dist/2020.js'
+import { compileContractSchema } from '@linea/protocol/json-schema'
 import { z } from 'zod'
 
-const jsonSchemaValidator = new Ajv2020({ strict: true })
-
-const validatedJsonSchemaDocument = jsonSchemaDocumentSchema.refine(
-  (schema) => jsonSchemaValidator.validateSchema(schema),
-  'Invalid JSON Schema',
+const validatedJsonSchemaDocument = jsonSchemaDocumentSchema.superRefine(
+  (schema, context) => {
+    try {
+      compileContractSchema(schema)
+    } catch (error) {
+      context.addIssue({
+        code: 'custom',
+        message: error instanceof Error ? error.message : 'Invalid JSON Schema',
+      })
+    }
+  },
 )
 
 export const createWorkflowContractSchema = z.strictObject({

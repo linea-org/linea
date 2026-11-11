@@ -41,7 +41,8 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "lightningcss"
+      "lightningcss",
+      "re2"
     ],
     "overrides": {
       "baseline-browser-mapping": "2.11.25",
