@@ -9,6 +9,7 @@ import {
 } from "@linea/ai"
 import { db, repositories } from "@linea/db"
 import type { Memory } from "@linea/db"
+import { requestPublic } from "@linea/http"
 import { nodeRegistry } from "@linea/runtime"
 import { resolveNamespace, resolveSubjectId } from "./memory-scope"
 import type {
@@ -154,11 +155,18 @@ async function callTool(
   // and its record committing): deterministic across a resume, so a compliant destination dedupes
   // the retry with no local record of the first attempt — bounded by destination support, same as HttpNode.
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey
-  const response = await fetch(url, {
+  const response = await requestPublic(url, {
     method: tool.method,
     headers,
     body: tool.method === "GET" ? undefined : JSON.stringify(args),
     signal,
+    timeoutMs: 30_000,
+    maxResponseBytes: 1_048_576,
+    allowLocalDevelopment:
+      process.env.NODE_ENV === "development" &&
+      process.env.EXECUTION_HTTP_ALLOW_LOCAL === "true",
+    requireHttps: false,
+    redirectMode: "fetch",
   })
   const contentType = response.headers.get("content-type") ?? ""
   const body: unknown = contentType.includes("application/json")

@@ -1,9 +1,11 @@
+import { PermanentRequestError, requestPublic } from "@linea/http"
 import { Injectable } from "@nestjs/common"
 import { nodeRegistry } from "@linea/runtime"
 import type {
   NodeExecutionContext,
   NodeHandler,
 } from "./node-handler.interface"
+import { NonRetryableError } from "./non-retryable-error"
 
 @Injectable()
 export class HttpNode implements NodeHandler {
@@ -18,30 +20,37 @@ export class HttpNode implements NodeHandler {
       headers: config.headers,
       body: input,
     })
-
-    // A no-payload trigger round-trips through the DB as null, not undefined — treat both as "no body", or a GET entry node sends body: "null" and fetch rejects GET/HEAD with a body.
+    // No-payload triggers round-trip through the DB as null.
     const hasBody = parsed.body !== undefined && parsed.body !== null
     const headers = { ...parsed.headers }
-    // Never override a user-configured key — this is a best-effort dedupe hint for destinations that choose to honor it, not something the workflow author's own header should be second-guessed against.
+    // Destinations may rely on an author-provided deduplication key.
     const hasIdempotencyHeader = Object.keys(headers).some(
       (key) => key.toLowerCase() === "idempotency-key"
     )
     if (context.idempotencyKey && !hasIdempotencyHeader) {
       headers["Idempotency-Key"] = context.idempotencyKey
     }
-    // Only helps if the destination honors this header — a reclaim can still double-mutate one that doesn't, and no code-only fix closes that gap.
-    const response = await fetch(parsed.url, {
+    const response = await requestPublic(parsed.url, {
       method: parsed.method,
       headers,
       body: hasBody ? JSON.stringify(parsed.body) : undefined,
       signal: context.signal,
+      timeoutMs: 30_000,
+      maxResponseBytes: 1_048_576,
+      allowLocalDevelopment:
+        process.env.NODE_ENV === "development" &&
+        process.env.EXECUTION_HTTP_ALLOW_LOCAL === "true",
+      requireHttps: false,
+      redirectMode: "fetch",
+    }).catch((error: unknown) => {
+      if (error instanceof PermanentRequestError)
+        throw new NonRetryableError(error.message, { cause: error })
+      throw error
     })
-
     const contentType = response.headers.get("content-type") ?? ""
     const body: unknown = contentType.includes("application/json")
       ? await response.json()
       : await response.text()
-
     return nodeRegistry.http.outputSchema.parse({
       status: response.status,
       headers: Object.fromEntries(response.headers.entries()),

@@ -1,37 +1,52 @@
+import { PermanentRequestError, requestPublic } from "@linea/http"
 import { HttpNode } from "./http.node"
+import { NonRetryableError } from "./non-retryable-error"
 
-function mockFetch(): jest.Mock {
-  const fetchMock = jest.fn().mockResolvedValue({
-    status: 200,
-    headers: new Headers({ "content-type": "application/json" }),
-    json: () => Promise.resolve({ ok: true }),
-  })
-  global.fetch = fetchMock
-  return fetchMock
-}
+jest.mock("@linea/http", () => ({
+  requestPublic: jest.fn(),
+  PermanentRequestError: class extends Error {},
+}))
+
+const request = jest.mocked(requestPublic)
+
+afterEach(() => {
+  jest.restoreAllMocks()
+})
+
+beforeEach(() => {
+  request.mockReset()
+  request.mockResolvedValue(
+    new Response(JSON.stringify({ ok: true }), {
+      headers: { "content-type": "application/json" },
+    })
+  )
+})
 
 describe("HttpNode", () => {
-  it("sends the idempotency key from context as a header", async () => {
-    const fetchMock = mockFetch()
-    const node = new HttpNode()
-
-    await node.execute(
+  it("sends the idempotency key with mandatory network limits", async () => {
+    const result = await new HttpNode().execute(
       { url: "https://example.com", method: "POST" },
       { foo: "bar" },
       { workspaceId: "ws-1", idempotencyKey: "exec-1:node-1" }
     )
-
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect((init.headers as Record<string, string>)["Idempotency-Key"]).toBe(
-      "exec-1:node-1"
+    expect(request).toHaveBeenCalledWith(
+      "https://example.com",
+      expect.objectContaining({
+        headers: { "Idempotency-Key": "exec-1:node-1" },
+        body: '{"foo":"bar"}',
+        timeoutMs: 30_000,
+        maxResponseBytes: 1_048_576,
+        allowLocalDevelopment: false,
+      })
     )
+    expect(result).toEqual({
+      status: 200,
+      headers: { "content-type": "application/json" },
+      body: { ok: true },
+    })
   })
-
   it("does not override a user-configured idempotency header", async () => {
-    const fetchMock = mockFetch()
-    const node = new HttpNode()
-
-    await node.execute(
+    await new HttpNode().execute(
       {
         url: "https://example.com",
         method: "POST",
@@ -40,22 +55,51 @@ describe("HttpNode", () => {
       {},
       { workspaceId: "ws-1", idempotencyKey: "exec-1:node-1" }
     )
-
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(init.headers).toEqual({ "idempotency-key": "user-supplied" })
+    expect(request).toHaveBeenCalledWith(
+      "https://example.com",
+      expect.objectContaining({
+        headers: { "idempotency-key": "user-supplied" },
+      })
+    )
   })
-
-  it("omits the header entirely when context has no idempotency key", async () => {
-    const fetchMock = mockFetch()
-    const node = new HttpNode()
-
-    await node.execute(
+  it("omits a null body and forwards cancellation", async () => {
+    const signal = new AbortController().signal
+    await new HttpNode().execute(
       { url: "https://example.com", method: "GET" },
-      undefined,
+      null,
+      { workspaceId: "ws-1", signal }
+    )
+    expect(request).toHaveBeenCalledWith(
+      "https://example.com",
+      expect.objectContaining({ headers: {}, body: undefined, signal })
+    )
+  })
+  it("does not retry unsafe destinations or oversized responses", async () => {
+    request.mockRejectedValue(
+      new PermanentRequestError(
+        "Outbound hostname resolves to a non-public address"
+      )
+    )
+    await expect(
+      new HttpNode().execute({ url: "http://127.0.0.1", method: "GET" }, null, {
+        workspaceId: "ws-1",
+      })
+    ).rejects.toBeInstanceOf(NonRetryableError)
+  })
+  it("does not enable loopback access in production", async () => {
+    jest.replaceProperty(process, "env", {
+      ...process.env,
+      NODE_ENV: "production",
+      EXECUTION_HTTP_ALLOW_LOCAL: "true",
+    })
+    await new HttpNode().execute(
+      { url: "http://127.0.0.1", method: "GET" },
+      null,
       { workspaceId: "ws-1" }
     )
-
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(init.headers).toEqual({})
+    expect(request).toHaveBeenCalledWith(
+      "http://127.0.0.1",
+      expect.objectContaining({ allowLocalDevelopment: false })
+    )
   })
 })

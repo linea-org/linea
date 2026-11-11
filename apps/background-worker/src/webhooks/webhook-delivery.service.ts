@@ -1,3 +1,4 @@
+import { PermanentRequestError } from "@linea/http"
 import {
   Injectable,
   Logger,
@@ -14,11 +15,7 @@ import {
 } from "@linea/queue"
 import type { Worker } from "bullmq"
 import type { Redis } from "ioredis"
-import {
-  deliverWebhook,
-  PermanentWebhookError,
-  type WebhookResponse,
-} from "./webhook-request"
+import { deliverWebhook, type WebhookResponse } from "./webhook-request"
 import { signWebhook } from "./webhook-signature"
 
 const MAXIMUM_RETRY_DELAY_MS = 60_000
@@ -127,7 +124,7 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
       }
       throw new Error(`Webhook returned HTTP ${response.status}`)
     } catch (error) {
-      const permanent = error instanceof PermanentWebhookError
+      const permanent = error instanceof PermanentRequestError
       const finalAttempt = attemptsMade + 1 >= WEBHOOK_DELIVERY_ATTEMPTS
       const retryAt =
         permanent || finalAttempt
