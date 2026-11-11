@@ -1,3 +1,4 @@
+import timers from "node:timers/promises"
 import {
   CheckpointsService,
   LeaseLostError,
@@ -59,6 +60,34 @@ afterAll(async () => {
 })
 
 describe("Interpreter deadlines", () => {
+  it("caps computed exponential delays across later retries", async () => {
+    const sleep = jest.spyOn(timers, "setTimeout").mockResolvedValue(undefined)
+    const { interpreter, http } = setup()
+    jest.spyOn(http, "execute").mockRejectedValue(new Error("retry me"))
+    const outcome = await interpreter.run({
+      ...input,
+      graph: {
+        ...input.graph,
+        nodes: [
+          {
+            id: "http",
+            type: "http",
+            config: {
+              retryPolicy: {
+                maxAttempts: 5,
+                backoff: { type: "exponential", delayMs: 20_000 },
+              },
+            },
+          },
+        ],
+      },
+    })
+    expect(outcome.result?.status).toBe("failed")
+    expect(sleep.mock.calls.map(([delay]) => delay)).toEqual([
+      20_000, 40_000, 60_000, 60_000,
+    ])
+  })
+
   it("aborts a node with no author timeout and records a failure", async () => {
     const deadline = new AbortController()
     const attempt = new AbortController()

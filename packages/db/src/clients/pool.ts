@@ -1,10 +1,14 @@
-import { Pool, type PoolConfig } from "pg"
+import { Pool } from "pg"
 import { getDatabaseUrl } from "./env.js"
 
-export function createPool(config: PoolConfig = {}) {
+export function createPool() {
   return new Pool({
     connectionString: getDatabaseUrl(),
-    ...config,
+    connectionTimeoutMillis: 10_000,
+    statement_timeout: 60_000,
+    lock_timeout: 10_000,
+    query_timeout: 65_000,
+    idle_in_transaction_session_timeout: 60_000,
   })
 }
 
