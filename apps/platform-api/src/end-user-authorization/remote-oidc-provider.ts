@@ -145,16 +145,7 @@ export class RemoteOidcProvider implements OidcProvider {
     } catch {
       throw new OidcIdentityVerificationError()
     }
-    const jwksKey = `${allowLocalOidc(configuration)}:${configuration.jwksUrl}`
-    let jwks = this.jwksCache.get(jwksKey)
-    if (!jwks) {
-      jwks = createOidcJwks(configuration)
-      this.jwksCache.set(jwksKey, jwks)
-      if (this.jwksCache.size > 100) {
-        const oldest = this.jwksCache.keys().next().value
-        if (oldest !== undefined) this.jwksCache.delete(oldest)
-      }
-    }
+    const jwks = this.getJwks(configuration)
     try {
       const { payload } = await jwtVerify(tokenResponse.id_token, jwks, {
         issuer: configuration.issuer,
@@ -196,6 +187,20 @@ export class RemoteOidcProvider implements OidcProvider {
       }
       throw new OidcIdentityVerificationError()
     }
+  }
+
+  private getJwks(configuration: OidcEnvironmentConfiguration) {
+    const jwksKey = `${allowLocalOidc(configuration)}:${configuration.jwksUrl}`
+    let jwks = this.jwksCache.get(jwksKey)
+    if (!jwks) {
+      jwks = createOidcJwks(configuration)
+      this.jwksCache.set(jwksKey, jwks)
+      if (this.jwksCache.size > 100) {
+        const oldest = this.jwksCache.keys().next().value
+        if (oldest !== undefined) this.jwksCache.delete(oldest)
+      }
+    }
+    return jwks
   }
 
   private async discover(
