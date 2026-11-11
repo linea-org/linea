@@ -13,6 +13,7 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace }),
 }))
 
+const signOut = jest.fn()
 const requestMagicLink = jest.fn()
 const verifyMagicLink = jest.fn()
 const listWorkspaces = jest.fn()
@@ -24,10 +25,11 @@ const authClient: MobileAuthClient = {
   useSession: () => ({
     data: {
       user: { id: "user-1", name: "Rohit", email: "rohit@example.com" },
-      session: { activeOrganizationId: "workspace-1" },
+      session: { id: "session-1", activeOrganizationId: "workspace-1" },
     },
     isPending: false,
   }),
+  signOut,
   requestMagicLink,
   verifyMagicLink,
   listWorkspaces,
@@ -41,6 +43,7 @@ function withAuth(screen: React.ReactNode) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  signOut.mockResolvedValue({ data: {}, error: null })
   requestMagicLink.mockResolvedValue({ data: {}, error: null })
   verifyMagicLink.mockResolvedValue({ data: {}, error: null })
   listWorkspaces.mockResolvedValue({
@@ -83,6 +86,7 @@ it("requires confirmation before verifying a deep-link token and replacing a ses
   expect(screen.getByText(/rohit@example.com/)).toBeTruthy()
   await fireEvent.press(screen.getByText("Use this sign-in link"))
   await waitFor(() => {
+    expect(signOut).toHaveBeenCalledTimes(1)
     expect(verifyMagicLink).toHaveBeenCalledWith("magic-token")
     expect(onVerified).toHaveBeenCalledTimes(1)
   })
@@ -196,4 +200,36 @@ it("ignores a verification that finishes after the screen unmounts", async () =>
     finishVerification()
   })
   expect(onVerified).not.toHaveBeenCalled()
+})
+
+it("signs out through the backend even without a workspace", async () => {
+  listWorkspaces.mockResolvedValue({ data: [], error: null })
+  const screen = await render(withAuth(<WorkspacesScreen />))
+  await fireEvent.press(screen.getByText("Sign out"))
+  await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1))
+})
+
+it("keeps sign-out failures visible for retry", async () => {
+  signOut.mockResolvedValueOnce({
+    data: null,
+    error: new Error("Network unavailable"),
+  })
+  const screen = await render(withAuth(<WorkspacesScreen />))
+  await fireEvent.press(screen.getByText("Sign out"))
+  expect(await screen.findByText("Network unavailable")).toBeTruthy()
+  await fireEvent.press(screen.getByText("Sign out"))
+  await waitFor(() => expect(signOut).toHaveBeenCalledTimes(2))
+})
+
+it("does not replace an account if backend sign-out fails", async () => {
+  signOut.mockResolvedValueOnce({
+    data: null,
+    error: new Error("Could not revoke session"),
+  })
+  const screen = await render(
+    withAuth(<MagicLinkScreen onVerified={onVerified} token="magic-token" />)
+  )
+  await fireEvent.press(screen.getByText("Use this sign-in link"))
+  expect(await screen.findByText("Could not revoke session")).toBeTruthy()
+  expect(verifyMagicLink).not.toHaveBeenCalled()
 })

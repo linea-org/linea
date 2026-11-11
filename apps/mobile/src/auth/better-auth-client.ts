@@ -26,6 +26,7 @@ const authClient = createAuthClient({
 
 export const mobileAuthClient: MobileAuthClient = {
   useSession: authClient.useSession,
+  signOut: () => authClient.signOut(),
   requestMagicLink: (email) =>
     authClient.signIn.magicLink({
       email,

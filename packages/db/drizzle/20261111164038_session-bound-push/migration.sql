@@ -1,0 +1,3 @@
+ALTER TABLE "push_device_registrations" ADD COLUMN "session_id" uuid;--> statement-breakpoint
+CREATE INDEX "push_device_registrations_session_idx" ON "push_device_registrations" ("session_id");--> statement-breakpoint
+ALTER TABLE "push_device_registrations" ADD CONSTRAINT "push_device_registrations_session_id_sessions_id_fkey" FOREIGN KEY ("session_id") REFERENCES "sessions"("id") ON DELETE CASCADE;

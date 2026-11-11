@@ -34,10 +34,11 @@ const authClient: MobileAuthClient = {
   useSession: () => ({
     data: {
       user: { id: "user-1", name: "Rohit", email: "rohit@example.com" },
-      session: { activeOrganizationId: "workspace-current" },
+      session: { id: "session-1", activeOrganizationId: "workspace-current" },
     },
     isPending: false,
   }),
+  signOut: jest.fn(),
   requestMagicLink: jest.fn(),
   verifyMagicLink: jest.fn(),
   listWorkspaces: jest.fn(),

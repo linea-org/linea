@@ -8,6 +8,7 @@ import {
 } from "react-native"
 import { useMobileAuth } from "../../auth/mobile-auth"
 import { authErrorMessage } from "../../lib/auth-error"
+import { useClearWorkspaceCache } from "../../query/monitoring-query"
 import { colors } from "../../theme/colors"
 
 type MagicLinkScreenProps = {
@@ -17,6 +18,7 @@ type MagicLinkScreenProps = {
 
 export function MagicLinkScreen({ onVerified, token }: MagicLinkScreenProps) {
   const auth = useMobileAuth()
+  const clearCache = useClearWorkspaceCache()
   const { data: session, isPending } = auth.useSession()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string>()
@@ -36,6 +38,15 @@ export function MagicLinkScreen({ onVerified, token }: MagicLinkScreenProps) {
     setPending(true)
     setError(undefined)
     try {
+      if (session) {
+        const signedOut = await auth.signOut()
+        if (signedOut.error)
+          throw new Error(
+            authErrorMessage(signedOut.error, "Could not sign out.")
+          )
+        clearCache()
+        if (!flow.active) return
+      }
       const result = await auth.verifyMagicLink(token)
       if (!flow.active) return
       if (result.error) {

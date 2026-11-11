@@ -7,12 +7,17 @@ import type {
 
 @Injectable()
 export class PushDevicesService {
-  async register(userId: string, input: RegisterPushDeviceDto) {
+  async register(
+    userId: string,
+    sessionId: string,
+    input: RegisterPushDeviceDto,
+  ) {
     const registration = await repositories.pushNotification.registerPushDevice(
       db,
       {
-        userId,
         ...input,
+        userId,
+        sessionId,
       },
     )
     return {
@@ -23,11 +28,16 @@ export class PushDevicesService {
     }
   }
 
-  async unregister(userId: string, input: UnregisterPushDeviceDto) {
+  async unregister(
+    userId: string,
+    sessionId: string,
+    input: UnregisterPushDeviceDto,
+  ) {
     const registration =
       await repositories.pushNotification.unregisterPushDevice(
         db,
         userId,
+        sessionId,
         input.token,
       )
     if (!registration) throw new NotFoundException('Push device not found')

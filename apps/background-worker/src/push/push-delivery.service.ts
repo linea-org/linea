@@ -81,6 +81,20 @@ export class PushDeliveryService implements OnModuleInit, OnModuleDestroy {
       )
       return
     }
+    if (
+      !(await repositories.pushNotification.isPushDeliveryActive(
+        db,
+        claimed.delivery
+      ))
+    ) {
+      await repositories.pushNotification.permanentlyFailPushDelivery(
+        db,
+        claimed.delivery,
+        "Device registration or owning session is no longer valid",
+        false
+      )
+      return
+    }
     try {
       const result = await sendExpoPush({ to: claimed.token, ...payload })
       await this.handleTicket(claimed.delivery, result)

@@ -9,6 +9,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 import { notifications } from "./notification.js"
+import { sessions } from "./session.js"
 import { users } from "./user.js"
 
 export const pushPlatform = pgEnum("push_platform", ["android", "ios"])
@@ -20,6 +21,8 @@ export const pushDeviceRegistrations = snakeCase.table(
     userId: uuid()
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // Legacy registrations stay unbound until the device authenticates again.
+    sessionId: uuid().references(() => sessions.id, { onDelete: "cascade" }),
     token: text().notNull(),
     platform: pushPlatform().notNull(),
     registeredAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -28,6 +31,7 @@ export const pushDeviceRegistrations = snakeCase.table(
   (table) => [
     uniqueIndex("push_device_registrations_token_idx").on(table.token),
     index("push_device_registrations_user_idx").on(table.userId),
+    index("push_device_registrations_session_idx").on(table.sessionId),
   ]
 )
 
