@@ -1,13 +1,11 @@
 import { z } from 'zod'
-import Ajv2020 from 'ajv/dist/2020.js'
+import { compileContractSchema } from '@linea/protocol/json-schema'
 import { jsonSchemaDocumentSchema } from '@linea/protocol/resources'
-
-const validator = new Ajv2020({ strict: true, addUsedSchema: false })
 
 const contractSchema = jsonSchemaDocumentSchema.superRefine(
   (schema, context) => {
     try {
-      validator.compile(schema)
+      compileContractSchema(schema)
     } catch (error) {
       context.addIssue({
         code: 'custom',

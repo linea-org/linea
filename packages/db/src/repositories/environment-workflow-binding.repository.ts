@@ -1,5 +1,5 @@
 import { and, desc, eq, isNotNull } from "drizzle-orm"
-import Ajv2020 from "ajv/dist/2020.js"
+import { compileContractSchema } from "@linea/protocol/json-schema"
 import {
   environments,
   environmentWorkflowBindings,
@@ -12,8 +12,6 @@ import {
 } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 import { createWorkflowExecutionMessage } from "./outbox-message.repository.js"
-
-const jsonSchemaValidator = new Ajv2020({ strict: true, addUsedSchema: false })
 
 export type PutEnvironmentWorkflowBindingInput = {
   workflowVersionId: string
@@ -218,7 +216,7 @@ export async function startEnvironmentWorkflow(
       .orderBy(desc(workflowVersions.version))
       .limit(1)
     if (!version) return { outcome: "workflow_binding_incompatible" }
-    if (!jsonSchemaValidator.compile(version.inputSchema)(triggerPayload)) {
+    if (!compileContractSchema(version.inputSchema)(triggerPayload)) {
       return { outcome: "validation_failed" }
     }
     const [execution] = await tx

@@ -20,7 +20,7 @@ import type {
 import { publicErrorStatuses } from '@linea/protocol/errors'
 import { jsonValueSchema, type PaginationQuery } from '@linea/protocol/shared'
 import { workflowGraphSchema } from '@linea/runtime'
-import Ajv2020 from 'ajv/dist/2020'
+import { compileContractSchema } from '@linea/protocol/json-schema'
 import type { EnvironmentPrincipal } from '../auth/environment-key.guard'
 import { publicError } from '../auth/public-error'
 import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.guard'
@@ -49,8 +49,6 @@ import { pendingActionIntentProjection } from './action-intent.projections'
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
 const MESSAGE_RATE_LIMIT = 60
 const EXECUTION_RATE_LIMIT = 10
-const outputValidator = new Ajv2020({ strict: true, addUsedSchema: false })
-
 function hash(value: string): string {
   return createHash('sha256').update(value).digest('hex')
 }
@@ -604,7 +602,7 @@ export class PublicRuntimeService {
         )
       if (
         !contract ||
-        !outputValidator.compile(contract.outputSchema)(execution.output)
+        !compileContractSchema(contract.outputSchema)(execution.output)
       )
         throw new Error('Agent output failed Contract validation')
       return executionProjection(
@@ -645,7 +643,7 @@ export class PublicRuntimeService {
         (step) => step.status === 'succeeded' && endNodeIds.has(step.nodeId),
       )
     if (!endStep) throw new Error('Public Execution has no completed End node')
-    if (!outputValidator.compile(contract.outputSchema)(endStep.output)) {
+    if (!compileContractSchema(contract.outputSchema)(endStep.output)) {
       throw new Error('Public Execution output failed Contract validation')
     }
     return executionProjection(execution, jsonValueSchema.parse(endStep.output))

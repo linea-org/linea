@@ -1,5 +1,5 @@
 import { and, eq, isNotNull, isNull } from "drizzle-orm"
-import Ajv2020 from "ajv/dist/2020.js"
+import { compileContractSchema } from "@linea/protocol/json-schema"
 import {
   agents,
   agentVersions,
@@ -11,8 +11,6 @@ import {
 import { createWorkflowExecutionMessage } from "./outbox-message.repository.js"
 import { pauseExecution, terminalStatuses } from "./execution.repository.js"
 import type { DbClient } from "./types.js"
-
-const validator = new Ajv2020({ strict: true, addUsedSchema: false })
 
 export type NestedAgentExecutionResult =
   | { outcome: "created"; execution: typeof executions.$inferSelect }
@@ -128,7 +126,7 @@ export function startNestedAgentExecution(
         message:
           "The Agent's deployed Contract differs from the revision this Workflow was saved with",
       }
-    if (!validator.compile(deployment.contract.inputSchema)(input.input))
+    if (!compileContractSchema(deployment.contract.inputSchema)(input.input))
       return {
         outcome: "input_invalid",
         message: "The step input does not satisfy the Agent's Contract",

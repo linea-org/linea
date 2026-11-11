@@ -3,6 +3,7 @@ import { defineConfig } from "tsup"
 export default defineConfig({
   entry: {
     index: "src/index.ts",
+    "json-schema": "src/compile-contract-schema.ts",
     errors: "src/errors.ts",
     events: "src/events.ts",
     operations: "src/operations.ts",
