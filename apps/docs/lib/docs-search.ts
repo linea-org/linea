@@ -35,8 +35,12 @@ function hasVectorCredentials() {
   return hasUrl && hasToken
 }
 
-async function searchVectorDocs(query: string, currentPath?: string) {
-  const index = new Index<DocsVectorMetadata>()
+async function searchVectorDocs(
+  query: string,
+  currentPath: string | undefined,
+  signal: AbortSignal
+) {
+  const index = new Index<DocsVectorMetadata>({ signal, retry: { retries: 0 } })
   const matches = await index.namespace(vectorNamespace).query({
     data: query,
     topK: 8,
@@ -70,8 +74,8 @@ async function searchVectorDocs(query: string, currentPath?: string) {
       continue
     }
     results.push({
-      title,
-      url,
+      title: title.slice(0, 200),
+      url: url.slice(0, 512),
       content: match.data.slice(0, MAX_SOURCE_LENGTH),
     })
     if (results.length === MAX_RESULTS) break
@@ -85,7 +89,7 @@ function getSearchTerms(query: string) {
   )
 }
 
-async function searchLocalDocs(query: string, currentPath?: string) {
+async function searchLocalDocs(query: string, currentPath: string | undefined) {
   const terms = getSearchTerms(query)
   const pages = await Promise.all(
     source.getPages().map(async (page) => {
@@ -109,17 +113,23 @@ async function searchLocalDocs(query: string, currentPath?: string) {
     .sort((left, right) => right.relevance - left.relevance)
     .slice(0, MAX_RESULTS)
     .map(({ title, url, content }) => ({
-      title,
-      url,
+      title: title.slice(0, 200),
+      url: url.slice(0, 512),
       content: content.slice(0, MAX_SOURCE_LENGTH),
     }))
 }
 
 export async function searchDocs(
   query: string,
-  currentPath?: string
+  currentPath: string | undefined,
+  signal: AbortSignal
 ): Promise<DocsSearchResult[]> {
+  signal.throwIfAborted()
   return hasVectorCredentials()
-    ? searchVectorDocs(query, currentPath)
+    ? searchVectorDocs(
+        query,
+        currentPath,
+        AbortSignal.any([signal, AbortSignal.timeout(5_000)])
+      )
     : searchLocalDocs(query, currentPath)
 }
