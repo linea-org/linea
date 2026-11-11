@@ -132,14 +132,8 @@ export const auth = betterAuth({
       httpOnly: true,
     },
     ipAddress: {
-      ipAddressHeaders: ["x-real-ip", "x-forwarded-for"],
-      ...(process.env.TRUSTED_PROXIES
-        ? {
-            trustedProxies: process.env.TRUSTED_PROXIES.split(",")
-              .map((proxy) => proxy.trim())
-              .filter(Boolean),
-          }
-        : {}),
+      // platform-api overwrites this header with the resolved transport client IP.
+      ipAddressHeaders: ["x-real-ip"],
     },
   },
   rateLimit: {
