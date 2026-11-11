@@ -28,15 +28,37 @@ async function completeAuthorization(): Promise<void> {
   history.replaceState({}, "", callback.pathname)
 }
 
+function displayText(value: string): string {
+  return value
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'")
+    .replaceAll("&amp;", "&")
+}
+
 async function renderApprovals(container: HTMLElement): Promise<void> {
   const approvals = await client.listApprovalRequests()
   container.replaceChildren()
   for (const approval of approvals.data) {
     const item = document.createElement("article")
     const title = document.createElement("h2")
-    title.textContent = approval.display.title
+    title.textContent = displayText(approval.display.title)
+    item.append(title)
+    if (approval.display.description) {
+      const description = document.createElement("p")
+      description.textContent = displayText(approval.display.description)
+      item.append(description)
+    }
+    for (const [label, value] of Object.entries(
+      approval.display.details ?? {}
+    )) {
+      const detail = document.createElement("p")
+      detail.textContent = `${displayText(label)}: ${displayText(value)}`
+      detail.style.whiteSpace = "pre-wrap"
+      item.append(detail)
+    }
     item.append(
-      title,
       button("Approve", async () => {
         await client.decide(approval.id, { decision: "approved" })
         await renderApprovals(container)

@@ -319,8 +319,17 @@ export const googleCalendarCreateEventOperation: ConnectorSideEffectOperation =
         details: Object.freeze({
           Calendar: escapeSafeDisplayText(parameters.calendarId),
           Event: escapeSafeDisplayText(parameters.summary),
+          Description: escapeSafeDisplayText(parameters.description),
+          Location: escapeSafeDisplayText(parameters.location),
+          Attendees: escapeSafeDisplayText(parameters.attendees.join(", ")),
           Start: parameters.start.dateTime,
+          "Start time zone": escapeSafeDisplayText(
+            parameters.start.timeZone ?? "Calendar default"
+          ),
           End: parameters.end.dateTime,
+          "End time zone": escapeSafeDisplayText(
+            parameters.end.timeZone ?? "Calendar default"
+          ),
         }),
       })
     },
@@ -395,15 +404,44 @@ export const googleCalendarUpdateEventOperation: ConnectorSideEffectOperation =
         title: "Update Google Calendar event",
         details: Object.freeze({
           Calendar: escapeSafeDisplayText(parameters.calendarId),
+          "Event ID": escapeSafeDisplayText(parameters.eventId),
+          "Expected version": escapeSafeDisplayText(
+            calendarUpdatePreconditionsSchema.parse(
+              envelope.providerPreconditions
+            ).expectedEtag
+          ),
+          ...(parameters.description === undefined
+            ? {}
+            : { Description: escapeSafeDisplayText(parameters.description) }),
+          ...(parameters.location === undefined
+            ? {}
+            : { Location: escapeSafeDisplayText(parameters.location) }),
+          ...(parameters.attendees === undefined
+            ? {}
+            : {
+                Attendees: escapeSafeDisplayText(
+                  parameters.attendees.join(", ") || "Remove all attendees"
+                ),
+              }),
           ...(parameters.summary === undefined
             ? {}
             : { Event: escapeSafeDisplayText(parameters.summary) }),
           ...(parameters.start === undefined
             ? {}
-            : { Start: parameters.start.dateTime }),
+            : {
+                Start: parameters.start.dateTime,
+                "Start time zone": escapeSafeDisplayText(
+                  parameters.start.timeZone ?? "Calendar default"
+                ),
+              }),
           ...(parameters.end === undefined
             ? {}
-            : { End: parameters.end.dateTime }),
+            : {
+                End: parameters.end.dateTime,
+                "End time zone": escapeSafeDisplayText(
+                  parameters.end.timeZone ?? "Calendar default"
+                ),
+              }),
         }),
       })
     },

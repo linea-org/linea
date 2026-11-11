@@ -191,6 +191,7 @@ export const googleGmailSendMessageOperation: ConnectorSideEffectOperation =
           Cc: escapeSafeDisplayText(parameters.cc.join(", ")),
           Bcc: escapeSafeDisplayText(parameters.bcc.join(", ")),
           Subject: escapeSafeDisplayText(parameters.subject),
+          Body: escapeSafeDisplayText(parameters.textBody),
         }),
       })
     },

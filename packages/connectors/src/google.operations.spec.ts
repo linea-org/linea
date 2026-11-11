@@ -460,9 +460,10 @@ describe("Google Connector Operations", () => {
         Cc: "cc@example.com",
         Bcc: "bcc@example.com",
         Subject: "Exact subject",
+        Body: input.textBody,
       },
     })
-    expect(JSON.stringify(display)).not.toContain(input.textBody)
+    expect(JSON.stringify(display)).toContain(input.textBody)
     gmailMalformedResponse = true
     await expect(
       googleGmailSendMessageOperation.execute(
