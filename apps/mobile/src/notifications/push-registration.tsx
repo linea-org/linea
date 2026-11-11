@@ -1,7 +1,7 @@
 import * as Device from "expo-device"
 import * as Notifications from "expo-notifications"
 import { useEffect } from "react"
-import { Platform } from "react-native"
+import { AppState, Platform } from "react-native"
 import { getMobileSessionCookie } from "../auth/better-auth-client"
 import { useMobileAuth } from "../auth/mobile-auth"
 import { registerPushDevice } from "./push-device-api"
@@ -25,10 +25,13 @@ function projectId(): string {
 
 export function PushRegistration() {
   const { data: session } = useMobileAuth().useSession()
-  const workspaceId = session?.session.activeOrganizationId
+  const userId = session?.user.id
+  const sessionId = session?.session.id
   useEffect(() => {
-    if (!workspaceId || Platform.OS === "web" || !Device.isDevice) return
+    if (!userId || !sessionId || Platform.OS === "web" || !Device.isDevice)
+      return
     let active = true
+    const cookie = getMobileSessionCookie()
     async function register() {
       const current = await Notifications.getPermissionsAsync()
       const permission =
@@ -54,19 +57,25 @@ export function PushRegistration() {
       if (!baseUrl) throw new Error("EXPO_PUBLIC_API_URL is required")
       await registerPushDevice({
         baseUrl: baseUrl.replace(/\/$/, ""),
-        cookie: getMobileSessionCookie(),
+        cookie,
         token: token.data,
         platform: Platform.OS === "ios" ? "ios" : "android",
       })
     }
-    void register().catch((error: unknown) => {
-      console.error(
-        `Push registration failed: ${error instanceof Error ? error.message : String(error)}`
-      )
+    const refresh = () =>
+      void register().catch((error: unknown) => {
+        console.error(
+          `Push registration failed: ${error instanceof Error ? error.message : String(error)}`
+        )
+      })
+    refresh()
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") refresh()
     })
     return () => {
+      subscription.remove()
       active = false
     }
-  }, [workspaceId])
+  }, [userId, sessionId])
   return null
 }

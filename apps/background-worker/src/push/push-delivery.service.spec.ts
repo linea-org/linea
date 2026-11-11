@@ -6,6 +6,7 @@ import {
 } from "./expo-push-client"
 import { PushDeliveryService } from "./push-delivery.service"
 
+const mockIsActive = jest.fn<Promise<boolean>, unknown[]>()
 const mockClaimDelivery = jest.fn<Promise<unknown>, unknown[]>()
 const mockClaimReceipt = jest.fn<Promise<unknown>, unknown[]>()
 const mockComplete = jest.fn<Promise<unknown>, unknown[]>()
@@ -18,6 +19,7 @@ jest.mock("@linea/db", () => ({
   db: {},
   repositories: {
     pushNotification: {
+      isPushDeliveryActive: (...args: unknown[]) => mockIsActive(...args),
       claimPushDelivery: (...args: unknown[]) => mockClaimDelivery(...args),
       claimPushReceipt: (...args: unknown[]) => mockClaimReceipt(...args),
       completePushDelivery: (...args: unknown[]) => mockComplete(...args),
@@ -87,6 +89,7 @@ function notification(): Notification {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockIsActive.mockResolvedValue(true)
   mockClaimDelivery.mockResolvedValue(undefined)
   mockClaimReceipt.mockResolvedValue(undefined)
 })
@@ -172,5 +175,22 @@ it("retries transient sends and receipt checks", async () => {
     receipt,
     "MessageRateExceeded: slow down",
     expect.any(Date)
+  )
+})
+
+it("does not contact Expo when a claimed session is revoked or expires before send", async () => {
+  mockClaimDelivery.mockResolvedValueOnce({
+    delivery: delivery(),
+    notification: notification(),
+    token: "ExponentPushToken[expired]",
+  })
+  mockIsActive.mockResolvedValue(false)
+  await new PushDeliveryService().poll()
+  expect(sendMock).not.toHaveBeenCalled()
+  expect(mockPermanentFailure).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.anything(),
+    "Device registration or owning session is no longer valid",
+    false
   )
 })

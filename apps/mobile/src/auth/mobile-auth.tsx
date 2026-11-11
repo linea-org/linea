@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useContext } from "react"
 
 export type MobileSession = {
   user: { id: string; name: string; email: string }
-  session: { activeOrganizationId?: string | null }
+  session: { id: string; activeOrganizationId?: string | null }
 }
 
 export type Workspace = {
@@ -15,6 +15,7 @@ type AuthResult<T> = Promise<{ data: T; error: unknown }>
 
 export type MobileAuthClient = {
   useSession: () => { data: MobileSession | null; isPending: boolean }
+  signOut: () => AuthResult<unknown>
   requestMagicLink: (email: string) => AuthResult<unknown>
   verifyMagicLink: (token: string) => AuthResult<unknown>
   listWorkspaces: () => AuthResult<Workspace[] | null>

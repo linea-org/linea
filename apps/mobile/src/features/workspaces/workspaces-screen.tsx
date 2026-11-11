@@ -12,6 +12,7 @@ import { useMobileAuth, type Workspace } from "../../auth/mobile-auth"
 import { authErrorMessage } from "../../lib/auth-error"
 import { useClearWorkspaceCache } from "../../query/monitoring-query"
 import { colors } from "../../theme/colors"
+import { SignOutButton } from "../auth/sign-out-button"
 import { CreateWorkspaceForm } from "./create-workspace-form"
 
 export function WorkspacesScreen() {
@@ -115,6 +116,7 @@ export function WorkspacesScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.eyebrow}>SIGNED IN AS {session?.user.name}</Text>
+        <SignOutButton />
         <Text style={styles.title}>Workspaces</Text>
         <Text style={styles.description}>
           Choose the workspace you want to monitor.

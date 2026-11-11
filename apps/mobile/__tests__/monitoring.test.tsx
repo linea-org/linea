@@ -381,10 +381,11 @@ it("clears cached monitoring data before activating another workspace", async ()
     useSession: () => ({
       data: {
         user: { id: "user-1", name: "Rohit", email: "rohit@example.com" },
-        session: { activeOrganizationId: "workspace-1" },
+        session: { id: "session-1", activeOrganizationId: "workspace-1" },
       },
       isPending: false,
     }),
+    signOut: jest.fn(),
     requestMagicLink: jest.fn(),
     verifyMagicLink: jest.fn(),
     listWorkspaces: jest.fn().mockResolvedValue({

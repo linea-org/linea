@@ -1,7 +1,6 @@
-import { Body, Controller, Delete, Post, UseGuards } from '@nestjs/common'
-import { OptionalAuth } from '@thallesp/nestjs-better-auth'
-import { CurrentUserId } from '../auth/current-user-id.decorator'
-import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { Body, Controller, Delete, Post } from '@nestjs/common'
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth'
+import type { auth } from '@linea/auth'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
   registerPushDeviceSchema,
@@ -12,26 +11,28 @@ import {
 import { PushDevicesService } from './push-devices.service'
 
 @Controller('push-devices')
-@OptionalAuth()
-@UseGuards(WorkspaceAuthGuard)
 export class PushDevicesController {
   constructor(private readonly pushDevices: PushDevicesService) {}
 
   @Post()
   register(
-    @CurrentUserId() userId: string,
+    @Session() session: UserSession<typeof auth>,
     @Body(new ZodValidationPipe(registerPushDeviceSchema))
     body: RegisterPushDeviceDto,
   ) {
-    return this.pushDevices.register(userId, body)
+    return this.pushDevices.register(session.user.id, session.session.id, body)
   }
 
   @Delete()
   unregister(
-    @CurrentUserId() userId: string,
+    @Session() session: UserSession<typeof auth>,
     @Body(new ZodValidationPipe(unregisterPushDeviceSchema))
     body: UnregisterPushDeviceDto,
   ) {
-    return this.pushDevices.unregister(userId, body)
+    return this.pushDevices.unregister(
+      session.user.id,
+      session.session.id,
+      body,
+    )
   }
 }

@@ -1,10 +1,12 @@
-import { and, eq, inArray, lte, or } from "drizzle-orm"
+import { and, eq, gt, inArray, lte, or } from "drizzle-orm"
 import {
   notifications,
+  sessions,
   pushDeliveries,
   pushDeviceRegistrations,
   type Notification,
   type PushDelivery,
+  type PushDeviceRegistration,
 } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
@@ -19,16 +21,37 @@ export type ClaimedPushDelivery = {
 
 export function registerPushDevice(
   db: DbClient,
-  input: { userId: string; token: string; platform: "android" | "ios" }
+  input: {
+    userId: string
+    sessionId: string
+    token: string
+    platform: "android" | "ios"
+  }
 ) {
   return db.transaction(async (tx) => {
     const now = new Date()
+    const [session] = await tx
+      .select()
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.id, input.sessionId),
+          eq(sessions.userId, input.userId),
+          gt(sessions.expiresAt, now)
+        )
+      )
+      .for("share")
+    if (!session) throw new Error("A live owning session is required")
     const [existing] = await tx
       .select()
       .from(pushDeviceRegistrations)
       .where(eq(pushDeviceRegistrations.token, input.token))
       .for("update")
-    if (existing && existing.userId !== input.userId) {
+    if (
+      existing &&
+      (existing.userId !== input.userId ||
+        existing.sessionId !== input.sessionId)
+    ) {
       await tx
         .delete(pushDeviceRegistrations)
         .where(eq(pushDeviceRegistrations.id, existing.id))
@@ -41,7 +64,10 @@ export function registerPushDevice(
         set: { platform: input.platform, lastSeenAt: now },
       })
       .returning()
-    if (registration.userId !== input.userId) {
+    if (
+      registration.userId !== input.userId ||
+      registration.sessionId !== input.sessionId
+    ) {
       throw new Error("Push token registration ownership changed concurrently")
     }
     return registration
@@ -51,13 +77,15 @@ export function registerPushDevice(
 export function unregisterPushDevice(
   db: DbClient,
   userId: string,
+  sessionId: string,
   token: string
-) {
+): Promise<PushDeviceRegistration | undefined> {
   return db
     .delete(pushDeviceRegistrations)
     .where(
       and(
         eq(pushDeviceRegistrations.userId, userId),
+        eq(pushDeviceRegistrations.sessionId, sessionId),
         eq(pushDeviceRegistrations.token, token)
       )
     )
@@ -72,8 +100,19 @@ export async function createPushDeliveries(
   const eligible = createdNotifications.filter(isPushEligible)
   if (eligible.length === 0) return
   const devices = await db
-    .select()
+    .select({
+      id: pushDeviceRegistrations.id,
+      userId: pushDeviceRegistrations.userId,
+    })
     .from(pushDeviceRegistrations)
+    .innerJoin(
+      sessions,
+      and(
+        eq(sessions.id, pushDeviceRegistrations.sessionId),
+        eq(sessions.userId, pushDeviceRegistrations.userId),
+        gt(sessions.expiresAt, new Date())
+      )
+    )
     .where(
       inArray(pushDeviceRegistrations.userId, [
         ...new Set(eligible.map((notification) => notification.userId)),
@@ -153,13 +192,26 @@ export async function claimPushDelivery(
         pushDeviceRegistrations,
         eq(pushDeliveries.deviceRegistrationId, pushDeviceRegistrations.id)
       )
-      .where(eq(pushDeliveries.id, claimed.id))
+      .innerJoin(
+        sessions,
+        and(
+          eq(sessions.id, pushDeviceRegistrations.sessionId),
+          eq(sessions.userId, pushDeviceRegistrations.userId),
+          gt(sessions.expiresAt, now)
+        )
+      )
+      .where(
+        and(
+          eq(pushDeliveries.id, claimed.id),
+          eq(notifications.userId, pushDeviceRegistrations.userId)
+        )
+      )
     if (!joined) {
       await tx
         .update(pushDeliveries)
         .set({
           status: "failed",
-          lastError: "Device registration was removed",
+          lastError: "Device registration or owning session is no longer valid",
           failedAt: now,
           claimedAt: null,
           updatedAt: now,
@@ -312,4 +364,24 @@ export async function permanentlyFailPushDelivery(
         .where(eq(pushDeviceRegistrations.id, delivery.deviceRegistrationId))
     }
   })
+}
+
+export async function isPushDeliveryActive(
+  db: DbClient,
+  delivery: PushDelivery
+): Promise<boolean> {
+  if (!delivery.deviceRegistrationId) return false
+  const [registration] = await db
+    .select({ id: pushDeviceRegistrations.id })
+    .from(pushDeviceRegistrations)
+    .innerJoin(
+      sessions,
+      and(
+        eq(sessions.id, pushDeviceRegistrations.sessionId),
+        eq(sessions.userId, pushDeviceRegistrations.userId),
+        gt(sessions.expiresAt, new Date())
+      )
+    )
+    .where(eq(pushDeviceRegistrations.id, delivery.deviceRegistrationId))
+  return Boolean(registration)
 }
