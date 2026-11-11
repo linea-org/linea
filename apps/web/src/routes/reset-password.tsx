@@ -92,6 +92,9 @@ function ResetPasswordPage() {
         </>
       }
     >
+      <p className="text-sm text-muted-foreground">
+        Resetting your password signs out all devices. Sign in again afterward.
+      </p>
       <form
         onSubmit={(event) => {
           void onSubmit(event)

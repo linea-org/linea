@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 
 import { Button } from "@linea/ui/components/button"
 
+import { AccountSessions } from "../components/account/account-sessions"
 import { UserAvatar } from "../components/account"
 import { authClient } from "../lib/auth-client"
 import { requireVerifiedUser } from "../lib/auth-redirect"
@@ -91,6 +92,7 @@ function AccountPage() {
             </div>
           </div>
 
+          <AccountSessions />
           <div className="mt-8 flex items-center gap-2">
             <Button
               type="button"
