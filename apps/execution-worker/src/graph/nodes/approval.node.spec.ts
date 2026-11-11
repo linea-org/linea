@@ -10,6 +10,7 @@ const sendEmail = jest.fn<
 jest.mock("@linea/auth/email", () => ({ sendEmail }))
 
 import { ApprovalNode } from "./approval.node"
+import { consumeApprovalEmailQuota } from "./approval-email-quota"
 
 afterAll(async () => {
   await pool.end()
@@ -214,6 +215,103 @@ describe("ApprovalNode", () => {
       await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
     }
   })
+  it.each([
+    42,
+    "not-an-email",
+    Array.from({ length: 21 }, (_, i) => `member${i}@test.dev`).join(","),
+  ])(
+    "rejects hostile stored config %p before creating a request",
+    async (approverEmails) => {
+      const { organization, execution, approver } = await setup()
+      sendEmail.mockClear()
+      try {
+        await expect(
+          new ApprovalNode().execute({ approverEmails }, undefined, {
+            workspaceId: organization.id,
+            executionId: execution.id,
+            nodeId: "approval-hostile",
+          })
+        ).rejects.toThrow()
+        expect(
+          await repositories.approvalRequest.getApprovalRequest(
+            db,
+            organization.id,
+            execution.id,
+            "approval-hostile"
+          )
+        ).toBeUndefined()
+        expect(sendEmail).not.toHaveBeenCalled()
+      } finally {
+        await pool.query("DELETE FROM organizations WHERE id = $1", [
+          organization.id,
+        ])
+        await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
+      }
+    }
+  )
+  it("never emails an outsider-only list or a removed member", async () => {
+    const { organization, execution, approver } = await setup()
+    sendEmail.mockClear()
+    try {
+      await pool.query("DELETE FROM members WHERE organization_id = $1", [
+        organization.id,
+      ])
+      await expect(
+        new ApprovalNode().execute(
+          { approverEmails: `${approver.email},outsider@test.dev` },
+          undefined,
+          {
+            workspaceId: organization.id,
+            executionId: execution.id,
+            nodeId: "approval-removed",
+          }
+        )
+      ).rejects.toThrow("Execution paused")
+      expect(sendEmail).not.toHaveBeenCalled()
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+      await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
+    }
+  })
+  it("keeps the Approval Request pending but sends no email when the workspace quota is exhausted", async () => {
+    const { organization, execution, approver } = await setup()
+    sendEmail.mockClear()
+    try {
+      expect(await consumeApprovalEmailQuota(organization.id, 100)).toBe(true)
+      await expect(
+        new ApprovalNode().execute(
+          { approverEmails: approver.email },
+          undefined,
+          {
+            workspaceId: organization.id,
+            executionId: execution.id,
+            nodeId: "approval-quota",
+          }
+        )
+      ).rejects.toThrow("Execution paused")
+      expect(sendEmail).not.toHaveBeenCalled()
+      expect(
+        await repositories.approvalRequest.getApprovalRequest(
+          db,
+          organization.id,
+          execution.id,
+          "approval-quota"
+        )
+      ).toMatchObject({ status: "pending" })
+      const notifications = await pool.query(
+        "SELECT user_id FROM notifications WHERE workspace_id = $1",
+        [organization.id]
+      )
+      expect(notifications.rows).toEqual([{ user_id: approver.id }])
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+      await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
+    }
+  })
   it("escapes the approval message before sending it as email HTML", async () => {
     const { organization, execution, approver } = await setup()
     sendEmail.mockClear()
@@ -228,7 +326,7 @@ describe("ApprovalNode", () => {
         node.execute(
           {
             message: '<img src=x onerror="alert(1)"> ship it & <b>hurry</b>',
-            approverEmails: "designated@test.dev",
+            approverEmails: `outsider@test.dev, ${approver.email.toUpperCase()}, ${approver.email}`,
           },
           undefined,
           context
@@ -236,7 +334,7 @@ describe("ApprovalNode", () => {
       ).rejects.toThrow("Execution paused at node approval-1")
       expect(sendEmail).toHaveBeenCalledTimes(1)
       const [call] = sendEmail.mock.calls
-      expect(call[0].to).toBe("designated@test.dev")
+      expect(call[0].to).toBe(approver.email)
       const html = call[0].html
       expect(html).toContain(
         "&lt;img src=x onerror=&quot;alert(1)&quot;&gt; ship it &amp; &lt;b&gt;hurry&lt;/b&gt;"

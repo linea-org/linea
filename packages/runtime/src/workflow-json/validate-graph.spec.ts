@@ -620,3 +620,23 @@ describe("assertNoReservedNodeIds", () => {
     expect(() => assertNoReservedNodeIds(graph({}))).not.toThrow()
   })
 })
+
+describe("approval recipient validation", () => {
+  it.each([
+    42,
+    "invalid",
+    Array.from({ length: 21 }, (_, i) => `member${i}@example.com`).join(","),
+  ])("rejects hostile graph recipients %p", (approverEmails) => {
+    expect(() =>
+      validateGraphStructure({
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "approval",
+        nodes: [
+          { id: "approval", type: "approval", config: { approverEmails } },
+        ],
+        edges: [],
+      })
+    ).toThrow("invalid configuration")
+  })
+})

@@ -73,6 +73,27 @@ export async function listMemberUserIdsByEmail(
   return rows.map((r) => r.userId)
 }
 
+export async function listMembersByEmail(
+  db: DbClient,
+  organizationId: string,
+  emails: string[]
+): Promise<{ userId: string; email: string }[]> {
+  if (emails.length === 0) return []
+  return db
+    .selectDistinct({ userId: members.userId, email: users.email })
+    .from(members)
+    .innerJoin(users, eq(users.id, members.userId))
+    .where(
+      and(
+        eq(members.organizationId, organizationId),
+        inArray(
+          sql`lower(${users.email})`,
+          emails.map((email) => email.toLowerCase())
+        )
+      )
+    )
+}
+
 /** better-auth's organization plugin owns the members table — this is a read-only lookup for the API's own role checks, not a mutation path. */
 export async function getMemberRole(
   db: DbClient,
