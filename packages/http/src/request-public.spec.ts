@@ -304,6 +304,29 @@ describe("redirect policy", () => {
   })
 })
 
+describe("redirect rejection", () => {
+  it.each([301, 302, 303, 307, 308])(
+    "rejects %s before another request or credential forwarding",
+    async (status) => {
+      transport.mockResolvedValueOnce(
+        new UndiciResponse(null, {
+          status,
+          headers: { location: "https://other.example/steal" },
+        })
+      )
+      await expect(
+        requestPublic("https://public.example/token", {
+          ...options,
+          method: "POST",
+          body: "code=secret&code_verifier=secret",
+          redirectMode: "error",
+        })
+      ).rejects.toThrow("redirects are disabled")
+      expect(transport).toHaveBeenCalledTimes(1)
+    }
+  )
+})
+
 describe("request resource limits", () => {
   beforeEach(() => {
     dns.mockResolvedValue([{ address: "127.0.0.1", family: 4 }])

@@ -97,6 +97,7 @@ describe('first-launch approval protocol', () => {
   let otherSubject: LaunchSession
   let rateLimitBaseline: Map<string, RateLimitSnapshot>
   beforeAll(async () => {
+    jest.replaceProperty(process.env, 'NODE_ENV', 'development')
     identityProvider = await startTestIdentityProvider()
     fixture = await createFixture(identityProvider)
     const rateLimits = await pool.query<RateLimitSnapshot>(
@@ -115,6 +116,7 @@ describe('first-launch approval protocol', () => {
     otherSubject = await authorize('customer-2')
   })
   afterAll(async () => {
+    jest.restoreAllMocks()
     await app.close()
     await identityProvider.close()
     const rateLimits = await pool.query<RateLimitSnapshot>(

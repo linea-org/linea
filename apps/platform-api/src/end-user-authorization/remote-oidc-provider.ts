@@ -1,12 +1,9 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { Injectable } from '@nestjs/common'
-import {
-  createRemoteJWKSet,
-  errors as joseErrors,
-  jwtVerify,
-  type JWTPayload,
-} from 'jose-v5'
+import { errors as joseErrors, jwtVerify, type JWTPayload } from 'jose-v5'
 import { z } from 'zod'
+import { createOidcJwks } from './oidc-jwks'
+import { allowLocalOidc, requestOidc } from './oidc-request'
 import {
   OidcIdentityVerificationError,
   OidcProviderUnavailableError,
@@ -47,13 +44,10 @@ function assertSafeTransport(
     url.hostname === 'localhost' ||
     url.hostname === '127.0.0.1' ||
     url.hostname === '[::1]'
+  if (url.username || url.password) throw new OidcProviderUnavailableError()
   if (
     url.protocol !== 'https:' &&
-    !(
-      configuration.environment === 'dev' &&
-      url.protocol === 'http:' &&
-      isLoopback
-    )
+    !(allowLocalOidc(configuration) && url.protocol === 'http:' && isLoopback)
   ) {
     throw new OidcProviderUnavailableError()
   }
@@ -93,7 +87,7 @@ export class RemoteOidcProvider implements OidcProvider {
   >()
   private readonly jwksCache = new Map<
     string,
-    ReturnType<typeof createRemoteJWKSet>
+    ReturnType<typeof createOidcJwks>
   >()
 
   async createAuthorizationUrl(
@@ -129,23 +123,18 @@ export class RemoteOidcProvider implements OidcProvider {
     },
   ): Promise<{ issuerSubject: string }> {
     const discovery = await this.discover(configuration)
-    let response: Response
-    try {
-      response = await fetch(discovery.token_endpoint, {
-        method: 'POST',
-        headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          client_id: configuration.clientId,
-          redirect_uri: input.redirectUri,
-          code: input.code,
-          code_verifier: input.codeVerifier,
-        }),
-        signal: AbortSignal.timeout(5_000),
-      })
-    } catch {
-      throw new OidcProviderUnavailableError()
-    }
+    const response = await requestOidc(
+      configuration,
+      discovery.token_endpoint,
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: configuration.clientId,
+        redirect_uri: input.redirectUri,
+        code: input.code,
+        code_verifier: input.codeVerifier,
+      }),
+      64 * 1024,
+    )
     if (response.status === 429 || response.status >= 500) {
       throw new OidcProviderUnavailableError()
     }
@@ -156,14 +145,16 @@ export class RemoteOidcProvider implements OidcProvider {
     } catch {
       throw new OidcIdentityVerificationError()
     }
-    const jwks =
-      this.jwksCache.get(configuration.jwksUrl) ??
-      createRemoteJWKSet(new URL(configuration.jwksUrl), {
-        timeoutDuration: 5_000,
-        cooldownDuration: 0,
-        cacheMaxAge: 300_000,
-      })
-    this.jwksCache.set(configuration.jwksUrl, jwks)
+    const jwksKey = `${allowLocalOidc(configuration)}:${configuration.jwksUrl}`
+    let jwks = this.jwksCache.get(jwksKey)
+    if (!jwks) {
+      jwks = createOidcJwks(configuration)
+      this.jwksCache.set(jwksKey, jwks)
+      if (this.jwksCache.size > 100) {
+        const oldest = this.jwksCache.keys().next().value
+        if (oldest !== undefined) this.jwksCache.delete(oldest)
+      }
+    }
     try {
       const { payload } = await jwtVerify(tokenResponse.id_token, jwks, {
         issuer: configuration.issuer,
@@ -192,7 +183,11 @@ export class RemoteOidcProvider implements OidcProvider {
       }
       return { issuerSubject }
     } catch (error) {
-      if (error instanceof OidcIdentityVerificationError) throw error
+      if (
+        error instanceof OidcIdentityVerificationError ||
+        error instanceof OidcProviderUnavailableError
+      )
+        throw error
       if (
         error instanceof TypeError ||
         error instanceof joseErrors.JWKSTimeout
@@ -213,10 +208,12 @@ export class RemoteOidcProvider implements OidcProvider {
       return cached.value
     }
     try {
-      const response = await fetch(discoveryUrl(configuration.issuer), {
-        headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(5_000),
-      })
+      const response = await requestOidc(
+        configuration,
+        discoveryUrl(configuration.issuer),
+        undefined,
+        64 * 1024,
+      )
       if (!response.ok) throw new Error()
       const discovery = discoverySchema.parse(await response.json())
       this.validateDiscovery(configuration, discovery)
@@ -224,6 +221,10 @@ export class RemoteOidcProvider implements OidcProvider {
         value: discovery,
         expiresAt: Date.now() + 300_000,
       })
+      if (this.discoveryCache.size > 100) {
+        const oldest = this.discoveryCache.keys().next().value
+        if (oldest !== undefined) this.discoveryCache.delete(oldest)
+      }
       return discovery
     } catch {
       throw new OidcProviderUnavailableError()

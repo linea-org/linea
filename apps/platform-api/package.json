@@ -31,6 +31,7 @@
     "@linea/config": "workspace:*",
     "@linea/connectors": "workspace:*",
     "@linea/db": "workspace:*",
+    "@linea/http": "workspace:*",
     "@linea/queue": "workspace:*",
     "@linea/protocol": "workspace:*",
     "@linea/runtime": "workspace:*",
