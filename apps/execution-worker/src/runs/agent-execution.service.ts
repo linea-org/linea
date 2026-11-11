@@ -14,7 +14,7 @@ import {
   registeredReadOperation,
   registeredSideEffectOperation,
 } from "@linea/connectors"
-import Ajv2020 from "ajv/dist/2020"
+import { compileContractSchema } from "@linea/protocol/json-schema"
 import { z } from "zod"
 import {
   CheckpointsService,
@@ -40,8 +40,6 @@ const requestSchema = z.strictObject({
   connectionId: z.uuid(),
   input: z.unknown(),
 })
-const validator = new Ajv2020({ strict: true, addUsedSchema: false })
-
 type AgentDefinition = z.infer<typeof agentDefinitionSchema>
 type RegisteredOperation = NonNullable<
   | ReturnType<typeof registeredReadOperation>
@@ -319,7 +317,7 @@ export class AgentExecutionService {
   private async finish(context: RunContext, result: Completion): Promise<void> {
     const { execution, leasedBy, contract } = context
     const output: unknown = JSON.parse(result.text)
-    if (!validator.compile(contract.outputSchema)(output))
+    if (!compileContractSchema(contract.outputSchema)(output))
       throw new Error("Agent output failed pinned Contract validation")
     const totals = await this.checkpoints.getResumeTokenTotals(execution.id)
     await repositories.execution.completeExecution(db, execution.id, leasedBy, {

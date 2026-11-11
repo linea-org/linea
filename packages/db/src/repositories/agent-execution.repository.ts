@@ -1,5 +1,5 @@
 import { and, eq, isNotNull, isNull } from "drizzle-orm"
-import Ajv2020 from "ajv/dist/2020.js"
+import { compileContractSchema } from "@linea/protocol/json-schema"
 import {
   agents,
   agentVersions,
@@ -19,8 +19,6 @@ import {
 } from "./public-idempotency.repository.js"
 import { createWorkflowExecutionMessage } from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
-
-const validator = new Ajv2020({ strict: true, addUsedSchema: false })
 
 export function startAgentExecution(
   db: DbClient,
@@ -104,7 +102,9 @@ export function startAgentExecution(
       return { outcome: "resource_not_found" }
     }
     if (
-      !validator.compile(deployment.contract.inputSchema)(input.triggerPayload)
+      !compileContractSchema(deployment.contract.inputSchema)(
+        input.triggerPayload
+      )
     ) {
       await releasePublicRequest(tx, reservation.recordId)
       return { outcome: "validation_failed" }

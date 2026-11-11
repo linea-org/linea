@@ -913,6 +913,9 @@ importers:
 
   packages/protocol:
     dependencies:
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
       zod:
         specifier: ^4.6.6
         version: 4.6.6

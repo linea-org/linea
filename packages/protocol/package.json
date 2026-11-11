@@ -12,7 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "ajv": "8.20.0"
   },
   "devDependencies": {
     "@linea/config": "workspace:*",
@@ -57,6 +58,11 @@
       "types": "./dist/webhooks.d.ts",
       "import": "./dist/webhooks.js",
       "require": "./dist/webhooks.cjs"
+    },
+    "./json-schema": {
+      "types": "./dist/json-schema.d.ts",
+      "import": "./dist/json-schema.js",
+      "require": "./dist/json-schema.cjs"
     }
   },
   "files": [
