@@ -9,7 +9,8 @@
     "ingest": "tsx scripts/ingest-docs.ts",
     "lint": "eslint .",
     "start": "next start --port 3002",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.58",
@@ -40,10 +41,12 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.18.0",
+    "ioredis": "^5.11.1",
     "postcss": "^8.5.28",
     "prettier": "^3.8.3",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
-    "typescript": "^6"
+    "typescript": "^6",
+    "vitest": "^4.1.11"
   }
 }
