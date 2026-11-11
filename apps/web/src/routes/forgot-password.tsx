@@ -14,16 +14,13 @@ import { Input } from "@linea/ui/components/input"
 
 import { AuthShell } from "../components/auth"
 import { authClient } from "../lib/auth-client"
-import { authErrorMessage, requireGuest } from "../lib/auth-redirect"
+import { authErrorMessage } from "../lib/auth-redirect"
 
 const schema = z.object({
   email: z.email("Enter a valid email"),
 })
 
 export const Route = createFileRoute("/forgot-password")({
-  beforeLoad: async () => {
-    await requireGuest()
-  },
   component: ForgotPasswordPage,
 })
 
