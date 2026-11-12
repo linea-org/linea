@@ -51,11 +51,11 @@ describe("RunsService failure accounting", () => {
         nodes: [{ id: "n1", type: "transform", config: { expression: "" } }],
         edges: [],
       }
-      const { workflow, execution } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        graph,
-        triggerPayload: {},
-      })
+      const { workflow, execution } = await createTestWorkflowExecution(
+        db,
+        organization.id,
+        graph
+      )
       // A prior abandoned attempt already checkpointed real token usage.
       const checkpoints = new CheckpointsService()
       await repositories.execution.startExecution(
@@ -145,12 +145,12 @@ describe("RunsService failure accounting", () => {
         nodes: [{ id: "n1", type: "transform", config: { expression: "" } }],
         edges: [],
       }
-      const { workflow, execution } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        name: "Runs Service Notify Test Workflow",
+      const { workflow, execution } = await createTestWorkflowExecution(
+        db,
+        organization.id,
         graph,
-        triggerPayload: {},
-      })
+        { name: "Runs Service Notify Test Workflow" }
+      )
       const poisonInterpreter = {
         run: () =>
           Promise.reject(new Error("simulated failure for notification test")),
@@ -207,11 +207,11 @@ describe("RunsService failure accounting", () => {
         nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
         edges: [],
       }
-      const { workflow, execution } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        graph,
-        triggerPayload: {},
-      })
+      const { workflow, execution } = await createTestWorkflowExecution(
+        db,
+        organization.id,
+        graph
+      )
       const checkpoints = new CheckpointsService()
       // No prior checkpoints exist yet — the pre-run known* state starts at false/0, same as any fresh execution.
       // interpreter.run() checkpoints an unpriced AI step for real (as it would mid-run), then throws before
@@ -776,11 +776,7 @@ describe("RunsService fencing identity", () => {
         workflow,
         version,
         execution: executionA,
-      } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        graph,
-        triggerPayload: {},
-      })
+      } = await createTestWorkflowExecution(db, organization.id, graph)
       const executionB = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -853,11 +849,11 @@ describe("RunsService fencing identity", () => {
         nodes: [{ id: "approval-1", type: "approval", config: {} }],
         edges: [],
       }
-      const { workflow, execution } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        graph,
-        triggerPayload: {},
-      })
+      const { workflow, execution } = await createTestWorkflowExecution(
+        db,
+        organization.id,
+        graph
+      )
       // Simulates a response racing ahead of the pause: the approval is already resolved before RunsService's own pausedAt handling runs.
       const approval = await repositories.approvalRequest.createApprovalRequest(
         db,
@@ -945,11 +941,11 @@ describe("RunsService fencing identity", () => {
         nodes: [{ id: "approval-1", type: "approval", config: {} }],
         edges: [],
       }
-      const { workflow, execution } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        graph,
-        triggerPayload: {},
-      })
+      const { workflow, execution } = await createTestWorkflowExecution(
+        db,
+        organization.id,
+        graph
+      )
       await repositories.approvalRequest.createApprovalRequest(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -1016,11 +1012,11 @@ describe("RunsService fencing identity", () => {
         nodes: [{ id: "wait-1", type: "wait", config: {} }],
         edges: [],
       }
-      const { execution } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        graph,
-        triggerPayload: {},
-      })
+      const { execution } = await createTestWorkflowExecution(
+        db,
+        organization.id,
+        graph
+      )
       // Simulates the poller firing the timer ahead of the pause: the timer is already fired before RunsService's own pausedAt handling runs.
       await repositories.waitTimer.createWaitTimer(db, {
         workspaceId: organization.id,
@@ -1093,11 +1089,11 @@ describe("RunsService fencing identity", () => {
         nodes: [{ id: "wait-1", type: "wait", config: {} }],
         edges: [],
       }
-      const { execution } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        graph,
-        triggerPayload: {},
-      })
+      const { execution } = await createTestWorkflowExecution(
+        db,
+        organization.id,
+        graph
+      )
       await repositories.waitTimer.createWaitTimer(db, {
         workspaceId: organization.id,
         executionId: execution.id,

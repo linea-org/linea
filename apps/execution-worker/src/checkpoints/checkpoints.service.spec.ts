@@ -32,11 +32,11 @@ describe("CheckpointsService.getResumeState", () => {
       })
       .returning()
     try {
-      const { execution } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        graph,
-        triggerPayload: {},
-      })
+      const { execution } = await createTestWorkflowExecution(
+        db,
+        organization.id,
+        graph
+      )
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -84,11 +84,11 @@ describe("CheckpointsService.getResumeVariables", () => {
       })
       .returning()
     try {
-      const { execution } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        graph,
-        triggerPayload: {},
-      })
+      const { execution } = await createTestWorkflowExecution(
+        db,
+        organization.id,
+        graph
+      )
       const checkpoints = new CheckpointsService()
       const variables = await checkpoints.getResumeVariables(execution.id)
       expect(variables).toEqual({})
@@ -109,11 +109,11 @@ describe("CheckpointsService.getResumeVariables", () => {
       })
       .returning()
     try {
-      const { execution } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        graph,
-        triggerPayload: {},
-      })
+      const { execution } = await createTestWorkflowExecution(
+        db,
+        organization.id,
+        graph
+      )
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -172,11 +172,11 @@ describe("CheckpointsService.recordStep attributes", () => {
       })
       .returning()
     try {
-      const { execution } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        graph,
-        triggerPayload: {},
-      })
+      const { execution } = await createTestWorkflowExecution(
+        db,
+        organization.id,
+        graph
+      )
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -224,11 +224,11 @@ describe("CheckpointsService.recordStep attributes", () => {
       })
       .returning()
     try {
-      const { execution } = await createTestWorkflowExecution(db, {
-        workspaceId: organization.id,
-        graph,
-        triggerPayload: {},
-      })
+      const { execution } = await createTestWorkflowExecution(
+        db,
+        organization.id,
+        graph
+      )
       await repositories.execution.startExecution(
         db,
         execution.id,
