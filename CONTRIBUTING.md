@@ -104,7 +104,6 @@ linea/
 │   ├── execution-worker/   # graph execution, checkpoints, replay, connectors
 │   ├── background-worker/  # schedules, outbox delivery, notifications, analysis
 │   ├── mobile/             # Expo operator monitoring and approvals
-│   ├── docs/               # Next.js and Fumadocs documentation site
 │   └── run-gateway/        # reserved scaffold for future sandbox execution
 └── packages/
     ├── protocol/           # public resources, operations, events, and errors
@@ -121,6 +120,10 @@ linea/
     ├── types/              # shared internal TypeScript types
     └── sandbox-provider/   # reserved scaffold for future sandbox implementations
 ```
+
+The documentation site is not part of this workspace; it lives in
+[linea-org/docs](https://github.com/linea-org/docs) and links back to the
+guides and generated artifacts in this repository.
 
 Apps never import from one another. Shared contracts and behavior belong in
 `packages/*`. The browser imports `@linea/runtime/browser`; server-only graph
