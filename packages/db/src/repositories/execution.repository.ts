@@ -136,7 +136,7 @@ export async function triggerWorkflowExecution(
       const role = input.triggeredByUserId
         ? await getMemberRole(tx, workspaceId, input.triggeredByUserId)
         : undefined
-      if (role !== "admin" && role !== "owner") {
+      if (!["admin", "owner"].includes(role ?? "")) {
         return { outcome: "production_start_forbidden" }
       }
     }

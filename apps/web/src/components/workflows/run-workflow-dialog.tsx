@@ -25,9 +25,9 @@ export function RunWorkflowDialog({
   workflowId,
   published,
 }: {
-  workspaceSlug: string
-  workflowId: string
-  published: boolean
+  readonly workspaceSlug: string
+  readonly workflowId: string
+  readonly published: boolean
 }) {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()

@@ -1,10 +1,11 @@
-import { executions, type Execution } from "../schema/index.js"
 import { upsertEndSubject } from "./end-subject.repository.js"
 import { createWorkflowExecutionMessage } from "./outbox-message.repository.js"
 import { randomUUID } from "node:crypto"
 import { db } from "../clients/index.js"
 import { and, eq } from "drizzle-orm"
 import {
+  executions,
+  type Execution,
   applications,
   environments,
   organizations,
@@ -207,7 +208,7 @@ export type CreateExecutionInput = {
   externalSubjectId?: string
 }
 
-export async function createExecution(
+export function createExecution(
   db: DbClient,
   input: CreateExecutionInput
 ): Promise<Execution> {
