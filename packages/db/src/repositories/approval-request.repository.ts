@@ -28,6 +28,7 @@ import {
   externalSubjectEnvironments,
   externalSubjects,
   members,
+  outboxMessages,
   users,
   type ApprovalDecision,
   type ApprovalRequest,
@@ -813,118 +814,84 @@ export async function cancelExecutionWithPendingApproval(
   const root = tree.find(({ id }) => id === executionId)
   if (!root || !["queued", "running", "paused"].includes(root.status))
     return undefined
-  const children = tree
-    .filter(({ id }) => id !== executionId)
-    .sort((a, b) => a.id.localeCompare(b.id))
-  for (const child of children) {
-    const childLockKey = `action-intent-execution:${child.id}`
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${childLockKey}, 0))`
-    )
-  }
   const ids = tree.map(({ id }) => id)
-  await tx
-    .select({ id: approvalRequests.id })
+  // PostgreSQL evaluates this volatile output after sorting by id; sorting by the lock expression would acquire locks before sorting.
+  await tx.execute(sql`
+    select pg_advisory_xact_lock(hashtextextended('action-intent-execution:' || id::text, 0))
+    from ${executions}
+    where ${inArray(executions.id, ids)} and id <> ${executionId}
+    order by id
+  `)
+  const requests = await tx
+    .select()
     .from(approvalRequests)
     .where(inArray(approvalRequests.executionId, ids))
     .orderBy(approvalRequests.id)
     .for("update")
-  // Child completion and nested pause lock the child before waking or pausing its parent.
-  for (const execution of [...children, root]) {
-    await tx
-      .select({ id: executions.id })
-      .from(executions)
-      .where(eq(executions.id, execution.id))
-      .for("update")
-  }
-  const executing = await tx
-    .select({ id: actionIntents.id })
-    .from(actionIntents)
-    .where(
-      and(
-        inArray(actionIntents.executionId, ids),
-        eq(actionIntents.status, "executing")
-      )
-    )
-    .for("update")
-  if (executing.length > 0) return undefined
-  const cancelled = await cancelOneExecution(
-    tx,
-    workspaceId,
-    environmentId,
-    executionId,
-    actorEnvironmentKeyId,
-    cancelledAt
-  )
-  if (!cancelled) return undefined
-  for (const child of children) {
-    const cancelledChild = await cancelOneExecution(
-      tx,
-      workspaceId,
-      environmentId,
-      child.id,
-      actorEnvironmentKeyId,
-      cancelledAt
-    )
-    if (cancelledChild)
-      await tx.insert(auditLogs).values({
-        workspaceId,
-        actorEnvironmentKeyId,
-        action: "execution.cancelled",
-        resource: "execution",
-        resourceId: child.id,
-        metadata: { environmentId, parentExecutionId: executionId },
-      })
-  }
-  return cancelled
-}
-
-async function cancelOneExecution(
-  tx: Transaction,
-  workspaceId: string,
-  environmentId: string,
-  executionId: string,
-  actorEnvironmentKeyId: string,
-  cancelledAt: Date
-): Promise<Execution | undefined> {
-  // Every Approval Request of the Execution, decided or not, is locked before the Execution row: claiming an approved Action Intent locks the request first, and the opposite order deadlocks the two.
-  const requests = await tx
+  // ORDER BY precedes LockRows; immutable ids keep children before the root even when a lock wait resumes.
+  const locked = await tx
     .select()
-    .from(approvalRequests)
-    .where(
-      and(
-        eq(approvalRequests.workspaceId, workspaceId),
-        eq(approvalRequests.executionId, executionId)
-      )
-    )
-    .orderBy(approvalRequests.id)
-    .for("update")
-  const pending = requests.filter(({ status }) => status === "pending")
-  if (pending.length > 1) {
-    throw new Error("Execution has multiple pending Approval Requests")
-  }
-  const [executionSnapshot] = await tx
-    .select({ id: executions.id })
     .from(executions)
-    .where(
-      and(
-        eq(executions.id, executionId),
-        eq(executions.workspaceId, workspaceId),
-        eq(executions.environmentId, environmentId),
-        inArray(executions.status, ["queued", "running", "paused"])
-      )
-    )
+    .where(inArray(executions.id, ids))
+    .orderBy(sql`${executions.id} = ${executionId}`, executions.id)
     .for("update")
-  if (!executionSnapshot) return undefined
-  const actionIntents = await cancelNonExecutingActionIntents(tx, {
+  const active = locked.filter(({ status }) =>
+    ["queued", "running", "paused"].includes(status)
+  )
+  if (!active.some(({ id }) => id === executionId)) return undefined
+  const intents = await tx
+    .select({ id: actionIntents.id, status: actionIntents.status })
+    .from(actionIntents)
+    .where(inArray(actionIntents.executionId, ids))
+    .orderBy(actionIntents.id)
+    .for("update")
+  if (intents.some(({ status }) => status === "executing")) return undefined
+  const activeIds = active.map(({ id }) => id)
+  for (const execution of active) {
+    if (
+      requests.filter(
+        (request) =>
+          request.executionId === execution.id && request.status === "pending"
+      ).length > 1
+    )
+      throw new Error("Execution has multiple pending Approval Requests")
+  }
+  const pendingExternalRequests = requests.filter(
+    (request) =>
+      activeIds.includes(request.executionId) &&
+      request.status === "pending" &&
+      request.audience === "external_subject"
+  )
+  if (pendingExternalRequests.length > 0) {
+    const subjectIds = pendingExternalRequests.map(({ externalSubjectId }) => {
+      if (!externalSubjectId)
+        throw new Error("External Approval Request is missing its audience")
+      return externalSubjectId
+    })
+    const audiences = await tx
+      .select({
+        externalSubjectId: externalSubjectEnvironments.externalSubjectId,
+      })
+      .from(externalSubjectEnvironments)
+      .where(
+        and(
+          eq(externalSubjectEnvironments.workspaceId, workspaceId),
+          eq(externalSubjectEnvironments.environmentId, environmentId),
+          inArray(externalSubjectEnvironments.externalSubjectId, subjectIds)
+        )
+      )
+      .orderBy(externalSubjectEnvironments.externalSubjectId)
+      .for("update")
+    if (new Set(subjectIds).size !== audiences.length)
+      throw new Error("Public event audience does not exist")
+  }
+  await cancelNonExecutingActionIntents(tx, {
     workspaceId,
-    scope: { kind: "execution", id: executionId },
+    scope: { kind: "execution", ids: activeIds },
     actor: { kind: "environment_key", id: actorEnvironmentKeyId },
     cancelledAt,
   })
-  if (actionIntents.executing.length > 0) return undefined
-  const request = pending[0]
-  const [execution] = await tx
+  const cancelledExecutions = await tx
     .update(executions)
     .set({
       status: "cancelled",
@@ -932,20 +899,12 @@ async function cancelOneExecution(
       leasedBy: null,
       leaseExpiresAt: null,
     })
-    .where(
-      and(
-        eq(executions.id, executionId),
-        eq(executions.workspaceId, workspaceId),
-        eq(executions.environmentId, environmentId),
-        inArray(executions.status, ["queued", "running", "paused"])
-      )
-    )
+    .where(inArray(executions.id, activeIds))
     .returning()
-  if (execution) await wakeParentOfFinishedChild(tx, execution)
-  if (!execution || actionIntents.cancelled.length > 0 || !request) {
-    return execution
-  }
-  const [cancelled] = await tx
+  const execution = cancelledExecutions.find(({ id }) => id === executionId)
+  if (!execution) throw new Error("Locked Execution disappeared")
+  await wakeParentOfFinishedChild(tx, execution)
+  const cancelledRequests = await tx
     .update(approvalRequests)
     .set({
       status: "cancelled",
@@ -954,38 +913,53 @@ async function cancelOneExecution(
     })
     .where(
       and(
-        eq(approvalRequests.id, request.id),
+        inArray(approvalRequests.executionId, activeIds),
         eq(approvalRequests.status, "pending")
       )
     )
     .returning()
-  if (!cancelled) throw new Error("Locked Approval Request changed state")
-  await tx.insert(auditLogs).values({
-    workspaceId: request.workspaceId,
-    actorEnvironmentKeyId,
-    action: "approval_request.cancelled",
-    resource: "approval_request",
-    resourceId: request.id,
-    metadata: { executionId },
-  })
-  if (request.audience === "external_subject") {
-    if (!request.externalSubjectId) {
-      throw new Error("External Approval Request is missing its audience")
-    }
-    await createPublicEvent(tx, {
-      workspaceId: request.workspaceId,
-      environmentId,
-      externalSubjectId: request.externalSubjectId,
-      eventType: "approval_request.cancelled",
-      data: {
-        approvalRequestId: request.id,
-        executionId,
-        status: cancelled.status,
-        ...(request.conversationId
-          ? { conversationId: request.conversationId }
-          : {}),
-      },
-    })
+  const auditEntries = [
+    ...cancelledExecutions
+      .filter(({ id }) => id !== executionId)
+      .map(({ id }): typeof auditLogs.$inferInsert => ({
+        workspaceId,
+        actorEnvironmentKeyId,
+        action: "execution.cancelled",
+        resource: "execution",
+        resourceId: id,
+        metadata: { environmentId, parentExecutionId: executionId },
+      })),
+    ...cancelledRequests.map((request): typeof auditLogs.$inferInsert => ({
+      workspaceId,
+      actorEnvironmentKeyId,
+      action: "approval_request.cancelled",
+      resource: "approval_request",
+      resourceId: request.id,
+      metadata: { executionId: request.executionId },
+    })),
+  ]
+  if (auditEntries.length > 0) await tx.insert(auditLogs).values(auditEntries)
+  const externalRequests = cancelledRequests.filter(
+    ({ audience }) => audience === "external_subject"
+  )
+  if (externalRequests.length > 0) {
+    await tx.insert(outboxMessages).values(
+      externalRequests.map((request): typeof outboxMessages.$inferInsert => ({
+        workspaceId,
+        environmentId,
+        externalSubjectId: request.externalSubjectId,
+        kind: "public_event",
+        eventType: "approval_request.cancelled",
+        payload: {
+          approvalRequestId: request.id,
+          executionId: request.executionId,
+          status: request.status,
+          ...(request.conversationId
+            ? { conversationId: request.conversationId }
+            : {}),
+        },
+      }))
+    )
   }
   return execution
 }
