@@ -10,6 +10,28 @@ import {
 import { db, encryptSecret, pool, repositories, schema } from "@linea/db"
 import { WebhookDeliveryService } from "./webhook-delivery.service"
 import { signWebhook } from "./webhook-signature"
+import {
+  createConnection,
+  createWebhookDeliveryQueue,
+  enqueueWebhookDelivery,
+  withWebhookAdmission,
+} from "@linea/queue"
+
+jest.mock("@linea/db", () => {
+  const actual = jest.requireActual<typeof import("@linea/db")>("@linea/db")
+  return {
+    ...actual,
+    repositories: {
+      ...actual.repositories,
+      webhookDelivery: {
+        ...actual.repositories.webhookDelivery,
+        beginWebhookDelivery: jest.fn(
+          actual.repositories.webhookDelivery.beginWebhookDelivery
+        ),
+      },
+    },
+  }
+})
 
 type ReceivedRequest = {
   body: Buffer
@@ -118,6 +140,67 @@ afterAll(async () => {
 })
 
 describe("WebhookDeliveryService", () => {
+  it.each(["active request", "delayed claim"])(
+    "enforces admission cancellation during %s and releases the lease",
+    async (phase) => {
+      const timers = jest.spyOn(globalThis, "setTimeout")
+      const expire = () => {
+        const timer = timers.mock.calls.find(
+          ([, delay]) =>
+            typeof delay === "number" && delay > 50_000 && delay <= 55_000
+        )
+        if (!timer) throw new Error("Admission timer did not start")
+        timer[0]()
+      }
+      const receiver = await startReceiver((_index, _request, response) => {
+        response.write("pending")
+        expire()
+      })
+      const { delivery } = await createDelivery(receiver.url, "lease-secret")
+      const connection = createConnection()
+      const queue = createWebhookDeliveryQueue(connection)
+      const job = await enqueueWebhookDelivery(queue, {
+        deliveryId: delivery.id,
+      })
+      if (phase === "delayed claim") {
+        const begin =
+          jest.requireActual<typeof import("@linea/db")>("@linea/db")
+            .repositories.webhookDelivery.beginWebhookDelivery
+        jest
+          .spyOn(repositories.webhookDelivery, "beginWebhookDelivery")
+          .mockImplementationOnce(async (...args) => {
+            const claimed = await begin(...args)
+            expire()
+            return claimed
+          })
+      }
+      try {
+        const service = new WebhookDeliveryService()
+        await expect(
+          withWebhookAdmission(connection, job, undefined, delivery, (signal) =>
+            service.processDelivery(delivery.id, 0, signal)
+          )
+        ).rejects.toThrow("admission lease expired")
+        expect(receiver.requests).toHaveLength(
+          phase === "active request" ? 1 : 0
+        )
+        expect(
+          await connection.zcard(`webhook-admission:{${workspaceId}}`)
+        ).toBe(0)
+        const [stored] =
+          await repositories.webhookDelivery.getWebhookDeliveries(db, [
+            delivery.id,
+          ])
+        expect(stored).toMatchObject({ status: "retrying", attempts: 1 })
+      } finally {
+        jest.restoreAllMocks()
+        await job.remove()
+        await queue.close()
+        await connection.quit()
+        await receiver.close()
+      }
+    }
+  )
   it("bounds a real trickling delivery and records a retry", async () => {
     const receiver = await startReceiver((_index, _request, response) => {
       response.write("x")

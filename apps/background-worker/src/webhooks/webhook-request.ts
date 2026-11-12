@@ -21,7 +21,7 @@ export async function deliverWebhook(input: {
     maxResponseBytes: 1_048_576,
     allowLocalDevelopment: input.allowLocalDevelopment,
     requireHttps: true,
-    redirectMode: "preserve",
+    redirectMode: "same-origin",
   })
   return {
     status: response.status,

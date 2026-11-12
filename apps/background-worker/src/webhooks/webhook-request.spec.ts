@@ -23,7 +23,7 @@ it("delivers signed payloads with HTTPS, pinned redirects, and bounded resource 
       method: "POST",
       body,
       requireHttps: true,
-      redirectMode: "preserve",
+      redirectMode: "same-origin",
       allowLocalDevelopment: false,
       timeoutMs: 10_000,
       maxResponseBytes: 1_048_576,

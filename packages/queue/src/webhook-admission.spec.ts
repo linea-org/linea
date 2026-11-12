@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto"
-import { afterAll, afterEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest"
 import { DelayedError, QueueEvents, Worker } from "bullmq"
 import { createConnection } from "./connection.js"
 import {
@@ -30,6 +30,7 @@ function scope(workspaceId: string, url: string) {
 }
 
 afterEach(async () => {
+  vi.restoreAllMocks()
   await Promise.all(workers.splice(0).map((worker) => worker.close()))
   await queue.obliterate({ force: true })
   if (keys.length) await connection.del(...keys.splice(0))
@@ -41,6 +42,36 @@ afterAll(async () => {
 })
 
 describe("distributed webhook admission", () => {
+  it("aborts processing before lease expiry and releases all admission keys", async () => {
+    const timers = vi.spyOn(globalThis, "setTimeout")
+    const destination = scope(randomUUID(), "https://expiry.example.com")
+    const admissionKeys = keys.slice(-3)
+    const job = await enqueueWebhookDelivery(queue, {
+      deliveryId: randomUUID(),
+    })
+    await expect(
+      withWebhookAdmission(
+        connection,
+        job,
+        undefined,
+        destination,
+        async (signal) => {
+          const timer = timers.mock.calls.find(
+            ([, delay]) =>
+              typeof delay === "number" && delay > 50_000 && delay <= 55_000
+          )
+          if (!timer) throw new Error("Admission timer did not start")
+          const aborted = new Promise<void>((resolve) =>
+            signal.addEventListener("abort", () => resolve(), { once: true })
+          )
+          timer[0]()
+          await aborted
+          signal.throwIfAborted()
+        }
+      )
+    ).rejects.toThrow("admission lease expired")
+    for (const key of admissionKeys) expect(await connection.zcard(key)).toBe(0)
+  })
   it("atomically bounds workspace and duplicate-origin admission across clients", async () => {
     const other = createConnection()
     const workspaceId = randomUUID()
