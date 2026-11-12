@@ -1,5 +1,4 @@
-import { createTestExecution } from "@linea/db/testing"
-import { getTestApplicationId } from "@linea/db/testing"
+import { createTestWorkflowExecution } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -33,22 +32,10 @@ describe("CheckpointsService.getResumeState", () => {
       })
       .returning()
     try {
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
+      const { execution } = await createTestWorkflowExecution(db, {
         workspaceId: organization.id,
-        name: "Checkpoint Order Test Workflow",
-        slug: `checkpoint-order-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
         graph,
-        contentHash: "checkpoint-order-hash",
-      })
-      const execution = await createTestExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
+        triggerPayload: {},
       })
       await repositories.execution.startExecution(
         db,
@@ -97,22 +84,10 @@ describe("CheckpointsService.getResumeVariables", () => {
       })
       .returning()
     try {
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
+      const { execution } = await createTestWorkflowExecution(db, {
         workspaceId: organization.id,
-        name: "Resume Variables Fresh Test Workflow",
-        slug: `resume-variables-fresh-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
         graph,
-        contentHash: "resume-variables-fresh-hash",
-      })
-      const execution = await createTestExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
+        triggerPayload: {},
       })
       const checkpoints = new CheckpointsService()
       const variables = await checkpoints.getResumeVariables(execution.id)
@@ -134,22 +109,10 @@ describe("CheckpointsService.getResumeVariables", () => {
       })
       .returning()
     try {
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
+      const { execution } = await createTestWorkflowExecution(db, {
         workspaceId: organization.id,
-        name: "Resume Variables Test Workflow",
-        slug: `resume-variables-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
         graph,
-        contentHash: "resume-variables-hash",
-      })
-      const execution = await createTestExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
+        triggerPayload: {},
       })
       await repositories.execution.startExecution(
         db,
@@ -209,22 +172,10 @@ describe("CheckpointsService.recordStep attributes", () => {
       })
       .returning()
     try {
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
+      const { execution } = await createTestWorkflowExecution(db, {
         workspaceId: organization.id,
-        name: "Checkpoint Attributes Test Workflow",
-        slug: `checkpoint-attributes-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
         graph,
-        contentHash: "checkpoint-attributes-hash",
-      })
-      const execution = await createTestExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
+        triggerPayload: {},
       })
       await repositories.execution.startExecution(
         db,
@@ -273,22 +224,10 @@ describe("CheckpointsService.recordStep attributes", () => {
       })
       .returning()
     try {
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
+      const { execution } = await createTestWorkflowExecution(db, {
         workspaceId: organization.id,
-        name: "Checkpoint No Attributes Test Workflow",
-        slug: `checkpoint-no-attributes-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
         graph,
-        contentHash: "checkpoint-no-attributes-hash",
-      })
-      const execution = await createTestExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
+        triggerPayload: {},
       })
       await repositories.execution.startExecution(
         db,

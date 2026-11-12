@@ -242,3 +242,34 @@ export function createExecution(
     return execution
   })
 }
+
+export async function createTestWorkflowExecution(
+  client: DbClient,
+  input: {
+    workspaceId: string
+    name?: string
+    graph: Parameters<typeof createWorkflowVersion>[1]["graph"]
+    triggerPayload: NonNullable<CreateExecutionInput["triggerPayload"]>
+  }
+) {
+  const suffix = randomUUID()
+  const workflow = await createWorkflow(client, {
+    applicationId: await getTestApplicationId(client, input.workspaceId),
+    workspaceId: input.workspaceId,
+    name: input.name ?? "Test Workflow",
+    slug: `test-workflow-${suffix}`,
+  })
+  const version = await createWorkflowVersion(client, {
+    workflowId: workflow.id,
+    graph: input.graph,
+    contentHash: `test-hash-${suffix}`,
+  })
+  const execution = await createExecution(client, {
+    workspaceId: input.workspaceId,
+    workflowId: workflow.id,
+    workflowVersionId: version.id,
+    trigger: "manual",
+    triggerPayload: input.triggerPayload,
+  })
+  return { workflow, version, execution }
+}
