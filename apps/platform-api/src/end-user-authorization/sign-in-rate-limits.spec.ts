@@ -54,7 +54,6 @@ describe('sign-in quota isolation (Postgres)', () => {
   let workspaceId: string
   let environmentId: string
   let app: NestExpressApplication<Server>
-  let clock: jest.SpyInstance
   function ip(name: string): string {
     const value = `${prefix}-${name}`
     const bucket = Math.floor(Date.now() / 60_000)
@@ -65,8 +64,28 @@ describe('sign-in quota isolation (Postgres)', () => {
     return value
   }
   beforeAll(async () => {
-    const now = Date.now()
-    clock = jest.spyOn(Date, 'now').mockReturnValue(now)
+    // Freeze Date.now() and new Date() together so the test and the services
+    // always agree on the quota bucket; every other timer stays real so the
+    // database pool and HTTP server keep working.
+    jest.useFakeTimers({
+      now: Date.now(),
+      doNotFake: [
+        'hrtime',
+        'nextTick',
+        'performance',
+        'queueMicrotask',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+        'requestIdleCallback',
+        'cancelIdleCallback',
+        'setImmediate',
+        'clearImmediate',
+        'setInterval',
+        'clearInterval',
+        'setTimeout',
+        'clearTimeout',
+      ],
+    })
     const [workspace] = await db
       .insert(schema.organizations)
       .values({ name: 'Quota isolation', slug: prefix, createdAt: new Date() })
@@ -107,7 +126,7 @@ describe('sign-in quota isolation (Postgres)', () => {
     await app.init()
   })
   afterAll(async () => {
-    clock.mockRestore()
+    jest.useRealTimers()
     await app.close()
     await pool.query(
       'DELETE FROM end_user_authorization_requests WHERE workspace_id = $1',
