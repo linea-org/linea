@@ -290,3 +290,15 @@ export async function seedRunning(
   )
   return seeded
 }
+
+export async function seedOrganization(
+  client: DbClient,
+  name: string,
+  slug: string
+) {
+  const [organization] = await client
+    .insert(organizations)
+    .values({ name, slug, createdAt: new Date() })
+    .returning()
+  return organization
+}

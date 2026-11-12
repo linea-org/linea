@@ -1,4 +1,4 @@
-import { seedExecution, seedRunning } from "@linea/db/testing"
+import { seedExecution, seedOrganization, seedRunning } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -190,14 +190,11 @@ describe("InterpreterService.executeNode", () => {
 describe("InterpreterService.run idempotency key", () => {
   it("passes `${executionId}:${nodeId}` as the idempotency key, stable if the same node were reclaimed and re-run", async () => {
     const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Interpreter Idempotency Test Org",
-        slug: `interpreter-idempotency-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
+    const organization = await seedOrganization(
+      db,
+      "Interpreter Idempotency Test Org",
+      `interpreter-idempotency-${suffix}`
+    )
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -250,14 +247,11 @@ describe("InterpreterService.run idempotency key", () => {
 describe("InterpreterService resume", () => {
   it("carries prior checkpointed token usage into a resumed run that re-executes nothing", async () => {
     const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Interpreter Resume Test Org",
-        slug: `interpreter-resume-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
+    const organization = await seedOrganization(
+      db,
+      "Interpreter Resume Test Org",
+      `interpreter-resume-${suffix}`
+    )
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -317,14 +311,11 @@ describe("InterpreterService resume", () => {
   })
   it("carries an unpriced step's flag into a resumed run that skips it", async () => {
     const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Interpreter Resume Unpriced Test Org",
-        slug: `interpreter-resume-unpriced-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
+    const organization = await seedOrganization(
+      db,
+      "Interpreter Resume Unpriced Test Org",
+      `interpreter-resume-unpriced-${suffix}`
+    )
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -383,14 +374,11 @@ describe("InterpreterService resume", () => {
   })
   it("reports unknown, not false, when a resumed execution has a legacy AI step from before cost tracking existed", async () => {
     const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Interpreter Legacy Gap Test Org",
-        slug: `interpreter-legacy-gap-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
+    const organization = await seedOrganization(
+      db,
+      "Interpreter Legacy Gap Test Org",
+      `interpreter-legacy-gap-${suffix}`
+    )
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -475,14 +463,11 @@ describe("InterpreterService resume", () => {
   })
   it("computes and checkpoints AI step cost from the pricing table", async () => {
     const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Interpreter Cost Test Org",
-        slug: `interpreter-cost-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
+    const organization = await seedOrganization(
+      db,
+      "Interpreter Cost Test Org",
+      `interpreter-cost-${suffix}`
+    )
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -538,14 +523,11 @@ describe("InterpreterService resume", () => {
   })
   it("marks an unpriced model's step as unpriced rather than silently reporting it as free", async () => {
     const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Interpreter Unpriced Cost Test Org",
-        slug: `interpreter-unpriced-cost-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
+    const organization = await seedOrganization(
+      db,
+      "Interpreter Unpriced Cost Test Org",
+      `interpreter-unpriced-cost-${suffix}`
+    )
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -595,14 +577,11 @@ describe("InterpreterService resume", () => {
   })
   it("refuses to checkpoint a step for a worker that lost the lease mid-run", async () => {
     const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Interpreter Fencing Test Org",
-        slug: `interpreter-fencing-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
+    const organization = await seedOrganization(
+      db,
+      "Interpreter Fencing Test Org",
+      `interpreter-fencing-${suffix}`
+    )
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -663,14 +642,11 @@ describe("InterpreterService resume", () => {
   })
   it("never invokes a node's side effect for a worker that already lost the lease", async () => {
     const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Interpreter No-Sideeffect Test Org",
-        slug: `interpreter-no-sideeffect-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
+    const organization = await seedOrganization(
+      db,
+      "Interpreter No-Sideeffect Test Org",
+      `interpreter-no-sideeffect-${suffix}`
+    )
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -731,14 +707,11 @@ describe("InterpreterService resume", () => {
   })
   it("never invokes a node's side effect once its own lease has expired, even with no reclaim yet", async () => {
     const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Interpreter Expired Lease Test Org",
-        slug: `interpreter-expired-lease-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
+    const organization = await seedOrganization(
+      db,
+      "Interpreter Expired Lease Test Org",
+      `interpreter-expired-lease-${suffix}`
+    )
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -796,14 +769,11 @@ describe("InterpreterService resume", () => {
 
 describe("InterpreterService retry policy", () => {
   async function setupExecution(suffix: string, graph: WorkflowGraph) {
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Interpreter Retry Test Org",
-        slug: `interpreter-retry-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
+    const organization = await seedOrganization(
+      db,
+      "Interpreter Retry Test Org",
+      `interpreter-retry-${suffix}`
+    )
     const { execution } = await seedExecution(db, organization.id, graph)
     return { organization, execution }
   }
@@ -1298,14 +1268,11 @@ describe("InterpreterService retry policy", () => {
 describe("InterpreterService variables", () => {
   it("a get node sees a value set by a set node earlier in the same run", async () => {
     const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Interpreter Variables Test Org",
-        slug: `interpreter-variables-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
+    const organization = await seedOrganization(
+      db,
+      "Interpreter Variables Test Org",
+      `interpreter-variables-${suffix}`
+    )
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -1365,14 +1332,11 @@ describe("InterpreterService variables", () => {
   })
   it("carries checkpointed variables into a resumed run via initialVariables", async () => {
     const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Interpreter Variables Resume Test Org",
-        slug: `interpreter-variables-resume-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
+    const organization = await seedOrganization(
+      db,
+      "Interpreter Variables Resume Test Org",
+      `interpreter-variables-resume-${suffix}`
+    )
     try {
       const graph: WorkflowGraph = {
         version: 1,
