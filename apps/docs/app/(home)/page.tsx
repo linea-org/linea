@@ -1,7 +1,15 @@
 import { LandingStartPanel } from "@/components/landing-start-panel"
 import { LandingResources } from "@/components/landing-resources"
 import { ArrowRight } from "lucide-react"
+import type { Metadata } from "next"
 import Link from "next/link"
+
+export const metadata: Metadata = {
+  title: { absolute: "Linea Docs · AI agent runtime documentation" },
+  description:
+    "Documentation for Linea, the AI agent runtime and control plane from Linea Labs. Get started, then read the architecture, API, and security guides.",
+  alternates: { canonical: "/" },
+}
 
 export default function HomePage() {
   return (
