@@ -144,6 +144,7 @@ export const githubCreateIssueOperation: ConnectorSideEffectOperation =
               assignees: input.assignees,
             }),
             signal: githubRequestSignal(signal),
+            redirect: "error",
           }
         )
       } catch {

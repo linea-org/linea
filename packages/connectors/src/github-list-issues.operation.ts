@@ -86,6 +86,7 @@ export const githubListIssuesOperation: ConnectorReadOperation =
       const response = await fetch(url, {
         headers: githubHeaders(credential.accessToken),
         signal: githubRequestSignal(signal),
+        redirect: "error",
       })
       if (!response.ok) throw new GithubProviderError(false)
       const providerIssues = z

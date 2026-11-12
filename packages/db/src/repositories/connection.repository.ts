@@ -620,6 +620,7 @@ export async function getConnectorReadAuthority(
         provider: string
         actionFamilies: string[]
         maxScopes: string[]
+        allowedRepositories?: Array<{ owner: string; repository: string }>
       }
     }
   | undefined
