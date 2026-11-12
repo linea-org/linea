@@ -1,14 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto'
-import {
-  HttpException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common'
+import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { db, repositories } from '@linea/db'
 import type {
   CreateEndUserSession,
   EndUserSessionCredential,
 } from '@linea/protocol/resources'
+import { PublicRuntimeRateLimitException } from '../public-runtime/public-runtime-rate-limit.filter'
 import { publicError } from '../auth/public-error'
 import { DpopProofError, verifyDpopProof } from './dpop-proof'
 
@@ -44,7 +41,7 @@ export class EndUserSessionService {
     clientIp: string,
   ): Promise<EndUserSessionCredential> {
     const now = new Date()
-    await this.enforceRateLimit('ip', clientIp, now)
+    await this.enforceRateLimit('ip', clientIp, now, db)
     const tokenHash = hash(input.exchangeToken)
     const result = await repositories.endUserSession.findIdentityExchange(
       db,
@@ -60,11 +57,6 @@ export class EndUserSessionService {
     ) {
       this.throwIdentityExchangeFailed()
     }
-    await this.enforceRateLimit(
-      'environment',
-      result.exchange.environmentId,
-      now,
-    )
     let verified: Awaited<ReturnType<typeof verifyDpopProof>>
     try {
       verified = await verifyDpopProof({
@@ -83,19 +75,31 @@ export class EndUserSessionService {
     const accessToken = `lnu_${opaqueValue()}`
     const dpopNonce = opaqueValue()
     const expiresAt = new Date(now.getTime() + SESSION_LIFETIME_MS)
-    const session = await repositories.endUserSession.createEndUserSession(db, {
-      exchangeId: result.exchange.id,
-      exchangeTokenHash: tokenHash,
-      workspaceId: result.exchange.workspaceId,
-      environmentId: result.exchange.environmentId,
-      externalSubjectId: result.exchange.externalSubjectId,
-      tokenHash: hash(accessToken),
-      proofJkt: verified.jkt,
-      nonceHash: hash(dpopNonce),
-      expiresAt,
-      now,
+    const session = await db.transaction(async (tx) => {
+      const created = await repositories.endUserSession.createEndUserSession(
+        tx,
+        {
+          exchangeId: result.exchange.id,
+          exchangeTokenHash: tokenHash,
+          workspaceId: result.exchange.workspaceId,
+          environmentId: result.exchange.environmentId,
+          externalSubjectId: result.exchange.externalSubjectId,
+          tokenHash: hash(accessToken),
+          proofJkt: verified.jkt,
+          nonceHash: hash(dpopNonce),
+          expiresAt,
+          now,
+        },
+      )
+      if (!created) this.throwIdentityExchangeFailed()
+      await this.enforceRateLimit(
+        'subject',
+        `${result.exchange.environmentId}:${result.exchange.externalSubjectId}`,
+        now,
+        tx,
+      )
+      return created
     })
-    if (!session) this.throwIdentityExchangeFailed()
     return {
       accessToken,
       tokenType: 'DPoP',
@@ -113,14 +117,17 @@ export class EndUserSessionService {
   }
 
   private async enforceRateLimit(
-    dimension: 'ip' | 'environment',
+    dimension: 'ip' | 'subject',
     value: string,
     now: Date,
+    client: Parameters<
+      typeof repositories.endUserAuthorization.consumeAuthorizationRateLimits
+    >[0],
   ): Promise<void> {
     const bucket = Math.floor(now.getTime() / RATE_LIMIT_WINDOW_MS)
     const allowed =
       await repositories.endUserAuthorization.consumeAuthorizationRateLimits(
-        db,
+        client,
         [
           {
             key: hash(`session:${dimension}:${value}:${bucket}`),
@@ -130,9 +137,9 @@ export class EndUserSessionService {
         new Date((bucket + 2) * RATE_LIMIT_WINDOW_MS),
       )
     if (!allowed) {
-      throw new HttpException(
-        publicError('rate_limited', 'Too many requests'),
-        429,
+      throw new PublicRuntimeRateLimitException(
+        SESSION_CREATION_LIMIT,
+        new Date((bucket + 1) * RATE_LIMIT_WINDOW_MS),
       )
     }
   }

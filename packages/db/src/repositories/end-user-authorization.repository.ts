@@ -369,26 +369,32 @@ export async function consumeAuthorizationRateLimits(
   limits: { key: string; limit: number }[],
   expiresAt: Date
 ): Promise<boolean> {
-  const applied = await db
-    .insert(endUserAuthorizationRateLimits)
-    .values(limits.map(({ key }) => ({ key, expiresAt })))
-    .onConflictDoUpdate({
-      target: endUserAuthorizationRateLimits.key,
-      set: {
-        requestCount: sql`${endUserAuthorizationRateLimits.requestCount} + 1`,
-      },
+  const refused = new Error("Authorization quota refused")
+  try {
+    return await db.transaction(async (tx) => {
+      // Stable lock order prevents deadlocks between overlapping quota sets.
+      for (const { key, limit } of [...limits].sort((a, b) =>
+        a.key.localeCompare(b.key)
+      )) {
+        const applied = await tx
+          .insert(endUserAuthorizationRateLimits)
+          .values({ key, expiresAt })
+          .onConflictDoUpdate({
+            target: endUserAuthorizationRateLimits.key,
+            set: {
+              requestCount: sql`${endUserAuthorizationRateLimits.requestCount} + 1`,
+            },
+            setWhere: lt(endUserAuthorizationRateLimits.requestCount, limit),
+          })
+          .returning({ key: endUserAuthorizationRateLimits.key })
+        if (applied.length === 0) throw refused
+      }
+      return true
     })
-    .returning({
-      key: endUserAuthorizationRateLimits.key,
-      requestCount: endUserAuthorizationRateLimits.requestCount,
-    })
-  const limitsByKey = new Map(limits.map(({ key, limit }) => [key, limit]))
-  if (applied.length !== limits.length) {
-    throw new Error("Authorization rate limits were not applied atomically")
+  } catch (error) {
+    if (error === refused) return false
+    throw error
   }
-  return applied.every(
-    ({ key, requestCount }) => requestCount <= (limitsByKey.get(key) ?? 0)
-  )
 }
 
 export async function deleteExpiredEndUserAuthorizationArtifacts(

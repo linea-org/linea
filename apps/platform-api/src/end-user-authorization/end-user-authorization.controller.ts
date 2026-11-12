@@ -1,4 +1,12 @@
-import { Body, Controller, Headers, Ip, Post, Res } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  UseFilters,
+  Headers,
+  Ip,
+  Post,
+  Res,
+} from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import {
   exchangeEndUserAuthorizationSchema,
@@ -7,11 +15,13 @@ import {
   type StartEndUserAuthorization,
 } from '@linea/protocol/resources'
 import type { Response } from 'express'
+import { PublicRuntimeRateLimitFilter } from '../public-runtime/public-runtime-rate-limit.filter'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import { EndUserAuthorizationService } from './end-user-authorization.service'
 
 @Controller('user-sessions')
 @OptionalAuth()
+@UseFilters(PublicRuntimeRateLimitFilter)
 export class EndUserAuthorizationController {
   constructor(private readonly authorization: EndUserAuthorizationService) {}
 

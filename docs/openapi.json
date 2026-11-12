@@ -6788,7 +6788,7 @@
         "summary": "Create a proof-bound End-User Session from an identity exchange.",
         "tags": ["end_user"],
         "x-linea-idempotency": "The identity exchange is single-use.",
-        "x-linea-rate-limit": "10 requests per client IP and 10 per Environment each minute.",
+        "x-linea-rate-limit": "10 requests per client IP and 10 sessions per External Subject within an Environment each minute.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
           "importPath": "@linea/sdk/user",
@@ -6982,7 +6982,7 @@
         "summary": "Start an OIDC authorization with PKCE for an End User.",
         "tags": ["end_user"],
         "x-linea-idempotency": "None.",
-        "x-linea-rate-limit": "30 requests per client IP and 300 per Environment each minute.",
+        "x-linea-rate-limit": "30 requests per client IP each minute.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
           "importPath": "@linea/sdk/user",
@@ -7331,7 +7331,7 @@
         "summary": "Exchange an authorization code and PKCE verifier for a one-time identity exchange.",
         "tags": ["end_user"],
         "x-linea-idempotency": "The authorization code is single-use.",
-        "x-linea-rate-limit": "60 requests per client IP and 600 per Environment each minute.",
+        "x-linea-rate-limit": "60 requests per client IP each minute.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
           "importPath": "@linea/sdk/user",

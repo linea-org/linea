@@ -1,6 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
 import {
-  HttpException,
   Inject,
   Injectable,
   ServiceUnavailableException,
@@ -13,6 +12,7 @@ import type {
   ExchangeEndUserAuthorization,
   StartEndUserAuthorization,
 } from '@linea/protocol/resources'
+import { PublicRuntimeRateLimitException } from '../public-runtime/public-runtime-rate-limit.filter'
 import { publicError } from '../auth/public-error'
 import {
   OIDC_PROVIDER,
@@ -27,8 +27,8 @@ const IDENTITY_EXCHANGE_LIFETIME_MS = 2 * 60 * 1000
 const AUTHORIZATION_CLAIM_LIFETIME_MS = 30 * 1000
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
 const RATE_LIMITS = {
-  authorization: { ip: 30, environment: 300 },
-  exchange: { ip: 60, environment: 600 },
+  authorization: 30,
+  exchange: 60,
 }
 
 function opaqueValue(): string {
@@ -93,7 +93,7 @@ export class EndUserAuthorizationService {
     browserOrigin: string | undefined,
     clientIp: string,
   ): Promise<EndUserAuthorizationResponse> {
-    await this.enforceRateLimit('authorization', input.environmentId, clientIp)
+    await this.enforceRateLimit('authorization', clientIp)
     const state = opaqueValue()
     const nonce = opaqueValue()
     const result =
@@ -130,7 +130,7 @@ export class EndUserAuthorizationService {
     browserOrigin: string | undefined,
     clientIp: string,
   ): Promise<EndUserIdentityExchange> {
-    await this.enforceRateLimit('exchange', input.environmentId, clientIp)
+    await this.enforceRateLimit('exchange', clientIp)
     const now = new Date()
     let consumed: Awaited<
       ReturnType<
@@ -211,7 +211,6 @@ export class EndUserAuthorizationService {
 
   private async enforceRateLimit(
     operation: keyof typeof RATE_LIMITS,
-    environmentId: string,
     clientIp: string,
   ): Promise<void> {
     const bucket = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS)
@@ -222,19 +221,15 @@ export class EndUserAuthorizationService {
         [
           {
             key: hash(`${operation}:ip:${clientIp}:${bucket}`),
-            limit: limits.ip,
-          },
-          {
-            key: hash(`${operation}:environment:${environmentId}:${bucket}`),
-            limit: limits.environment,
+            limit: limits,
           },
         ],
         new Date((bucket + 2) * RATE_LIMIT_WINDOW_MS),
       )
     if (!allowed) {
-      throw new HttpException(
-        publicError('rate_limited', 'Too many requests'),
-        429,
+      throw new PublicRuntimeRateLimitException(
+        limits,
+        new Date((bucket + 1) * RATE_LIMIT_WINDOW_MS),
       )
     }
   }

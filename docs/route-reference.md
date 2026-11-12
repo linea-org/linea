@@ -3530,7 +3530,7 @@ Start an OIDC authorization with PKCE for an End User.
 - Authentication: none
 - Method and path: `POST /v1/user-sessions/authorization`
 - Idempotency: None.
-- Rate limits: 30 requests per client IP and 300 per Environment each minute.
+- Rate limits: 30 requests per client IP each minute.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
 - SDK method: `LineaUserClient.startAuthorization` from `@linea/sdk/user`
@@ -3651,7 +3651,7 @@ Exchange an authorization code and PKCE verifier for a one-time identity exchang
 - Authentication: none
 - Method and path: `POST /v1/user-sessions/exchange`
 - Idempotency: The authorization code is single-use.
-- Rate limits: 60 requests per client IP and 600 per Environment each minute.
+- Rate limits: 60 requests per client IP each minute.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
 - SDK method: `LineaUserClient.completeAuthorization` from `@linea/sdk/user`
@@ -3812,7 +3812,7 @@ Create a proof-bound End-User Session from an identity exchange.
 - Authentication: none
 - Method and path: `POST /v1/user-sessions`
 - Idempotency: The identity exchange is single-use.
-- Rate limits: 10 requests per client IP and 10 per Environment each minute.
+- Rate limits: 10 requests per client IP and 10 sessions per External Subject within an Environment each minute.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
 - SDK method: `LineaUserClient.completeAuthorization` from `@linea/sdk/user`

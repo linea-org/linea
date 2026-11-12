@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  UseFilters,
   Delete,
   Headers,
   HttpCode,
@@ -16,6 +17,7 @@ import {
   type CreateEndUserSession,
 } from '@linea/protocol/resources'
 import type { Request, Response } from 'express'
+import { PublicRuntimeRateLimitFilter } from '../public-runtime/public-runtime-rate-limit.filter'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import { CurrentEndUser } from './current-end-user.decorator'
 import { DpopProofError, readDpopProof, requestTarget } from './dpop-proof'
@@ -27,6 +29,7 @@ import { EndUserSessionService } from './end-user-session.service'
 
 @Controller('user-sessions')
 @OptionalAuth()
+@UseFilters(PublicRuntimeRateLimitFilter)
 export class EndUserSessionsController {
   constructor(private readonly sessions: EndUserSessionService) {}
 
