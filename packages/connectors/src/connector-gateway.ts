@@ -20,6 +20,7 @@ import {
   registeredReadOperation,
   type ConnectorOperationRegistry,
   type ConnectorReadCredential,
+  type ConnectorReadOperation,
 } from "./connector-read-operation.js"
 import {
   registeredSideEffectOperation,
@@ -66,6 +67,26 @@ type SideEffectExecutionResult =
 type ActionIntentConsent = NonNullable<
   Awaited<ReturnType<typeof repositories.actionIntent.getActionIntentConsent>>
 >
+
+type ConnectorReadAuthority = NonNullable<
+  Awaited<ReturnType<typeof repositories.connection.getConnectorReadAuthority>>
+>
+
+function connectionAuthorityAllowsOperation(
+  authority: ConnectorReadAuthority | undefined,
+  actionFamily: string,
+  requiredScopes: readonly string[]
+): boolean {
+  return (
+    authority?.connection.status === "active" &&
+    authority.providerPolicy.actionFamilies.includes(actionFamily) &&
+    requiredScopes.every(
+      (scope) =>
+        authority.connection.scopes.includes(scope) &&
+        authority.providerPolicy.maxScopes.includes(scope)
+    )
+  )
+}
 
 type ActionIntentClaim = NonNullable<
   Awaited<
@@ -187,10 +208,8 @@ export class ConnectorGateway {
         "connection_reauthorization_required"
       )
     }
-    if (authority.connection.status !== "active") {
-      throw new ConnectorGatewayError()
-    }
     if (
+      authority.connection.status !== "active" ||
       authority.connection.provider !== operation.provider ||
       !authority.providerPolicy.actionFamilies.includes(operation.actionFamily)
     ) {
@@ -258,11 +277,10 @@ export class ConnectorGateway {
         authority.connection.ownership === "environment") &&
         current.connection.credentialVersion !==
           authority.connection.credentialVersion) ||
-      !current.providerPolicy.actionFamilies.includes(operation.actionFamily) ||
-      requiredScopes.some(
-        (scope) =>
-          !current.connection.scopes.includes(scope) ||
-          !current.providerPolicy.maxScopes.includes(scope)
+      !connectionAuthorityAllowsOperation(
+        current,
+        operation.actionFamily,
+        requiredScopes
       )
     )
       throw new ConnectorGatewayError()
@@ -274,57 +292,14 @@ export class ConnectorGateway {
         input.signal
       )
       output = operation.outputSchema.parse(result)
-      if (operation.provider === "github") {
-        const current = await repositories.connection.getConnectorReadAuthority(
-          this.db,
-          {
-            workspaceId: input.workspaceId,
-            executionId: input.executionId,
-            connectionId: input.connectionId,
-          }
-        )
-        if (
-          !current ||
-          current.connection.status !== "active" ||
-          current.connection.credentialVersion !==
-            authority.connection.credentialVersion ||
-          !current.providerPolicy.actionFamilies.includes(
-            operation.actionFamily
-          ) ||
-          requiredScopes.some(
-            (scope) =>
-              !current.connection.scopes.includes(scope) ||
-              !current.providerPolicy.maxScopes.includes(scope)
-          )
-        )
-          throw new ConnectorGatewayError()
-        this.requireRepositoryPolicy(
-          operation,
-          current.providerPolicy,
-          validatedInput
-        )
-        if (operation.id === "github.repositories.list_public") {
-          const result = z
-            .object({
-              repositories: z.array(
-                z.object({ owner: z.string(), name: z.string() }).passthrough()
-              ),
-            })
-            .passthrough()
-            .parse(output)
-          output = {
-            ...result,
-            repositories: result.repositories.filter((repository) =>
-              githubRepositoryAllowed(
-                current.providerPolicy.allowedRepositories,
-                { owner: repository.owner, repository: repository.name }
-              )
-            ),
-            // Provider pagination includes repositories outside the policy.
-            hasMore: false,
-          }
-        }
-      }
+      output = await this.filterGithubReadResult({
+        input,
+        operation,
+        authority,
+        requiredScopes,
+        validatedInput,
+        output,
+      })
     } catch (error) {
       await repositories.connection.recordConnectionReadUse(this.db, {
         workspaceId: authority.connection.workspaceId,
@@ -349,6 +324,73 @@ export class ConnectorGateway {
       outcome: "succeeded",
       occurredAt: new Date(),
     })
+    return output
+  }
+
+  private async filterGithubReadResult({
+    input,
+    operation,
+    authority,
+    requiredScopes,
+    validatedInput,
+    output,
+  }: {
+    input: Pick<
+      SideEffectExecutionInput,
+      "workspaceId" | "executionId" | "connectionId"
+    >
+    operation: ConnectorReadOperation
+    authority: ConnectorReadAuthority
+    requiredScopes: readonly string[]
+    validatedInput: unknown
+    output: unknown
+  }): Promise<unknown> {
+    if (operation.provider !== "github") return output
+    const current = await repositories.connection.getConnectorReadAuthority(
+      this.db,
+      {
+        workspaceId: input.workspaceId,
+        executionId: input.executionId,
+        connectionId: input.connectionId,
+      }
+    )
+    if (
+      current?.connection.status !== "active" ||
+      current.connection.credentialVersion !==
+        authority.connection.credentialVersion ||
+      !connectionAuthorityAllowsOperation(
+        current,
+        operation.actionFamily,
+        requiredScopes
+      )
+    )
+      throw new ConnectorGatewayError()
+    this.requireRepositoryPolicy(
+      operation,
+      current.providerPolicy,
+      validatedInput
+    )
+    if (operation.id === "github.repositories.list_public") {
+      const result = z
+        .object({
+          repositories: z.array(
+            z.object({ owner: z.string(), name: z.string() }).passthrough()
+          ),
+        })
+        .passthrough()
+        .parse(output)
+      output = {
+        ...result,
+        repositories: result.repositories.filter((repository) =>
+          githubRepositoryAllowed(current.providerPolicy.allowedRepositories, {
+            owner: repository.owner,
+            repository: repository.name,
+          })
+        ),
+        // Provider pagination includes repositories outside the policy.
+        hasMore: false,
+      }
+    }
     return output
   }
 
@@ -400,35 +442,12 @@ export class ConnectorGateway {
       )
         return this.resolveSideEffectConsent(operation, input, existing)
     }
-    if (operation.provider === "github") {
-      const authority = await repositories.connection.getConnectorReadAuthority(
-        this.db,
-        {
-          workspaceId: input.workspaceId,
-          executionId: input.executionId,
-          connectionId: input.connectionId,
-        }
-      )
-      if (!authority) throw new ConnectorGatewayError()
-      this.requireRepositoryPolicy(
-        operation,
-        authority.providerPolicy,
-        normalized.target
-      )
-    }
-    const existingAuthorizationKind = existing?.intent.connectionAccessGrantId
-      ? "github_app_installation"
-      : "delegated_user"
-    const authorizationKind = existing
-      ? existingAuthorizationKind
-      : (
-          await repositories.connection.getConnectorReadAuthority(this.db, {
-            workspaceId: input.workspaceId,
-            executionId: input.executionId,
-            connectionId: input.connectionId,
-          })
-        )?.connection.authorizationKind
-    if (!authorizationKind) throw new ConnectorGatewayError()
+    const authorizationKind = await this.resolveSideEffectAuthorizationKind({
+      operation,
+      input,
+      target: normalized.target,
+      existing,
+    })
     const created = await repositories.actionIntent.createActionIntent(
       this.db,
       {
@@ -484,6 +503,45 @@ export class ConnectorGateway {
     )
     if (!consent) throw new Error("Created Action Intent was not found")
     return this.resolveSideEffectConsent(operation, input, consent)
+  }
+
+  private async resolveSideEffectAuthorizationKind({
+    operation,
+    input,
+    target,
+    existing,
+  }: {
+    operation: ConnectorSideEffectOperation
+    input: SideEffectExecutionInput
+    target: unknown
+    existing: ActionIntentConsent | undefined
+  }) {
+    if (operation.provider === "github") {
+      const authority = await repositories.connection.getConnectorReadAuthority(
+        this.db,
+        {
+          workspaceId: input.workspaceId,
+          executionId: input.executionId,
+          connectionId: input.connectionId,
+        }
+      )
+      if (!authority) throw new ConnectorGatewayError()
+      this.requireRepositoryPolicy(operation, authority.providerPolicy, target)
+    }
+    const existingAuthorizationKind = existing?.intent.connectionAccessGrantId
+      ? "github_app_installation"
+      : "delegated_user"
+    const authorizationKind = existing
+      ? existingAuthorizationKind
+      : (
+          await repositories.connection.getConnectorReadAuthority(this.db, {
+            workspaceId: input.workspaceId,
+            executionId: input.executionId,
+            connectionId: input.connectionId,
+          })
+        )?.connection.authorizationKind
+    if (!authorizationKind) throw new ConnectorGatewayError()
+    return authorizationKind
   }
 
   private async resolveSideEffectConsent(
@@ -688,24 +746,20 @@ export class ConnectorGateway {
         }
       )
       if (
-        !current ||
-        current.connection.status !== "active" ||
+        current?.connection.status !== "active" ||
         current.connection.credentialVersion !==
           claimed.connection.credentialVersion ||
         !githubRepositoryAllowed(
           current.providerPolicy.allowedRepositories,
           claimed.intent.target
         ) ||
-        !current.providerPolicy.actionFamilies.includes(
-          operation.actionFamily
-        ) ||
-        requiredConnectionScopes(
-          operation,
-          current.connection.authorizationKind
-        ).some(
-          (scope) =>
-            !current.connection.scopes.includes(scope) ||
-            !current.providerPolicy.maxScopes.includes(scope)
+        !connectionAuthorityAllowsOperation(
+          current,
+          operation.actionFamily,
+          requiredConnectionScopes(
+            operation,
+            current.connection.authorizationKind
+          )
         )
       ) {
         return this.failSideEffect(
