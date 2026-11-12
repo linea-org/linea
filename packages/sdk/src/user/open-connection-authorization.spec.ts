@@ -57,6 +57,48 @@ it("requires the API origin, popup source, and authorization id before sending D
 })
 
 it.each(["cancel", "expire"])(
+  "rejects a pending launch on %s and ignores its late result",
+  async (kind) => {
+    vi.useFakeTimers()
+    const windowEvents = new EventTarget()
+    vi.stubGlobal("window", windowEvents)
+    const channel = new MessageChannel()
+    const popup = Object.assign(channel.port1, {
+      location: { href: "" },
+      closed: false,
+    })
+    let finish: ((value: typeof authorization) => void) | undefined
+    const launch = vi.fn(
+      () =>
+        new Promise<typeof authorization>((resolve) => {
+          finish = resolve
+        })
+    )
+    const opened = openConnectionAuthorization(authorization, popup, launch)
+    const rejected = expect(opened).rejects.toThrow("cancelled or expired")
+    windowEvents.dispatchEvent(
+      new MessageEvent("message", {
+        origin: "https://api.example",
+        source: popup,
+        data: message,
+      })
+    )
+    expect(launch).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(1)
+    if (kind === "cancel") popup.closed = true
+    await vi.advanceTimersByTimeAsync(kind === "cancel" ? 250 : 300_000)
+    await rejected
+    expect(vi.getTimerCount()).toBe(0)
+    if (!finish) throw new Error("Launch request did not start")
+    finish({ ...authorization, authorizationUrl: "https://github.com/late" })
+    await vi.runAllTimersAsync()
+    expect(popup.location.href).toBe(authorization.authorizationUrl)
+    channel.port1.close()
+    channel.port2.close()
+  }
+)
+
+it.each(["cancel", "expire"])(
   "cleans up a browser handshake on %s",
   async (kind) => {
     vi.useFakeTimers()
