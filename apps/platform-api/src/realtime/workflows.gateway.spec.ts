@@ -140,6 +140,48 @@ describe('workflow realtime authorization boundary', () => {
       expect(presence).not.toHaveBeenCalled()
     },
   )
+  it('drops an older broadcast overtaken while a viewer disconnects', async () => {
+    const slowClient = await open()
+    sessions.set('session-2', {
+      userId: 'user-2',
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+    members.add('user-2')
+    const observer = await open({
+      ...payload,
+      userId: 'user-2',
+      sessionId: 'session-2',
+    })
+    let release: ((expiresAt: Date) => void) | undefined
+    lookup.mockImplementation((_db, input) =>
+      input.userId === payload.userId
+        ? new Promise<Date>((resolve) => {
+            release = resolve
+          })
+        : Promise.resolve(new Date(Date.now() + 60_000)),
+    )
+    const received = jest.fn()
+    observer.on('draft:updated', received)
+    const gateway = app.get(WorkflowsGateway)
+    const older = gateway.broadcastDraftUpdate(payload.workflowId, draft)
+    const left = event(observer, 'presence')
+    slowClient.disconnect()
+    await left
+    const newer = { ...draft, graph: { revision: 'newer' } }
+    const delivered = event(observer, 'draft:updated')
+    await gateway.broadcastDraftUpdate(payload.workflowId, newer)
+    expect(await delivered).toEqual(newer)
+    if (!release) throw new Error('Authorization check did not start')
+    release(new Date(Date.now() + 60_000))
+    await older
+    const barrier = { ...draft, graph: { revision: 'barrier' } }
+    const flushed = event(observer, 'draft:updated')
+    await gateway.broadcastDraftUpdate(payload.workflowId, barrier)
+    expect(await flushed).toEqual(barrier)
+    expect(received).toHaveBeenCalledTimes(2)
+    expect(received).toHaveBeenNthCalledWith(1, newer)
+    expect(received).toHaveBeenNthCalledWith(2, barrier)
+  })
   it('revalidates presence delivery without a draft save', async () => {
     const removed = await open()
     const received = jest.fn()

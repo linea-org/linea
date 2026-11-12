@@ -48,6 +48,7 @@ export class WorkflowsGateway
 {
   private readonly logger = new Logger(WorkflowsGateway.name)
   private readonly connections = new Map<string, Connection>()
+  private readonly pendingDrafts = new Map<string, symbol>()
 
   private timer?: ReturnType<typeof setTimeout>
   private destroyed = false
@@ -86,6 +87,7 @@ export class WorkflowsGateway
   onModuleDestroy() {
     this.destroyed = true
     clearTimeout(this.timer)
+    this.pendingDrafts.clear()
     for (const connection of this.connections.values()) {
       this.remove(connection)
       connection.client.disconnect(true)
@@ -100,10 +102,18 @@ export class WorkflowsGateway
       savedBy: { userId: string; name: string }
     },
   ) {
-    const connections = await this.authorizedConnections(workflowId)
-    for (const connection of connections) {
-      if (this.isCurrent(connection))
-        connection.client.emit('draft:updated', payload)
+    const delivery = Symbol()
+    this.pendingDrafts.set(workflowId, delivery)
+    try {
+      const connections = await this.authorizedConnections(workflowId)
+      if (this.pendingDrafts.get(workflowId) !== delivery) return
+      for (const connection of connections) {
+        if (this.isCurrent(connection))
+          connection.client.emit('draft:updated', payload)
+      }
+    } finally {
+      if (this.pendingDrafts.get(workflowId) === delivery)
+        this.pendingDrafts.delete(workflowId)
     }
   }
 
