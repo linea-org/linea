@@ -8,7 +8,8 @@ import {
   listChatMessages,
   listConversations,
 } from "./chat-message.repository.js"
-import { createExecution, failQueuedExecution } from "./execution.repository.js"
+import { failQueuedExecution } from "./execution.repository.js"
+import { createExecution } from "./test-utils.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import { createWorkflow } from "./workflow.repository.js"
 

@@ -5,13 +5,8 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query"
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
-import {
-  FlaskConicalIcon,
-  PencilIcon,
-  PencilRulerIcon,
-  PlayIcon,
-} from "lucide-react"
+import { Link, createFileRoute } from "@tanstack/react-router"
+import { FlaskConicalIcon, PencilIcon, PencilRulerIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
 import { z } from "zod"
@@ -21,6 +16,7 @@ import {
 } from "@/components/workflows/workflow-views"
 
 import { RegressionCaseList, RegressionRunList } from "@/components/regressions"
+import { RunWorkflowDialog } from "@/components/workflows/run-workflow-dialog"
 import { ExecutionList } from "@/components/executions"
 import {
   SignalFlagTypeBreakdown,
@@ -37,11 +33,7 @@ import {
   triggerRegressionRunFn,
   workflowRegressionRunsQueryOptions,
 } from "@/lib/regression-runs-api"
-import {
-  executionsQueryOptions,
-  listExecutionsFn,
-  triggerExecutionFn,
-} from "@/lib/executions-api"
+import { executionsQueryOptions, listExecutionsFn } from "@/lib/executions-api"
 import {
   signalsTrendQueryOptions,
   workflowSignalsQueryOptions,
@@ -76,7 +68,6 @@ function WorkflowDetailPage() {
   const { slug, workflowId } = Route.useParams()
   const { view = "executions" } = Route.useSearch()
   const initialData = Route.useLoaderData()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = useState(false)
   const { data: workflow } = useSuspenseQuery({
@@ -125,18 +116,6 @@ function WorkflowDetailPage() {
     isPending: regressionCasesPending,
     isError: regressionCasesErrored,
   } = useQuery(workflowRegressionCasesQueryOptions(slug, workflowId))
-  const run = useMutation({
-    mutationFn: () => triggerExecutionFn({ data: { workflowId } }),
-    onSuccess: (execution) => {
-      void queryClient.invalidateQueries({
-        queryKey: executionsQueryOptions(slug, workflowId).queryKey,
-      })
-      void navigate({
-        to: "/w/$slug/workflows/$workflowId/executions/$executionId",
-        params: { slug, workflowId, executionId: execution.id },
-      })
-    },
-  })
   const runRegression = useMutation({
     mutationFn: () => triggerRegressionRunFn({ data: { workflowId } }),
     onSuccess: () => setRegressionRunTriggeredAt(new Date().toISOString()),
@@ -166,21 +145,11 @@ function WorkflowDetailPage() {
               <PencilIcon />
               Edit
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="xs"
-              onClick={() => run.mutate()}
-              disabled={run.isPending || !workflow.publishedVersionId}
-              title={
-                workflow.publishedVersionId
-                  ? undefined
-                  : "Publish a version before running"
-              }
-            >
-              <PlayIcon />
-              {run.isPending ? "Running…" : "Run"}
-            </Button>
+            <RunWorkflowDialog
+              workspaceSlug={slug}
+              workflowId={workflowId}
+              published={Boolean(workflow.publishedVersionId)}
+            />
             <Button
               size="xs"
               nativeButton={false}
@@ -196,9 +165,6 @@ function WorkflowDetailPage() {
             </Button>
           </div>
         </div>
-        {run.isError && (
-          <p className="mt-3 text-xs text-destructive">{run.error.message}</p>
-        )}
         {view === "executions" && (
           <section aria-label={workflowViews.executions}>
             {executionsErrored ? (

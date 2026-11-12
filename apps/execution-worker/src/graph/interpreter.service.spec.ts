@@ -1,4 +1,4 @@
-import { getTestApplicationId } from "@linea/db/testing"
+import { seedExecution, seedRunning } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -206,30 +206,7 @@ describe("InterpreterService.run idempotency key", () => {
         nodes: [{ id: "n1", type: "http", config: {} }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Interpreter Idempotency Test Workflow",
-        slug: `interpreter-idempotency-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "interpreter-idempotency-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const executeSpy = jest.fn(() =>
         Promise.resolve({ tokensInput: 0, tokensOutput: 0 })
       )
@@ -289,30 +266,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "http", config: {} }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Interpreter Resume Test Workflow",
-        slug: `interpreter-resume-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "interpreter-resume-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       const interpreter = new InterpreterService(
         checkpoints,
@@ -379,30 +333,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Interpreter Resume Unpriced Test Workflow",
-        slug: `interpreter-resume-unpriced-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "interpreter-resume-unpriced-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       const interpreter = new InterpreterService(
         checkpoints,
@@ -480,30 +411,7 @@ describe("InterpreterService resume", () => {
         ],
         edges: [{ from: "n1", to: "n2" }],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Interpreter Legacy Gap Test Workflow",
-        slug: `interpreter-legacy-gap-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "interpreter-legacy-gap-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       // Manually insert n1's step and checkpoint exactly as they'd look pre-feature: no attributes column value at all.
       await db.insert(schema.executionSteps).values({
         executionId: execution.id,
@@ -589,30 +497,7 @@ describe("InterpreterService resume", () => {
         ],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Interpreter Cost Test Workflow",
-        slug: `interpreter-cost-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "interpreter-cost-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       const interpreter = new InterpreterService(
         checkpoints,
@@ -669,30 +554,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Interpreter Unpriced Cost Test Workflow",
-        slug: `interpreter-unpriced-cost-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "interpreter-unpriced-cost-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       const interpreter = new InterpreterService(
         checkpoints,
@@ -749,24 +611,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "http", config: {} }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Interpreter Fencing Test Workflow",
-        slug: `interpreter-fencing-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "interpreter-fencing-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
+      const { execution } = await seedExecution(db, organization.id, graph)
       // worker-2 reclaims before worker-1 gets to checkpoint.
       await repositories.execution.startExecution(
         db,
@@ -834,24 +679,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "http", config: {} }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Interpreter No-Sideeffect Test Workflow",
-        slug: `interpreter-no-sideeffect-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "interpreter-no-sideeffect-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
+      const { execution } = await seedExecution(db, organization.id, graph)
       // worker-2 reclaims before worker-1 gets around to running n1.
       await repositories.execution.startExecution(
         db,
@@ -919,24 +747,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "http", config: {} }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Interpreter Expired Lease Test Workflow",
-        slug: `interpreter-expired-lease-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "interpreter-expired-lease-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
+      const { execution } = await seedExecution(db, organization.id, graph)
       // Nobody has reclaimed this — worker-1 is still the leasedBy of
       // record, but its own heartbeat stalled and the lease already lapsed.
       await repositories.execution.startExecution(
@@ -993,24 +804,7 @@ describe("InterpreterService retry policy", () => {
         createdAt: new Date(),
       })
       .returning()
-    const workflow = await repositories.workflow.createWorkflow(db, {
-      applicationId: await getTestApplicationId(db, organization.id),
-      workspaceId: organization.id,
-      name: "Interpreter Retry Test Workflow",
-      slug: `interpreter-retry-workflow-${suffix}`,
-    })
-    const version = await repositories.workflow.createWorkflowVersion(db, {
-      workflowId: workflow.id,
-      graph,
-      contentHash: `interpreter-retry-hash-${suffix}`,
-    })
-    const execution = await repositories.execution.createExecution(db, {
-      workspaceId: organization.id,
-      workflowId: workflow.id,
-      workflowVersionId: version.id,
-      trigger: "manual",
-      triggerPayload: {},
-    })
+    const { execution } = await seedExecution(db, organization.id, graph)
     return { organization, execution }
   }
   it("retries a failing node and succeeds once the handler stops throwing", async () => {
@@ -1531,30 +1325,7 @@ describe("InterpreterService variables", () => {
         ],
         edges: [{ from: "set-1", to: "get-1" }],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Interpreter Variables Test Workflow",
-        slug: `interpreter-variables-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "interpreter-variables-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       const interpreter = new InterpreterService(
         checkpoints,
@@ -1621,30 +1392,7 @@ describe("InterpreterService variables", () => {
         ],
         edges: [{ from: "set-1", to: "get-1" }],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Interpreter Variables Resume Test Workflow",
-        slug: `interpreter-variables-resume-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "interpreter-variables-resume-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       // Simulates a worker that already completed set-1 and checkpointed its
       // resulting variables state, then crashed before reaching get-1.

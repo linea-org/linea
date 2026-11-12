@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
@@ -49,6 +50,16 @@ export class ExecutionsService {
       },
     )
     switch (result.outcome) {
+      case 'production_start_forbidden':
+        throw new ForbiddenException(
+          'Production management starts require a signed-in workspace admin; backend callers must use an Environment Key',
+        )
+      case 'workflow_start_not_allowed':
+        throw new ForbiddenException(
+          'Enable backend starts on the Environment Workflow Binding before running this Workflow',
+        )
+      case 'validation_failed':
+        throw new BadRequestException(result.message)
       case 'not_found':
         throw new NotFoundException('Workflow not found')
       case 'archived':

@@ -23,7 +23,8 @@ import {
   findExternalApprovalRequests,
 } from "./approval-request.repository.js"
 import { endUserSessions } from "../schema/index.js"
-import { createExecution, startExecution } from "./execution.repository.js"
+import { startExecution } from "./execution.repository.js"
+import { createExecution } from "./test-utils.js"
 import { getConnectorReadAuthority } from "./connection.repository.js"
 import { connections } from "../schema/index.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"

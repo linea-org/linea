@@ -1,3 +1,4 @@
+import { createTestExecution } from '@linea/db/testing'
 import { getTestApplicationId } from '@linea/db/testing'
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
@@ -44,14 +45,14 @@ describe('SignalsService', () => {
         graph: { nodes: [], edges: [] },
         contentHash: `signals-test-hash-${suffix}`,
       })
-      const executionA = await repositories.execution.createExecution(db, {
+      const executionA = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
         trigger: 'manual',
         triggerPayload: {},
       })
-      const executionB = await repositories.execution.createExecution(db, {
+      const executionB = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,

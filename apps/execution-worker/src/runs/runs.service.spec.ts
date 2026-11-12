@@ -1,4 +1,8 @@
-import { getTestApplicationId } from "@linea/db/testing"
+import {
+  seedExecution,
+  createTestExecution,
+  getTestApplicationId,
+} from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -47,24 +51,11 @@ describe("RunsService failure accounting", () => {
         nodes: [{ id: "n1", type: "transform", config: { expression: "" } }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Fail Test Workflow",
-        slug: `runs-fail-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "runs-fail-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
+      const { workflow, execution } = await seedExecution(
+        db,
+        organization.id,
+        graph
+      )
       // A prior abandoned attempt already checkpointed real token usage.
       const checkpoints = new CheckpointsService()
       await repositories.execution.startExecution(
@@ -154,24 +145,12 @@ describe("RunsService failure accounting", () => {
         nodes: [{ id: "n1", type: "transform", config: { expression: "" } }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Notify Test Workflow",
-        slug: `runs-notify-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
+      const { workflow, execution } = await seedExecution(
+        db,
+        organization.id,
         graph,
-        contentHash: "runs-notify-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
+        { name: "Runs Service Notify Test Workflow" }
+      )
       const poisonInterpreter = {
         run: () =>
           Promise.reject(new Error("simulated failure for notification test")),
@@ -228,24 +207,11 @@ describe("RunsService failure accounting", () => {
         nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Mid-Run Fail Test Workflow",
-        slug: `runs-mid-run-fail-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "runs-mid-run-fail-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
+      const { workflow, execution } = await seedExecution(
+        db,
+        organization.id,
+        graph
+      )
       const checkpoints = new CheckpointsService()
       // No prior checkpoints exist yet — the pre-run known* state starts at false/0, same as any fresh execution.
       // interpreter.run() checkpoints an unpriced AI step for real (as it would mid-run), then throws before
@@ -330,7 +296,7 @@ describe("RunsService failure accounting", () => {
         graph: {},
         contentHash: "runs-early-fail-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -428,7 +394,7 @@ describe("RunsService chat-preview message persistence", () => {
         contentHash: "runs-chat-hash",
       })
       const conversationId = randomUUID()
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -509,7 +475,7 @@ describe("RunsService chat-preview message persistence", () => {
         })
       const conversationId = randomUUID()
       // Simulates an ordinary execution whose triggerPayload happens to carry a mismatched pair.
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -588,7 +554,7 @@ describe("RunsService chat-preview message persistence", () => {
           role: "user",
           content: "hello",
         })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -671,7 +637,7 @@ describe("RunsService chat-preview message persistence", () => {
           role: "user",
           content: "hello",
         })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -746,7 +712,7 @@ describe("RunsService chat-preview message persistence", () => {
         graph,
         contentHash: "runs-non-chat-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -806,25 +772,12 @@ describe("RunsService fencing identity", () => {
         nodes: [{ id: "n1", type: "transform", config: { expression: "" } }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Identity Test Workflow",
-        slug: `runs-identity-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "runs-identity-hash",
-      })
-      const executionA = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
-      const executionB = await repositories.execution.createExecution(db, {
+      const {
+        workflow,
+        version,
+        execution: executionA,
+      } = await seedExecution(db, organization.id, graph)
+      const executionB = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -896,24 +849,11 @@ describe("RunsService fencing identity", () => {
         nodes: [{ id: "approval-1", type: "approval", config: {} }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Approval Race Test Workflow",
-        slug: `runs-approval-race-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "runs-approval-race-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
+      const { workflow, execution } = await seedExecution(
+        db,
+        organization.id,
+        graph
+      )
       // Simulates a response racing ahead of the pause: the approval is already resolved before RunsService's own pausedAt handling runs.
       const approval = await repositories.approvalRequest.createApprovalRequest(
         db,
@@ -1001,24 +941,11 @@ describe("RunsService fencing identity", () => {
         nodes: [{ id: "approval-1", type: "approval", config: {} }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Approval Lease Loss Test Workflow",
-        slug: `runs-approval-lease-loss-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "runs-approval-lease-loss-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
+      const { workflow, execution } = await seedExecution(
+        db,
+        organization.id,
+        graph
+      )
       await repositories.approvalRequest.createApprovalRequest(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
@@ -1085,24 +1012,7 @@ describe("RunsService fencing identity", () => {
         nodes: [{ id: "wait-1", type: "wait", config: {} }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Wait Race Test Workflow",
-        slug: `runs-wait-race-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "runs-wait-race-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
+      const { execution } = await seedExecution(db, organization.id, graph)
       // Simulates the poller firing the timer ahead of the pause: the timer is already fired before RunsService's own pausedAt handling runs.
       await repositories.waitTimer.createWaitTimer(db, {
         workspaceId: organization.id,
@@ -1175,24 +1085,7 @@ describe("RunsService fencing identity", () => {
         nodes: [{ id: "wait-1", type: "wait", config: {} }],
         edges: [],
       }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Wait Lease Loss Test Workflow",
-        slug: `runs-wait-lease-loss-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "runs-wait-lease-loss-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: {},
-      })
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.waitTimer.createWaitTimer(db, {
         workspaceId: organization.id,
         executionId: execution.id,

@@ -1,4 +1,4 @@
-import { getTestApplicationId } from "@linea/db/testing"
+import { seedExecution, seedRunning } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -32,29 +32,7 @@ describe("CheckpointsService.getResumeState", () => {
       })
       .returning()
     try {
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Checkpoint Order Test Workflow",
-        slug: `checkpoint-order-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "checkpoint-order-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-      })
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       // Completes "10" then "2" then "1" — the reverse of numeric key order.
       let completed = new Map<string, unknown>()
@@ -96,23 +74,7 @@ describe("CheckpointsService.getResumeVariables", () => {
       })
       .returning()
     try {
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Resume Variables Fresh Test Workflow",
-        slug: `resume-variables-fresh-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "resume-variables-fresh-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-      })
+      const { execution } = await seedExecution(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       const variables = await checkpoints.getResumeVariables(execution.id)
       expect(variables).toEqual({})
@@ -133,29 +95,7 @@ describe("CheckpointsService.getResumeVariables", () => {
       })
       .returning()
     try {
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Resume Variables Test Workflow",
-        slug: `resume-variables-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "resume-variables-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-      })
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       await checkpoints.recordStep({
         executionId: execution.id,
@@ -208,29 +148,7 @@ describe("CheckpointsService.recordStep attributes", () => {
       })
       .returning()
     try {
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Checkpoint Attributes Test Workflow",
-        slug: `checkpoint-attributes-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "checkpoint-attributes-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-      })
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       await checkpoints.recordStep({
         executionId: execution.id,
@@ -272,29 +190,7 @@ describe("CheckpointsService.recordStep attributes", () => {
       })
       .returning()
     try {
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Checkpoint No Attributes Test Workflow",
-        slug: `checkpoint-no-attributes-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "checkpoint-no-attributes-hash",
-      })
-      const execution = await repositories.execution.createExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-      })
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       await checkpoints.recordStep({
         executionId: execution.id,

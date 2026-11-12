@@ -1,7 +1,11 @@
+import { upsertEndSubject } from "./end-subject.repository.js"
+import { createWorkflowExecutionMessage } from "./outbox-message.repository.js"
 import { randomUUID } from "node:crypto"
 import { db } from "../clients/index.js"
 import { and, eq } from "drizzle-orm"
 import {
+  executions,
+  type Execution,
   applications,
   environments,
   organizations,
@@ -15,6 +19,7 @@ import {
   publishWorkflowVersion,
 } from "./workflow.repository.js"
 import { getWorkflowEnvironment } from "./environment.repository.js"
+import { startExecution } from "./execution.repository.js"
 import { putEnvironmentWorkflowBinding } from "./environment-workflow-binding.repository.js"
 import type { DbClient, Transaction } from "./types.js"
 
@@ -188,4 +193,100 @@ export async function configureTestEnvironment(
     })
     .returning()
   return environment
+}
+
+export type CreateExecutionInput = {
+  workspaceId: string
+  workflowId: string
+  workflowVersionId: string
+  environmentId?: string
+  workflowContractRevisionId?: string
+  externalSubjectRecordId?: string
+  trigger: Execution["trigger"]
+  triggerPayload?: Record<string, unknown>
+  origin?: Execution["origin"]
+  triggeredByUserId?: string
+  externalSubjectId?: string
+}
+
+export function createExecution(
+  db: DbClient,
+  input: CreateExecutionInput
+): Promise<Execution> {
+  return db.transaction(async (tx) => {
+    const externalSubjectId = input.externalSubjectId || undefined
+    if (externalSubjectId) {
+      await upsertEndSubject(tx, {
+        workspaceId: input.workspaceId,
+        externalId: externalSubjectId,
+      })
+    }
+    const environment = input.environmentId
+      ? undefined
+      : await getWorkflowEnvironment(
+          tx,
+          input.workspaceId,
+          input.workflowId,
+          "dev"
+        )
+    const environmentId = input.environmentId ?? environment?.id
+    if (!environmentId)
+      throw new Error("Workflow Development Environment not found")
+    const [execution] = await tx
+      .insert(executions)
+      .values({ ...input, environmentId, externalSubjectId })
+      .returning()
+    await createWorkflowExecutionMessage(tx, {
+      workspaceId: input.workspaceId,
+      executionId: execution.id,
+    })
+    return execution
+  })
+}
+
+export async function seedExecution(
+  client: DbClient,
+  workspaceId: string,
+  graph: Parameters<typeof createWorkflowVersion>[1]["graph"],
+  options: {
+    name?: string
+    triggerPayload?: NonNullable<CreateExecutionInput["triggerPayload"]>
+  } = {}
+) {
+  const suffix = randomUUID()
+  const workflow = await createWorkflow(client, {
+    applicationId: await getTestApplicationId(client, workspaceId),
+    workspaceId,
+    name: options.name ?? "Test Workflow",
+    slug: `test-workflow-${suffix}`,
+  })
+  const version = await createWorkflowVersion(client, {
+    workflowId: workflow.id,
+    graph,
+    contentHash: `test-hash-${suffix}`,
+  })
+  const execution = await createExecution(client, {
+    workspaceId,
+    workflowId: workflow.id,
+    workflowVersionId: version.id,
+    trigger: "manual",
+    triggerPayload: options.triggerPayload ?? {},
+  })
+  return { workflow, version, execution }
+}
+
+/** Seeds an execution and leases it to `worker-1` for a minute. */
+export async function seedRunning(
+  client: DbClient,
+  workspaceId: string,
+  graph: Parameters<typeof createWorkflowVersion>[1]["graph"]
+) {
+  const seeded = await seedExecution(client, workspaceId, graph)
+  await startExecution(
+    client,
+    seeded.execution.id,
+    "worker-1",
+    new Date(Date.now() + 60_000)
+  )
+  return seeded
 }

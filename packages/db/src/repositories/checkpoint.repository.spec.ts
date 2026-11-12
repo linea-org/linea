@@ -2,10 +2,10 @@ import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { executionSteps } from "../schema/index.js"
 import {
-  createExecution,
   getExecutionWithSteps,
   startExecution,
 } from "./execution.repository.js"
+import { createExecution } from "./test-utils.js"
 import {
   getLatestCheckpoint,
   getStepsForExecution,

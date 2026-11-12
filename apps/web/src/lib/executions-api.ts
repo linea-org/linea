@@ -41,12 +41,15 @@ export const listExecutionsFn = createServerFn({ method: "GET" })
   })
 
 export const triggerExecutionFn = createServerFn({ method: "POST" })
-  .validator((data: { workflowId: string }) => data)
+  .validator(
+    (data: { workflowId: string; triggerPayload: Record<string, unknown> }) =>
+      data
+  )
   .handler(async ({ data }): Promise<ExecutionSummary> => {
     const res = await apiFetch(`/workflows/${data.workflowId}/executions`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ triggerPayload: data.triggerPayload }),
     })
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as {

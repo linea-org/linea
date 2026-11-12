@@ -1,3 +1,4 @@
+import { createTestExecution } from '@linea/db/testing'
 import 'dotenv/config'
 import {
   createHash,
@@ -330,7 +331,7 @@ describe('shared Environment Connection API and Gateway', () => {
       graph: { nodes: [], edges: [] },
       contentHash: randomUUID(),
     })
-    const created = await repositories.execution.createExecution(db, {
+    const created = await createTestExecution(db, {
       workspaceId,
       environmentId: envId,
       workflowId: workflow.id,

@@ -11,11 +11,11 @@ import { createAgentContractRevision } from "./agent-contract.repository.js"
 import { putEnvironmentAgentBinding } from "./environment-agent-binding.repository.js"
 import {
   completeExecution,
-  createExecution,
   getExecutionById,
   listWorkspaceExecutions,
   startExecution,
 } from "./execution.repository.js"
+import { createExecution } from "./test-utils.js"
 import {
   claimPauseForNestedAgent,
   startNestedAgentExecution,

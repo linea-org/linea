@@ -2,7 +2,7 @@ import { getTestApplicationId } from "./test-utils.js"
 import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import { members, users } from "../schema/index.js"
-import { createExecution } from "./execution.repository.js"
+import { createExecution } from "./test-utils.js"
 import { createFlagIfNew } from "./flag.repository.js"
 import { listNotifications } from "./notification.repository.js"
 import {

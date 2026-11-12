@@ -1,3 +1,4 @@
+import { createTestExecution } from "@linea/db/testing"
 import { getTestApplicationId } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
@@ -37,7 +38,7 @@ async function setup() {
     graph: { nodes: [], edges: [] },
     contentHash: "approval-node-hash",
   })
-  const execution = await repositories.execution.createExecution(db, {
+  const execution = await createTestExecution(db, {
     workspaceId: organization.id,
     workflowId: workflow.id,
     workflowVersionId: version.id,

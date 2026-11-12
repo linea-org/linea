@@ -1,3 +1,4 @@
+import { createTestExecution } from "@linea/db/testing"
 import { fixtureIssuer } from "@linea/db/testing"
 import { configureTestEnvironment } from "@linea/db/testing"
 import { getTestApplicationId } from "@linea/db/testing"
@@ -343,7 +344,7 @@ async function createFixture(
     graph: graph(),
     contentHash: suffix,
   })
-  const execution = await repositories.execution.createExecution(db, {
+  const execution = await createTestExecution(db, {
     workspaceId: workspace.id,
     environmentId: environment.id,
     workflowId: workflow.id,
