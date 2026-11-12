@@ -2,9 +2,24 @@ import { describe, expect, it } from "vitest"
 import {
   connectorAccessPolicySchema,
   githubRepositoryAllowed,
+  githubRepositoryTargetSchema,
 } from "../src/resources/connector-access-policy"
 
 describe("GitHub repository policy", () => {
+  it.each([".", ".."])("rejects URL dot segments: %s", (segment) => {
+    expect(
+      githubRepositoryTargetSchema.safeParse({
+        owner: segment,
+        repository: "widgets",
+      }).success
+    ).toBe(false)
+    expect(
+      githubRepositoryTargetSchema.safeParse({
+        owner: "acme",
+        repository: segment,
+      }).success
+    ).toBe(false)
+  })
   it("normalizes Operator repository names", () => {
     const policy = connectorAccessPolicySchema.parse({
       providers: [

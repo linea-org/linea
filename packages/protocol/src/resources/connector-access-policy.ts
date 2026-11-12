@@ -6,12 +6,14 @@ export const githubRepositoryTargetSchema = z.object({
     .min(1)
     .max(100)
     .regex(/^[A-Za-z0-9_.-]+$/)
+    .refine((value) => value !== "." && value !== "..")
     .transform((value) => value.toLowerCase()),
   repository: z
     .string()
     .min(1)
     .max(100)
     .regex(/^[A-Za-z0-9_.-]+$/)
+    .refine((value) => value !== "." && value !== "..")
     .transform((value) => value.toLowerCase()),
 })
 
