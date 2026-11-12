@@ -17,6 +17,7 @@ overrides:
   js-yaml@3: 3.15.2
   js-yaml@4: 4.3.2
   launch-editor: 2.14.1
+  lucide-react: ^1.47.0
   multer: 2.4.0
   nanoid: 3.3.18
   postcss: 8.5.23
@@ -181,7 +182,7 @@ importers:
         specifier: npm:@fumadocs/base-ui@16.15.11
         version: '@fumadocs/base-ui@16.15.11(@date-fns/tz@1.5.0)(@types/mdx@2.0.14)(@types/react@19.2.15)(date-fns@4.4.0)(fumadocs-core@16.15.11(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.46(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(lucide-react@1.47.0(react@19.2.6))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.6.6))(next@16.3.4(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tailwindcss@4.3.3)'
       lucide-react:
-        specifier: ^1.43.0
+        specifier: ^1.47.0
         version: 1.47.0(react@19.2.6)
       mermaid:
         specifier: ^11.12.0
@@ -649,8 +650,8 @@ importers:
         specifier: ^1.6.25
         version: 1.6.25(@tanstack/react-start@1.169.5(esbuild@0.28.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(rolldown@1.0.3)(rollup@4.62.4)(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(next@16.3.4(@babel/core@7.29.7)(@playwright/test@1.64.1)(@types/node@22.19.19)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(pg@8.22.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(solid-js@1.9.13)(vitest@4.1.11(@types/node@22.19.19)(jsdom@26.1.0)(msw@2.15.0(@types/node@22.19.19)(typescript@6.0.3))(vite@8.0.16(@types/node@22.19.19)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)))
       lucide-react:
-        specifier: ^1.28.0
-        version: 1.28.0(react@19.2.6)
+        specifier: ^1.47.0
+        version: 1.47.0(react@19.2.6)
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -1174,8 +1175,8 @@ importers:
         specifier: ^1.4.2
         version: 1.4.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       lucide-react:
-        specifier: ^1.28.0
-        version: 1.28.0(react@19.2.6)
+        specifier: ^1.47.0
+        version: 1.47.0(react@19.2.6)
       react:
         specifier: ^19.2.6
         version: 19.2.6
@@ -7956,7 +7957,7 @@ packages:
       '@types/react': '*'
       algoliasearch: 5.x.x
       flexsearch: '*'
-      lucide-react: '*'
+      lucide-react: ^1.47.0
       next: 16.x.x
       react: ^19.2.0
       react-dom: ^19.2.0
@@ -9252,21 +9253,6 @@ packages:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-native: '*'
       react-native-svg: ^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0
-
-  lucide-react@0.525.0:
-    resolution: {integrity: sha512-Tm1txJ2OkymCGkvwoHt33Y2JpN5xucVq1slHcgE6Lk0WjDfjgKWor5CdVER8U6DvcfMwh4M8XxmpTiyzfmfDYQ==}
-    peerDependencies:
-      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
-  lucide-react@0.542.0:
-    resolution: {integrity: sha512-w3hD8/SQB7+lzU2r4VdFyzzOzKnUjTZIF/MQJGSSvni7Llewni4vuViRppfRAa2guOsY5k4jZyxw/i9DQHv+dw==}
-    peerDependencies:
-      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
-  lucide-react@1.28.0:
-    resolution: {integrity: sha512-fARAFJULsGuDDydjp6+6blekG/sBIM29TerzLjc9bQUKAcEfrSc4ZQKb25KRz4OMKd87cZTb5dgq0w/T6KufVg==}
-    peerDependencies:
-      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   lucide-react@1.47.0:
     resolution: {integrity: sha512-o8C23aXpNQypRY73W7fW02EyvWJinEMXgKeGjFoKym0zj3Q73hD97A1IQps1g8C14HTGsOpZL0Am+xjfgFZAbg==}
@@ -13573,7 +13559,7 @@ snapshots:
       clsx: 2.1.1
       katex: 0.16.47
       lit: 3.3.3
-      lucide-react: 0.525.0(react@19.2.6)
+      lucide-react: 1.47.0(react@19.2.6)
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
       react-markdown: 8.0.7(@types/react@19.2.15)(react@19.2.6)
@@ -22493,18 +22479,6 @@ snapshots:
       react-native: 0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.15)(react@19.2.3)
       react-native-svg: 15.15.4(react-native@0.86.3(@babel/core@7.29.7)(@react-native/jest-preset@0.86.3(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.3(@babel/core@7.29.7))(@types/react@19.2.15)(react@19.2.3))(react@19.2.3)
 
-  lucide-react@0.525.0(react@19.2.6):
-    dependencies:
-      react: 19.2.6
-
-  lucide-react@0.542.0(react@19.2.6):
-    dependencies:
-      react: 19.2.6
-
-  lucide-react@1.28.0(react@19.2.6):
-    dependencies:
-      react: 19.2.6
-
   lucide-react@1.47.0(react@19.2.6):
     dependencies:
       react: 19.2.6
@@ -25671,7 +25645,7 @@ snapshots:
       hast-util-to-jsx-runtime: 2.3.6
       html-url-attributes: 3.0.1
       katex: 0.16.47
-      lucide-react: 0.542.0(react@19.2.6)
+      lucide-react: 1.47.0(react@19.2.6)
       marked: 16.4.2
       mermaid: 11.17.2
       react: 19.2.6
