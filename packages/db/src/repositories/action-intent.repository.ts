@@ -1,3 +1,4 @@
+import { activeExecutionParent } from "./execution-parent-authority.js"
 import { and, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm"
 import {
   actionIntents,
@@ -224,6 +225,7 @@ export async function createActionIntent(
       .where(
         and(
           eq(executions.id, input.executionId),
+          activeExecutionParent(),
           eq(executions.workspaceId, input.workspaceId)
         )
       )
@@ -251,7 +253,9 @@ export async function createActionIntent(
     const [execution] = await tx
       .select()
       .from(executions)
-      .where(eq(executions.id, executionSnapshot.id))
+      .where(
+        and(eq(executions.id, executionSnapshot.id), activeExecutionParent())
+      )
       .for("update")
     const requesterAuthority = connection
       ? await getConnectionRequesterAuthority(
@@ -781,7 +785,9 @@ export async function claimApprovedActionIntent(
     const [execution] = await tx
       .select()
       .from(executions)
-      .where(eq(executions.id, snapshot.executionId))
+      .where(
+        and(eq(executions.id, snapshot.executionId), activeExecutionParent())
+      )
       .for("update")
     const [decision] = await tx
       .select()
@@ -964,6 +970,7 @@ async function lockActiveActionIntentExecution(
         eq(actionIntents.status, "executing"),
         eq(actionIntents.executionClaimId, input.executionClaimId),
         eq(executions.status, "running"),
+        activeExecutionParent(),
         eq(executions.leasedBy, input.executionClaimId),
         gt(executions.leaseExpiresAt, input.now)
       )

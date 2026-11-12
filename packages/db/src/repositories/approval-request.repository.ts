@@ -1,3 +1,4 @@
+import { activeExecutionParent } from "./execution-parent-authority.js"
 import { wakeParentOfFinishedChild } from "./nested-parent-wake.js"
 import {
   getApprovalReviewerAuthority,
@@ -235,6 +236,9 @@ export async function findExternalApprovalRequests(
           ? eq(approvalRequests.id, input.approvalRequestId)
           : undefined,
         input.status ? eq(approvalRequests.status, input.status) : undefined,
+        input.status === "pending"
+          ? sql`exists (select 1 from ${executions} where ${executions.id} = ${approvalRequests.executionId} and ${activeExecutionParent()})`
+          : undefined,
         input.conversationId
           ? eq(approvalRequests.conversationId, input.conversationId)
           : undefined,
@@ -282,6 +286,7 @@ export async function listPendingApprovalRequests(
       and(
         eq(approvalRequests.workspaceId, workspaceId),
         eq(approvalRequests.status, "pending"),
+        sql`exists (select 1 from ${executions} where ${executions.id} = ${approvalRequests.executionId} and ${activeExecutionParent()})`,
         eligibleForWorkspaceMember(workspaceId, userEmail)
       )
     )
@@ -543,6 +548,7 @@ export async function decideWorkspaceApprovalRequest(
           eq(approvalRequests.id, approvalRequestId),
           eq(approvalRequests.workspaceId, workspaceId),
           eq(approvalRequests.status, "pending"),
+          sql`exists (select 1 from ${executions} where ${executions.id} = ${approvalRequests.executionId} and ${activeExecutionParent()})`,
           eligibleForWorkspaceMember(workspaceId, input.actorEmail)
         )
       )
@@ -718,6 +724,13 @@ export async function decideExternalApprovalRequest(
       if (!request || !(await isExternalRequestOwner(tx, request, input))) {
         return { outcome: "wrong_subject" }
       }
+      const [authorizedExecution] = await tx
+        .select({ id: executions.id })
+        .from(executions)
+        .where(
+          and(eq(executions.id, request.executionId), activeExecutionParent())
+        )
+      if (!authorizedExecution) return { outcome: "cancelled" }
       if (request.status === "cancelled") return { outcome: "cancelled" }
       if (request.status === "decided") {
         return resolveExistingExternalDecision(tx, request, input)
@@ -783,6 +796,97 @@ export async function cancelExecutionWithPendingApproval(
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
   )
+  // Agents cannot delegate: the Workflow and its direct Agent children are the complete execution tree.
+  const tree = await tx
+    .select()
+    .from(executions)
+    .where(
+      and(
+        eq(executions.workspaceId, workspaceId),
+        eq(executions.environmentId, environmentId),
+        or(
+          eq(executions.id, executionId),
+          eq(executions.parentExecutionId, executionId)
+        )
+      )
+    )
+  const root = tree.find(({ id }) => id === executionId)
+  if (!root || !["queued", "running", "paused"].includes(root.status))
+    return undefined
+  const children = tree
+    .filter(({ id }) => id !== executionId)
+    .sort((a, b) => a.id.localeCompare(b.id))
+  for (const child of children) {
+    const childLockKey = `action-intent-execution:${child.id}`
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${childLockKey}, 0))`
+    )
+  }
+  const ids = tree.map(({ id }) => id)
+  await tx
+    .select({ id: approvalRequests.id })
+    .from(approvalRequests)
+    .where(inArray(approvalRequests.executionId, ids))
+    .orderBy(approvalRequests.id)
+    .for("update")
+  // Child completion and nested pause lock the child before waking or pausing its parent.
+  for (const execution of [...children, root]) {
+    await tx
+      .select({ id: executions.id })
+      .from(executions)
+      .where(eq(executions.id, execution.id))
+      .for("update")
+  }
+  const executing = await tx
+    .select({ id: actionIntents.id })
+    .from(actionIntents)
+    .where(
+      and(
+        inArray(actionIntents.executionId, ids),
+        eq(actionIntents.status, "executing")
+      )
+    )
+    .for("update")
+  if (executing.length > 0) return undefined
+  const cancelled = await cancelOneExecution(
+    tx,
+    workspaceId,
+    environmentId,
+    executionId,
+    actorEnvironmentKeyId,
+    cancelledAt
+  )
+  if (!cancelled) return undefined
+  for (const child of children) {
+    const cancelledChild = await cancelOneExecution(
+      tx,
+      workspaceId,
+      environmentId,
+      child.id,
+      actorEnvironmentKeyId,
+      cancelledAt
+    )
+    if (cancelledChild)
+      await tx.insert(auditLogs).values({
+        workspaceId,
+        actorEnvironmentKeyId,
+        action: "execution.cancelled",
+        resource: "execution",
+        resourceId: child.id,
+        metadata: { environmentId, parentExecutionId: executionId },
+      })
+  }
+  return cancelled
+}
+
+async function cancelOneExecution(
+  tx: Transaction,
+  workspaceId: string,
+  environmentId: string,
+  executionId: string,
+  actorEnvironmentKeyId: string,
+  cancelledAt: Date
+): Promise<Execution | undefined> {
   // Every Approval Request of the Execution, decided or not, is locked before the Execution row: claiming an approved Action Intent locks the request first, and the opposite order deadlocks the two.
   const requests = await tx
     .select()
@@ -936,6 +1040,7 @@ export async function claimAndDecideTimedOutApprovalRequest(
       .where(
         and(
           eq(approvalRequests.status, "pending"),
+          sql`exists (select 1 from ${executions} where ${executions.id} = ${approvalRequests.executionId} and ${activeExecutionParent()})`,
           isNotNull(approvalRequests.expiresAt),
           lte(approvalRequests.expiresAt, now),
           workspaceId

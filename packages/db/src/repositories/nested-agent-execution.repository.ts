@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull } from "drizzle-orm"
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm"
 import { compileContractSchema } from "@linea/protocol/json-schema"
 import {
   agents,
@@ -18,6 +18,7 @@ export type NestedAgentExecutionResult =
   | {
       outcome:
         | "parent_not_found"
+        | "parent_not_active"
         | "agent_not_in_application"
         | "not_deployed"
         | "contract_changed"
@@ -38,6 +39,10 @@ export function startNestedAgentExecution(
   }
 ): Promise<NestedAgentExecutionResult> {
   return db.transaction(async (tx): Promise<NestedAgentExecutionResult> => {
+    const lockKey = `action-intent-execution:${input.parentExecutionId}`
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
+    )
     const [parent] = await tx
       .select({ execution: executions, applicationId: workflows.applicationId })
       .from(executions)
@@ -53,6 +58,11 @@ export function startNestedAgentExecution(
       return {
         outcome: "parent_not_found",
         message: "The Workflow Execution has no Environment",
+      }
+    if (parent.execution.status !== "running")
+      return {
+        outcome: "parent_not_active",
+        message: "The Workflow Execution is not running",
       }
     const [existing] = await tx
       .select()
