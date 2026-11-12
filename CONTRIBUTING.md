@@ -31,8 +31,8 @@ done
 ```
 
 Each backend app and package loads its own `.env` using `dotenv/config`;
-exported environment variables take precedence. Web, docs, and mobile use
-their framework env loaders. There is no root `.env`. Keep
+exported environment variables take precedence. Web uses its framework env
+loader. There is no root `.env`. Keep
 `SECRETS_ENCRYPTION_KEY` identical across the API and workers, and keep
 `CONNECTION_CREDENTIAL_KEYS` identical across the API and execution worker.
 Database migrations use `packages/db/.env`; database and queue tests use their
@@ -103,7 +103,6 @@ linea/
 │   ├── platform-api/       # workspace and public /v1 HTTP interfaces
 │   ├── execution-worker/   # graph execution, checkpoints, replay, connectors
 │   ├── background-worker/  # schedules, outbox delivery, notifications, analysis
-│   ├── mobile/             # Expo operator monitoring and approvals
 │   └── run-gateway/        # reserved scaffold for future sandbox execution
 └── packages/
     ├── protocol/           # public resources, operations, events, and errors
@@ -124,6 +123,9 @@ linea/
 The documentation site is not part of this workspace; it lives in
 [linea-org/docs](https://github.com/linea-org/docs) and links back to the
 guides and generated artifacts in this repository.
+
+The Expo mobile client is maintained separately in
+[linea-org/mobile](https://github.com/linea-org/mobile).
 
 Apps never import from one another. Shared contracts and behavior belong in
 `packages/*`. The browser imports `@linea/runtime/browser`; server-only graph

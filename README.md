@@ -162,7 +162,6 @@ apps/
   platform-api/       workspace and public /v1 HTTP interfaces
   execution-worker/   graph execution, checkpoints, replay, and connectors
   background-worker/  schedules, outbox delivery, notifications, and analysis
-  mobile/             Expo operator monitoring and approvals
   run-gateway/        reserved scaffold for future sandbox execution
 
 packages/
@@ -182,6 +181,10 @@ packages/
 ```
 
 The documentation site lives in its own repository, [linea-org/docs](https://github.com/linea-org/docs).
+
+The Expo mobile client for monitoring and approvals lives in
+[linea-org/mobile](https://github.com/linea-org/mobile) and talks to the
+Platform API over HTTP.
 
 See [docs/repo-structure.md](docs/repo-structure.md) for ownership and dependency rules, [docs/product-vision.md](docs/product-vision.md) for product direction, and [docs/roadmap.md](docs/roadmap.md) for strategic sequencing.
 
