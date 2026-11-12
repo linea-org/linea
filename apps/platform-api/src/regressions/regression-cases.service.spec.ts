@@ -1,3 +1,4 @@
+import { createTestExecution } from '@linea/db/testing'
 import { getTestApplicationId } from '@linea/db/testing'
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
@@ -54,7 +55,7 @@ describe('RegressionCasesService', () => {
           graph: { nodes: [], edges: [] },
           contentHash: `regression-cases-test-hash-${suffix}`,
         })
-        const execution = await repositories.execution.createExecution(db, {
+        const execution = await createTestExecution(db, {
           workspaceId,
           workflowId: workflow.id,
           workflowVersionId: version.id,

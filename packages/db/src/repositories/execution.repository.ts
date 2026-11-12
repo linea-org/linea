@@ -1,5 +1,8 @@
+import { compileContractSchema } from "@linea/protocol/json-schema"
+import { getMemberRole } from "./organization.repository.js"
 import { and, desc, eq, gt, isNull, lt, notInArray, or, sql } from "drizzle-orm"
 import {
+  workflowContractRevisions,
   environments,
   environmentWorkflowBindings,
   workflowVersions,
@@ -19,57 +22,6 @@ import {
 } from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
 
-export type CreateExecutionInput = {
-  workspaceId: string
-  workflowId: string
-  workflowVersionId: string
-  environmentId?: string
-  workflowContractRevisionId?: string
-  externalSubjectRecordId?: string
-  trigger: Execution["trigger"]
-  triggerPayload?: Record<string, unknown>
-  origin?: Execution["origin"]
-  triggeredByUserId?: string
-  externalSubjectId?: string
-}
-
-export async function createExecution(
-  db: DbClient,
-  input: CreateExecutionInput
-): Promise<Execution> {
-  return db.transaction(async (tx) => {
-    // "" is not a meaningful external subject id — normalized to undefined so the end_subjects
-    // roster and the execution's own column never disagree about whether one was actually provided.
-    const externalSubjectId = input.externalSubjectId || undefined
-    if (externalSubjectId) {
-      await upsertEndSubject(tx, {
-        workspaceId: input.workspaceId,
-        externalId: externalSubjectId,
-      })
-    }
-    const environment = input.environmentId
-      ? undefined
-      : await getWorkflowEnvironment(
-          tx,
-          input.workspaceId,
-          input.workflowId,
-          "dev"
-        )
-    const environmentId = input.environmentId ?? environment?.id
-    if (!environmentId)
-      throw new Error("Workflow Development Environment not found")
-    const [execution] = await tx
-      .insert(executions)
-      .values({ ...input, environmentId, externalSubjectId })
-      .returning()
-    await createWorkflowExecutionMessage(tx, {
-      workspaceId: input.workspaceId,
-      executionId: execution.id,
-    })
-    return execution
-  })
-}
-
 export type TriggerWorkflowLookup =
   | { by: "id"; value: string }
   | { by: "slug"; value: string; applicationId: string }
@@ -79,6 +31,9 @@ export type TriggerWorkflowResult =
   | { outcome: "not_found" }
   | { outcome: "archived" }
   | { outcome: "unpublished" }
+  | { outcome: "workflow_start_not_allowed" }
+  | { outcome: "production_start_forbidden" }
+  | { outcome: "validation_failed"; message: string }
 
 export type TriggerWorkflowForVersionResult =
   | { outcome: "created"; execution: Execution }
@@ -119,6 +74,8 @@ export async function triggerWorkflowExecution(
     if (workflow.archivedAt) return { outcome: "archived" }
     const [deployment] = await tx
       .select({
+        allowBackendStart: environmentWorkflowBindings.allowBackendStart,
+        inputSchema: workflowContractRevisions.inputSchema,
         environmentId: environments.id,
         environment: environments.environment,
         workflowVersionId: environmentWorkflowBindings.workflowVersionId,
@@ -141,7 +98,23 @@ export async function triggerWorkflowExecution(
             workflowVersions.id,
             environmentWorkflowBindings.workflowVersionId
           ),
+          eq(workflowVersions.workflowId, workflow.id),
+          eq(
+            workflowVersions.workflowContractRevisionId,
+            environmentWorkflowBindings.workflowContractRevisionId
+          ),
           sql`${workflowVersions.publishedAt} IS NOT NULL`
+        )
+      )
+      .innerJoin(
+        workflowContractRevisions,
+        and(
+          eq(
+            workflowContractRevisions.id,
+            environmentWorkflowBindings.workflowContractRevisionId
+          ),
+          eq(workflowContractRevisions.workflowId, workflow.id),
+          eq(workflowContractRevisions.workspaceId, workspaceId)
         )
       )
       .where(
@@ -159,6 +132,27 @@ export async function triggerWorkflowExecution(
       )
       .for("share")
     if (!deployment) return { outcome: "unpublished" }
+    if (deployment.environment === "production") {
+      const role = input.triggeredByUserId
+        ? await getMemberRole(tx, workspaceId, input.triggeredByUserId)
+        : undefined
+      if (role !== "admin" && role !== "owner") {
+        return { outcome: "production_start_forbidden" }
+      }
+    }
+    if (!deployment.allowBackendStart)
+      return { outcome: "workflow_start_not_allowed" }
+    const payload = input.triggerPayload ?? {}
+    const validate = compileContractSchema(deployment.inputSchema)
+    if (!validate(payload)) {
+      const details = validate.errors
+        ?.map((error) => `${error.instancePath || "/"} ${error.message}`)
+        .join("; ")
+      return {
+        outcome: "validation_failed",
+        message: `Input does not match the bound Workflow Contract: ${details}`,
+      }
+    }
     // "" is not a meaningful external subject id — normalized to undefined so the end_subjects
     // roster and the execution's own column never disagree about whether one was actually provided.
     const externalSubjectId = input.externalSubjectId || undefined
@@ -177,7 +171,7 @@ export async function triggerWorkflowExecution(
         workflowContractRevisionId: deployment.workflowContractRevisionId,
         environmentId: deployment.environmentId,
         trigger: input.trigger,
-        triggerPayload: input.triggerPayload,
+        triggerPayload: payload,
         triggeredByUserId: input.triggeredByUserId,
         externalSubjectId,
         environment: deployment.environment,

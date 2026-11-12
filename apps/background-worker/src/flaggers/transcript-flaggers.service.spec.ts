@@ -1,3 +1,4 @@
+import { createTestExecution } from "@linea/db/testing"
 import { getTestApplicationId } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
@@ -31,7 +32,7 @@ describe("TranscriptFlaggersService.sweep", () => {
         graph: { nodes: [], edges: [] },
         contentHash: `transcript-flaggers-hash-${suffix}`,
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -111,7 +112,7 @@ describe("TranscriptFlaggersService.sweep", () => {
         graph: { nodes: [], edges: [] },
         contentHash: `transcript-flaggers-escalation-hash-${suffix}`,
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,

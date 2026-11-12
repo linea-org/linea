@@ -1,3 +1,4 @@
+import { createTestExecution } from "@linea/db/testing"
 import { getTestApplicationId } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
@@ -217,7 +218,7 @@ describe("InterpreterService.run idempotency key", () => {
         graph,
         contentHash: "interpreter-idempotency-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -300,7 +301,7 @@ describe("InterpreterService resume", () => {
         graph,
         contentHash: "interpreter-resume-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -390,7 +391,7 @@ describe("InterpreterService resume", () => {
         graph,
         contentHash: "interpreter-resume-unpriced-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -491,7 +492,7 @@ describe("InterpreterService resume", () => {
         graph,
         contentHash: "interpreter-legacy-gap-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -600,7 +601,7 @@ describe("InterpreterService resume", () => {
         graph,
         contentHash: "interpreter-cost-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -680,7 +681,7 @@ describe("InterpreterService resume", () => {
         graph,
         contentHash: "interpreter-unpriced-cost-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -760,7 +761,7 @@ describe("InterpreterService resume", () => {
         graph,
         contentHash: "interpreter-fencing-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -845,7 +846,7 @@ describe("InterpreterService resume", () => {
         graph,
         contentHash: "interpreter-no-sideeffect-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -930,7 +931,7 @@ describe("InterpreterService resume", () => {
         graph,
         contentHash: "interpreter-expired-lease-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -1004,7 +1005,7 @@ describe("InterpreterService retry policy", () => {
       graph,
       contentHash: `interpreter-retry-hash-${suffix}`,
     })
-    const execution = await repositories.execution.createExecution(db, {
+    const execution = await createTestExecution(db, {
       workspaceId: organization.id,
       workflowId: workflow.id,
       workflowVersionId: version.id,
@@ -1542,7 +1543,7 @@ describe("InterpreterService variables", () => {
         graph,
         contentHash: "interpreter-variables-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -1632,7 +1633,7 @@ describe("InterpreterService variables", () => {
         graph,
         contentHash: "interpreter-variables-resume-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,

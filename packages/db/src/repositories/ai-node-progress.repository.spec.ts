@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { createExecution, startExecution } from "./execution.repository.js"
+import { startExecution } from "./execution.repository.js"
+import { createExecution } from "./test-utils.js"
 import {
   getAiNodeProgress,
   saveAiNodeProgress,

@@ -26,7 +26,7 @@ import {
   findExternalApprovalRequests,
   listPendingApprovalRequests,
 } from "./approval-request.repository.js"
-import { createExecution } from "./execution.repository.js"
+import { createExecution } from "./test-utils.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import type { Transaction } from "./types.js"
 

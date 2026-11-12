@@ -7,7 +7,8 @@ import {
   getWaitTimer,
 } from "./wait-timer.repository.js"
 import { db, pool } from "../clients/index.js"
-import { createExecution, startExecution } from "./execution.repository.js"
+import { startExecution } from "./execution.repository.js"
+import { createExecution } from "./test-utils.js"
 import { executions } from "../schema/index.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
 import type { Transaction } from "./types.js"

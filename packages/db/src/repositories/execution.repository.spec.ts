@@ -7,7 +7,6 @@ import { endSubjects, executions } from "../schema/index.js"
 import {
   completeExecution,
   countNewWorkspaceExecutions,
-  createExecution,
   failQueuedExecution,
   getLeaseOwner,
   isLeaseValid,
@@ -17,7 +16,11 @@ import {
   startExecution,
   triggerWorkflowExecution,
 } from "./execution.repository.js"
-import { createTestFixtures, withRollback } from "./test-utils.js"
+import {
+  createExecution,
+  createTestFixtures,
+  withRollback,
+} from "./test-utils.js"
 import {
   createWorkflow,
   createWorkflowVersion,
@@ -940,7 +943,7 @@ describe("triggerWorkflowExecution", () => {
       }
     })
   })
-  it("passes through an explicit environment instead of defaulting to dev", async () => {
+  it("rejects Production without an admin session", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       await publishWorkflowVersion(tx, workflow.id, version.id)
@@ -950,10 +953,7 @@ describe("triggerWorkflowExecution", () => {
         { by: "id", value: workflow.id },
         { trigger: "manual", environment: "production" }
       )
-      expect(result.outcome).toBe("created")
-      if (result.outcome === "created") {
-        expect(result.execution.environment).toBe("production")
-      }
+      expect(result.outcome).toBe("production_start_forbidden")
     })
   })
   it("returns not_found for a workflow that doesn't exist or belongs to another workspace", async () => {

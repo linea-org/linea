@@ -1,3 +1,4 @@
+import { createTestExecution } from "@linea/db/testing"
 import { getTestApplicationId } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
@@ -58,7 +59,7 @@ describe("RunsService failure accounting", () => {
         graph,
         contentHash: "runs-fail-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -165,7 +166,7 @@ describe("RunsService failure accounting", () => {
         graph,
         contentHash: "runs-notify-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -239,7 +240,7 @@ describe("RunsService failure accounting", () => {
         graph,
         contentHash: "runs-mid-run-fail-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -330,7 +331,7 @@ describe("RunsService failure accounting", () => {
         graph: {},
         contentHash: "runs-early-fail-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -428,7 +429,7 @@ describe("RunsService chat-preview message persistence", () => {
         contentHash: "runs-chat-hash",
       })
       const conversationId = randomUUID()
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -509,7 +510,7 @@ describe("RunsService chat-preview message persistence", () => {
         })
       const conversationId = randomUUID()
       // Simulates an ordinary execution whose triggerPayload happens to carry a mismatched pair.
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -588,7 +589,7 @@ describe("RunsService chat-preview message persistence", () => {
           role: "user",
           content: "hello",
         })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -671,7 +672,7 @@ describe("RunsService chat-preview message persistence", () => {
           role: "user",
           content: "hello",
         })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -746,7 +747,7 @@ describe("RunsService chat-preview message persistence", () => {
         graph,
         contentHash: "runs-non-chat-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -817,14 +818,14 @@ describe("RunsService fencing identity", () => {
         graph,
         contentHash: "runs-identity-hash",
       })
-      const executionA = await repositories.execution.createExecution(db, {
+      const executionA = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
         trigger: "manual",
         triggerPayload: {},
       })
-      const executionB = await repositories.execution.createExecution(db, {
+      const executionB = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -907,7 +908,7 @@ describe("RunsService fencing identity", () => {
         graph,
         contentHash: "runs-approval-race-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -1012,7 +1013,7 @@ describe("RunsService fencing identity", () => {
         graph,
         contentHash: "runs-approval-lease-loss-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -1096,7 +1097,7 @@ describe("RunsService fencing identity", () => {
         graph,
         contentHash: "runs-wait-race-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -1186,7 +1187,7 @@ describe("RunsService fencing identity", () => {
         graph,
         contentHash: "runs-wait-lease-loss-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,

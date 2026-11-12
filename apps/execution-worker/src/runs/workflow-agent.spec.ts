@@ -1,3 +1,4 @@
+import { createTestExecution } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { Test } from "@nestjs/testing"
@@ -53,7 +54,7 @@ async function startWorkflow(agentId: string, agentContractRevisionId: string) {
     graph,
     contentHash: randomUUID(),
   })
-  return repositories.execution.createExecution(db, {
+  return createTestExecution(db, {
     workspaceId: fixture.workspaceId,
     workflowId: workflow.id,
     workflowVersionId: version.id,

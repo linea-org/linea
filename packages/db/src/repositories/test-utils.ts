@@ -1,3 +1,6 @@
+import { executions, type Execution } from "../schema/index.js"
+import { upsertEndSubject } from "./end-subject.repository.js"
+import { createWorkflowExecutionMessage } from "./outbox-message.repository.js"
 import { randomUUID } from "node:crypto"
 import { db } from "../clients/index.js"
 import { and, eq } from "drizzle-orm"
@@ -188,4 +191,53 @@ export async function configureTestEnvironment(
     })
     .returning()
   return environment
+}
+
+export type CreateExecutionInput = {
+  workspaceId: string
+  workflowId: string
+  workflowVersionId: string
+  environmentId?: string
+  workflowContractRevisionId?: string
+  externalSubjectRecordId?: string
+  trigger: Execution["trigger"]
+  triggerPayload?: Record<string, unknown>
+  origin?: Execution["origin"]
+  triggeredByUserId?: string
+  externalSubjectId?: string
+}
+
+export async function createExecution(
+  db: DbClient,
+  input: CreateExecutionInput
+): Promise<Execution> {
+  return db.transaction(async (tx) => {
+    const externalSubjectId = input.externalSubjectId || undefined
+    if (externalSubjectId) {
+      await upsertEndSubject(tx, {
+        workspaceId: input.workspaceId,
+        externalId: externalSubjectId,
+      })
+    }
+    const environment = input.environmentId
+      ? undefined
+      : await getWorkflowEnvironment(
+          tx,
+          input.workspaceId,
+          input.workflowId,
+          "dev"
+        )
+    const environmentId = input.environmentId ?? environment?.id
+    if (!environmentId)
+      throw new Error("Workflow Development Environment not found")
+    const [execution] = await tx
+      .insert(executions)
+      .values({ ...input, environmentId, externalSubjectId })
+      .returning()
+    await createWorkflowExecutionMessage(tx, {
+      workspaceId: input.workspaceId,
+      executionId: execution.id,
+    })
+    return execution
+  })
 }

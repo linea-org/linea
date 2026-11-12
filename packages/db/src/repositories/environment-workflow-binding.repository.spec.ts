@@ -1,3 +1,4 @@
+import { triggerWorkflowExecution } from "./execution.repository.js"
 import { randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
@@ -5,14 +6,13 @@ import { db } from "../clients/index.js"
 import {
   environmentWorkflowBindings,
   organizations,
+  users,
+  members,
   workflows,
 } from "../schema/index.js"
 import { createApplication } from "./application.repository.js"
 import { listEnvironments } from "./environment.repository.js"
-import {
-  putEnvironmentWorkflowBinding,
-  startEnvironmentWorkflow,
-} from "./environment-workflow-binding.repository.js"
+import { putEnvironmentWorkflowBinding } from "./environment-workflow-binding.repository.js"
 import { withRollback } from "./test-utils.js"
 import type { DbClient } from "./types.js"
 import { createWorkflowContractRevision } from "./workflow-contract.repository.js"
@@ -77,7 +77,20 @@ async function fixture(client: DbClient) {
     workflowContractRevisionId: contract.revision.id,
   })
   await publishWorkflowVersion(client, workflow.id, first.id)
+  const [admin] = await client
+    .insert(users)
+    .values({ name: "Admin", email: `${randomUUID()}@test.dev` })
+    .returning()
+  await client.insert(members).values([
+    {
+      organizationId: workspace.id,
+      userId: admin.id,
+      role: "admin",
+      createdAt: new Date(),
+    },
+  ])
   return {
+    admin,
     workspace,
     application,
     development,
@@ -113,13 +126,16 @@ describe("Environment Workflow deployments", () => {
           )
         ).toMatchObject({ outcome: "updated" })
       }
-      const previous = await startEnvironmentWorkflow(
+      const previous = await triggerWorkflowExecution(
         tx,
         f.workspace.id,
-        f.production.id,
-        f.workflow.id,
-        "backend",
-        { prompt: "before" }
+        { by: "id", value: f.workflow.id },
+        {
+          trigger: "manual",
+          environmentId: f.production.id,
+          triggeredByUserId: f.admin.id,
+          triggerPayload: { prompt: "before" },
+        }
       )
       expect(previous.outcome).toBe("created")
       const second = await createWorkflowVersion(tx, {
@@ -136,21 +152,27 @@ describe("Environment Workflow deployments", () => {
         f.workflow.id,
         policy(second.id, f.contract.id)
       )
-      const development = await startEnvironmentWorkflow(
+      const development = await triggerWorkflowExecution(
         tx,
         f.workspace.id,
-        f.development.id,
-        f.workflow.id,
-        "backend",
-        { prompt: "dev" }
+        { by: "id", value: f.workflow.id },
+        {
+          trigger: "manual",
+          environmentId: f.development.id,
+          triggeredByUserId: f.admin.id,
+          triggerPayload: { prompt: "dev" },
+        }
       )
-      const production = await startEnvironmentWorkflow(
+      const production = await triggerWorkflowExecution(
         tx,
         f.workspace.id,
-        f.production.id,
-        f.workflow.id,
-        "backend",
-        { prompt: "prod" }
+        { by: "id", value: f.workflow.id },
+        {
+          trigger: "manual",
+          environmentId: f.production.id,
+          triggeredByUserId: f.admin.id,
+          triggerPayload: { prompt: "prod" },
+        }
       )
       expect(development).toMatchObject({
         outcome: "created",
@@ -238,65 +260,6 @@ describe("Environment Workflow deployments", () => {
       ).rejects.toThrow()
     })
   })
-  it("enforces start permissions, input validation and disabled deployment policy", async () => {
-    await withRollback(async (tx) => {
-      const f = await fixture(tx)
-      expect(
-        await startEnvironmentWorkflow(
-          tx,
-          f.workspace.id,
-          f.development.id,
-          f.workflow.id,
-          "backend",
-          {}
-        )
-      ).toEqual({ outcome: "workflow_binding_not_found" })
-      await putEnvironmentWorkflowBinding(
-        tx,
-        f.workspace.id,
-        f.development.id,
-        f.workflow.id,
-        policy(f.first.id, f.contract.id)
-      )
-      expect(
-        await startEnvironmentWorkflow(
-          tx,
-          f.workspace.id,
-          f.development.id,
-          f.workflow.id,
-          "end_user",
-          { prompt: "hello" }
-        )
-      ).toEqual({ outcome: "workflow_start_not_allowed" })
-      expect(
-        await startEnvironmentWorkflow(
-          tx,
-          f.workspace.id,
-          f.development.id,
-          f.workflow.id,
-          "backend",
-          {}
-        )
-      ).toEqual({ outcome: "validation_failed" })
-      await putEnvironmentWorkflowBinding(
-        tx,
-        f.workspace.id,
-        f.development.id,
-        f.workflow.id,
-        { ...policy(f.first.id, f.contract.id), enabled: false }
-      )
-      expect(
-        await startEnvironmentWorkflow(
-          tx,
-          f.workspace.id,
-          f.development.id,
-          f.workflow.id,
-          "backend",
-          { prompt: "hello" }
-        )
-      ).toEqual({ outcome: "workflow_binding_disabled" })
-    })
-  })
   it("keeps concurrent replacements consistent", async () => {
     const f = await fixture(db)
     try {
@@ -336,6 +299,7 @@ describe("Environment Workflow deployments", () => {
         .where(eq(environmentWorkflowBindings.workflowId, f.workflow.id))
       await db.delete(workflows).where(eq(workflows.id, f.workflow.id))
       await db.delete(organizations).where(eq(organizations.id, f.workspace.id))
+      await db.delete(users).where(eq(users.id, f.admin.id))
     }
   })
 })

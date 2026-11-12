@@ -7,7 +7,8 @@ import {
   createConversationAnalysis,
   insertConversationFindings,
 } from "./conversation-analysis.repository.js"
-import { createExecution, startExecution } from "./execution.repository.js"
+import { startExecution } from "./execution.repository.js"
+import { createExecution } from "./test-utils.js"
 import {
   archiveRegressionCase,
   createRegressionCase,

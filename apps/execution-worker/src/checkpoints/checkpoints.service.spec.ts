@@ -1,3 +1,4 @@
+import { createTestExecution } from "@linea/db/testing"
 import { getTestApplicationId } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
@@ -43,7 +44,7 @@ describe("CheckpointsService.getResumeState", () => {
         graph,
         contentHash: "checkpoint-order-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -107,7 +108,7 @@ describe("CheckpointsService.getResumeVariables", () => {
         graph,
         contentHash: "resume-variables-fresh-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -144,7 +145,7 @@ describe("CheckpointsService.getResumeVariables", () => {
         graph,
         contentHash: "resume-variables-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -219,7 +220,7 @@ describe("CheckpointsService.recordStep attributes", () => {
         graph,
         contentHash: "checkpoint-attributes-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -283,7 +284,7 @@ describe("CheckpointsService.recordStep attributes", () => {
         graph,
         contentHash: "checkpoint-no-attributes-hash",
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,

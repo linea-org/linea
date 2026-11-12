@@ -1,3 +1,4 @@
+import { createTestExecution } from '@linea/db/testing'
 import { getTestApplicationId, publishTestWorkflow } from '@linea/db/testing'
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
@@ -120,14 +121,11 @@ describe('ExecutionsService', () => {
       expect(execution.trigger).toBe('manual')
       expect(execution.environment).toBe('dev')
       expect(execution.triggeredByUserId).toBeNull()
-      const prodExecution = await service.trigger(
-        organization.id,
-        workflow.id,
-        {
+      await expect(
+        service.trigger(organization.id, workflow.id, {
           environment: 'production',
-        },
-      )
-      expect(prodExecution.environment).toBe('production')
+        }),
+      ).rejects.toThrow('Production management starts require')
       const attributed = await service.trigger(
         organization.id,
         workflow.id,
@@ -200,7 +198,7 @@ describe('ExecutionsService', () => {
         graph: waitGraph,
         contentHash: 'paused-test-hash',
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -979,7 +977,7 @@ describe('ExecutionsService', () => {
           graph: configuredGraph,
           contentHash: 'get-test-hash',
         })
-        const execution = await repositories.execution.createExecution(db, {
+        const execution = await createTestExecution(db, {
           workspaceId: organization.id,
           workflowId: workflow.id,
           workflowVersionId: version.id,
@@ -1033,7 +1031,7 @@ describe('ExecutionsService', () => {
         graph,
         contentHash: `replay-endpoint-hash-${suffix}`,
       })
-      const execution = await repositories.execution.createExecution(db, {
+      const execution = await createTestExecution(db, {
         workspaceId: organizationId,
         workflowId: workflow.id,
         workflowVersionId: version.id,
@@ -1201,13 +1199,12 @@ describe('ExecutionsService', () => {
             graph,
             contentHash: `non-terminal-hash-${suffix}`,
           })
-        const nonTerminalExecution =
-          await repositories.execution.createExecution(db, {
-            workspaceId: organization.id,
-            workflowId: nonTerminalWorkflow.id,
-            workflowVersionId: nonTerminalVersion.id,
-            trigger: 'manual',
-          })
+        const nonTerminalExecution = await createTestExecution(db, {
+          workspaceId: organization.id,
+          workflowId: nonTerminalWorkflow.id,
+          workflowVersionId: nonTerminalVersion.id,
+          trigger: 'manual',
+        })
         await expect(
           service.replayStep(
             organization.id,
