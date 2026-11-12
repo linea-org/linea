@@ -372,17 +372,24 @@ describe("end-user authorization repository", () => {
   it("admits exactly the shared ceiling across independent concurrent transactions", async () => {
     const expiresAt = new Date(Date.now() + 60_000)
     const shared = { key: `shared-${randomUUID()}`, limit: 7 }
+    const secondShared = { key: `other-shared-${randomUUID()}`, limit: 7 }
     const clients = Array.from({ length: 24 }, () => ({
       key: `client-${randomUUID()}`,
       limit: 1,
     }))
-    const keys = [shared.key, ...clients.map(({ key }) => key)]
+    const keys = [
+      shared.key,
+      secondShared.key,
+      ...clients.map(({ key }) => key),
+    ]
     try {
       const results = await Promise.all(
         clients.map((client, index) =>
           consumeAuthorizationRateLimits(
             db,
-            index % 2 ? [client, shared] : [shared, client],
+            index % 2
+              ? [client, shared, secondShared]
+              : [secondShared, shared, client],
             expiresAt
           )
         )
@@ -393,7 +400,12 @@ describe("end-user authorization repository", () => {
         .from(endUserAuthorizationRateLimits)
         .where(inArray(endUserAuthorizationRateLimits.key, keys))
       expect(rows.find(({ key }) => key === shared.key)?.requestCount).toBe(7)
-      expect(rows.filter(({ key }) => key !== shared.key)).toHaveLength(7)
+      expect(
+        rows.find(({ key }) => key === secondShared.key)?.requestCount
+      ).toBe(7)
+      expect(
+        rows.filter(({ key }) => key !== shared.key && key !== secondShared.key)
+      ).toHaveLength(7)
     } finally {
       await db
         .delete(endUserAuthorizationRateLimits)
