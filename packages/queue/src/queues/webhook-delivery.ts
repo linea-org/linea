@@ -35,5 +35,6 @@ export function createWebhookDeliveryWorker(
 ): Worker<WebhookDeliveryJob> {
   return new Worker<WebhookDeliveryJob>(WEBHOOK_DELIVERY_QUEUE, processor, {
     connection,
+    concurrency: 16,
   })
 }

@@ -1,12 +1,25 @@
+// Creates and URL changes serialize on the workspace row to protect quotas and destination uniqueness.
 import { and, asc, eq, inArray, isNull } from "drizzle-orm"
 import {
   environments,
+  organizations,
   auditLogs,
   webhookDeliveries,
   webhookEndpoints,
   type WebhookEndpoint,
 } from "../schema/index.js"
 import type { DbClient } from "./types.js"
+
+export class WebhookEndpointConflictError extends Error {}
+
+const MAXIMUM_ENVIRONMENT_ENDPOINTS = 10
+const MAXIMUM_WORKSPACE_ENDPOINTS = 100
+
+function canonicalUrl(value: string): string {
+  const url = new URL(value)
+  url.hash = ""
+  return url.href
+}
 
 export async function createWebhookEndpoint(
   db: DbClient,
@@ -19,6 +32,11 @@ export async function createWebhookEndpoint(
   }
 ): Promise<WebhookEndpoint | undefined> {
   return db.transaction(async (tx) => {
+    await tx
+      .select({ id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.id, input.workspaceId))
+      .for("no key update")
     const [environment] = await tx
       .select({ id: environments.id })
       .from(environments)
@@ -31,12 +49,42 @@ export async function createWebhookEndpoint(
       )
       .for("key share")
     if (!environment) return undefined
+    const endpoints = await tx
+      .select()
+      .from(webhookEndpoints)
+      .where(
+        and(
+          eq(webhookEndpoints.workspaceId, input.workspaceId),
+          isNull(webhookEndpoints.disabledAt)
+        )
+      )
+    const environmentEndpoints = endpoints.filter(
+      (endpoint) => endpoint.environmentId === input.environmentId
+    )
+    if (
+      endpoints.length >= MAXIMUM_WORKSPACE_ENDPOINTS ||
+      environmentEndpoints.length >= MAXIMUM_ENVIRONMENT_ENDPOINTS
+    ) {
+      throw new WebhookEndpointConflictError(
+        "Active webhook endpoint limit reached (10 per environment, 100 per workspace)"
+      )
+    }
+    const url = canonicalUrl(input.url)
+    if (
+      environmentEndpoints.some(
+        (endpoint) => canonicalUrl(endpoint.url) === url
+      )
+    ) {
+      throw new WebhookEndpointConflictError(
+        "Webhook destination already exists in this environment"
+      )
+    }
     const [webhook] = await tx
       .insert(webhookEndpoints)
       .values({
         workspaceId: input.workspaceId,
         environmentId: input.environmentId,
-        url: input.url,
+        url,
         currentSecretEncrypted: input.currentSecretEncrypted,
       })
       .returning()
@@ -81,9 +129,32 @@ export async function updateWebhookEndpoint(
   }
 ): Promise<WebhookEndpoint | undefined> {
   return db.transaction(async (tx) => {
+    await tx
+      .select({ id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.id, input.workspaceId))
+      .for("no key update")
+    const url = canonicalUrl(input.url)
+    const endpoints = await listWebhookEndpoints(
+      tx,
+      input.workspaceId,
+      input.environmentId
+    )
+    if (!endpoints.some((endpoint) => endpoint.id === input.webhookId))
+      return undefined
+    if (
+      endpoints.some(
+        (endpoint) =>
+          endpoint.id !== input.webhookId && canonicalUrl(endpoint.url) === url
+      )
+    ) {
+      throw new WebhookEndpointConflictError(
+        "Webhook destination already exists in this environment"
+      )
+    }
     const [webhook] = await tx
       .update(webhookEndpoints)
-      .set({ url: input.url, updatedAt: new Date() })
+      .set({ url, updatedAt: new Date() })
       .where(
         and(
           eq(webhookEndpoints.id, input.webhookId),

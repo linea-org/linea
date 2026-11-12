@@ -48,16 +48,23 @@ export class EnvironmentWebhooksService {
     input: CreateWebhookDto,
   ): Promise<PublicWebhookEndpoint & { secret: string }> {
     const secret = generateSecret()
-    const webhook = await repositories.webhookEndpoint.createWebhookEndpoint(
-      db,
-      {
+    const webhook = await repositories.webhookEndpoint
+      .createWebhookEndpoint(db, {
         workspaceId,
         environmentId,
         actorUserId,
         url: input.url,
         currentSecretEncrypted: encryptSecret(secret),
-      },
-    )
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof
+          repositories.webhookEndpoint.WebhookEndpointConflictError
+        ) {
+          throw new ConflictException(error.message)
+        }
+        throw error
+      })
     if (!webhook) throw new NotFoundException('Environment not found')
     return { ...publicWebhook(webhook), secret }
   }
@@ -87,16 +94,23 @@ export class EnvironmentWebhooksService {
     actorUserId: string,
     input: UpdateWebhookDto,
   ): Promise<PublicWebhookEndpoint> {
-    const webhook = await repositories.webhookEndpoint.updateWebhookEndpoint(
-      db,
-      {
+    const webhook = await repositories.webhookEndpoint
+      .updateWebhookEndpoint(db, {
         workspaceId,
         environmentId,
         webhookId,
         actorUserId,
         url: input.url,
-      },
-    )
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof
+          repositories.webhookEndpoint.WebhookEndpointConflictError
+        ) {
+          throw new ConflictException(error.message)
+        }
+        throw error
+      })
     if (!webhook) throw new NotFoundException('Webhook not found')
     return publicWebhook(webhook)
   }

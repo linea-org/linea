@@ -210,7 +210,7 @@ describe("redirect policy", () => {
       await expect(
         requestPublic("https://public.example", {
           ...options,
-          redirectMode: "preserve",
+          redirectMode: "same-origin",
         })
       ).rejects.toThrow("redirect has no location")
     }
@@ -260,6 +260,21 @@ describe("redirect policy", () => {
     expect(init?.body).toBeUndefined()
     expect(Array.from(new Headers(init?.headers).keys())).toEqual([])
   })
+  it.each(["https://other.example/next", "https://public.example:8443/next"])(
+    "rejects webhook redirects to another origin: %s",
+    async (location) => {
+      transport.mockResolvedValueOnce(
+        new UndiciResponse(null, { status: 307, headers: { location } })
+      )
+      await expect(
+        requestPublic("https://public.example", {
+          ...options,
+          redirectMode: "same-origin",
+        })
+      ).rejects.toThrow("cannot change origin")
+      expect(transport).toHaveBeenCalledTimes(1)
+    }
+  )
   it("preserves POST for webhook redirects", async () => {
     transport
       .mockResolvedValueOnce(
@@ -273,7 +288,7 @@ describe("redirect policy", () => {
       ...options,
       method: "POST",
       body: "payload",
-      redirectMode: "preserve",
+      redirectMode: "same-origin",
     })
     expect(transport.mock.calls[1]?.[1]).toMatchObject({
       method: "POST",
