@@ -1,4 +1,4 @@
-import { seedExecution } from "@linea/db/testing"
+import { seedExecution, seedRunning } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -32,13 +32,7 @@ describe("CheckpointsService.getResumeState", () => {
       })
       .returning()
     try {
-      const { execution } = await seedExecution(db, organization.id, graph)
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       // Completes "10" then "2" then "1" — the reverse of numeric key order.
       let completed = new Map<string, unknown>()
@@ -101,13 +95,7 @@ describe("CheckpointsService.getResumeVariables", () => {
       })
       .returning()
     try {
-      const { execution } = await seedExecution(db, organization.id, graph)
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       await checkpoints.recordStep({
         executionId: execution.id,
@@ -160,13 +148,7 @@ describe("CheckpointsService.recordStep attributes", () => {
       })
       .returning()
     try {
-      const { execution } = await seedExecution(db, organization.id, graph)
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       await checkpoints.recordStep({
         executionId: execution.id,
@@ -208,13 +190,7 @@ describe("CheckpointsService.recordStep attributes", () => {
       })
       .returning()
     try {
-      const { execution } = await seedExecution(db, organization.id, graph)
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       await checkpoints.recordStep({
         executionId: execution.id,

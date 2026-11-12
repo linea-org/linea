@@ -19,6 +19,7 @@ import {
   publishWorkflowVersion,
 } from "./workflow.repository.js"
 import { getWorkflowEnvironment } from "./environment.repository.js"
+import { startExecution } from "./execution.repository.js"
 import { putEnvironmentWorkflowBinding } from "./environment-workflow-binding.repository.js"
 import type { DbClient, Transaction } from "./types.js"
 
@@ -272,4 +273,20 @@ export async function seedExecution(
     triggerPayload: options.triggerPayload ?? {},
   })
   return { workflow, version, execution }
+}
+
+/** Seeds an execution and leases it to `worker-1` for a minute. */
+export async function seedRunning(
+  client: DbClient,
+  workspaceId: string,
+  graph: Parameters<typeof createWorkflowVersion>[1]["graph"]
+) {
+  const seeded = await seedExecution(client, workspaceId, graph)
+  await startExecution(
+    client,
+    seeded.execution.id,
+    "worker-1",
+    new Date(Date.now() + 60_000)
+  )
+  return seeded
 }

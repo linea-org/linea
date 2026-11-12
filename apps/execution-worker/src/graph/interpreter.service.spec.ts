@@ -1,4 +1,4 @@
-import { seedExecution } from "@linea/db/testing"
+import { seedExecution, seedRunning } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -206,13 +206,7 @@ describe("InterpreterService.run idempotency key", () => {
         nodes: [{ id: "n1", type: "http", config: {} }],
         edges: [],
       }
-      const { execution } = await seedExecution(db, organization.id, graph)
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const executeSpy = jest.fn(() =>
         Promise.resolve({ tokensInput: 0, tokensOutput: 0 })
       )
@@ -272,13 +266,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "http", config: {} }],
         edges: [],
       }
-      const { execution } = await seedExecution(db, organization.id, graph)
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       const interpreter = new InterpreterService(
         checkpoints,
@@ -345,13 +333,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
         edges: [],
       }
-      const { execution } = await seedExecution(db, organization.id, graph)
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       const interpreter = new InterpreterService(
         checkpoints,
@@ -429,13 +411,7 @@ describe("InterpreterService resume", () => {
         ],
         edges: [{ from: "n1", to: "n2" }],
       }
-      const { execution } = await seedExecution(db, organization.id, graph)
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       // Manually insert n1's step and checkpoint exactly as they'd look pre-feature: no attributes column value at all.
       await db.insert(schema.executionSteps).values({
         executionId: execution.id,
@@ -521,13 +497,7 @@ describe("InterpreterService resume", () => {
         ],
         edges: [],
       }
-      const { execution } = await seedExecution(db, organization.id, graph)
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       const interpreter = new InterpreterService(
         checkpoints,
@@ -584,13 +554,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
         edges: [],
       }
-      const { execution } = await seedExecution(db, organization.id, graph)
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       const interpreter = new InterpreterService(
         checkpoints,
@@ -1361,13 +1325,7 @@ describe("InterpreterService variables", () => {
         ],
         edges: [{ from: "set-1", to: "get-1" }],
       }
-      const { execution } = await seedExecution(db, organization.id, graph)
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       const interpreter = new InterpreterService(
         checkpoints,
@@ -1434,13 +1392,7 @@ describe("InterpreterService variables", () => {
         ],
         edges: [{ from: "set-1", to: "get-1" }],
       }
-      const { execution } = await seedExecution(db, organization.id, graph)
-      await repositories.execution.startExecution(
-        db,
-        execution.id,
-        "worker-1",
-        new Date(Date.now() + 60_000)
-      )
+      const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       // Simulates a worker that already completed set-1 and checkpointed its
       // resulting variables state, then crashed before reaching get-1.
