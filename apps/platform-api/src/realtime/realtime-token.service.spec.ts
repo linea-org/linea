@@ -4,13 +4,13 @@ describe('RealtimeTokenService', () => {
   it('mints a token that consumes back to the same payload', () => {
     const service = new RealtimeTokenService()
     const payload = {
+      sessionId: 'session-1',
       userId: 'user-1',
       name: 'Ada Lovelace',
       image: null,
       workspaceId: 'workspace-1',
       workflowId: 'workflow-1',
     }
-
     const { token } = service.mint(payload)
     expect(service.consume(token)).toEqual(payload)
   })
@@ -18,13 +18,13 @@ describe('RealtimeTokenService', () => {
   it('stays valid across repeated consumes within the TTL, for reconnect attempts', () => {
     const service = new RealtimeTokenService()
     const { token } = service.mint({
+      sessionId: 'session-1',
       userId: 'user-1',
       name: 'Ada Lovelace',
       image: null,
       workspaceId: 'workspace-1',
       workflowId: 'workflow-1',
     })
-
     expect(service.consume(token)).toBeDefined()
     expect(service.consume(token)).toBeDefined()
   })
@@ -39,13 +39,13 @@ describe('RealtimeTokenService', () => {
     try {
       const service = new RealtimeTokenService()
       const { token } = service.mint({
+        sessionId: 'session-1',
         userId: 'user-1',
         name: 'Ada Lovelace',
         image: null,
         workspaceId: 'workspace-1',
         workflowId: 'workflow-1',
       })
-
       jest.advanceTimersByTime(61_000)
       expect(service.consume(token)).toBeUndefined()
     } finally {
