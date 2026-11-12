@@ -10770,6 +10770,227 @@
         }
       }
     },
+    "/v1/user/connections/authorizations/{authorizationId}/launch": {
+      "post": {
+        "description": "An End User's browser or native environment.",
+        "operationId": "launchConnectionAuthorization",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "authorizationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "dpop",
+            "required": true,
+            "schema": {
+              "maxLength": 8192,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "format": "uri",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "browserChallenge": {
+                    "pattern": "^[a-f0-9]{64}$",
+                    "type": "string"
+                  },
+                  "state": {
+                    "maxLength": 2000,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": ["state", "browserChallenge"],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "authorizationId": {
+                      "maxLength": 128,
+                      "minLength": 1,
+                      "pattern": "^[A-Za-z0-9_-]+$",
+                      "type": "string"
+                    },
+                    "authorizationUrl": {
+                      "format": "uri",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["authorizationId", "authorizationUrl"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": ["validation_failed"],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: validation_failed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "authentication_failed",
+                            "session_expired",
+                            "session_revoked",
+                            "proof_invalid"
+                          ],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: authentication_failed, session_expired, session_revoked, proof_invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": ["resource_not_found"],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: resource_not_found"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": ["service_unavailable"],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: service_unavailable"
+          }
+        },
+        "security": [
+          {
+            "endUserSession": []
+          }
+        ],
+        "summary": "Bind provider authorization to the initiating browser and session.",
+        "tags": ["end_user"],
+        "x-linea-idempotency": "None.",
+        "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
+        "x-linea-sdk": {
+          "client": "LineaUserClient",
+          "importPath": "@linea/sdk/user",
+          "method": "launchConnectionAuthorization"
+        }
+      }
+    },
     "/v1/user/conversations": {
       "get": {
         "description": "An End User's browser or native environment.",

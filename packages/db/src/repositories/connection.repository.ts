@@ -81,6 +81,50 @@ export async function claimConnectionAuthorizationRequest(
   return request ? { outcome: "claimed", request } : { outcome: "invalid" }
 }
 
+export async function getPendingConnectionAuthorization(
+  db: DbClient,
+  stateHash: string
+) {
+  const [request] = await db
+    .select()
+    .from(connectionAuthorizationRequests)
+    .where(
+      and(
+        eq(connectionAuthorizationRequests.stateHash, stateHash),
+        isNull(connectionAuthorizationRequests.claimedAt),
+        isNull(connectionAuthorizationRequests.completedAt),
+        gt(connectionAuthorizationRequests.expiresAt, new Date())
+      )
+    )
+  return request
+}
+
+export async function bindConnectionAuthorizationBrowser(
+  db: DbClient,
+  input: {
+    id: string
+    sessionId: string
+    stateHash: string
+    boundStateHash: string
+  }
+) {
+  const [request] = await db
+    .update(connectionAuthorizationRequests)
+    .set({ stateHash: input.boundStateHash })
+    .where(
+      and(
+        eq(connectionAuthorizationRequests.id, input.id),
+        eq(connectionAuthorizationRequests.endUserSessionId, input.sessionId),
+        eq(connectionAuthorizationRequests.stateHash, input.stateHash),
+        isNull(connectionAuthorizationRequests.claimedAt),
+        isNull(connectionAuthorizationRequests.completedAt),
+        gt(connectionAuthorizationRequests.expiresAt, new Date())
+      )
+    )
+    .returning()
+  return request
+}
+
 export type CompleteConnectionAuthorizationResult =
   | { outcome: "completed"; connection: Connection }
   | { outcome: "invalid" }

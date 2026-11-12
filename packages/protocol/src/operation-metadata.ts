@@ -221,6 +221,20 @@ export const operationMetadata = {
     ),
     sdk: userSdk("listAuditEvents"),
   },
+  launchConnectionAuthorization: {
+    purpose:
+      "Bind provider authorization to the initiating browser and session.",
+    caller: userCaller,
+    idempotency: none,
+    rateLimit: platformProtection,
+    pagination: none,
+    events: none,
+    adapter: adapter(
+      "apps/platform-api/src/connections/connections.controller.ts",
+      "launchAuthorization"
+    ),
+    sdk: userSdk("launchConnectionAuthorization"),
+  },
   startConnectionAuthorization: {
     purpose: "Start provider authorization for an End User's Connection.",
     caller: userCaller,

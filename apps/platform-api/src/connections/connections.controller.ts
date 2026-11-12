@@ -11,6 +11,8 @@ import {
 } from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import {
+  launchConnectionAuthorizationSchema,
+  type LaunchConnectionAuthorization,
   startConnectionAuthorizationSchema,
   listConnectionsQuerySchema,
   listConnectionUsesQuerySchema,
@@ -41,6 +43,20 @@ export class ConnectionsController {
     body: StartConnectionAuthorization,
   ) {
     return this.connections.startAuthorization(principal, body)
+  }
+
+  @Post('authorizations/:authorizationId/launch')
+  launchAuthorization(
+    @CurrentEndUser() principal: EndUserPrincipal,
+    @Param('authorizationId', ParseUUIDPipe) authorizationId: string,
+    @Body(new PublicValidationPipe(launchConnectionAuthorizationSchema))
+    body: LaunchConnectionAuthorization,
+  ) {
+    return this.connections.launchAuthorization(
+      principal,
+      authorizationId,
+      body,
+    )
   }
 
   @Get('authorizations/:authorizationId')

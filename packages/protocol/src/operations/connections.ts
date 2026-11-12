@@ -7,6 +7,7 @@ import {
   connectionsResponseSchema,
   listConnectionsQuerySchema,
   listConnectionUsesQuerySchema,
+  launchConnectionAuthorizationSchema,
   startConnectionAuthorizationSchema,
   startConnectionScopeUpgradeSchema,
 } from "../resources/connection"
@@ -153,5 +154,21 @@ export const revokeConnectionOperation = {
     body: z.undefined(),
   },
   response: { status: 200, body: connectionSchema },
+  errors: [...errors, "service_unavailable"],
+} as const satisfies OperationDefinition
+
+export const launchConnectionAuthorizationOperation = {
+  operationId: "launchConnectionAuthorization",
+  method: "POST",
+  path: "/v1/user/connections/authorizations/{authorizationId}/launch",
+  plane: "end_user",
+  auth: { kind: "end_user_session", scopes: [] },
+  request: {
+    path: connectionAuthorizationPathSchema,
+    query: emptySchema,
+    headers: endUserSessionHeadersSchema,
+    body: launchConnectionAuthorizationSchema,
+  },
+  response: { status: 201, body: connectionAuthorizationResponseSchema },
   errors: [...errors, "service_unavailable"],
 } as const satisfies OperationDefinition
