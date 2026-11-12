@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { generateKeyPairSync } from "node:crypto"
-import { db, decryptCredential, repositories } from "@linea/db"
+import {
+  db,
+  decryptCredential,
+  encryptCredential,
+  repositories,
+} from "@linea/db"
+import { googleGmailListMessagesOperation } from "./google-gmail.operations.js"
+import { GOOGLE_ACTION_SCOPES } from "./google-scopes.js"
 import { ConnectorGateway } from "./connector-gateway.js"
 import { githubListIssuesOperation } from "./github-list-issues.operation.js"
 import { githubListRepositoriesOperation } from "./github-list-repositories.operation.js"
@@ -9,6 +16,7 @@ import { githubCreatePullRequestOperation } from "./github-create-pull-request.o
 
 vi.mock("@linea/db", () => ({
   db: {},
+  encryptCredential: vi.fn(() => "rotated-encrypted"),
   decryptCredential: vi.fn(() =>
     JSON.stringify({
       accountId: "account",
@@ -20,6 +28,7 @@ vi.mock("@linea/db", () => ({
     connection: {
       getConnectorReadAuthority: vi.fn(),
       recordConnectionReadUse: vi.fn(),
+      rotateConnectionCredential: vi.fn(),
     },
     actionIntent: {
       createActionIntent: vi.fn(),
@@ -85,6 +94,59 @@ beforeEach(() => {
   ).mockResolvedValue(authority())
 })
 describe("Gateway GitHub repository policy", () => {
+  it("allows a personal Google read after its own token refresh", async () => {
+    vi.stubEnv("GOOGLE_CONNECTOR_CLIENT_ID", "client")
+    vi.stubEnv("GOOGLE_CONNECTOR_CLIENT_SECRET", "secret")
+    const current = authority()
+    const scope = GOOGLE_ACTION_SCOPES.gmail_read
+    current.connection.provider = "google"
+    current.connection.scopes = [scope]
+    current.providerPolicy = {
+      provider: "google",
+      actionFamilies: ["gmail_read"],
+      maxScopes: [scope],
+    }
+    vi.mocked(decryptCredential).mockReturnValue(
+      JSON.stringify({
+        accountId: "account",
+        accountLabel: "Account",
+        accessToken: "expired",
+        refreshToken: "refresh",
+        expiresAt: "2000-01-01T00:00:00.000Z",
+        grantedScopes: [scope],
+      })
+    )
+    vi.mocked(repositories.connection.getConnectorReadAuthority)
+      .mockResolvedValueOnce(current)
+      .mockResolvedValue({
+        ...current,
+        connection: { ...current.connection, credentialVersion: 2 },
+      })
+    vi.mocked(
+      repositories.connection.rotateConnectionCredential
+    ).mockResolvedValue({ ...current.connection, credentialVersion: 2 })
+    provider
+      .mockResolvedValueOnce(
+        Response.json({ access_token: "refreshed", expires_in: 3600 })
+      )
+      .mockResolvedValueOnce(Response.json({ messages: [] }))
+    const google = new ConnectorGateway(db, {
+      [googleGmailListMessagesOperation.id]: googleGmailListMessagesOperation,
+    })
+    await expect(
+      google.execute({
+        ...input,
+        operationId: googleGmailListMessagesOperation.id,
+        operationInput: {},
+      })
+    ).resolves.toMatchObject({ outcome: "completed", result: { messages: [] } })
+    expect(encryptCredential).toHaveBeenCalled()
+    expect(provider).toHaveBeenCalledTimes(2)
+    expect(provider.mock.calls[1]?.[1]?.headers).toEqual(
+      expect.objectContaining({ authorization: "Bearer refreshed" })
+    )
+    vi.unstubAllEnvs()
+  })
   it.each([
     githubListIssuesOperation.id,
     githubCreateIssueOperation.id,
@@ -261,6 +323,15 @@ describe("Gateway GitHub repository policy", () => {
     })
     await expect(gateway.execute(input)).rejects.toThrow(
       "Connector target not allowed"
+    )
+    expect(
+      repositories.connection.recordConnectionReadUse
+    ).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({
+        operationId: input.operationId,
+        outcome: "failed",
+      })
     )
   })
   it("filters listing rows and suppresses provider pagination disclosure", async () => {

@@ -254,8 +254,10 @@ export class ConnectorGateway {
     )
     if (
       current?.connection.status !== "active" ||
-      current.connection.credentialVersion !==
-        authority.connection.credentialVersion ||
+      ((operation.provider === "github" ||
+        authority.connection.ownership === "environment") &&
+        current.connection.credentialVersion !==
+          authority.connection.credentialVersion) ||
       !current.providerPolicy.actionFamilies.includes(operation.actionFamily) ||
       requiredScopes.some(
         (scope) =>
@@ -272,7 +274,58 @@ export class ConnectorGateway {
         input.signal
       )
       output = operation.outputSchema.parse(result)
-    } catch {
+      if (operation.provider === "github") {
+        const current = await repositories.connection.getConnectorReadAuthority(
+          this.db,
+          {
+            workspaceId: input.workspaceId,
+            executionId: input.executionId,
+            connectionId: input.connectionId,
+          }
+        )
+        if (
+          !current ||
+          current.connection.status !== "active" ||
+          current.connection.credentialVersion !==
+            authority.connection.credentialVersion ||
+          !current.providerPolicy.actionFamilies.includes(
+            operation.actionFamily
+          ) ||
+          requiredScopes.some(
+            (scope) =>
+              !current.connection.scopes.includes(scope) ||
+              !current.providerPolicy.maxScopes.includes(scope)
+          )
+        )
+          throw new ConnectorGatewayError()
+        this.requireRepositoryPolicy(
+          operation,
+          current.providerPolicy,
+          validatedInput
+        )
+        if (operation.id === "github.repositories.list_public") {
+          const result = z
+            .object({
+              repositories: z.array(
+                z.object({ owner: z.string(), name: z.string() }).passthrough()
+              ),
+            })
+            .passthrough()
+            .parse(output)
+          output = {
+            ...result,
+            repositories: result.repositories.filter((repository) =>
+              githubRepositoryAllowed(
+                current.providerPolicy.allowedRepositories,
+                { owner: repository.owner, repository: repository.name }
+              )
+            ),
+            // Provider pagination includes repositories outside the policy.
+            hasMore: false,
+          }
+        }
+      }
+    } catch (error) {
       await repositories.connection.recordConnectionReadUse(this.db, {
         workspaceId: authority.connection.workspaceId,
         environmentId: authority.connection.environmentId,
@@ -283,58 +336,8 @@ export class ConnectorGateway {
         outcome: "failed",
         occurredAt: new Date(),
       })
+      if (error instanceof ConnectorGatewayError) throw error
       throw new ConnectorGatewayError(operation.providerErrorMessage)
-    }
-    if (operation.provider === "github") {
-      const current = await repositories.connection.getConnectorReadAuthority(
-        this.db,
-        {
-          workspaceId: input.workspaceId,
-          executionId: input.executionId,
-          connectionId: input.connectionId,
-        }
-      )
-      if (
-        !current ||
-        current.connection.status !== "active" ||
-        current.connection.credentialVersion !==
-          authority.connection.credentialVersion ||
-        !current.providerPolicy.actionFamilies.includes(
-          operation.actionFamily
-        ) ||
-        requiredScopes.some(
-          (scope) =>
-            !current.connection.scopes.includes(scope) ||
-            !current.providerPolicy.maxScopes.includes(scope)
-        )
-      )
-        throw new ConnectorGatewayError()
-      this.requireRepositoryPolicy(
-        operation,
-        current.providerPolicy,
-        validatedInput
-      )
-      if (operation.id === "github.repositories.list_public") {
-        const result = z
-          .object({
-            repositories: z.array(
-              z.object({ owner: z.string(), name: z.string() }).passthrough()
-            ),
-          })
-          .passthrough()
-          .parse(output)
-        output = {
-          ...result,
-          repositories: result.repositories.filter((repository) =>
-            githubRepositoryAllowed(
-              current.providerPolicy.allowedRepositories,
-              { owner: repository.owner, repository: repository.name }
-            )
-          ),
-          // Provider pagination includes repositories outside the policy.
-          hasMore: false,
-        }
-      }
     }
     await repositories.connection.recordConnectionReadUse(this.db, {
       workspaceId: authority.connection.workspaceId,
@@ -373,22 +376,6 @@ export class ConnectorGateway {
   ): Promise<SideEffectExecutionResult> {
     const { normalized, envelope, canonicalDigest, safeDisplay } =
       this.prepareSideEffect(operation, input)
-    if (operation.provider === "github") {
-      const authority = await repositories.connection.getConnectorReadAuthority(
-        this.db,
-        {
-          workspaceId: input.workspaceId,
-          executionId: input.executionId,
-          connectionId: input.connectionId,
-        }
-      )
-      if (!authority) throw new ConnectorGatewayError()
-      this.requireRepositoryPolicy(
-        operation,
-        authority.providerPolicy,
-        normalized.target
-      )
-    }
     const existing = await repositories.actionIntent.getActionIntentConsent(
       this.db,
       {
@@ -412,6 +399,22 @@ export class ConnectorGateway {
         existing.intent.status !== "ready"
       )
         return this.resolveSideEffectConsent(operation, input, existing)
+    }
+    if (operation.provider === "github") {
+      const authority = await repositories.connection.getConnectorReadAuthority(
+        this.db,
+        {
+          workspaceId: input.workspaceId,
+          executionId: input.executionId,
+          connectionId: input.connectionId,
+        }
+      )
+      if (!authority) throw new ConnectorGatewayError()
+      this.requireRepositoryPolicy(
+        operation,
+        authority.providerPolicy,
+        normalized.target
+      )
     }
     const existingAuthorizationKind = existing?.intent.connectionAccessGrantId
       ? "github_app_installation"
