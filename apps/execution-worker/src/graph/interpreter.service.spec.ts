@@ -1,4 +1,4 @@
-import { createTestWorkflowExecution } from "@linea/db/testing"
+import { seedExecution } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -206,11 +206,7 @@ describe("InterpreterService.run idempotency key", () => {
         nodes: [{ id: "n1", type: "http", config: {} }],
         edges: [],
       }
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -276,11 +272,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "http", config: {} }],
         edges: [],
       }
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -353,11 +345,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
         edges: [],
       }
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -441,11 +429,7 @@ describe("InterpreterService resume", () => {
         ],
         edges: [{ from: "n1", to: "n2" }],
       }
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -537,11 +521,7 @@ describe("InterpreterService resume", () => {
         ],
         edges: [],
       }
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -604,11 +584,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
         edges: [],
       }
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -671,11 +647,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "http", config: {} }],
         edges: [],
       }
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       // worker-2 reclaims before worker-1 gets to checkpoint.
       await repositories.execution.startExecution(
         db,
@@ -743,11 +715,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "http", config: {} }],
         edges: [],
       }
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       // worker-2 reclaims before worker-1 gets around to running n1.
       await repositories.execution.startExecution(
         db,
@@ -815,11 +783,7 @@ describe("InterpreterService resume", () => {
         nodes: [{ id: "n1", type: "http", config: {} }],
         edges: [],
       }
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       // Nobody has reclaimed this — worker-1 is still the leasedBy of
       // record, but its own heartbeat stalled and the lease already lapsed.
       await repositories.execution.startExecution(
@@ -876,11 +840,7 @@ describe("InterpreterService retry policy", () => {
         createdAt: new Date(),
       })
       .returning()
-    const { execution } = await createTestWorkflowExecution(
-      db,
-      organization.id,
-      graph
-    )
+    const { execution } = await seedExecution(db, organization.id, graph)
     return { organization, execution }
   }
   it("retries a failing node and succeeds once the handler stops throwing", async () => {
@@ -1401,11 +1361,7 @@ describe("InterpreterService variables", () => {
         ],
         edges: [{ from: "set-1", to: "get-1" }],
       }
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -1478,11 +1434,7 @@ describe("InterpreterService variables", () => {
         ],
         edges: [{ from: "set-1", to: "get-1" }],
       }
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.execution.startExecution(
         db,
         execution.id,

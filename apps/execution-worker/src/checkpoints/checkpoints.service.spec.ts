@@ -1,4 +1,4 @@
-import { createTestWorkflowExecution } from "@linea/db/testing"
+import { seedExecution } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
@@ -32,11 +32,7 @@ describe("CheckpointsService.getResumeState", () => {
       })
       .returning()
     try {
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -84,11 +80,7 @@ describe("CheckpointsService.getResumeVariables", () => {
       })
       .returning()
     try {
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
       const variables = await checkpoints.getResumeVariables(execution.id)
       expect(variables).toEqual({})
@@ -109,11 +101,7 @@ describe("CheckpointsService.getResumeVariables", () => {
       })
       .returning()
     try {
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -172,11 +160,7 @@ describe("CheckpointsService.recordStep attributes", () => {
       })
       .returning()
     try {
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.execution.startExecution(
         db,
         execution.id,
@@ -224,11 +208,7 @@ describe("CheckpointsService.recordStep attributes", () => {
       })
       .returning()
     try {
-      const { execution } = await createTestWorkflowExecution(
-        db,
-        organization.id,
-        graph
-      )
+      const { execution } = await seedExecution(db, organization.id, graph)
       await repositories.execution.startExecution(
         db,
         execution.id,

@@ -1,6 +1,6 @@
 export {
   createExecution as createTestExecution,
-  createTestWorkflowExecution,
+  seedExecution,
   getTestApplicationId,
   getTestDevelopmentEnvironmentId,
   fixtureIssuer,

@@ -243,7 +243,7 @@ export function createExecution(
   })
 }
 
-export async function createTestWorkflowExecution(
+export async function seedExecution(
   client: DbClient,
   workspaceId: string,
   graph: Parameters<typeof createWorkflowVersion>[1]["graph"],
