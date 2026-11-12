@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { Injectable } from '@nestjs/common'
 
 export type RealtimeTokenPayload = {
+  sessionId: string
   userId: string
   name: string
   image: string | null
@@ -13,10 +14,7 @@ const TOKEN_TTL_MS = 60_000
 
 type StoredToken = RealtimeTokenPayload & { expiresAt: number }
 
-/** Short-lived handshake tokens for the WebSocket gateway, minted via an authenticated REST call
- * and handed to socket.io as the connection credential — sidesteps relying on a cross-origin
- * session cookie at the WS handshake. Process-local: a multi-instance deployment would need this
- * shared (e.g. Redis) instead. */
+// Process-local tokens require sticky routing in multi-instance deployments.
 @Injectable()
 export class RealtimeTokenService {
   private readonly tokens = new Map<string, StoredToken>()
@@ -33,18 +31,18 @@ export class RealtimeTokenService {
   consume(token: string): RealtimeTokenPayload | undefined {
     const stored = this.tokens.get(token)
     if (!stored) return undefined
-    if (stored.expiresAt < Date.now()) {
+    if (stored.expiresAt <= Date.now()) {
       this.tokens.delete(token)
       return undefined
     }
-    const { userId, name, image, workspaceId, workflowId } = stored
-    return { userId, name, image, workspaceId, workflowId }
+    const { sessionId, userId, name, image, workspaceId, workflowId } = stored
+    return { sessionId, userId, name, image, workspaceId, workflowId }
   }
 
   private sweep() {
     const now = Date.now()
     for (const [token, stored] of this.tokens) {
-      if (stored.expiresAt < now) this.tokens.delete(token)
+      if (stored.expiresAt <= now) this.tokens.delete(token)
     }
   }
 }

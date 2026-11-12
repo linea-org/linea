@@ -10,6 +10,7 @@ import {
   WEBHOOK_DELIVERY_ATTEMPTS,
   WEBHOOK_RETRY_BASE_DELAY_MS,
   createConnection,
+  withWebhookAdmission,
   createWebhookDeliveryWorker,
   type WebhookDeliveryJob,
 } from "@linea/queue"
@@ -31,9 +32,25 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
   private cleanupInterval?: NodeJS.Timeout
 
   onModuleInit(): void {
-    this.connection = createConnection()
-    this.worker = createWebhookDeliveryWorker(this.connection, (job) =>
-      this.processDelivery(job.data.deliveryId, job.attemptsMade)
+    const connection = createConnection()
+    this.connection = connection
+    this.worker = createWebhookDeliveryWorker(
+      connection,
+      async (job, token) => {
+        const [delivery] =
+          await repositories.webhookDelivery.getWebhookDeliveries(db, [
+            job.data.deliveryId,
+          ])
+        if (
+          !delivery ||
+          delivery.status === "succeeded" ||
+          delivery.status === "failed"
+        )
+          return
+        await withWebhookAdmission(connection, job, token, delivery, (signal) =>
+          this.processDelivery(job.data.deliveryId, job.attemptsMade, signal)
+        )
+      }
     )
     void this.cleanup().catch((error: unknown) => this.logCleanupError(error))
     this.cleanupInterval = setInterval(
@@ -56,7 +73,8 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
 
   async processDelivery(
     deliveryId: string,
-    attemptsMade: number
+    attemptsMade: number,
+    signal: AbortSignal
   ): Promise<void> {
     const now = new Date()
     const claimed = await repositories.webhookDelivery.beginWebhookDelivery(
@@ -82,6 +100,7 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
     try {
       response = await deliverWebhook({
         url: delivery.url,
+        signal,
         body,
         allowLocalDevelopment: process.env.NODE_ENV === "development",
         headers: {

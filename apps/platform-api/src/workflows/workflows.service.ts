@@ -205,7 +205,7 @@ export class WorkflowsService {
     }
     // savedBy is absent for an API-key-authenticated save (no session user) — nobody realistically has that workflow's builder open with an API key, so skipping the broadcast there is harmless.
     if (savedBy && workflow.draftUpdatedAt) {
-      this.gateway.broadcastDraftUpdate(id, {
+      await this.gateway.broadcastDraftUpdate(id, {
         graph: input.graph,
         updatedAt: workflow.draftUpdatedAt.toISOString(),
         savedBy,
@@ -219,12 +219,13 @@ export class WorkflowsService {
     id: string,
     session: UserSession<typeof auth> | null,
   ) {
-    if (!session?.user) {
+    if (!session?.user || !session.session?.id) {
       throw new UnauthorizedException('A signed-in session is required')
     }
     // Confirms the workflow belongs to this workspace before minting a token for it.
     await this.get(workspaceId, id)
     return this.realtimeTokens.mint({
+      sessionId: session.session.id,
       userId: session.user.id,
       name: session.user.name,
       image: session.user.image ?? null,

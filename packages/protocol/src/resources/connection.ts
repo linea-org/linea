@@ -157,3 +157,17 @@ export type ConnectionUse = z.infer<typeof connectionUseSchema>
 export type ListConnectionUsesQuery = z.infer<
   typeof listConnectionUsesQuerySchema
 >
+
+export const launchConnectionAuthorizationSchema = z.strictObject({
+  state: z.string().min(1).max(2000),
+  browserChallenge: z.string().regex(/^[a-f0-9]{64}$/),
+})
+export type LaunchConnectionAuthorization = z.infer<
+  typeof launchConnectionAuthorizationSchema
+>
+
+export const connectionBrowserMessageSchema =
+  launchConnectionAuthorizationSchema.extend({
+    kind: z.literal("linea-connection-browser"),
+    authorizationId: z.uuid(),
+  })

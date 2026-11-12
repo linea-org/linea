@@ -6,6 +6,7 @@ export type WebhookResponse = {
 }
 
 export async function deliverWebhook(input: {
+  signal: AbortSignal
   url: string
   headers: Record<string, string>
   body: Buffer
@@ -15,12 +16,12 @@ export async function deliverWebhook(input: {
     method: "POST",
     headers: input.headers,
     body: input.body,
-    signal: undefined,
+    signal: input.signal,
     timeoutMs: 10_000,
     maxResponseBytes: 1_048_576,
     allowLocalDevelopment: input.allowLocalDevelopment,
     requireHttps: true,
-    redirectMode: "preserve",
+    redirectMode: "same-origin",
   })
   return {
     status: response.status,

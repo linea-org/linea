@@ -104,6 +104,7 @@ export async function createConnectionsLaunchFixture(): Promise<LaunchFixture> {
         },
         {
           provider: 'github',
+          allowedRepositories: [{ owner: 'octo', repository: 'demo' }],
           actionFamilies: ['issues'],
           maxScopes: ['read:user', 'repo'],
         },

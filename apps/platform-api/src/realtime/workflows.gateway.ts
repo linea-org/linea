@@ -1,21 +1,26 @@
+import { Logger, type OnModuleInit, type OnModuleDestroy } from '@nestjs/common'
+import { db, repositories } from '@linea/db'
 import {
   WebSocketGateway,
-  WebSocketServer,
   type OnGatewayConnection,
   type OnGatewayDisconnect,
 } from '@nestjs/websockets'
-import type { Server, Socket } from 'socket.io'
+import type { Socket } from 'socket.io'
 import { getTrustedOrigins, isTrustedOrigin } from '../common/trusted-origin'
 import {
   RealtimeTokenService,
   type RealtimeTokenPayload,
 } from './realtime-token.service'
 
-type PresenceEntry = { userId: string; name: string; image: string | null }
-
-function roomFor(workflowId: string): string {
-  return `workflow:${workflowId}`
+type Connection = {
+  client: Socket
+  payload: RealtimeTokenPayload
+  checking?: Promise<boolean>
+  expiresAt?: number
 }
+
+const REVALIDATION_MS = 30_000
+const AUTHORIZATION_TIMEOUT_MS = 5_000
 
 @WebSocketGateway({
   namespace: 'v1/workflows',
@@ -35,44 +40,61 @@ function roomFor(workflowId: string): string {
   },
 })
 export class WorkflowsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnModuleInit,
+    OnModuleDestroy
 {
-  @WebSocketServer() private readonly server!: Server
+  private readonly logger = new Logger(WorkflowsGateway.name)
+  private readonly connections = new Map<string, Connection>()
+  private readonly pendingDrafts = new Map<string, symbol>()
 
-  // workflowId -> socketId -> presence. Process-local, same caveat as RealtimeTokenService.
-  private readonly presence = new Map<string, Map<string, PresenceEntry>>()
+  private timer?: ReturnType<typeof setTimeout>
+  private destroyed = false
 
   constructor(private readonly tokens: RealtimeTokenService) {}
 
-  handleConnection(client: Socket) {
-    const rawToken = client.handshake.auth?.token as string | undefined
-    const payload = rawToken ? this.tokens.consume(rawToken) : undefined
+  async handleConnection(client: Socket) {
+    const rawToken: unknown = client.handshake.auth?.token
+    const payload =
+      typeof rawToken === 'string' ? this.tokens.consume(rawToken) : undefined
     if (!payload) {
       client.disconnect(true)
       return
     }
-
-    client.data = payload satisfies RealtimeTokenPayload
-    void client.join(roomFor(payload.workflowId))
-
-    const room = this.presenceFor(payload.workflowId)
-    room.set(client.id, {
-      userId: payload.userId,
-      name: payload.name,
-      image: payload.image,
-    })
-    this.broadcastPresence(payload.workflowId)
+    const connection: Connection = { client, payload }
+    if (!(await this.authorize(connection)) || !client.connected) return
+    if (this.destroyed) {
+      client.disconnect(true)
+      return
+    }
+    this.connections.set(client.id, connection)
+    await this.broadcastPresence(payload.workflowId)
   }
 
-  handleDisconnect(client: Socket) {
-    const data = client.data as Partial<RealtimeTokenPayload> | undefined
-    if (!data?.workflowId) return
-    this.presence.get(data.workflowId)?.delete(client.id)
-    this.broadcastPresence(data.workflowId)
+  async handleDisconnect(client: Socket) {
+    const connection = this.connections.get(client.id)
+    if (!connection) return
+    this.remove(connection)
+    await this.broadcastPresence(connection.payload.workflowId)
   }
 
-  /** Called by WorkflowsService after a draft save lands — fans the new graph out to everyone else currently viewing this workflow's builder. */
-  broadcastDraftUpdate(
+  onModuleInit() {
+    this.scheduleRevalidation()
+  }
+
+  onModuleDestroy() {
+    this.destroyed = true
+    clearTimeout(this.timer)
+    this.pendingDrafts.clear()
+    for (const connection of this.connections.values()) {
+      this.remove(connection)
+      connection.client.disconnect(true)
+    }
+  }
+
+  async broadcastDraftUpdate(
     workflowId: string,
     payload: {
       graph: Record<string, unknown>
@@ -80,28 +102,115 @@ export class WorkflowsGateway
       savedBy: { userId: string; name: string }
     },
   ) {
-    this.server.to(roomFor(workflowId)).emit('draft:updated', payload)
-  }
-
-  private presenceFor(workflowId: string): Map<string, PresenceEntry> {
-    let room = this.presence.get(workflowId)
-    if (!room) {
-      room = new Map()
-      this.presence.set(workflowId, room)
+    const delivery = Symbol()
+    this.pendingDrafts.set(workflowId, delivery)
+    try {
+      const connections = await this.authorizedConnections(workflowId)
+      if (this.pendingDrafts.get(workflowId) !== delivery) return
+      for (const connection of connections) {
+        if (this.isCurrent(connection))
+          connection.client.emit('draft:updated', payload)
+      }
+    } finally {
+      if (this.pendingDrafts.get(workflowId) === delivery)
+        this.pendingDrafts.delete(workflowId)
     }
-    return room
   }
 
-  private broadcastPresence(workflowId: string) {
-    const room = this.presence.get(workflowId)
-    // Deduped by userId — the same person open in two tabs shows up once.
-    const viewers = room
-      ? Array.from(
-          new Map(
-            Array.from(room.values(), (v) => [v.userId, v] as const),
-          ).values(),
-        )
-      : []
-    this.server.to(roomFor(workflowId)).emit('presence', viewers)
+  private remove(connection: Connection) {
+    this.connections.delete(connection.client.id)
+  }
+
+  private isCurrent(connection: Connection) {
+    return (
+      !!connection.expiresAt &&
+      connection.expiresAt > Date.now() &&
+      connection.client.connected &&
+      this.connections.get(connection.client.id) === connection
+    )
+  }
+
+  private scheduleRevalidation() {
+    this.timer = setTimeout(() => {
+      const workflows = new Set(
+        Array.from(
+          this.connections.values(),
+          (connection) => connection.payload.workflowId,
+        ),
+      )
+      void Promise.all(
+        Array.from(workflows, (workflowId) =>
+          this.broadcastPresence(workflowId),
+        ),
+      ).then(() => {
+        if (!this.destroyed) this.scheduleRevalidation()
+      })
+    }, REVALIDATION_MS)
+    this.timer.unref()
+  }
+
+  private authorize(connection: Connection): Promise<boolean> {
+    if (connection.checking) return connection.checking
+    connection.checking = this.checkAccess(connection).finally(() => {
+      connection.checking = undefined
+    })
+    return connection.checking
+  }
+
+  private async checkAccess(connection: Connection): Promise<boolean> {
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    try {
+      const expiresAt = await Promise.race([
+        repositories.builderSocketAccess.getBuilderSocketSessionExpiry(
+          db,
+          connection.payload,
+        ),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error('Builder socket authorization timed out')),
+            AUTHORIZATION_TIMEOUT_MS,
+          )
+        }),
+      ])
+      if (expiresAt && expiresAt.getTime() > Date.now()) {
+        connection.expiresAt = expiresAt.getTime()
+        return true
+      }
+    } catch (error) {
+      this.logger.error('Builder socket authorization failed', error)
+    } finally {
+      clearTimeout(timeout)
+    }
+    connection.client.disconnect(true)
+    this.remove(connection)
+    return false
+  }
+
+  private async authorizedConnections(workflowId: string) {
+    const candidates = Array.from(this.connections.values()).filter(
+      (connection) => connection.payload.workflowId === workflowId,
+    )
+    const authorized = await Promise.all(
+      candidates.map((connection) => this.authorize(connection)),
+    )
+    return candidates.filter(
+      (connection, index) => authorized[index] && this.isCurrent(connection),
+    )
+  }
+
+  private async broadcastPresence(workflowId: string) {
+    const connections = await this.authorizedConnections(workflowId)
+    const viewers = Array.from(
+      new Map(
+        connections.map(({ payload }) => [
+          payload.userId,
+          { userId: payload.userId, name: payload.name, image: payload.image },
+        ]),
+      ).values(),
+    )
+    for (const connection of connections) {
+      if (this.isCurrent(connection))
+        connection.client.emit('presence', viewers)
+    }
   }
 }

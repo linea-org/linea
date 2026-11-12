@@ -12,7 +12,6 @@ apps/
   platform-api/
   execution-worker/
   background-worker/
-  mobile/
   docs/
   run-gateway/
 
@@ -72,22 +71,26 @@ Owns work that is asynchronous but is not graph interpretation: due schedules,
 transactional-outbox dispatch, signed webhook delivery, push notifications,
 provider-revocation delivery, and conversation analysis.
 
-### `apps/mobile`
-
-The Expo workspace-member client for monitoring executions, notifications,
-signals, and workspace-audience approvals. It is an operational client, not a
-second workflow authoring implementation.
-
-### `apps/docs`
-
-The Next.js and Fumadocs documentation site. Its deployment workflow is scoped
-to documentation inputs so ordinary code-only commits do not redeploy it.
-
 ### `apps/run-gateway`
 
 A reserved package scaffold for the future sandbox execution gateway. It is
 not a shipped runtime dependency today. Do not route connectors, Connections,
 or Action Consent through it; those belong to the Connector Gateway.
+
+### Documentation site
+
+The public documentation site (Next.js and Fumadocs) lives in a separate
+repository, [linea-org/docs](https://github.com/linea-org/docs), and deploys
+on its own. It links to this repository's `CONTRIBUTING.md`, `GLOSSARY.md`,
+`SECURITY.md`, `docs/adr`, `docs/openapi.json`, and `docs/route-reference.md`
+rather than copying them.
+
+### Mobile client
+
+The Expo mobile client for monitoring executions, notifications, signals, and
+workspace-audience approvals lives in a separate repository,
+[linea-org/mobile](https://github.com/linea-org/mobile). It consumes the
+versioned `/v1` Platform API over HTTP and shares no package with this repo.
 
 ## Packages
 

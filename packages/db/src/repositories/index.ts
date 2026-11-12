@@ -53,3 +53,4 @@ export * as environmentAgentBinding from "./environment-agent-binding.repository
 
 export * as agentExecution from "./agent-execution.repository.js"
 export * as nestedAgentExecution from "./nested-agent-execution.repository.js"
+export * as builderSocketAccess from "./builder-socket-access.repository.js"

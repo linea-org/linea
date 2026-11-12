@@ -1,3 +1,4 @@
+import { openConnectionAuthorization } from "./open-connection-authorization.js"
 import type { PublicErrorCode } from "@linea/protocol/errors"
 import type { EventEnvelope, EventStreamQuery } from "@linea/protocol/events"
 import {
@@ -20,6 +21,7 @@ import {
   listConnectionsOperation,
   revokeEndUserSessionOperation,
   revokeConnectionOperation,
+  launchConnectionAuthorizationOperation,
   startConnectionAuthorizationOperation,
   startConnectionScopeUpgradeOperation,
   startEndUserAuthorizationOperation,
@@ -32,6 +34,7 @@ import type {
   Connection,
   ConnectionAuthorization,
   ConnectionAuthorizationResponse,
+  LaunchConnectionAuthorization,
   ConnectionsResponse,
   ConnectionUse,
   ConversationProjection,
@@ -318,6 +321,35 @@ export class LineaUserClient {
       startConnectionAuthorizationOperation.path,
       body,
       startConnectionAuthorizationOperation.response.body
+    )
+  }
+
+  launchConnectionAuthorization(
+    authorizationId: string,
+    input: LaunchConnectionAuthorization
+  ): Promise<ConnectionAuthorizationResponse> {
+    const path = this.path(
+      launchConnectionAuthorizationOperation.path,
+      "authorizationId",
+      authorizationId
+    )
+    const body =
+      launchConnectionAuthorizationOperation.request.body.parse(input)
+    return this.authorizedJson(
+      launchConnectionAuthorizationOperation.method,
+      path,
+      body,
+      launchConnectionAuthorizationOperation.response.body
+    )
+  }
+
+  /** Requires a user-opened popup, a same-origin returnUri, and an opener policy allowing cross-origin popups. */
+  openConnectionAuthorization(
+    authorization: ConnectionAuthorizationResponse,
+    popup: Window
+  ): Promise<void> {
+    return openConnectionAuthorization(authorization, popup, (input) =>
+      this.launchConnectionAuthorization(authorization.authorizationId, input)
     )
   }
 

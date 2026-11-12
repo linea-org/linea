@@ -114,6 +114,7 @@ async function repositoryRef(
     {
       headers: githubHeaders(accessToken),
       signal: githubRequestSignal(signal),
+      redirect: "error",
     }
   )
   if (!response.ok) throw new GithubProviderError(false)
@@ -139,6 +140,7 @@ async function reconcilePullRequest(
   const response = await fetch(url, {
     headers: githubHeaders(accessToken),
     signal: githubRequestSignal(signal),
+    redirect: "error",
   })
   if (!response.ok) throw new GithubProviderError(false)
   const pullRequests = z
@@ -299,6 +301,7 @@ export const githubCreatePullRequestOperation: ConnectorSideEffectOperation =
               draft: input.draft,
             }),
             signal: githubRequestSignal(signal),
+            redirect: "error",
           }
         )
       } catch {

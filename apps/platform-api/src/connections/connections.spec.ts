@@ -29,6 +29,7 @@ import request from 'supertest'
 import type { App } from 'supertest/types'
 import { publicErrorResponseSchema } from '@linea/protocol/errors'
 import {
+  connectionBrowserMessageSchema,
   connectionAuthorizationResponseSchema,
   connectionAuthorizationSchema,
   connectionSchema,
@@ -36,6 +37,7 @@ import {
 } from '@linea/protocol/resources'
 import {
   CONNECTION_OAUTH_PROVIDERS,
+  type ConnectionOAuthProvider,
   ConnectionProviderInvalidGrantError,
 } from './connection-oauth-provider'
 import { ConnectionCredentialsService } from './connection-credentials.service'
@@ -111,9 +113,62 @@ describe('OAuth Connections', () => {
   let externalSubjectId: string
   let sessionId: string
   let crossWorkspaceId: string | undefined
+  let oauthAdapters: ConnectionOAuthProvider[]
   let provider: Awaited<ReturnType<typeof startTestOAuthProvider>>
   let google: Awaited<ReturnType<typeof startTestGoogleProvider>>
   let githubProvider: Awaited<ReturnType<typeof startTestGithubOAuthProvider>>
+  const cookies = new Map<string, string>()
+  async function browserHandshake(url: string) {
+    const page = await fetch(url)
+    expect(page.status).toBe(200)
+    const cookie = page.headers.get('set-cookie')?.split(';')[0]
+    if (!cookie) throw new Error('Missing browser cookie')
+    const html = await page.text()
+    const encoded = html.match(/postMessage\((\{.*?\}),/u)?.[1]
+    if (!encoded) throw new Error('Missing browser handshake')
+    const message = connectionBrowserMessageSchema.parse(parseJson(encoded))
+    expect(page.headers.get('content-security-policy')).toContain(
+      "frame-ancestors 'none'",
+    )
+    expect(page.headers.get('cross-origin-opener-policy')).toBe('unsafe-none')
+    expect(html).toContain(',"http://127.0.0.1:4173")')
+    return { message, cookie }
+  }
+  async function launchBrowser(url: string): Promise<string> {
+    const { message, cookie } = await browserHandshake(url)
+    cookies.set(message.state, cookie)
+    const path = `/v1/user/connections/authorizations/${message.authorizationId}/launch`
+    const launched = await request(baseUrl)
+      .post(path)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${path}`))
+      .send({
+        state: message.state,
+        browserChallenge: message.browserChallenge,
+      })
+    expect(launched.status).toBe(201)
+    return responseBody(launched, connectionAuthorizationResponseSchema)
+      .authorizationUrl
+  }
+  async function browserFetch(
+    input: string | URL,
+    init?: RequestInit,
+  ): Promise<Response> {
+    let url = new URL(input)
+    if (url.pathname.endsWith('/launch'))
+      url = new URL(await launchBrowser(url.toString()))
+    const headers = new Headers(init?.headers)
+    const cookie = cookies.get(url.searchParams.get('state') ?? '')
+    if (url.pathname.endsWith('/callback') && cookie) {
+      const unbound = await fetch(url, { ...init, headers })
+      expect(unbound.status).toBe(400)
+      const foreign = new Headers(headers)
+      foreign.set('Cookie', `${cookie.split('=')[0]}=another-browser`)
+      expect((await fetch(url, { ...init, headers: foreign })).status).toBe(400)
+      headers.set('Cookie', cookie)
+    }
+    return fetch(url, { ...init, headers })
+  }
   beforeAll(async () => {
     provider = await startTestOAuthProvider()
     google = await startTestGoogleProvider()
@@ -171,6 +226,7 @@ describe('OAuth Connections', () => {
         workspaceId,
         environmentId,
         externalSubjectId: subject.id,
+        createdAt: new Date(Date.now() - 1000),
         tokenHash: hexHash(accessToken),
         proofJkt: await calculateJwkThumbprint(key.publicJwk, 'sha256'),
         nonceHash: hexHash(nonce),
@@ -178,11 +234,25 @@ describe('OAuth Connections', () => {
       })
       .returning()
     sessionId = session.id
+    oauthAdapters = [
+      provider.adapter,
+      google.adapter,
+      githubProvider.adapter,
+    ].map((adapter) => ({
+      provider: adapter.provider,
+      authorizationScopes: (input) => adapter.authorizationScopes(input),
+      createAuthorizationUrl: (input) => adapter.createAuthorizationUrl(input),
+      exchangeAuthorizationCode: (input) =>
+        adapter.exchangeAuthorizationCode(input),
+      refreshCredential: (input) => adapter.refreshCredential(input),
+      revokeCredential: (input, signal) =>
+        adapter.revokeCredential(input, signal),
+    }))
     const moduleRef = await Test.createTestingModule({
       imports: [ConnectionsModule],
     })
       .overrideProvider(CONNECTION_OAUTH_PROVIDERS)
-      .useValue([provider.adapter, google.adapter, githubProvider.adapter])
+      .useValue(oauthAdapters)
       .compile()
     app = moduleRef.createNestApplication()
     app.setGlobalPrefix('v1')
@@ -225,7 +295,7 @@ describe('OAuth Connections', () => {
     expect(response.status).toBe(201)
     const body = responseBody(response, connectionAuthorizationResponseSchema)
     expect(typeof body.authorizationId).toBe('string')
-    expect(body.authorizationUrl).toContain('/authorize')
+    expect(body.authorizationUrl).toContain('/launch?state=')
   })
   it('expands GitHub scopes through a new ceremony without changing Connection identity', async () => {
     const startAuthorization = async (scopes: string[]) => {
@@ -244,17 +314,21 @@ describe('OAuth Connections', () => {
         started,
         connectionAuthorizationResponseSchema,
       )
-      const providerUrl = new URL(authorization.authorizationUrl)
+      const providerUrl = new URL(
+        await launchBrowser(authorization.authorizationUrl),
+      )
       expect(providerUrl.searchParams.get('scope')).toBe(
         [...scopes, 'offline_access'].join(' '),
       )
       return providerUrl
     }
     const completeAuthorization = async (providerUrl: URL) => {
-      const providerResponse = await fetch(providerUrl, { redirect: 'manual' })
+      const providerResponse = await browserFetch(providerUrl, {
+        redirect: 'manual',
+      })
       const callback = providerResponse.headers.get('location')
       if (!callback) throw new Error('Provider callback location is missing')
-      const completed = await fetch(callback, { redirect: 'manual' })
+      const completed = await browserFetch(callback, { redirect: 'manual' })
       expect(completed.status).toBe(302)
       const returned = completed.headers.get('location')
       if (!returned) throw new Error('Environment return location is missing')
@@ -363,12 +437,14 @@ describe('OAuth Connections', () => {
         environmentId,
       ],
     )
-    const staleProviderResponse = await fetch(staleExpansion, {
+    const staleProviderResponse = await browserFetch(staleExpansion, {
       redirect: 'manual',
     })
     const staleCallback = staleProviderResponse.headers.get('location')
     if (!staleCallback) throw new Error('Provider callback location is missing')
-    const staleCompleted = await fetch(staleCallback, { redirect: 'manual' })
+    const staleCompleted = await browserFetch(staleCallback, {
+      redirect: 'manual',
+    })
     const staleReturned = staleCompleted.headers.get('location')
     if (!staleReturned)
       throw new Error('Environment return location is missing')
@@ -406,14 +482,14 @@ describe('OAuth Connections', () => {
         environmentId,
       ],
     )
-    const unsupportedProviderResponse = await fetch(unsupportedPolicy, {
+    const unsupportedProviderResponse = await browserFetch(unsupportedPolicy, {
       redirect: 'manual',
     })
     const unsupportedCallback =
       unsupportedProviderResponse.headers.get('location')
     if (!unsupportedCallback)
       throw new Error('Provider callback location is missing')
-    const unsupportedCompleted = await fetch(unsupportedCallback, {
+    const unsupportedCompleted = await browserFetch(unsupportedCallback, {
       redirect: 'manual',
     })
     expect(unsupportedCompleted.status).toBe(302)
@@ -475,12 +551,15 @@ describe('OAuth Connections', () => {
         started,
         connectionAuthorizationResponseSchema,
       )
-      const providerResponse = await fetch(authorization.authorizationUrl, {
-        redirect: 'manual',
-      })
+      const providerResponse = await browserFetch(
+        authorization.authorizationUrl,
+        {
+          redirect: 'manual',
+        },
+      )
       const callback = providerResponse.headers.get('location')
       if (!callback) throw new Error('Google callback location is missing')
-      const completed = await fetch(callback, { redirect: 'manual' })
+      const completed = await browserFetch(callback, { redirect: 'manual' })
       const location = completed.headers.get('location')
       if (!location) throw new Error('Environment return location is missing')
       return new URL(location).searchParams.get('status')
@@ -632,7 +711,7 @@ describe('OAuth Connections', () => {
       .set('Authorization', `DPoP ${accessToken}`)
       .set('DPoP', await createProof('DELETE', `${baseUrl}${getPath}`))
     expect(responseBody(revoked, connectionSchema).status).toBe('revoked')
-    await revocations.poll()
+    await revocations.poll(new Date(Date.now() + 1000))
     const failed = await db.query.connectionRevocationDeliveries.findFirst({
       where: { connectionId: denied.id },
     })
@@ -673,12 +752,12 @@ describe('OAuth Connections', () => {
         started,
         connectionAuthorizationResponseSchema,
       )
-      const granted = await fetch(authorization.authorizationUrl, {
+      const granted = await browserFetch(authorization.authorizationUrl, {
         redirect: 'manual',
       })
       const callback = granted.headers.get('location')
       if (!callback) throw new Error('Google callback location is missing')
-      const completed = await fetch(callback, { redirect: 'manual' })
+      const completed = await browserFetch(callback, { redirect: 'manual' })
       return new URL(completed.headers.get('location') ?? '').searchParams.get(
         'status',
       )
@@ -844,7 +923,9 @@ describe('OAuth Connections', () => {
       started,
       connectionAuthorizationResponseSchema,
     )
-    const providerAuthorization = new URL(startedBody.authorizationUrl)
+    const providerAuthorization = new URL(
+      await launchBrowser(startedBody.authorizationUrl),
+    )
     const callback = new URL(
       `/v1/user/connections/oauth/test/callback`,
       baseUrl,
@@ -854,7 +935,7 @@ describe('OAuth Connections', () => {
       'state',
       providerAuthorization.searchParams.get('state') ?? '',
     )
-    const failed = await fetch(callback, { redirect: 'manual' })
+    const failed = await browserFetch(callback, { redirect: 'manual' })
     expect(failed.status).toBe(302)
     const location = failed.headers.get('location')
     if (!location) throw new Error('Environment return location is missing')
@@ -897,7 +978,9 @@ describe('OAuth Connections', () => {
       started,
       connectionAuthorizationResponseSchema,
     )
-    const providerAuthorization = new URL(startedBody.authorizationUrl)
+    const providerAuthorization = new URL(
+      await launchBrowser(startedBody.authorizationUrl),
+    )
     const callback = new URL(
       `/v1/user/connections/oauth/test/callback`,
       baseUrl,
@@ -908,7 +991,7 @@ describe('OAuth Connections', () => {
       'state',
       providerAuthorization.searchParams.get('state') ?? '',
     )
-    const denied = await fetch(callback, { redirect: 'manual' })
+    const denied = await browserFetch(callback, { redirect: 'manual' })
     expect(denied.status).toBe(302)
     const location = denied.headers.get('location')
     if (!location) throw new Error('Environment return location is missing')
@@ -937,7 +1020,7 @@ describe('OAuth Connections', () => {
       started,
       connectionAuthorizationResponseSchema,
     )
-    const providerResponse = await fetch(startedBody.authorizationUrl, {
+    const providerResponse = await browserFetch(startedBody.authorizationUrl, {
       redirect: 'manual',
     })
     const callback = providerResponse.headers.get('location')
@@ -947,7 +1030,7 @@ describe('OAuth Connections', () => {
       [JSON.stringify({ providers: [] }), environmentId],
     )
     try {
-      const completed = await fetch(callback, { redirect: 'manual' })
+      const completed = await browserFetch(callback, { redirect: 'manual' })
       expect(completed.status).toBe(302)
       const location = completed.headers.get('location')
       if (!location) throw new Error('Environment return location is missing')
@@ -1002,14 +1085,14 @@ describe('OAuth Connections', () => {
       started,
       connectionAuthorizationResponseSchema,
     )
-    const providerResponse = await fetch(startedBody.authorizationUrl, {
+    const providerResponse = await browserFetch(startedBody.authorizationUrl, {
       redirect: 'manual',
     })
     expect(providerResponse.status).toBe(302)
     const callbackLocation = providerResponse.headers.get('location')
     if (!callbackLocation)
       throw new Error('Provider callback location is missing')
-    const callbackResponse = await fetch(callbackLocation, {
+    const callbackResponse = await browserFetch(callbackLocation, {
       redirect: 'manual',
     })
     expect(callbackResponse.status).toBe(302)
@@ -1086,6 +1169,7 @@ describe('OAuth Connections', () => {
       workspaceId,
       environmentId,
       externalSubjectId,
+      createdAt: new Date(Date.now() - 1000),
       tokenHash: hexHash(secondToken),
       proofJkt: await calculateJwkThumbprint(secondKey.publicJwk, 'sha256'),
       nonceHash: hexHash(secondNonce),
@@ -1161,7 +1245,7 @@ describe('OAuth Connections', () => {
       .set('DPoP', await createProof('GET', `${baseUrl}${getPath}`))
     expect(inspected.status).toBe(200)
     expect(responseBody(inspected, connectionSchema).id).toBe(connectionId)
-    const replay = await fetch(callbackLocation, { redirect: 'manual' })
+    const replay = await browserFetch(callbackLocation, { redirect: 'manual' })
     expect(replay.status).toBe(400)
     provider.rejectNextRevocation()
     const revoked = await request(baseUrl)
@@ -1201,7 +1285,7 @@ describe('OAuth Connections', () => {
     const warn = jest
       .spyOn(Logger.prototype, 'warn')
       .mockImplementation(() => undefined)
-    await revocations.poll()
+    await revocations.poll(new Date(Date.now() + 1000))
     const warnings = JSON.stringify(warn.mock.calls)
     warn.mockRestore()
     expect(warnings).toContain('provider_error')
@@ -1240,7 +1324,7 @@ describe('OAuth Connections', () => {
       availableAt: new Date(Date.now() - 2_000),
       expiresAt: new Date(Date.now() - 1_000),
     })
-    await revocations.poll()
+    await revocations.poll(new Date(Date.now() + 1000))
     expect(
       await db.query.connectionRevocationDeliveries.findFirst({
         where: { id: expiredDeliveryId },
@@ -1261,12 +1345,14 @@ describe('OAuth Connections', () => {
       started,
       connectionAuthorizationResponseSchema,
     )
-    const authorized = await fetch(startedBody.authorizationUrl, {
+    const authorized = await browserFetch(startedBody.authorizationUrl, {
       redirect: 'manual',
     })
     const callback = authorized.headers.get('location')
     if (!callback) throw new Error('Provider callback location is missing')
-    expect((await fetch(callback, { redirect: 'manual' })).status).toBe(302)
+    expect((await browserFetch(callback, { redirect: 'manual' })).status).toBe(
+      302,
+    )
     const listPath = '/v1/user/connections'
     const listed = await request(baseUrl)
       .get(listPath)
@@ -1342,12 +1428,14 @@ describe('OAuth Connections', () => {
       started,
       connectionAuthorizationResponseSchema,
     )
-    const authorized = await fetch(startedBody.authorizationUrl, {
+    const authorized = await browserFetch(startedBody.authorizationUrl, {
       redirect: 'manual',
     })
     const callback = authorized.headers.get('location')
     if (!callback) throw new Error('Provider callback location is missing')
-    expect((await fetch(callback, { redirect: 'manual' })).status).toBe(302)
+    expect((await browserFetch(callback, { redirect: 'manual' })).status).toBe(
+      302,
+    )
     const listPath = '/v1/user/connections'
     const listed = await request(baseUrl)
       .get(listPath)
@@ -1393,14 +1481,14 @@ describe('OAuth Connections', () => {
       upgrade,
       connectionAuthorizationResponseSchema,
     )
-    const providerUpgrade = await fetch(upgradeBody.authorizationUrl, {
+    const providerUpgrade = await browserFetch(upgradeBody.authorizationUrl, {
       redirect: 'manual',
     })
     const upgradeCallback = providerUpgrade.headers.get('location')
     if (!upgradeCallback) throw new Error('Provider callback is missing')
-    expect((await fetch(upgradeCallback, { redirect: 'manual' })).status).toBe(
-      302,
-    )
+    expect(
+      (await browserFetch(upgradeCallback, { redirect: 'manual' })).status,
+    ).toBe(302)
     const upgraded = await request(baseUrl)
       .get(`/v1/user/connections/${secondAccount.id}`)
       .set('Authorization', `DPoP ${accessToken}`)
@@ -1457,12 +1545,15 @@ describe('OAuth Connections', () => {
       mismatched,
       connectionAuthorizationResponseSchema,
     )
-    const mismatchedProvider = await fetch(mismatchedBody.authorizationUrl, {
-      redirect: 'manual',
-    })
+    const mismatchedProvider = await browserFetch(
+      mismatchedBody.authorizationUrl,
+      {
+        redirect: 'manual',
+      },
+    )
     const mismatchedCallback = mismatchedProvider.headers.get('location')
     if (!mismatchedCallback) throw new Error('Provider callback is missing')
-    const mismatchedResult = await fetch(mismatchedCallback, {
+    const mismatchedResult = await browserFetch(mismatchedCallback, {
       redirect: 'manual',
     })
     const mismatchedLocation = mismatchedResult.headers.get('location')
@@ -1485,12 +1576,17 @@ describe('OAuth Connections', () => {
       partialGrant,
       connectionAuthorizationResponseSchema,
     )
-    const partialProvider = await fetch(partialGrantBody.authorizationUrl, {
-      redirect: 'manual',
-    })
+    const partialProvider = await browserFetch(
+      partialGrantBody.authorizationUrl,
+      {
+        redirect: 'manual',
+      },
+    )
     const partialCallback = partialProvider.headers.get('location')
     if (!partialCallback) throw new Error('Provider callback is missing')
-    const partialResult = await fetch(partialCallback, { redirect: 'manual' })
+    const partialResult = await browserFetch(partialCallback, {
+      redirect: 'manual',
+    })
     const partialLocation = partialResult.headers.get('location')
     if (!partialLocation) throw new Error('Environment return is missing')
     expect(new URL(partialLocation).searchParams.get('status')).toBe('failed')
@@ -1549,7 +1645,7 @@ describe('OAuth Connections', () => {
       reauthorization,
       connectionAuthorizationResponseSchema,
     )
-    const reauthorizationProvider = await fetch(
+    const reauthorizationProvider = await browserFetch(
       reauthorizationBody.authorizationUrl,
       { redirect: 'manual' },
     )
@@ -1557,7 +1653,7 @@ describe('OAuth Connections', () => {
       reauthorizationProvider.headers.get('location')
     if (!reauthorizationCallback)
       throw new Error('Provider callback is missing')
-    const reauthorizationResult = await fetch(reauthorizationCallback, {
+    const reauthorizationResult = await browserFetch(reauthorizationCallback, {
       redirect: 'manual',
     })
     const reauthorizationLocation =
@@ -1602,14 +1698,18 @@ describe('OAuth Connections', () => {
     )
     const callbacks = await Promise.all(
       started.map(async ({ authorizationUrl }) => {
-        const authorized = await fetch(authorizationUrl, { redirect: 'manual' })
+        const authorized = await browserFetch(authorizationUrl, {
+          redirect: 'manual',
+        })
         const callback = authorized.headers.get('location')
         if (!callback) throw new Error('Provider callback location is missing')
         return callback
       }),
     )
     const completed = await Promise.all(
-      callbacks.map((callback) => fetch(callback, { redirect: 'manual' })),
+      callbacks.map((callback) =>
+        browserFetch(callback, { redirect: 'manual' }),
+      ),
     )
     expect(completed.every(({ status }) => status === 302)).toBe(true)
     const results = completed.map((response) => {
@@ -1821,6 +1921,7 @@ describe('OAuth Connections', () => {
         workspaceId: scopedWorkspaceId,
         environmentId: scopedEnvironmentId,
         externalSubjectId: scopedSubjectId,
+        createdAt: new Date(Date.now() - 1000),
         tokenHash: hexHash(scopedToken),
         proofJkt: await calculateJwkThumbprint(scopedKey.publicJwk, 'sha256'),
         nonceHash: hexHash(scopedNonce),
@@ -1917,6 +2018,223 @@ describe('OAuth Connections', () => {
       expect(hiddenRevoke.status).toBe(404)
     }
   })
+  it('rejects an expired browser-bound authorization without exchanging its code', async () => {
+    await pool.query(
+      'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
+      [JSON.stringify(connectorPolicy()), environmentId],
+    )
+    const path = '/v1/user/connections/authorizations'
+    const started = await request(baseUrl)
+      .post(path)
+      .set('Authorization', `DPoP ${accessToken}`)
+      .set('DPoP', await createProof('POST', `${baseUrl}${path}`))
+      .send({
+        provider: 'test',
+        returnUri: 'http://127.0.0.1:4173/connections/callback',
+      })
+      .expect(201)
+    const authorization = responseBody(
+      started,
+      connectionAuthorizationResponseSchema,
+    )
+    const granted = await browserFetch(authorization.authorizationUrl, {
+      redirect: 'manual',
+    })
+    const callback = granted.headers.get('location')
+    if (!callback) throw new Error('Missing callback')
+    await pool.query(
+      "UPDATE connection_authorization_requests SET created_at = now() - interval '10 minutes', expires_at = now() - interval '1 minute' WHERE id = $1",
+      [authorization.authorizationId],
+    )
+    const adapter = oauthAdapters.find(
+      (candidate) => candidate.provider === 'test',
+    )
+    if (!adapter) throw new Error('Missing provider')
+    const exchange = jest.spyOn(adapter, 'exchangeAuthorizationCode')
+    try {
+      expect(
+        (await browserFetch(callback, { redirect: 'manual' })).status,
+      ).toBe(400)
+      expect(exchange).not.toHaveBeenCalled()
+    } finally {
+      exchange.mockRestore()
+    }
+  })
+  it.each(['github', 'google'])(
+    'rejects transferred %s launch and callback links without claiming the flow',
+    async (providerName) => {
+      if (providerName === 'google')
+        google.selectAccount('browser-binding-google', 'browser@example.com')
+      await pool.query(
+        'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
+        [JSON.stringify(connectorPolicy()), environmentId],
+      )
+      const startPath = '/v1/user/connections/authorizations'
+      const started = await request(baseUrl)
+        .post(startPath)
+        .set('Authorization', `DPoP ${accessToken}`)
+        .set('DPoP', await createProof('POST', `${baseUrl}${startPath}`))
+        .send({
+          provider: providerName,
+          returnUri: 'http://127.0.0.1:4173/connections/callback',
+        })
+      expect(started.status).toBe(201)
+      const authorization = responseBody(
+        started,
+        connectionAuthorizationResponseSchema,
+      )
+      const initiator = await browserHandshake(authorization.authorizationUrl)
+      const victim = await browserHandshake(authorization.authorizationUrl)
+      expect(victim.cookie).not.toBe(initiator.cookie)
+      expect(victim.message.browserChallenge).not.toBe(
+        initiator.message.browserChallenge,
+      )
+      const launchPath = `/v1/user/connections/authorizations/${authorization.authorizationId}/launch`
+      const launchBody = {
+        state: initiator.message.state,
+        browserChallenge: initiator.message.browserChallenge,
+      }
+      await request(baseUrl).post(launchPath).send(launchBody).expect(401)
+      const otherToken = `lnu_${randomUUID().replaceAll('-', '')}`
+      await db.insert(schema.endUserSessions).values({
+        workspaceId,
+        environmentId,
+        externalSubjectId,
+        createdAt: new Date(Date.now() - 1000),
+        tokenHash: hexHash(otherToken),
+        proofJkt: await calculateJwkThumbprint(key.publicJwk, 'sha256'),
+        nonceHash: hexHash(nonce),
+        expiresAt: new Date(Date.now() + 60_000),
+      })
+      await request(baseUrl)
+        .post(launchPath)
+        .set('Authorization', `DPoP ${otherToken}`)
+        .set(
+          'DPoP',
+          await createProofFor(
+            'POST',
+            `${baseUrl}${launchPath}`,
+            otherToken,
+            nonce,
+            key,
+          ),
+        )
+        .send(launchBody)
+        .expect(400)
+      const launch = () =>
+        request(baseUrl)
+          .post(launchPath)
+          .set('Authorization', `DPoP ${accessToken}`)
+      const launched = await launch()
+        .set('DPoP', await createProof('POST', `${baseUrl}${launchPath}`))
+        .send(launchBody)
+        .expect(201)
+      await launch()
+        .set('DPoP', await createProof('POST', `${baseUrl}${launchPath}`))
+        .send(launchBody)
+        .expect(400)
+      const providerUrl = responseBody(
+        launched,
+        connectionAuthorizationResponseSchema,
+      ).authorizationUrl
+      const granted = await fetch(providerUrl, { redirect: 'manual' })
+      const callback = granted.headers.get('location')
+      if (!callback) throw new Error('Missing callback')
+      const adapter = oauthAdapters.find(
+        (candidate) => candidate.provider === providerName,
+      )
+      if (!adapter) throw new Error('Missing provider')
+      const exchange = jest.spyOn(adapter, 'exchangeAuthorizationCode')
+      try {
+        for (const cookie of [undefined, victim.cookie]) {
+          const headers = new Headers()
+          if (cookie) headers.set('Cookie', cookie)
+          expect(
+            (await fetch(callback, { redirect: 'manual', headers })).status,
+          ).toBe(400)
+          const pending =
+            await db.query.connectionAuthorizationRequests.findFirst({
+              where: { id: authorization.authorizationId },
+            })
+          expect(pending?.claimedAt).toBeNull()
+          expect(pending?.resultConnectionId).toBeNull()
+          expect(exchange).not.toHaveBeenCalled()
+        }
+        const completed = await fetch(callback, {
+          redirect: 'manual',
+          headers: { Cookie: initiator.cookie },
+        })
+        expect(completed.status).toBe(302)
+        expect(
+          new URL(completed.headers.get('location') ?? '').searchParams.get(
+            'status',
+          ),
+        ).toBe('connected')
+        expect(exchange).toHaveBeenCalledTimes(1)
+        const stored = await db.query.connectionAuthorizationRequests.findFirst(
+          { where: { id: authorization.authorizationId } },
+        )
+        if (!stored?.resultConnectionId) throw new Error('Missing Connection')
+        const upgradeScopes =
+          providerName === 'github' ? ['read:user', 'repo'] : stored.scopes
+        if (providerName === 'github') {
+          const policy = connectorPolicy()
+          const githubPolicy = policy.providers.find(
+            (candidate) => candidate.provider === 'github',
+          )
+          if (!githubPolicy) throw new Error('Missing policy')
+          githubPolicy.actionFamilies.push('issues')
+          await pool.query(
+            'UPDATE environments SET connector_access_policy = $1 WHERE id = $2',
+            [JSON.stringify(policy), environmentId],
+          )
+        } else {
+          await pool.query('UPDATE connections SET scopes = $1 WHERE id = $2', [
+            stored.scopes.slice(0, -1),
+            stored.resultConnectionId,
+          ])
+        }
+        const upgradePath = `/v1/user/connections/${stored.resultConnectionId}/authorizations`
+        const upgraded = await request(baseUrl)
+          .post(upgradePath)
+          .set('Authorization', `DPoP ${accessToken}`)
+          .set('DPoP', await createProof('POST', `${baseUrl}${upgradePath}`))
+          .send({
+            returnUri: 'http://127.0.0.1:4173/connections/callback',
+            scopes: upgradeScopes,
+          })
+          .expect(201)
+        const upgrade = responseBody(
+          upgraded,
+          connectionAuthorizationResponseSchema,
+        )
+        const grantedUpgrade = await browserFetch(upgrade.authorizationUrl, {
+          redirect: 'manual',
+        })
+        const upgradeCallback = grantedUpgrade.headers.get('location')
+        if (!upgradeCallback) throw new Error('Missing upgrade callback')
+        const completedUpgrade = await browserFetch(upgradeCallback, {
+          redirect: 'manual',
+        })
+        expect(
+          new URL(
+            completedUpgrade.headers.get('location') ?? '',
+          ).searchParams.get('status'),
+        ).toBe('connected')
+        expect(exchange).toHaveBeenCalledTimes(2)
+        expect(
+          (
+            await fetch(callback, {
+              redirect: 'manual',
+              headers: { Cookie: initiator.cookie },
+            })
+          ).status,
+        ).toBe(400)
+      } finally {
+        exchange.mockRestore()
+      }
+    },
+  )
   async function createProof(method: string, url: string): Promise<string> {
     return createProofFor(method, url, accessToken, nonce, key)
   }

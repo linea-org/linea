@@ -9,6 +9,7 @@ import {
   connectionReviewerAssignments,
   approvalDecisions,
   approvalRequests,
+  actionIntents,
   organizations,
   connectorAuditFacts,
 } from "../schema/index.js"
@@ -142,7 +143,12 @@ describe("shared Environment Connections", () => {
       expect(await getConnectorReadAuthority(tx, input)).toBeUndefined()
     })
   })
-  it.each(["before_claim", "after_claim"])(
+  it.each([
+    "before_claim",
+    "after_claim",
+    "policy_before_claim",
+    "policy_after_claim",
+  ])(
     "requires an assigned human reviewer and rejects revoked consent %s",
     async (phase) => {
       await withRollback(async (tx) => {
@@ -163,6 +169,9 @@ describe("shared Environment Connections", () => {
                   provider: "github",
                   actionFamilies: ["issues"],
                   maxScopes: ["repo"],
+                  allowedRepositories: [
+                    { owner: "Acme", repository: "Support" },
+                  ],
                 },
               ],
             },
@@ -248,7 +257,7 @@ describe("shared Environment Connections", () => {
           parameters: { title: "Investigate" },
           providerPreconditions: {},
         }
-        const created = await createActionIntent(tx, {
+        const createInput = {
           workspaceId: organization.id,
           executionId: execution.id,
           nodeId: "write",
@@ -267,7 +276,28 @@ describe("shared Environment Connections", () => {
           canonicalEnvelope: { ...envelope, version: 1 },
           invocationIdempotencyKey: randomUUID(),
           expiresAt: new Date(Date.now() + 300000),
-        })
+        } satisfies Parameters<typeof createActionIntent>[1]
+        expect(
+          (
+            await createActionIntent(tx, {
+              ...createInput,
+              target: { owner: "acme", repository: "private" },
+            })
+          ).outcome
+        ).toBe("authority_invalid")
+        expect(
+          await tx
+            .select()
+            .from(approvalRequests)
+            .where(eq(approvalRequests.workspaceId, organization.id))
+        ).toHaveLength(0)
+        expect(
+          await tx
+            .select()
+            .from(actionIntents)
+            .where(eq(actionIntents.workspaceId, organization.id))
+        ).toHaveLength(0)
+        const created = await createActionIntent(tx, createInput)
         expect(created.outcome).toBe("created")
         if (created.outcome !== "created")
           throw new Error("Intent creation rejected")
@@ -349,14 +379,32 @@ describe("shared Environment Connections", () => {
           requiredScopes: ["repo"],
           now: new Date(),
         }
-        if (phase === "after_claim")
+        if (phase.endsWith("after_claim"))
           expect(
             (await claimApprovedActionIntent(tx, claimInput))?.outcome
           ).toBe("claimed")
-        await tx.execute(
-          sql`UPDATE connection_reviewer_assignments SET revoked_at = now() WHERE connection_id = ${connection.id}`
-        )
-        if (phase === "after_claim")
+        if (phase.startsWith("policy_")) {
+          await tx
+            .update(environments)
+            .set({
+              connectorAccessPolicy: {
+                providers: [
+                  {
+                    provider: "github",
+                    actionFamilies: ["issues"],
+                    maxScopes: ["repo"],
+                    allowedRepositories: [],
+                  },
+                ],
+              },
+            })
+            .where(eq(environments.id, environment.id))
+        } else {
+          await tx.execute(
+            sql`UPDATE connection_reviewer_assignments SET revoked_at = now() WHERE connection_id = ${connection.id}`
+          )
+        }
+        if (phase.endsWith("after_claim"))
           expect(
             await beginActionIntentDispatch(tx, claimInput)
           ).toBeUndefined()
