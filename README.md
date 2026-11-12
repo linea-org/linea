@@ -167,7 +167,6 @@ apps/
   execution-worker/   graph execution, checkpoints, replay, and connectors
   background-worker/  schedules, outbox delivery, notifications, and analysis
   mobile/             Expo operator monitoring and approvals
-  docs/               Next.js and Fumadocs documentation site
   run-gateway/        reserved scaffold for future sandbox execution
 
 packages/
@@ -185,6 +184,9 @@ packages/
   types/              shared internal TypeScript types
   sandbox-provider/   reserved scaffold for future sandbox implementations
 ```
+
+The documentation site lives in its own repository,
+[linea-org/docs](https://github.com/linea-org/docs).
 
 See [docs/repo-structure.md](docs/repo-structure.md) for ownership and
 dependency rules, [docs/product-vision.md](docs/product-vision.md) for product
