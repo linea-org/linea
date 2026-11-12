@@ -10,11 +10,11 @@ homes, different tooling, and — most importantly — different start dates.
 Writing one before its gating condition is real produces fiction, not
 documentation.
 
-| Surface              | Audience                                   | Home                                  | Starts when                              |
-| -------------------- | ------------------------------------------ | ------------------------------------- | ---------------------------------------- |
-| Contributor docs     | Whoever is working on this repo            | `CONTRIBUTING.md` / `AGENTS.md`       | Now — already exists, needs upkeep       |
-| User docs            | Someone building a workflow in the product | `apps/docs`                           | Incrementally as product surfaces land   |
-| API / developer docs | Someone integrating via SDK or REST        | `apps/docs`, generated where possible | Incrementally from Phase 0 item 6 onward |
+| Surface              | Audience                                   | Home                                                                            | Starts when                              |
+| -------------------- | ------------------------------------------ | ------------------------------------------------------------------------------- | ---------------------------------------- |
+| Contributor docs     | Whoever is working on this repo            | `CONTRIBUTING.md` / `AGENTS.md`                                                 | Now — already exists, needs upkeep       |
+| User docs            | Someone building a workflow in the product | [`linea-org/docs`](https://github.com/linea-org/docs)                           | Incrementally as product surfaces land   |
+| API / developer docs | Someone integrating via SDK or REST        | [`linea-org/docs`](https://github.com/linea-org/docs), generated where possible | Incrementally from Phase 0 item 6 onward |
 
 ## Contributor docs: fix continuously, don't split out
 
@@ -124,8 +124,10 @@ support as a compatibility contract, but CI can verify it earlier.
 
 ## Tooling: Fumadocs
 
-`apps/docs` uses Fumadocs with Next.js and MDX, matching `linea-mvp`'s
-validated choice. It supports local search, Markdown tables, Mermaid diagrams,
+The documentation site, [linea-org/docs](https://github.com/linea-org/docs),
+uses Fumadocs with Next.js and MDX, matching `linea-mvp`'s validated choice.
+It was extracted from `apps/docs` into its own repository so the monorepo's
+dependency graph no longer carries a second frontend framework. It supports local search, Markdown tables, Mermaid diagrams,
 page navigation, and editable content in the repository. This is a second
 frontend framework alongside `apps/web`'s TanStack Start, a deliberate tradeoff
 for documentation-specific content processing and navigation.
@@ -136,6 +138,6 @@ product behavior exists.
 
 ## Summary: what to do, and when
 
-| Now                                                                                                                                           | Phase 1                                         | Phase 5                                               |
-| --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------- |
-| Keep `CONTRIBUTING.md`, `AGENTS.md`, and `apps/docs` current; generate API artifacts from protocol definitions; write `MODULE.md` when earned | Write user docs against the real visual builder | Publish the generated API reference; write SDK guides |
+| Now                                                                                                                                                | Phase 1                                         | Phase 5                                               |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------- |
+| Keep `CONTRIBUTING.md`, `AGENTS.md`, and `linea-org/docs` current; generate API artifacts from protocol definitions; write `MODULE.md` when earned | Write user docs against the real visual builder | Publish the generated API reference; write SDK guides |

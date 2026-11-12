@@ -25,7 +25,7 @@ export type PublicRequestOptions = {
   maxResponseBytes: number
   allowLocalDevelopment: boolean
   requireHttps: boolean
-  redirectMode: "fetch" | "preserve" | "error"
+  redirectMode: "fetch" | "same-origin" | "error"
 }
 
 function parseUrl(input: string | URL, base: URL | undefined): URL {
@@ -205,7 +205,7 @@ export async function requestPublic(
         await response.body?.cancel()
         if (
           location === null ||
-          (location === "" && options.redirectMode === "preserve")
+          (location === "" && options.redirectMode === "same-origin")
         )
           throw new PermanentRequestError("Outbound redirect has no location")
         if (redirects === 3)
@@ -216,7 +216,13 @@ export async function requestPublic(
             "Outbound redirect cannot downgrade HTTPS"
           )
         }
-        if (next.origin !== url.origin) headers = new Headers()
+        if (next.origin !== url.origin) {
+          if (options.redirectMode === "same-origin")
+            throw new PermanentRequestError(
+              "Outbound redirect cannot change origin"
+            )
+          headers = new Headers()
+        }
         if (
           options.redirectMode === "fetch" &&
           ((response.status === 303 && method !== "HEAD") ||

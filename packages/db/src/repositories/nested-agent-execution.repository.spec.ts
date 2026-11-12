@@ -93,10 +93,42 @@ async function fixture(client: Tx) {
     environmentId,
     trigger: "manual",
   })
+  await startExecution(client, parent.id, "a", new Date(Date.now() + 60_000))
   return { ...base, environmentId, parent }
 }
 
 describe("startNestedAgentExecution", () => {
+  it("refuses child creation under a cancelled parent", async () => {
+    await withRollback(async (tx) => {
+      const f = await fixture(tx)
+      const deployed = await deployAgent(
+        tx,
+        f.organization.id,
+        f.workflow.applicationId,
+        f.environmentId,
+        "cancelled-parent"
+      )
+      await tx
+        .update(executions)
+        .set({ status: "cancelled" })
+        .where(eq(executions.id, f.parent.id))
+      const result = await startNestedAgentExecution(tx, {
+        workspaceId: f.organization.id,
+        parentExecutionId: f.parent.id,
+        nodeId: "late",
+        agentId: deployed.agent.id,
+        agentContractRevisionId: deployed.contract.id,
+        input: {},
+      })
+      expect(result.outcome).toBe("parent_not_active")
+      expect(
+        await tx
+          .select()
+          .from(executions)
+          .where(eq(executions.parentExecutionId, f.parent.id))
+      ).toEqual([])
+    })
+  })
   it("pins the deployed version once, keeps the pin after redeploy, and stays out of root lists", async () => {
     await withRollback(async (tx) => {
       const f = await fixture(tx)

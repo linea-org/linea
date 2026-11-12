@@ -44,6 +44,7 @@ describe("operation registry", () => {
       "listEnvironmentConnectorAuditEvents",
       "listWorkspaceConnectorAuditEvents",
       "listEndUserConnectorAuditEvents",
+      "launchConnectionAuthorization",
       "startConnectionAuthorization",
       "getConnectionAuthorization",
       "listConnections",

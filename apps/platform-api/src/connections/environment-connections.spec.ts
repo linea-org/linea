@@ -224,6 +224,7 @@ describe('shared Environment Connection API and Gateway', () => {
         providers: [
           {
             provider: 'github',
+            allowedRepositories: [{ owner: 'acme', repository: 'support' }],
             actionFamilies: ['issues', 'repositories'],
             maxScopes: ['metadata:read', 'issues:read', 'issues:write'],
           },

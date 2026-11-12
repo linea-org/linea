@@ -29,3 +29,5 @@ export {
   enqueueWebhookDelivery,
   type WebhookDeliveryJob,
 } from "./queues/webhook-delivery.js"
+
+export { withWebhookAdmission } from "./webhook-admission.js"

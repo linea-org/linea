@@ -529,6 +529,97 @@ async function removeWorkspace(workspaceId: string): Promise<void> {
   await pool.query("DELETE FROM organizations WHERE id = $1", [workspaceId])
 }
 
+async function attachParent(fixture: Fixture) {
+  const parent = { ...fixture }
+  const agent = await repositories.agent.createAgent(db, {
+    workspaceId: fixture.workspaceId,
+    applicationId: await getTestApplicationId(db, fixture.workspaceId),
+    name: "Nested Agent",
+    slug: "nested-agent",
+  })
+  if (!agent) throw new Error("Missing Agent")
+  const contract = await repositories.agentContract.createAgentContractRevision(
+    db,
+    fixture.workspaceId,
+    agent.id,
+    {
+      inputSchema: { type: "object" },
+      outputSchema: { type: "object" },
+    }
+  )
+  if (contract.outcome !== "created") throw new Error(contract.outcome)
+  const version = await repositories.agent.createAgentVersion(
+    db,
+    fixture.workspaceId,
+    agent.id,
+    {
+      agentContractRevisionId: contract.revision.id,
+      definition: {
+        version: 1,
+        instructions: "Update",
+        model: "gpt-5",
+        tools: [],
+        maxIterations: 2,
+      },
+    }
+  )
+  if (version.outcome !== "created") throw new Error(version.outcome)
+  await repositories.agent.publishAgentVersion(
+    db,
+    fixture.workspaceId,
+    agent.id,
+    version.version.id
+  )
+  await repositories.environmentAgentBinding.putEnvironmentAgentBinding(
+    db,
+    fixture.workspaceId,
+    fixture.environmentId,
+    agent.id,
+    {
+      agentVersionId: version.version.id,
+      agentContractRevisionId: contract.revision.id,
+      enabled: true,
+    }
+  )
+  const child =
+    await repositories.nestedAgentExecution.startNestedAgentExecution(db, {
+      workspaceId: fixture.workspaceId,
+      parentExecutionId: parent.executionId,
+      nodeId: "agent",
+      agentId: agent.id,
+      agentContractRevisionId: contract.revision.id,
+      input: {},
+    })
+  if (child.outcome !== "created") throw new Error(child.outcome)
+  fixture.executionId = child.execution.id
+  await repositories.execution.startExecution(
+    db,
+    fixture.executionId,
+    fixture.executionClaimId,
+    new Date(Date.now() + 60_000)
+  )
+  await repositories.nestedAgentExecution.claimPauseForNestedAgent(
+    db,
+    fixture.workspaceId,
+    parent.executionId,
+    "agent",
+    parent.executionClaimId
+  )
+  return parent
+}
+
+async function waitForLockWait(holderPid: number) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const blocked = await pool.query<{ count: string }>(
+      "SELECT count(*) FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))",
+      [holderPid]
+    )
+    if (Number(blocked.rows[0].count) > 0) return
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  throw new Error("Cancellation never blocked")
+}
+
 describe("exact Action Intent consent", () => {
   let provider: Provider
   beforeAll(async () => {
@@ -551,6 +642,402 @@ describe("exact Action Intent consent", () => {
     delete process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY
     delete process.env.CONNECTION_CREDENTIAL_KEYS
     delete process.env.DETERMINISTIC_CONNECTOR_BASE_URL
+  })
+  it("cascades parent cancellation to child consent, audit and events and blocks late provider dispatch", async () => {
+    const fixture = await createFixture()
+    try {
+      const parent = await attachParent(fixture)
+      await invoke(fixture)
+      expect(
+        await repositories.approvalRequest.claimPauseForPendingApprovalRequest(
+          db,
+          fixture.workspaceId,
+          fixture.executionId,
+          "action",
+          fixture.executionClaimId
+        )
+      ).toEqual({ outcome: "paused" })
+      const before = await consent(fixture)
+      expect((await cancelExecution(parent)).outcome).toBe("cancelled")
+      for (const id of [parent.executionId, fixture.executionId]) {
+        expect(
+          (await repositories.execution.getExecutionById(db, id))?.status
+        ).toBe("cancelled")
+      }
+      const after = await consent(fixture)
+      expect(after.intent.status).toBe("cancelled")
+      expect(after.approvalRequest.status).toBe("cancelled")
+      await expect(decide(fixture, "approved")).rejects.toThrow("cancelled")
+      await expect(invoke(fixture)).rejects.toBeInstanceOf(
+        ConnectorGatewayError
+      )
+      expect(provider.requests).toHaveLength(0)
+      const audits = await pool.query<{ action: string }>(
+        "SELECT action FROM audit_logs WHERE resource_id = $1",
+        [before.approvalRequest.id]
+      )
+      expect(
+        audits.rows.filter((row) => row.action === "approval_request.cancelled")
+      ).toHaveLength(1)
+      const events = await pool.query(
+        "SELECT payload FROM outbox_messages WHERE workspace_id = $1 AND event_type = 'approval_request.cancelled'",
+        [fixture.workspaceId]
+      )
+      expect(events.rows).toHaveLength(1)
+      expect(JSON.stringify(events.rows)).toContain(before.approvalRequest.id)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+  it("refuses the whole tree cancellation when a child intent is executing", async () => {
+    const fixture = await createFixture()
+    try {
+      const parent = await attachParent(fixture)
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      const view = await consent(fixture)
+      expect(
+        (
+          await repositories.actionIntent.claimApprovedActionIntent(db, {
+            actionIntentId: view.intent.id,
+            executionClaimId: fixture.executionClaimId,
+            provider: "test",
+            actionFamily: "test",
+            requiredScopes: ["write:resources"],
+            now: new Date(),
+          })
+        )?.outcome
+      ).toBe("claimed")
+      const root = await repositories.execution.getExecutionById(
+        db,
+        parent.executionId
+      )
+      if (!root?.workflowId) throw new Error("Missing Workflow")
+      const request = await repositories.approvalRequest.createApprovalRequest(
+        db,
+        {
+          workspaceId: fixture.workspaceId,
+          environmentId: fixture.environmentId,
+          workflowId: root.workflowId,
+          executionId: root.id,
+          nodeId: "root-approval",
+          audience: "external_subject",
+          externalSubjectId: fixture.externalSubjectId,
+          display: { title: "Root" },
+        }
+      )
+      expect(request).toBeDefined()
+      expect((await cancelExecution(parent)).outcome).toBe(
+        "execution_not_cancellable"
+      )
+      expect(
+        (await repositories.execution.getExecutionById(db, root.id))?.status
+      ).toBe("paused")
+      expect(
+        (await repositories.execution.getExecutionById(db, fixture.executionId))
+          ?.status
+      ).toBe("running")
+      expect((await consent(fixture)).intent.status).toBe("executing")
+      const pending = await pool.query<{ status: string }>(
+        "SELECT status FROM approval_requests WHERE id = $1",
+        [request?.id]
+      )
+      expect(pending.rows[0].status).toBe("pending")
+      const cancelled = await pool.query(
+        "SELECT id FROM audit_logs WHERE workspace_id = $1 AND action IN ('execution.cancelled', 'approval_request.cancelled')",
+        [fixture.workspaceId]
+      )
+      expect(cancelled.rows).toHaveLength(0)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+  it("rechecks terminal parent authority at child start, decision, claim and dispatch", async () => {
+    const fixture = await createFixture()
+    try {
+      const parent = await attachParent(fixture)
+      await invoke(fixture)
+      await pool.query(
+        "UPDATE executions SET status = 'cancelled' WHERE id = $1",
+        [parent.executionId]
+      )
+      await expect(decide(fixture, "approved")).rejects.toThrow("cancelled")
+      await pool.query(
+        "UPDATE executions SET status = 'paused' WHERE id = $1",
+        [parent.executionId]
+      )
+      await decide(fixture, "approved")
+      const view = await consent(fixture)
+      const claim = {
+        actionIntentId: view.intent.id,
+        executionClaimId: fixture.executionClaimId,
+        provider: "test",
+        actionFamily: "test",
+        requiredScopes: ["write:resources"],
+        now: new Date(),
+      }
+      expect(
+        (await repositories.actionIntent.claimApprovedActionIntent(db, claim))
+          ?.outcome
+      ).toBe("claimed")
+      await pool.query(
+        "UPDATE executions SET status = 'cancelled' WHERE id = $1",
+        [parent.executionId]
+      )
+      expect(
+        await repositories.actionIntent.beginActionIntentDispatch(db, claim)
+      ).toBeUndefined()
+      await pool.query(
+        "UPDATE executions SET status = 'queued' WHERE id = $1",
+        [fixture.executionId]
+      )
+      expect(
+        await repositories.execution.startExecution(
+          db,
+          fixture.executionId,
+          "late",
+          new Date(Date.now() + 60_000)
+        )
+      ).toBeUndefined()
+      expect(provider.requests).toHaveLength(0)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+  it("serializes parent cancellation against a child's approving Decision", async () => {
+    const fixture = await createFixture()
+    try {
+      const parent = await attachParent(fixture)
+      await invoke(fixture)
+      const results = await Promise.allSettled([
+        cancelExecution(parent),
+        decide(fixture, "approved"),
+      ])
+      expect(results[0]).toMatchObject({
+        status: "fulfilled",
+        value: { outcome: "cancelled" },
+      })
+      expect((await consent(fixture)).intent.status).toBe("cancelled")
+      expect(
+        (await repositories.execution.getExecutionById(db, fixture.executionId))
+          ?.status
+      ).toBe("cancelled")
+      await expect(invoke(fixture)).rejects.toBeInstanceOf(
+        ConnectorGatewayError
+      )
+      expect(provider.requests).toHaveLength(0)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+  it("refuses a ready child intent claim when its parent is already cancelled", async () => {
+    const fixture = await createFixture()
+    try {
+      const parent = await attachParent(fixture)
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      const view = await consent(fixture)
+      await pool.query(
+        "UPDATE executions SET status = 'cancelled' WHERE id = $1",
+        [parent.executionId]
+      )
+      expect(
+        (
+          await repositories.actionIntent.claimApprovedActionIntent(db, {
+            actionIntentId: view.intent.id,
+            executionClaimId: fixture.executionClaimId,
+            provider: "test",
+            actionFamily: "test",
+            requiredScopes: ["write:resources"],
+            now: new Date(),
+          })
+        )?.outcome
+      ).toBe("cancelled")
+      expect(provider.requests).toHaveLength(0)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+  it("serializes nested Agent creation with parent cancellation", async () => {
+    const fixture = await createFixture()
+    try {
+      const parent = await attachParent(fixture)
+      const child = await repositories.execution.getExecutionById(
+        db,
+        fixture.executionId
+      )
+      if (!child?.agentId || !child.agentContractRevisionId)
+        throw new Error("Missing Agent")
+      await pool.query(
+        "UPDATE executions SET status = 'running' WHERE id = $1",
+        [parent.executionId]
+      )
+      const [creation, cancellation] = await Promise.all([
+        repositories.nestedAgentExecution.startNestedAgentExecution(db, {
+          workspaceId: fixture.workspaceId,
+          parentExecutionId: parent.executionId,
+          nodeId: "racing-agent",
+          agentId: child.agentId,
+          agentContractRevisionId: child.agentContractRevisionId,
+          input: {},
+        }),
+        cancelExecution(parent),
+      ])
+      expect(cancellation.outcome).toBe("cancelled")
+      expect(["created", "parent_not_active"]).toContain(creation.outcome)
+      if (creation.outcome === "created") {
+        expect(
+          (
+            await repositories.execution.getExecutionById(
+              db,
+              creation.execution.id
+            )
+          )?.status
+        ).toBe("cancelled")
+      }
+      const live = await pool.query(
+        "SELECT id FROM executions WHERE parent_execution_id = $1 AND status IN ('queued', 'running', 'paused')",
+        [parent.executionId]
+      )
+      expect(live.rows).toHaveLength(0)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+  it.each(["advisory", "execution"])(
+    "preserves bulk %s lock order while another transaction blocks a child",
+    async (stage) => {
+      const fixture = await createFixture()
+      const client = await pool.connect()
+      let cancellation: Promise<unknown> | undefined
+      try {
+        const parent = await attachParent(fixture)
+        const extraHex = (
+          BigInt(`0x${parent.executionId.replaceAll("-", "")}`) + 1n
+        )
+          .toString(16)
+          .padStart(32, "0")
+        const extraId = [
+          extraHex.slice(0, 8),
+          extraHex.slice(8, 12),
+          extraHex.slice(12, 16),
+          extraHex.slice(16, 20),
+          extraHex.slice(20),
+        ].join("-")
+        await pool.query(
+          `INSERT INTO executions (id, workspace_id, environment_id, agent_id, agent_version_id,
+        agent_contract_revision_id, external_subject_record_id, parent_execution_id, parent_node_id, trigger)
+        SELECT $1, workspace_id, environment_id, agent_id, agent_version_id, agent_contract_revision_id,
+        external_subject_record_id, parent_execution_id, 'second-agent', trigger FROM executions WHERE id = $2`,
+          [extraId, fixture.executionId]
+        )
+        const [first, last] = [extraId, fixture.executionId].sort()
+        await client.query("BEGIN")
+        await client.query("SET LOCAL lock_timeout = '2s'")
+        if (stage === "advisory") {
+          await client.query(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+            [`action-intent-execution:${first}`]
+          )
+        } else {
+          await client.query(
+            "SELECT id FROM executions WHERE id = $1 FOR UPDATE",
+            [last]
+          )
+        }
+        const pid = await client.query<{ pid: number }>(
+          "SELECT pg_backend_pid() AS pid"
+        )
+        cancellation = cancelExecution(parent)
+        const outcome = cancellation.then(
+          (value) => ({ value }),
+          (error: unknown) => ({ error })
+        )
+        await waitForLockWait(pid.rows[0].pid)
+        if (stage === "advisory") {
+          const locks = await client.query<{ parent: boolean; last: boolean }>(
+            "SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS parent, pg_try_advisory_xact_lock(hashtextextended($2, 0)) AS last",
+            [
+              `action-intent-execution:${parent.executionId}`,
+              `action-intent-execution:${last}`,
+            ]
+          )
+          expect(locks.rows[0]).toEqual({ parent: false, last: true })
+        }
+        await client.query(
+          "SELECT id FROM executions WHERE id = $1 FOR UPDATE",
+          [parent.executionId]
+        )
+        await client.query(
+          "SELECT id FROM executions WHERE id = $1 FOR UPDATE",
+          [last]
+        )
+        await client.query("COMMIT")
+        const result = await outcome
+        if ("error" in result) throw result.error
+        expect(result.value).toMatchObject({ outcome: "cancelled" })
+        const children = await pool.query<{ status: string }>(
+          "SELECT status FROM executions WHERE parent_execution_id = $1",
+          [parent.executionId]
+        )
+        expect(children.rows).toEqual([
+          { status: "cancelled" },
+          { status: "cancelled" },
+        ])
+      } finally {
+        await client.query("ROLLBACK")
+        if (cancellation) await Promise.allSettled([cancellation])
+        client.release()
+        await removeWorkspace(fixture.workspaceId)
+      }
+    }
+  )
+  it("batches workflow Approval Request cancellation and publishes each audit/event once", async () => {
+    const fixture = await createFixture()
+    try {
+      const parent = await attachParent(fixture)
+      for (const executionId of [parent.executionId, fixture.executionId]) {
+        await repositories.approvalRequest.createApprovalRequest(db, {
+          workspaceId: fixture.workspaceId,
+          environmentId: fixture.environmentId,
+          executionId,
+          nodeId: "workflow-approval",
+          audience: "external_subject",
+          externalSubjectId: fixture.externalSubjectId,
+          display: { title: "Continue?" },
+        })
+      }
+      const wakesBefore = await pool.query(
+        "SELECT id FROM outbox_messages WHERE workspace_id = $1 AND kind = 'workflow_execution' AND payload->>'executionId' = $2",
+        [fixture.workspaceId, parent.executionId]
+      )
+      expect((await cancelExecution(parent)).outcome).toBe("cancelled")
+      const requests = await pool.query<{ status: string; version: number }>(
+        "SELECT status, version FROM approval_requests WHERE workspace_id = $1",
+        [fixture.workspaceId]
+      )
+      expect(requests.rows).toEqual([
+        { status: "cancelled", version: 2 },
+        { status: "cancelled", version: 2 },
+      ])
+      const audits = await pool.query(
+        "SELECT resource_id FROM audit_logs WHERE workspace_id = $1 AND action = 'approval_request.cancelled'",
+        [fixture.workspaceId]
+      )
+      const events = await pool.query(
+        "SELECT payload FROM outbox_messages WHERE workspace_id = $1 AND event_type = 'approval_request.cancelled'",
+        [fixture.workspaceId]
+      )
+      expect(audits.rows).toHaveLength(2)
+      expect(events.rows).toHaveLength(2)
+      const wakes = await pool.query(
+        "SELECT id FROM outbox_messages WHERE workspace_id = $1 AND kind = 'workflow_execution' AND payload->>'executionId' = $2",
+        [fixture.workspaceId, parent.executionId]
+      )
+      expect(wakes.rows).toEqual(wakesBefore.rows)
+    } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
   })
   it("creates one redacted exact intent and executes its stored normalized parameters after approval", async () => {
     const fixture = await createFixture()
@@ -908,8 +1395,8 @@ describe("exact Action Intent consent", () => {
         invoke(fixture),
         cancelExecution(fixture),
       ])
+      if (cancellation.status === "rejected") throw cancellation.reason
       expect(cancellation.status).toBe("fulfilled")
-      if (cancellation.status !== "fulfilled") return
       const view = await consent(fixture)
       if (view.intent.status === "cancelled") {
         expect(cancellation.value.outcome).toBe("cancelled")
@@ -931,50 +1418,51 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
-  it("cancels after an approving Decision without deadlocking a claim that holds the Approval Request first", async () => {
-    const fixture = await createFixture()
-    const client = await pool.connect()
-    let transactionOpen = false
-    try {
-      await invoke(fixture)
-      await decide(fixture, "approved")
-      await client.query("BEGIN")
-      transactionOpen = true
-      await client.query(
-        "SELECT id FROM approval_requests WHERE workspace_id = $1 FOR UPDATE",
-        [fixture.workspaceId]
-      )
-      const cancelling = cancelExecution(fixture)
-      // Proceed only once PostgreSQL reports the cancel blocked behind this transaction's lock.
-      const { rows } = await client.query<{ pid: number }>(
-        "SELECT pg_backend_pid() AS pid"
-      )
-      const holderPid = rows[0].pid
-      for (let attempt = 0; ; attempt += 1) {
-        const blocked = await pool.query<{ count: string }>(
-          "SELECT count(*) FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))",
-          [holderPid]
+  it.each(["root", "nested"])(
+    "cancels a %s Execution without deadlocking a claim that holds the Approval Request first",
+    async (kind) => {
+      const fixture = await createFixture()
+      const client = await pool.connect()
+      let transactionOpen = false
+      try {
+        const cancellingFixture =
+          kind === "nested" ? await attachParent(fixture) : fixture
+        await invoke(fixture)
+        await decide(fixture, "approved")
+        await client.query("BEGIN")
+        transactionOpen = true
+        await client.query(
+          "SELECT id FROM approval_requests WHERE workspace_id = $1 FOR UPDATE",
+          [fixture.workspaceId]
         )
-        if (Number(blocked.rows[0].count) > 0) break
-        if (attempt > 100) throw new Error("Cancellation never blocked")
-        await new Promise((resolve) => setTimeout(resolve, 50))
+        const cancelling = cancelExecution(cancellingFixture)
+        // Proceed only once PostgreSQL reports the cancel blocked behind this transaction's lock.
+        const { rows } = await client.query<{ pid: number }>(
+          "SELECT pg_backend_pid() AS pid"
+        )
+        await waitForLockWait(rows[0].pid)
+        // A claim takes the request, then the Execution; a cancel holding the Execution first would deadlock here.
+        await client.query("SET LOCAL lock_timeout = '5s'")
+        await client.query(
+          "SELECT id FROM executions WHERE id = $1 FOR UPDATE",
+          [fixture.executionId]
+        )
+        await client.query(
+          "SELECT id FROM executions WHERE id = $1 FOR UPDATE",
+          [cancellingFixture.executionId]
+        )
+        await client.query("COMMIT")
+        transactionOpen = false
+        expect(["cancelled", "execution_not_cancellable"]).toContain(
+          (await cancelling).outcome
+        )
+      } finally {
+        if (transactionOpen) await client.query("ROLLBACK")
+        client.release()
+        await removeWorkspace(fixture.workspaceId)
       }
-      // A claim takes the request, then the Execution; a cancel holding the Execution first would deadlock here.
-      await client.query("SET LOCAL lock_timeout = '5s'")
-      await client.query("SELECT id FROM executions WHERE id = $1 FOR UPDATE", [
-        fixture.executionId,
-      ])
-      await client.query("COMMIT")
-      transactionOpen = false
-      expect(["cancelled", "execution_not_cancellable"]).toContain(
-        (await cancelling).outcome
-      )
-    } finally {
-      if (transactionOpen) await client.query("ROLLBACK")
-      client.release()
-      await removeWorkspace(fixture.workspaceId)
     }
-  })
+  )
   it("resolves concurrent conflicting invocation content to one intent and one conflict", async () => {
     const fixture = await createFixture()
     try {

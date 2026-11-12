@@ -1,3 +1,5 @@
+import { activeExecutionParent } from "./execution-parent-authority.js"
+import { githubRepositoryAllowed } from "@linea/protocol/resources"
 import { and, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm"
 import {
   actionIntents,
@@ -95,6 +97,7 @@ type ConnectionAuthorityInput = {
   provider: string
   actionFamily: string
   requiredScopes: readonly string[]
+  target: unknown
 }
 
 function connectionAuthorityBoundary(
@@ -143,7 +146,12 @@ function connectionAuthorityBoundary(
     !connectionOwned ||
     !policyAllowsAction ||
     connectionMissingScope ||
-    !policyAllowsScopes
+    !policyAllowsScopes ||
+    (input.provider === "github" &&
+      !githubRepositoryAllowed(
+        providerPolicy?.allowedRepositories,
+        input.target
+      ))
   ) {
     return "invalid"
   }
@@ -187,6 +195,7 @@ async function replayActionIntent(
       provider: input.connector,
       actionFamily: input.actionFamily,
       requiredScopes: input.requiredScopes,
+      target: intent.target,
     })
     if (boundary === "reauthorization_required") {
       return { outcome: "connection_reauthorization_required" }
@@ -194,6 +203,7 @@ async function replayActionIntent(
     if (boundary === "scope_insufficient") {
       return { outcome: "connection_scope_insufficient" }
     }
+    if (boundary !== "authorized") return { outcome: "authority_invalid" }
   }
   const [storedApprovalRequest] = approvalRequest
     ? [approvalRequest]
@@ -224,6 +234,7 @@ export async function createActionIntent(
       .where(
         and(
           eq(executions.id, input.executionId),
+          activeExecutionParent(),
           eq(executions.workspaceId, input.workspaceId)
         )
       )
@@ -251,7 +262,9 @@ export async function createActionIntent(
     const [execution] = await tx
       .select()
       .from(executions)
-      .where(eq(executions.id, executionSnapshot.id))
+      .where(
+        and(eq(executions.id, executionSnapshot.id), activeExecutionParent())
+      )
       .for("update")
     const requesterAuthority = connection
       ? await getConnectionRequesterAuthority(
@@ -267,6 +280,7 @@ export async function createActionIntent(
       provider: input.connector,
       actionFamily: input.actionFamily,
       requiredScopes: input.requiredScopes,
+      target: input.target,
     })
     if (authority === "reauthorization_required") {
       return { outcome: "connection_reauthorization_required" }
@@ -624,6 +638,7 @@ async function currentIntentAuthority(
       provider: input.provider,
       actionFamily: input.actionFamily,
       requiredScopes: input.requiredScopes,
+      target: intent.target,
     }) === "authorized"
   )
 }
@@ -781,7 +796,9 @@ export async function claimApprovedActionIntent(
     const [execution] = await tx
       .select()
       .from(executions)
-      .where(eq(executions.id, snapshot.executionId))
+      .where(
+        and(eq(executions.id, snapshot.executionId), activeExecutionParent())
+      )
       .for("update")
     const [decision] = await tx
       .select()
@@ -964,6 +981,7 @@ async function lockActiveActionIntentExecution(
         eq(actionIntents.status, "executing"),
         eq(actionIntents.executionClaimId, input.executionClaimId),
         eq(executions.status, "running"),
+        activeExecutionParent(),
         eq(executions.leasedBy, input.executionClaimId),
         gt(executions.leaseExpiresAt, input.now)
       )

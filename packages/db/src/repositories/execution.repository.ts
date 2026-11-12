@@ -1,5 +1,6 @@
 import { compileContractSchema } from "@linea/protocol/json-schema"
 import { getMemberRole } from "./organization.repository.js"
+import { activeExecutionParent } from "./execution-parent-authority.js"
 import { and, desc, eq, gt, isNull, lt, notInArray, or, sql } from "drizzle-orm"
 import {
   workflowContractRevisions,
@@ -269,6 +270,7 @@ export async function startExecution(
     .where(
       and(
         eq(executions.id, executionId),
+        activeExecutionParent(),
         or(
           eq(executions.status, "queued"),
           and(

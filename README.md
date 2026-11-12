@@ -136,15 +136,11 @@ run:
 pnpm demo
 ```
 
-The command finds or creates its workspace and workflow, starts a real queued
-execution, and prints the step trace. The graph is stored in
-[`examples/pending-todo.workflow.json`](examples/pending-todo.workflow.json).
+The command finds or creates its workspace and workflow, starts a real queued execution, and prints the step trace. The graph is stored in [`examples/pending-todo.workflow.json`](examples/pending-todo.workflow.json).
 
 ## Verify the public launch boundaries
 
-The required launch gates use local deterministic providers while exercising
-the real API, Postgres, Redis, queues, workers, SDK packages, and public
-contracts:
+The required launch gates use local deterministic providers while exercising the real API, Postgres, Redis, queues, workers, SDK packages, and public contracts:
 
 ```bash
 pnpm test:launch
@@ -166,8 +162,6 @@ apps/
   platform-api/       workspace and public /v1 HTTP interfaces
   execution-worker/   graph execution, checkpoints, replay, and connectors
   background-worker/  schedules, outbox delivery, notifications, and analysis
-  mobile/             Expo operator monitoring and approvals
-  docs/               Next.js and Fumadocs documentation site
   run-gateway/        reserved scaffold for future sandbox execution
 
 packages/
@@ -186,9 +180,13 @@ packages/
   sandbox-provider/   reserved scaffold for future sandbox implementations
 ```
 
-See [docs/repo-structure.md](docs/repo-structure.md) for ownership and
-dependency rules, [docs/product-vision.md](docs/product-vision.md) for product
-direction, and [docs/roadmap.md](docs/roadmap.md) for strategic sequencing.
+The documentation site lives in its own repository, [linea-org/docs](https://github.com/linea-org/docs).
+
+The Expo mobile client for monitoring and approvals lives in
+[linea-org/mobile](https://github.com/linea-org/mobile) and talks to the
+Platform API over HTTP.
+
+See [docs/repo-structure.md](docs/repo-structure.md) for ownership and dependency rules, [docs/product-vision.md](docs/product-vision.md) for product direction, and [docs/roadmap.md](docs/roadmap.md) for strategic sequencing.
 
 ## SDKs
 

@@ -1,5 +1,0 @@
-{
-  "title": "API",
-  "icon": "CodeXml",
-  "pages": ["index", "authentication", "conventions"]
-}

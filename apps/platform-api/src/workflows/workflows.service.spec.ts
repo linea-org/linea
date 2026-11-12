@@ -291,7 +291,7 @@ describe('WorkflowsService', () => {
     const gateway = moduleRef.get(WorkflowsGateway)
     const broadcast = jest
       .spyOn(gateway, 'broadcastDraftUpdate')
-      .mockImplementation(() => undefined)
+      .mockResolvedValue(undefined)
     await withOrg(async (workspaceId) => {
       const suffix = randomUUID()
       const workflow = await service.create(workspaceId, {
@@ -344,9 +344,26 @@ describe('WorkflowsService', () => {
         name: 'Realtime Token Workflow',
         slug: `realtime-token-${suffix}`,
       })
+      const now = new Date()
       const session = {
-        user: { id: 'user-1', name: 'Ada Lovelace', image: null },
-      } as Parameters<typeof service.mintRealtimeToken>[2]
+        session: {
+          id: randomUUID(),
+          userId: 'user-1',
+          token: randomUUID(),
+          expiresAt: new Date(Date.now() + 60_000),
+          createdAt: now,
+          updatedAt: now,
+        },
+        user: {
+          id: 'user-1',
+          name: 'Ada Lovelace',
+          image: null,
+          email: 'ada@example.com',
+          emailVerified: true,
+          createdAt: now,
+          updatedAt: now,
+        },
+      } satisfies NonNullable<Parameters<typeof service.mintRealtimeToken>[2]>
       await expect(
         service.mintRealtimeToken(workspaceId, workflow.id, null),
       ).rejects.toThrow()
@@ -355,7 +372,14 @@ describe('WorkflowsService', () => {
         workflow.id,
         session,
       )
-      expect(typeof token).toBe('string')
+      expect(moduleRef.get(RealtimeTokenService).consume(token)).toEqual({
+        sessionId: session.session.id,
+        userId: session.user.id,
+        name: session.user.name,
+        image: null,
+        workspaceId,
+        workflowId: workflow.id,
+      })
       await withOrg(async (otherWorkspaceId) => {
         await expect(
           service.mintRealtimeToken(otherWorkspaceId, workflow.id, session),
