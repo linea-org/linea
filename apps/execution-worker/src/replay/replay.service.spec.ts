@@ -1,4 +1,4 @@
-import { createTestExecution, seedOrganization } from "@linea/db/testing"
+import { createTestExecution } from "@linea/db/testing"
 import { getTestApplicationId } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
@@ -109,11 +109,14 @@ async function setUpExecutionWithStep(
 describe("ReplayService.replay", () => {
   it("inserts a succeeded step linked to the original, with the original's input and a merged config", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Replay Test Org",
-      `replay-test-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Test Org",
+        slug: `replay-test-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const executeSpy = jest.fn(() =>
         Promise.resolve({ status: 200, body: { replayed: true } })
@@ -177,11 +180,14 @@ describe("ReplayService.replay", () => {
   })
   it("marks a replayed unpriced AI step as unpriced rather than silently free", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Replay Unpriced Cost Test Org",
-      `replay-unpriced-cost-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Unpriced Cost Test Org",
+        slug: `replay-unpriced-cost-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -290,11 +296,14 @@ describe("ReplayService.replay", () => {
   })
   it("records a failed replay's error instead of throwing", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Replay Failure Test Org",
-      `replay-failure-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Failure Test Org",
+        slug: `replay-failure-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const failingNode = {
         execute: () => Promise.reject(new Error("provider unreachable")),
@@ -325,11 +334,14 @@ describe("ReplayService.replay", () => {
   })
   it("does not re-execute the node once redelivered after completion", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Replay Redelivery Test Org",
-      `replay-redelivery-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Redelivery Test Org",
+        slug: `replay-redelivery-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const executeSpy = jest.fn(() =>
         Promise.resolve({ status: 200, body: { replayed: true } })
@@ -365,11 +377,14 @@ describe("ReplayService.replay", () => {
   })
   it("throws (rather than silently skipping) when redelivered while the claim is still live, so BullMQ retries later instead of marking it permanently done", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Replay Live Claim Test Org",
-      `replay-live-claim-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Live Claim Test Org",
+        slug: `replay-live-claim-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       // Slow but not hung — long enough to still be "live" when the second delivery
       // arrives, but resolves before the test ends so nothing (a pending promise, a
@@ -410,11 +425,14 @@ describe("ReplayService.replay", () => {
   })
   it("rejects replaying a completed Wait step, rather than silently returning the original fired timer's stale resumedAt", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Replay Wait Test Org",
-      `replay-wait-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Wait Test Org",
+        slug: `replay-wait-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -526,11 +544,14 @@ describe("ReplayService.replay", () => {
   })
   it("rejects replaying a completed Approval step, rather than silently returning the original human decision", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Replay Approval Test Org",
-      `replay-approval-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Approval Test Org",
+        slug: `replay-approval-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     const [reviewer] = await db
       .insert(schema.users)
       .values({
@@ -667,11 +688,14 @@ describe("ReplayService.replay", () => {
   })
   it("rejects replaying a Variables step, rather than silently reading or writing against empty state", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Replay Variables Test Org",
-      `replay-variables-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Variables Test Org",
+        slug: `replay-variables-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,

@@ -1,7 +1,7 @@
-import { seedExecution, seedOrganization, seedRunning } from "@linea/db/testing"
+import { seedExecution, seedRunning } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
-import { db, pool, repositories } from "@linea/db"
+import { db, pool, repositories, schema } from "@linea/db"
 import { CheckpointsService } from "./checkpoints.service"
 
 afterAll(async () => {
@@ -23,11 +23,14 @@ const graph = {
 describe("CheckpointsService.getResumeState", () => {
   it("preserves real completion order even when node ids look like numbers", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Checkpoint Order Test Org",
-      `checkpoint-order-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Checkpoint Order Test Org",
+        slug: `checkpoint-order-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
@@ -62,11 +65,14 @@ describe("CheckpointsService.getResumeState", () => {
 describe("CheckpointsService.getResumeVariables", () => {
   it("returns an empty object for a fresh execution with no checkpoint", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Resume Variables Fresh Test Org",
-      `resume-variables-fresh-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Resume Variables Fresh Test Org",
+        slug: `resume-variables-fresh-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const { execution } = await seedExecution(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
@@ -80,11 +86,14 @@ describe("CheckpointsService.getResumeVariables", () => {
   })
   it("returns the latest checkpoint's variables", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Resume Variables Test Org",
-      `resume-variables-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Resume Variables Test Org",
+        slug: `resume-variables-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
@@ -130,11 +139,14 @@ describe("CheckpointsService.getResumeVariables", () => {
 describe("CheckpointsService.recordStep attributes", () => {
   it("merges costUnpriced and retryAttempts into one attributes object when both are present", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Checkpoint Attributes Test Org",
-      `checkpoint-attributes-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Checkpoint Attributes Test Org",
+        slug: `checkpoint-attributes-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()
@@ -169,11 +181,14 @@ describe("CheckpointsService.recordStep attributes", () => {
   })
   it("omits attributes entirely when neither costUnpriced nor retryAttempts is set", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Checkpoint No Attributes Test Org",
-      `checkpoint-no-attributes-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Checkpoint No Attributes Test Org",
+        slug: `checkpoint-no-attributes-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const { execution } = await seedRunning(db, organization.id, graph)
       const checkpoints = new CheckpointsService()

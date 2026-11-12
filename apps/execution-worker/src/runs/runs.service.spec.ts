@@ -1,6 +1,5 @@
 import {
   seedExecution,
-  seedOrganization,
   createTestExecution,
   getTestApplicationId,
 } from "@linea/db/testing"
@@ -36,11 +35,14 @@ async function drainDueWaitTimers(): Promise<void> {
 describe("RunsService failure accounting", () => {
   it("preserves previously checkpointed token usage when a resumed run fails outright", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Fail Test Org",
-      `runs-fail-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Fail Test Org",
+        slug: `runs-fail-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -114,11 +116,14 @@ describe("RunsService failure accounting", () => {
   })
   it("notifies every workspace member when a run fails outright", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Notify Test Org",
-      `runs-notify-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Notify Test Org",
+        slug: `runs-notify-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     const [member] = await db
       .insert(schema.users)
       .values({
@@ -186,11 +191,14 @@ describe("RunsService failure accounting", () => {
   })
   it("reflects a step checkpointed during a run that then throws, not the stale pre-run state", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Mid-Run Fail Test Org",
-      `runs-mid-run-fail-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Mid-Run Fail Test Org",
+        slug: `runs-mid-run-fail-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -266,11 +274,14 @@ describe("RunsService failure accounting", () => {
   })
   it("preserves previously checkpointed token usage when graph parsing fails before the interpreter ever runs", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Early Fail Test Org",
-      `runs-early-fail-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Early Fail Test Org",
+        slug: `runs-early-fail-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const workflow = await repositories.workflow.createWorkflow(db, {
         applicationId: await getTestApplicationId(db, organization.id),
@@ -355,11 +366,14 @@ describe("RunsService failure accounting", () => {
 describe("RunsService chat-preview message persistence", () => {
   it("does not persist a reply when triggerPayload carries a conversationId but no chatMessageId to link it to", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Chat Test Org",
-      `runs-chat-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Chat Test Org",
+        slug: `runs-chat-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -423,11 +437,14 @@ describe("RunsService chat-preview message persistence", () => {
   })
   it("does not persist a reply when chatMessageId points to a real user message from a different conversation", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Chat Forged Test Org",
-      `runs-chat-forged-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Chat Forged Test Org",
+        slug: `runs-chat-forged-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -501,11 +518,14 @@ describe("RunsService chat-preview message persistence", () => {
   })
   it("links the persisted assistant reply to its own triggering user message via respondsToMessageId", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Chat Order Test Org",
-      `runs-chat-order-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Chat Order Test Org",
+        slug: `runs-chat-order-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -578,11 +598,14 @@ describe("RunsService chat-preview message persistence", () => {
   })
   it("does not mistake a later non-ai node's coincidental text field for the assistant's reply", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Chat Non-AI Text Test Org",
-      `runs-chat-non-ai-text-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Chat Non-AI Text Test Org",
+        slug: `runs-chat-non-ai-text-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -662,11 +685,14 @@ describe("RunsService chat-preview message persistence", () => {
   })
   it("persists nothing when triggerPayload has no conversationId", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Non-Chat Test Org",
-      `runs-non-chat-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Non-Chat Test Org",
+        slug: `runs-non-chat-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -730,11 +756,14 @@ describe("RunsService chat-preview message persistence", () => {
 describe("RunsService fencing identity", () => {
   it("gives each execute() call its own leasedBy, even from the same instance", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Identity Test Org",
-      `runs-identity-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Identity Test Org",
+        slug: `runs-identity-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -791,11 +820,14 @@ describe("RunsService fencing identity", () => {
   })
   it("loops back and continues immediately instead of pausing when the approval resolves before the pause is recorded", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Approval Race Test Org",
-      `runs-approval-race-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Approval Race Test Org",
+        slug: `runs-approval-race-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     const [approver] = await db
       .insert(schema.users)
       .values({
@@ -893,11 +925,14 @@ describe("RunsService fencing identity", () => {
   })
   it("throws instead of falsely reporting paused when the lease is lost before the pause is recorded", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Approval Lease Loss Test Org",
-      `runs-approval-lease-loss-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Approval Lease Loss Test Org",
+        slug: `runs-approval-lease-loss-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -961,11 +996,14 @@ describe("RunsService fencing identity", () => {
   })
   it("loops back and continues immediately instead of pausing when the wait timer fires before the pause is recorded", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Wait Race Test Org",
-      `runs-wait-race-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Wait Race Test Org",
+        slug: `runs-wait-race-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,
@@ -1031,11 +1069,14 @@ describe("RunsService fencing identity", () => {
   })
   it("throws instead of falsely reporting paused when the lease is lost before a wait pause is recorded", async () => {
     const suffix = randomUUID()
-    const organization = await seedOrganization(
-      db,
-      "Runs Service Wait Lease Loss Test Org",
-      `runs-wait-lease-loss-${suffix}`
-    )
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Wait Lease Loss Test Org",
+        slug: `runs-wait-lease-loss-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
     try {
       const graph: WorkflowGraph = {
         version: 1,

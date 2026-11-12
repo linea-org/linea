@@ -2,7 +2,6 @@ export {
   createExecution as createTestExecution,
   seedExecution,
   seedRunning,
-  seedOrganization,
   getTestApplicationId,
   getTestDevelopmentEnvironmentId,
   fixtureIssuer,
