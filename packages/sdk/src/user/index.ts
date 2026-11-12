@@ -25,6 +25,7 @@ export type {
   Connection,
   ConnectionAuthorization,
   ConnectionAuthorizationResponse,
+  LaunchConnectionAuthorization,
   ConnectionUse,
   ListConnectionsQuery,
   ListConnectionUsesQuery,

@@ -8,6 +8,7 @@ import { pool } from '@linea/db'
 import {
   approvalDecisionSchema,
   connectionUseSchema,
+  connectionBrowserMessageSchema,
   connectionAuthorizationResponseSchema,
   connectionSchema,
   connectionsResponseSchema,
@@ -159,12 +160,34 @@ describe('Connections and Action Consent launch tracer', () => {
     const authorization = connectionAuthorizationResponseSchema.parse(
       started.body,
     )
-    const providerResponse = await fetch(authorization.authorizationUrl, {
+    const browserPage = await fetch(authorization.authorizationUrl)
+    const cookie = browserPage.headers.get('set-cookie')?.split(';')[0]
+    const encoded = (await browserPage.text()).match(
+      /postMessage\((\{.*?\}),/u,
+    )?.[1]
+    if (!cookie || !encoded) throw new Error('Missing browser handshake')
+    const message = connectionBrowserMessageSchema.parse(JSON.parse(encoded))
+    const launchPath = `/v1/user/connections/authorizations/${authorization.authorizationId}/launch`
+    const launched = await request(baseUrl)
+      .post(launchPath)
+      .set(await sessionHeaders(baseUrl, fixture.primary, 'POST', launchPath))
+      .send({
+        state: message.state,
+        browserChallenge: message.browserChallenge,
+      })
+      .expect(201)
+    const providerUrl = connectionAuthorizationResponseSchema.parse(
+      launched.body,
+    ).authorizationUrl
+    const providerResponse = await fetch(providerUrl, {
       redirect: 'manual',
     })
     const callback = providerResponse.headers.get('location')
     if (!callback) throw new Error(`${provider} omitted its callback`)
-    const completed = await fetch(callback, { redirect: 'manual' })
+    const completed = await fetch(callback, {
+      redirect: 'manual',
+      headers: { Cookie: cookie },
+    })
     const returnLocation = completed.headers.get('location')
     if (!returnLocation)
       throw new Error(`${provider} omitted its return location`)

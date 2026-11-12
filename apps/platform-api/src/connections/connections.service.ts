@@ -23,6 +23,7 @@ import type {
   Connection as PublicConnection,
   ConnectionAuthorization,
   ConnectionAuthorizationResponse,
+  LaunchConnectionAuthorization,
   ConnectionsResponse,
   ConnectionUse,
   ConnectionOAuthCallback,
@@ -143,12 +144,7 @@ export class ConnectionsService {
     }
     return {
       authorizationId: result.request.id,
-      authorizationUrl: await provider.createAuthorizationUrl({
-        redirectUri: callbackUrl(input.provider),
-        state,
-        codeChallenge: challenge(codeVerifier),
-        scopes,
-      }),
+      authorizationUrl: `${callbackUrl(input.provider).replace(/\/callback$/, '/launch')}?state=${encodeURIComponent(state)}`,
     }
   }
 
@@ -230,11 +226,58 @@ export class ConnectionsService {
     }
     return {
       authorizationId: result.request.id,
+      authorizationUrl: `${callbackUrl(connection.provider).replace(/\/callback$/, '/launch')}?state=${encodeURIComponent(state)}`,
+    }
+  }
+
+  async browserLaunch(state: string) {
+    const request =
+      await repositories.connection.getPendingConnectionAuthorization(
+        db,
+        hash(state),
+      )
+    if (!request) throw new BadRequestException('Invalid authorization')
+    return request
+  }
+
+  async launchAuthorization(
+    principal: EndUserPrincipal,
+    authorizationId: string,
+    input: LaunchConnectionAuthorization,
+  ): Promise<ConnectionAuthorizationResponse> {
+    // Rekeying state makes browser binding atomic and prevents a second launch from replacing it.
+    const request =
+      await repositories.connection.bindConnectionAuthorizationBrowser(db, {
+        id: authorizationId,
+        sessionId: principal.sessionId,
+        stateHash: hash(input.state),
+        boundStateHash: hash(`${input.state}.${input.browserChallenge}`),
+      })
+    if (!request || !request.codeVerifierEncrypted)
+      throw new BadRequestException(
+        publicError('validation_failed', 'Invalid authorization'),
+      )
+    const provider = this.providers.find(
+      (candidate) => candidate.provider === request.provider,
+    )
+    if (!provider)
+      throw new BadRequestException(
+        publicError('validation_failed', 'Invalid authorization'),
+      )
+    const codeVerifier = decryptCredential(request.codeVerifierEncrypted, {
+      workspaceId: request.workspaceId,
+      environmentId: request.environmentId,
+      externalSubjectId: request.externalSubjectId,
+      recordId: request.id,
+      provider: request.provider,
+    })
+    return {
+      authorizationId: request.id,
       authorizationUrl: await provider.createAuthorizationUrl({
-        redirectUri: callbackUrl(connection.provider),
-        state,
+        redirectUri: callbackUrl(request.provider),
+        state: input.state,
         codeChallenge: challenge(codeVerifier),
-        scopes,
+        scopes: request.scopes,
       }),
     }
   }
@@ -242,16 +285,18 @@ export class ConnectionsService {
   async completeAuthorization(
     providerName: string,
     input: ConnectionOAuthCallback,
+    browserProof: string | undefined,
   ): Promise<string> {
     const provider = this.providers.find(
       (candidate) => candidate.provider === providerName,
     )
-    if (!provider) throw new BadRequestException('Invalid authorization')
+    if (!provider || !browserProof)
+      throw new BadRequestException('Invalid authorization')
     const claimedAt = new Date()
     const claimed =
       await repositories.connection.claimConnectionAuthorizationRequest(db, {
         provider: providerName,
-        stateHash: hash(input.state),
+        stateHash: hash(`${input.state}.${hash(browserProof)}`),
         now: claimedAt,
       })
     if (claimed.outcome !== 'claimed') {

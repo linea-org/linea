@@ -57,6 +57,7 @@ import {
   listConnectionUsesOperation,
   listConnectionsOperation,
   revokeConnectionOperation,
+  launchConnectionAuthorizationOperation,
   startConnectionAuthorizationOperation,
   startConnectionScopeUpgradeOperation,
 } from "./operations/connections"
@@ -149,6 +150,10 @@ export const operationRegistry = createOperationRegistry([
   registerOperation(
     listEndUserConnectorAuditEventsOperation,
     operationMetadata.listEndUserConnectorAuditEvents
+  ),
+  registerOperation(
+    launchConnectionAuthorizationOperation,
+    operationMetadata.launchConnectionAuthorization
   ),
   registerOperation(
     startConnectionAuthorizationOperation,

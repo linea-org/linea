@@ -2204,6 +2204,146 @@ await client.listAuditEvents(/* typed arguments */)
 
 Not shown for browser/native credentials.
 
+<!-- operation:launchConnectionAuthorization -->
+
+## launchConnectionAuthorization
+
+Bind provider authorization to the initiating browser and session.
+
+- Caller plane: `end_user`
+- Intended caller: An End User's browser or native environment.
+- Authentication: end_user_session
+- Method and path: `POST /v1/user/connections/authorizations/{authorizationId}/launch`
+- Idempotency: None.
+- Rate limits: No operation-specific limit; platform protections apply.
+- Pagination or event resumption: None.
+- Emitted events/webhooks: None.
+- SDK method: `LineaUserClient.launchConnectionAuthorization` from `@linea/sdk/user`
+
+### Request
+
+Path parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "authorizationId": {
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "type": "string"
+    }
+  },
+  "required": ["authorizationId"],
+  "type": "object"
+}
+```
+
+Query parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {},
+  "type": "object"
+}
+```
+
+Header parameters:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "authorization": {
+      "format": "starts_with",
+      "pattern": "^DPoP .*",
+      "type": "string"
+    },
+    "dpop": {
+      "maxLength": 8192,
+      "minLength": 1,
+      "type": "string"
+    },
+    "origin": {
+      "format": "uri",
+      "type": "string"
+    }
+  },
+  "required": ["authorization", "dpop"],
+  "type": "object"
+}
+```
+
+Body:
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "browserChallenge": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "state": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": ["state", "browserChallenge"],
+  "type": "object"
+}
+```
+
+### Response
+
+Status: `201`
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "authorizationId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "type": "string"
+    },
+    "authorizationUrl": {
+      "format": "uri",
+      "type": "string"
+    }
+  },
+  "required": ["authorizationId", "authorizationUrl"],
+  "type": "object"
+}
+```
+
+### Stable errors
+
+| Code                    | Status | Retryability                |
+| ----------------------- | -----: | --------------------------- |
+| `validation_failed`     |    400 | not automatically retryable |
+| `authentication_failed` |    401 | not automatically retryable |
+| `session_expired`       |    401 | not automatically retryable |
+| `session_revoked`       |    401 | not automatically retryable |
+| `proof_invalid`         |    401 | not automatically retryable |
+| `resource_not_found`    |    404 | not automatically retryable |
+| `service_unavailable`   |    503 | retryable                   |
+
+### TypeScript
+
+```ts
+import { LineaUserClient } from "@linea/sdk/user"
+
+await client.launchConnectionAuthorization(/* typed arguments */)
+```
+
+### cURL
+
+Not shown for browser/native credentials.
+
 <!-- operation:startConnectionAuthorization -->
 
 ## startConnectionAuthorization

@@ -19,6 +19,21 @@ async function authorize(): Promise<void> {
   location.assign(authorization.authorizationUrl)
 }
 
+async function connectGithub(): Promise<void> {
+  const popup = window.open("about:blank", "_blank")
+  if (!popup) throw new Error("Allow popups to connect an account")
+  try {
+    const authorization = await client.startConnectionAuthorization({
+      provider: "github",
+      returnUri: location.href.split("?")[0],
+    })
+    await client.openConnectionAuthorization(authorization, popup)
+  } catch (error) {
+    popup.close()
+    throw error
+  }
+}
+
 async function completeAuthorization(): Promise<void> {
   const callback = new URL(location.href)
   const code = callback.searchParams.get("code")
@@ -79,6 +94,7 @@ async function main(): Promise<void> {
   const approvals = document.createElement("section")
   root.append(
     button("Sign in", authorize),
+    button("Connect GitHub", connectGithub),
     button("Refresh approvals", () => renderApprovals(approvals)),
     approvals
   )
