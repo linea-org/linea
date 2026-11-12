@@ -64,9 +64,7 @@ describe('sign-in quota isolation (Postgres)', () => {
     return value
   }
   beforeAll(async () => {
-    // Freeze Date.now() and new Date() together so the test and the services
-    // always agree on the quota bucket; every other timer stays real so the
-    // database pool and HTTP server keep working.
+    // Keep quota clocks aligned without stalling database or HTTP timers.
     jest.useFakeTimers({
       now: Date.now(),
       doNotFake: [
