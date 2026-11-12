@@ -118,6 +118,29 @@ afterAll(async () => {
 })
 
 describe("WebhookDeliveryService", () => {
+  it("bounds a real trickling delivery and records a retry", async () => {
+    const receiver = await startReceiver((_index, _request, response) => {
+      response.write("x")
+      const timer = setInterval(() => response.write("x"), 50)
+      response.on("close", () => clearInterval(timer))
+    })
+    const { delivery } = await createDelivery(receiver.url, "trickle-secret")
+    const service = new WebhookDeliveryService()
+    const startedAt = performance.now()
+    try {
+      await expect(
+        service.processDelivery(delivery.id, 0, new AbortController().signal)
+      ).rejects.toThrow("timed out")
+      expect(performance.now() - startedAt).toBeLessThan(15_000)
+      const [stored] = await repositories.webhookDelivery.getWebhookDeliveries(
+        db,
+        [delivery.id]
+      )
+      expect(stored).toMatchObject({ status: "retrying", attempts: 1 })
+    } finally {
+      await receiver.close()
+    }
+  }, 20_000)
   it("retries a transient response and preserves the stable event ID", async () => {
     const receiver = await startReceiver((index, _request, response) => {
       response.statusCode = index === 1 ? 503 : 204
@@ -126,10 +149,14 @@ describe("WebhookDeliveryService", () => {
     const { delivery } = await createDelivery(receiver.url, "retry-secret")
     const service = new WebhookDeliveryService()
     try {
-      await expect(service.processDelivery(delivery.id, 0)).rejects.toThrow(
-        "HTTP 503"
+      await expect(
+        service.processDelivery(delivery.id, 0, new AbortController().signal)
+      ).rejects.toThrow("HTTP 503")
+      await service.processDelivery(
+        delivery.id,
+        1,
+        new AbortController().signal
       )
-      await service.processDelivery(delivery.id, 1)
       const [stored] = await repositories.webhookDelivery.getWebhookDeliveries(
         db,
         [delivery.id]
@@ -158,8 +185,14 @@ describe("WebhookDeliveryService", () => {
     const { delivery } = await createDelivery(receiver.url, "duplicate-secret")
     const service = new WebhookDeliveryService()
     try {
-      await expect(service.processDelivery(delivery.id, 0)).rejects.toThrow()
-      await service.processDelivery(delivery.id, 1)
+      await expect(
+        service.processDelivery(delivery.id, 0, new AbortController().signal)
+      ).rejects.toThrow()
+      await service.processDelivery(
+        delivery.id,
+        1,
+        new AbortController().signal
+      )
       expect(receiver.requests).toHaveLength(2)
       expect(receiver.requests[0]?.body).toEqual(receiver.requests[1]?.body)
     } finally {
@@ -188,7 +221,11 @@ describe("WebhookDeliveryService", () => {
     expect(rotated.outcome).toBe("rotated")
     const service = new WebhookDeliveryService()
     try {
-      await service.processDelivery(delivery.id, 0)
+      await service.processDelivery(
+        delivery.id,
+        0,
+        new AbortController().signal
+      )
       const request = receiver.requests[0]
       if (!request) throw new Error("Webhook request was not received")
       const timestamp = request.headers["x-linea-timestamp"]
@@ -210,7 +247,11 @@ describe("WebhookDeliveryService", () => {
     const { delivery } = await createDelivery(receiver.url, "failure-secret")
     const service = new WebhookDeliveryService()
     try {
-      await service.processDelivery(delivery.id, 0)
+      await service.processDelivery(
+        delivery.id,
+        0,
+        new AbortController().signal
+      )
       const [stored] = await repositories.webhookDelivery.getWebhookDeliveries(
         db,
         [delivery.id]
@@ -245,7 +286,11 @@ describe("WebhookDeliveryService", () => {
     )
     const service = new WebhookDeliveryService()
     try {
-      const processing = service.processDelivery(delivery.id, 0)
+      const processing = service.processDelivery(
+        delivery.id,
+        0,
+        new AbortController().signal
+      )
       await requestReceived
       await repositories.webhookEndpoint.disableWebhookEndpoint(db, {
         workspaceId,

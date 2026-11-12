@@ -10,6 +10,7 @@ it("delivers signed payloads with HTTPS, pinned redirects, and bounded resource 
   const body = Buffer.from("{}")
   await expect(
     deliverWebhook({
+      signal: new AbortController().signal,
       url: "https://receiver.example/hook",
       headers: { "x-linea-signature": "signature" },
       body,
