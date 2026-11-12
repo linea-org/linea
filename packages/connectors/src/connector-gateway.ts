@@ -1,3 +1,4 @@
+import { githubRepositoryAllowed } from "@linea/protocol/resources"
 import { requiredConnectionScopes } from "./connection-operation-scopes.js"
 import {
   githubInstallationCredentialSchema,
@@ -214,6 +215,17 @@ export class ConnectorGateway {
         "connection_scope_insufficient"
       )
     }
+    let validatedInput: unknown
+    try {
+      validatedInput = operation.inputSchema.parse(input.operationInput)
+    } catch {
+      throw new ConnectorGatewayError("Connector input is invalid")
+    }
+    this.requireRepositoryPolicy(
+      operation,
+      authority.providerPolicy,
+      validatedInput
+    )
     const resolvedCredential = this.resolveCredential(authority.connection)
     const credential =
       resolvedCredential instanceof Promise
@@ -222,40 +234,36 @@ export class ConnectorGateway {
     if (credential.accountId !== authority.connection.providerAccountId) {
       throw new ConnectorGatewayError()
     }
-    if (authority.connection.ownership === "environment") {
-      const current = await repositories.connection.getConnectorReadAuthority(
-        this.db,
-        {
-          workspaceId: input.workspaceId,
-          executionId: input.executionId,
-          connectionId: input.connectionId,
-        }
-      )
-      const requiredScopes = requiredConnectionScopes(
+    const current = await repositories.connection.getConnectorReadAuthority(
+      this.db,
+      {
+        workspaceId: input.workspaceId,
+        executionId: input.executionId,
+        connectionId: input.connectionId,
+      }
+    )
+    if (current)
+      this.requireRepositoryPolicy(
         operation,
-        authority.connection.authorizationKind
+        current.providerPolicy,
+        validatedInput
       )
-      if (
-        current?.connection.status !== "active" ||
-        current.connection.credentialVersion !==
-          authority.connection.credentialVersion ||
-        !current.providerPolicy.actionFamilies.includes(
-          operation.actionFamily
-        ) ||
-        requiredScopes.some(
-          (scope) =>
-            !current.connection.scopes.includes(scope) ||
-            !current.providerPolicy.maxScopes.includes(scope)
-        )
+    const requiredScopes = requiredConnectionScopes(
+      operation,
+      authority.connection.authorizationKind
+    )
+    if (
+      current?.connection.status !== "active" ||
+      current.connection.credentialVersion !==
+        authority.connection.credentialVersion ||
+      !current.providerPolicy.actionFamilies.includes(operation.actionFamily) ||
+      requiredScopes.some(
+        (scope) =>
+          !current.connection.scopes.includes(scope) ||
+          !current.providerPolicy.maxScopes.includes(scope)
       )
-        throw new ConnectorGatewayError()
-    }
-    let validatedInput: unknown
-    try {
-      validatedInput = operation.inputSchema.parse(input.operationInput)
-    } catch {
-      throw new ConnectorGatewayError("Connector input is invalid")
-    }
+    )
+      throw new ConnectorGatewayError()
     let output: unknown
     try {
       const result = await operation.execute(
@@ -277,6 +285,57 @@ export class ConnectorGateway {
       })
       throw new ConnectorGatewayError(operation.providerErrorMessage)
     }
+    if (operation.provider === "github") {
+      const current = await repositories.connection.getConnectorReadAuthority(
+        this.db,
+        {
+          workspaceId: input.workspaceId,
+          executionId: input.executionId,
+          connectionId: input.connectionId,
+        }
+      )
+      if (
+        !current ||
+        current.connection.status !== "active" ||
+        current.connection.credentialVersion !==
+          authority.connection.credentialVersion ||
+        !current.providerPolicy.actionFamilies.includes(
+          operation.actionFamily
+        ) ||
+        requiredScopes.some(
+          (scope) =>
+            !current.connection.scopes.includes(scope) ||
+            !current.providerPolicy.maxScopes.includes(scope)
+        )
+      )
+        throw new ConnectorGatewayError()
+      this.requireRepositoryPolicy(
+        operation,
+        current.providerPolicy,
+        validatedInput
+      )
+      if (operation.id === "github.repositories.list_public") {
+        const result = z
+          .object({
+            repositories: z.array(
+              z.object({ owner: z.string(), name: z.string() }).passthrough()
+            ),
+          })
+          .passthrough()
+          .parse(output)
+        output = {
+          ...result,
+          repositories: result.repositories.filter((repository) =>
+            githubRepositoryAllowed(
+              current.providerPolicy.allowedRepositories,
+              { owner: repository.owner, repository: repository.name }
+            )
+          ),
+          // Provider pagination includes repositories outside the policy.
+          hasMore: false,
+        }
+      }
+    }
     await repositories.connection.recordConnectionReadUse(this.db, {
       workspaceId: authority.connection.workspaceId,
       environmentId: authority.connection.environmentId,
@@ -290,12 +349,46 @@ export class ConnectorGateway {
     return output
   }
 
+  private requireRepositoryPolicy(
+    operation: { provider: string; id: string },
+    policy: {
+      allowedRepositories?: Array<{ owner: string; repository: string }>
+    },
+    target: unknown
+  ): void {
+    if (operation.provider !== "github") return
+    if (
+      operation.id === "github.repositories.list_public" &&
+      policy.allowedRepositories?.length
+    )
+      return
+    if (!githubRepositoryAllowed(policy.allowedRepositories, target)) {
+      throw new ConnectorGatewayError("Connector target not allowed")
+    }
+  }
+
   private async executeSideEffect(
     operation: ConnectorSideEffectOperation,
     input: SideEffectExecutionInput
   ): Promise<SideEffectExecutionResult> {
     const { normalized, envelope, canonicalDigest, safeDisplay } =
       this.prepareSideEffect(operation, input)
+    if (operation.provider === "github") {
+      const authority = await repositories.connection.getConnectorReadAuthority(
+        this.db,
+        {
+          workspaceId: input.workspaceId,
+          executionId: input.executionId,
+          connectionId: input.connectionId,
+        }
+      )
+      if (!authority) throw new ConnectorGatewayError()
+      this.requireRepositoryPolicy(
+        operation,
+        authority.providerPolicy,
+        normalized.target
+      )
+    }
     const existing = await repositories.actionIntent.getActionIntentConsent(
       this.db,
       {
@@ -581,6 +674,48 @@ export class ConnectorGateway {
         normalizedError,
         dispatchMayHaveReachedProvider ? "outcome_unknown" : "failed"
       )
+    }
+    if (operation.provider === "github") {
+      const current = await repositories.connection.getConnectorReadAuthority(
+        this.db,
+        {
+          workspaceId: input.workspaceId,
+          executionId: input.executionId,
+          connectionId: input.connectionId,
+        }
+      )
+      if (
+        !current ||
+        current.connection.status !== "active" ||
+        current.connection.credentialVersion !==
+          claimed.connection.credentialVersion ||
+        !githubRepositoryAllowed(
+          current.providerPolicy.allowedRepositories,
+          claimed.intent.target
+        ) ||
+        !current.providerPolicy.actionFamilies.includes(
+          operation.actionFamily
+        ) ||
+        requiredConnectionScopes(
+          operation,
+          current.connection.authorizationKind
+        ).some(
+          (scope) =>
+            !current.connection.scopes.includes(scope) ||
+            !current.providerPolicy.maxScopes.includes(scope)
+        )
+      ) {
+        return this.failSideEffect(
+          claimed.intent,
+          input.executionClaimId,
+          {
+            code: "connector_rejected",
+            message: "Connector authority changed before dispatch",
+            outcomeUnknown: false,
+          },
+          "failed"
+        )
+      }
     }
     if (claimed.intent.status !== "executing") {
       throw new ConnectorGatewayError("Action Intent is not executable")

@@ -1,3 +1,4 @@
+import { githubRepositoryAllowed } from "@linea/protocol/resources"
 import { and, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm"
 import {
   actionIntents,
@@ -95,6 +96,7 @@ type ConnectionAuthorityInput = {
   provider: string
   actionFamily: string
   requiredScopes: readonly string[]
+  target: unknown
 }
 
 function connectionAuthorityBoundary(
@@ -143,7 +145,12 @@ function connectionAuthorityBoundary(
     !connectionOwned ||
     !policyAllowsAction ||
     connectionMissingScope ||
-    !policyAllowsScopes
+    !policyAllowsScopes ||
+    (input.provider === "github" &&
+      !githubRepositoryAllowed(
+        providerPolicy?.allowedRepositories,
+        input.target
+      ))
   ) {
     return "invalid"
   }
@@ -187,6 +194,7 @@ async function replayActionIntent(
       provider: input.connector,
       actionFamily: input.actionFamily,
       requiredScopes: input.requiredScopes,
+      target: intent.target,
     })
     if (boundary === "reauthorization_required") {
       return { outcome: "connection_reauthorization_required" }
@@ -194,6 +202,7 @@ async function replayActionIntent(
     if (boundary === "scope_insufficient") {
       return { outcome: "connection_scope_insufficient" }
     }
+    if (boundary !== "authorized") return { outcome: "authority_invalid" }
   }
   const [storedApprovalRequest] = approvalRequest
     ? [approvalRequest]
@@ -267,6 +276,7 @@ export async function createActionIntent(
       provider: input.connector,
       actionFamily: input.actionFamily,
       requiredScopes: input.requiredScopes,
+      target: input.target,
     })
     if (authority === "reauthorization_required") {
       return { outcome: "connection_reauthorization_required" }
@@ -624,6 +634,7 @@ async function currentIntentAuthority(
       provider: input.provider,
       actionFamily: input.actionFamily,
       requiredScopes: input.requiredScopes,
+      target: intent.target,
     }) === "authorized"
   )
 }

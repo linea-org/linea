@@ -1,3 +1,5 @@
+import { Input } from "@linea/ui/components/input"
+import { githubRepositoryTargetSchema } from "@linea/protocol/resources"
 import { Controller, useForm } from "react-hook-form"
 import { useMutation } from "@tanstack/react-query"
 import { Button } from "@linea/ui/components/button"
@@ -12,6 +14,7 @@ import {
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import { replaceConnectorPolicyFn } from "@/lib/shared-connections-api"
 type PolicyForm = {
+  repositories: string
   issues: "none" | "read" | "write"
   pull_requests: "none" | "read" | "write"
 }
@@ -29,14 +32,26 @@ export function EnvironmentConnectorPolicy({
   const current = environment.connectorAccessPolicy.providers.find(
     (provider) => provider.provider === "github"
   )
-  const defaultValues: PolicyForm = { issues: "none", pull_requests: "none" }
+  const defaultValues: PolicyForm = {
+    repositories:
+      current?.allowedRepositories
+        ?.map(({ owner, repository }) => owner + "/" + repository)
+        .join(", ") ?? "",
+    issues: "none",
+    pull_requests: "none",
+  }
   for (const permission of permissions) {
     if (current?.maxScopes.includes(permission.name + ":write"))
       defaultValues[permission.name] = "write"
     else if (current?.maxScopes.includes(permission.name + ":read"))
       defaultValues[permission.name] = "read"
   }
-  const { control, handleSubmit } = useForm<PolicyForm>({ defaultValues })
+  const {
+    control,
+    register,
+    formState: { errors },
+    handleSubmit,
+  } = useForm<PolicyForm>({ defaultValues })
   const save = useMutation({
     mutationFn: (input: PolicyForm) => {
       const selected = permissions.filter(
@@ -67,6 +82,17 @@ export function EnvironmentConnectorPolicy({
               ),
               {
                 provider: "github",
+                allowedRepositories: input.repositories
+                  .split(",")
+                  .map((value) => value.trim())
+                  .filter(Boolean)
+                  .map((value) => {
+                    const [owner, repository] = value.split("/")
+                    return githubRepositoryTargetSchema.parse({
+                      owner,
+                      repository,
+                    })
+                  }),
                 actionFamilies: [
                   ...new Set([
                     ...(current?.actionFamilies.filter(
@@ -93,11 +119,43 @@ export function EnvironmentConnectorPolicy({
         void handleSubmit((data) => save.mutate(data))(event)
       }}
     >
-      <h3 className="font-medium">GitHub installation policy</h3>
+      <h3 className="font-medium">GitHub repository policy</h3>
       <p className="text-xs text-muted-foreground">
-        Choose the maximum installation permissions allowed in this Environment.
-        Writes still require exact-action human approval.
+        Choose repositories and maximum permissions for all GitHub Connections
+        in this Environment. An empty repository list denies all GitHub
+        operations. Writes still require exact-action human approval.
       </p>
+      <Field>
+        <FieldLabel htmlFor={environment.id + "-repositories"}>
+          Allowed repositories (owner/repository, comma separated)
+        </FieldLabel>
+        <Input
+          id={environment.id + "-repositories"}
+          {...register("repositories", {
+            validate: (value) =>
+              value
+                .split(",")
+                .map((entry) => entry.trim())
+                .filter(Boolean)
+                .every((entry) => {
+                  const parts = entry.split("/")
+                  return (
+                    parts.length === 2 &&
+                    githubRepositoryTargetSchema.safeParse({
+                      owner: parts[0],
+                      repository: parts[1],
+                    }).success
+                  )
+                }) ||
+              "Enter repositories as owner/repository, separated by commas",
+          })}
+        />
+        {errors.repositories && (
+          <p className="text-xs text-destructive">
+            {errors.repositories.message}
+          </p>
+        )}
+      </Field>
       {permissions.map((permission) => (
         <Field key={permission.name}>
           <FieldLabel htmlFor={environment.id + "-policy-" + permission.name}>
