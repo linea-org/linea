@@ -162,8 +162,8 @@ describe('Connections and Action Consent launch tracer', () => {
     )
     const browserPage = await fetch(authorization.authorizationUrl)
     const cookie = browserPage.headers.get('set-cookie')?.split(';')[0]
-    const encoded = (await browserPage.text()).match(
-      /postMessage\((\{.*?\}),/u,
+    const encoded = /postMessage\((\{.*?\}),/u.exec(
+      await browserPage.text(),
     )?.[1]
     if (!cookie || !encoded) throw new Error('Missing browser handshake')
     const message = connectionBrowserMessageSchema.parse(JSON.parse(encoded))

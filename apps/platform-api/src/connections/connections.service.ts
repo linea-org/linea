@@ -253,7 +253,7 @@ export class ConnectionsService {
         stateHash: hash(input.state),
         boundStateHash: hash(`${input.state}.${input.browserChallenge}`),
       })
-    if (!request || !request.codeVerifierEncrypted)
+    if (!request?.codeVerifierEncrypted)
       throw new BadRequestException(
         publicError('validation_failed', 'Invalid authorization'),
       )

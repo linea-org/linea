@@ -50,10 +50,10 @@ export function sendBrowserLaunch(
     authorizationId: input.authorizationId,
     state: input.state,
     browserChallenge,
-  }).replaceAll('<', '\\u003c')
+  }).replaceAll('<', String.raw`\u003c`)
   const origin = JSON.stringify(new URL(input.returnUri).origin).replaceAll(
     '<',
-    '\\u003c',
+    String.raw`\u003c`,
   )
   response
     .type('html')
