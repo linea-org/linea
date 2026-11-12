@@ -331,7 +331,7 @@ export const operationMetadata = {
     purpose: "Start an OIDC authorization with PKCE for an End User.",
     caller: userCaller,
     idempotency: none,
-    rateLimit: "30 requests per client IP and 300 per Environment each minute.",
+    rateLimit: "30 requests per client IP each minute.",
     pagination: none,
     events: none,
     adapter: adapter(
@@ -345,7 +345,7 @@ export const operationMetadata = {
       "Exchange an authorization code and PKCE verifier for a one-time identity exchange.",
     caller: userCaller,
     idempotency: "The authorization code is single-use.",
-    rateLimit: "60 requests per client IP and 600 per Environment each minute.",
+    rateLimit: "60 requests per client IP each minute.",
     pagination: none,
     events: none,
     adapter: adapter(
@@ -358,7 +358,8 @@ export const operationMetadata = {
     purpose: "Create a proof-bound End-User Session from an identity exchange.",
     caller: userCaller,
     idempotency: "The identity exchange is single-use.",
-    rateLimit: "10 requests per client IP and 10 per Environment each minute.",
+    rateLimit:
+      "10 requests per client IP and 10 sessions per External Subject within an Environment each minute.",
     pagination: none,
     events: none,
     adapter: adapter(

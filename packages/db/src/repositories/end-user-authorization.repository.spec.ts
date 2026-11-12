@@ -1,4 +1,7 @@
 import { createHash, randomUUID } from "node:crypto"
+import { inArray } from "drizzle-orm"
+import { db } from "../clients/index.js"
+import { endUserAuthorizationRateLimits } from "../schema/index.js"
 import { describe, expect, it } from "vitest"
 import { applications, environments, organizations } from "../schema/index.js"
 import {
@@ -311,5 +314,102 @@ describe("end-user authorization repository", () => {
         )
       ).resolves.toBe(2)
     })
+  })
+  it("does not charge any quota when another dimension refuses", async () => {
+    await withRollback(async (tx) => {
+      const expiresAt = new Date(Date.now() + 60_000)
+      const ip = { key: `a-ip-${randomUUID()}`, limit: 1 }
+      const environment = { key: `b-environment-${randomUUID()}`, limit: 3 }
+      const victim = { key: `c-victim-${randomUUID()}`, limit: 3 }
+      expect(
+        await consumeAuthorizationRateLimits(tx, [ip, environment], expiresAt)
+      ).toBe(true)
+      for (let index = 0; index < 5; index++) {
+        expect(
+          await consumeAuthorizationRateLimits(tx, [ip, environment], expiresAt)
+        ).toBe(false)
+      }
+      expect(
+        await consumeAuthorizationRateLimits(
+          tx,
+          [victim, environment],
+          expiresAt
+        )
+      ).toBe(true)
+      expect(
+        await consumeAuthorizationRateLimits(
+          tx,
+          [victim, environment],
+          expiresAt
+        )
+      ).toBe(true)
+      expect(
+        await consumeAuthorizationRateLimits(
+          tx,
+          [victim, environment],
+          expiresAt
+        )
+      ).toBe(false)
+      const rows = await tx
+        .select()
+        .from(endUserAuthorizationRateLimits)
+        .where(
+          inArray(endUserAuthorizationRateLimits.key, [
+            ip.key,
+            environment.key,
+            victim.key,
+          ])
+        )
+      expect(new Map(rows.map((row) => [row.key, row.requestCount]))).toEqual(
+        new Map([
+          [ip.key, 1],
+          [environment.key, 3],
+          [victim.key, 2],
+        ])
+      )
+    })
+  })
+  it("admits exactly the shared ceiling across independent concurrent transactions", async () => {
+    const expiresAt = new Date(Date.now() + 60_000)
+    const shared = { key: `shared-${randomUUID()}`, limit: 7 }
+    const secondShared = { key: `other-shared-${randomUUID()}`, limit: 7 }
+    const clients = Array.from({ length: 24 }, () => ({
+      key: `client-${randomUUID()}`,
+      limit: 1,
+    }))
+    const keys = [
+      shared.key,
+      secondShared.key,
+      ...clients.map(({ key }) => key),
+    ]
+    try {
+      const results = await Promise.all(
+        clients.map((client, index) =>
+          consumeAuthorizationRateLimits(
+            db,
+            index % 2
+              ? [client, shared, secondShared]
+              : [secondShared, shared, client],
+            expiresAt
+          )
+        )
+      )
+      expect(results.filter(Boolean)).toHaveLength(7)
+      const rows = await db
+        .select()
+        .from(endUserAuthorizationRateLimits)
+        .where(inArray(endUserAuthorizationRateLimits.key, keys))
+      expect(rows.find(({ key }) => key === shared.key)?.requestCount).toBe(7)
+      expect(
+        rows.find(({ key }) => key === secondShared.key)?.requestCount
+      ).toBe(7)
+      expect(
+        rows.filter(({ key }) => key !== shared.key && key !== secondShared.key)
+      ).toHaveLength(7)
+    } finally {
+      await db
+        .delete(endUserAuthorizationRateLimits)
+        .where(inArray(endUserAuthorizationRateLimits.key, keys))
+    }
   })
 })
