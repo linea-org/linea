@@ -1,19 +1,22 @@
 import 'dotenv/config'
-import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import type { NestExpressApplication } from '@nestjs/platform-express'
-import { db, pool, repositories, schema } from '@linea/db'
+import { db, pool, repositories } from '@linea/db'
 import { getTestApplicationId, publishTestWorkflow } from '@linea/db/testing'
 import request from 'supertest'
 import type { Server } from 'node:http'
 import { bigIntJsonReplacer } from '../common/bigint-json-replacer'
 import { ExecutionsController } from './executions.controller'
 import { ExecutionsService } from './executions.service'
+import {
+  deleteAuthorizationWorkspace,
+  seedAuthorizationWorkspace,
+  testUserSession,
+} from './test-authorization-workspace'
 import { TriggersController } from '../triggers/triggers.controller'
 import { TriggersService } from '../triggers/triggers.service'
 import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 import { generateApiKey } from '../auth/api-key.util'
-import type { AuthenticatedRequest } from '../auth/workspace-auth.guard'
 
 describe('management start HTTP authorization', () => {
   let app: NestExpressApplication<Server>
@@ -25,43 +28,10 @@ describe('management start HTTP authorization', () => {
   let developmentId: string
   const key = generateApiKey()
   beforeAll(async () => {
-    const [workspace] = await db
-      .insert(schema.organizations)
-      .values({
-        name: 'Start policy',
-        slug: randomUUID(),
-        createdAt: new Date(),
-      })
-      .returning()
-    workspaceId = workspace.id
-    const people = await db
-      .insert(schema.users)
-      .values(
-        ['admin', 'member'].map((name) => ({
-          name,
-          email: `${randomUUID()}@test.dev`,
-        })),
-      )
-      .returning()
-    adminId = people[0].id
-    memberId = people[1].id
-    await db.insert(schema.members).values(
-      people.map((user, i) => ({
-        organizationId: workspaceId,
-        userId: user.id,
-        role: i === 0 ? 'admin' : 'member',
-        createdAt: new Date(),
-      })),
-    )
-    await db.insert(schema.apiKeys).values({
-      workspaceId,
-      name: 'Test',
-      scopes: ['executions:start'],
-      expiresAt: new Date(Date.now() + 86_400_000),
-      createdByUserId: adminId,
-      hashedKey: key.hashedKey,
-      keyPrefix: key.keyPrefix,
-    })
+    const seeded = await seedAuthorizationWorkspace('Start policy', key)
+    workspaceId = seeded.workspaceId
+    adminId = seeded.adminId
+    memberId = seeded.memberId
     const workflow = await repositories.workflow.createWorkflow(db, {
       workspaceId,
       applicationId: await getTestApplicationId(db, workspaceId),
@@ -108,25 +78,13 @@ describe('management start HTTP authorization', () => {
       ],
     }).compile()
     app = moduleRef.createNestApplication<NestExpressApplication<Server>>()
-    app.use((req: AuthenticatedRequest, _res: unknown, next: () => void) => {
-      const userId = req.headers['x-test-user']
-      if (typeof userId === 'string')
-        req.session = {
-          user: { id: userId },
-          session: { activeOrganizationId: workspaceId },
-        }
-      next()
-    })
+    app.use(testUserSession(workspaceId))
     app.set('json replacer', bigIntJsonReplacer)
     await app.init()
   })
   afterAll(async () => {
     await app?.close()
-    await pool.query('DELETE FROM organizations WHERE id = $1', [workspaceId])
-    await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [
-      adminId,
-      memberId,
-    ])
+    await deleteAuthorizationWorkspace({ workspaceId, adminId, memberId })
     await pool.end()
   })
   it('rejects bad flags, payloads, members and workspace keys without execution or outbox writes, then accepts valid starts', async () => {

@@ -10,9 +10,11 @@ import {
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { OptionalUserId } from '../auth/optional-user-id.decorator'
+import { RequireRole } from '../auth/require-role.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { WorkspaceRateLimit } from '../auth/workspace-rate-limit.guard'
+import { WorkspaceRoleGuard } from '../auth/workspace-role.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
   sendChatMessageSchema,
@@ -37,7 +39,7 @@ import { ExecutionsService } from './executions.service'
 
 @Controller()
 @OptionalAuth()
-@UseGuards(WorkspaceAuthGuard)
+@UseGuards(WorkspaceAuthGuard, WorkspaceRoleGuard)
 export class ExecutionsController {
   constructor(private readonly executions: ExecutionsService) {}
 
@@ -159,7 +161,9 @@ export class ExecutionsController {
     )
   }
 
+  // ADR 0026: re-running recorded production input is admin-only and never via a workspace API key.
   @Post('executions/:id/steps/:stepId/replay')
+  @RequireRole('admin')
   @WorkspaceRateLimit('diagnostic')
   replayStep(
     @CurrentWorkspaceId() workspaceId: string,
