@@ -403,6 +403,9 @@ export class AgentExecutionService {
     if (response.outcome === "rejected")
       throw new Error(await this.rejectionMessage(execution.id))
     const output = response.result
+    const operation = context.registeredTools.get(call.name)
+    if (!operation)
+      throw new Error(`Agent requested undeclared tool: ${call.name}`)
     completed.set(nodeId, output)
     await this.checkpoints.recordStep({
       executionId: execution.id,
@@ -411,7 +414,11 @@ export class AgentExecutionService {
       nodeId,
       nodeType: "connector",
       input: toolInput,
-      output,
+      // The checkpoint keeps the full output because a resumed Agent replays it to the model.
+      output:
+        operation.classification === "read"
+          ? operation.traceOutput(output)
+          : output,
       startedAt,
       endedAt: new Date(),
       completed,

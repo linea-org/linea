@@ -18,6 +18,8 @@ export interface ConnectorReadOperation {
   readonly providerErrorMessage: string
   readonly inputSchema: z.ZodType
   readonly outputSchema: z.ZodType
+  /** The part of a parsed output that execution steps record; the Agent still receives the full output. */
+  traceOutput(output: unknown): unknown
   execute(
     input: unknown,
     credential: ConnectorReadCredential,
@@ -57,6 +59,8 @@ function isConnectorReadOperation(
     typeof value.outputSchema === "object" &&
     "parse" in value.outputSchema &&
     typeof value.outputSchema.parse === "function" &&
+    "traceOutput" in value &&
+    typeof value.traceOutput === "function" &&
     "execute" in value &&
     typeof value.execute === "function"
   )

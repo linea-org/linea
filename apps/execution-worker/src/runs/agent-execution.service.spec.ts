@@ -343,6 +343,50 @@ it("consumes a real Redis delivery and does not repeat a completed read on dupli
   }
 })
 
+it("records only the trace projection of a read in the step while the checkpoint keeps the full output", async () => {
+  const model = jest
+    .spyOn(registry["gpt-5"], "complete")
+    .mockResolvedValueOnce({
+      text: "",
+      tokensInput: 1,
+      tokensOutput: 1,
+      toolCalls: [
+        {
+          id: "read-one",
+          name: "read",
+          arguments: {
+            connectionId: fixture.connectionId,
+            input: { resourceId: "one" },
+          },
+        },
+      ],
+    })
+    .mockResolvedValue({
+      text: '{"result":"read"}',
+      tokensInput: 1,
+      tokensOutput: 1,
+    })
+  const execution = await start()
+  await runs.execute(execution.id)
+  const steps = await repositories.checkpoint.getStepsForExecution(
+    db,
+    execution.id
+  )
+  const toolStep = steps.find((step) => step.nodeId === "agent:tool:0:0")
+  expect(toolStep?.output).toEqual({ resourceId: "one" })
+  const checkpoint = await repositories.checkpoint.getLatestCheckpoint(
+    db,
+    execution.id
+  )
+  expect(checkpoint?.context["agent:tool:0:0"]).toEqual({
+    resourceId: "one",
+    label: "recorded read",
+  })
+  expect(JSON.stringify(model.mock.calls[1][1].history)).toContain(
+    "recorded read"
+  )
+})
+
 it("recovers a provider success lost before its checkpoint without creating a second effect", async () => {
   const model = jest
     .spyOn(registry["gpt-5"], "complete")

@@ -25,6 +25,10 @@ export const deterministicReadOperation: ConnectorReadOperation =
     providerErrorMessage: "Connector provider request failed",
     inputSchema,
     outputSchema,
+    // Stands in for provider free text that a real operation would keep out of traces.
+    traceOutput: (output) => ({
+      resourceId: outputSchema.parse(output).resourceId,
+    }),
     async execute(rawInput, credential, signal) {
       const input = inputSchema.parse(rawInput)
       const url = new URL(

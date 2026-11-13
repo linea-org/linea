@@ -270,6 +270,7 @@ export const googleCalendarListEventsOperation: ConnectorReadOperation =
     providerErrorMessage: "Google Calendar read failed",
     inputSchema: calendarListInputSchema,
     outputSchema: calendarListOutputSchema,
+    traceOutput: (output) => calendarListOutputSchema.parse(output),
     async execute(rawInput, credential, signal) {
       const input = calendarListInputSchema.parse(rawInput)
       const url = calendarEventUrl(input.calendarId)
