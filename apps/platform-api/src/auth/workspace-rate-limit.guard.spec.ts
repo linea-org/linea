@@ -9,6 +9,7 @@ import request from 'supertest'
 import { db, pool, repositories, schema } from '@linea/db'
 import { PublicRuntimeRateLimitFilter } from '../public-runtime/public-runtime-rate-limit.filter'
 import { generateApiKey } from './api-key.util'
+import { RequireWorkspaceKeyScopes } from './require-workspace-key-scopes.decorator'
 import {
   WorkspaceAuthGuard,
   type AuthenticatedRequest,
@@ -22,12 +23,14 @@ import {
 @UseGuards(WorkspaceAuthGuard)
 class WorkspaceProbeController {
   @Post('start')
+  @RequireWorkspaceKeyScopes('executions:start')
   @WorkspaceRateLimit('start')
   start() {
     return { ok: true }
   }
 
   @Post('diagnostic')
+  @RequireWorkspaceKeyScopes('executions:start')
   @WorkspaceRateLimit('diagnostic')
   diagnostic() {
     return { ok: true }
@@ -79,13 +82,16 @@ describe('Workspace start rate limits (Postgres)', () => {
     await repositories.apiKey.createApiKey(db, {
       workspaceId,
       name: 'Rate limited API key',
+      scopes: ['executions:start'],
       hashedKey: generated.hashedKey,
       keyPrefix: generated.keyPrefix,
+      expiresAt: new Date(Date.now() + 86_400_000),
+      createdByUserId: await createMember(workspaceId, 'admin'),
     })
     counterOwners.push(generated.hashedKey)
     return generated.rawKey
   }
-  async function createMember(workspaceId: string) {
+  async function createMember(workspaceId: string, role = 'member') {
     const [user] = await db
       .insert(schema.users)
       .values({
@@ -98,7 +104,7 @@ describe('Workspace start rate limits (Postgres)', () => {
     await db.insert(schema.members).values({
       organizationId: workspaceId,
       userId: user.id,
-      role: 'member',
+      role,
       createdAt: new Date(),
     })
     return user.id

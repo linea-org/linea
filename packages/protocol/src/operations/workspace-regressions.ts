@@ -29,7 +29,7 @@ export const listRegressionCasesOperation = {
   method: "GET",
   path: "/v1/workflows/{workflowId}/regression-cases",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["regressions:read"] },
   request: {
     path: workflowPathSchema,
     query: z.strictObject({
@@ -47,7 +47,7 @@ export const createRegressionCaseFromStepOperation = {
   method: "POST",
   path: "/v1/workflows/{workflowId}/regression-cases/from-step",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["regressions:write"] },
   request: {
     path: workflowPathSchema,
     query: emptySchema,
@@ -63,7 +63,7 @@ export const createRegressionCaseFromFlagOperation = {
   method: "POST",
   path: "/v1/workflows/{workflowId}/regression-cases/from-flag",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["regressions:write"] },
   request: {
     path: workflowPathSchema,
     query: emptySchema,
@@ -79,7 +79,7 @@ export const archiveRegressionCaseOperation = {
   method: "POST",
   path: "/v1/workflows/{workflowId}/regression-cases/{id}/archive",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["regressions:write"] },
   request: {
     path: regressionCasePathSchema,
     query: emptySchema,
@@ -95,7 +95,7 @@ export const listRegressionRunsOperation = {
   method: "GET",
   path: "/v1/workflows/{workflowId}/regression-runs",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["regressions:read"] },
   request: {
     path: workflowPathSchema,
     query: z.strictObject({
@@ -113,7 +113,7 @@ export const triggerRegressionRunOperation = {
   method: "POST",
   path: "/v1/workflows/{workflowId}/regression-runs",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["regressions:write"] },
   request: {
     path: workflowPathSchema,
     query: emptySchema,
@@ -129,7 +129,7 @@ export const getRegressionRunOperation = {
   method: "GET",
   path: "/v1/workflows/{workflowId}/regression-runs/{id}",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["regressions:read"] },
   request: {
     path: regressionRunPathSchema,
     query: emptySchema,

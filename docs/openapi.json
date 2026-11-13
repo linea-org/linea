@@ -811,7 +811,7 @@
         },
         "security": [
           {
-            "workspaceKey": []
+            "workspaceKey": ["audit:read"]
           }
         ],
         "summary": "List redacted connector audit events for one workspace.",
@@ -14005,7 +14005,7 @@
         },
         "security": [
           {
-            "workspaceKey": []
+            "workspaceKey": ["regressions:read"]
           }
         ],
         "summary": "List saved Regression Cases for a Workflow.",
@@ -14242,7 +14242,7 @@
         },
         "security": [
           {
-            "workspaceKey": []
+            "workspaceKey": ["regressions:write"]
           }
         ],
         "summary": "Archive a Regression Case.",
@@ -14487,7 +14487,7 @@
         },
         "security": [
           {
-            "workspaceKey": []
+            "workspaceKey": ["regressions:write"]
           }
         ],
         "summary": "Create a Regression Case from a flagged Execution.",
@@ -14732,7 +14732,7 @@
         },
         "security": [
           {
-            "workspaceKey": []
+            "workspaceKey": ["regressions:write"]
           }
         ],
         "summary": "Create a Regression Case from an Execution step.",
@@ -14955,7 +14955,7 @@
         },
         "security": [
           {
-            "workspaceKey": []
+            "workspaceKey": ["regressions:read"]
           }
         ],
         "summary": "List recent Regression Runs for a Workflow.",
@@ -15134,7 +15134,7 @@
         },
         "security": [
           {
-            "workspaceKey": []
+            "workspaceKey": ["regressions:write"]
           }
         ],
         "summary": "Queue a Regression Run for a Workflow.",
@@ -15404,7 +15404,7 @@
         },
         "security": [
           {
-            "workspaceKey": []
+            "workspaceKey": ["regressions:read"]
           }
         ],
         "summary": "Get a Regression Run and its results.",

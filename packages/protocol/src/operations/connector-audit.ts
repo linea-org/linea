@@ -44,7 +44,7 @@ export const listWorkspaceConnectorAuditEventsOperation = {
   method: "GET",
   path: "/v1/audit-events",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["audit:read"] },
   request: {
     path: emptySchema,
     query: workspaceConnectorAuditQuerySchema,

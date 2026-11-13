@@ -16,6 +16,7 @@ import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { RecentAuthenticationGuard } from '../auth/recent-authentication.guard'
 import { RequireRole } from '../auth/require-role.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { WorkspaceRoleGuard } from '../auth/workspace-role.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
@@ -70,10 +71,12 @@ export class ApplicationsController {
     }
   }
   @Get()
+  @RequireWorkspaceKeyScopes('applications:read')
   list(@CurrentWorkspaceId() workspaceId: string) {
     return repositories.application.listApplications(db, workspaceId)
   }
   @Get(':id')
+  @RequireWorkspaceKeyScopes('applications:read')
   async get(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -87,6 +90,7 @@ export class ApplicationsController {
     return application
   }
   @Get(':id/workflows')
+  @RequireWorkspaceKeyScopes('applications:read')
   async workflows(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -97,6 +101,7 @@ export class ApplicationsController {
     })
   }
   @Get(':id/environments')
+  @RequireWorkspaceKeyScopes('applications:read')
   async environments(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,

@@ -38,6 +38,9 @@ export async function seedAuthorizationWorkspace(
   await db.insert(schema.apiKeys).values({
     workspaceId: workspace.id,
     name: 'Test',
+    scopes: ['executions:start', 'regressions:read', 'regressions:write'],
+    expiresAt: new Date(Date.now() + 86_400_000),
+    createdByUserId: people[0].id,
     hashedKey: key.hashedKey,
     keyPrefix: key.keyPrefix,
   })

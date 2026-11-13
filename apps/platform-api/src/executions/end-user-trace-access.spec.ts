@@ -101,6 +101,9 @@ describe('End-User execution trace access', () => {
     await db.insert(schema.apiKeys).values({
       workspaceId,
       name: 'Test',
+      scopes: ['executions:read', 'regressions:write'],
+      expiresAt: new Date(Date.now() + 86_400_000),
+      createdByUserId: userIds[1],
       hashedKey: key.hashedKey,
       keyPrefix: key.keyPrefix,
     })
