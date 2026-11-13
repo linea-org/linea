@@ -36,7 +36,7 @@ loader. There is no root `.env`. Keep
 `SECRETS_ENCRYPTION_KEY` identical across the API and workers, and keep
 `CONNECTION_CREDENTIAL_KEYS` identical across the API and execution worker.
 Database migrations use `packages/db/.env`; database and queue tests use their
-package env files. Docker scripts use `docker/.env` for `POSTGRES_PORT`. If you
+package env files, and auth tests read `REDIS_URL` from `packages/auth/.env`. Docker scripts use `docker/.env` for `POSTGRES_PORT`. If you
 change that port, update each `DATABASE_URL` to match. Fill in:
 
 | Variable                                                                | Required | Purpose                                                                                                                                                                                                            |

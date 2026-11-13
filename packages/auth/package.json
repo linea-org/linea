@@ -23,6 +23,7 @@
   "devDependencies": {
     "@linea/config": "workspace:*",
     "@types/node": "22",
+    "dotenv": "17.4.2",
     "eslint": "9",
     "tsup": "^8.5.0",
     "typescript": "6",
