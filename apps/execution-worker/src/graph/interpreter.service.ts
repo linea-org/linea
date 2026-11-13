@@ -75,6 +75,7 @@ export type RunInput = {
   executionId: string
   workspaceId: string
   environmentId?: string
+  externalSubjectRecordId?: string
   // Optional so replay/tests without a conversation don't have to supply it.
   workflowId?: string
   workflowVersionId?: string
@@ -191,7 +192,8 @@ export class InterpreterService {
     leasedBy?: string,
     variables?: Record<string, unknown>,
     workflowVersionId?: string,
-    environmentId?: string
+    environmentId?: string,
+    externalSubjectRecordId?: string
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -204,6 +206,7 @@ export class InterpreterService {
     const output = await handler.execute(node.config, input, {
       workspaceId,
       environmentId,
+      externalSubjectRecordId,
       idempotencyKey,
       signal,
       executionId,
@@ -282,7 +285,8 @@ export class InterpreterService {
               input.leasedBy,
               variablesState,
               input.workflowVersionId,
-              input.environmentId
+              input.environmentId,
+              input.externalSubjectRecordId
             )
             break
           } catch (attemptError) {

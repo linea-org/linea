@@ -172,6 +172,8 @@ export class RunsService {
           executionId,
           workspaceId: execution.workspaceId,
           environmentId: execution.environmentId ?? undefined,
+          externalSubjectRecordId:
+            execution.externalSubjectRecordId ?? undefined,
           workflowId: execution.workflowId,
           workflowVersionId: execution.workflowVersionId,
           leasedBy: attemptId,

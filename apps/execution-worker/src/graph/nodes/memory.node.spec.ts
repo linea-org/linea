@@ -1,6 +1,10 @@
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
+import {
+  configureTestEnvironment,
+  getTestApplicationId,
+} from "@linea/db/testing"
 import { MemoryNode } from "./memory.node"
 
 afterAll(async () => {
@@ -17,15 +21,25 @@ async function setup() {
       createdAt: new Date(),
     })
     .returning()
-  return { organization }
+  const environment = await configureTestEnvironment(db, {
+    workspaceId: organization.id,
+    applicationId: await getTestApplicationId(db, organization.id),
+    environment: "dev",
+    displayName: "Memory node test",
+  })
+  return { organization, environmentId: environment.id }
 }
 
 describe("MemoryNode", () => {
   it("writes then reads back the same value in the same scope", async () => {
-    const { organization } = await setup()
+    const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
-      const context = { workspaceId: organization.id, workflowId: "wf-1" }
+      const context = {
+        workspaceId: organization.id,
+        environmentId,
+        workflowId: "wf-1",
+      }
 
       const writeOutput = await node.execute(
         { operation: "write", subjectPath: "userId", key: "favorite" },
@@ -51,10 +65,14 @@ describe("MemoryNode", () => {
   })
 
   it("stores only the field at valuePath when configured, not the whole input", async () => {
-    const { organization } = await setup()
+    const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
-      const context = { workspaceId: organization.id, workflowId: "wf-1" }
+      const context = {
+        workspaceId: organization.id,
+        environmentId,
+        workflowId: "wf-1",
+      }
 
       await node.execute(
         {
@@ -81,10 +99,14 @@ describe("MemoryNode", () => {
   })
 
   it("overwrites the same key on a second write", async () => {
-    const { organization } = await setup()
+    const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
-      const context = { workspaceId: organization.id, workflowId: "wf-1" }
+      const context = {
+        workspaceId: organization.id,
+        environmentId,
+        workflowId: "wf-1",
+      }
 
       await node.execute(
         {
@@ -121,10 +143,14 @@ describe("MemoryNode", () => {
   })
 
   it("reports not-found for a read on a key that was never written", async () => {
-    const { organization } = await setup()
+    const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
-      const context = { workspaceId: organization.id, workflowId: "wf-1" }
+      const context = {
+        workspaceId: organization.id,
+        environmentId,
+        workflowId: "wf-1",
+      }
 
       const readOutput = await node.execute(
         { operation: "read", subjectPath: "userId", key: "nope" },
@@ -140,10 +166,14 @@ describe("MemoryNode", () => {
   })
 
   it("write sets expiresAt from ttlSeconds, and a read after it passes reports not-found", async () => {
-    const { organization } = await setup()
+    const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
-      const context = { workspaceId: organization.id, workflowId: "wf-1" }
+      const context = {
+        workspaceId: organization.id,
+        environmentId,
+        workflowId: "wf-1",
+      }
 
       const writeOutput = (await node.execute(
         {
@@ -163,6 +193,7 @@ describe("MemoryNode", () => {
       // Force the row past expiry directly, rather than waiting 60s in a test.
       await repositories.memory.writeMemory(db, {
         workspaceId: organization.id,
+        environmentId,
         externalSubjectId: "u1",
         namespace: "wf-1",
         key: "session",
@@ -184,7 +215,7 @@ describe("MemoryNode", () => {
   })
 
   it("rejects a non-positive ttlSeconds with a clear error", async () => {
-    const { organization } = await setup()
+    const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
 
@@ -197,9 +228,9 @@ describe("MemoryNode", () => {
             ttlSeconds: -1,
           },
           { userId: "u1" },
-          { workspaceId: organization.id, workflowId: "wf-1" }
+          { workspaceId: organization.id, environmentId, workflowId: "wf-1" }
         )
-      ).rejects.toThrow("must be a positive number")
+      ).rejects.toThrow('"ttlSeconds" must be between 1 and')
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
@@ -208,7 +239,7 @@ describe("MemoryNode", () => {
   })
 
   it("isolates by namespace — defaults to context.workflowId when not configured", async () => {
-    const { organization } = await setup()
+    const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
 
@@ -220,20 +251,20 @@ describe("MemoryNode", () => {
           valuePath: "food",
         },
         { userId: "u1", food: "pizza" },
-        { workspaceId: organization.id, workflowId: "wf-1" }
+        { workspaceId: organization.id, environmentId, workflowId: "wf-1" }
       )
 
       const readInOtherWorkflow = await node.execute(
         { operation: "read", subjectPath: "userId", key: "favorite" },
         { userId: "u1" },
-        { workspaceId: organization.id, workflowId: "wf-2" }
+        { workspaceId: organization.id, environmentId, workflowId: "wf-2" }
       )
       expect(readInOtherWorkflow).toEqual({ found: false, value: null })
 
       const readInSameWorkflow = await node.execute(
         { operation: "read", subjectPath: "userId", key: "favorite" },
         { userId: "u1" },
-        { workspaceId: organization.id, workflowId: "wf-1" }
+        { workspaceId: organization.id, environmentId, workflowId: "wf-1" }
       )
       expect(readInSameWorkflow).toEqual({ found: true, value: "pizza" })
     } finally {
@@ -244,7 +275,7 @@ describe("MemoryNode", () => {
   })
 
   it("shares across workflows when the same explicit namespace is configured", async () => {
-    const { organization } = await setup()
+    const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
 
@@ -257,7 +288,7 @@ describe("MemoryNode", () => {
           namespace: "shared",
         },
         { userId: "u1", food: "pizza" },
-        { workspaceId: organization.id, workflowId: "wf-1" }
+        { workspaceId: organization.id, environmentId, workflowId: "wf-1" }
       )
 
       const readFromOtherWorkflow = await node.execute(
@@ -268,7 +299,7 @@ describe("MemoryNode", () => {
           namespace: "shared",
         },
         { userId: "u1" },
-        { workspaceId: organization.id, workflowId: "wf-2" }
+        { workspaceId: organization.id, environmentId, workflowId: "wf-2" }
       )
       expect(readFromOtherWorkflow).toEqual({ found: true, value: "pizza" })
     } finally {
@@ -279,7 +310,7 @@ describe("MemoryNode", () => {
   })
 
   it("throws a clear error when neither namespace nor workflowId is available", async () => {
-    const { organization } = await setup()
+    const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
 
@@ -287,7 +318,7 @@ describe("MemoryNode", () => {
         node.execute(
           { operation: "read", subjectPath: "userId", key: "favorite" },
           { userId: "u1" },
-          { workspaceId: organization.id }
+          { workspaceId: organization.id, environmentId }
         )
       ).rejects.toThrow("no namespace and no workflowId")
     } finally {
@@ -298,7 +329,7 @@ describe("MemoryNode", () => {
   })
 
   it("throws a clear error when the subjectPath resolves to nothing", async () => {
-    const { organization } = await setup()
+    const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
 
@@ -306,7 +337,7 @@ describe("MemoryNode", () => {
         node.execute(
           { operation: "read", subjectPath: "missing", key: "favorite" },
           { userId: "u1" },
-          { workspaceId: organization.id, workflowId: "wf-1" }
+          { workspaceId: organization.id, environmentId, workflowId: "wf-1" }
         )
       ).rejects.toThrow('no value found at subjectPath "missing"')
     } finally {
@@ -317,10 +348,14 @@ describe("MemoryNode", () => {
   })
 
   it("throws instead of writing when operation is missing or malformed, rather than silently defaulting to write", async () => {
-    const { organization } = await setup()
+    const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
-      const context = { workspaceId: organization.id, workflowId: "wf-1" }
+      const context = {
+        workspaceId: organization.id,
+        environmentId,
+        workflowId: "wf-1",
+      }
 
       await expect(
         node.execute(
@@ -352,10 +387,14 @@ describe("MemoryNode", () => {
   })
 
   it("throws a clear error when valuePath doesn't resolve, instead of writing an undefined value", async () => {
-    const { organization } = await setup()
+    const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
-      const context = { workspaceId: organization.id, workflowId: "wf-1" }
+      const context = {
+        workspaceId: organization.id,
+        environmentId,
+        workflowId: "wf-1",
+      }
 
       await expect(
         node.execute(
@@ -376,6 +415,88 @@ describe("MemoryNode", () => {
         context
       )
       expect(readOutput).toEqual({ found: false, value: null })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("scopes a verified End User's run to that subject and ignores the payload's subjectPath", async () => {
+    const { organization, environmentId } = await setup()
+    try {
+      const [subject] = await db
+        .insert(schema.externalSubjects)
+        .values({
+          workspaceId: organization.id,
+          issuer: "https://identity.example.com",
+          issuerSubject: randomUUID(),
+          status: "verified",
+          verifiedAt: new Date(),
+        })
+        .returning()
+      const node = new MemoryNode()
+      const operator = {
+        workspaceId: organization.id,
+        environmentId,
+        workflowId: "wf-1",
+      }
+      await node.execute(
+        { operation: "write", subjectPath: "userId", key: "favorite" },
+        { userId: "victim", food: "pizza" },
+        operator
+      )
+      const verified = { ...operator, externalSubjectRecordId: subject.id }
+      const forged = await node.execute(
+        { operation: "read", subjectPath: "userId", key: "favorite" },
+        { userId: "victim" },
+        verified
+      )
+      expect(forged).toEqual({ found: false, value: null })
+      await node.execute(
+        { operation: "write", subjectPath: "userId", key: "favorite" },
+        { userId: "anything", food: "sushi" },
+        verified
+      )
+      const own = await node.execute(
+        { operation: "read", subjectPath: "userId", key: "favorite" },
+        { userId: "something-else" },
+        verified
+      )
+      expect(own).toMatchObject({ found: true })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+
+  it("refuses to read or write memory without an Environment", async () => {
+    const node = new MemoryNode()
+    await expect(
+      node.execute(
+        { operation: "read", subjectPath: "userId", key: "favorite" },
+        { userId: "u1" },
+        { workspaceId: randomUUID(), workflowId: "wf-1" }
+      )
+    ).rejects.toThrow("Memory node requires an Environment")
+  })
+
+  it("rejects a ttlSeconds above one year", async () => {
+    const { organization, environmentId } = await setup()
+    try {
+      await expect(
+        new MemoryNode().execute(
+          {
+            operation: "write",
+            subjectPath: "userId",
+            key: "favorite",
+            ttlSeconds: 366 * 24 * 60 * 60,
+          },
+          { userId: "u1" },
+          { workspaceId: organization.id, environmentId, workflowId: "wf-1" }
+        )
+      ).rejects.toThrow('"ttlSeconds" must be between 1 and')
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
