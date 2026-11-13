@@ -2,6 +2,9 @@ import { afterAll, beforeAll, expect, it, vi } from "vitest"
 import { betterAuth } from "better-auth"
 import { memoryAdapter } from "better-auth/adapters/memory"
 
+// Each test hashes passwords and signs in through Better Auth, which takes several seconds on CI runners.
+vi.setConfig({ testTimeout: 30_000 })
+
 const sentEmails = vi.hoisted((): { to: string; text?: string }[] => [])
 vi.mock("./email.js", () => ({
   sendEmail: async (email: { to: string; text?: string }) => {
