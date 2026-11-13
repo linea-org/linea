@@ -15,6 +15,9 @@ import { EnvironmentKeyGuard } from './environment-key.guard'
 import { EnvironmentScopeGuard } from './environment-scope.guard'
 import { RequireEnvironmentScopes } from './require-environment-scopes.decorator'
 
+// The budget tests send several hundred sequential requests, which exceeds Jest's 5 s default on CI runners.
+jest.setTimeout(30_000)
+
 @Controller('environments/:environmentId/probe')
 @UseGuards(EnvironmentKeyGuard, EnvironmentScopeGuard)
 class EnvironmentProbeController {
