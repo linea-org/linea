@@ -29,6 +29,20 @@ type ConversationInput = {
   externalSubjectId?: string
 }
 
+function priceTokens(
+  model: string | undefined,
+  usage: { tokensInput?: number; tokensOutput?: number } | undefined
+): bigint {
+  if (
+    model === undefined ||
+    usage?.tokensInput === undefined ||
+    usage.tokensOutput === undefined
+  ) {
+    return 0n
+  }
+  return calculateCostMicros(model, usage.tokensInput, usage.tokensOutput) ?? 0n
+}
+
 @Injectable()
 export class RegressionExecutionService {
   private readonly logger = new Logger(RegressionExecutionService.name)
@@ -57,55 +71,28 @@ export class RegressionExecutionService {
     }
     const input =
       (regressionCase.input as { nodeInput?: unknown }).nodeInput ?? {}
-    let result: Awaited<ReturnType<InterpreterService["executeNode"]>>
+    let result: Awaited<ReturnType<InterpreterService["executeDiagnosticNode"]>>
     try {
-      result = await this.interpreter.executeNode(
-        node,
-        input,
-        regressionCase.workspaceId,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
+      result = await this.interpreter.executeDiagnosticNode(node, input, {
+        workspaceId: regressionCase.workspaceId,
         workflowVersionId,
-        environmentId
-      )
+        environmentId,
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      const usage = getErrorTokenUsage(error)
-      const model = resolveNodeModel(node)
-      const costMicros =
-        usage && model
-          ? (calculateCostMicros(
-              model,
-              usage.tokensInput,
-              usage.tokensOutput
-            ) ?? 0n)
-          : 0n
       return {
         status: "errored",
         output: { error: message },
         score: null,
-        costMicros,
+        costMicros: priceTokens(
+          resolveNodeModel(node),
+          getErrorTokenUsage(error)
+        ),
       }
     }
-    const model = resolveNodeModel(node)
-    const runCostMicros =
-      model !== undefined &&
-      result.tokensInput !== undefined &&
-      result.tokensOutput !== undefined
-        ? (calculateCostMicros(
-            model,
-            result.tokensInput,
-            result.tokensOutput
-          ) ?? 0n)
-        : 0n
+    const runCostMicros = priceTokens(resolveNodeModel(node), result)
     const graded = await gradeOutput(
-      environmentId,
+      { workspaceId: regressionCase.workspaceId, environmentId },
       result.output,
       regressionCase.assertions
     )
@@ -150,6 +137,7 @@ export class RegressionExecutionService {
           workspaceId: regressionCase.workspaceId,
           environmentId,
           nodeId: node.id,
+          diagnostic: true,
           regressionConversation: {
             turns: input.turns,
             finalPrompt: input.finalPrompt,
@@ -171,7 +159,10 @@ export class RegressionExecutionService {
         status: "errored",
         output: { error: message },
         score: null,
-        costMicros: 0n,
+        costMicros: priceTokens(
+          resolveNodeModel(node),
+          getErrorTokenUsage(error)
+        ),
       }
     }
     // AiNode exposes only the final reply, so tool-calling intermediate turns cannot be reconstructed.
@@ -180,14 +171,12 @@ export class RegressionExecutionService {
       { role: "user" as const, content: input.finalPrompt },
       { role: "assistant" as const, content: text },
     ]
-    const runCostMicros =
-      calculateCostMicros(
-        node.config.model as string,
-        tokensInput,
-        tokensOutput
-      ) ?? 0n
+    const runCostMicros = priceTokens(resolveNodeModel(node), {
+      tokensInput,
+      tokensOutput,
+    })
     const graded = await gradeOutput(
-      environmentId,
+      { workspaceId: regressionCase.workspaceId, environmentId },
       fullSequence,
       regressionCase.assertions
     )

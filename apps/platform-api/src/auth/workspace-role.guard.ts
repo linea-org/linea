@@ -44,7 +44,7 @@ export class WorkspaceRoleGuard implements CanActivate {
     // Falls back to the session directly so this guard also works on routes (like ApiKeysController) that don't run WorkspaceAuthGuard.
     const workspaceId =
       request.workspaceId ?? request.session?.session?.activeOrganizationId
-    if (!workspaceId) return true
+    if (!workspaceId) throw new ForbiddenException('No active workspace')
 
     const role = await repositories.organization.getMemberRole(
       db,

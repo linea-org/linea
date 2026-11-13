@@ -1317,7 +1317,7 @@ List redacted connector audit events for one Environment.
 - Authentication: environment_key; scopes: audit:read
 - Method and path: `GET /v1/environments/{environmentId}/audit-events`
 - Idempotency: None.
-- Rate limits: No operation-specific limit; platform protections apply.
+- Rate limits: Environment-key reads share 600 requests per key and 3,000 per workspace each minute.
 - Pagination or event resumption: Cursor pagination through limit and cursor query parameters.
 - Emitted events/webhooks: None.
 - SDK method: `LineaEnvironmentClient.listAuditEvents` from `@linea/sdk/server`
@@ -1600,6 +1600,7 @@ Status: `200`
 | `authentication_failed` |    401 | not automatically retryable |
 | `scope_denied`          |    403 | not automatically retryable |
 | `resource_not_found`    |    404 | not automatically retryable |
+| `rate_limited`          |    429 | retryable                   |
 
 ### TypeScript
 
@@ -4179,7 +4180,7 @@ Provision or retrieve an External Subject in an Environment.
 - Authentication: environment_key; scopes: subjects:provision
 - Method and path: `POST /v1/environments/{environmentId}/subjects`
 - Idempotency: The external identity is the natural idempotency key.
-- Rate limits: No operation-specific limit; platform protections apply.
+- Rate limits: Environment-key writes share 120 requests per key and 600 per workspace each minute.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
 - SDK method: `LineaEnvironmentClient.provisionSubject` from `@linea/sdk/server`
@@ -4382,7 +4383,7 @@ Create an isolated Conversation for a provisioned External Subject.
 - Authentication: environment_key; scopes: conversations:write
 - Method and path: `POST /v1/environments/{environmentId}/conversations`
 - Idempotency: Requires Idempotency-Key; replay returns the original response and conflicting input fails.
-- Rate limits: No operation-specific limit; platform protections apply.
+- Rate limits: Environment-key writes share 120 requests per key and 600 per workspace each minute.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
 - SDK method: `LineaEnvironmentClient.createConversation` from `@linea/sdk/server`
@@ -4676,7 +4677,7 @@ List Conversations visible to an Environment.
 - Authentication: environment_key; scopes: conversations:read
 - Method and path: `GET /v1/environments/{environmentId}/conversations`
 - Idempotency: None.
-- Rate limits: No operation-specific limit; platform protections apply.
+- Rate limits: Environment-key reads share 600 requests per key and 3,000 per workspace each minute.
 - Pagination or event resumption: Cursor pagination through limit and cursor query parameters.
 - Emitted events/webhooks: None.
 - SDK method: `LineaEnvironmentClient.listConversations` from `@linea/sdk/server`
@@ -4922,7 +4923,7 @@ Get one Conversation visible to an Environment.
 - Authentication: environment_key; scopes: conversations:read
 - Method and path: `GET /v1/environments/{environmentId}/conversations/{conversationId}`
 - Idempotency: None.
-- Rate limits: No operation-specific limit; platform protections apply.
+- Rate limits: Environment-key reads share 600 requests per key and 3,000 per workspace each minute.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
 - SDK method: `LineaEnvironmentClient.getConversation` from `@linea/sdk/server`
@@ -5137,7 +5138,7 @@ Start an Execution through an Environment workflow binding.
 - Authentication: environment_key; scopes: executions:start
 - Method and path: `POST /v1/environments/{environmentId}/executions`
 - Idempotency: Requires Idempotency-Key; replay returns the original response and conflicting input fails.
-- Rate limits: No operation-specific limit; platform protections apply.
+- Rate limits: Environment-key writes share 120 requests per key and 600 per workspace each minute.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: May emit execution and approval events and configured webhooks.
 - SDK method: `LineaEnvironmentClient.startExecution` from `@linea/sdk/server`
@@ -5582,7 +5583,7 @@ Get one Execution visible to an Environment.
 - Authentication: environment_key; scopes: executions:read
 - Method and path: `GET /v1/executions/{executionId}`
 - Idempotency: None.
-- Rate limits: No operation-specific limit; platform protections apply.
+- Rate limits: Environment-key reads share 600 requests per key and 3,000 per workspace each minute.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
 - SDK method: `LineaEnvironmentClient.getExecution` from `@linea/sdk/server`
@@ -5966,7 +5967,7 @@ Cancel a cancellable Environment Execution.
 - Authentication: environment_key; scopes: executions:cancel
 - Method and path: `POST /v1/executions/{executionId}/cancel`
 - Idempotency: Requires Idempotency-Key; replay returns the original response and conflicting input fails.
-- Rate limits: No operation-specific limit; platform protections apply.
+- Rate limits: Environment-key writes share 120 requests per key and 600 per workspace each minute.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: May emit execution and approval cancellation events and configured webhooks.
 - SDK method: `LineaEnvironmentClient.cancelExecution` from `@linea/sdk/server`
@@ -6359,7 +6360,7 @@ Create an isolated Conversation for the authenticated End User.
 - Authentication: end_user_session
 - Method and path: `POST /v1/user/conversations`
 - Idempotency: Requires Idempotency-Key; replay returns the original response and conflicting input fails.
-- Rate limits: No operation-specific limit; platform protections apply.
+- Rate limits: 20 Conversations per External Subject each minute.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
 - SDK method: `LineaUserClient.createConversation` from `@linea/sdk/user`
@@ -9446,7 +9447,7 @@ List webhook delivery attempts for an Environment.
 - Authentication: environment_key; scopes: webhooks:read
 - Method and path: `GET /v1/environments/{environmentId}/webhook-deliveries`
 - Idempotency: None.
-- Rate limits: No operation-specific limit; platform protections apply.
+- Rate limits: Environment-key reads share 600 requests per key and 3,000 per workspace each minute.
 - Pagination or event resumption: Cursor pagination through limit and cursor query parameters.
 - Emitted events/webhooks: None.
 - SDK method: `LineaEnvironmentClient.listWebhookDeliveries` from `@linea/sdk/server`
@@ -11080,7 +11081,7 @@ Queue a Regression Run for a Workflow.
 - Authentication: workspace_key
 - Method and path: `POST /v1/workflows/{workflowId}/regression-runs`
 - Idempotency: None.
-- Rate limits: No operation-specific limit; platform protections apply.
+- Rate limits: 10 requests per caller and 30 per workspace each minute.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
 - SDK method: `LineaWorkspaceClient.triggerRegressionRun` from `@linea/sdk/server`

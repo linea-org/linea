@@ -15,7 +15,7 @@ const resolveKeyName = jest.fn((model: string) => keyNameByModel[model])
 // mockResolvedValue/mockImplementation below, not from this declaration.
 const resolveApiKey = jest.fn() as jest.Mock<
   Promise<{ apiKey: string }>,
-  [unknown, string, string]
+  [unknown, { workspaceId: string; environmentId: string; keyName: string }]
 >
 const calculateCostMicros = jest.fn(() => 7n)
 
@@ -29,6 +29,8 @@ jest.mock("@linea/db", () => ({ db: {} }))
 
 import { evaluateAssertion, gradeOutput } from "./regression-grading"
 
+const scope = { workspaceId: "ws1", environmentId: "env1" }
+
 beforeEach(() => {
   complete.mockReset()
   resolveApiKey.mockReset()
@@ -38,7 +40,7 @@ beforeEach(() => {
 describe("evaluateAssertion", () => {
   it("contains passes when the target text includes the value, fails otherwise", async () => {
     const passing = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "hello world" },
       { type: "contains", config: { target: "text", value: "world" } }
     )
@@ -46,7 +48,7 @@ describe("evaluateAssertion", () => {
     expect(passing.score).toBe(1)
 
     const failing = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "hello world" },
       { type: "contains", config: { target: "text", value: "goodbye" } }
     )
@@ -56,7 +58,7 @@ describe("evaluateAssertion", () => {
 
   it("not_contains is the exact inverse of contains", async () => {
     const result = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "hello world" },
       { type: "not_contains", config: { target: "text", value: "world" } }
     )
@@ -65,14 +67,14 @@ describe("evaluateAssertion", () => {
 
   it("regex matches against the target text, and a malformed pattern fails rather than throwing", async () => {
     const matches = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "order #12345" },
       { type: "regex", config: { target: "text", pattern: "#\\d+" } }
     )
     expect(matches.passed).toBe(true)
 
     const malformed = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "order #12345" },
       { type: "regex", config: { target: "text", pattern: "(unclosed" } }
     )
@@ -81,7 +83,7 @@ describe("evaluateAssertion", () => {
 
   it("a target that doesn't resolve fails every assertion type instead of throwing or silently passing", async () => {
     const contains = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "hello world" },
       { type: "contains", config: { target: "missing.path", value: "hello" } }
     )
@@ -90,7 +92,7 @@ describe("evaluateAssertion", () => {
     // Checking a missing target for the absence of something must still fail, not pass — an
     // unresolved target can't be trusted to genuinely lack the value, it was never checked at all.
     const notContains = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "hello world" },
       {
         type: "not_contains",
@@ -100,7 +102,7 @@ describe("evaluateAssertion", () => {
     expect(notContains.passed).toBe(false)
 
     const regex = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "hello world" },
       { type: "regex", config: { target: "missing.path", pattern: "." } }
     )
@@ -109,7 +111,7 @@ describe("evaluateAssertion", () => {
     // Never even calls the judge model — content that doesn't exist can't be trusted to have
     // genuinely satisfied its rubric just because the model saw an empty string.
     const llmJudge = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "hello world" },
       {
         type: "llm_judge",
@@ -122,7 +124,7 @@ describe("evaluateAssertion", () => {
 
   it("with no target, stringifies the whole output", async () => {
     const result = await evaluateAssertion(
-      "ws1",
+      scope,
       { role: "assistant", content: "repeat after me: repeat after me" },
       { type: "contains", config: { value: "repeat after me" } }
     )
@@ -130,7 +132,7 @@ describe("evaluateAssertion", () => {
   })
 
   it("an unknown assertion type fails with a descriptive detail rather than throwing", async () => {
-    const result = await evaluateAssertion("ws1", "anything", {
+    const result = await evaluateAssertion(scope, "anything", {
       type: "made_up_type",
       config: {},
     })
@@ -152,7 +154,7 @@ describe("evaluateAssertion", () => {
       ],
     })
     const result = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "The refund was processed." },
       {
         type: "llm_judge",
@@ -179,7 +181,7 @@ describe("evaluateAssertion", () => {
       tokensOutput: 5,
     })
     const result = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "whatever" },
       { type: "llm_judge", config: { rubric: "anything" } }
     )
@@ -192,7 +194,7 @@ describe("evaluateAssertion", () => {
     // OpenAI (the second) — the same "no single default fits every BYOK setup" scenario Greptile
     // flagged, now handled by trying candidates instead of assuming one provider.
     resolveApiKey.mockImplementation(
-      (_db: unknown, _ws: string, keyName: string) =>
+      (_db: unknown, { keyName }: { keyName: string }) =>
         keyName === "GROQ_API_KEY"
           ? Promise.resolve({ apiKey: "groq-secret" })
           : Promise.reject(new Error(`No key configured for ${keyName}`))
@@ -211,7 +213,7 @@ describe("evaluateAssertion", () => {
     })
 
     const result = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "content" },
       { type: "llm_judge", config: { rubric: "anything" } }
     )
@@ -229,7 +231,7 @@ describe("evaluateAssertion", () => {
     resolveApiKey.mockRejectedValue(new Error("No key configured"))
 
     const result = await evaluateAssertion(
-      "ws1",
+      scope,
       { text: "content" },
       { type: "llm_judge", config: { rubric: "anything" } }
     )
@@ -242,7 +244,7 @@ describe("evaluateAssertion", () => {
   it("gradeOutput still grades every other assertion when one llm_judge assertion has no usable key", async () => {
     resolveApiKey.mockRejectedValue(new Error("No key configured"))
 
-    const result = await gradeOutput("ws1", { text: "hello world" }, [
+    const result = await gradeOutput(scope, { text: "hello world" }, [
       { type: "contains", config: { target: "text", value: "hello" } },
       { type: "llm_judge", config: { rubric: "anything" } },
     ])
@@ -258,13 +260,13 @@ describe("evaluateAssertion", () => {
 
 describe("gradeOutput", () => {
   it("passes vacuously with no assertions", async () => {
-    const result = await gradeOutput("ws1", { text: "anything" }, [])
+    const result = await gradeOutput(scope, { text: "anything" }, [])
     expect(result.status).toBe("passed")
     expect(result.score).toBeNull()
   })
 
   it("fails overall if any assertion fails, and averages scores across all of them", async () => {
-    const result = await gradeOutput("ws1", { text: "hello world" }, [
+    const result = await gradeOutput(scope, { text: "hello world" }, [
       { type: "contains", config: { target: "text", value: "hello" } },
       { type: "contains", config: { target: "text", value: "goodbye" } },
     ])
@@ -273,7 +275,7 @@ describe("gradeOutput", () => {
   })
 
   it("passes when every assertion passes", async () => {
-    const result = await gradeOutput("ws1", { text: "hello world" }, [
+    const result = await gradeOutput(scope, { text: "hello world" }, [
       { type: "contains", config: { target: "text", value: "hello" } },
       { type: "not_contains", config: { target: "text", value: "goodbye" } },
     ])
