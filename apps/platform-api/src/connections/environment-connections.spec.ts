@@ -639,7 +639,10 @@ describe('shared Environment Connection API and Gateway', () => {
           fixture.requester,
           operatorId,
         ),
-      ).resolves.toMatchObject({ status: 'erased' })
+      ).resolves.toMatchObject({
+        outcome: 'erased',
+        subject: { status: 'erased' },
+      })
       const deadline = Date.now() + 5000
       while (true) {
         const blocked = z

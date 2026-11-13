@@ -62,6 +62,11 @@ export class ConnectionRevocationService
       await repositories.connectorAudit.applyRetention(db, now)
     } catch {
       this.logger.error('Connection revocation poll failed')
+    }
+    try {
+      await repositories.endUserContent.applyContentRetention(db, now)
+    } catch {
+      this.logger.error('End-user content retention failed')
     } finally {
       this.polling = false
     }

@@ -67,6 +67,7 @@ export const approvalRequests = snakeCase.table(
     actionIntentDigest: text(),
     requestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     cancelledAt: timestamp({ withTimezone: true }),
+    contentErasedAt: timestamp({ withTimezone: true }),
   },
   (table) => [
     foreignKey({
