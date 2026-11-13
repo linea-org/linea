@@ -191,6 +191,7 @@ export class ExecutionsService {
             environment: 'draft',
             triggeredByUserId,
             externalSubjectId,
+            conversationId,
           },
         )
       switch (result.outcome) {

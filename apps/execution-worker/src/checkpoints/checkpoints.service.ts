@@ -186,6 +186,21 @@ export class CheckpointsService {
   }
 
   /** Sums usage already recorded — resumed steps are skipped, not re-run, so their usage must be seeded rather than re-derived. */
+  /** Wall-clock time spent inside recorded steps; time paused for approvals or waits is not a step and is excluded. */
+  async getRecordedWorkMs(executionId: string): Promise<number> {
+    const steps = await repositories.checkpoint.getStepsForExecution(
+      db,
+      executionId
+    )
+    return steps.reduce(
+      (total, step) =>
+        step.endedAt
+          ? total + (step.endedAt.getTime() - step.startedAt.getTime())
+          : total,
+      0
+    )
+  }
+
   async getResumeTokenTotals(executionId: string): Promise<{
     tokensInput: number
     tokensOutput: number
