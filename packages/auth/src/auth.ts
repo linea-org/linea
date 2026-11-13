@@ -124,6 +124,13 @@ async function describeSignInMethod(userId: string): Promise<string> {
   return "Sign in to your account"
 }
 
+// Social sign-in only needs the provider identity; nothing reads these tokens, so they are never stored.
+const discardedProviderTokens = {
+  accessToken: null,
+  refreshToken: null,
+  idToken: null,
+}
+
 // Lets tsup name Better Auth's inferred `auth` type (Zod `$strip`).
 export type { $strip } from "zod/v4/core"
 
@@ -168,12 +175,23 @@ export const auth = betterAuth({
   session: {
     freshAge: RECENT_AUTHENTICATION_WINDOW_SECONDS,
   },
+  verification: {
+    // Requires better-auth >=1.7.7: older releases' plain-identifier fallback let OAuth state rows be redeemed as magic links (GHSA-965c-763c-88jm).
+    storeIdentifier: "hashed",
+  },
+  databaseHooks: {
+    account: {
+      create: { before: async () => ({ data: discardedProviderTokens }) },
+      update: { before: async () => ({ data: discardedProviderTokens }) },
+    },
+  },
   socialProviders: {
     ...(googleCredentials
       ? {
           google: {
             ...googleCredentials,
             prompt: "select_account" as const,
+            disableIdTokenSignIn: true,
           },
         }
       : {}),
