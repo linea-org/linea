@@ -43,25 +43,21 @@ describe('Workflow publish and Production routing authorization', () => {
         slug: 'support',
       })
     ).id
-    const people = await db
-      .insert(schema.users)
-      .values(
-        ['admin', 'member'].map((name) => ({
-          name,
-          email: `${randomUUID()}@test.dev`,
-        })),
-      )
-      .returning()
-    adminId = people[0].id
-    memberId = people[1].id
-    await db.insert(schema.members).values(
-      people.map((user, i) => ({
+    async function seedUser(role: 'admin' | 'member') {
+      const [user] = await db
+        .insert(schema.users)
+        .values({ name: role, email: `${randomUUID()}@test.dev` })
+        .returning()
+      await db.insert(schema.members).values({
         organizationId: workspaceId,
         userId: user.id,
-        role: i === 0 ? 'admin' : 'member',
+        role,
         createdAt: new Date(),
-      })),
-    )
+      })
+      return user.id
+    }
+    adminId = await seedUser('admin')
+    memberId = await seedUser('member')
     await db.insert(schema.apiKeys).values({
       workspaceId,
       name: 'Test',
@@ -258,6 +254,43 @@ describe('Workflow publish and Production routing authorization', () => {
     expect(await storedWorkflow()).toMatchObject({
       slug: 'triage-live',
       archivedAt: null,
+    })
+  })
+  it('checks a member rename against an admin slug change that commits first', async () => {
+    const admins = await pool.connect()
+    let renamed: Promise<number> | undefined
+    try {
+      await admins.query('BEGIN')
+      await admins.query('UPDATE workflows SET slug = $1 WHERE id = $2', [
+        'triage-moved',
+        workflowId,
+      ])
+      const { pid } = z
+        .object({ pid: z.number() })
+        .parse((await admins.query('SELECT pg_backend_pid() AS pid')).rows[0])
+      renamed = request(app.getHttpServer())
+        .patch(`/workflows/${workflowId}`)
+        .set(member())
+        .send({ name: 'Renamed again', slug: 'triage-live' })
+        .then((response) => response.status)
+      for (let attempt = 0; ; attempt++) {
+        const waiting = await pool.query(
+          'SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))',
+          [pid],
+        )
+        if (waiting.rowCount) break
+        if (attempt === 500)
+          throw new Error('Rename never waited on the admin write')
+        await new Promise<void>((resolve) => setTimeout(resolve, 10))
+      }
+      await admins.query('COMMIT')
+    } finally {
+      admins.release()
+    }
+    expect(await renamed).toBe(403)
+    expect(await storedWorkflow()).toMatchObject({
+      name: 'Renamed',
+      slug: 'triage-moved',
     })
   })
 })

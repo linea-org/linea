@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common'
 import {
   db,
+  type DbClient,
   repositories,
   type Workflow,
   type WorkflowVersion,
@@ -89,51 +90,57 @@ export class WorkflowsService {
     input: UpdateWorkflowDto,
     actorUserId: string | undefined,
   ): Promise<Workflow> {
-    const current = await this.get(workspaceId, id)
-    const changesProductionRouting =
-      (input.slug !== undefined && input.slug !== current.slug) ||
-      (input.archived !== undefined &&
-        input.archived !== (current.archivedAt !== null))
-    if (changesProductionRouting)
-      await this.assertProductionAdmin(workspaceId, id, actorUserId)
-    const workflow = await repositories.workflow.updateWorkflow(
-      db,
-      workspaceId,
-      id,
-      {
-        name: input.name,
-        slug: input.slug,
-        description: input.description,
-        archivedAt:
-          input.archived === undefined
-            ? undefined
-            : input.archived
-              ? new Date()
-              : null,
-      },
-    )
-    if (!workflow) {
-      throw new NotFoundException('Workflow not found')
-    }
-    return workflow
+    return db.transaction(async (tx) => {
+      const current = await repositories.workflow.lockWorkflowById(
+        tx,
+        workspaceId,
+        id,
+      )
+      if (!current) throw new NotFoundException('Workflow not found')
+      const changesProductionRouting =
+        (input.slug !== undefined && input.slug !== current.slug) ||
+        (input.archived !== undefined &&
+          input.archived !== (current.archivedAt !== null))
+      if (changesProductionRouting)
+        await this.assertProductionAdmin(tx, workspaceId, id, actorUserId)
+      const workflow = await repositories.workflow.updateWorkflow(
+        tx,
+        workspaceId,
+        id,
+        {
+          name: input.name,
+          slug: input.slug,
+          description: input.description,
+          archivedAt:
+            input.archived === undefined
+              ? undefined
+              : input.archived
+                ? new Date()
+                : null,
+        },
+      )
+      if (!workflow) throw new NotFoundException('Workflow not found')
+      return workflow
+    })
   }
 
   /** Archive state and slug decide whether Production serves the Workflow and which one a trigger slug starts, so once bound they follow the admin-owned binding. */
   private async assertProductionAdmin(
+    tx: DbClient,
     workspaceId: string,
     workflowId: string,
     actorUserId: string | undefined,
   ): Promise<void> {
     const bound =
       await repositories.environmentWorkflowBinding.hasProductionWorkflowBinding(
-        db,
+        tx,
         workspaceId,
         workflowId,
       )
     if (!bound) return
     const role = actorUserId
       ? await repositories.organization.getMemberRole(
-          db,
+          tx,
           workspaceId,
           actorUserId,
         )
