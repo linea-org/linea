@@ -105,7 +105,7 @@ export class RegressionExecutionService {
           ) ?? 0n)
         : 0n
     const graded = await gradeOutput(
-      environmentId,
+      { workspaceId: regressionCase.workspaceId, environmentId },
       result.output,
       regressionCase.assertions
     )
@@ -187,7 +187,7 @@ export class RegressionExecutionService {
         tokensOutput
       ) ?? 0n
     const graded = await gradeOutput(
-      environmentId,
+      { workspaceId: regressionCase.workspaceId, environmentId },
       fullSequence,
       regressionCase.assertions
     )
