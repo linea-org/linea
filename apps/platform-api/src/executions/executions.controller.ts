@@ -150,10 +150,11 @@ export class ExecutionsController {
   @Post('executions/:id/steps/:stepId/replay')
   replayStep(
     @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() userId: string | undefined,
     @Param('id') id: string,
     @Param('stepId') stepId: string,
     @Body(new ZodValidationPipe(replayStepSchema)) body: ReplayStepDto,
   ) {
-    return this.executions.replayStep(workspaceId, id, stepId, body)
+    return this.executions.replayStep(workspaceId, id, stepId, body, userId)
   }
 }
