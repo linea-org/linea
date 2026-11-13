@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
-import { eq, inArray } from "drizzle-orm"
+import { readFile } from "node:fs/promises"
+import { eq, inArray, sql } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import {
   actionIntents,
@@ -7,6 +8,7 @@ import {
   approvalRequests,
   chatMessages,
   connections,
+  connectorAuditFacts,
   conversations,
   executionSteps,
   executions,
@@ -15,9 +17,14 @@ import {
   flags,
   outboxMessages,
   publicIdempotencyRecords,
+  regressionCases,
+  regressionResults,
+  regressionRuns,
   users,
   type ActionIntentEnvelope,
 } from "../schema/index.js"
+import { createAgent, createAgentVersion } from "./agent.repository.js"
+import { createAgentContractRevision } from "./agent-contract.repository.js"
 import { createApplication } from "./application.repository.js"
 import { applyContentRetention } from "./end-user-content.repository.js"
 import { eraseExternalSubject } from "./external-subject.repository.js"
@@ -38,14 +45,13 @@ async function createContentFixture(
 ) {
   const { organization, workflow, version } = await createTestFixtures(tx)
   const suffix = randomUUID()
+  const application = await createApplication(tx, {
+    workspaceId: organization.id,
+    name: "Content",
+    slug: suffix,
+  })
   const configured = await configureTestEnvironment(tx, {
-    applicationId: (
-      await createApplication(tx, {
-        workspaceId: organization.id,
-        name: "Content",
-        slug: suffix,
-      })
-    ).id,
+    applicationId: application.id,
     workspaceId: organization.id,
     environment,
     displayName: "Content",
@@ -138,18 +144,21 @@ async function createContentFixture(
         createdAt: input.createdAt,
       })
       .returning()
-    await tx.insert(executionSteps).values({
-      executionId: execution.id,
-      workspaceId: organization.id,
-      traceId: "trace",
-      spanId: randomUUID(),
-      name: "agent",
-      startedAt: input.createdAt,
-      nodeId: "agent",
-      sequence: 0,
-      input: { prompt: "private prompt" },
-      output: { answer: "private" },
-    })
+    const [step] = await tx
+      .insert(executionSteps)
+      .values({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        traceId: "trace",
+        spanId: randomUUID(),
+        name: "agent",
+        startedAt: input.createdAt,
+        nodeId: "agent",
+        sequence: 0,
+        input: { prompt: "private prompt" },
+        output: { answer: "private" },
+      })
+      .returning()
     const [request] = await tx
       .insert(approvalRequests)
       .values({
@@ -207,10 +216,11 @@ async function createContentFixture(
       requestHash: "hash",
       resourceId: execution.id,
     })
-    return { conversation, execution, request }
+    return { conversation, execution, step, request }
   }
   return {
     workspaceId: organization.id,
+    applicationId: application.id,
     workflowId: workflow.id,
     versionId: version.id,
     environment: configured,
@@ -297,6 +307,55 @@ async function seedActionIntent(
   return intent
 }
 
+async function seedNestedAgentExecution(
+  tx: DbClient,
+  fixture: Awaited<ReturnType<typeof createContentFixture>>,
+  parentExecutionId: string
+) {
+  const agent = await createAgent(tx, {
+    workspaceId: fixture.workspaceId,
+    applicationId: fixture.applicationId,
+    name: "Nested",
+    slug: randomUUID(),
+  })
+  if (!agent) throw new Error("Agent fixture failed")
+  const contract = await createAgentContractRevision(
+    tx,
+    fixture.workspaceId,
+    agent.id,
+    { inputSchema: { type: "object" }, outputSchema: { type: "string" } }
+  )
+  if (contract.outcome !== "created") throw new Error("Contract failed")
+  const version = await createAgentVersion(tx, fixture.workspaceId, agent.id, {
+    definition: {
+      version: 1,
+      instructions: "Summarize",
+      model: "gpt-5",
+      tools: [],
+      maxIterations: 2,
+    },
+    agentContractRevisionId: contract.revision.id,
+  })
+  if (version.outcome !== "created") throw new Error("Version failed")
+  const [child] = await tx
+    .insert(executions)
+    .values({
+      workspaceId: fixture.workspaceId,
+      agentId: agent.id,
+      agentVersionId: version.version.id,
+      agentContractRevisionId: contract.revision.id,
+      environmentId: fixture.environment.id,
+      parentExecutionId,
+      parentNodeId: "agent",
+      trigger: "api",
+      environment: "production",
+      status: "queued",
+      triggerPayload: { prompt: "private prompt" },
+    })
+    .returning()
+  return child
+}
+
 async function contentOf(tx: DbClient, conversationId: string) {
   return {
     conversations: await tx
@@ -336,6 +395,41 @@ describe("end-user content erasure", () => {
         finished.execution.id,
         "succeeded"
       )
+      const child = await seedNestedAgentExecution(
+        tx,
+        fixture,
+        erased.execution.id
+      )
+      const [regressionCase] = await tx
+        .insert(regressionCases)
+        .values({
+          workspaceId: fixture.workspaceId,
+          workflowId: fixture.workflowId,
+          caseType: "node",
+          nodeId: "agent",
+          input: { prompt: "private prompt" },
+          sourceStepId: finished.step.id,
+        })
+        .returning()
+      const [run] = await tx
+        .insert(regressionRuns)
+        .values({
+          workspaceId: fixture.workspaceId,
+          workflowId: fixture.workflowId,
+          workflowVersionId: fixture.versionId,
+          trigger: "manual",
+        })
+        .returning()
+      const [regressionResult] = await tx
+        .insert(regressionResults)
+        .values({
+          runId: run.id,
+          workspaceId: fixture.workspaceId,
+          caseId: regressionCase.id,
+          status: "passed",
+          output: { answer: "private" },
+        })
+        .returning()
       const result = await eraseExternalSubject(
         tx,
         fixture.workspaceId,
@@ -343,6 +437,25 @@ describe("end-user content erasure", () => {
         fixture.actor.id
       )
       expect(result.outcome).toBe("erased")
+      const [erasedChild] = await tx
+        .select()
+        .from(executions)
+        .where(eq(executions.id, child.id))
+      expect(erasedChild).toMatchObject({
+        status: "cancelled",
+        triggerPayload: null,
+      })
+      expect(
+        await tx
+          .select()
+          .from(regressionCases)
+          .where(eq(regressionCases.id, regressionCase.id))
+      ).toEqual([])
+      const [keptResult] = await tx
+        .select()
+        .from(regressionResults)
+        .where(eq(regressionResults.id, regressionResult.id))
+      expect(keptResult).toMatchObject({ status: "passed", output: null })
       for (const seeded of [erased, finished]) {
         expect(await contentOf(tx, seeded.conversation.id)).toEqual({
           conversations: [],
@@ -480,6 +593,93 @@ describe("end-user content erasure", () => {
       expect(
         (await contentOf(tx, seeded.conversation.id)).messages
       ).toHaveLength(2)
+    })
+  })
+})
+
+async function runErasureBackfill(tx: DbClient) {
+  const migration = await readFile(
+    new URL(
+      "../../drizzle/20261113090611_end-user-content-erasure/migration.sql",
+      import.meta.url
+    ),
+    "utf8"
+  )
+  const statements = migration.split("--> statement-breakpoint")
+  const backfill = statements.findIndex((statement) =>
+    statement.includes("-- Backfill")
+  )
+  for (const statement of statements.slice(backfill)) {
+    await tx.execute(sql.raw(statement))
+  }
+}
+
+describe("end-user content erasure backfill", () => {
+  it("settles and redacts Action Intents stranded on subjects erased before the backfill", async () => {
+    await withRollback(async (tx) => {
+      const fixture = await createContentFixture(tx, "production")
+      const now = new Date()
+      const seeded = await fixture.seedContent(fixture.erased.id, {
+        status: "queued",
+        createdAt: now,
+        lastActivityAt: now,
+      })
+      const intent = await seedActionIntent(
+        tx,
+        fixture,
+        seeded.execution.id,
+        "executing"
+      )
+      await tx
+        .update(actionIntents)
+        .set({ dispatchStartedAt: now, providerAttemptCount: 1 })
+        .where(eq(actionIntents.id, intent.id))
+      await tx
+        .update(externalSubjects)
+        .set({
+          status: "erased",
+          issuerSubject: null,
+          disabledAt: now,
+          erasedAt: now,
+        })
+        .where(eq(externalSubjects.id, fixture.erased.id))
+      await runErasureBackfill(tx)
+      const [settled] = await tx
+        .select()
+        .from(actionIntents)
+        .where(eq(actionIntents.id, intent.id))
+      expect(settled).toMatchObject({
+        status: "outcome_unknown",
+        target: { redacted: true },
+        safeDisplay: { title: "Content expired" },
+        normalizedError: null,
+      })
+      expect(settled.contentErasedAt).not.toBeNull()
+      const facts = await tx
+        .select()
+        .from(connectorAuditFacts)
+        .where(eq(connectorAuditFacts.actionIntentId, intent.id))
+      expect(facts).toEqual([
+        expect.objectContaining({
+          factType: "action_intent.outcome_unknown",
+          externalSubjectId: null,
+          subjectReference: fixture.erased.auditReference,
+          outcome: "outcome_unknown",
+          content: null,
+        }),
+      ])
+      const [execution] = await tx
+        .select()
+        .from(executions)
+        .where(eq(executions.id, seeded.execution.id))
+      expect(execution).toMatchObject({
+        status: "cancelled",
+        triggerPayload: null,
+      })
+      expect(await contentOf(tx, seeded.conversation.id)).toEqual({
+        conversations: [],
+        messages: [],
+      })
     })
   })
 })

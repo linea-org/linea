@@ -60,6 +60,9 @@ DELETE FROM "outbox_messages"
   WHERE "event_type" = 'approval_request.created'
     AND ("external_subject_id" IN (SELECT "id" FROM "external_subjects" WHERE "status" = 'erased')
       OR "payload"->>'executionId' IN (SELECT "id"::text FROM "erased_subject_executions"));--> statement-breakpoint
+UPDATE "regression_results" SET "output" = NULL
+  WHERE "case_id" IN (SELECT "id" FROM "regression_cases"
+    WHERE "source_step_id" IN (SELECT "id" FROM "execution_steps" WHERE "execution_id" IN (SELECT "id" FROM "erased_subject_executions")));--> statement-breakpoint
 DELETE FROM "regression_cases"
   WHERE "source_step_id" IN (SELECT "id" FROM "execution_steps" WHERE "execution_id" IN (SELECT "id" FROM "erased_subject_executions"));--> statement-breakpoint
 UPDATE "execution_steps" SET "replayed_from_step_id" = NULL
@@ -82,6 +85,34 @@ UPDATE "approval_decisions" SET "comment" = NULL
   WHERE "approval_request_id" IN (SELECT "id" FROM "approval_requests" WHERE "execution_id" IN (SELECT "id" FROM "erased_subject_executions"));--> statement-breakpoint
 UPDATE "approval_requests" SET "display" = '{"title":"Content expired"}'::jsonb, "approver_emails" = NULL, "content_erased_at" = now()
   WHERE "execution_id" IN (SELECT "id" FROM "erased_subject_executions") AND "status" <> 'pending';--> statement-breakpoint
+-- Their executions were cancelled above, so no claim can finish these intents; settle them as recovery would and redact them.
+WITH "settled" AS (
+  UPDATE "action_intents" SET
+      "status" = CASE
+        WHEN "status" <> 'executing' THEN 'cancelled'
+        WHEN "dispatch_started_at" IS NULL THEN 'failed'
+        ELSE 'outcome_unknown'
+      END::"action_intent_status",
+      "target" = '{"redacted":true}'::jsonb,
+      "normalized_parameters" = '{"redacted":true}'::jsonb,
+      "provider_preconditions" = '{"redacted":true}'::jsonb,
+      "safe_display" = '{"title":"Content expired"}'::jsonb,
+      "canonical_envelope" = jsonb_build_object('version', 1, 'operationRevision', "operation_revision", 'connectionId', "connection_id"::text, 'connector', "connector", 'operation', "operation_id", 'target', jsonb_build_object('redacted', true), 'parameters', jsonb_build_object('redacted', true), 'providerPreconditions', jsonb_build_object('redacted', true)),
+      "normalized_result" = NULL,
+      "normalized_error" = NULL,
+      "content_erased_at" = now(),
+      "updated_at" = now()
+    WHERE "execution_id" IN (SELECT "id" FROM "erased_subject_executions")
+      AND "status" IN ('awaiting_consent', 'ready', 'executing')
+    RETURNING *
+)
+INSERT INTO "connector_audit_facts" ("workspace_id", "environment_id", "external_subject_id", "subject_reference", "connection_id", "action_intent_id", "fact_type", "provider", "operation_id", "digest", "outcome", "failure_class", "content", "content_expires_at", "content_erased_at", "audit_expires_at", "occurred_at")
+  SELECT i."workspace_id", i."environment_id", CASE WHEN s."status" = 'erased' THEN NULL ELSE i."external_subject_id" END, s."audit_reference", i."connection_id", i."id",
+      ('action_intent.' || i."status")::"connector_audit_fact_type", i."connector", i."operation_id", i."canonical_digest", i."status"::text,
+      CASE i."status" WHEN 'failed' THEN 'authorization_revoked' WHEN 'outcome_unknown' THEN 'outcome_unknown' END,
+      NULL, now(), now(), now() + interval '1 year', now()
+  FROM "settled" i
+  LEFT JOIN "external_subjects" s ON s."id" = i."external_subject_id";--> statement-breakpoint
 UPDATE "action_intents" SET
     "target" = '{"redacted":true}'::jsonb,
     "normalized_parameters" = '{"redacted":true}'::jsonb,
@@ -100,6 +131,12 @@ DELETE FROM "flags"
     SELECT f."id" FROM "conversation_findings" f
     JOIN "conversation_analyses" a ON a."id" = f."analysis_id"
     WHERE a."conversation_id" IN (SELECT "id" FROM "erased_subject_conversations"));--> statement-breakpoint
+UPDATE "regression_results" SET "output" = NULL
+  WHERE "case_id" IN (SELECT "id" FROM "regression_cases"
+    WHERE "source_finding_id" IN (
+      SELECT f."id" FROM "conversation_findings" f
+      JOIN "conversation_analyses" a ON a."id" = f."analysis_id"
+      WHERE a."conversation_id" IN (SELECT "id" FROM "erased_subject_conversations")));--> statement-breakpoint
 DELETE FROM "regression_cases"
   WHERE "source_finding_id" IN (
     SELECT f."id" FROM "conversation_findings" f

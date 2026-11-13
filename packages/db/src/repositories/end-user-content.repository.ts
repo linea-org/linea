@@ -8,6 +8,7 @@ import {
   or,
   sql,
   type AnyColumn,
+  type SQL,
 } from "drizzle-orm"
 import {
   actionIntents,
@@ -28,6 +29,7 @@ import {
   outboxMessages,
   publicIdempotencyRecords,
   regressionCases,
+  regressionResults,
   toolCallRecords,
   waitTimers,
 } from "../schema/index.js"
@@ -58,6 +60,23 @@ export const redactedActionIntentContent = {
 
 const redactedApprovalDisplay = { title: "Content expired" }
 
+async function deleteRegressionCases(tx: DbClient, source: SQL): Promise<void> {
+  // Results outlive their case and copy its user turns, so their output goes with it.
+  await tx
+    .update(regressionResults)
+    .set({ output: null })
+    .where(
+      inArray(
+        regressionResults.caseId,
+        tx
+          .select({ id: regressionCases.id })
+          .from(regressionCases)
+          .where(source)
+      )
+    )
+  await tx.delete(regressionCases).where(source)
+}
+
 async function deleteConversations(
   tx: DbClient,
   conversationIds: string[]
@@ -72,9 +91,10 @@ async function deleteConversations(
     )
     .where(inArray(conversationAnalyses.conversationId, conversationIds))
   await tx.delete(flags).where(inArray(flags.conversationFindingId, findingIds))
-  await tx
-    .delete(regressionCases)
-    .where(inArray(regressionCases.sourceFindingId, findingIds))
+  await deleteRegressionCases(
+    tx,
+    inArray(regressionCases.sourceFindingId, findingIds)
+  )
   await tx
     .update(executions)
     .set({ conversationId: null })
@@ -112,9 +132,10 @@ async function eraseExecutionContent(
     .select({ id: executionSteps.id })
     .from(executionSteps)
     .where(inArray(executionSteps.executionId, executionIds))
-  await tx
-    .delete(regressionCases)
-    .where(inArray(regressionCases.sourceStepId, stepIds))
+  await deleteRegressionCases(
+    tx,
+    inArray(regressionCases.sourceStepId, stepIds)
+  )
   await tx
     .update(executionSteps)
     .set({ replayedFromStepId: null })
@@ -211,33 +232,44 @@ export async function eraseExternalSubjectContent(
         )
       )
     )
-  const subjectExecutions = await tx
-    .select({ id: executions.id })
-    .from(executions)
-    .where(
-      and(
-        eq(executions.workspaceId, input.workspaceId),
-        or(
-          inArray(executions.id, rootIds),
-          inArray(executions.parentExecutionId, rootIds)
+  const collectExecutionIds = async () =>
+    (
+      await tx
+        .select({ id: executions.id })
+        .from(executions)
+        .where(
+          and(
+            eq(executions.workspaceId, input.workspaceId),
+            or(
+              inArray(executions.id, rootIds),
+              inArray(executions.parentExecutionId, rootIds)
+            )
+          )
         )
-      )
+    ).map(({ id }) => id)
+  const executionIds: string[] = []
+  let added: string[]
+  // A nested child is inserted under its parent's row lock, so a pass after the parents are locked sees every child.
+  do {
+    added = (await collectExecutionIds()).filter(
+      (id) => !executionIds.includes(id)
     )
-  const executionIds = subjectExecutions.map(({ id }) => id)
-  if (executionIds.length > 0) {
-    await tx
-      .select({ id: approvalRequests.id })
-      .from(approvalRequests)
-      .where(inArray(approvalRequests.executionId, executionIds))
-      .orderBy(approvalRequests.id)
-      .for("update")
-    await tx
-      .select({ id: executions.id })
-      .from(executions)
-      .where(inArray(executions.id, executionIds))
-      .orderBy(executions.id)
-      .for("update")
-  }
+    if (added.length > 0) {
+      await tx
+        .select({ id: approvalRequests.id })
+        .from(approvalRequests)
+        .where(inArray(approvalRequests.executionId, added))
+        .orderBy(approvalRequests.id)
+        .for("update")
+      await tx
+        .select({ id: executions.id })
+        .from(executions)
+        .where(inArray(executions.id, added))
+        .orderBy(executions.id)
+        .for("update")
+    }
+    executionIds.push(...added)
+  } while (added.length > 0)
   const cancelledExecutions = await tx
     .update(executions)
     .set({
@@ -377,37 +409,43 @@ export async function applyContentRetention(
       tx,
       idleConversations.map(({ id }) => id)
     )
-    const expiredRequests = tx
-      .select({ id: approvalRequests.id })
-      .from(approvalRequests)
-      .innerJoin(executions, eq(executions.id, approvalRequests.executionId))
-      .innerJoin(environments, eq(environments.id, executions.environmentId))
-      .where(
-        and(
-          eq(executions.environment, "production"),
-          isNull(approvalRequests.contentErasedAt),
-          inArray(approvalRequests.status, ["decided", "cancelled"]),
-          expired(approvalRequests.requestedAt)
+    // One locked set: a request decided mid-pass would otherwise be marked erased with its new comment intact.
+    const expiredRequestIds = (
+      await tx
+        .select({ id: approvalRequests.id })
+        .from(approvalRequests)
+        .innerJoin(executions, eq(executions.id, approvalRequests.executionId))
+        .innerJoin(environments, eq(environments.id, executions.environmentId))
+        .where(
+          and(
+            eq(executions.environment, "production"),
+            isNull(approvalRequests.contentErasedAt),
+            inArray(approvalRequests.status, ["decided", "cancelled"]),
+            expired(approvalRequests.requestedAt)
+          )
         )
-      )
-    await tx
-      .update(approvalDecisions)
-      .set({ comment: null })
-      .where(
-        and(
-          inArray(approvalDecisions.approvalRequestId, expiredRequests),
-          isNotNull(approvalDecisions.comment)
+        .orderBy(approvalRequests.id)
+        .for("update", { of: approvalRequests })
+    ).map(({ id }) => id)
+    if (expiredRequestIds.length > 0) {
+      await tx
+        .update(approvalDecisions)
+        .set({ comment: null })
+        .where(
+          and(
+            inArray(approvalDecisions.approvalRequestId, expiredRequestIds),
+            isNotNull(approvalDecisions.comment)
+          )
         )
-      )
-    const approvalRequestsErased = await tx
-      .update(approvalRequests)
-      .set({
-        display: redactedApprovalDisplay,
-        approverEmails: null,
-        contentErasedAt: now,
-      })
-      .where(inArray(approvalRequests.id, expiredRequests))
-      .returning({ id: approvalRequests.id })
+      await tx
+        .update(approvalRequests)
+        .set({
+          display: redactedApprovalDisplay,
+          approverEmails: null,
+          contentErasedAt: now,
+        })
+        .where(inArray(approvalRequests.id, expiredRequestIds))
+    }
     const approvalEventsDeleted = await tx
       .delete(outboxMessages)
       .where(
@@ -436,7 +474,7 @@ export async function applyContentRetention(
     return {
       messagesDeleted: messagesDeleted.length,
       conversationsDeleted: idleConversations.length,
-      approvalRequestsErased: approvalRequestsErased.length,
+      approvalRequestsErased: expiredRequestIds.length,
       approvalEventsDeleted: approvalEventsDeleted.length,
     }
   })
