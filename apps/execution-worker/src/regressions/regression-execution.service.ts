@@ -92,7 +92,7 @@ export class RegressionExecutionService {
     }
     const runCostMicros = priceTokens(resolveNodeModel(node), result)
     const graded = await gradeOutput(
-      environmentId,
+      { workspaceId: regressionCase.workspaceId, environmentId },
       result.output,
       regressionCase.assertions
     )
@@ -176,7 +176,7 @@ export class RegressionExecutionService {
       tokensOutput,
     })
     const graded = await gradeOutput(
-      environmentId,
+      { workspaceId: regressionCase.workspaceId, environmentId },
       fullSequence,
       regressionCase.assertions
     )

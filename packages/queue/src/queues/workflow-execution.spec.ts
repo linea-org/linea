@@ -2,6 +2,7 @@ import { afterAll, afterEach, describe, expect, it } from "vitest"
 import type { Queue, Worker } from "bullmq"
 import { createConnection } from "../connection.js"
 import {
+  EXECUTION_LOCK_DURATION_MS,
   createWorkflowExecutionQueue,
   createWorkflowExecutionWorker,
   enqueueWorkflowExecution,
@@ -38,6 +39,14 @@ describe("workflow-execution queue", () => {
 
     expect(job.opts.attempts).toBeGreaterThan(1)
     expect(job.opts.backoff).toBeTruthy()
+  })
+
+  it("runs several executions per process with a lock that outlives the run lease", () => {
+    worker = createWorkflowExecutionWorker(connection, async () => {})
+    expect(worker.opts.concurrency).toBeGreaterThan(1)
+    expect(worker.opts.lockDuration).toBe(EXECUTION_LOCK_DURATION_MS)
+    expect(EXECUTION_LOCK_DURATION_MS).toBeGreaterThan(30_000)
+    expect(worker.opts.maxStalledCount).toBe(1)
   })
 
   it("delivers an enqueued job's payload to a worker", async () => {
