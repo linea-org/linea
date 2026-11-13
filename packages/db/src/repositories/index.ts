@@ -26,6 +26,7 @@ export * as environmentWorkflowBinding from "./environment-workflow-binding.repo
 export * as conversation from "./conversation.repository.js"
 export * as connection from "./connection.repository.js"
 export * as connectorAudit from "./connector-audit.repository.js"
+export * as endUserContent from "./end-user-content.repository.js"
 export * as publicIdempotency from "./public-idempotency.repository.js"
 export * as publicRuntime from "./public-runtime.repository.js"
 export * as toolCallRecord from "./tool-call-record.repository.js"

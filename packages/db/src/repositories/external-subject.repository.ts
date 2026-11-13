@@ -1,6 +1,15 @@
 import type { ExternalSubjectMetadata } from "@linea/protocol/resources"
 import { randomUUID } from "node:crypto"
-import { and, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm"
+import {
+  and,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  sql,
+  TransactionRollbackError,
+} from "drizzle-orm"
 import {
   environments,
   auditLogs,
@@ -18,6 +27,7 @@ import {
 import type { DbClient } from "./types.js"
 import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.repository.js"
 import { recordConnectionFact } from "./connector-audit.repository.js"
+import { eraseExternalSubjectContent } from "./end-user-content.repository.js"
 import { createPublicEvent } from "./outbox-message.repository.js"
 
 export type ExternalSubjectProjection = {
@@ -249,226 +259,247 @@ export async function disableExternalSubject(
   })
 }
 
+export type EraseExternalSubjectResult =
+  | { outcome: "erased"; subject: ExternalSubject }
+  | { outcome: "not_found" }
+  | { outcome: "action_intent_executing" }
+
 export async function eraseExternalSubject(
   db: DbClient,
   workspaceId: string,
   externalSubjectId: string,
   actorUserId: string
-): Promise<ExternalSubject | undefined> {
-  return db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(externalSubjects)
-      .where(
-        and(
-          eq(externalSubjects.workspaceId, workspaceId),
-          eq(externalSubjects.id, externalSubjectId)
+): Promise<EraseExternalSubjectResult> {
+  // Rolled back when an Action Intent is executing: its provider result would land after the content is erased.
+  return db
+    .transaction(async (tx): Promise<EraseExternalSubjectResult> => {
+      const [existing] = await tx
+        .select()
+        .from(externalSubjects)
+        .where(
+          and(
+            eq(externalSubjects.workspaceId, workspaceId),
+            eq(externalSubjects.id, externalSubjectId)
+          )
         )
-      )
-      // Permit revocation audit FK locks while excluding new authority assignments.
-      .for("no key update")
-    if (!existing || existing.status === "erased") return existing
-    const now = new Date()
-    const auditReference = randomUUID()
-    // Grant revocation locks authority before approvals; erasure must use the same order.
-    const requesters = await tx
-      .update(connectionAccessGrants)
-      .set({ revokedAt: now })
-      .where(
-        and(
-          eq(connectionAccessGrants.workspaceId, workspaceId),
-          eq(connectionAccessGrants.externalSubjectId, existing.id),
-          isNull(connectionAccessGrants.revokedAt)
+        // Permit revocation audit FK locks while excluding new authority assignments.
+        .for("no key update")
+      if (!existing) return { outcome: "not_found" }
+      if (existing.status === "erased")
+        return { outcome: "erased", subject: existing }
+      const now = new Date()
+      const auditReference = randomUUID()
+      // Grant revocation locks authority before approvals; erasure must use the same order.
+      const requesters = await tx
+        .update(connectionAccessGrants)
+        .set({ revokedAt: now })
+        .where(
+          and(
+            eq(connectionAccessGrants.workspaceId, workspaceId),
+            eq(connectionAccessGrants.externalSubjectId, existing.id),
+            isNull(connectionAccessGrants.revokedAt)
+          )
         )
-      )
-      .returning()
-    const reviewers = await tx
-      .update(connectionReviewerAssignments)
-      .set({ revokedAt: now })
-      .where(
-        and(
-          eq(connectionReviewerAssignments.workspaceId, workspaceId),
-          eq(connectionReviewerAssignments.externalSubjectId, existing.id),
-          isNull(connectionReviewerAssignments.revokedAt)
+        .returning()
+      const reviewers = await tx
+        .update(connectionReviewerAssignments)
+        .set({ revokedAt: now })
+        .where(
+          and(
+            eq(connectionReviewerAssignments.workspaceId, workspaceId),
+            eq(connectionReviewerAssignments.externalSubjectId, existing.id),
+            isNull(connectionReviewerAssignments.revokedAt)
+          )
         )
-      )
-      .returning()
-    await cancelNonExecutingActionIntents(tx, {
-      workspaceId,
-      scope: { kind: "external_subject", id: existing.id },
-      actor: { kind: "workspace_member", id: actorUserId },
-      cancelledAt: now,
-    })
-    const revokedAuthorities = [
-      ...requesters.map((authorization) => ({
-        authorization,
-        kind: "requester" as const,
-      })),
-      ...reviewers.map((authorization) => ({
-        authorization,
-        kind: "reviewer" as const,
-      })),
-    ]
-    if (revokedAuthorities.length > 0)
-      await tx.insert(auditLogs).values(
-        revokedAuthorities.map<typeof auditLogs.$inferInsert>(
-          ({ authorization, kind }) => ({
-            workspaceId,
-            actorUserId,
-            action: `connection.${kind}_revoked`,
-            resource: "connection",
-            resourceId: authorization.connectionId,
-            metadata: {
-              authorizationId: authorization.id,
-              subjectReference: auditReference,
-            },
-          })
-        )
-      )
-    const revokedConnections = await tx
-      .update(connections)
-      .set({
-        providerAccountId: sql`concat('erased:', ${auditReference}::text, ':', ${connections.id}::text)`,
-        accountLabel: "Erased subject",
-        status: "revoked",
-        credentialEncrypted: null,
-        revokedAt: now,
-        updatedAt: now,
+        .returning()
+      const { executing } = await cancelNonExecutingActionIntents(tx, {
+        workspaceId,
+        scope: { kind: "external_subject", id: existing.id },
+        actor: { kind: "workspace_member", id: actorUserId },
+        cancelledAt: now,
       })
-      .where(
-        and(
-          eq(connections.workspaceId, workspaceId),
-          eq(connections.externalSubjectId, existing.id),
-          ne(connections.status, "revoked")
-        )
-      )
-      .returning()
-    const alreadyRevokedConnections = await tx
-      .update(connections)
-      .set({
-        providerAccountId: sql`concat('erased:', ${auditReference}::text, ':', ${connections.id}::text)`,
-        accountLabel: "Erased subject",
-        credentialEncrypted: null,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(connections.workspaceId, workspaceId),
-          eq(connections.externalSubjectId, existing.id),
-          eq(connections.status, "revoked")
-        )
-      )
-      .returning()
-    const subjectConnections = [
-      ...revokedConnections,
-      ...alreadyRevokedConnections,
-    ]
-    const pendingPayloads = await tx
-      .select()
-      .from(connectionRevocationDeliveries)
-      .where(
-        and(
-          eq(connectionRevocationDeliveries.workspaceId, workspaceId),
-          eq(connectionRevocationDeliveries.externalSubjectId, existing.id),
-          isNotNull(connectionRevocationDeliveries.credentialEncrypted)
-        )
-      )
-      .for("update")
-    const connectionsById = new Map(
-      subjectConnections.map((connection) => [connection.id, connection])
-    )
-    for (const payload of pendingPayloads) {
-      if (!payload.connectionId) continue
-      const connection = connectionsById.get(payload.connectionId)
-      if (!connection) throw new Error("Revocation Connection is missing")
-      await recordConnectionFact(tx, {
-        connection,
-        factType: "connection.revocation_payload_destroyed",
-        occurredAt: now,
-        outcome: "subject_erased",
-        failureClass: "subject_erased",
-      })
-    }
-    if (pendingPayloads.length > 0) {
-      await tx.delete(connectionRevocationDeliveries).where(
-        inArray(
-          connectionRevocationDeliveries.id,
-          pendingPayloads.map(({ id }) => id)
-        )
-      )
-    }
-    for (const connection of revokedConnections) {
-      await recordConnectionFact(tx, {
-        connection,
-        factType: "connection.revoked",
-        occurredAt: now,
-        outcome: "subject_erased",
-      })
-      await createPublicEvent(tx, {
-        workspaceId: connection.workspaceId,
-        environmentId: connection.environmentId,
+      if (executing.length > 0) tx.rollback()
+      await eraseExternalSubjectContent(tx, {
+        workspaceId,
         externalSubjectId: existing.id,
-        eventType: "connection.revoked",
-        data: { connectionId: connection.id },
-      })
-    }
-    const [subject] = await tx
-      .update(externalSubjects)
-      .set({
-        issuerSubject: null,
-        status: "erased",
-        auditReference,
-        disabledAt: existing.disabledAt ?? now,
+        actorUserId,
         erasedAt: now,
-        updatedAt: now,
       })
-      .where(eq(externalSubjects.id, existing.id))
-      .returning()
-    await tx
-      .update(endUserSessions)
-      .set({ revokedAt: now })
-      .where(
-        and(
-          eq(endUserSessions.externalSubjectId, subject.id),
-          isNull(endUserSessions.revokedAt)
+      const revokedAuthorities = [
+        ...requesters.map((authorization) => ({
+          authorization,
+          kind: "requester" as const,
+        })),
+        ...reviewers.map((authorization) => ({
+          authorization,
+          kind: "reviewer" as const,
+        })),
+      ]
+      if (revokedAuthorities.length > 0)
+        await tx.insert(auditLogs).values(
+          revokedAuthorities.map<typeof auditLogs.$inferInsert>(
+            ({ authorization, kind }) => ({
+              workspaceId,
+              actorUserId,
+              action: `connection.${kind}_revoked`,
+              resource: "connection",
+              resourceId: authorization.connectionId,
+              metadata: {
+                authorizationId: authorization.id,
+                subjectReference: auditReference,
+              },
+            })
+          )
         )
+      const revokedConnections = await tx
+        .update(connections)
+        .set({
+          providerAccountId: sql`concat('erased:', ${auditReference}::text, ':', ${connections.id}::text)`,
+          accountLabel: "Erased subject",
+          status: "revoked",
+          credentialEncrypted: null,
+          revokedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(connections.workspaceId, workspaceId),
+            eq(connections.externalSubjectId, existing.id),
+            ne(connections.status, "revoked")
+          )
+        )
+        .returning()
+      const alreadyRevokedConnections = await tx
+        .update(connections)
+        .set({
+          providerAccountId: sql`concat('erased:', ${auditReference}::text, ':', ${connections.id}::text)`,
+          accountLabel: "Erased subject",
+          credentialEncrypted: null,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(connections.workspaceId, workspaceId),
+            eq(connections.externalSubjectId, existing.id),
+            eq(connections.status, "revoked")
+          )
+        )
+        .returning()
+      const subjectConnections = [
+        ...revokedConnections,
+        ...alreadyRevokedConnections,
+      ]
+      const pendingPayloads = await tx
+        .select()
+        .from(connectionRevocationDeliveries)
+        .where(
+          and(
+            eq(connectionRevocationDeliveries.workspaceId, workspaceId),
+            eq(connectionRevocationDeliveries.externalSubjectId, existing.id),
+            isNotNull(connectionRevocationDeliveries.credentialEncrypted)
+          )
+        )
+        .for("update")
+      const connectionsById = new Map(
+        subjectConnections.map((connection) => [connection.id, connection])
       )
-    await tx
-      .update(connectorAuditFacts)
-      .set({
-        externalSubjectId: null,
-        subjectReference: auditReference,
-        content: null,
-        contentErasedAt: now,
+      for (const payload of pendingPayloads) {
+        if (!payload.connectionId) continue
+        const connection = connectionsById.get(payload.connectionId)
+        if (!connection) throw new Error("Revocation Connection is missing")
+        await recordConnectionFact(tx, {
+          connection,
+          factType: "connection.revocation_payload_destroyed",
+          occurredAt: now,
+          outcome: "subject_erased",
+          failureClass: "subject_erased",
+        })
+      }
+      if (pendingPayloads.length > 0) {
+        await tx.delete(connectionRevocationDeliveries).where(
+          inArray(
+            connectionRevocationDeliveries.id,
+            pendingPayloads.map(({ id }) => id)
+          )
+        )
+      }
+      for (const connection of revokedConnections) {
+        await recordConnectionFact(tx, {
+          connection,
+          factType: "connection.revoked",
+          occurredAt: now,
+          outcome: "subject_erased",
+        })
+        await createPublicEvent(tx, {
+          workspaceId: connection.workspaceId,
+          environmentId: connection.environmentId,
+          externalSubjectId: existing.id,
+          eventType: "connection.revoked",
+          data: { connectionId: connection.id },
+        })
+      }
+      const [subject] = await tx
+        .update(externalSubjects)
+        .set({
+          issuerSubject: null,
+          status: "erased",
+          auditReference,
+          disabledAt: existing.disabledAt ?? now,
+          erasedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(externalSubjects.id, existing.id))
+        .returning()
+      await tx
+        .update(endUserSessions)
+        .set({ revokedAt: now })
+        .where(
+          and(
+            eq(endUserSessions.externalSubjectId, subject.id),
+            isNull(endUserSessions.revokedAt)
+          )
+        )
+      await tx
+        .update(connectorAuditFacts)
+        .set({
+          externalSubjectId: null,
+          subjectReference: auditReference,
+          content: null,
+          contentErasedAt: now,
+        })
+        .where(eq(connectorAuditFacts.externalSubjectId, existing.id))
+      await tx
+        .update(auditLogs)
+        .set({ resourceId: auditReference, actorExternalSubjectId: null })
+        .where(
+          and(
+            eq(auditLogs.workspaceId, workspaceId),
+            eq(auditLogs.resource, "external_subject"),
+            eq(auditLogs.resourceId, existing.auditReference)
+          )
+        )
+      await tx
+        .update(externalSubjectEnvironments)
+        .set({ metadata: {}, updatedAt: now })
+        .where(
+          and(
+            eq(externalSubjectEnvironments.workspaceId, workspaceId),
+            eq(externalSubjectEnvironments.externalSubjectId, existing.id)
+          )
+        )
+      await tx.insert(auditLogs).values({
+        workspaceId,
+        actorUserId,
+        action: "external_subject.erased",
+        resource: "external_subject",
+        resourceId: subject.auditReference,
+        metadata: null,
       })
-      .where(eq(connectorAuditFacts.externalSubjectId, existing.id))
-    await tx
-      .update(auditLogs)
-      .set({ resourceId: auditReference, actorExternalSubjectId: null })
-      .where(
-        and(
-          eq(auditLogs.workspaceId, workspaceId),
-          eq(auditLogs.resource, "external_subject"),
-          eq(auditLogs.resourceId, existing.auditReference)
-        )
-      )
-    await tx
-      .update(externalSubjectEnvironments)
-      .set({ metadata: {}, updatedAt: now })
-      .where(
-        and(
-          eq(externalSubjectEnvironments.workspaceId, workspaceId),
-          eq(externalSubjectEnvironments.externalSubjectId, existing.id)
-        )
-      )
-    await tx.insert(auditLogs).values({
-      workspaceId,
-      actorUserId,
-      action: "external_subject.erased",
-      resource: "external_subject",
-      resourceId: subject.auditReference,
-      metadata: null,
+      return { outcome: "erased", subject }
     })
-    return subject
-  })
+    .catch((error: unknown): EraseExternalSubjectResult => {
+      if (error instanceof TransactionRollbackError)
+        return { outcome: "action_intent_executing" }
+      throw error
+    })
 }

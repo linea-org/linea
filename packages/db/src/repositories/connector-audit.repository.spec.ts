@@ -364,13 +364,15 @@ describe("connector audit repository", () => {
           expiresAt: new Date(Date.now() + 60_000),
         },
       ])
-      const erased = await eraseExternalSubject(
+      const result = await eraseExternalSubject(
         tx,
         organization.id,
         fixture.subject.id,
         actor.id
       )
-      expect(erased?.auditReference).not.toBe(fixture.subject.auditReference)
+      if (result.outcome !== "erased") throw new Error("Subject not erased")
+      const erased = result.subject
+      expect(erased.auditReference).not.toBe(fixture.subject.auditReference)
       const facts = await tx
         .select()
         .from(connectorAuditFacts)
@@ -381,7 +383,7 @@ describe("connector audit repository", () => {
       ).toBe(true)
       expect(
         facts.every(
-          ({ subjectReference }) => subjectReference === erased?.auditReference
+          ({ subjectReference }) => subjectReference === erased.auditReference
         )
       ).toBe(true)
       expect(facts.every(({ content }) => content === null)).toBe(true)

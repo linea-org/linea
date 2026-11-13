@@ -415,17 +415,19 @@ describe("External Subject repository", () => {
           )
         )
       }
-      const erased = await eraseExternalSubject(
+      const result = await eraseExternalSubject(
         tx,
         organization.id,
         created.value.subject.id,
         actor.id
       )
+      if (result.outcome !== "erased") throw new Error("Subject not erased")
+      const erased = result.subject
       expect(erased).toMatchObject({
         issuerSubject: null,
         status: "erased",
       })
-      expect(erased?.auditReference).not.toBe(
+      expect(erased.auditReference).not.toBe(
         created.value.subject.auditReference
       )
       expect(
@@ -462,7 +464,7 @@ describe("External Subject repository", () => {
           records.find(
             (record) => record.externalSubjectId === created.value.subject.id
           )?.revokedAt
-        ).toEqual(erased?.erasedAt)
+        ).toEqual(erased.erasedAt)
         expect(
           records.find((record) => record.externalSubjectId === otherSubject.id)
             ?.revokedAt
@@ -491,7 +493,7 @@ describe("External Subject repository", () => {
       expect(
         revocations.every(
           (record) =>
-            record.metadata?.subjectReference === erased?.auditReference
+            record.metadata?.subjectReference === erased.auditReference
         )
       ).toBe(true)
       const [audit] = await tx
@@ -503,7 +505,7 @@ describe("External Subject repository", () => {
             eq(auditLogs.action, "external_subject.erased")
           )
         )
-      expect(audit?.resourceId).toBe(erased?.auditReference)
+      expect(audit?.resourceId).toBe(erased.auditReference)
       expect(JSON.stringify(audit)).not.toContain("erase-me")
       expect(JSON.stringify(audit)).not.toContain("sensitive-reference")
     })

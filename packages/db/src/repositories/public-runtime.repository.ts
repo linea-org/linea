@@ -433,6 +433,7 @@ export async function getPublicExecution(
         eq(executions.id, executionId),
         eq(executions.workspaceId, workspaceId),
         eq(executions.environmentId, environmentId),
+        isNull(executions.contentErasedAt),
         externalSubjectId
           ? eq(executions.externalSubjectRecordId, externalSubjectId)
           : undefined
