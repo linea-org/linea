@@ -369,11 +369,21 @@ export async function consumeAuthorizationRateLimits(
   limits: { key: string; limit: number }[],
   expiresAt: Date
 ): Promise<boolean> {
-  const refused = new Error("Authorization quota refused")
+  return (await consumeRateLimits(db, limits, expiresAt)).length === 0
+}
+
+/** Counts one request against every budget atomically; when any budget is exhausted none is consumed and the exhausted keys are returned. */
+export async function consumeRateLimits(
+  db: DbClient,
+  limits: { key: string; limit: number }[],
+  expiresAt: Date
+): Promise<string[]> {
+  const refused = new Error("Rate limit refused")
+  let exhausted: string[] = []
   try {
     return await db.transaction(async (tx) => {
       const ordered = [...limits].sort((a, b) => a.key.localeCompare(b.key))
-      if (ordered.length === 0) return true
+      if (ordered.length === 0) return []
       // Ordering the insert source keeps overlapping quota locks consistent.
       const applied = await tx
         .insert(endUserAuthorizationRateLimits)
@@ -410,11 +420,15 @@ export async function consumeAuthorizationRateLimits(
           ),
         })
         .returning({ key: endUserAuthorizationRateLimits.key })
-      if (applied.length !== ordered.length) throw refused
-      return true
+      const appliedKeys = new Set(applied.map(({ key }) => key))
+      exhausted = ordered
+        .filter(({ key }) => !appliedKeys.has(key))
+        .map(({ key }) => key)
+      if (exhausted.length > 0) throw refused
+      return []
     })
   } catch (error) {
-    if (error === refused) return false
+    if (error === refused) return exhausted
     throw error
   }
 }

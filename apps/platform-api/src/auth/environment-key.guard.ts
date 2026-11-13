@@ -7,8 +7,14 @@ import {
 import { db, repositories } from '@linea/db'
 import type { EnvironmentKeyScope } from '@linea/protocol/resources'
 import type { Request } from 'express'
+import { enforceRequestRateLimits } from '../common/request-rate-limit'
 import { hashApiKey } from './api-key.util'
 import { publicError } from './public-error'
+
+const ENVIRONMENT_KEY_RATE_LIMITS = {
+  read: { key: 600, workspace: 3000 },
+  write: { key: 120, workspace: 600 },
+}
 
 export type EnvironmentPrincipal = {
   keyId: string
@@ -52,11 +58,24 @@ export class EnvironmentKeyGuard implements CanActivate {
         ),
       )
     }
+    const access =
+      request.method === 'GET' || request.method === 'HEAD' ? 'read' : 'write'
+    await enforceRequestRateLimits([
+      {
+        scope: `environment-key:${access}:key:${environmentKey.id}`,
+        limit: ENVIRONMENT_KEY_RATE_LIMITS[access].key,
+      },
+      {
+        scope: `environment-key:${access}:workspace:${environmentKey.workspaceId}`,
+        limit: ENVIRONMENT_KEY_RATE_LIMITS[access].workspace,
+      },
+    ])
     await repositories.environmentKey.recordEnvironmentKeyActivity(
       db,
       environmentKey,
       'environment_key.used',
       { environmentId: environmentKey.environmentId },
+      new Date(),
     )
     request.environmentPrincipal = {
       keyId: environmentKey.id,
