@@ -1625,7 +1625,7 @@ List redacted connector audit events for one workspace.
 
 - Caller plane: `control`
 - Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Authentication: workspace_key; scopes: audit:read
 - Method and path: `GET /v1/audit-events`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
@@ -10208,7 +10208,7 @@ List saved Regression Cases for a Workflow.
 
 - Caller plane: `control`
 - Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Authentication: workspace_key; scopes: regressions:read
 - Method and path: `GET /v1/workflows/{workflowId}/regression-cases`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
@@ -10385,7 +10385,7 @@ Create a Regression Case from an Execution step.
 
 - Caller plane: `control`
 - Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Authentication: workspace_key; scopes: regressions:write
 - Method and path: `POST /v1/workflows/{workflowId}/regression-cases/from-step`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
@@ -10566,7 +10566,7 @@ Create a Regression Case from a flagged Execution.
 
 - Caller plane: `control`
 - Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Authentication: workspace_key; scopes: regressions:write
 - Method and path: `POST /v1/workflows/{workflowId}/regression-cases/from-flag`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
@@ -10747,7 +10747,7 @@ Archive a Regression Case.
 
 - Caller plane: `control`
 - Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Authentication: workspace_key; scopes: regressions:write
 - Method and path: `POST /v1/workflows/{workflowId}/regression-cases/{id}/archive`
 - Idempotency: Repeated archive requests leave the case archived.
 - Rate limits: No operation-specific limit; platform protections apply.
@@ -10919,7 +10919,7 @@ List recent Regression Runs for a Workflow.
 
 - Caller plane: `control`
 - Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Authentication: workspace_key; scopes: regressions:read
 - Method and path: `GET /v1/workflows/{workflowId}/regression-runs`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
@@ -11078,7 +11078,7 @@ Queue a Regression Run for a Workflow.
 
 - Caller plane: `control`
 - Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Authentication: workspace_key; scopes: regressions:write
 - Method and path: `POST /v1/workflows/{workflowId}/regression-runs`
 - Idempotency: None.
 - Rate limits: 10 requests per caller and 30 per workspace each minute.
@@ -11195,7 +11195,7 @@ Get a Regression Run and its results.
 
 - Caller plane: `control`
 - Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Authentication: workspace_key; scopes: regressions:read
 - Method and path: `GET /v1/workflows/{workflowId}/regression-runs/{id}`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.

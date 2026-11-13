@@ -62,6 +62,7 @@ import {
 } from "@linea/ui/components/tooltip"
 import { useWorkspaceOverlayNav } from "../workspace"
 import { authClient } from "@/lib/auth-client"
+import { isWorkspaceAdmin } from "@/lib/workspace-role"
 import {
   executionsQueryOptions,
   testRunFn,
@@ -310,6 +311,11 @@ function WorkflowBuilderCanvasInner({
   )
   const { data: session } = authClient.useSession()
   const currentUserId = session?.user.id
+  const { data: activeOrganization } = authClient.useActiveOrganization()
+  const canPublish = isWorkspaceAdmin(
+    activeOrganization?.members ?? [],
+    currentUserId
+  )
   const [pendingRemoteUpdate, setPendingRemoteUpdate] =
     useState<DraftUpdatedEvent | null>(null)
   // Applying a collaborator's graph mutates `nodes`/`edges` the same way a local edit does — this one-shot flag tells the draft-save effect below to skip scheduling a save for that render instead of re-saving (and re-broadcasting) what was just received.
@@ -618,14 +624,30 @@ function WorkflowBuilderCanvasInner({
           >
             Commit
           </Button>
-          <Button
-            type="button"
-            size="xs"
-            onClick={() => setCommitDialog("publish")}
-            disabled={publish.isPending}
-          >
-            Publish
-          </Button>
+          {canPublish ? (
+            <Button
+              type="button"
+              size="xs"
+              onClick={() => setCommitDialog("publish")}
+              disabled={publish.isPending}
+            >
+              Publish
+            </Button>
+          ) : (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger render={<span tabIndex={0} />}>
+                  <Button type="button" size="xs" disabled>
+                    Publish
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Only workspace admins can publish. Commit your changes and ask
+                  an admin to publish them.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </div>
       {(saveVersion.isError || publish.isError || testRun.isError) && (

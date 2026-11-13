@@ -238,6 +238,20 @@ export async function getWorkflowById(
   return workflow
 }
 
+/** Row-locks the Workflow until the caller's transaction ends, so a check against what it returns still holds when that transaction writes. */
+export async function lockWorkflowById(
+  db: DbClient,
+  workspaceId: string,
+  id: string
+): Promise<Workflow | undefined> {
+  const [workflow] = await db
+    .select()
+    .from(workflows)
+    .where(and(eq(workflows.workspaceId, workspaceId), eq(workflows.id, id)))
+    .for("update")
+  return workflow
+}
+
 export async function listWorkflows(
   db: DbClient,
   workspaceId: string,

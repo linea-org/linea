@@ -15,7 +15,11 @@ import {
 } from '@thallesp/nestjs-better-auth'
 import type { auth } from '@linea/auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
+import { OptionalUserId } from '../auth/optional-user-id.decorator'
+import { RequireRole } from '../auth/require-role.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { WorkspaceRoleGuard } from '../auth/workspace-role.guard'
+import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
   createWorkflowVersionSchema,
@@ -37,11 +41,12 @@ import { WorkflowsService } from './workflows.service'
 
 @Controller('workflows')
 @OptionalAuth()
-@UseGuards(WorkspaceAuthGuard)
+@UseGuards(WorkspaceAuthGuard, WorkspaceRoleGuard)
 export class WorkflowsController {
   constructor(private readonly workflows: WorkflowsService) {}
 
   @Post()
+  @RequireWorkspaceKeyScopes('workflows:write')
   create(
     @CurrentWorkspaceId() workspaceId: string,
     @Body(new ZodValidationPipe(createWorkflowSchema)) body: CreateWorkflowDto,
@@ -50,25 +55,30 @@ export class WorkflowsController {
   }
 
   @Get()
+  @RequireWorkspaceKeyScopes('workflows:read')
   list(@CurrentWorkspaceId() workspaceId: string) {
     return this.workflows.list(workspaceId)
   }
 
   @Get(':id')
+  @RequireWorkspaceKeyScopes('workflows:read')
   get(@CurrentWorkspaceId() workspaceId: string, @Param('id') id: string) {
     return this.workflows.get(workspaceId, id)
   }
 
   @Patch(':id')
+  @RequireWorkspaceKeyScopes('workflows:write')
   update(
     @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() actorUserId: string | undefined,
     @Param('id') id: string,
     @Body(new ZodValidationPipe(updateWorkflowSchema)) body: UpdateWorkflowDto,
   ) {
-    return this.workflows.update(workspaceId, id, body)
+    return this.workflows.update(workspaceId, id, body, actorUserId)
   }
 
   @Put(':id/draft')
+  @RequireWorkspaceKeyScopes('workflows:write')
   saveDraft(
     @Session() session: UserSession<typeof auth> | null,
     @CurrentWorkspaceId() workspaceId: string,
@@ -92,6 +102,7 @@ export class WorkflowsController {
   }
 
   @Post(':id/versions')
+  @RequireWorkspaceKeyScopes('workflows:write')
   createVersion(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id') id: string,
@@ -102,6 +113,7 @@ export class WorkflowsController {
   }
 
   @Get(':id/versions')
+  @RequireWorkspaceKeyScopes('workflows:read')
   listVersions(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id') id: string,
@@ -110,6 +122,7 @@ export class WorkflowsController {
   }
 
   @Get(':id/versions/:versionId')
+  @RequireWorkspaceKeyScopes('workflows:read')
   getVersion(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id') id: string,
@@ -118,7 +131,10 @@ export class WorkflowsController {
     return this.workflows.getVersion(workspaceId, id, versionId)
   }
 
+  // Matches Agent publish: only a published version can be bound to an Environment, and publishing queues the regression suite.
   @Post(':id/versions/:versionId/publish')
+  @RequireRole('admin')
+  @RequireWorkspaceKeyScopes('workflows:publish')
   publishVersion(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id') id: string,
