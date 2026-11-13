@@ -15,6 +15,17 @@ export async function isBehaviourAnalysisEnabled(
 
 // Lazily materializes the row on first read — every column already defaults to "off"/unset, so
 // a caller never needs to distinguish "no row yet" from "row with defaults."
+export async function isPlatformModelKeyEnabled(
+  db: DbClient,
+  workspaceId: string
+): Promise<boolean> {
+  const [row] = await db
+    .select({ enabled: workspaceSettings.platformModelKeyEnabled })
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, workspaceId))
+  return row?.enabled ?? false
+}
+
 export async function getOrCreateWorkspaceSettings(
   db: DbClient,
   workspaceId: string

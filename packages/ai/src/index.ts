@@ -1,4 +1,6 @@
 export {
+  isPlatformModelKeyAvailable,
+  ModelKeyMissingError,
   resolveApiKey,
   type ResolvedApiKey,
 } from "./key-resolution/key-resolver.js"
@@ -19,4 +21,5 @@ export type {
   ToolDefinition,
 } from "./providers/provider.interface.js"
 export { calculateCostMicros } from "./pricing/pricing-table.js"
+export { executionBudgetMessage, MAX_EXECUTION_TOKENS } from "./usage-budget.js"
 export type { ModelPrice } from "./pricing/pricing-table.js"

@@ -11,11 +11,35 @@ export type ResolvedApiKey = {
   source: "environment" | "platform"
 }
 
+export class ModelKeyMissingError extends Error {
+  constructor(readonly keyName: string) {
+    super(
+      `No ${keyName} is set for this Environment. Add one in the Environment's model keys to run this step.`
+    )
+    this.name = "ModelKeyMissingError"
+  }
+}
+
+export async function isPlatformModelKeyAvailable(
+  db: DbClient,
+  workspaceId: string,
+  keyName: string
+): Promise<boolean> {
+  return (
+    Boolean(process.env[keyName]) &&
+    (await repositories.workspaceSettings.isPlatformModelKeyEnabled(
+      db,
+      workspaceId
+    ))
+  )
+}
+
+/** The platform's own provider key is used only for workspaces Linea has granted it to; anything else needs an Environment key. */
 export async function resolveApiKey(
   db: DbClient,
-  environmentId: string | undefined,
-  keyName: string
+  input: { workspaceId: string; environmentId?: string; keyName: string }
 ): Promise<ResolvedApiKey> {
+  const { workspaceId, environmentId, keyName } = input
   const secret = environmentId
     ? await repositories.secret.getSecret(db, environmentId, keyName)
     : undefined
@@ -36,10 +60,14 @@ export async function resolveApiKey(
     return { apiKey: secret.encryptedValue, source: "environment" }
   }
   const platformKey = process.env[keyName]
-  if (!platformKey) {
-    throw new Error(
-      `No Environment key and no platform key set for "${keyName}"`
-    )
+  if (
+    !platformKey ||
+    !(await repositories.workspaceSettings.isPlatformModelKeyEnabled(
+      db,
+      workspaceId
+    ))
+  ) {
+    throw new ModelKeyMissingError(keyName)
   }
   return { apiKey: platformKey, source: "platform" }
 }

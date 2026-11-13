@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto"
 import { Injectable, Logger } from "@nestjs/common"
 import {
+  executionBudgetMessage,
+  MAX_EXECUTION_TOKENS,
   resolveApiKey,
   resolveKeyName,
   resolveProvider,
@@ -12,6 +14,7 @@ import type { Memory } from "@linea/db"
 import { PermanentRequestError, requestPublic } from "@linea/http"
 import { nodeRegistry } from "@linea/runtime"
 import { NonRetryableError } from "./non-retryable-error"
+import { UsageError } from "./usage-error"
 import { resolveNamespace, resolveSubjectId } from "./memory-scope"
 import type {
   NodeExecutionContext,
@@ -19,6 +22,8 @@ import type {
 } from "./node-handler.interface"
 
 const DEFAULT_MAX_ITERATIONS = 10
+// Earlier turns beyond this are dropped from the provider request, oldest first.
+const MAX_HISTORY_MESSAGES = 40
 // Matches production practice (Mem0's own per-turn recall default, OpenAI's agent-context cookbook)
 // rather than "as much as fits" — a longer recency-only list actively hurts (lost-in-the-middle),
 // and a small cap keeps the extra DB round trip and the completion call itself fast.
@@ -243,7 +248,11 @@ export class AiNode implements NodeHandler {
     })
     const provider = resolveProvider(parsed.model)
     const keyName = resolveKeyName(parsed.model)
-    const { apiKey } = await resolveApiKey(db, context.environmentId, keyName)
+    const { apiKey } = await resolveApiKey(db, {
+      workspaceId: context.workspaceId,
+      environmentId: context.environmentId,
+      keyName,
+    })
     // leasedBy is required here (not just executionId/nodeId) so a saved-progress write can be
     // fenced against the execution's lease at commit time, not just checked at call time.
     const nodeKey =
@@ -329,6 +338,7 @@ export class AiNode implements NodeHandler {
           .filter(
             (message) => message.role !== "user" || repliedToIds.has(message.id)
           )
+          .slice(-MAX_HISTORY_MESSAGES)
           .map((message) => ({ role: message.role, content: message.content }))
       }
       // Empty/no tools resolves on the first iteration exactly like the old single-call path —
@@ -444,6 +454,13 @@ export class AiNode implements NodeHandler {
       })
       tokensInput += result.tokensInput
       tokensOutput += result.tokensOutput
+      if (tokensInput + tokensOutput >= MAX_EXECUTION_TOKENS) {
+        throw new UsageError(
+          executionBudgetMessage(tokensInput + tokensOutput),
+          tokensInput,
+          tokensOutput
+        )
+      }
       if (nextPrompt !== undefined) {
         conversation.push({ role: "user", content: nextPrompt })
       }
@@ -484,8 +501,10 @@ export class AiNode implements NodeHandler {
         )
       }
     }
-    throw new Error(
-      `AI node exceeded maxIterations (${maxIterations}) without a final answer`
+    throw new UsageError(
+      `AI node exceeded maxIterations (${maxIterations}) without a final answer`,
+      tokensInput,
+      tokensOutput
     )
   }
 }

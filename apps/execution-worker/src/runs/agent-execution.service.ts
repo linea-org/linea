@@ -3,6 +3,8 @@ import { db, repositories, type Execution } from "@linea/db"
 import { agentDefinitionSchema } from "@linea/runtime"
 import {
   calculateCostMicros,
+  executionBudgetMessage,
+  MAX_EXECUTION_TOKENS,
   resolveApiKey,
   resolveKeyName,
   resolveProvider,
@@ -195,6 +197,11 @@ export class AgentExecutionService {
     if (completed.has(modelNodeId))
       return completionSchema.parse(completed.get(modelNodeId))
     await this.checkpoints.assertOwnsLease(execution.id, leasedBy)
+    const used = await this.checkpoints.getResumeTokenTotals(execution.id)
+    if (used.tokensInput + used.tokensOutput >= MAX_EXECUTION_TOKENS)
+      throw new Error(
+        executionBudgetMessage(used.tokensInput + used.tokensOutput)
+      )
     const startedAt = new Date()
     let result: Completion
     try {
@@ -244,11 +251,11 @@ export class AgentExecutionService {
     conversation: ConversationTurn[]
   ): Promise<Completion> {
     const { execution, signal, definition, contract } = context
-    const { apiKey } = await resolveApiKey(
-      db,
-      execution.environmentId ?? undefined,
-      resolveKeyName(definition.model)
-    )
+    const { apiKey } = await resolveApiKey(db, {
+      workspaceId: execution.workspaceId,
+      environmentId: execution.environmentId ?? undefined,
+      keyName: resolveKeyName(definition.model),
+    })
     const result = completionSchema.parse(
       await resolveProvider(definition.model).complete(apiKey, {
         model: definition.model,

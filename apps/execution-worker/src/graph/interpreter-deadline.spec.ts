@@ -151,4 +151,16 @@ describe("Interpreter deadlines", () => {
       interpreter.run({ ...input, signal: lease.signal })
     ).rejects.toBeInstanceOf(LeaseLostError)
   })
+
+  it("fails the next node once the execution has used its token budget", async () => {
+    const { interpreter, http } = setup()
+    const execute = jest.spyOn(http, "execute")
+    const outcome = await interpreter.run({
+      ...input,
+      initialTokensInput: 999_999,
+      initialTokensOutput: 1,
+    })
+    expect(outcome.result?.status).toBe("failed")
+    expect(execute).not.toHaveBeenCalled()
+  })
 })

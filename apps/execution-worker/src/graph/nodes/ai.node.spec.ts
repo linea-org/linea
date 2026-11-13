@@ -18,11 +18,17 @@ const resolveProvider = jest.fn(() => ({ complete }))
 const resolveKeyName = jest.fn(() => "anthropic")
 const resolveApiKey = jest.fn(() => Promise.resolve({ apiKey: "secret" }))
 
-jest.mock("@linea/ai", () => ({
-  resolveProvider,
-  resolveKeyName,
-  resolveApiKey,
-}))
+jest.mock("@linea/ai", () => {
+  const { MAX_EXECUTION_TOKENS, executionBudgetMessage } =
+    jest.requireActual<typeof import("@linea/ai")>("@linea/ai")
+  return {
+    resolveProvider,
+    resolveKeyName,
+    resolveApiKey,
+    MAX_EXECUTION_TOKENS,
+    executionBudgetMessage,
+  }
+})
 
 const listChatMessages = jest.fn()
 const getToolCallRecord = jest.fn<
@@ -1355,6 +1361,40 @@ describe("AiNode", () => {
         })
       )
       expect(result).toEqual({ text: "done", tokensInput: 2, tokensOutput: 2 })
+    })
+
+    it("stops the tool loop once it uses the execution token budget", async () => {
+      complete.mockResolvedValue({
+        text: "",
+        tokensInput: 600_000,
+        tokensOutput: 1,
+        toolCalls: [{ id: "call_1", name: "noop", arguments: {} }],
+      })
+      mockFetch()
+      await expect(
+        new AiNode().execute(
+          {
+            prompt: "loop forever",
+            model: "claude-sonnet-5",
+            maxIterations: 5,
+            tools: [
+              {
+                name: "noop",
+                parameters: {},
+                url: "https://api.example.com/noop",
+                method: "POST",
+              },
+            ],
+          },
+          undefined,
+          context
+        )
+      ).rejects.toMatchObject({
+        name: "UsageError",
+        tokensInput: 1_200_000,
+        tokensOutput: 2,
+      })
+      expect(complete).toHaveBeenCalledTimes(2)
     })
 
     it("throws once the loop exceeds maxIterations without a final answer", async () => {
