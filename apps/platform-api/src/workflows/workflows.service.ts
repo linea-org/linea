@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -86,7 +87,15 @@ export class WorkflowsService {
     workspaceId: string,
     id: string,
     input: UpdateWorkflowDto,
+    actorUserId: string | undefined,
   ): Promise<Workflow> {
+    const current = await this.get(workspaceId, id)
+    const changesProductionRouting =
+      (input.slug !== undefined && input.slug !== current.slug) ||
+      (input.archived !== undefined &&
+        input.archived !== (current.archivedAt !== null))
+    if (changesProductionRouting)
+      await this.assertProductionAdmin(workspaceId, id, actorUserId)
     const workflow = await repositories.workflow.updateWorkflow(
       db,
       workspaceId,
@@ -107,6 +116,33 @@ export class WorkflowsService {
       throw new NotFoundException('Workflow not found')
     }
     return workflow
+  }
+
+  /** Archive state and slug decide whether Production serves the Workflow and which one a trigger slug starts, so once bound they follow the admin-owned binding. */
+  private async assertProductionAdmin(
+    workspaceId: string,
+    workflowId: string,
+    actorUserId: string | undefined,
+  ): Promise<void> {
+    const bound =
+      await repositories.environmentWorkflowBinding.hasProductionWorkflowBinding(
+        db,
+        workspaceId,
+        workflowId,
+      )
+    if (!bound) return
+    const role = actorUserId
+      ? await repositories.organization.getMemberRole(
+          db,
+          workspaceId,
+          actorUserId,
+        )
+      : undefined
+    if (role !== 'admin' && role !== 'owner') {
+      throw new ForbiddenException(
+        'Archiving, restoring, or changing the slug of a Workflow bound to Production requires an admin session',
+      )
+    }
   }
 
   /** A Run Agent step may only name an active Agent of the Workflow's own Application and one of its Contract revisions; a draft may still leave them unset. */
