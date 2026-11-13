@@ -10,8 +10,10 @@ import {
 import { queuedRegressionRunSchema } from '@linea/protocol/resources'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
+import { RequireRole } from '../auth/require-role.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { WorkspaceRateLimit } from '../auth/workspace-rate-limit.guard'
+import { WorkspaceRoleGuard } from '../auth/workspace-role.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
   listRegressionRunsSchema,
@@ -29,7 +31,7 @@ import { RegressionRunsService } from './regression-runs.service'
 
 @Controller()
 @OptionalAuth()
-@UseGuards(WorkspaceAuthGuard)
+@UseGuards(WorkspaceAuthGuard, WorkspaceRoleGuard)
 export class RegressionRunsController {
   constructor(private readonly regressionRuns: RegressionRunsService) {}
 
@@ -45,6 +47,7 @@ export class RegressionRunsController {
   }
 
   @Post('workflows/:workflowId/regression-runs')
+  @RequireRole('admin')
   @WorkspaceRateLimit('diagnostic')
   async trigger(
     @CurrentWorkspaceId() workspaceId: string,

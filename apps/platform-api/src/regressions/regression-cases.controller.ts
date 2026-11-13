@@ -10,7 +10,9 @@ import {
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { OptionalUserId } from '../auth/optional-user-id.decorator'
+import { RequireRole } from '../auth/require-role.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { WorkspaceRoleGuard } from '../auth/workspace-role.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
   createRegressionCaseFromFlagSchema,
@@ -29,7 +31,7 @@ import { RegressionCasesService } from './regression-cases.service'
 
 @Controller()
 @OptionalAuth()
-@UseGuards(WorkspaceAuthGuard)
+@UseGuards(WorkspaceAuthGuard, WorkspaceRoleGuard)
 export class RegressionCasesController {
   constructor(private readonly regressionCases: RegressionCasesService) {}
 
@@ -48,7 +50,9 @@ export class RegressionCasesController {
     return cases.map(regressionCaseProjection)
   }
 
+  // Cases copy recorded production input into the suite that runs on every publish, so curating them is admin-only.
   @Post('workflows/:workflowId/regression-cases/from-step')
+  @RequireRole('admin')
   async createFromStep(
     @CurrentWorkspaceId() workspaceId: string,
     @OptionalUserId() userId: string | undefined,
@@ -67,6 +71,7 @@ export class RegressionCasesController {
   }
 
   @Post('workflows/:workflowId/regression-cases/from-flag')
+  @RequireRole('admin')
   async createFromFlag(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
@@ -79,6 +84,7 @@ export class RegressionCasesController {
   }
 
   @Post('workflows/:workflowId/regression-cases/:id/archive')
+  @RequireRole('admin')
   async archive(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,

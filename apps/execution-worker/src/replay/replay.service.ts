@@ -6,6 +6,7 @@ import type { WorkflowStepReplayJob } from "@linea/queue"
 import { InterpreterService } from "../graph/interpreter.service"
 import { resolveNodeModel } from "../graph/resolve-node-model"
 import { getErrorTokenUsage } from "../graph/nodes/usage-error"
+import { lockedOverrideKeys } from "./replay-override"
 
 // Sized to bound how long this worker can keep running after another worker reclaims its stale claim, not to safely undercut REPLAY_CLAIM_STALE_MS — cancellation below is best-effort, so a tight interval limits the overlap.
 const REPLAY_HEARTBEAT_INTERVAL_MS = 30_000
@@ -25,6 +26,26 @@ export class ReplayService {
   private readonly logger = new Logger(ReplayService.name)
 
   constructor(private readonly interpreter: InterpreterService) {}
+
+  private async refuse(
+    replayStepId: string,
+    claimToken: Date,
+    message: string
+  ): Promise<void> {
+    await repositories.executionStep.completeReplayStep(
+      db,
+      replayStepId,
+      claimToken,
+      {
+        endedAt: new Date(),
+        status: "failed",
+        error: { message },
+        costMicros: 0n,
+        tokensInput: 0,
+        tokensOutput: 0,
+      }
+    )
+  }
 
   async replay(job: WorkflowStepReplayJob): Promise<void> {
     const originalStep = await repositories.executionStep.getExecutionStepById(
@@ -119,21 +140,10 @@ export class ReplayService {
     // timer (that would mean actually pausing it, which replay can't do), so reject outright rather
     // than return a result that looks like it honored the override but didn't.
     if (mergedNode.type === "wait") {
-      await repositories.executionStep.completeReplayStep(
-        db,
+      await this.refuse(
         job.replayStepId,
         claimed.claimToken,
-        {
-          endedAt: new Date(),
-          status: "failed",
-          error: {
-            message:
-              "Wait nodes can't be replayed: their result is a timer that already fired for the original execution, so a replay would return that old outcome instead of honoring any override.",
-          },
-          costMicros: 0n,
-          tokensInput: 0,
-          tokensOutput: 0,
-        }
+        "Wait nodes can't be replayed: their result is a timer that already fired for the original execution, so a replay would return that old outcome instead of honoring any override."
       )
       return
     }
@@ -145,21 +155,10 @@ export class ReplayService {
     // record (that would mean actually re-pausing for a human decision, which replay can't do), so
     // reject outright rather than return a result that looks like it honored the override but didn't.
     if (mergedNode.type === "approval") {
-      await repositories.executionStep.completeReplayStep(
-        db,
+      await this.refuse(
         job.replayStepId,
         claimed.claimToken,
-        {
-          endedAt: new Date(),
-          status: "failed",
-          error: {
-            message:
-              "Approval nodes can't be replayed: their result is the original human decision already recorded for the original execution, so a replay would return that old outcome instead of honoring any override.",
-          },
-          costMicros: 0n,
-          tokensInput: 0,
-          tokensOutput: 0,
-        }
+        "Approval nodes can't be replayed: their result is the original human decision already recorded for the original execution, so a replay would return that old outcome instead of honoring any override."
       )
       return
     }
@@ -172,21 +171,19 @@ export class ReplayService {
     // meaningful, since nothing downstream re-runs to observe it — so reject outright rather than
     // return a result that looks real but isn't.
     if (mergedNode.type === "variables") {
-      await repositories.executionStep.completeReplayStep(
-        db,
+      await this.refuse(
         job.replayStepId,
         claimed.claimToken,
-        {
-          endedAt: new Date(),
-          status: "failed",
-          error: {
-            message:
-              "Variables nodes can't be replayed: their state is accumulated across the whole run, not looked up per-node, so a replay would read or write against empty state instead of the run's real variables.",
-          },
-          costMicros: 0n,
-          tokensInput: 0,
-          tokensOutput: 0,
-        }
+        "Variables nodes can't be replayed: their state is accumulated across the whole run, not looked up per-node, so a replay would read or write against empty state instead of the run's real variables."
+      )
+      return
+    }
+    const locked = lockedOverrideKeys(node, job.overrideConfig)
+    if (locked.length > 0) {
+      await this.refuse(
+        job.replayStepId,
+        claimed.claimToken,
+        `Replay can't change ${locked.join(", ")} on this ${node.type} node: a Replay may vary how a step computes, not where it sends data or which record it touches.`
       )
       return
     }
@@ -238,24 +235,20 @@ export class ReplayService {
       costUnpriced?: boolean
     }
     try {
-      const result = await this.interpreter.executeNode(
+      const result = await this.interpreter.executeDiagnosticNode(
         mergedNode,
         originalStep.input,
-        execution.workspaceId,
-        job.replayStepId,
-        abortController.signal,
-        // Wait (and any future node type keyed by executionId) needs its originating execution's
-        // id to look itself up — omitting it isn't "no context," it's a context guard tripping,
-        // since a node like Wait can't tell "no execution" apart from "id genuinely absent."
-        execution.id,
-        undefined,
-        execution.workflowId ?? undefined,
-        undefined,
-        undefined,
-        undefined,
-        cacheableWorkflowVersionId,
-        execution.environmentId ?? undefined,
-        execution.externalSubjectRecordId ?? undefined
+        {
+          workspaceId: execution.workspaceId,
+          idempotencyKey: job.replayStepId,
+          signal: abortController.signal,
+          executionId: execution.id,
+          workflowId: execution.workflowId ?? undefined,
+          workflowVersionId: cacheableWorkflowVersionId,
+          environmentId: execution.environmentId ?? undefined,
+          externalSubjectRecordId:
+            execution.externalSubjectRecordId ?? undefined,
+        }
       )
       const isModelCall =
         model !== undefined &&

@@ -31,6 +31,42 @@ async function setup() {
 }
 
 describe("MemoryNode", () => {
+  it("refuses a write in a diagnostic run but still reads", async () => {
+    const { organization, environmentId } = await setup()
+    try {
+      const node = new MemoryNode()
+      const context = {
+        workspaceId: organization.id,
+        environmentId,
+        workflowId: "wf-1",
+      }
+      await node.execute(
+        { operation: "write", subjectPath: "userId", key: "favorite" },
+        { userId: "u1", food: "pizza" },
+        context
+      )
+      await expect(
+        node.execute(
+          { operation: "write", subjectPath: "userId", key: "favorite" },
+          { userId: "u1", food: "poison" },
+          { ...context, diagnostic: true }
+        )
+      ).rejects.toThrow("Memory writes don't run in Replay or Regression runs")
+      const readOutput = await node.execute(
+        { operation: "read", subjectPath: "userId", key: "favorite" },
+        { userId: "u1" },
+        { ...context, diagnostic: true }
+      )
+      expect(readOutput).toEqual({
+        found: true,
+        value: { userId: "u1", food: "pizza" },
+      })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
   it("writes then reads back the same value in the same scope", async () => {
     const { organization, environmentId } = await setup()
     try {
