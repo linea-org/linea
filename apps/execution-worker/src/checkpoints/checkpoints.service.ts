@@ -28,7 +28,7 @@ export type RecordStepInput = {
   nodeType: string
   input: unknown
   output?: unknown
-  error?: { message: string; stack?: string }
+  error?: { message: string }
   startedAt: Date
   endedAt: Date
   costMicros?: bigint
