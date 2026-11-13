@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
@@ -7,6 +8,10 @@ import { db, repositories, type RegressionCase } from '@linea/db'
 import type { CreateRegressionCaseFromFlagDto } from './dto/create-regression-case-from-flag.dto'
 import type { CreateRegressionCaseFromStepDto } from './dto/create-regression-case-from-step.dto'
 import type { ListRegressionCasesDto } from './dto/list-regression-cases.dto'
+import {
+  canReadEndUserTraceContent,
+  isEndUserExecution,
+} from '../executions/end-user-trace-access'
 
 @Injectable()
 export class RegressionCasesService {
@@ -29,6 +34,7 @@ export class RegressionCasesService {
     workspaceId: string,
     workflowId: string,
     body: CreateRegressionCaseFromStepDto,
+    userId: string | undefined,
   ): Promise<RegressionCase> {
     // Validate ownership before the repository copies step data into a new row.
     const step = await repositories.executionStep.getExecutionStepById(
@@ -49,6 +55,14 @@ export class RegressionCasesService {
     if (step.name === 'agent') {
       throw new BadRequestException(
         'Run Agent steps cannot be saved as regression cases yet',
+      )
+    }
+    if (
+      isEndUserExecution(execution) &&
+      !(await canReadEndUserTraceContent(workspaceId, userId))
+    ) {
+      throw new ForbiddenException(
+        'Saving a step from an End-User execution requires a signed-in admin or owner',
       )
     }
 

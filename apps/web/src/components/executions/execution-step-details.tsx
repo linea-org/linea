@@ -94,6 +94,7 @@ export function ExecutionStepDetails({
   step,
   nodeConfig,
   replayable,
+  contentRestricted,
   resumedAt,
   onReplayTriggered,
 }: Readonly<{
@@ -102,6 +103,7 @@ export function ExecutionStepDetails({
   step: ExecutionStepSummary
   nodeConfig: Record<string, JsonValue> | undefined
   replayable: boolean
+  contentRestricted: boolean
   resumedAt: string | undefined
   onReplayTriggered: (stepId: string) => void
 }>) {
@@ -164,8 +166,17 @@ export function ExecutionStepDetails({
           <TabsTrigger value="raw">Raw data</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="flex min-w-0 flex-col gap-4">
-          <StepPayload label="Input" value={step.input} />
-          <StepPayload label="Output" value={step.output} />
+          {contentRestricted ? (
+            <p className="text-xs text-muted-foreground">
+              This run handled an End User&apos;s data, so step input and output
+              are visible to workspace admins and owners only.
+            </p>
+          ) : (
+            <>
+              <StepPayload label="Input" value={step.input} />
+              <StepPayload label="Output" value={step.output} />
+            </>
+          )}
         </TabsContent>
         <TabsContent value="raw" className="min-w-0">
           <pre className="max-h-96 overflow-auto rounded-lg bg-surface-canvas p-3 font-mono text-xs break-words whitespace-pre-wrap">
@@ -188,7 +199,7 @@ export function ExecutionStepDetails({
             Start a new Workflow run to try again.
           </p>
         )}
-        {workflowId && step.name !== "agent" && (
+        {workflowId && step.name !== "agent" && !contentRestricted && (
           <AddToRegressionAction workflowId={workflowId} stepId={step.id} />
         )}
       </div>
