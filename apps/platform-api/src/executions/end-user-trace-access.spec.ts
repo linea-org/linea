@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing'
 import type { NestExpressApplication } from '@nestjs/platform-express'
 import { db, pool, repositories, schema } from '@linea/db'
 import { createTestExecution, getTestApplicationId } from '@linea/db/testing'
+import type { WorkflowStepReplayJob } from '@linea/queue'
 import request from 'supertest'
 import type { Server } from 'node:http'
 import { z } from 'zod'
@@ -31,7 +32,26 @@ describe('End-User execution trace access', () => {
   let endUserExecutionId: string
   let endUserStepId: string
   let operatorExecutionId: string
+  let operatorStepId: string
   const key = generateApiKey()
+  const enqueue = jest.fn<Promise<void>, [WorkflowStepReplayJob]>()
+  const memberAndKey = () => [
+    { 'x-test-user': userIds[2] },
+    { Authorization: `Bearer ${key.rawKey}` },
+  ]
+  function sessionFromTestUserHeader(
+    req: AuthenticatedRequest,
+    _res: unknown,
+    next: () => void,
+  ) {
+    const userId = req.headers['x-test-user']
+    if (typeof userId === 'string')
+      req.session = {
+        user: { id: userId },
+        session: { activeOrganizationId: workspaceId },
+      }
+    next()
+  }
   const providerOutput = { issues: [{ title: 'Private roadmap' }] }
   async function insertStep(executionId: string) {
     const [step] = await db
@@ -118,25 +138,21 @@ describe('End-User execution trace access', () => {
       trigger: 'manual',
     })
     operatorExecutionId = operatorExecution.id
-    await insertStep(operatorExecutionId)
+    operatorStepId = (await insertStep(operatorExecutionId)).id
+    await pool.query(
+      "UPDATE executions SET status = 'succeeded' WHERE id = ANY($1)",
+      [[endUserExecutionId, operatorExecutionId]],
+    )
     const moduleRef = await Test.createTestingModule({
       controllers: [ExecutionsController, RegressionCasesController],
       providers: [
         ExecutionsService,
         RegressionCasesService,
-        { provide: StepReplayQueueService, useValue: {} },
+        { provide: StepReplayQueueService, useValue: { enqueue } },
       ],
     }).compile()
     app = moduleRef.createNestApplication<NestExpressApplication<Server>>()
-    app.use((req: AuthenticatedRequest, _res: unknown, next: () => void) => {
-      const userId = req.headers['x-test-user']
-      if (typeof userId === 'string')
-        req.session = {
-          user: { id: userId },
-          session: { activeOrganizationId: workspaceId },
-        }
-      next()
-    })
+    app.use(sessionFromTestUserHeader)
     app.set('json replacer', bigIntJsonReplacer)
     await app.init()
   })
@@ -148,11 +164,8 @@ describe('End-User execution trace access', () => {
   })
   it('hides End-User step input and output from members and workspace keys but not from admins or owners', async () => {
     const server = app.getHttpServer()
-    const [ownerId, adminId, memberId] = userIds
-    for (const auth of [
-      { 'x-test-user': memberId },
-      { Authorization: `Bearer ${key.rawKey}` },
-    ]) {
+    const [ownerId, adminId] = userIds
+    for (const auth of memberAndKey()) {
       const response = await request(server)
         .get(`/workspace/executions/${endUserExecutionId}`)
         .set(auth)
@@ -185,10 +198,7 @@ describe('End-User execution trace access', () => {
   })
   it('refuses members and workspace keys a regression case from an End-User step', async () => {
     const server = app.getHttpServer()
-    for (const auth of [
-      { 'x-test-user': userIds[2] },
-      { Authorization: `Bearer ${key.rawKey}` },
-    ]) {
+    for (const auth of memberAndKey()) {
       await request(server)
         .post(`/workflows/${workflowId}/regression-cases/from-step`)
         .set(auth)
@@ -208,5 +218,31 @@ describe('End-User execution trace access', () => {
       .set({ 'x-test-user': userIds[1] })
       .send({ stepId: endUserStepId })
       .expect(201)
+  })
+  it('refuses members and workspace keys a replay of an End-User step so an overridden URL cannot receive its input', async () => {
+    const server = app.getHttpServer()
+    const overrideConfig = { url: 'https://attacker.test', method: 'POST' }
+    for (const auth of memberAndKey()) {
+      await request(server)
+        .post(`/executions/${endUserExecutionId}/steps/${endUserStepId}/replay`)
+        .set(auth)
+        .send({ overrideConfig })
+        .expect(403)
+    }
+    expect(enqueue).not.toHaveBeenCalled()
+    await request(server)
+      .post(`/executions/${operatorExecutionId}/steps/${operatorStepId}/replay`)
+      .set({ 'x-test-user': userIds[2] })
+      .send({})
+      .expect(201)
+    await request(server)
+      .post(`/executions/${endUserExecutionId}/steps/${endUserStepId}/replay`)
+      .set({ 'x-test-user': userIds[1] })
+      .send({})
+      .expect(201)
+    expect(enqueue.mock.calls.map(([job]) => job.originalStepId)).toEqual([
+      operatorStepId,
+      endUserStepId,
+    ])
   })
 })

@@ -1097,6 +1097,7 @@ describe('ExecutionsService', () => {
           execution.id,
           step.id,
           { overrideConfig: { foo: 'bar' } },
+          undefined,
         )
         expect(result.replayStepId).toEqual(expect.any(String))
       } finally {
@@ -1128,7 +1129,13 @@ describe('ExecutionsService', () => {
           [step.id],
         )
         await expect(
-          service.replayStep(organization.id, execution.id, step.id, {}),
+          service.replayStep(
+            organization.id,
+            execution.id,
+            step.id,
+            {},
+            undefined,
+          ),
         ).rejects.toThrow('Run Agent steps cannot be replayed')
       } finally {
         await moduleRef.close()
@@ -1156,7 +1163,13 @@ describe('ExecutionsService', () => {
           organization.id,
         )
         await expect(
-          service.replayStep(organization.id, execution.id, randomUUID(), {}),
+          service.replayStep(
+            organization.id,
+            execution.id,
+            randomUUID(),
+            {},
+            undefined,
+          ),
         ).rejects.toThrow('Step not found')
         const [alreadyAReplay] = await db
           .insert(schema.executionSteps)
@@ -1182,6 +1195,7 @@ describe('ExecutionsService', () => {
             execution.id,
             alreadyAReplay.id,
             {},
+            undefined,
           ),
         ).rejects.toThrow('Cannot replay a replay')
         const nonTerminalWorkflow = await repositories.workflow.createWorkflow(
@@ -1211,6 +1225,7 @@ describe('ExecutionsService', () => {
             nonTerminalExecution.id,
             step.id,
             {},
+            undefined,
           ),
         ).rejects.toThrow('Execution is not replayable')
       } finally {
