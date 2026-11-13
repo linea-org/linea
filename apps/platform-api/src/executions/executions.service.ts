@@ -341,7 +341,18 @@ export class ExecutionsService {
         pausedAtNode = { nodeId: waitingOn.nodeId, type: 'agent' }
       }
     }
-    return { ...result, nodeConfigs, replayable, pausedAtNode, nestedAgents }
+    // Rows written before stacks moved to server logs may still carry one.
+    const steps = result.steps.map((step) =>
+      step.error ? { ...step, error: { message: step.error.message } } : step,
+    )
+    return {
+      ...result,
+      steps,
+      nodeConfigs,
+      replayable,
+      pausedAtNode,
+      nestedAgents,
+    }
   }
 
   async replayStep(

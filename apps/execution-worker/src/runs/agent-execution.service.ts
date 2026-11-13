@@ -317,6 +317,10 @@ export class AgentExecutionService {
       failure.error instanceof Error
         ? failure.error.message
         : String(failure.error)
+    this.logger.error(
+      `Agent Execution ${execution.id} step ${failure.nodeId} failed: ${message}`,
+      failure.error instanceof Error ? failure.error.stack : undefined
+    )
     try {
       await this.checkpoints.recordStep({
         executionId: execution.id,
@@ -325,11 +329,7 @@ export class AgentExecutionService {
         nodeId: failure.nodeId,
         nodeType: failure.nodeType,
         input: failure.input,
-        error: {
-          message,
-          stack:
-            failure.error instanceof Error ? failure.error.stack : undefined,
-        },
+        error: { message },
         startedAt: failure.startedAt,
         endedAt: new Date(),
         completed,

@@ -1,5 +1,5 @@
 import { setTimeout as sleep } from "node:timers/promises"
-import { Injectable } from "@nestjs/common"
+import { Injectable, Logger } from "@nestjs/common"
 import { calculateCostMicros, resolveProviderId } from "@linea/ai"
 import {
   MAX_RETRY_DELAY_MS,
@@ -137,6 +137,7 @@ function extractTokenUsage(
 
 @Injectable()
 export class InterpreterService {
+  private readonly logger = new Logger(InterpreterService.name)
   private readonly handlers: Record<string, NodeHandler>
 
   constructor(
@@ -378,7 +379,11 @@ export class InterpreterService {
           }
         }
         const message = error instanceof Error ? error.message : String(error)
-        const stack = error instanceof Error ? error.stack : undefined
+        // Stacks stay in server logs; step records are returned to workspace members and API keys.
+        this.logger.error(
+          `Execution ${input.executionId} node ${step.nodeId} failed: ${message}`,
+          error instanceof Error ? error.stack : undefined
+        )
         const usage = getErrorTokenUsage(error)
         let costMicros: bigint | undefined
         let stepCostUnpriced: boolean | undefined
@@ -401,7 +406,7 @@ export class InterpreterService {
           nodeId: step.nodeId,
           nodeType: step.nodeType,
           input: step.input,
-          error: { message, stack },
+          error: { message },
           startedAt,
           endedAt: new Date(),
           tokensInput: usage?.tokensInput,
