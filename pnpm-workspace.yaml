@@ -9,3 +9,17 @@ allowBuilds:
   re2: true
   unrs-resolver: true
   msw: false
+
+# Unreachable advisories the CI audit gate skips; each GHSA applies to every version, so keep this short.
+auditConfig:
+  ignoreGhsas:
+    # zod 3 inside @expo/cli (dev tooling, no 3.x fix); runtime zod@4 is held >=4.6.6.
+    - GHSA-mrhx-c7xc-m3w5
+    # decode-uri-component inside expo-router; no Expo app here, fix is outside query-string's range.
+    - GHSA-qr28-fpjm-wq7f
+    # seroval fromJSON bugs; locked solid-js 1.9.13 only serializes. Drop once solid-js >=1.9.19.
+    - GHSA-p6vx-979v-rg4c
+    - GHSA-jp82-f5mq-hwhp
+    - GHSA-97r2-qh9m-474h
+    - GHSA-wp97-x4hv-qvhp
+    - GHSA-7rv5-mrxv-xcr9
