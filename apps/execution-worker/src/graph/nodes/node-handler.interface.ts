@@ -20,6 +20,8 @@ export type NodeExecutionContext = {
   workflowVersionId?: string
   /** The specific chat message row (set by sendChatMessage in triggerPayload) that this execution is answering — lets AiNode identify its own turn instead of assuming "whichever message is latest," which breaks if a second turn is submitted before this execution's AI node runs. */
   chatMessageId?: string
+  /** Set for Replay and Regression runs: handlers must refuse any external write instead of repeating it (ADR 0024). */
+  diagnostic?: boolean
   /** Regression replays use a frozen conversation because no live chat messages back the run. */
   regressionConversation?: {
     turns: { role: "user" | "assistant"; content: string }[]
@@ -32,6 +34,7 @@ export type NodeExecutionContext = {
    * from this (returned as its output, then adopted by the interpreter); other handlers get it
    * read-only for their own internal use, not as something they write back into. */
   variables?: Record<string, unknown>
+  priorExecutionTokens?: number
 }
 
 export interface NodeHandler {

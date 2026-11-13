@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, expect, it, vi } from "vitest"
 import { betterAuth } from "better-auth"
 import { memoryAdapter } from "better-auth/adapters/memory"
+import { createTestRateLimiter } from "./test-rate-limiter.js"
+
+const { redis, limiter } = createTestRateLimiter(process.env.REDIS_URL)
 
 beforeAll(() => {
   vi.stubEnv("DATABASE_URL", "postgresql://test:test@127.0.0.1:1/session_test")
@@ -8,12 +11,17 @@ beforeAll(() => {
   vi.stubEnv("BETTER_AUTH_SECRET", "session-rate-limit-regression-test-secret")
 })
 
-afterAll(() => vi.unstubAllEnvs())
+afterAll(async () => {
+  vi.unstubAllEnvs()
+  await redis.quit()
+})
 
 it("keeps a valid session readable past the auth request limit while throttling sign-in", async () => {
   const { auth } = await import("./auth.js")
   const isolatedAuth = betterAuth({
     ...auth.options,
+    rateLimit: { ...auth.options.rateLimit, customStorage: limiter.storage },
+    hooks: limiter.hooks,
     database: memoryAdapter({
       user: [],
       session: [],

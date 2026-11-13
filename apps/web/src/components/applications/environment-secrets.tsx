@@ -177,7 +177,11 @@ function ProviderRow({
       </TableCell>
       <TableCell className="px-4 py-3">
         <Badge variant={provider.configured ? "default" : "secondary"}>
-          {provider.configured ? "This Environment" : "Linea default"}
+          {provider.configured
+            ? "This Environment"
+            : provider.platformFallback
+              ? "Linea default"
+              : "Not set"}
         </Badge>
       </TableCell>
       <TableCell className="px-2 py-3 text-right">

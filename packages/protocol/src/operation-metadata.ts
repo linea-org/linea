@@ -7,6 +7,10 @@ import type {
 const none = "None."
 const platformProtection =
   "No operation-specific limit; platform protections apply."
+const environmentKeyRead =
+  "Environment-key reads share 600 requests per key and 3,000 per workspace each minute."
+const environmentKeyWrite =
+  "Environment-key writes share 120 requests per key and 600 per workspace each minute."
 const cursorPagination =
   "Cursor pagination through limit and cursor query parameters."
 const userCaller = "An End User's browser or native environment."
@@ -186,7 +190,7 @@ export const operationMetadata = {
     purpose: "List redacted connector audit events for one Environment.",
     caller: environmentCaller,
     idempotency: none,
-    rateLimit: platformProtection,
+    rateLimit: environmentKeyRead,
     pagination: cursorPagination,
     events: none,
     adapter: adapter(
@@ -385,7 +389,7 @@ export const operationMetadata = {
     purpose: "Provision or retrieve an External Subject in an Environment.",
     caller: environmentCaller,
     idempotency: "The external identity is the natural idempotency key.",
-    rateLimit: platformProtection,
+    rateLimit: environmentKeyWrite,
     pagination: none,
     events: none,
     adapter: adapter(
@@ -400,7 +404,7 @@ export const operationMetadata = {
     caller: environmentCaller,
     idempotency:
       "Requires Idempotency-Key; replay returns the original response and conflicting input fails.",
-    rateLimit: platformProtection,
+    rateLimit: environmentKeyWrite,
     pagination: none,
     events: none,
     adapter: adapter(
@@ -413,7 +417,7 @@ export const operationMetadata = {
     purpose: "List Conversations visible to an Environment.",
     caller: environmentCaller,
     idempotency: none,
-    rateLimit: platformProtection,
+    rateLimit: environmentKeyRead,
     pagination: cursorPagination,
     events: none,
     adapter: adapter(
@@ -426,7 +430,7 @@ export const operationMetadata = {
     purpose: "Get one Conversation visible to an Environment.",
     caller: environmentCaller,
     idempotency: none,
-    rateLimit: platformProtection,
+    rateLimit: environmentKeyRead,
     pagination: none,
     events: none,
     adapter: adapter(
@@ -440,7 +444,7 @@ export const operationMetadata = {
     caller: environmentCaller,
     idempotency:
       "Requires Idempotency-Key; replay returns the original response and conflicting input fails.",
-    rateLimit: platformProtection,
+    rateLimit: environmentKeyWrite,
     pagination: none,
     events: "May emit execution and approval events and configured webhooks.",
     adapter: adapter(
@@ -453,7 +457,7 @@ export const operationMetadata = {
     purpose: "Get one Execution visible to an Environment.",
     caller: environmentCaller,
     idempotency: none,
-    rateLimit: platformProtection,
+    rateLimit: environmentKeyRead,
     pagination: none,
     events: none,
     adapter: adapter(
@@ -467,7 +471,7 @@ export const operationMetadata = {
     caller: environmentCaller,
     idempotency:
       "Requires Idempotency-Key; replay returns the original response and conflicting input fails.",
-    rateLimit: platformProtection,
+    rateLimit: environmentKeyWrite,
     pagination: none,
     events:
       "May emit execution and approval cancellation events and configured webhooks.",
@@ -482,7 +486,7 @@ export const operationMetadata = {
     caller: userCaller,
     idempotency:
       "Requires Idempotency-Key; replay returns the original response and conflicting input fails.",
-    rateLimit: platformProtection,
+    rateLimit: "20 Conversations per External Subject each minute.",
     pagination: none,
     events: none,
     adapter: adapter(
@@ -644,7 +648,7 @@ export const operationMetadata = {
     purpose: "List webhook delivery attempts for an Environment.",
     caller: environmentCaller,
     idempotency: none,
-    rateLimit: platformProtection,
+    rateLimit: environmentKeyRead,
     pagination: cursorPagination,
     events: none,
     adapter: adapter(
@@ -722,7 +726,7 @@ export const operationMetadata = {
     purpose: "Queue a Regression Run for a Workflow.",
     caller: workspaceCaller,
     idempotency: none,
-    rateLimit: platformProtection,
+    rateLimit: "10 requests per caller and 30 per workspace each minute.",
     pagination: none,
     events: none,
     adapter: adapter(

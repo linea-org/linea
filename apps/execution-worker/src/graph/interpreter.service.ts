@@ -1,6 +1,11 @@
 import { setTimeout as sleep } from "node:timers/promises"
 import { Injectable, Logger } from "@nestjs/common"
-import { calculateCostMicros, resolveProviderId } from "@linea/ai"
+import {
+  calculateCostMicros,
+  executionBudgetMessage,
+  MAX_EXECUTION_TOKENS,
+  resolveProviderId,
+} from "@linea/ai"
 import {
   MAX_RETRY_DELAY_MS,
   MAX_NODE_ATTEMPT_MS,
@@ -32,7 +37,10 @@ import { FilterNode } from "./nodes/filter.node"
 import { HttpNode } from "./nodes/http.node"
 import { MemoryNode } from "./nodes/memory.node"
 import { MergeNode } from "./nodes/merge.node"
-import type { NodeHandler } from "./nodes/node-handler.interface"
+import type {
+  NodeExecutionContext,
+  NodeHandler,
+} from "./nodes/node-handler.interface"
 import { NonRetryableError } from "./nodes/non-retryable-error"
 import { getErrorTokenUsage } from "./nodes/usage-error"
 import { StartNode } from "./nodes/start.node"
@@ -40,6 +48,7 @@ import { TransformNode } from "./nodes/transform.node"
 import { VariablesNode } from "./nodes/variables.node"
 import { WaitNode } from "./nodes/wait.node"
 import { resolveNodeModel } from "./resolve-node-model"
+import { diagnosticDispatch } from "./diagnostic-dispatch"
 
 function computeBackoffDelayMs(
   backoff: RetryPolicy["backoff"],
@@ -193,7 +202,8 @@ export class InterpreterService {
     variables?: Record<string, unknown>,
     workflowVersionId?: string,
     environmentId?: string,
-    externalSubjectRecordId?: string
+    externalSubjectRecordId?: string,
+    priorExecutionTokens?: number
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -217,6 +227,39 @@ export class InterpreterService {
       chatMessageId,
       leasedBy,
       variables,
+      priorExecutionTokens,
+    })
+    const usage = extractTokenUsage(output)
+    return {
+      output,
+      tokensInput: usage?.tokensInput,
+      tokensOutput: usage?.tokensOutput,
+    }
+  }
+
+  /** Runs one node for a Replay or Regression run: refused node types never reach their handler, and the rest run with `diagnostic` set so they refuse external writes. */
+  async executeDiagnosticNode(
+    node: WorkflowNode,
+    input: unknown,
+    context: Omit<NodeExecutionContext, "nodeId" | "diagnostic">
+  ): Promise<{
+    output: unknown
+    tokensInput?: number
+    tokensOutput?: number
+  }> {
+    if (diagnosticDispatch[node.type] === "refused") {
+      throw new NonRetryableError(
+        `${node.type} nodes don't run in Replay or Regression runs: they would repeat the original action, and no recorded result is available to substitute`
+      )
+    }
+    const handler = this.handlers[node.type]
+    if (!handler) {
+      throw new Error(`No handler for node type "${node.type}"`)
+    }
+    const output = await handler.execute(node.config, input, {
+      ...context,
+      nodeId: node.id,
+      diagnostic: true,
     })
     const usage = extractTokenUsage(output)
     return {
@@ -259,6 +302,10 @@ export class InterpreterService {
       const provider = model ? resolveProviderId(model) : undefined
       try {
         runSignal.throwIfAborted()
+        const usedTokens = totalTokensInput + totalTokensOutput
+        if (usedTokens >= MAX_EXECUTION_TOKENS) {
+          throw new NonRetryableError(executionBudgetMessage(usedTokens))
+        }
         await this.checkpoints.assertOwnsLease(
           input.executionId,
           input.leasedBy
@@ -286,7 +333,8 @@ export class InterpreterService {
               variablesState,
               input.workflowVersionId,
               input.environmentId,
-              input.externalSubjectRecordId
+              input.externalSubjectRecordId,
+              usedTokens
             )
             break
           } catch (attemptError) {
