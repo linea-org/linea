@@ -12,6 +12,7 @@ import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
+import { WorkspaceRateLimit } from '../auth/workspace-rate-limit.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
   listRegressionRunsSchema,
@@ -47,6 +48,7 @@ export class RegressionRunsController {
 
   @Post('workflows/:workflowId/regression-runs')
   @RequireWorkspaceKeyScopes('regressions:write')
+  @WorkspaceRateLimit('diagnostic')
   async trigger(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,

@@ -18,11 +18,17 @@ const resolveProvider = jest.fn(() => ({ complete }))
 const resolveKeyName = jest.fn(() => "anthropic")
 const resolveApiKey = jest.fn(() => Promise.resolve({ apiKey: "secret" }))
 
-jest.mock("@linea/ai", () => ({
-  resolveProvider,
-  resolveKeyName,
-  resolveApiKey,
-}))
+jest.mock("@linea/ai", () => {
+  const { MAX_EXECUTION_TOKENS, executionBudgetMessage } =
+    jest.requireActual<typeof import("@linea/ai")>("@linea/ai")
+  return {
+    resolveProvider,
+    resolveKeyName,
+    resolveApiKey,
+    MAX_EXECUTION_TOKENS,
+    executionBudgetMessage,
+  }
+})
 
 const listChatMessages = jest.fn()
 const getToolCallRecord = jest.fn<
@@ -134,6 +140,26 @@ describe("AiNode", () => {
     expect(complete).toHaveBeenCalledWith(
       "secret",
       expect.objectContaining({ prompt: "static prompt", history: undefined })
+    )
+  })
+
+  it("sends a regression conversation with the same 40-message window as live chat", async () => {
+    complete.mockResolvedValue({ text: "hi", tokensInput: 1, tokensOutput: 1 })
+    const turns = Array.from(
+      { length: 45 },
+      (_, index): { role: "user" | "assistant"; content: string } => ({
+        role: index % 2 === 0 ? "user" : "assistant",
+        content: `turn ${index}`,
+      })
+    )
+    await new AiNode().execute(
+      { prompt: "unused", model: "claude-sonnet-5" },
+      undefined,
+      { ...context, regressionConversation: { turns, finalPrompt: "last" } }
+    )
+    expect(complete).toHaveBeenCalledWith(
+      "secret",
+      expect.objectContaining({ prompt: "last", history: turns.slice(5) })
     )
   })
 
@@ -1355,6 +1381,86 @@ describe("AiNode", () => {
         })
       )
       expect(result).toEqual({ text: "done", tokensInput: 2, tokensOutput: 2 })
+    })
+
+    it("stops the tool loop once it uses the execution token budget", async () => {
+      complete.mockResolvedValue({
+        text: "",
+        tokensInput: 600_000,
+        tokensOutput: 1,
+        toolCalls: [{ id: "call_1", name: "noop", arguments: {} }],
+      })
+      mockFetch()
+      await expect(
+        new AiNode().execute(
+          {
+            prompt: "loop forever",
+            model: "claude-sonnet-5",
+            maxIterations: 5,
+            tools: [
+              {
+                name: "noop",
+                parameters: {},
+                url: "https://api.example.com/noop",
+                method: "POST",
+              },
+            ],
+          },
+          undefined,
+          context
+        )
+      ).rejects.toMatchObject({
+        name: "UsageError",
+        tokensInput: 1_200_000,
+        tokensOutput: 2,
+      })
+      expect(complete).toHaveBeenCalledTimes(2)
+    })
+
+    it("counts tokens earlier nodes used against the execution budget", async () => {
+      complete.mockResolvedValue({
+        text: "",
+        tokensInput: 30_000,
+        tokensOutput: 1,
+        toolCalls: [{ id: "call_1", name: "noop", arguments: {} }],
+      })
+      const fetchMock = mockFetch()
+      await expect(
+        new AiNode().execute(
+          {
+            prompt: "loop forever",
+            model: "claude-sonnet-5",
+            maxIterations: 5,
+            tools: [
+              {
+                name: "noop",
+                parameters: {},
+                url: "https://api.example.com/noop",
+                method: "POST",
+              },
+            ],
+          },
+          undefined,
+          { ...context, priorExecutionTokens: 950_000 }
+        )
+      ).rejects.toMatchObject({
+        name: "UsageError",
+        tokensInput: 60_000,
+        tokensOutput: 2,
+      })
+      expect(complete).toHaveBeenCalledTimes(2)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it("makes no model call once earlier nodes have used the execution budget", async () => {
+      await expect(
+        new AiNode().execute(
+          { prompt: "hello", model: "claude-sonnet-5" },
+          undefined,
+          { ...context, priorExecutionTokens: 1_000_000 }
+        )
+      ).rejects.toMatchObject({ name: "UsageError" })
+      expect(complete).not.toHaveBeenCalled()
     })
 
     it("throws once the loop exceeds maxIterations without a final answer", async () => {

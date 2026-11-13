@@ -1,3 +1,4 @@
+import { executionBudgetMessage, MAX_EXECUTION_TOKENS } from "@linea/ai"
 import { NonRetryableError } from "./non-retryable-error"
 
 export class UsageError extends NonRetryableError {
@@ -21,6 +22,21 @@ export class RetryableUsageError extends Error {
   ) {
     super(message, options)
     this.name = "RetryableUsageError"
+  }
+}
+
+export function assertWithinExecutionBudget(
+  priorExecutionTokens: number | undefined,
+  tokensInput: number,
+  tokensOutput: number
+): void {
+  const used = (priorExecutionTokens ?? 0) + tokensInput + tokensOutput
+  if (used >= MAX_EXECUTION_TOKENS) {
+    throw new UsageError(
+      executionBudgetMessage(used),
+      tokensInput,
+      tokensOutput
+    )
   }
 }
 

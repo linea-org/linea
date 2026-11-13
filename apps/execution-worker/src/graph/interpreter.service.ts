@@ -1,6 +1,11 @@
 import { setTimeout as sleep } from "node:timers/promises"
 import { Injectable, Logger } from "@nestjs/common"
-import { calculateCostMicros, resolveProviderId } from "@linea/ai"
+import {
+  calculateCostMicros,
+  executionBudgetMessage,
+  MAX_EXECUTION_TOKENS,
+  resolveProviderId,
+} from "@linea/ai"
 import {
   MAX_RETRY_DELAY_MS,
   MAX_NODE_ATTEMPT_MS,
@@ -193,7 +198,8 @@ export class InterpreterService {
     variables?: Record<string, unknown>,
     workflowVersionId?: string,
     environmentId?: string,
-    externalSubjectRecordId?: string
+    externalSubjectRecordId?: string,
+    priorExecutionTokens?: number
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -217,6 +223,7 @@ export class InterpreterService {
       chatMessageId,
       leasedBy,
       variables,
+      priorExecutionTokens,
     })
     const usage = extractTokenUsage(output)
     return {
@@ -259,6 +266,10 @@ export class InterpreterService {
       const provider = model ? resolveProviderId(model) : undefined
       try {
         runSignal.throwIfAborted()
+        const usedTokens = totalTokensInput + totalTokensOutput
+        if (usedTokens >= MAX_EXECUTION_TOKENS) {
+          throw new NonRetryableError(executionBudgetMessage(usedTokens))
+        }
         await this.checkpoints.assertOwnsLease(
           input.executionId,
           input.leasedBy
@@ -286,7 +297,8 @@ export class InterpreterService {
               variablesState,
               input.workflowVersionId,
               input.environmentId,
-              input.externalSubjectRecordId
+              input.externalSubjectRecordId,
+              usedTokens
             )
             break
           } catch (attemptError) {
