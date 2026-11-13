@@ -1,4 +1,5 @@
-import { and, desc, eq, isNull } from "drizzle-orm"
+import { createHash } from "node:crypto"
+import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm"
 import {
   environments,
   environmentKeys,
@@ -6,7 +7,18 @@ import {
   type EnvironmentKey,
   type NewAuditLog,
 } from "../schema/index.js"
+import { consumeRateLimits } from "./end-user-authorization.repository.js"
 import type { DbClient, Transaction } from "./types.js"
+
+const LAST_USED_RESOLUTION_MS = 60 * 1000
+const ACTIVITY_AUDIT_WINDOW_MS = 60 * 60 * 1000
+const ACTIVITY_AUDITS_PER_WINDOW = 20
+const ACTIVITY_RETENTION_BATCH = 5000
+const activityActions = [
+  "environment_key.used",
+  "environment_key.scope_denied",
+  "environment_key.cross_environment_access_denied",
+] as const
 
 export type EnvironmentKeyActor = { userId: string }
 
@@ -26,9 +38,7 @@ export type CreateEnvironmentKeyResult =
 
 type EnvironmentKeyActivityAction = Extract<
   NewAuditLog["action"],
-  | "environment_key.used"
-  | "environment_key.scope_denied"
-  | "environment_key.cross_environment_access_denied"
+  (typeof activityActions)[number]
 >
 
 type EnvironmentKeyIdentity = Pick<
@@ -228,17 +238,43 @@ export async function authenticateEnvironmentKey(
   return result?.environmentKey
 }
 
+/** Writes at most one audit row per key, action and metadata each hour and at most 20 per key and action, so repeated use or denial cannot grow `audit_logs` per request; `last_used_at` moves at most once a minute. */
 export async function recordEnvironmentKeyActivity(
   db: DbClient,
   environmentKey: EnvironmentKeyIdentity,
   action: EnvironmentKeyActivityAction,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  now: Date
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    await tx
+    const touched = await tx
       .update(environmentKeys)
-      .set({ lastUsedAt: new Date() })
-      .where(eq(environmentKeys.id, environmentKey.id))
+      .set({ lastUsedAt: now })
+      .where(
+        and(
+          eq(environmentKeys.id, environmentKey.id),
+          or(
+            isNull(environmentKeys.lastUsedAt),
+            lt(
+              environmentKeys.lastUsedAt,
+              new Date(now.getTime() - LAST_USED_RESOLUTION_MS)
+            )
+          )
+        )
+      )
+      .returning({ id: environmentKeys.id })
+    if (action === "environment_key.used" && touched.length === 0) return
+    const window = Math.floor(now.getTime() / ACTIVITY_AUDIT_WINDOW_MS)
+    const scope = `environment-key-audit:${environmentKey.id}:${action}:${window}`
+    const exhausted = await consumeRateLimits(
+      tx,
+      [
+        { key: scope, limit: ACTIVITY_AUDITS_PER_WINDOW },
+        { key: `${scope}:${digest(JSON.stringify(metadata))}`, limit: 1 },
+      ],
+      new Date((window + 1) * ACTIVITY_AUDIT_WINDOW_MS)
+    )
+    if (exhausted.length > 0) return
     await tx.insert(auditLogs).values({
       workspaceId: environmentKey.workspaceId,
       actorEnvironmentKeyId: environmentKey.id,
@@ -248,4 +284,30 @@ export async function recordEnvironmentKeyActivity(
       metadata,
     })
   })
+}
+
+/** Deletes one bounded batch of Environment-key use and denial audit rows created before the cutoff; key lifecycle audit rows are kept. */
+export async function deleteEnvironmentKeyActivityBefore(
+  db: DbClient,
+  before: Date
+): Promise<number> {
+  const expired = db
+    .select({ id: auditLogs.id })
+    .from(auditLogs)
+    .where(
+      and(
+        inArray(auditLogs.action, [...activityActions]),
+        lt(auditLogs.createdAt, before)
+      )
+    )
+    .limit(ACTIVITY_RETENTION_BATCH)
+  const deleted = await db
+    .delete(auditLogs)
+    .where(inArray(auditLogs.id, expired))
+    .returning({ id: auditLogs.id })
+  return deleted.length
+}
+
+function digest(value: string): string {
+  return createHash("sha256").update(value).digest("hex")
 }
