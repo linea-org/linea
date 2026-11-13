@@ -19,6 +19,7 @@ import type { DbClient } from "./types.js"
 import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.repository.js"
 import { recordConnectionFact } from "./connector-audit.repository.js"
 import { createPublicEvent } from "./outbox-message.repository.js"
+import { deleteMemoriesForSubject } from "./memory.repository.js"
 
 export type ExternalSubjectProjection = {
   subject: ExternalSubject
@@ -412,6 +413,11 @@ export async function eraseExternalSubject(
         data: { connectionId: connection.id },
       })
     }
+    await deleteMemoriesForSubject(tx, {
+      workspaceId,
+      externalSubjectRecordId: existing.id,
+      issuerSubject: existing.issuerSubject,
+    })
     const [subject] = await tx
       .update(externalSubjects)
       .set({

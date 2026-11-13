@@ -344,7 +344,7 @@ describe("ReplayService.replay", () => {
       const replayRow = result?.steps.find((s) => s.id === replayStepId)
       expect(replayRow?.status).toBe("failed")
       expect(replayRow?.error?.message).toBe("provider unreachable")
-      expect(typeof replayRow?.error?.stack).toBe("string")
+      expect(replayRow?.error).toEqual({ message: "provider unreachable" })
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

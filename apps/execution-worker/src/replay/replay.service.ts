@@ -228,7 +228,7 @@ export class ReplayService {
     let outcome: {
       status: "succeeded" | "failed"
       output?: Record<string, unknown>
-      error?: { message: string; stack?: string }
+      error?: { message: string }
       tokensInput: number
       tokensOutput: number
       costMicros: bigint
@@ -246,6 +246,8 @@ export class ReplayService {
           workflowId: execution.workflowId ?? undefined,
           workflowVersionId: cacheableWorkflowVersionId,
           environmentId: execution.environmentId ?? undefined,
+          externalSubjectRecordId:
+            execution.externalSubjectRecordId ?? undefined,
         }
       )
       const isModelCall =
@@ -273,7 +275,10 @@ export class ReplayService {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      const stack = error instanceof Error ? error.stack : undefined
+      this.logger.error(
+        `Replay ${job.replayStepId} failed: ${message}`,
+        error instanceof Error ? error.stack : undefined
+      )
       const usage = getErrorTokenUsage(error)
       const costMicros =
         usage && model
@@ -281,7 +286,7 @@ export class ReplayService {
           : undefined
       outcome = {
         status: "failed",
-        error: { message, stack },
+        error: { message },
         tokensInput: usage?.tokensInput ?? 0,
         tokensOutput: usage?.tokensOutput ?? 0,
         costMicros: costMicros ?? 0n,

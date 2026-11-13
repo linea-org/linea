@@ -364,16 +364,9 @@ export class AiNode implements NodeHandler {
     // Failure here never fails the node — memory is an enhancement to a call whose core job is
     // still to respond, unlike the Memory node itself where storage IS the point and a bad
     // config throws loudly.
-    // Trust boundary, deliberate for now: externalSubjectId is resolved from this node's own
-    // input, which traces back to the caller-supplied triggerPayload — there is no per-end-user
-    // auth token to verify the caller is actually entitled to that specific subject's memories.
-    // workspaceId, by contrast, is never caller-supplied (WorkspaceAuthGuard resolves it
-    // server-side from the session/API key), so this can only ever cross subjects within one
-    // already-authenticated workspace, never across workspaces. Closing that narrower gap needs
-    // the per-end-user identity/authorization model Linea doesn't have yet — tracked on its own
-    // ticket (Phase 5) rather than attempted here as a partial fix.
+    // A verified End User's run is keyed by its record; memorySubjectPath only names operator-run subjects.
     //
-    // Second, separate trust boundary, also deliberate for now: a stored memory value is a plain
+    // Separate trust boundary, also deliberate for now: a stored memory value is a plain
     // string with no structure Linea enforces, so a value that reads as an instruction (written by
     // whoever had write access to this subject's memory, possibly a prior run acting on
     // attacker-supplied input) still reaches this model call as plain text. Formatting it as
@@ -389,19 +382,27 @@ export class AiNode implements NodeHandler {
       parsed.memorySubjectPath.trim() !== ""
     ) {
       try {
-        // Frozen replays carry their subject because they have no trigger payload for path resolution.
-        const externalSubjectId =
-          context.regressionConversation?.externalSubjectId ??
-          resolveSubjectId(input, parsed.memorySubjectPath, "Agent node memory")
-        const namespace = resolveNamespace(
-          parsed.memoryNamespace,
-          context.workflowId,
-          "Agent node memory"
-        )
+        if (!context.environmentId) {
+          throw new Error("Agent node memory requires an Environment")
+        }
         const memories = await repositories.memory.listMemories(db, {
           workspaceId: context.workspaceId,
-          externalSubjectId,
-          namespace,
+          environmentId: context.environmentId,
+          externalSubjectRecordId: context.externalSubjectRecordId,
+          // Frozen replays carry their subject because they have no trigger payload for path resolution.
+          externalSubjectId:
+            context.externalSubjectRecordId ??
+            context.regressionConversation?.externalSubjectId ??
+            resolveSubjectId(
+              input,
+              parsed.memorySubjectPath,
+              "Agent node memory"
+            ),
+          namespace: resolveNamespace(
+            parsed.memoryNamespace,
+            context.workflowId,
+            "Agent node memory"
+          ),
           limit: DEFAULT_MEMORY_RECALL_LIMIT,
         })
         if (memories.length > 0) {

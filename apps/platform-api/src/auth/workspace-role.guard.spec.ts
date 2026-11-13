@@ -170,4 +170,13 @@ describe('WorkspaceRoleGuard', () => {
       await pool.query('DELETE FROM users WHERE id = $1', [removedUser.id])
     }
   })
+
+  it('rejects a role-gated route when no workspace was resolved', async () => {
+    const request = {
+      session: { user: { id: randomUUID() } },
+    } as Partial<AuthenticatedRequest>
+    await expect(
+      guard.canActivate(contextFor(memberOnlyHandler, request)),
+    ).rejects.toThrow(ForbiddenException)
+  })
 })

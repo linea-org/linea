@@ -40,6 +40,8 @@ const requestSchema = z.strictObject({
   connectionId: z.uuid(),
   input: z.unknown(),
 })
+const AGENT_WORK_BUDGET_MS = 30 * 60_000
+const BUDGET_EXHAUSTED = "Agent run exceeded its 30 minute work budget"
 type AgentDefinition = z.infer<typeof agentDefinitionSchema>
 type RegisteredOperation = NonNullable<
   | ReturnType<typeof registeredReadOperation>
@@ -63,6 +65,7 @@ type RunContext = {
   execution: Execution
   leasedBy: string
   signal: AbortSignal
+  runSignal: AbortSignal
   definition: AgentDefinition
   contract: AgentContract
   completed: Completed
@@ -84,7 +87,32 @@ export class AgentExecutionService {
     leasedBy: string,
     signal: AbortSignal
   ): Promise<void> {
-    const context = await this.prepare(execution, leasedBy, signal)
+    // The budget persists across deliveries through recorded step time, so a pause cannot reset it.
+    const remainingMs =
+      AGENT_WORK_BUDGET_MS -
+      (await this.checkpoints.getRecordedWorkMs(execution.id))
+    if (remainingMs <= 0) throw new Error(BUDGET_EXHAUSTED)
+    const deadline = AbortSignal.timeout(remainingMs)
+    const runSignal = AbortSignal.any([signal, deadline])
+    try {
+      let outcome: "settled" | "resume"
+      do {
+        outcome = await this.attempt(execution, leasedBy, signal, runSignal)
+      } while (outcome === "resume")
+    } catch (error) {
+      if (deadline.aborted && !signal.aborted)
+        throw new Error(BUDGET_EXHAUSTED, { cause: error })
+      throw error
+    }
+  }
+
+  private async attempt(
+    execution: Execution,
+    leasedBy: string,
+    signal: AbortSignal,
+    runSignal: AbortSignal
+  ): Promise<"settled" | "resume"> {
+    const context = await this.prepare(execution, leasedBy, signal, runSignal)
     const conversation: ConversationTurn[] = [
       { role: "user", content: JSON.stringify(execution.triggerPayload) },
     ]
@@ -93,18 +121,18 @@ export class AgentExecutionService {
       iteration < context.definition.maxIterations;
       iteration += 1
     ) {
+      runSignal.throwIfAborted()
       const result = await this.modelTurn(context, conversation, iteration)
       if (!result.toolCalls?.length) {
         await this.finish(context, result)
-        return
+        return "settled"
       }
       conversation.push({ role: "assistant", toolCalls: result.toolCalls })
       for (const [index, call] of result.toolCalls.entries()) {
         // Sequential: a tool call may pause for approval before the next starts.
         const outcome = await this.toolTurn(context, iteration, index, call) // NOSONAR
-        if (outcome.kind === "paused") return
-        if (outcome.kind === "resume")
-          return this.run(execution, leasedBy, signal)
+        if (outcome.kind === "paused") return "settled"
+        if (outcome.kind === "resume") return "resume"
         conversation.push({
           role: "tool",
           toolCallId: call.id,
@@ -120,7 +148,8 @@ export class AgentExecutionService {
   private async prepare(
     execution: Execution,
     leasedBy: string,
-    signal: AbortSignal
+    signal: AbortSignal,
+    runSignal: AbortSignal
   ): Promise<RunContext> {
     if (
       !execution.agentId ||
@@ -161,6 +190,7 @@ export class AgentExecutionService {
       execution,
       leasedBy,
       signal,
+      runSignal,
       definition,
       contract,
       completed,
@@ -243,7 +273,7 @@ export class AgentExecutionService {
     context: RunContext,
     conversation: ConversationTurn[]
   ): Promise<Completion> {
-    const { execution, signal, definition, contract } = context
+    const { execution, runSignal, definition, contract } = context
     const { apiKey } = await resolveApiKey(
       db,
       execution.environmentId ?? undefined,
@@ -255,7 +285,7 @@ export class AgentExecutionService {
         systemPrompt: `${definition.instructions}\nReturn a final JSON value satisfying this output schema: ${JSON.stringify(contract.outputSchema)}`,
         history: [...conversation],
         tools: context.tools,
-        signal,
+        signal: runSignal,
       })
     )
     for (const call of result.toolCalls ?? []) {
@@ -287,6 +317,10 @@ export class AgentExecutionService {
       failure.error instanceof Error
         ? failure.error.message
         : String(failure.error)
+    this.logger.error(
+      `Agent Execution ${execution.id} step ${failure.nodeId} failed: ${message}`,
+      failure.error instanceof Error ? failure.error.stack : undefined
+    )
     try {
       await this.checkpoints.recordStep({
         executionId: execution.id,
@@ -295,11 +329,7 @@ export class AgentExecutionService {
         nodeId: failure.nodeId,
         nodeType: failure.nodeType,
         input: failure.input,
-        error: {
-          message,
-          stack:
-            failure.error instanceof Error ? failure.error.stack : undefined,
-        },
+        error: { message },
         startedAt: failure.startedAt,
         endedAt: new Date(),
         completed,
@@ -333,7 +363,7 @@ export class AgentExecutionService {
     index: number,
     call: ToolCall
   ): Promise<ToolOutcome> {
-    const { execution, leasedBy, signal, definition, completed } = context
+    const { execution, leasedBy, runSignal, definition, completed } = context
     const nodeId = `agent:tool:${iteration}:${index}`
     if (completed.has(nodeId))
       return { kind: "output", output: completed.get(nodeId) }
@@ -356,7 +386,7 @@ export class AgentExecutionService {
         operationInput: request.input,
         invocationIdempotencyKey: `${execution.id}:${nodeId}`,
         executionClaimId: leasedBy,
-        signal,
+        signal: runSignal,
       })
     } catch (error) {
       await this.recordFailure(context, {
@@ -373,6 +403,9 @@ export class AgentExecutionService {
     if (response.outcome === "rejected")
       throw new Error(await this.rejectionMessage(execution.id))
     const output = response.result
+    const operation = context.registeredTools.get(call.name)
+    if (!operation)
+      throw new Error(`Agent requested undeclared tool: ${call.name}`)
     completed.set(nodeId, output)
     await this.checkpoints.recordStep({
       executionId: execution.id,
@@ -381,7 +414,11 @@ export class AgentExecutionService {
       nodeId,
       nodeType: "connector",
       input: toolInput,
-      output,
+      // The checkpoint keeps the full output because a resumed Agent replays it to the model.
+      output:
+        operation.classification === "read"
+          ? operation.traceOutput(output)
+          : output,
       startedAt,
       endedAt: new Date(),
       completed,
