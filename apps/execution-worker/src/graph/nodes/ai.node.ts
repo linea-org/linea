@@ -17,6 +17,7 @@ import type {
   NodeExecutionContext,
   NodeHandler,
 } from "./node-handler.interface"
+import { UsageError } from "./usage-error"
 
 const DEFAULT_MAX_ITERATIONS = 10
 // Matches production practice (Mem0's own per-turn recall default, OpenAI's agent-context cookbook)
@@ -474,6 +475,14 @@ export class AiNode implements NodeHandler {
         })
       }
       for (const call of result.toolCalls) {
+        const method = toolsByName.get(call.name)?.method
+        if (context.diagnostic && method !== undefined && method !== "GET") {
+          throw new UsageError(
+            `Tool "${call.name}" (${method}) isn't called in Replay or Regression runs: it would repeat the original write`,
+            tokensInput,
+            tokensOutput
+          )
+        }
         conversation.push(
           await resolveToolCallTurn(
             call,

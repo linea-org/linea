@@ -99,6 +99,7 @@ jest.mock("@linea/db", () => ({
 
 import { PermanentRequestError } from "@linea/http"
 import { NonRetryableError } from "./non-retryable-error"
+import { UsageError } from "./usage-error"
 import { AiNode } from "./ai.node"
 
 const context = { workspaceId: "ws1", workflowId: "wf1" }
@@ -331,6 +332,40 @@ describe("AiNode", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
       expect(complete).toHaveBeenCalledTimes(1)
       expect(recordToolCall).not.toHaveBeenCalled()
+    })
+
+    it("refuses a write tool call in a diagnostic run without sending it, keeping the spent tokens", async () => {
+      complete.mockResolvedValueOnce({
+        text: "",
+        tokensInput: 5,
+        tokensOutput: 2,
+        toolCalls: [
+          { id: "call_1", name: "create_order", arguments: { sku: "a" } },
+        ],
+      })
+      const fetchMock = mockFetch()
+      const pending = new AiNode().execute(
+        {
+          prompt: "order one",
+          model: "claude-sonnet-5",
+          tools: [
+            {
+              name: "create_order",
+              url: "https://api.example.com/orders",
+              method: "POST",
+            },
+          ],
+        },
+        undefined,
+        { ...context, diagnostic: true }
+      )
+      await expect(pending).rejects.toBeInstanceOf(UsageError)
+      await expect(pending).rejects.toMatchObject({
+        tokensInput: 5,
+        tokensOutput: 2,
+      })
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(complete).toHaveBeenCalledTimes(1)
     })
 
     it("calls a configured HTTP tool, feeds the result back, and returns the model's final answer", async () => {

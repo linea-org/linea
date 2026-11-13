@@ -277,6 +277,66 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       ])
     }
   })
+  it("errors a Memory write case without writing the recorded input", async () => {
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "memory-1",
+      nodes: [
+        {
+          id: "memory-1",
+          type: "memory",
+          config: {
+            operation: "write",
+            subjectPath: "userId",
+            namespace: "prefs",
+            key: "favorite",
+          },
+        },
+      ],
+      edges: [],
+    }
+    const { organization, workflow, version } = await setUpWorkflow(graph)
+    const aiNode = { execute: jest.fn() } as unknown as AiNode
+    const service = new RegressionExecutionService(
+      buildInterpreter(aiNode),
+      aiNode
+    )
+    try {
+      await repositories.regressionCase.createRegressionCase(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        caseType: "node",
+        nodeId: "memory-1",
+        input: { nodeInput: { userId: "u1", food: "pizza" } },
+        assertions: [],
+      })
+      const run = await service.runRegressionForVersion(
+        organization.id,
+        workflow.id,
+        version.id,
+        "publish"
+      )
+      const results = await repositories.regressionRun.listRegressionResults(
+        db,
+        organization.id,
+        run.id
+      )
+      expect(results[0].status).toBe("errored")
+      expect(JSON.stringify(results[0].output)).toContain(
+        "Memory writes don't run in Replay or Regression runs"
+      )
+      const memories = await pool.query(
+        "SELECT id FROM memories WHERE workspace_id = $1",
+        [organization.id]
+      )
+      expect(memories.rows).toHaveLength(0)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
   it("runs a conversation-type case through AiNode's chat path with the snapshotted history", async () => {
     const graph: WorkflowGraph = {
       version: 1,
@@ -327,6 +387,7 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
         { model: "claude-sonnet-5" },
         {},
         expect.objectContaining({
+          diagnostic: true,
           regressionConversation: {
             turns: [{ role: "user", content: "What's your refund policy?" }],
             finalPrompt: "What about after 30 days?",

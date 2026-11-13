@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common"
 import { db, repositories } from "@linea/db"
 import { nodeRegistry } from "@linea/runtime"
 import { getPath } from "./dot-path"
+import { NonRetryableError } from "./non-retryable-error"
 import { resolveNamespace, resolveSubjectId } from "./memory-scope"
 import type {
   NodeExecutionContext,
@@ -59,6 +60,11 @@ export class MemoryNode implements NodeHandler {
       throw new Error('Memory node requires operation to be "read" or "write"')
     }
 
+    if (context.diagnostic) {
+      throw new NonRetryableError(
+        "Memory writes don't run in Replay or Regression runs: they would change what later runs recall"
+      )
+    }
     const hasValuePath =
       typeof config.valuePath === "string" && config.valuePath.trim() !== ""
     const value = hasValuePath

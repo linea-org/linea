@@ -86,6 +86,27 @@ describe("HttpNode", () => {
       })
     ).rejects.toBeInstanceOf(NonRetryableError)
   })
+  it.each(["POST", "PUT", "PATCH", "DELETE"])(
+    "refuses a %s in a diagnostic run without sending anything",
+    async (method) => {
+      await expect(
+        new HttpNode().execute(
+          { url: "https://example.com", method },
+          { foo: "bar" },
+          { workspaceId: "ws-1", diagnostic: true }
+        )
+      ).rejects.toThrow(NonRetryableError)
+      expect(request).not.toHaveBeenCalled()
+    }
+  )
+  it("still sends a GET in a diagnostic run", async () => {
+    await new HttpNode().execute(
+      { url: "https://example.com", method: "GET" },
+      null,
+      { workspaceId: "ws-1", diagnostic: true }
+    )
+    expect(request).toHaveBeenCalledTimes(1)
+  })
   it("does not enable loopback access in production", async () => {
     jest.replaceProperty(process, "env", {
       ...process.env,

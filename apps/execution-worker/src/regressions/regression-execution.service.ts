@@ -57,23 +57,13 @@ export class RegressionExecutionService {
     }
     const input =
       (regressionCase.input as { nodeInput?: unknown }).nodeInput ?? {}
-    let result: Awaited<ReturnType<InterpreterService["executeNode"]>>
+    let result: Awaited<ReturnType<InterpreterService["executeDiagnosticNode"]>>
     try {
-      result = await this.interpreter.executeNode(
-        node,
-        input,
-        regressionCase.workspaceId,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
+      result = await this.interpreter.executeDiagnosticNode(node, input, {
+        workspaceId: regressionCase.workspaceId,
         workflowVersionId,
-        environmentId
-      )
+        environmentId,
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       const usage = getErrorTokenUsage(error)
@@ -150,6 +140,7 @@ export class RegressionExecutionService {
           workspaceId: regressionCase.workspaceId,
           environmentId,
           nodeId: node.id,
+          diagnostic: true,
           regressionConversation: {
             turns: input.turns,
             finalPrompt: input.finalPrompt,
