@@ -40,6 +40,7 @@ const requestSchema = z.strictObject({
   connectionId: z.uuid(),
   input: z.unknown(),
 })
+const AGENT_RUN_DEADLINE_MS = 30 * 60_000
 type AgentDefinition = z.infer<typeof agentDefinitionSchema>
 type RegisteredOperation = NonNullable<
   | ReturnType<typeof registeredReadOperation>
@@ -63,6 +64,7 @@ type RunContext = {
   execution: Execution
   leasedBy: string
   signal: AbortSignal
+  runSignal: AbortSignal
   definition: AgentDefinition
   contract: AgentContract
   completed: Completed
@@ -84,7 +86,30 @@ export class AgentExecutionService {
     leasedBy: string,
     signal: AbortSignal
   ): Promise<void> {
-    const context = await this.prepare(execution, leasedBy, signal)
+    // One deadline for the whole run, resumes included; the lease signal alone never expires.
+    const deadline = AbortSignal.timeout(AGENT_RUN_DEADLINE_MS)
+    const runSignal = AbortSignal.any([signal, deadline])
+    try {
+      let outcome: "settled" | "resume"
+      do {
+        outcome = await this.attempt(execution, leasedBy, signal, runSignal)
+      } while (outcome === "resume")
+    } catch (error) {
+      if (deadline.aborted && !signal.aborted)
+        throw new Error("Agent run exceeded its 30 minute deadline", {
+          cause: error,
+        })
+      throw error
+    }
+  }
+
+  private async attempt(
+    execution: Execution,
+    leasedBy: string,
+    signal: AbortSignal,
+    runSignal: AbortSignal
+  ): Promise<"settled" | "resume"> {
+    const context = await this.prepare(execution, leasedBy, signal, runSignal)
     const conversation: ConversationTurn[] = [
       { role: "user", content: JSON.stringify(execution.triggerPayload) },
     ]
@@ -93,18 +118,18 @@ export class AgentExecutionService {
       iteration < context.definition.maxIterations;
       iteration += 1
     ) {
+      runSignal.throwIfAborted()
       const result = await this.modelTurn(context, conversation, iteration)
       if (!result.toolCalls?.length) {
         await this.finish(context, result)
-        return
+        return "settled"
       }
       conversation.push({ role: "assistant", toolCalls: result.toolCalls })
       for (const [index, call] of result.toolCalls.entries()) {
         // Sequential: a tool call may pause for approval before the next starts.
         const outcome = await this.toolTurn(context, iteration, index, call) // NOSONAR
-        if (outcome.kind === "paused") return
-        if (outcome.kind === "resume")
-          return this.run(execution, leasedBy, signal)
+        if (outcome.kind === "paused") return "settled"
+        if (outcome.kind === "resume") return "resume"
         conversation.push({
           role: "tool",
           toolCallId: call.id,
@@ -120,7 +145,8 @@ export class AgentExecutionService {
   private async prepare(
     execution: Execution,
     leasedBy: string,
-    signal: AbortSignal
+    signal: AbortSignal,
+    runSignal: AbortSignal
   ): Promise<RunContext> {
     if (
       !execution.agentId ||
@@ -161,6 +187,7 @@ export class AgentExecutionService {
       execution,
       leasedBy,
       signal,
+      runSignal,
       definition,
       contract,
       completed,
@@ -243,7 +270,7 @@ export class AgentExecutionService {
     context: RunContext,
     conversation: ConversationTurn[]
   ): Promise<Completion> {
-    const { execution, signal, definition, contract } = context
+    const { execution, runSignal, definition, contract } = context
     const { apiKey } = await resolveApiKey(
       db,
       execution.environmentId ?? undefined,
@@ -255,7 +282,7 @@ export class AgentExecutionService {
         systemPrompt: `${definition.instructions}\nReturn a final JSON value satisfying this output schema: ${JSON.stringify(contract.outputSchema)}`,
         history: [...conversation],
         tools: context.tools,
-        signal,
+        signal: runSignal,
       })
     )
     for (const call of result.toolCalls ?? []) {
@@ -333,7 +360,7 @@ export class AgentExecutionService {
     index: number,
     call: ToolCall
   ): Promise<ToolOutcome> {
-    const { execution, leasedBy, signal, definition, completed } = context
+    const { execution, leasedBy, runSignal, definition, completed } = context
     const nodeId = `agent:tool:${iteration}:${index}`
     if (completed.has(nodeId))
       return { kind: "output", output: completed.get(nodeId) }
@@ -356,7 +383,7 @@ export class AgentExecutionService {
         operationInput: request.input,
         invocationIdempotencyKey: `${execution.id}:${nodeId}`,
         executionClaimId: leasedBy,
-        signal,
+        signal: runSignal,
       })
     } catch (error) {
       await this.recordFailure(context, {

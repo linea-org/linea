@@ -17,20 +17,18 @@ import {
 import { AgentExecutionService } from "./agent-execution.service"
 import { RunLeaseService } from "./run-lease.service"
 
-function extractConversationId(triggerPayload: unknown): string | undefined {
-  if (triggerPayload === null || typeof triggerPayload !== "object") {
+/** Only a builder chat-preview run threads a conversation: the API validated it and stored it on the row. triggerPayload on every other run is caller input. */
+function chatTurn(
+  execution: Execution
+): { conversationId: string; chatMessageId?: string } | undefined {
+  if (execution.environment !== "draft" || !execution.conversationId)
     return undefined
+  const chatMessageId = execution.triggerPayload?.chatMessageId
+  return {
+    conversationId: execution.conversationId,
+    chatMessageId:
+      typeof chatMessageId === "string" ? chatMessageId : undefined,
   }
-  const value = (triggerPayload as Record<string, unknown>).conversationId
-  return typeof value === "string" ? value : undefined
-}
-
-function extractChatMessageId(triggerPayload: unknown): string | undefined {
-  if (triggerPayload === null || typeof triggerPayload !== "object") {
-    return undefined
-  }
-  const value = (triggerPayload as Record<string, unknown>).chatMessageId
-  return typeof value === "string" ? value : undefined
 }
 
 /** The most recently completed `ai` node's output — walked from the end, since a graph can have more than one and the chat reply is whichever one ran last. Checks the node's actual type, not just the shape of its output, since a transform/http node's output could coincidentally also carry a `text` field. */
@@ -166,6 +164,7 @@ export class RunsService {
       // check-then-pause. If already resolved, loop back immediately — safe because neither an
       // approval nor a wait node checkpoints before pausing, so re-running just re-enters it and
       // this time returns its real output.
+      const turn = chatTurn(execution)
       let outcome: RunOutcome
       let paused = false
       for (;;) {
@@ -178,6 +177,8 @@ export class RunsService {
           leasedBy: attemptId,
           graph,
           triggerPayload: execution.triggerPayload,
+          conversationId: turn?.conversationId,
+          chatMessageId: turn?.chatMessageId,
           resumeFrom,
           initialTokensInput: resumeTokens.tokensInput,
           initialTokensOutput: resumeTokens.tokensOutput,
@@ -239,11 +240,10 @@ export class RunsService {
           }
         )
         // Best-effort: a chat-preview turn's reply persisted for the panel to redisplay. Never allowed to fail the execution it rides on.
-        const conversationId = extractConversationId(execution.triggerPayload)
-        if (conversationId) {
+        if (turn) {
+          const { conversationId, chatMessageId } = turn
           const reply = extractAssistantReply(outcome.completed, graph)
-          const chatMessageId = extractChatMessageId(execution.triggerPayload)
-          // triggerPayload is caller-supplied and unvalidated, so only persist a reply once chatMessageId resolves to a real user turn in this scope.
+          // Only persist a reply once chatMessageId resolves to a real user turn in this conversation.
           const respondsTo =
             reply && chatMessageId
               ? await repositories.chatMessage.getUserChatMessageById(

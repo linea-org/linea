@@ -17,6 +17,8 @@ export function isTrustedOrigin(origin: string, allowlist: string[]): boolean {
 }
 
 export function usesEnvironmentOriginPolicy(path: string): boolean {
+  // Cookie-bound OAuth pages are navigated to, never fetched; a readable body leaks the browser challenge.
+  if (path.startsWith('/v1/user/connections/oauth/')) return false
   return (
     path === '/v1/user-sessions/authorization' ||
     path === '/v1/user-sessions/exchange' ||

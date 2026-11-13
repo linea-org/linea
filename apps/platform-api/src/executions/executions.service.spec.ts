@@ -450,6 +450,7 @@ describe('ExecutionsService', () => {
           chatMessageId: messagesAfterFirst[0].id,
         })
         expect(first.execution.environment).toBe('draft')
+        expect(first.execution.conversationId).toBe(first.conversationId)
         const second = await service.sendChatMessage(
           organization.id,
           workflow.id,

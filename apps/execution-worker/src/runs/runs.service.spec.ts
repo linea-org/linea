@@ -394,11 +394,20 @@ describe("RunsService chat-preview message persistence", () => {
         contentHash: "runs-chat-hash",
       })
       const conversationId = randomUUID()
+      await repositories.chatMessage.createBuilderChatMessage(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "hello",
+      })
       const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
         trigger: "manual",
+        environment: "draft",
+        conversationId,
         triggerPayload: { conversationId },
       })
       const fastInterpreter = {
@@ -428,7 +437,7 @@ describe("RunsService chat-preview message persistence", () => {
         workflow.id,
         conversationId
       )
-      expect(messages).toHaveLength(0)
+      expect(messages.map((message) => message.role)).toEqual(["user"])
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
@@ -474,12 +483,20 @@ describe("RunsService chat-preview message persistence", () => {
           content: "a message from a different conversation",
         })
       const conversationId = randomUUID()
-      // Simulates an ordinary execution whose triggerPayload happens to carry a mismatched pair.
+      await repositories.chatMessage.createBuilderChatMessage(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        conversationId,
+        role: "user",
+        content: "this conversation's own turn",
+      })
       const execution = await createTestExecution(db, {
         workspaceId: organization.id,
         workflowId: workflow.id,
         workflowVersionId: version.id,
         trigger: "manual",
+        environment: "draft",
+        conversationId,
         triggerPayload: { conversationId, chatMessageId: foreignMessage.id },
       })
       const fastInterpreter = {
@@ -509,7 +526,7 @@ describe("RunsService chat-preview message persistence", () => {
         workflow.id,
         conversationId
       )
-      expect(messages).toHaveLength(0)
+      expect(messages.map((message) => message.role)).toEqual(["user"])
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
@@ -559,6 +576,8 @@ describe("RunsService chat-preview message persistence", () => {
         workflowId: workflow.id,
         workflowVersionId: version.id,
         trigger: "manual",
+        environment: "draft",
+        conversationId,
         triggerPayload: { conversationId, chatMessageId: userMessage.id },
       })
       const fastInterpreter = {
@@ -642,6 +661,8 @@ describe("RunsService chat-preview message persistence", () => {
         workflowId: workflow.id,
         workflowVersionId: version.id,
         trigger: "manual",
+        environment: "draft",
+        conversationId,
         triggerPayload: { conversationId, chatMessageId: userMessage.id },
       })
       const fastInterpreter = {
@@ -677,6 +698,91 @@ describe("RunsService chat-preview message persistence", () => {
       )
       const reply = messages.find((m) => m.role === "assistant")
       expect(reply?.content).toBe("the actual ai reply")
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+  it("ignores a conversation that is named only in caller-supplied triggerPayload", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Chat Payload Test Org",
+        slug: `runs-chat-payload-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    try {
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "n1",
+        nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
+        edges: [],
+      }
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId: await getTestApplicationId(db, organization.id),
+        workspaceId: organization.id,
+        name: "Runs Service Chat Payload Test Workflow",
+        slug: `runs-chat-payload-workflow-${suffix}`,
+      })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph,
+        contentHash: "runs-chat-payload-hash",
+      })
+      const victimConversationId = randomUUID()
+      const victimMessage =
+        await repositories.chatMessage.createBuilderChatMessage(db, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          conversationId: victimConversationId,
+          role: "user",
+          content: "another subject's turn",
+        })
+      const execution = await createTestExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "api",
+        triggerPayload: {
+          conversationId: victimConversationId,
+          chatMessageId: victimMessage.id,
+        },
+      })
+      const run = jest.fn().mockResolvedValue({
+        result: { status: "completed" as const },
+        totalTokensInput: 10,
+        totalTokensOutput: 5,
+        totalCostMicros: 0n,
+        costUnpriced: false,
+        completed: new Map([["n1", { text: "must stay out" }]]),
+      })
+      const runs = new RunsService(
+        new CheckpointsService(),
+        { run } as unknown as InterpreterService,
+        new RunLeaseService(),
+        new AgentExecutionService(
+          new CheckpointsService(),
+          new ConnectorGatewayService()
+        )
+      )
+      await runs.execute(execution.id)
+      expect(run).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conversationId: undefined,
+          chatMessageId: undefined,
+        })
+      )
+      const messages = await repositories.chatMessage.listChatMessages(
+        db,
+        organization.id,
+        workflow.id,
+        victimConversationId
+      )
+      expect(messages.map((message) => message.role)).toEqual(["user"])
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

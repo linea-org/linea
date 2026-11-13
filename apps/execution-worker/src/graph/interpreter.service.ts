@@ -81,6 +81,9 @@ export type RunInput = {
   leasedBy: string
   graph: WorkflowGraph
   triggerPayload: unknown
+  // Set by RunsService from the execution row, never read out of triggerPayload here.
+  conversationId?: string
+  chatMessageId?: string
   resumeFrom: Map<string, unknown>
   // Usage already recorded for steps in `resumeFrom`, since they're skipped rather than re-executed.
   initialTokensInput?: number
@@ -115,22 +118,6 @@ function mergeCostUnpriced(
   if (a === true || b === true) return true
   if (a === null || b === null) return null
   return false
-}
-
-function extractConversationId(triggerPayload: unknown): string | undefined {
-  if (triggerPayload === null || typeof triggerPayload !== "object") {
-    return undefined
-  }
-  const value = (triggerPayload as Record<string, unknown>).conversationId
-  return typeof value === "string" ? value : undefined
-}
-
-function extractChatMessageId(triggerPayload: unknown): string | undefined {
-  if (triggerPayload === null || typeof triggerPayload !== "object") {
-    return undefined
-  }
-  const value = (triggerPayload as Record<string, unknown>).chatMessageId
-  return typeof value === "string" ? value : undefined
 }
 
 function extractTokenUsage(
@@ -288,9 +275,9 @@ export class InterpreterService {
               `${input.executionId}:${step.nodeId}`,
               withAttemptTimeout(runSignal, retryPolicy?.timeoutMs),
               input.executionId,
-              extractConversationId(input.triggerPayload),
+              input.conversationId,
               input.workflowId,
-              extractChatMessageId(input.triggerPayload),
+              input.chatMessageId,
               input.leasedBy,
               variablesState,
               input.workflowVersionId,
