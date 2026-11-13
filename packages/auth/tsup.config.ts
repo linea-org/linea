@@ -17,6 +17,7 @@ export default defineConfig({
     "@better-auth/expo",
     "@better-auth/drizzle-adapter",
     "resend",
+    "ioredis",
     "@linea/db",
   ],
 })
