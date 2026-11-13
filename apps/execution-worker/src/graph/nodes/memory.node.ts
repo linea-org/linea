@@ -2,20 +2,22 @@ import { Injectable } from "@nestjs/common"
 import { db, repositories } from "@linea/db"
 import { nodeRegistry } from "@linea/runtime"
 import { getPath } from "./dot-path"
-import { resolveNamespace, resolveSubjectId } from "./memory-scope"
+import { resolveMemoryScope } from "./memory-scope"
 import type {
   NodeExecutionContext,
   NodeHandler,
 } from "./node-handler.interface"
 
-function resolveExpiresAt(ttlSeconds: unknown): Date | undefined {
+const MAX_TTL_SECONDS = 365 * 24 * 60 * 60
+
+function resolveExpiresAt(ttlSeconds: unknown): Date {
   if (ttlSeconds === undefined || ttlSeconds === null || ttlSeconds === "") {
-    return undefined
+    return new Date(Date.now() + repositories.memory.DEFAULT_MEMORY_TTL_MS)
   }
   const seconds = Number(ttlSeconds)
-  if (!Number.isFinite(seconds) || seconds <= 0) {
+  if (!Number.isFinite(seconds) || seconds <= 0 || seconds > MAX_TTL_SECONDS) {
     throw new Error(
-      'Memory node (write) "ttlSeconds" must be a positive number'
+      `Memory node (write) "ttlSeconds" must be between 1 and ${MAX_TTL_SECONDS}`
     )
   }
   return new Date(Date.now() + seconds * 1000)
@@ -28,26 +30,16 @@ export class MemoryNode implements NodeHandler {
     input: unknown,
     context: NodeExecutionContext
   ): Promise<unknown> {
-    const externalSubjectId = resolveSubjectId(
+    const scope = resolveMemoryScope(
+      context,
       input,
-      config.subjectPath,
-      "Memory node"
-    )
-    const namespace = resolveNamespace(
-      config.namespace,
-      context.workflowId,
+      { subjectPath: config.subjectPath, namespace: config.namespace },
       "Memory node"
     )
     const key = typeof config.key === "string" ? config.key : ""
     if (!key) {
       throw new Error('Memory node requires a "key"')
     }
-    const scope = {
-      workspaceId: context.workspaceId,
-      externalSubjectId,
-      namespace,
-    }
-
     if (config.operation === "read") {
       const row = await repositories.memory.readMemory(db, { ...scope, key })
       return nodeRegistry.memory.outputSchema.parse({
@@ -84,7 +76,7 @@ export class MemoryNode implements NodeHandler {
 
     return nodeRegistry.memory.outputSchema.parse({
       key,
-      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      expiresAt: expiresAt.toISOString(),
     })
   }
 }
