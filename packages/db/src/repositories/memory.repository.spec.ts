@@ -1,11 +1,14 @@
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
+import { db, pool } from "../clients/index.js"
 import { externalSubjects, memories, organizations } from "../schema/index.js"
 import {
   deleteMemoriesForSubject,
   listMemories,
+  MAX_MEMORIES_PER_SCOPE,
   MAX_MEMORY_VALUE_BYTES,
   MemoryLimitError,
+  MemorySubjectInactiveError,
   readMemory,
   writeMemory,
 } from "./memory.repository.js"
@@ -37,14 +40,11 @@ describe("memory.repository", () => {
         externalSubjectId: "user-1",
         namespace: "wf-1",
       }
-
       await writeMemory(tx, { ...scope, key: "favorite", value: "pizza" })
-
       const read = await readMemory(tx, { ...scope, key: "favorite" })
       expect(read?.value).toBe("pizza")
     })
   })
-
   it("overwrites the same key on a second write instead of creating a duplicate row", async () => {
     await withRollback(async (tx) => {
       const { organization, environmentId } = await memoryFixtures(tx)
@@ -54,15 +54,12 @@ describe("memory.repository", () => {
         externalSubjectId: "user-1",
         namespace: "wf-1",
       }
-
       await writeMemory(tx, { ...scope, key: "favorite", value: "pizza" })
       await writeMemory(tx, { ...scope, key: "favorite", value: "sushi" })
-
       const read = await readMemory(tx, { ...scope, key: "favorite" })
       expect(read?.value).toBe("sushi")
     })
   })
-
   it("supports arbitrary JSON values, not just strings", async () => {
     await withRollback(async (tx) => {
       const { organization, environmentId } = await memoryFixtures(tx)
@@ -72,18 +69,15 @@ describe("memory.repository", () => {
         externalSubjectId: "user-1",
         namespace: "wf-1",
       }
-
       await writeMemory(tx, {
         ...scope,
         key: "profile",
         value: { plan: "pro", seats: 5 },
       })
-
       const read = await readMemory(tx, { ...scope, key: "profile" })
       expect(read?.value).toEqual({ plan: "pro", seats: 5 })
     })
   })
-
   it("reports not-found for a value past its expiresAt", async () => {
     await withRollback(async (tx) => {
       const { organization, environmentId } = await memoryFixtures(tx)
@@ -93,19 +87,16 @@ describe("memory.repository", () => {
         externalSubjectId: "user-1",
         namespace: "wf-1",
       }
-
       await writeMemory(tx, {
         ...scope,
         key: "session",
         value: "abc",
         expiresAt: new Date(Date.now() - 60_000),
       })
-
       const read = await readMemory(tx, { ...scope, key: "session" })
       expect(read).toBeUndefined()
     })
   })
-
   it("still finds a value whose expiresAt is in the future", async () => {
     await withRollback(async (tx) => {
       const { organization, environmentId } = await memoryFixtures(tx)
@@ -115,19 +106,16 @@ describe("memory.repository", () => {
         externalSubjectId: "user-1",
         namespace: "wf-1",
       }
-
       await writeMemory(tx, {
         ...scope,
         key: "session",
         value: "abc",
         expiresAt: new Date(Date.now() + 60_000),
       })
-
       const read = await readMemory(tx, { ...scope, key: "session" })
       expect(read?.value).toBe("abc")
     })
   })
-
   it("isolates by namespace — the same key/subject in a different namespace doesn't cross-read", async () => {
     await withRollback(async (tx) => {
       const { organization, environmentId } = await memoryFixtures(tx)
@@ -136,14 +124,12 @@ describe("memory.repository", () => {
         environmentId,
         externalSubjectId: "user-1",
       }
-
       await writeMemory(tx, {
         ...base,
         namespace: "wf-1",
         key: "favorite",
         value: "pizza",
       })
-
       const read = await readMemory(tx, {
         ...base,
         namespace: "wf-2",
@@ -152,7 +138,6 @@ describe("memory.repository", () => {
       expect(read).toBeUndefined()
     })
   })
-
   it("isolates by externalSubjectId — a different subject in the same namespace doesn't cross-read", async () => {
     await withRollback(async (tx) => {
       const { organization, environmentId } = await memoryFixtures(tx)
@@ -161,14 +146,12 @@ describe("memory.repository", () => {
         environmentId,
         namespace: "wf-1",
       }
-
       await writeMemory(tx, {
         ...base,
         externalSubjectId: "user-1",
         key: "favorite",
         value: "pizza",
       })
-
       const read = await readMemory(tx, {
         ...base,
         externalSubjectId: "user-2",
@@ -177,7 +160,6 @@ describe("memory.repository", () => {
       expect(read).toBeUndefined()
     })
   })
-
   it("deletes a workspace's memory rows when the workspace itself is deleted, instead of leaving them orphaned", async () => {
     await withRollback(async (tx) => {
       const { organization, environmentId } = await memoryFixtures(tx)
@@ -188,16 +170,13 @@ describe("memory.repository", () => {
         namespace: "wf-1",
       }
       await writeMemory(tx, { ...scope, key: "favorite", value: "pizza" })
-
       await tx
         .delete(organizations)
         .where(eq(organizations.id, organization.id))
-
       const read = await readMemory(tx, { ...scope, key: "favorite" })
       expect(read).toBeUndefined()
     })
   })
-
   describe("listMemories", () => {
     it("orders by most-recently-updated first", async () => {
       await withRollback(async (tx) => {
@@ -208,17 +187,14 @@ describe("memory.repository", () => {
           externalSubjectId: "user-1",
           namespace: "wf-1",
         }
-
         await writeMemory(tx, { ...scope, key: "a", value: "1st" })
         await writeMemory(tx, { ...scope, key: "b", value: "2nd" })
         // Re-writing "a" bumps its updatedAt past "b"'s, so it should sort first now.
         await writeMemory(tx, { ...scope, key: "a", value: "1st-updated" })
-
         const rows = await listMemories(tx, { ...scope, limit: 10 })
         expect(rows.map((r) => r.key)).toEqual(["a", "b"])
       })
     })
-
     it("breaks an updatedAt tie deterministically by id, instead of an arbitrary/unstable order", async () => {
       await withRollback(async (tx) => {
         const { organization, environmentId } = await memoryFixtures(tx)
@@ -228,7 +204,6 @@ describe("memory.repository", () => {
           externalSubjectId: "user-1",
           namespace: "wf-1",
         }
-
         await writeMemory(tx, { ...scope, key: "a", value: "1" })
         await writeMemory(tx, { ...scope, key: "b", value: "2" })
         // Force a real tie — writeMemory's own timestamps are never guaranteed to collide.
@@ -237,13 +212,11 @@ describe("memory.repository", () => {
           .update(memories)
           .set({ updatedAt: tiedAt })
           .where(eq(memories.namespace, "wf-1"))
-
         const first = await listMemories(tx, { ...scope, limit: 10 })
         const second = await listMemories(tx, { ...scope, limit: 10 })
         expect(first.map((r) => r.key)).toEqual(second.map((r) => r.key))
       })
     })
-
     it("respects the limit", async () => {
       await withRollback(async (tx) => {
         const { organization, environmentId } = await memoryFixtures(tx)
@@ -253,16 +226,13 @@ describe("memory.repository", () => {
           externalSubjectId: "user-1",
           namespace: "wf-1",
         }
-
         for (const key of ["a", "b", "c", "d"]) {
           await writeMemory(tx, { ...scope, key, value: key })
         }
-
         const rows = await listMemories(tx, { ...scope, limit: 2 })
         expect(rows).toHaveLength(2)
       })
     })
-
     it("excludes expired rows", async () => {
       await withRollback(async (tx) => {
         const { organization, environmentId } = await memoryFixtures(tx)
@@ -272,7 +242,6 @@ describe("memory.repository", () => {
           externalSubjectId: "user-1",
           namespace: "wf-1",
         }
-
         await writeMemory(tx, { ...scope, key: "active", value: "still here" })
         await writeMemory(tx, {
           ...scope,
@@ -280,12 +249,10 @@ describe("memory.repository", () => {
           value: "gone",
           expiresAt: new Date(Date.now() - 60_000),
         })
-
         const rows = await listMemories(tx, { ...scope, limit: 10 })
         expect(rows.map((r) => r.key)).toEqual(["active"])
       })
     })
-
     it("isolates by scope — a different namespace or subject doesn't leak in", async () => {
       await withRollback(async (tx) => {
         const { organization, environmentId } = await memoryFixtures(tx)
@@ -295,7 +262,6 @@ describe("memory.repository", () => {
           externalSubjectId: "user-1",
           namespace: "wf-1",
         }
-
         await writeMemory(tx, { ...scope, key: "a", value: "1" })
         await writeMemory(tx, {
           ...scope,
@@ -309,13 +275,11 @@ describe("memory.repository", () => {
           key: "c",
           value: "3",
         })
-
         const rows = await listMemories(tx, { ...scope, limit: 10 })
         expect(rows.map((r) => r.key)).toEqual(["a"])
       })
     })
   })
-
   it("isolates by Environment — a draft or dev write is not visible to another Environment", async () => {
     await withRollback(async (tx) => {
       const { organization, environmentId } = await memoryFixtures(tx)
@@ -344,7 +308,6 @@ describe("memory.repository", () => {
       expect(read).toBeUndefined()
     })
   })
-
   it("never lets an operator-keyed subject string reach a verified End User's rows", async () => {
     await withRollback(async (tx) => {
       const { organization, environmentId } = await memoryFixtures(tx)
@@ -385,7 +348,6 @@ describe("memory.repository", () => {
       expect(own?.value).toBe("pizza")
     })
   })
-
   it("deletes a subject's memory, including operator rows keyed by its issuer subject", async () => {
     await withRollback(async (tx) => {
       const { organization, environmentId } = await memoryFixtures(tx)
@@ -435,7 +397,6 @@ describe("memory.repository", () => {
       expect(rows.map((row) => row.key)).toEqual(["kept"])
     })
   })
-
   it("rejects a value over the size limit", async () => {
     await withRollback(async (tx) => {
       const { organization, environmentId } = await memoryFixtures(tx)
@@ -450,5 +411,154 @@ describe("memory.repository", () => {
         })
       ).rejects.toThrow(MemoryLimitError)
     })
+  })
+  it("refuses a write for a disabled or erased End User", async () => {
+    await withRollback(async (tx) => {
+      const { organization, environmentId } = await memoryFixtures(tx)
+      const now = new Date()
+      const subjects = await tx
+        .insert(externalSubjects)
+        .values([
+          {
+            workspaceId: organization.id,
+            issuer: "https://identity.example.com",
+            issuerSubject: "disabled-user",
+            status: "disabled",
+            disabledAt: now,
+          },
+          {
+            workspaceId: organization.id,
+            issuer: "https://identity.example.com",
+            issuerSubject: null,
+            status: "erased",
+            disabledAt: now,
+            erasedAt: now,
+          },
+        ])
+        .returning()
+      for (const subject of subjects) {
+        await expect(
+          writeMemory(tx, {
+            workspaceId: organization.id,
+            environmentId,
+            externalSubjectRecordId: subject.id,
+            externalSubjectId: subject.id,
+            namespace: "wf-1",
+            key: "favorite",
+            value: "pizza",
+          })
+        ).rejects.toThrow(MemorySubjectInactiveError)
+      }
+    })
+  })
+  it("refuses a write that was waiting on an erasure, instead of recreating the erased memory", async () => {
+    const { organization, environmentId } = await db.transaction(memoryFixtures)
+    const lockClient = await pool.connect()
+    try {
+      const [subject] = await db
+        .insert(externalSubjects)
+        .values({
+          workspaceId: organization.id,
+          issuer: "https://identity.example.com",
+          issuerSubject: "erased-mid-write",
+          status: "verified",
+          verifiedAt: new Date(),
+        })
+        .returning()
+      await lockClient.query("BEGIN")
+      await lockClient.query(
+        "SELECT id FROM external_subjects WHERE id = $1 FOR NO KEY UPDATE",
+        [subject.id]
+      )
+      const write = writeMemory(db, {
+        workspaceId: organization.id,
+        environmentId,
+        externalSubjectRecordId: subject.id,
+        externalSubjectId: subject.id,
+        namespace: "wf-1",
+        key: "favorite",
+        value: "pizza",
+      })
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      await lockClient.query(
+        "UPDATE external_subjects SET status = 'erased', issuer_subject = NULL, disabled_at = now(), erased_at = now() WHERE id = $1",
+        [subject.id]
+      )
+      await lockClient.query("COMMIT")
+      await expect(write).rejects.toThrow(MemorySubjectInactiveError)
+      const rows = await db
+        .select({ id: memories.id })
+        .from(memories)
+        .where(eq(memories.workspaceId, organization.id))
+      expect(rows).toEqual([])
+    } finally {
+      await lockClient.query("ROLLBACK")
+      lockClient.release()
+      await db
+        .delete(organizations)
+        .where(eq(organizations.id, organization.id))
+    }
+  })
+  it("counts a rewrite of an expired key against the key limit", async () => {
+    await withRollback(async (tx) => {
+      const { organization, environmentId } = await memoryFixtures(tx)
+      const scope = {
+        workspaceId: organization.id,
+        environmentId,
+        externalSubjectId: "user-1",
+        namespace: "wf-1",
+      }
+      await writeMemory(tx, {
+        ...scope,
+        key: "stale",
+        value: "old",
+        expiresAt: new Date(Date.now() - 60_000),
+      })
+      await tx.insert(memories).values(
+        Array.from({ length: MAX_MEMORIES_PER_SCOPE }, (_, index) => ({
+          ...scope,
+          key: `live-${index}`,
+          value: index,
+        }))
+      )
+      await expect(
+        writeMemory(tx, { ...scope, key: "stale", value: "new" })
+      ).rejects.toThrow(MemoryLimitError)
+    })
+  })
+  it("never exceeds the key limit when concurrent writes add different keys", async () => {
+    const { organization, environmentId } = await db.transaction(memoryFixtures)
+    try {
+      const scope = {
+        workspaceId: organization.id,
+        environmentId,
+        externalSubjectId: "user-1",
+        namespace: "wf-1",
+      }
+      await db.insert(memories).values(
+        Array.from({ length: MAX_MEMORIES_PER_SCOPE - 1 }, (_, index) => ({
+          ...scope,
+          key: `live-${index}`,
+          value: index,
+        }))
+      )
+      const results = await Promise.allSettled(
+        Array.from({ length: 5 }, (_, index) =>
+          writeMemory(db, { ...scope, key: `racer-${index}`, value: index })
+        )
+      )
+      expect(
+        results.filter((result) => result.status === "fulfilled")
+      ).toHaveLength(1)
+      const rows = await db
+        .select({ id: memories.id })
+        .from(memories)
+        .where(eq(memories.workspaceId, organization.id))
+      expect(rows).toHaveLength(MAX_MEMORIES_PER_SCOPE)
+    } finally {
+      await db
+        .delete(organizations)
+        .where(eq(organizations.id, organization.id))
+    }
   })
 })
