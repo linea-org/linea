@@ -142,6 +142,7 @@ export const googleGmailListMessagesOperation: ConnectorReadOperation =
     providerErrorMessage: "Gmail read failed",
     inputSchema: gmailListInputSchema,
     outputSchema: gmailListOutputSchema,
+    traceOutput: (output) => gmailListOutputSchema.parse(output),
     async execute(rawInput, credential, signal) {
       const input = gmailListInputSchema.parse(rawInput)
       const url = googleApiUrl("/gmail/v1/users/me/messages")

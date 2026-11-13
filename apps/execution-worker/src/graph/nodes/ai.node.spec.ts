@@ -107,7 +107,7 @@ import { PermanentRequestError } from "@linea/http"
 import { NonRetryableError } from "./non-retryable-error"
 import { AiNode } from "./ai.node"
 
-const context = { workspaceId: "ws1", workflowId: "wf1" }
+const context = { workspaceId: "ws1", environmentId: "env1", workflowId: "wf1" }
 const contextWithLedger = {
   ...context,
   executionId: "exec-1",
@@ -1637,6 +1637,7 @@ describe("AiNode", () => {
         {},
         expect.objectContaining({
           workspaceId: "ws1",
+          environmentId: "env1",
           externalSubjectId: "conv1",
           namespace: "wf1",
           limit: 10,
@@ -1711,6 +1712,30 @@ describe("AiNode", () => {
       )
     })
 
+    it("recalls the verified End User's memory instead of the subject named in the input", async () => {
+      complete.mockResolvedValue({
+        text: "hi",
+        tokensInput: 1,
+        tokensOutput: 1,
+      })
+      await new AiNode().execute(
+        {
+          prompt: "static prompt",
+          model: "claude-sonnet-5",
+          memorySubjectPath: "userId",
+        },
+        { userId: "someone-else" },
+        { ...context, externalSubjectRecordId: "subject-record" }
+      )
+      expect(listMemories).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({
+          environmentId: "env1",
+          externalSubjectRecordId: "subject-record",
+          externalSubjectId: "subject-record",
+        })
+      )
+    })
     it("logs a warning and proceeds without the memory block when the subjectPath doesn't resolve", async () => {
       complete.mockResolvedValue({
         text: "hi",

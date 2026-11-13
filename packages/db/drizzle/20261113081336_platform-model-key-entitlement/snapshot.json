@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "24589077-3d14-4ebb-8545-9e54e4bc0b51",
+  "id": "fe38406b-a0bc-4e8f-be6e-3e1c528749bb",
   "prevIds": [
-    "71fc0cfc-35e6-4a8d-95b2-5b3bb40a623d"
+    "f25140ff-5235-49db-804a-923de8a4542c"
   ],
   "ddl": [
     {
@@ -8081,6 +8081,32 @@
       "table": "memories"
     },
     {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "environment_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "memories"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "external_subject_record_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "memories"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -13815,48 +13841,6 @@
           "opclass": null
         },
         {
-          "value": "external_subject_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "namespace",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "key",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "memories_scope_key_uidx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "memories"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "workspace_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
           "value": "workflow_id",
           "isExpression": false,
           "asc": true,
@@ -17217,6 +17201,44 @@
       "table": "memories"
     },
     {
+      "nameExplicit": true,
+      "columns": [
+        "environment_id",
+        "workspace_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "environments",
+      "columnsTo": [
+        "id",
+        "workspace_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "memories_environment_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "memories"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "external_subject_record_id",
+        "workspace_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "external_subjects",
+      "columnsTo": [
+        "id",
+        "workspace_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "memories_subject_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "memories"
+    },
+    {
       "nameExplicit": false,
       "columns": [
         "workspace_id"
@@ -18617,6 +18639,22 @@
       "schema": "public",
       "table": "environment_agent_bindings",
       "entityType": "pks"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "workspace_id",
+        "environment_id",
+        "external_subject_record_id",
+        "external_subject_id",
+        "namespace",
+        "key"
+      ],
+      "nullsNotDistinct": true,
+      "name": "memories_scope_key_uniq",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "memories"
     },
     {
       "nameExplicit": false,

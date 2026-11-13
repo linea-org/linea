@@ -1,6 +1,8 @@
 export type NodeExecutionContext = {
   workspaceId: string
   environmentId?: string
+  /** The verified End User this execution runs for, taken from the execution row; never from input. */
+  externalSubjectRecordId?: string
   /** Stable across a reclaim of the same node execution (executionId:nodeId, or the replay step id) — handlers making outbound requests should send it as an idempotency key so a compliant destination can recognize a retried request instead of repeating a real mutation. */
   idempotencyKey?: string
   /** Aborted when the caller loses ownership mid-call (a lost lease, a lost replay claim) — handlers making outbound requests should pass it through so loss stops the actual request, not just the bookkeeping. */
