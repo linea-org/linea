@@ -3,17 +3,21 @@ import { randomUUID } from 'node:crypto'
 import { NotFoundException } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
 import type { NestExpressApplication } from '@nestjs/platform-express'
-import { db, pool, schema } from '@linea/db'
+import { pool } from '@linea/db'
 import request from 'supertest'
 import type { Server } from 'node:http'
 import { generateApiKey } from '../auth/api-key.util'
-import type { AuthenticatedRequest } from '../auth/workspace-auth.guard'
 import { RegressionCasesController } from '../regressions/regression-cases.controller'
 import { RegressionCasesService } from '../regressions/regression-cases.service'
 import { RegressionRunsController } from '../regressions/regression-runs.controller'
 import { RegressionRunsService } from '../regressions/regression-runs.service'
 import { ExecutionsController } from './executions.controller'
 import { ExecutionsService } from './executions.service'
+import {
+  deleteAuthorizationWorkspace,
+  seedAuthorizationWorkspace,
+  testUserSession,
+} from './test-authorization-workspace'
 
 function notFound() {
   return jest.fn(() => Promise.reject(new NotFoundException()))
@@ -54,40 +58,10 @@ describe('Replay and Regression HTTP authorization', () => {
     regressionCases.archive,
   ]
   beforeAll(async () => {
-    const [workspace] = await db
-      .insert(schema.organizations)
-      .values({
-        name: 'Diagnostic policy',
-        slug: randomUUID(),
-        createdAt: new Date(),
-      })
-      .returning()
-    workspaceId = workspace.id
-    const people = await db
-      .insert(schema.users)
-      .values(
-        ['admin', 'member'].map((name) => ({
-          name,
-          email: `${randomUUID()}@test.dev`,
-        })),
-      )
-      .returning()
-    adminId = people[0].id
-    memberId = people[1].id
-    await db.insert(schema.members).values(
-      people.map((user, i) => ({
-        organizationId: workspaceId,
-        userId: user.id,
-        role: i === 0 ? 'admin' : 'member',
-        createdAt: new Date(),
-      })),
-    )
-    await db.insert(schema.apiKeys).values({
-      workspaceId,
-      name: 'Test',
-      hashedKey: key.hashedKey,
-      keyPrefix: key.keyPrefix,
-    })
+    const seeded = await seedAuthorizationWorkspace('Diagnostic policy', key)
+    workspaceId = seeded.workspaceId
+    adminId = seeded.adminId
+    memberId = seeded.memberId
     const moduleRef = await Test.createTestingModule({
       controllers: [
         ExecutionsController,
@@ -101,24 +75,12 @@ describe('Replay and Regression HTTP authorization', () => {
       ],
     }).compile()
     app = moduleRef.createNestApplication<NestExpressApplication<Server>>()
-    app.use((req: AuthenticatedRequest, _res: unknown, next: () => void) => {
-      const userId = req.headers['x-test-user']
-      if (typeof userId === 'string')
-        req.session = {
-          user: { id: userId },
-          session: { activeOrganizationId: workspaceId },
-        }
-      next()
-    })
+    app.use(testUserSession(workspaceId))
     await app.init()
   })
   afterAll(async () => {
     await app?.close()
-    await pool.query('DELETE FROM organizations WHERE id = $1', [workspaceId])
-    await pool.query('DELETE FROM users WHERE id IN ($1, $2)', [
-      adminId,
-      memberId,
-    ])
+    await deleteAuthorizationWorkspace({ workspaceId, adminId, memberId })
     await pool.end()
   })
   it('refuses members and workspace API keys before any diagnostic work is queued', async () => {
