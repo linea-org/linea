@@ -111,7 +111,7 @@ export class RunsService {
     )
     if (!execution) {
       this.logger.warn(
-        `Execution ${executionId} was not claimable (already running or terminal) — skipping`
+        `Execution ${executionId} was not claimable (already running, terminal, or failed at claim because its authority was revoked) — skipping`
       )
       return
     }

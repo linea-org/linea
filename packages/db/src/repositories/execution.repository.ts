@@ -3,6 +3,7 @@ import { getMemberRole } from "./organization.repository.js"
 import { activeExecutionParent } from "./execution-parent-authority.js"
 import { and, desc, eq, gt, isNull, lt, notInArray, or, sql } from "drizzle-orm"
 import {
+  actionIntents,
   workflowContractRevisions,
   environments,
   environmentWorkflowBindings,
@@ -15,6 +16,7 @@ import {
   type ExecutionStep,
 } from "../schema/index.js"
 import { wakeParentOfFinishedChild } from "./nested-parent-wake.js"
+import { revokedExecutionAuthority } from "./execution-claim-authority.js"
 import { getWorkflowEnvironment } from "./environment.repository.js"
 import { upsertEndSubject } from "./end-subject.repository.js"
 import {
@@ -252,36 +254,74 @@ export async function triggerWorkflowExecutionForVersion(
   })
 }
 
-/** Claims a queued execution, or a running one whose lease expired — the only reclaim path, atomic so racing claims get a defined outcome. */
+/** Claims a queued execution, or a running one whose lease expired — the only reclaim path, atomic so racing claims get a defined outcome. Every resume re-queues through here, so an Execution whose Environment, External Subject, deployment or definition authority was revoked is failed with `authority_revoked` instead of claimed, unless an Action Intent is still `executing`. */
 export async function startExecution(
   db: DbClient,
   executionId: string,
   leasedBy: string,
   leaseExpiresAt: Date
 ): Promise<Execution | undefined> {
-  const [execution] = await db
-    .update(executions)
-    .set({
-      status: "running",
-      leasedBy,
-      leaseExpiresAt,
-      startedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(executions.id, executionId),
-        activeExecutionParent(),
-        or(
-          eq(executions.status, "queued"),
-          and(
-            eq(executions.status, "running"),
-            lt(executions.leaseExpiresAt, new Date())
-          )
+  return db.transaction(async (tx) => {
+    const [current] = await tx
+      .select()
+      .from(executions)
+      .where(eq(executions.id, executionId))
+    if (!current) return undefined
+    const claimable = and(
+      eq(executions.id, executionId),
+      activeExecutionParent(),
+      or(
+        eq(executions.status, "queued"),
+        and(
+          eq(executions.status, "running"),
+          lt(executions.leaseExpiresAt, new Date())
         )
       )
     )
-    .returning()
-  return execution
+    const revocation = await revokedExecutionAuthority(tx, current)
+    // ADR 0021: a claimed intent must still report its outcome, so its recovery claims the run and the Connector Gateway rechecks authority itself.
+    const [executingIntent] = revocation
+      ? await tx
+          .select({ id: actionIntents.id })
+          .from(actionIntents)
+          .where(
+            and(
+              eq(actionIntents.executionId, executionId),
+              eq(actionIntents.status, "executing")
+            )
+          )
+          .limit(1)
+      : []
+    if (revocation && !executingIntent) {
+      const [failed] = await tx
+        .update(executions)
+        .set({
+          status: "failed",
+          error: {
+            message: `Execution authority revoked: ${revocation}`,
+            code: "authority_revoked",
+          },
+          completedAt: new Date(),
+          leasedBy: null,
+          leaseExpiresAt: null,
+        })
+        .where(claimable)
+        .returning()
+      if (failed) await wakeParentOfFinishedChild(tx, failed)
+      return undefined
+    }
+    const [execution] = await tx
+      .update(executions)
+      .set({
+        status: "running",
+        leasedBy,
+        leaseExpiresAt,
+        startedAt: new Date(),
+      })
+      .where(claimable)
+      .returning()
+    return execution
+  })
 }
 
 /** Only renews if `leasedBy` still matches and the current lease hasn't already expired — a stalled heartbeat can't resurrect a lease nobody reclaimed yet but that's already timed out. */
