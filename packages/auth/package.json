@@ -16,6 +16,7 @@
     "@linea/db": "workspace:*",
     "better-auth": "^1.6.25",
     "drizzle-orm": "1.0.0-rc.4",
+    "ioredis": "^5",
     "resend": "^6.18.1",
     "zod": "^4.4.3"
   },
