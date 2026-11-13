@@ -1630,7 +1630,6 @@ describe("AiNode", () => {
         })
       )
     })
-
     it("logs a warning and proceeds without the memory block when the subjectPath doesn't resolve", async () => {
       complete.mockResolvedValue({
         text: "hi",

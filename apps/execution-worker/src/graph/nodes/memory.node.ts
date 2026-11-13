@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common"
 import { db, repositories } from "@linea/db"
 import { nodeRegistry } from "@linea/runtime"
 import { getPath } from "./dot-path"
-import { resolveMemoryScope } from "./memory-scope"
+import { resolveNamespace, resolveSubjectId } from "./memory-scope"
 import type {
   NodeExecutionContext,
   NodeHandler,
@@ -30,12 +30,23 @@ export class MemoryNode implements NodeHandler {
     input: unknown,
     context: NodeExecutionContext
   ): Promise<unknown> {
-    const scope = resolveMemoryScope(
-      context,
-      input,
-      { subjectPath: config.subjectPath, namespace: config.namespace },
-      "Memory node"
-    )
+    if (!context.environmentId) {
+      throw new Error("Memory node requires an Environment")
+    }
+    // A verified End User's run is keyed by its record; subjectPath only names operator-run subjects.
+    const scope = {
+      workspaceId: context.workspaceId,
+      environmentId: context.environmentId,
+      externalSubjectRecordId: context.externalSubjectRecordId,
+      externalSubjectId:
+        context.externalSubjectRecordId ??
+        resolveSubjectId(input, config.subjectPath, "Memory node"),
+      namespace: resolveNamespace(
+        config.namespace,
+        context.workflowId,
+        "Memory node"
+      ),
+    }
     const key = typeof config.key === "string" ? config.key : ""
     if (!key) {
       throw new Error('Memory node requires a "key"')
@@ -50,7 +61,6 @@ export class MemoryNode implements NodeHandler {
     if (config.operation !== "write") {
       throw new Error('Memory node requires operation to be "read" or "write"')
     }
-
     const hasValuePath =
       typeof config.valuePath === "string" && config.valuePath.trim() !== ""
     const value = hasValuePath
@@ -62,7 +72,6 @@ export class MemoryNode implements NodeHandler {
       )
     }
     const expiresAt = resolveExpiresAt(config.ttlSeconds)
-
     // No content restriction on `value` here — it's stored as whatever this workflow wrote,
     // including free-form text. If an Agent node later recalls it (see ai.node.ts's memory-recall
     // block), that string reaches a model call as plain text; see the trust-boundary comment there
@@ -73,7 +82,6 @@ export class MemoryNode implements NodeHandler {
       value,
       expiresAt,
     })
-
     return nodeRegistry.memory.outputSchema.parse({
       key,
       expiresAt: expiresAt.toISOString(),

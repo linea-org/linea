@@ -40,14 +40,12 @@ describe("MemoryNode", () => {
         environmentId,
         workflowId: "wf-1",
       }
-
       const writeOutput = await node.execute(
         { operation: "write", subjectPath: "userId", key: "favorite" },
         { userId: "u1", food: "pizza" },
         context
       )
       expect(writeOutput).toMatchObject({ key: "favorite" })
-
       const readOutput = await node.execute(
         { operation: "read", subjectPath: "userId", key: "favorite" },
         { userId: "u1" },
@@ -63,7 +61,6 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("stores only the field at valuePath when configured, not the whole input", async () => {
     const { organization, environmentId } = await setup()
     try {
@@ -73,7 +70,6 @@ describe("MemoryNode", () => {
         environmentId,
         workflowId: "wf-1",
       }
-
       await node.execute(
         {
           operation: "write",
@@ -84,7 +80,6 @@ describe("MemoryNode", () => {
         { userId: "u1", food: "pizza" },
         context
       )
-
       const readOutput = await node.execute(
         { operation: "read", subjectPath: "userId", key: "favorite" },
         { userId: "u1" },
@@ -97,7 +92,6 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("overwrites the same key on a second write", async () => {
     const { organization, environmentId } = await setup()
     try {
@@ -107,7 +101,6 @@ describe("MemoryNode", () => {
         environmentId,
         workflowId: "wf-1",
       }
-
       await node.execute(
         {
           operation: "write",
@@ -128,7 +121,6 @@ describe("MemoryNode", () => {
         { userId: "u1", food: "sushi" },
         context
       )
-
       const readOutput = await node.execute(
         { operation: "read", subjectPath: "userId", key: "favorite" },
         { userId: "u1" },
@@ -141,7 +133,6 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("reports not-found for a read on a key that was never written", async () => {
     const { organization, environmentId } = await setup()
     try {
@@ -151,7 +142,6 @@ describe("MemoryNode", () => {
         environmentId,
         workflowId: "wf-1",
       }
-
       const readOutput = await node.execute(
         { operation: "read", subjectPath: "userId", key: "nope" },
         { userId: "u1" },
@@ -164,7 +154,6 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("write sets expiresAt from ttlSeconds, and a read after it passes reports not-found", async () => {
     const { organization, environmentId } = await setup()
     try {
@@ -174,7 +163,6 @@ describe("MemoryNode", () => {
         environmentId,
         workflowId: "wf-1",
       }
-
       const writeOutput = (await node.execute(
         {
           operation: "write",
@@ -189,7 +177,6 @@ describe("MemoryNode", () => {
       expect(new Date(writeOutput.expiresAt).getTime()).toBeGreaterThan(
         Date.now()
       )
-
       // Force the row past expiry directly, rather than waiting 60s in a test.
       await repositories.memory.writeMemory(db, {
         workspaceId: organization.id,
@@ -200,7 +187,6 @@ describe("MemoryNode", () => {
         value: "abc",
         expiresAt: new Date(Date.now() - 1000),
       })
-
       const readOutput = await node.execute(
         { operation: "read", subjectPath: "userId", key: "session" },
         { userId: "u1" },
@@ -213,12 +199,10 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("rejects a non-positive ttlSeconds with a clear error", async () => {
     const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
-
       await expect(
         node.execute(
           {
@@ -237,12 +221,10 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("isolates by namespace — defaults to context.workflowId when not configured", async () => {
     const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
-
       await node.execute(
         {
           operation: "write",
@@ -253,14 +235,12 @@ describe("MemoryNode", () => {
         { userId: "u1", food: "pizza" },
         { workspaceId: organization.id, environmentId, workflowId: "wf-1" }
       )
-
       const readInOtherWorkflow = await node.execute(
         { operation: "read", subjectPath: "userId", key: "favorite" },
         { userId: "u1" },
         { workspaceId: organization.id, environmentId, workflowId: "wf-2" }
       )
       expect(readInOtherWorkflow).toEqual({ found: false, value: null })
-
       const readInSameWorkflow = await node.execute(
         { operation: "read", subjectPath: "userId", key: "favorite" },
         { userId: "u1" },
@@ -273,12 +253,10 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("shares across workflows when the same explicit namespace is configured", async () => {
     const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
-
       await node.execute(
         {
           operation: "write",
@@ -290,7 +268,6 @@ describe("MemoryNode", () => {
         { userId: "u1", food: "pizza" },
         { workspaceId: organization.id, environmentId, workflowId: "wf-1" }
       )
-
       const readFromOtherWorkflow = await node.execute(
         {
           operation: "read",
@@ -308,12 +285,10 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("throws a clear error when neither namespace nor workflowId is available", async () => {
     const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
-
       await expect(
         node.execute(
           { operation: "read", subjectPath: "userId", key: "favorite" },
@@ -327,12 +302,10 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("throws a clear error when the subjectPath resolves to nothing", async () => {
     const { organization, environmentId } = await setup()
     try {
       const node = new MemoryNode()
-
       await expect(
         node.execute(
           { operation: "read", subjectPath: "missing", key: "favorite" },
@@ -346,7 +319,6 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("throws instead of writing when operation is missing or malformed, rather than silently defaulting to write", async () => {
     const { organization, environmentId } = await setup()
     try {
@@ -356,7 +328,6 @@ describe("MemoryNode", () => {
         environmentId,
         workflowId: "wf-1",
       }
-
       await expect(
         node.execute(
           { subjectPath: "userId", key: "favorite" },
@@ -364,7 +335,6 @@ describe("MemoryNode", () => {
           context
         )
       ).rejects.toThrow('operation to be "read" or "write"')
-
       await expect(
         node.execute(
           { operation: "delete", subjectPath: "userId", key: "favorite" },
@@ -372,7 +342,6 @@ describe("MemoryNode", () => {
           context
         )
       ).rejects.toThrow('operation to be "read" or "write"')
-
       const readOutput = await node.execute(
         { operation: "read", subjectPath: "userId", key: "favorite" },
         { userId: "u1" },
@@ -385,7 +354,6 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("throws a clear error when valuePath doesn't resolve, instead of writing an undefined value", async () => {
     const { organization, environmentId } = await setup()
     try {
@@ -395,7 +363,6 @@ describe("MemoryNode", () => {
         environmentId,
         workflowId: "wf-1",
       }
-
       await expect(
         node.execute(
           {
@@ -408,7 +375,6 @@ describe("MemoryNode", () => {
           context
         )
       ).rejects.toThrow('no value found at valuePath "missingField"')
-
       const readOutput = await node.execute(
         { operation: "read", subjectPath: "userId", key: "favorite" },
         { userId: "u1" },
@@ -421,7 +387,6 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("scopes a verified End User's run to that subject and ignores the payload's subjectPath", async () => {
     const { organization, environmentId } = await setup()
     try {
@@ -470,7 +435,6 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("refuses to read or write memory without an Environment", async () => {
     const node = new MemoryNode()
     await expect(
@@ -481,7 +445,6 @@ describe("MemoryNode", () => {
       )
     ).rejects.toThrow("Memory node requires an Environment")
   })
-
   it("rejects a ttlSeconds above one year", async () => {
     const { organization, environmentId } = await setup()
     try {

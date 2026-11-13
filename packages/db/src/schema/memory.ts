@@ -23,8 +23,7 @@ export const memories = snakeCase.table(
     environmentId: uuid().notNull(),
     // Set when the run belongs to a verified End User; memory is then keyed by that record.
     externalSubjectRecordId: uuid(),
-    // The verified record id as text, or for operator runs (manual, webhook, draft) the value the
-    // author's dot-path resolved to. Rows with and without a record never share a key.
+    // The record id as text on verified runs; on operator runs, the value the author's dot-path resolved to.
     externalSubjectId: text().notNull(),
     // Defaults to the workflow id at write time when left unconfigured (isolated per workflow) —
     // an author sets the same literal namespace across workflows to deliberately share memory.
