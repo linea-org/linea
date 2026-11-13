@@ -234,6 +234,13 @@ export const auth = betterAuth({
         })
       },
       organizationHooks: {
+        async afterRemoveMember({ member, organization }) {
+          await repositories.apiKey.revokeApiKeysCreatedBy(
+            db,
+            organization.id,
+            member.userId
+          )
+        },
         // Best-effort: a notification failure shouldn't undo an invitation that already landed — the membership itself was created moments earlier by this same request.
         async afterAcceptInvitation({ invitation, user, organization }) {
           try {

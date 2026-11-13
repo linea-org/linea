@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto"
 import { beforeEach, describe, expect, it } from "vitest"
 import { db, encryptSecret, repositories, schema } from "@linea/db"
-import { resolveApiKey } from "./key-resolver.js"
+import { ModelKeyMissingError, resolveApiKey } from "./key-resolver.js"
 
 beforeEach(() => {
   process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString("base64")
@@ -59,11 +59,11 @@ describe("resolveApiKey", () => {
         "TEST_PROVIDER_KEY",
         encryptSecret("workspace-key")
       )
-      const resolved = await resolveApiKey(
-        tx,
-        organization.id,
-        "TEST_PROVIDER_KEY"
-      )
+      const resolved = await resolveApiKey(tx, {
+        workspaceId: organization.workspaceId,
+        environmentId: organization.id,
+        keyName: "TEST_PROVIDER_KEY",
+      })
       expect(resolved).toEqual({
         apiKey: "workspace-key",
         source: "environment",
@@ -71,15 +71,33 @@ describe("resolveApiKey", () => {
       delete process.env.TEST_PROVIDER_KEY
     })
   })
-  it("falls back to the platform key when the Environment has none", async () => {
+  it("refuses the platform key for a workspace that has not been granted it", async () => {
     await withRollback(async (tx) => {
       const organization = await createTestOrganization(tx)
       process.env.TEST_PROVIDER_KEY = "platform-key"
-      const resolved = await resolveApiKey(
-        tx,
-        organization.id,
-        "TEST_PROVIDER_KEY"
-      )
+      await expect(
+        resolveApiKey(tx, {
+          workspaceId: organization.workspaceId,
+          environmentId: organization.id,
+          keyName: "TEST_PROVIDER_KEY",
+        })
+      ).rejects.toThrow(ModelKeyMissingError)
+      delete process.env.TEST_PROVIDER_KEY
+    })
+  })
+  it("falls back to the platform key when the Environment has none and the workspace is granted it", async () => {
+    await withRollback(async (tx) => {
+      const organization = await createTestOrganization(tx)
+      process.env.TEST_PROVIDER_KEY = "platform-key"
+      await tx.insert(schema.workspaceSettings).values({
+        workspaceId: organization.workspaceId,
+        platformModelKeyEnabled: true,
+      })
+      const resolved = await resolveApiKey(tx, {
+        workspaceId: organization.workspaceId,
+        environmentId: organization.id,
+        keyName: "TEST_PROVIDER_KEY",
+      })
       expect(resolved).toEqual({ apiKey: "platform-key", source: "platform" })
       delete process.env.TEST_PROVIDER_KEY
     })
@@ -89,8 +107,12 @@ describe("resolveApiKey", () => {
       const organization = await createTestOrganization(tx)
       delete process.env.TEST_PROVIDER_KEY_MISSING
       await expect(
-        resolveApiKey(tx, organization.id, "TEST_PROVIDER_KEY_MISSING")
-      ).rejects.toThrow(/No Environment key and no platform key/)
+        resolveApiKey(tx, {
+          workspaceId: organization.workspaceId,
+          environmentId: organization.id,
+          keyName: "TEST_PROVIDER_KEY_MISSING",
+        })
+      ).rejects.toThrow(ModelKeyMissingError)
     })
   })
   it("uses a legacy plaintext value as-is instead of failing to decrypt it", async () => {
@@ -103,11 +125,11 @@ describe("resolveApiKey", () => {
         "TEST_PROVIDER_KEY",
         "legacy-plaintext-key"
       )
-      const resolved = await resolveApiKey(
-        tx,
-        organization.id,
-        "TEST_PROVIDER_KEY"
-      )
+      const resolved = await resolveApiKey(tx, {
+        workspaceId: organization.workspaceId,
+        environmentId: organization.id,
+        keyName: "TEST_PROVIDER_KEY",
+      })
       expect(resolved).toEqual({
         apiKey: "legacy-plaintext-key",
         source: "environment",
@@ -130,7 +152,11 @@ describe("resolveApiKey", () => {
         tampered
       )
       await expect(
-        resolveApiKey(tx, organization.id, "TEST_PROVIDER_KEY")
+        resolveApiKey(tx, {
+          workspaceId: organization.workspaceId,
+          environmentId: organization.id,
+          keyName: "TEST_PROVIDER_KEY",
+        })
       ).rejects.toThrow(/corrupted/)
     })
   })

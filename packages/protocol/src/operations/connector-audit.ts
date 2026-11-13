@@ -35,6 +35,7 @@ export const listEnvironmentConnectorAuditEventsOperation = {
     "authentication_failed",
     "scope_denied",
     "resource_not_found",
+    "rate_limited",
   ],
 } as const satisfies OperationDefinition
 
@@ -43,7 +44,7 @@ export const listWorkspaceConnectorAuditEventsOperation = {
   method: "GET",
   path: "/v1/audit-events",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["audit:read"] },
   request: {
     path: emptySchema,
     query: workspaceConnectorAuditQuerySchema,

@@ -86,7 +86,7 @@ This document replaces the external-subject approval architecture in issue #84. 
 - Conversations are inferred from grouped `chat_messages`; there is no first-class conversation record that pins application, subject, environment, or lifecycle.
 - Chat Preview is a builder-only draft flow, not a production end-user interface.
 - `executionEnvironment` belongs to each execution and already distinguishes `draft`, `dev`, and `production`.
-- `@linea/sdk` is a server-only client authenticated by a workspace-wide API key.
+- `@linea/sdk` is a server-only client authenticated by a scoped, expiring Workspace Key.
 - `@linea/sdk-react` is currently a stub.
 - Approval creation, execution pausing, timeout resolution, and queue publication already contain useful race-handling machinery, but there is no external-subject protocol or durable public event channel.
 
@@ -450,7 +450,7 @@ Linea consumes the exchange atomically and returns an opaque `lnu_` access token
 
 Disabling the Application or External Subject, changing the Application identity trust configuration, or calling the current-session delete route revokes affected sessions immediately. A trust-configuration change also deletes every pending authorization request and identity exchange for that Application, so artifacts issued under the old trust anchor cannot mint a new session. A session lookup checks current Application and External Subject state, so authorization cannot survive a completed disablement transaction.
 
-Authorization requests use a 30-second processing lease. A temporary provider failure releases that lease, allowing the client to retry the same code, state, redirect URI, and verifier; different identity artifacts cannot take over the request. Invalid provider responses consume the attempt. Production identity-provider endpoints require HTTPS, while `dev` permits HTTP only for loopback providers. Requests and identity exchanges are deleted after their five-minute and two-minute expiries by a sweep that runs at startup and every five minutes.
+Authorization requests use a 30-second processing lease. A temporary provider failure releases that lease, allowing the client to retry the same code, state, redirect URI, and verifier; different identity artifacts cannot take over the request. Invalid provider responses consume the attempt. Identity-provider discovery, token, and JWKS requests resolve the host, reject non-public addresses, pin the connection to the checked address, reject redirects, and are capped at five seconds and 64 KiB (256 KiB for JWKS). Identity-provider endpoints require HTTPS. Loopback HTTP providers are accepted only for a `dev` Application on a server running with `NODE_ENV=development`; the Application environment alone never enables it, because any workspace admin can create a `dev` Application. Requests and identity exchanges are deleted after their five-minute and two-minute expiries by a sweep that runs at startup and every five minutes.
 
 ### End-user workflow and conversation endpoints
 

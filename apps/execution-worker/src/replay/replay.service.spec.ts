@@ -1,8 +1,13 @@
+jest.mock("@linea/http", () => ({
+  ...jest.requireActual<typeof import("@linea/http")>("@linea/http"),
+  requestPublic: jest.fn(),
+}))
 import { createTestExecution } from "@linea/db/testing"
 import { getTestApplicationId } from "@linea/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
+import { requestPublic } from "@linea/http"
 import type { WorkflowGraph } from "@linea/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
 import { AiNode } from "../graph/nodes/ai.node"
@@ -12,7 +17,7 @@ import { WaitNode } from "../graph/nodes/wait.node"
 import { BranchNode } from "../graph/nodes/branch.node"
 import { DatetimeNode } from "../graph/nodes/datetime.node"
 import { FilterNode } from "../graph/nodes/filter.node"
-import type { HttpNode } from "../graph/nodes/http.node"
+import { HttpNode } from "../graph/nodes/http.node"
 import { MergeNode } from "../graph/nodes/merge.node"
 import { VariablesNode } from "../graph/nodes/variables.node"
 import { TransformNode } from "../graph/nodes/transform.node"
@@ -25,14 +30,20 @@ afterAll(async () => {
 
 async function setUpExecutionWithStep(
   organizationId: string,
-  overrides: { httpNode: HttpNode }
+  overrides: { httpNode: HttpNode; nodeConfig?: Record<string, unknown> }
 ) {
   const suffix = randomUUID()
   const graph: WorkflowGraph = {
     version: 1,
     trigger: { type: "manual" },
     entryNodeId: "n1",
-    nodes: [{ id: "n1", type: "http", config: { url: "https://example.com" } }],
+    nodes: [
+      {
+        id: "n1",
+        type: "http",
+        config: overrides.nodeConfig ?? { url: "https://example.com" },
+      },
+    ],
     edges: [],
   }
   const workflow = await repositories.workflow.createWorkflow(db, {
@@ -130,7 +141,10 @@ describe("ReplayService.replay", () => {
       await replay.replay({
         replayStepId,
         originalStepId: originalStep.id,
-        overrideConfig: { url: "https://overridden.example.com" },
+        overrideConfig: {
+          url: "https://example.com",
+          retryPolicy: { maxAttempts: 2 },
+        },
       })
       expect(executeSpy).toHaveBeenCalledTimes(1)
       const [config, input, context] = executeSpy.mock.calls[0] as unknown as [
@@ -141,14 +155,19 @@ describe("ReplayService.replay", () => {
           idempotencyKey?: string
           signal?: AbortSignal
           workflowVersionId?: string
+          diagnostic?: boolean
         },
       ]
-      expect(config).toEqual({ url: "https://overridden.example.com" })
+      expect(config).toEqual({
+        url: "https://example.com",
+        retryPolicy: { maxAttempts: 2 },
+      })
       expect(input).toEqual(originalStep.input)
       expect(context.workspaceId).toBe(organization.id)
       expect(context.idempotencyKey).toBe(replayStepId)
       expect(context.signal).toBeInstanceOf(AbortSignal)
       expect(context.workflowVersionId).toBeUndefined()
+      expect(context.diagnostic).toBe(true)
       const result = await repositories.execution.getExecutionWithSteps(
         db,
         execution.id
@@ -325,7 +344,88 @@ describe("ReplayService.replay", () => {
       const replayRow = result?.steps.find((s) => s.id === replayStepId)
       expect(replayRow?.status).toBe("failed")
       expect(replayRow?.error?.message).toBe("provider unreachable")
-      expect(typeof replayRow?.error?.stack).toBe("string")
+      expect(replayRow?.error).toEqual({ message: "provider unreachable" })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+  it("refuses an override that redirects an HTTP step, without running the node", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Locked Override Test Org",
+        slug: `replay-locked-override-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    try {
+      const executeSpy = jest.fn()
+      const { execution, originalStep, replay } = await setUpExecutionWithStep(
+        organization.id,
+        { httpNode: { execute: executeSpy } }
+      )
+      const replayStepId = randomUUID()
+      await replay.replay({
+        replayStepId,
+        originalStepId: originalStep.id,
+        overrideConfig: {
+          url: "https://attacker.example/collect",
+          headers: { Authorization: "Bearer stolen" },
+        },
+      })
+      expect(executeSpy).not.toHaveBeenCalled()
+      const result = await repositories.execution.getExecutionWithSteps(
+        db,
+        execution.id
+      )
+      const replayRow = result?.steps.find((s) => s.id === replayStepId)
+      expect(replayRow?.status).toBe("failed")
+      expect(replayRow?.error?.message).toMatch(
+        /Replay can't change url, headers on this http node/
+      )
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+  it("does not repeat a recorded HTTP write", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay HTTP Write Test Org",
+        slug: `replay-http-write-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    try {
+      const { execution, originalStep, replay } = await setUpExecutionWithStep(
+        organization.id,
+        {
+          httpNode: new HttpNode(),
+          nodeConfig: { url: "https://example.com/orders", method: "POST" },
+        }
+      )
+      const replayStepId = randomUUID()
+      await replay.replay({
+        replayStepId,
+        originalStepId: originalStep.id,
+        overrideConfig: {},
+      })
+      expect(requestPublic).not.toHaveBeenCalled()
+      const result = await repositories.execution.getExecutionWithSteps(
+        db,
+        execution.id
+      )
+      const replayRow = result?.steps.find((s) => s.id === replayStepId)
+      expect(replayRow?.status).toBe("failed")
+      expect(replayRow?.error?.message).toMatch(
+        /HTTP POST requests aren't sent in Replay or Regression runs/
+      )
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

@@ -61,6 +61,9 @@ describe('Workflow publish and Production routing authorization', () => {
     await db.insert(schema.apiKeys).values({
       workspaceId,
       name: 'Test',
+      scopes: ['workflows:read', 'workflows:write', 'workflows:publish'],
+      expiresAt: new Date(Date.now() + 86_400_000),
+      createdByUserId: adminId,
       hashedKey: key.hashedKey,
       keyPrefix: key.keyPrefix,
     })

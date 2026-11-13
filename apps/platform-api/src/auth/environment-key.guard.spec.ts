@@ -78,6 +78,10 @@ async function createFixture() {
 }
 
 async function removeFixture(workspaceId: string, actorUserId: string) {
+  await pool.query(
+    "DELETE FROM end_user_authorization_rate_limits WHERE key LIKE ANY (SELECT '%:' || id || ':%' FROM environment_keys WHERE workspace_id = $1 UNION ALL SELECT '%:' || $1 || ':%')",
+    [workspaceId],
+  )
   await pool.query('DELETE FROM organizations WHERE id = $1', [workspaceId])
   await pool.query('DELETE FROM users WHERE id = $1', [actorUserId])
 }
@@ -150,6 +154,9 @@ describe('Environment key authorization', () => {
       await repositories.apiKey.createApiKey(db, {
         workspaceId: organization.id,
         name: 'Workspace key',
+        scopes: ['executions:read'],
+        expiresAt: new Date(Date.now() + 86_400_000),
+        createdByUserId: actor.id,
         hashedKey: workspaceCredential.hashedKey,
         keyPrefix: workspaceCredential.keyPrefix,
       })
@@ -196,7 +203,7 @@ describe('Environment key authorization', () => {
         },
       ])
       await expect(
-        new WorkspaceAuthGuard().canActivate(
+        new WorkspaceAuthGuard(new Reflector()).canActivate(
           contextWithRequest(
             {
               headers: {

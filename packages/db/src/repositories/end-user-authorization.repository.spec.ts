@@ -8,6 +8,7 @@ import {
   completeAuthorizationRequest,
   consumeAuthorizationRateLimits,
   consumeAuthorizationRequest,
+  consumeRateLimits,
   consumeIdentityExchange,
   createAuthorizationRequest,
   deleteExpiredEndUserAuthorizationArtifacts,
@@ -313,6 +314,29 @@ describe("end-user authorization repository", () => {
           new Date(expiresAt.getTime() + 1)
         )
       ).resolves.toBe(2)
+    })
+  })
+  it("reports which budget refused a request", async () => {
+    await withRollback(async (tx) => {
+      const expiresAt = new Date(Date.now() + 60_000)
+      const actor = { key: `actor-${randomUUID()}`, limit: 2 }
+      const workspace = { key: `workspace-${randomUUID()}`, limit: 3 }
+      const sibling = { key: `sibling-${randomUUID()}`, limit: 2 }
+      expect(
+        await consumeRateLimits(tx, [actor, workspace], expiresAt)
+      ).toEqual([])
+      expect(
+        await consumeRateLimits(tx, [actor, workspace], expiresAt)
+      ).toEqual([])
+      expect(
+        await consumeRateLimits(tx, [actor, workspace], expiresAt)
+      ).toEqual([actor.key])
+      expect(
+        await consumeRateLimits(tx, [sibling, workspace], expiresAt)
+      ).toEqual([])
+      expect(
+        await consumeRateLimits(tx, [sibling, workspace], expiresAt)
+      ).toEqual([workspace.key])
     })
   })
   it("does not charge any quota when another dimension refuses", async () => {

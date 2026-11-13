@@ -78,9 +78,12 @@ describe('RegressionCasesService', () => {
         // A step from another workflow in the same workspace must 404, not silently file the
         // case under the wrong workflow.
         await expect(
-          service.createFromStep(workspaceId, otherWorkflow.id, {
-            stepId: step.id,
-          }),
+          service.createFromStep(
+            workspaceId,
+            otherWorkflow.id,
+            { stepId: step.id },
+            undefined,
+          ),
         ).rejects.toThrow()
         const [agentStep] = await db
           .insert(schema.executionSteps)
@@ -97,13 +100,19 @@ describe('RegressionCasesService', () => {
           })
           .returning()
         await expect(
-          service.createFromStep(workspaceId, workflow.id, {
-            stepId: agentStep.id,
-          }),
+          service.createFromStep(
+            workspaceId,
+            workflow.id,
+            { stepId: agentStep.id },
+            undefined,
+          ),
         ).rejects.toThrow(/Run Agent steps/)
-        const created = await service.createFromStep(workspaceId, workflow.id, {
-          stepId: step.id,
-        })
+        const created = await service.createFromStep(
+          workspaceId,
+          workflow.id,
+          { stepId: step.id },
+          undefined,
+        )
         expect(created.caseType).toBe('node')
         expect(created.workflowId).toBe(workflow.id)
         const list = await service.list(workspaceId, workflow.id, {})

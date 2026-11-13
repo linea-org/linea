@@ -61,6 +61,13 @@ const outputSchema = z.strictObject({
   perPage: z.number().int().min(1).max(50),
   hasMore: z.boolean(),
 })
+// Non-strict, so parsing strips issue bodies, the private free text an execution trace has no need for.
+const traceOutputSchema = z.object({
+  ...outputSchema.shape,
+  issues: z
+    .array(z.object(outputIssueSchema.omit({ body: true }).shape))
+    .max(50),
+})
 
 export const githubListIssuesOperation: ConnectorReadOperation =
   Object.freeze<ConnectorReadOperation>({
@@ -73,6 +80,8 @@ export const githubListIssuesOperation: ConnectorReadOperation =
     providerErrorMessage: "GitHub issue read failed",
     inputSchema,
     outputSchema,
+    traceOutput: (output) =>
+      traceOutputSchema.parse(outputSchema.parse(output)),
     async execute(rawInput, credential, signal) {
       const input = inputSchema.parse(rawInput)
       const url = githubUrl(

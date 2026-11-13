@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { providers } from '@linea/ai'
+import { isPlatformModelKeyAvailable, providers } from '@linea/ai'
 import { db, encryptSecret, repositories } from '@linea/db'
 import type { UpsertSecretDto } from './dto/upsert-secret.dto'
 
@@ -15,6 +15,8 @@ export type AiProviderKeyStatus = {
   label: string
   keyName: string
   configured: boolean
+  /** Whether a run without this Environment's key would use Linea's own key; false means it fails. */
+  platformFallback: boolean
 }
 
 @Injectable()
@@ -76,12 +78,19 @@ export class SecretsService {
         (secret) => secret.key,
       ),
     )
-    return providers.map((provider) => ({
-      id: provider.id,
-      label: provider.label,
-      keyName: provider.keyName,
-      configured: configuredKeys.has(provider.keyName),
-    }))
+    return Promise.all(
+      providers.map(async (provider) => ({
+        id: provider.id,
+        label: provider.label,
+        keyName: provider.keyName,
+        configured: configuredKeys.has(provider.keyName),
+        platformFallback: await isPlatformModelKeyAvailable(
+          db,
+          workspaceId,
+          provider.keyName,
+        ),
+      })),
+    )
   }
 
   async delete(

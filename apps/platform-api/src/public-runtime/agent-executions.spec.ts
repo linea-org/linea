@@ -218,6 +218,18 @@ it('durably pins the selected version and Contract, replays the start, and retur
   await start({ ...body, input: { task: 'changed' } }, idempotencyKey).expect(
     409,
   )
+  // The claim rechecks the deployment, so a disabled binding would fail the Execution here.
+  await repositories.environmentAgentBinding.putEnvironmentAgentBinding(
+    db,
+    workspaceId,
+    environmentId,
+    agentId,
+    {
+      agentVersionId: versionId,
+      agentContractRevisionId: contractId,
+      enabled: true,
+    },
+  )
   await repositories.execution.startExecution(
     db,
     execution.id,

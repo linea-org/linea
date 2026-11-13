@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { AgentsModule } from './agents/agents.module'
 import { Module } from '@nestjs/common'
+import { APP_FILTER } from '@nestjs/core'
 import { AuthModule } from '@thallesp/nestjs-better-auth'
 import { auth } from '@linea/auth'
 import { ApiKeysModule } from './api-keys/api-keys.module'
@@ -10,6 +11,7 @@ import { AppService } from './app.service'
 import { ApprovalsModule } from './approvals/approvals.module'
 import { ConversationAnalysesModule } from './conversation-analyses/conversation-analyses.module'
 import { ConnectionsModule } from './connections/connections.module'
+import { REQUEST_BODY_LIMITS } from './common/request-body-limits'
 import { RegressionsModule } from './regressions/regressions.module'
 import { ExecutionsModule } from './executions/executions.module'
 import { EndUserAuthorizationModule } from './end-user-authorization/end-user-authorization.module'
@@ -18,6 +20,7 @@ import { HealthController } from './health/health.controller'
 import { MeController } from './me/me.controller'
 import { NotificationsModule } from './notifications/notifications.module'
 import { PublicRuntimeModule } from './public-runtime/public-runtime.module'
+import { PublicRuntimeRateLimitFilter } from './public-runtime/public-runtime-rate-limit.filter'
 import { PushDevicesModule } from './push-devices/push-devices.module'
 import { QueueModule } from './queue/queue.module'
 import { SecretsModule } from './secrets/secrets.module'
@@ -30,6 +33,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     AuthModule.forRoot({
       auth,
       isGlobal: true,
+      bodyParser: REQUEST_BODY_LIMITS,
     }),
     QueueModule,
     ApiKeysModule,
@@ -51,6 +55,9 @@ import { WorkflowsModule } from './workflows/workflows.module'
     RegressionsModule,
   ],
   controllers: [AppController, HealthController, MeController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_FILTER, useClass: PublicRuntimeRateLimitFilter },
+  ],
 })
 export class AppModule {}

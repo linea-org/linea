@@ -51,10 +51,11 @@ describe('Conversation analyses API (e2e)', () => {
         name: 'Support Agent',
         slug: `support-agent-${suffix}`,
       })
-      await repositories.apiKey.createApiKey(db, {
+      await db.insert(schema.apiKeys).values({
         workspaceId: organization.id,
         name: 'Analysis API Test',
-        purpose: 'platform',
+        scopes: ['executions:read'],
+        expiresAt: new Date(Date.now() + 86_400_000),
         hashedKey: generatedKey.hashedKey,
         keyPrefix: generatedKey.keyPrefix,
       })
@@ -225,10 +226,11 @@ describe('Conversation analyses API (e2e)', () => {
         name: 'Pending Support Agent',
         slug: `pending-support-agent-${suffix}`,
       })
-      await repositories.apiKey.createApiKey(db, {
+      await db.insert(schema.apiKeys).values({
         workspaceId: organization.id,
         name: 'Pending Analysis API Test',
-        purpose: 'platform',
+        scopes: ['executions:read'],
+        expiresAt: new Date(Date.now() + 86_400_000),
         hashedKey: generatedKey.hashedKey,
         keyPrefix: generatedKey.keyPrefix,
       })
@@ -310,10 +312,11 @@ describe('Conversation analyses API (e2e)', () => {
         name: 'Sampled Support Agent',
         slug: `sampled-support-agent-${suffix}`,
       })
-      await repositories.apiKey.createApiKey(db, {
+      await db.insert(schema.apiKeys).values({
         workspaceId: organization.id,
         name: 'Sampled Analysis API Test',
-        purpose: 'platform',
+        scopes: ['executions:read'],
+        expiresAt: new Date(Date.now() + 86_400_000),
         hashedKey: generatedKey.hashedKey,
         keyPrefix: generatedKey.keyPrefix,
       })
@@ -408,10 +411,11 @@ describe('Conversation analyses API (e2e)', () => {
         name: 'Unavailable Support Agent',
         slug: `unavailable-support-agent-${suffix}`,
       })
-      await repositories.apiKey.createApiKey(db, {
+      await db.insert(schema.apiKeys).values({
         workspaceId: organization.id,
         name: 'Unavailable Analysis API Test',
-        purpose: 'platform',
+        scopes: ['executions:read'],
+        expiresAt: new Date(Date.now() + 86_400_000),
         hashedKey: generatedKey.hashedKey,
         keyPrefix: generatedKey.keyPrefix,
       })
@@ -488,10 +492,11 @@ describe('Conversation analyses API (e2e)', () => {
         name: 'Private Support Agent',
         slug: `private-support-agent-${suffix}`,
       })
-      await repositories.apiKey.createApiKey(db, {
+      await db.insert(schema.apiKeys).values({
         workspaceId: requester.id,
         name: 'Analysis Requester Key',
-        purpose: 'platform',
+        scopes: ['executions:read'],
+        expiresAt: new Date(Date.now() + 86_400_000),
         hashedKey: generatedKey.hashedKey,
         keyPrefix: generatedKey.keyPrefix,
       })
