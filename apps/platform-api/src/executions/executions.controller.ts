@@ -11,6 +11,7 @@ import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { OptionalUserId } from '../auth/optional-user-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { WorkspaceRateLimit } from '../auth/workspace-rate-limit.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
   sendChatMessageSchema,
@@ -40,6 +41,7 @@ export class ExecutionsController {
   constructor(private readonly executions: ExecutionsService) {}
 
   @Post('workflows/:workflowId/executions')
+  @WorkspaceRateLimit('start')
   trigger(
     @CurrentWorkspaceId() workspaceId: string,
     @OptionalUserId() triggeredByUserId: string | undefined,
@@ -56,6 +58,7 @@ export class ExecutionsController {
   }
 
   @Post('workflows/:workflowId/test-run')
+  @WorkspaceRateLimit('start')
   testRun(
     @CurrentWorkspaceId() workspaceId: string,
     @OptionalUserId() triggeredByUserId: string | undefined,
@@ -71,6 +74,7 @@ export class ExecutionsController {
   }
 
   @Post('workflows/:workflowId/chat-preview')
+  @WorkspaceRateLimit('start')
   sendChatMessage(
     @CurrentWorkspaceId() workspaceId: string,
     @OptionalUserId() triggeredByUserId: string | undefined,
@@ -148,6 +152,7 @@ export class ExecutionsController {
   }
 
   @Post('executions/:id/steps/:stepId/replay')
+  @WorkspaceRateLimit('diagnostic')
   replayStep(
     @CurrentWorkspaceId() workspaceId: string,
     @OptionalUserId() userId: string | undefined,
