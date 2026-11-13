@@ -56,6 +56,9 @@ describe('management start HTTP authorization', () => {
     await db.insert(schema.apiKeys).values({
       workspaceId,
       name: 'Test',
+      scopes: ['executions:start'],
+      expiresAt: new Date(Date.now() + 86_400_000),
+      createdByUserId: adminId,
       hashedKey: key.hashedKey,
       keyPrefix: key.keyPrefix,
     })

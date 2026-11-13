@@ -11,6 +11,7 @@ import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { OptionalUserId } from '../auth/optional-user-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
   sendChatMessageSchema,
@@ -39,6 +40,7 @@ export class ExecutionsController {
   constructor(private readonly executions: ExecutionsService) {}
 
   @Post('workflows/:workflowId/executions')
+  @RequireWorkspaceKeyScopes('executions:start')
   trigger(
     @CurrentWorkspaceId() workspaceId: string,
     @OptionalUserId() triggeredByUserId: string | undefined,
@@ -86,6 +88,7 @@ export class ExecutionsController {
   }
 
   @Get('workflows/:workflowId/chat-preview/conversations')
+  @RequireWorkspaceKeyScopes('executions:read')
   listChatConversations(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
@@ -94,6 +97,7 @@ export class ExecutionsController {
   }
 
   @Get('workflows/:workflowId/chat-preview/:conversationId/messages')
+  @RequireWorkspaceKeyScopes('executions:read')
   listChatMessages(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
@@ -107,6 +111,7 @@ export class ExecutionsController {
   }
 
   @Get('workflows/:workflowId/executions')
+  @RequireWorkspaceKeyScopes('executions:read')
   list(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
@@ -115,6 +120,7 @@ export class ExecutionsController {
   }
 
   @Get('executions')
+  @RequireWorkspaceKeyScopes('executions:read')
   listWorkspace(
     @CurrentWorkspaceId() workspaceId: string,
     @Query(new ZodValidationPipe(listWorkspaceExecutionsSchema))
@@ -125,6 +131,7 @@ export class ExecutionsController {
 
   // Declared ahead of the :id route below so "new-count" isn't swallowed as an id.
   @Get('executions/new-count')
+  @RequireWorkspaceKeyScopes('executions:read')
   countNew(
     @CurrentWorkspaceId() workspaceId: string,
     @Query(new ZodValidationPipe(countNewWorkspaceExecutionsSchema))
@@ -135,6 +142,7 @@ export class ExecutionsController {
 
   // Prefixed because the environment API serves executions/:executionId from the same root.
   @Get('workspace/executions/:id')
+  @RequireWorkspaceKeyScopes('executions:read')
   get(@CurrentWorkspaceId() workspaceId: string, @Param('id') id: string) {
     return this.executions.get(workspaceId, id)
   }

@@ -150,6 +150,9 @@ describe('Environment key authorization', () => {
       await repositories.apiKey.createApiKey(db, {
         workspaceId: organization.id,
         name: 'Workspace key',
+        scopes: ['executions:read'],
+        expiresAt: new Date(Date.now() + 86_400_000),
+        createdByUserId: actor.id,
         hashedKey: workspaceCredential.hashedKey,
         keyPrefix: workspaceCredential.keyPrefix,
       })
@@ -196,7 +199,7 @@ describe('Environment key authorization', () => {
         },
       ])
       await expect(
-        new WorkspaceAuthGuard().canActivate(
+        new WorkspaceAuthGuard(new Reflector()).canActivate(
           contextWithRequest(
             {
               headers: {

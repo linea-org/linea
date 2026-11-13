@@ -11,6 +11,7 @@ import { queuedRegressionRunSchema } from '@linea/protocol/resources'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
   listRegressionRunsSchema,
@@ -33,6 +34,7 @@ export class RegressionRunsController {
   constructor(private readonly regressionRuns: RegressionRunsService) {}
 
   @Get('workflows/:workflowId/regression-runs')
+  @RequireWorkspaceKeyScopes('regressions:read')
   async list(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
@@ -44,6 +46,7 @@ export class RegressionRunsController {
   }
 
   @Post('workflows/:workflowId/regression-runs')
+  @RequireWorkspaceKeyScopes('regressions:write')
   async trigger(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
@@ -56,6 +59,7 @@ export class RegressionRunsController {
   }
 
   @Get('workflows/:workflowId/regression-runs/:id')
+  @RequireWorkspaceKeyScopes('regressions:read')
   async get(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,

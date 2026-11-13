@@ -89,7 +89,7 @@ A server credential bound to one Environment and explicitly scoped to its runtim
 _Avoid_: Application Key, App token, workspace API key
 
 **Workspace Key**:
-A server credential scoped to explicitly granted workspace operations such as Workflow, Signal, and cross-Application monitoring. It cannot act as an End User or substitute for an Environment Key.
+A server credential scoped to explicitly granted workspace operations such as Workflow, Signal, and cross-Application monitoring. Every key expires within a year and stops working when the admin who minted it leaves the workspace or loses the admin role. It cannot act as an End User or substitute for an Environment Key.
 _Avoid_: Admin key, master key
 
 **Workflow Contract**:

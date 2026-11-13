@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Post,
   UseGuards,
 } from '@nestjs/common'
@@ -41,7 +42,7 @@ export class ApiKeysController {
     @Session() session: UserSession<typeof auth>,
     @Body(new ZodValidationPipe(createApiKeySchema)) body: CreateApiKeyDto,
   ) {
-    return this.apiKeys.create(this.workspaceId(session), body)
+    return this.apiKeys.create(this.workspaceId(session), session.user.id, body)
   }
 
   @Get()
@@ -53,8 +54,8 @@ export class ApiKeysController {
   @UseGuards(RecentAuthenticationGuard)
   revoke(
     @Session() session: UserSession<typeof auth>,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.apiKeys.revoke(this.workspaceId(session), id)
+    return this.apiKeys.revoke(this.workspaceId(session), session.user.id, id)
   }
 }

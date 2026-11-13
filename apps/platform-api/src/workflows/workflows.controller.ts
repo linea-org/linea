@@ -16,6 +16,7 @@ import {
 import type { auth } from '@linea/auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
   createWorkflowVersionSchema,
@@ -42,6 +43,7 @@ export class WorkflowsController {
   constructor(private readonly workflows: WorkflowsService) {}
 
   @Post()
+  @RequireWorkspaceKeyScopes('workflows:write')
   create(
     @CurrentWorkspaceId() workspaceId: string,
     @Body(new ZodValidationPipe(createWorkflowSchema)) body: CreateWorkflowDto,
@@ -50,16 +52,19 @@ export class WorkflowsController {
   }
 
   @Get()
+  @RequireWorkspaceKeyScopes('workflows:read')
   list(@CurrentWorkspaceId() workspaceId: string) {
     return this.workflows.list(workspaceId)
   }
 
   @Get(':id')
+  @RequireWorkspaceKeyScopes('workflows:read')
   get(@CurrentWorkspaceId() workspaceId: string, @Param('id') id: string) {
     return this.workflows.get(workspaceId, id)
   }
 
   @Patch(':id')
+  @RequireWorkspaceKeyScopes('workflows:write')
   update(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id') id: string,
@@ -69,6 +74,7 @@ export class WorkflowsController {
   }
 
   @Put(':id/draft')
+  @RequireWorkspaceKeyScopes('workflows:write')
   saveDraft(
     @Session() session: UserSession<typeof auth> | null,
     @CurrentWorkspaceId() workspaceId: string,
@@ -92,6 +98,7 @@ export class WorkflowsController {
   }
 
   @Post(':id/versions')
+  @RequireWorkspaceKeyScopes('workflows:write')
   createVersion(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id') id: string,
@@ -102,6 +109,7 @@ export class WorkflowsController {
   }
 
   @Get(':id/versions')
+  @RequireWorkspaceKeyScopes('workflows:read')
   listVersions(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id') id: string,
@@ -110,6 +118,7 @@ export class WorkflowsController {
   }
 
   @Get(':id/versions/:versionId')
+  @RequireWorkspaceKeyScopes('workflows:read')
   getVersion(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id') id: string,
@@ -119,6 +128,7 @@ export class WorkflowsController {
   }
 
   @Post(':id/versions/:versionId/publish')
+  @RequireWorkspaceKeyScopes('workflows:publish')
   publishVersion(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id') id: string,

@@ -10,6 +10,7 @@ import {
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
   createRegressionCaseFromFlagSchema,
@@ -33,6 +34,7 @@ export class RegressionCasesController {
   constructor(private readonly regressionCases: RegressionCasesService) {}
 
   @Get('workflows/:workflowId/regression-cases')
+  @RequireWorkspaceKeyScopes('regressions:read')
   async list(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
@@ -48,6 +50,7 @@ export class RegressionCasesController {
   }
 
   @Post('workflows/:workflowId/regression-cases/from-step')
+  @RequireWorkspaceKeyScopes('regressions:write')
   async createFromStep(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
@@ -60,6 +63,7 @@ export class RegressionCasesController {
   }
 
   @Post('workflows/:workflowId/regression-cases/from-flag')
+  @RequireWorkspaceKeyScopes('regressions:write')
   async createFromFlag(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,
@@ -72,6 +76,7 @@ export class RegressionCasesController {
   }
 
   @Post('workflows/:workflowId/regression-cases/:id/archive')
+  @RequireWorkspaceKeyScopes('regressions:write')
   async archive(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,

@@ -2,6 +2,7 @@ import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import { listSignalsSchema, type ListSignalsDto } from './dto/list-signals.dto'
 import {
@@ -21,6 +22,7 @@ export class SignalsController {
   constructor(private readonly signals: SignalsService) {}
 
   @Get()
+  @RequireWorkspaceKeyScopes('signals:read')
   list(
     @CurrentWorkspaceId() workspaceId: string,
     @Query(new ZodValidationPipe(listSignalsSchema)) query: ListSignalsDto,
@@ -30,6 +32,7 @@ export class SignalsController {
 
   // Must come before ':id' — otherwise Nest would match "trend" as an :id param.
   @Get('trend')
+  @RequireWorkspaceKeyScopes('signals:read')
   trend(
     @CurrentWorkspaceId() workspaceId: string,
     @Query(new ZodValidationPipe(signalsTrendSchema)) query: SignalsTrendDto,
@@ -38,6 +41,7 @@ export class SignalsController {
   }
 
   @Get(':id')
+  @RequireWorkspaceKeyScopes('signals:read')
   get(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id') id: string,
@@ -48,6 +52,7 @@ export class SignalsController {
   }
 
   @Post(':id/resolve')
+  @RequireWorkspaceKeyScopes('signals:write')
   resolve(@CurrentWorkspaceId() workspaceId: string, @Param('id') id: string) {
     return this.signals.resolve(workspaceId, id)
   }
