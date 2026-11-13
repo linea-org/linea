@@ -1,5 +1,15 @@
-import { and, count, desc, eq, gt, isNull, or, type SQL } from "drizzle-orm"
-import { memories, type NewMemory } from "../schema/index.js"
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gt,
+  isNull,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm"
+import { externalSubjects, memories, type NewMemory } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
 export const MAX_MEMORY_VALUE_BYTES = 16_384
@@ -7,6 +17,8 @@ export const MAX_MEMORIES_PER_SCOPE = 500
 export const DEFAULT_MEMORY_TTL_MS = 90 * 24 * 60 * 60 * 1000
 
 export class MemoryLimitError extends Error {}
+
+export class MemorySubjectInactiveError extends Error {}
 
 export type MemoryScope = {
   workspaceId: string
@@ -55,15 +67,51 @@ export async function writeMemory(
   const expiresAt =
     input.expiresAt ?? new Date(Date.now() + DEFAULT_MEMORY_TTL_MS)
   await db.transaction(async (tx) => {
-    const [existing] = await tx
+    if (input.externalSubjectRecordId) {
+      // FOR SHARE conflicts with the row lock erasure and disabling take, so neither can interleave.
+      const [subject] = await tx
+        .select({ status: externalSubjects.status })
+        .from(externalSubjects)
+        .where(
+          and(
+            eq(externalSubjects.workspaceId, input.workspaceId),
+            eq(externalSubjects.id, input.externalSubjectRecordId)
+          )
+        )
+        .for("share")
+      if (
+        !subject ||
+        subject.status === "disabled" ||
+        subject.status === "erased"
+      )
+        throw new MemorySubjectInactiveError(
+          "Memory cannot be written for a disabled or erased End User"
+        )
+    }
+    const lockKey = JSON.stringify([
+      "memory",
+      input.workspaceId,
+      input.environmentId,
+      input.externalSubjectRecordId ?? null,
+      input.externalSubjectRecordId ?? input.externalSubjectId,
+      input.namespace,
+    ])
+    // Serializes writes within one scope so two new keys can't both pass the cap check.
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
+    )
+    const now = new Date()
+    const [live] = await tx
       .select({ id: memories.id })
       .from(memories)
-      .where(and(scopeCondition(input), eq(memories.key, input.key)))
-    if (!existing) {
+      .where(
+        and(scopeCondition(input), eq(memories.key, input.key), liveAt(now))
+      )
+    if (!live) {
       const [stored] = await tx
         .select({ total: count() })
         .from(memories)
-        .where(and(scopeCondition(input), liveAt(new Date())))
+        .where(and(scopeCondition(input), liveAt(now)))
       if ((stored?.total ?? 0) >= MAX_MEMORIES_PER_SCOPE)
         throw new MemoryLimitError(
           `Memory scope already holds ${MAX_MEMORIES_PER_SCOPE} keys`
