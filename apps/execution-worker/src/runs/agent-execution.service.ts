@@ -40,7 +40,8 @@ const requestSchema = z.strictObject({
   connectionId: z.uuid(),
   input: z.unknown(),
 })
-const AGENT_RUN_DEADLINE_MS = 30 * 60_000
+const AGENT_WORK_BUDGET_MS = 30 * 60_000
+const BUDGET_EXHAUSTED = "Agent run exceeded its 30 minute work budget"
 type AgentDefinition = z.infer<typeof agentDefinitionSchema>
 type RegisteredOperation = NonNullable<
   | ReturnType<typeof registeredReadOperation>
@@ -86,8 +87,12 @@ export class AgentExecutionService {
     leasedBy: string,
     signal: AbortSignal
   ): Promise<void> {
-    // One deadline for the whole run, resumes included; the lease signal alone never expires.
-    const deadline = AbortSignal.timeout(AGENT_RUN_DEADLINE_MS)
+    // The budget persists across deliveries through recorded step time, so a pause cannot reset it.
+    const remainingMs =
+      AGENT_WORK_BUDGET_MS -
+      (await this.checkpoints.getRecordedWorkMs(execution.id))
+    if (remainingMs <= 0) throw new Error(BUDGET_EXHAUSTED)
+    const deadline = AbortSignal.timeout(remainingMs)
     const runSignal = AbortSignal.any([signal, deadline])
     try {
       let outcome: "settled" | "resume"
@@ -96,9 +101,7 @@ export class AgentExecutionService {
       } while (outcome === "resume")
     } catch (error) {
       if (deadline.aborted && !signal.aborted)
-        throw new Error("Agent run exceeded its 30 minute deadline", {
-          cause: error,
-        })
+        throw new Error(BUDGET_EXHAUSTED, { cause: error })
       throw error
     }
   }

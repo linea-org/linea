@@ -17,13 +17,15 @@ export function isTrustedOrigin(origin: string, allowlist: string[]): boolean {
 }
 
 export function usesEnvironmentOriginPolicy(path: string): boolean {
+  // Express routes ignore case, so this must too or a re-cased path slips past the exclusion below.
+  const route = path.toLowerCase()
   // Cookie-bound OAuth pages are navigated to, never fetched; a readable body leaks the browser challenge.
-  if (path.startsWith('/v1/user/connections/oauth/')) return false
+  if (route.startsWith('/v1/user/connections/oauth/')) return false
   return (
-    path === '/v1/user-sessions/authorization' ||
-    path === '/v1/user-sessions/exchange' ||
-    path === '/v1/user-sessions' ||
-    path === '/v1/user-sessions/current' ||
-    path.startsWith('/v1/user/')
+    route === '/v1/user-sessions/authorization' ||
+    route === '/v1/user-sessions/exchange' ||
+    route === '/v1/user-sessions' ||
+    route === '/v1/user-sessions/current' ||
+    route.startsWith('/v1/user/')
   )
 }

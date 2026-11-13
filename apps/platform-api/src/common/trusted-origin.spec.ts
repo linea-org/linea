@@ -14,6 +14,8 @@ describe('usesEnvironmentOriginPolicy', () => {
   it.each([
     '/v1/user/connections/oauth/github/launch',
     '/v1/user/connections/oauth/google/callback',
+    '/v1/user/connections/OAuth/github/launch',
+    '/V1/USER/CONNECTIONS/OAUTH/google/callback',
   ])('never exposes %s to another origin', (path) => {
     expect(usesEnvironmentOriginPolicy(path)).toBe(false)
   })
