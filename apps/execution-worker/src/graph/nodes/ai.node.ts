@@ -18,7 +18,6 @@ import type {
   NodeExecutionContext,
   NodeHandler,
 } from "./node-handler.interface"
-import { UsageError } from "./usage-error"
 
 const DEFAULT_MAX_ITERATIONS = 10
 const MAX_HISTORY_MESSAGES = 40
