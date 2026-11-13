@@ -367,7 +367,6 @@ describe("AiNode", () => {
       expect(fetchMock).not.toHaveBeenCalled()
       expect(complete).toHaveBeenCalledTimes(1)
     })
-
     it("calls a configured HTTP tool, feeds the result back, and returns the model's final answer", async () => {
       complete
         .mockResolvedValueOnce({

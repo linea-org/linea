@@ -59,7 +59,6 @@ describe("InterpreterService.executeDiagnosticNode", () => {
   beforeEach(() => {
     for (const spy of Object.values(spies)) spy.execute.mockClear()
   })
-
   it.each(spiedTypes.filter((type) => diagnosticDispatch[type] === "refused"))(
     "never reaches the %s handler",
     async (type) => {
@@ -73,7 +72,6 @@ describe("InterpreterService.executeDiagnosticNode", () => {
       expect(spies[type].execute).not.toHaveBeenCalled()
     }
   )
-
   it.each(spiedTypes.filter((type) => diagnosticDispatch[type] !== "refused"))(
     "marks the %s handler's context as diagnostic",
     async (type) => {
@@ -89,7 +87,6 @@ describe("InterpreterService.executeDiagnosticNode", () => {
       )
     }
   )
-
   it("refuses every node type whose handler cannot honour the diagnostic flag", () => {
     expect(
       Object.entries(diagnosticDispatch)

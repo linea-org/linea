@@ -53,7 +53,6 @@ describe("MemoryNode", () => {
       ])
     }
   })
-
   it("writes then reads back the same value in the same scope", async () => {
     const { organization } = await setup()
     try {
