@@ -12,7 +12,7 @@ import type { Memory } from "@linea/db"
 import { PermanentRequestError, requestPublic } from "@linea/http"
 import { nodeRegistry } from "@linea/runtime"
 import { NonRetryableError } from "./non-retryable-error"
-import { resolveMemoryScope } from "./memory-scope"
+import { resolveNamespace, resolveSubjectId } from "./memory-scope"
 import type {
   NodeExecutionContext,
   NodeHandler,
@@ -363,8 +363,7 @@ export class AiNode implements NodeHandler {
     // Failure here never fails the node — memory is an enhancement to a call whose core job is
     // still to respond, unlike the Memory node itself where storage IS the point and a bad
     // config throws loudly.
-    // Scope comes from the execution: its Environment, and its verified End User when it has one
-    // (resolveMemoryScope). memorySubjectPath only names the subject on operator-started runs.
+    // A verified End User's run is keyed by its record; memorySubjectPath only names operator-run subjects.
     //
     // Separate trust boundary, also deliberate for now: a stored memory value is a plain
     // string with no structure Linea enforces, so a value that reads as an instruction (written by
@@ -382,19 +381,27 @@ export class AiNode implements NodeHandler {
       parsed.memorySubjectPath.trim() !== ""
     ) {
       try {
-        // Frozen replays carry their subject because they have no trigger payload for path resolution.
-        const scope = resolveMemoryScope(
-          context,
-          input,
-          {
-            subjectPath: parsed.memorySubjectPath,
-            namespace: parsed.memoryNamespace,
-            subjectOverride: context.regressionConversation?.externalSubjectId,
-          },
-          "Agent node memory"
-        )
+        if (!context.environmentId) {
+          throw new Error("Agent node memory requires an Environment")
+        }
         const memories = await repositories.memory.listMemories(db, {
-          ...scope,
+          workspaceId: context.workspaceId,
+          environmentId: context.environmentId,
+          externalSubjectRecordId: context.externalSubjectRecordId,
+          // Frozen replays carry their subject because they have no trigger payload for path resolution.
+          externalSubjectId:
+            context.externalSubjectRecordId ??
+            context.regressionConversation?.externalSubjectId ??
+            resolveSubjectId(
+              input,
+              parsed.memorySubjectPath,
+              "Agent node memory"
+            ),
+          namespace: resolveNamespace(
+            parsed.memoryNamespace,
+            context.workflowId,
+            "Agent node memory"
+          ),
           limit: DEFAULT_MEMORY_RECALL_LIMIT,
         })
         if (memories.length > 0) {

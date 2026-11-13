@@ -1,5 +1,5 @@
 -- Existing rows have no trusted Environment or End User; ADR 0022 allows dropping them.
-DELETE FROM "memories";--> statement-breakpoint
+TRUNCATE "memories";--> statement-breakpoint
 DROP INDEX "memories_scope_key_uidx";--> statement-breakpoint
 ALTER TABLE "memories" ADD COLUMN "environment_id" uuid NOT NULL;--> statement-breakpoint
 ALTER TABLE "memories" ADD COLUMN "external_subject_record_id" uuid;--> statement-breakpoint
