@@ -30,6 +30,7 @@ export type NodeExecutionContext = {
    * from this (returned as its output, then adopted by the interpreter); other handlers get it
    * read-only for their own internal use, not as something they write back into. */
   variables?: Record<string, unknown>
+  priorExecutionTokens?: number
 }
 
 export interface NodeHandler {

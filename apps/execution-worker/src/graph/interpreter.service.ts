@@ -208,7 +208,8 @@ export class InterpreterService {
     leasedBy?: string,
     variables?: Record<string, unknown>,
     workflowVersionId?: string,
-    environmentId?: string
+    environmentId?: string,
+    priorExecutionTokens?: number
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -231,6 +232,7 @@ export class InterpreterService {
       chatMessageId,
       leasedBy,
       variables,
+      priorExecutionTokens,
     })
     const usage = extractTokenUsage(output)
     return {
@@ -303,7 +305,8 @@ export class InterpreterService {
               input.leasedBy,
               variablesState,
               input.workflowVersionId,
-              input.environmentId
+              input.environmentId,
+              usedTokens
             )
             break
           } catch (attemptError) {
