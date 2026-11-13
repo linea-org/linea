@@ -31,6 +31,7 @@ import {
   triggerExecutionSchema,
   type TriggerExecutionDto,
 } from './dto/trigger-execution.dto'
+import { restrictEndUserTrace } from './end-user-trace-access'
 import { ExecutionsService } from './executions.service'
 
 @Controller()
@@ -143,17 +144,25 @@ export class ExecutionsController {
   // Prefixed because the environment API serves executions/:executionId from the same root.
   @Get('workspace/executions/:id')
   @RequireWorkspaceKeyScopes('executions:read')
-  get(@CurrentWorkspaceId() workspaceId: string, @Param('id') id: string) {
-    return this.executions.get(workspaceId, id)
+  async get(
+    @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() userId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return restrictEndUserTrace(
+      await this.executions.get(workspaceId, id),
+      userId,
+    )
   }
 
   @Post('executions/:id/steps/:stepId/replay')
   replayStep(
     @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() userId: string | undefined,
     @Param('id') id: string,
     @Param('stepId') stepId: string,
     @Body(new ZodValidationPipe(replayStepSchema)) body: ReplayStepDto,
   ) {
-    return this.executions.replayStep(workspaceId, id, stepId, body)
+    return this.executions.replayStep(workspaceId, id, stepId, body, userId)
   }
 }

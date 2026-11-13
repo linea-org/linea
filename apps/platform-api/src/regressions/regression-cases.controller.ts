@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
+import { OptionalUserId } from '../auth/optional-user-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
@@ -53,12 +54,18 @@ export class RegressionCasesController {
   @RequireWorkspaceKeyScopes('regressions:write')
   async createFromStep(
     @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() userId: string | undefined,
     @Param('workflowId') workflowId: string,
     @Body(new ZodValidationPipe(createRegressionCaseFromStepSchema))
     body: CreateRegressionCaseFromStepDto,
   ) {
     return regressionCaseProjection(
-      await this.regressionCases.createFromStep(workspaceId, workflowId, body),
+      await this.regressionCases.createFromStep(
+        workspaceId,
+        workflowId,
+        body,
+        userId,
+      ),
     )
   }
 
