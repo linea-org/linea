@@ -1,5 +1,5 @@
 import { setTimeout as sleep } from "node:timers/promises"
-import { Injectable } from "@nestjs/common"
+import { Injectable, Logger } from "@nestjs/common"
 import { calculateCostMicros, resolveProviderId } from "@linea/ai"
 import {
   MAX_RETRY_DELAY_MS,
@@ -75,12 +75,16 @@ export type RunInput = {
   executionId: string
   workspaceId: string
   environmentId?: string
+  externalSubjectRecordId?: string
   // Optional so replay/tests without a conversation don't have to supply it.
   workflowId?: string
   workflowVersionId?: string
   leasedBy: string
   graph: WorkflowGraph
   triggerPayload: unknown
+  // Set by RunsService from the execution row, never read out of triggerPayload here.
+  conversationId?: string
+  chatMessageId?: string
   resumeFrom: Map<string, unknown>
   // Usage already recorded for steps in `resumeFrom`, since they're skipped rather than re-executed.
   initialTokensInput?: number
@@ -117,22 +121,6 @@ function mergeCostUnpriced(
   return false
 }
 
-function extractConversationId(triggerPayload: unknown): string | undefined {
-  if (triggerPayload === null || typeof triggerPayload !== "object") {
-    return undefined
-  }
-  const value = (triggerPayload as Record<string, unknown>).conversationId
-  return typeof value === "string" ? value : undefined
-}
-
-function extractChatMessageId(triggerPayload: unknown): string | undefined {
-  if (triggerPayload === null || typeof triggerPayload !== "object") {
-    return undefined
-  }
-  const value = (triggerPayload as Record<string, unknown>).chatMessageId
-  return typeof value === "string" ? value : undefined
-}
-
 function extractTokenUsage(
   output: unknown
 ): { tokensInput: number; tokensOutput: number } | undefined {
@@ -150,6 +138,7 @@ function extractTokenUsage(
 
 @Injectable()
 export class InterpreterService {
+  private readonly logger = new Logger(InterpreterService.name)
   private readonly handlers: Record<string, NodeHandler>
 
   constructor(
@@ -203,7 +192,8 @@ export class InterpreterService {
     leasedBy?: string,
     variables?: Record<string, unknown>,
     workflowVersionId?: string,
-    environmentId?: string
+    environmentId?: string,
+    externalSubjectRecordId?: string
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -216,6 +206,7 @@ export class InterpreterService {
     const output = await handler.execute(node.config, input, {
       workspaceId,
       environmentId,
+      externalSubjectRecordId,
       idempotencyKey,
       signal,
       executionId,
@@ -288,13 +279,14 @@ export class InterpreterService {
               `${input.executionId}:${step.nodeId}`,
               withAttemptTimeout(runSignal, retryPolicy?.timeoutMs),
               input.executionId,
-              extractConversationId(input.triggerPayload),
+              input.conversationId,
               input.workflowId,
-              extractChatMessageId(input.triggerPayload),
+              input.chatMessageId,
               input.leasedBy,
               variablesState,
               input.workflowVersionId,
-              input.environmentId
+              input.environmentId,
+              input.externalSubjectRecordId
             )
             break
           } catch (attemptError) {
@@ -391,7 +383,11 @@ export class InterpreterService {
           }
         }
         const message = error instanceof Error ? error.message : String(error)
-        const stack = error instanceof Error ? error.stack : undefined
+        // Stacks stay in server logs; step records are returned to workspace members and API keys.
+        this.logger.error(
+          `Execution ${input.executionId} node ${step.nodeId} failed: ${message}`,
+          error instanceof Error ? error.stack : undefined
+        )
         const usage = getErrorTokenUsage(error)
         let costMicros: bigint | undefined
         let stepCostUnpriced: boolean | undefined
@@ -414,7 +410,7 @@ export class InterpreterService {
           nodeId: step.nodeId,
           nodeType: step.nodeType,
           input: step.input,
-          error: { message, stack },
+          error: { message },
           startedAt,
           endedAt: new Date(),
           tokensInput: usage?.tokensInput,

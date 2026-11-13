@@ -198,6 +198,7 @@ export async function triggerWorkflowExecutionForVersion(
     environment?: Execution["environment"]
     triggeredByUserId?: string
     externalSubjectId?: string
+    conversationId?: string
   }
 ): Promise<TriggerWorkflowForVersionResult> {
   return db.transaction(async (tx) => {
@@ -241,6 +242,7 @@ export async function triggerWorkflowExecutionForVersion(
         triggerPayload: input.triggerPayload,
         triggeredByUserId: input.triggeredByUserId,
         externalSubjectId,
+        conversationId: input.conversationId,
         ...(input.environment ? { environment: input.environment } : {}),
       })
       .returning()

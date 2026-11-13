@@ -20,6 +20,7 @@ const response = {
   steps: [],
   nodeConfigs: {},
   replayable: true,
+  traceContentRestricted: false,
 }
 
 describe("Execution detail response", () => {
@@ -32,6 +33,14 @@ describe("Execution detail response", () => {
         ...response,
         replayable: undefined,
         execution: { ...response.execution, replayable: true },
+      }).success
+    ).toBe(false)
+  })
+  it("requires the API to say whether step content was restricted", () => {
+    expect(
+      executionDetailResponseSchema.safeParse({
+        ...response,
+        traceContentRestricted: undefined,
       }).success
     ).toBe(false)
   })

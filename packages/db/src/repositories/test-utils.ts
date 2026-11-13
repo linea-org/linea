@@ -207,6 +207,8 @@ export type CreateExecutionInput = {
   origin?: Execution["origin"]
   triggeredByUserId?: string
   externalSubjectId?: string
+  environment?: Execution["environment"]
+  conversationId?: string
 }
 
 export function createExecution(

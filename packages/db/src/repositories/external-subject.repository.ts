@@ -29,6 +29,7 @@ import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.re
 import { recordConnectionFact } from "./connector-audit.repository.js"
 import { eraseExternalSubjectContent } from "./end-user-content.repository.js"
 import { createPublicEvent } from "./outbox-message.repository.js"
+import { deleteMemoriesForSubject } from "./memory.repository.js"
 
 export type ExternalSubjectProjection = {
   subject: ExternalSubject
@@ -324,6 +325,11 @@ export async function eraseExternalSubject(
         externalSubjectId: existing.id,
         actorUserId,
         erasedAt: now,
+      })
+      await deleteMemoriesForSubject(tx, {
+        workspaceId,
+        externalSubjectRecordId: existing.id,
+        issuerSubject: existing.issuerSubject,
       })
       const revokedAuthorities = [
         ...requesters.map((authorization) => ({
