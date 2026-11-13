@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, expect, it, vi } from "vitest"
 import { betterAuth } from "better-auth"
 import { memoryAdapter } from "better-auth/adapters/memory"
+import { createTestRateLimiter } from "./test-rate-limiter.js"
+
+const { redis, limiter } = createTestRateLimiter(process.env.REDIS_URL)
 
 beforeAll(() => {
   vi.stubEnv("DATABASE_URL", "postgresql://test:test@127.0.0.1:1/reset_test")
@@ -10,7 +13,10 @@ beforeAll(() => {
     "password-reset-session-regression-test-secret"
   )
 })
-afterAll(() => vi.unstubAllEnvs())
+afterAll(async () => {
+  vi.unstubAllEnvs()
+  await redis.quit()
+})
 
 // Real password hashing shares CI runner CPU with the other integration suites.
 it("invalidates both existing sessions when the password is reset", async () => {
@@ -18,6 +24,8 @@ it("invalidates both existing sessions when the password is reset", async () => 
   let resetToken = ""
   const isolated = betterAuth({
     ...auth.options,
+    rateLimit: { ...auth.options.rateLimit, customStorage: limiter.storage },
+    hooks: limiter.hooks,
     database: memoryAdapter({
       user: [],
       session: [],
