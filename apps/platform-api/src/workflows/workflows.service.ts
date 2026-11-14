@@ -84,7 +84,7 @@ export class WorkflowsService {
     return workflow
   }
 
-  async update(
+  update(
     workspaceId: string,
     id: string,
     input: UpdateWorkflowDto,

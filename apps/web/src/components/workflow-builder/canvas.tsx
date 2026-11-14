@@ -636,10 +636,18 @@ function WorkflowBuilderCanvasInner({
           ) : (
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger render={<span tabIndex={0} />}>
-                  <Button type="button" size="xs" disabled>
-                    Publish
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      type="button"
+                      size="xs"
+                      disabled
+                      focusableWhenDisabled
+                      className="cursor-not-allowed opacity-50"
+                    />
+                  }
+                >
+                  Publish
                 </TooltipTrigger>
                 <TooltipContent>
                   Only workspace admins can publish. Commit your changes and ask

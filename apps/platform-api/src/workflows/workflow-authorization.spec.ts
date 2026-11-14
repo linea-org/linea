@@ -288,6 +288,8 @@ describe('Workflow publish and Production routing authorization', () => {
       }
       await admins.query('COMMIT')
     } finally {
+      // A failure before COMMIT would otherwise return a connection that still holds the workflow lock.
+      await admins.query('ROLLBACK')
       admins.release()
     }
     expect(await renamed).toBe(403)
