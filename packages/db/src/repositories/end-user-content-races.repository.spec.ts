@@ -5,6 +5,7 @@ import { db, pool } from "../clients/index.js"
 import {
   conversations,
   environments,
+  executionSteps,
   executions,
   externalSubjectEnvironments,
   externalSubjects,
@@ -16,7 +17,10 @@ import {
   lockExternalSubject,
   resolveSubject,
 } from "./public-runtime.repository.js"
-import { createRegressionCase } from "./regression-case.repository.js"
+import {
+  createRegressionCase,
+  createRegressionCaseFromStep,
+} from "./regression-case.repository.js"
 import {
   createRegressionRun,
   insertRegressionResults,
@@ -260,6 +264,57 @@ describe("End-User content races", () => {
         .where(eq(regressionResults.runId, run.id))
       expect(stored).toHaveLength(1)
       expect(stored[0].output).toBeNull()
+    } finally {
+      await deleteOrganization(fixture.organization.id)
+    }
+  })
+  it("saves no case from a step that an erasure in flight deletes", async () => {
+    const fixture = await db.transaction(createRaceFixture)
+    try {
+      const [execution] = await db
+        .select()
+        .from(executions)
+        .where(eq(executions.conversationId, fixture.conversation.id))
+      const [step] = await db
+        .insert(executionSteps)
+        .values({
+          executionId: execution.id,
+          workspaceId: fixture.organization.id,
+          traceId: "trace",
+          spanId: randomUUID(),
+          name: "agent",
+          startedAt: new Date(),
+          nodeId: "agent",
+          sequence: 0,
+          input: { prompt: "private prompt" },
+        })
+        .returning()
+      const locked = gate()
+      const finish = gate()
+      const erasure = db.transaction(async (tx) => {
+        await tx
+          .select({ id: executions.id })
+          .from(executions)
+          .where(eq(executions.id, execution.id))
+          .for("update")
+        await tx.delete(executionSteps).where(eq(executionSteps.id, step.id))
+        locked.open()
+        await finish.opened
+      })
+      await locked.opened
+      const writer = createRegressionCaseFromStep(db, {
+        workspaceId: fixture.organization.id,
+        stepId: step.id,
+      })
+      await waitForLockWait("executions")
+      finish.open()
+      await erasure
+      expect(await writer).toBeUndefined()
+      const cases = await db
+        .select()
+        .from(regressionCases)
+        .where(eq(regressionCases.workspaceId, fixture.organization.id))
+      expect(cases).toHaveLength(0)
     } finally {
       await deleteOrganization(fixture.organization.id)
     }
