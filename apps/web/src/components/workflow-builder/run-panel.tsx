@@ -184,6 +184,7 @@ export function RunPanel({
                 step={selectedStep}
                 nodeConfig={data.nodeConfigs[selectedStep.nodeId]}
                 replayable={data.replayable}
+                contentRestricted={data.traceContentRestricted}
                 resumedAt={resumedAtByStepId.get(selectedStep.id)}
                 onReplayTriggered={(stepId) => {
                   setPendingReplayStepId(stepId)

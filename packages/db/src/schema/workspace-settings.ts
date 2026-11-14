@@ -25,6 +25,8 @@ export const workspaceSettings = snakeCase.table("workspace_settings", {
   // of the enabled flag, so a workspace can dial spend down without turning the feature off.
   behaviourSampleRate: real().notNull().default(1),
   behaviourModel: text(),
+  // Linea grants this, never the workspace, because it spends the platform's own provider key.
+  platformModelKeyEnabled: boolean().notNull().default(false),
 
   // Layer 4 (retention/redaction) — reserved, unused until that layer is built.
   retentionDays: integer(),

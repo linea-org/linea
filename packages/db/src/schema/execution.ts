@@ -52,6 +52,7 @@ export const executionTrigger = pgEnum("execution_trigger", [
 type ExecutionError = {
   message: string
   stepId?: string
+  code?: "authority_revoked"
 }
 
 export const executions = snakeCase.table(

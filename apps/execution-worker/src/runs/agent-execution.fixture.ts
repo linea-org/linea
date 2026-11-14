@@ -148,6 +148,10 @@ export async function createAgentExecutionFixture() {
       enabled: true,
     }
   )
+  // Specs supply a deterministic platform model key rather than an Environment secret.
+  await db
+    .insert(schema.workspaceSettings)
+    .values({ workspaceId: workspace.id, platformModelKeyEnabled: true })
   return {
     workspaceId: workspace.id,
     environmentId: environment.id,

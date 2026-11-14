@@ -20,6 +20,11 @@ export class HttpNode implements NodeHandler {
       headers: config.headers,
       body: input,
     })
+    if (context.diagnostic && parsed.method !== "GET") {
+      throw new NonRetryableError(
+        `HTTP ${parsed.method} requests aren't sent in Replay or Regression runs: they would repeat the original write`
+      )
+    }
     // No-payload triggers round-trip through the DB as null.
     const hasBody = parsed.body !== undefined && parsed.body !== null
     const headers = { ...parsed.headers }

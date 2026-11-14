@@ -5,9 +5,11 @@ import {
   type OnModuleInit,
 } from "@nestjs/common"
 import type { Job, Worker } from "bullmq"
+import { db, repositories } from "@linea/db"
 import {
   createConnection,
   createWorkflowExecutionWorker,
+  withExecutionAdmission,
   type WorkflowExecutionJob,
 } from "@linea/queue"
 import { RunsService } from "./runs.service"
@@ -23,8 +25,23 @@ export class RunsConsumer implements OnModuleInit, OnModuleDestroy {
     const connection = createConnection()
     this.worker = createWorkflowExecutionWorker(
       connection,
-      async (job: Job<WorkflowExecutionJob>) => {
-        await this.runs.execute(job.data.executionId)
+      async (job: Job<WorkflowExecutionJob>, token?: string) => {
+        const { executionId } = job.data
+        const execution = await repositories.execution.getExecutionById(
+          db,
+          executionId
+        )
+        if (!execution) {
+          await this.runs.execute(executionId)
+          return
+        }
+        await withExecutionAdmission(
+          connection,
+          job,
+          token,
+          execution.workspaceId,
+          () => this.runs.execute(executionId)
+        )
       }
     )
 

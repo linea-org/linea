@@ -1,5 +1,6 @@
 import { getTestApplicationId } from "@linea/db/testing"
 import "dotenv/config"
+import { calculateCostMicros } from "@linea/ai"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linea/db"
 import type { WorkflowGraph } from "@linea/runtime"
@@ -16,6 +17,7 @@ import { VariablesNode } from "../graph/nodes/variables.node"
 import { TransformNode } from "../graph/nodes/transform.node"
 import { WaitNode } from "../graph/nodes/wait.node"
 import type { AiNode } from "../graph/nodes/ai.node"
+import { UsageError } from "../graph/nodes/usage-error"
 import { RegressionExecutionService } from "./regression-execution.service"
 
 afterAll(async () => {
@@ -277,6 +279,66 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       ])
     }
   })
+  it("errors a Memory write case without writing the recorded input", async () => {
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "memory-1",
+      nodes: [
+        {
+          id: "memory-1",
+          type: "memory",
+          config: {
+            operation: "write",
+            subjectPath: "userId",
+            namespace: "prefs",
+            key: "favorite",
+          },
+        },
+      ],
+      edges: [],
+    }
+    const { organization, workflow, version } = await setUpWorkflow(graph)
+    const aiNode = { execute: jest.fn() } as unknown as AiNode
+    const service = new RegressionExecutionService(
+      buildInterpreter(aiNode),
+      aiNode
+    )
+    try {
+      await repositories.regressionCase.createRegressionCase(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        caseType: "node",
+        nodeId: "memory-1",
+        input: { nodeInput: { userId: "u1", food: "pizza" } },
+        assertions: [],
+      })
+      const run = await service.runRegressionForVersion(
+        organization.id,
+        workflow.id,
+        version.id,
+        "publish"
+      )
+      const results = await repositories.regressionRun.listRegressionResults(
+        db,
+        organization.id,
+        run.id
+      )
+      expect(results[0].status).toBe("errored")
+      expect(JSON.stringify(results[0].output)).toContain(
+        "Memory writes don't run in Replay or Regression runs"
+      )
+      const memories = await pool.query(
+        "SELECT id FROM memories WHERE workspace_id = $1",
+        [organization.id]
+      )
+      expect(memories.rows).toHaveLength(0)
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
   it("runs a conversation-type case through AiNode's chat path with the snapshotted history", async () => {
     const graph: WorkflowGraph = {
       version: 1,
@@ -327,6 +389,7 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
         { model: "claude-sonnet-5" },
         {},
         expect.objectContaining({
+          diagnostic: true,
           regressionConversation: {
             turns: [{ role: "user", content: "What's your refund policy?" }],
             finalPrompt: "What about after 30 days?",
@@ -346,6 +409,57 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
         { role: "user", content: "What about after 30 days?" },
         { role: "assistant", content: "Sure, I can help with that." },
       ])
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+  it("records the model cost of a conversation case refused for a write tool", async () => {
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "agent-1",
+      nodes: [
+        { id: "agent-1", type: "ai", config: { model: "claude-sonnet-5" } },
+      ],
+      edges: [],
+    }
+    const { organization, workflow, version } = await setUpWorkflow(graph)
+    const execute = jest
+      .fn()
+      .mockRejectedValue(
+        new UsageError('Tool "refund" (POST) isn\'t called', 1000, 500)
+      )
+    const aiNode = { execute } as unknown as AiNode
+    const service = new RegressionExecutionService(
+      buildInterpreter(aiNode),
+      aiNode
+    )
+    try {
+      await repositories.regressionCase.createRegressionCase(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        caseType: "conversation",
+        input: { turns: [], finalPrompt: "Refund my order" },
+        assertions: [],
+      })
+      const run = await service.runRegressionForVersion(
+        organization.id,
+        workflow.id,
+        version.id,
+        "manual"
+      )
+      const expected = calculateCostMicros("claude-sonnet-5", 1000, 500)
+      expect(expected).toBeGreaterThan(0n)
+      expect(run.costMicros).toBe(expected)
+      const results = await repositories.regressionRun.listRegressionResults(
+        db,
+        organization.id,
+        run.id
+      )
+      expect(results[0].status).toBe("errored")
+      expect(results[0].costMicros).toBe(expected)
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

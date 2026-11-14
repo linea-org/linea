@@ -12,6 +12,7 @@ import type { Memory } from "@linea/db"
 import { PermanentRequestError, requestPublic } from "@linea/http"
 import { nodeRegistry } from "@linea/runtime"
 import { NonRetryableError } from "./non-retryable-error"
+import { assertWithinExecutionBudget, UsageError } from "./usage-error"
 import { resolveNamespace, resolveSubjectId } from "./memory-scope"
 import type {
   NodeExecutionContext,
@@ -19,6 +20,7 @@ import type {
 } from "./node-handler.interface"
 
 const DEFAULT_MAX_ITERATIONS = 10
+const MAX_HISTORY_MESSAGES = 40
 // Matches production practice (Mem0's own per-turn recall default, OpenAI's agent-context cookbook)
 // rather than "as much as fits" — a longer recency-only list actively hurts (lost-in-the-middle),
 // and a small cap keeps the extra DB round trip and the completion call itself fast.
@@ -243,7 +245,11 @@ export class AiNode implements NodeHandler {
     })
     const provider = resolveProvider(parsed.model)
     const keyName = resolveKeyName(parsed.model)
-    const { apiKey } = await resolveApiKey(db, context.environmentId, keyName)
+    const { apiKey } = await resolveApiKey(db, {
+      workspaceId: context.workspaceId,
+      environmentId: context.environmentId,
+      keyName,
+    })
     // leasedBy is required here (not just executionId/nodeId) so a saved-progress write can be
     // fenced against the execution's lease at commit time, not just checked at call time.
     const nodeKey =
@@ -290,7 +296,8 @@ export class AiNode implements NodeHandler {
       let history: ConversationTurn[] | undefined
       if (context.regressionConversation) {
         // Regression snapshots take priority because no live chat messages back the replay.
-        history = context.regressionConversation.turns
+        history =
+          context.regressionConversation.turns.slice(-MAX_HISTORY_MESSAGES)
         prompt = context.regressionConversation.finalPrompt
       } else if (parsed.conversationId) {
         if (!context.workflowId) {
@@ -329,6 +336,7 @@ export class AiNode implements NodeHandler {
           .filter(
             (message) => message.role !== "user" || repliedToIds.has(message.id)
           )
+          .slice(-MAX_HISTORY_MESSAGES)
           .map((message) => ({ role: message.role, content: message.content }))
       }
       // Empty/no tools resolves on the first iteration exactly like the old single-call path —
@@ -363,16 +371,9 @@ export class AiNode implements NodeHandler {
     // Failure here never fails the node — memory is an enhancement to a call whose core job is
     // still to respond, unlike the Memory node itself where storage IS the point and a bad
     // config throws loudly.
-    // Trust boundary, deliberate for now: externalSubjectId is resolved from this node's own
-    // input, which traces back to the caller-supplied triggerPayload — there is no per-end-user
-    // auth token to verify the caller is actually entitled to that specific subject's memories.
-    // workspaceId, by contrast, is never caller-supplied (WorkspaceAuthGuard resolves it
-    // server-side from the session/API key), so this can only ever cross subjects within one
-    // already-authenticated workspace, never across workspaces. Closing that narrower gap needs
-    // the per-end-user identity/authorization model Linea doesn't have yet — tracked on its own
-    // ticket (Phase 5) rather than attempted here as a partial fix.
+    // A verified End User's run is keyed by its record; memorySubjectPath only names operator-run subjects.
     //
-    // Second, separate trust boundary, also deliberate for now: a stored memory value is a plain
+    // Separate trust boundary, also deliberate for now: a stored memory value is a plain
     // string with no structure Linea enforces, so a value that reads as an instruction (written by
     // whoever had write access to this subject's memory, possibly a prior run acting on
     // attacker-supplied input) still reaches this model call as plain text. Formatting it as
@@ -388,19 +389,27 @@ export class AiNode implements NodeHandler {
       parsed.memorySubjectPath.trim() !== ""
     ) {
       try {
-        // Frozen replays carry their subject because they have no trigger payload for path resolution.
-        const externalSubjectId =
-          context.regressionConversation?.externalSubjectId ??
-          resolveSubjectId(input, parsed.memorySubjectPath, "Agent node memory")
-        const namespace = resolveNamespace(
-          parsed.memoryNamespace,
-          context.workflowId,
-          "Agent node memory"
-        )
+        if (!context.environmentId) {
+          throw new Error("Agent node memory requires an Environment")
+        }
         const memories = await repositories.memory.listMemories(db, {
           workspaceId: context.workspaceId,
-          externalSubjectId,
-          namespace,
+          environmentId: context.environmentId,
+          externalSubjectRecordId: context.externalSubjectRecordId,
+          // Frozen replays carry their subject because they have no trigger payload for path resolution.
+          externalSubjectId:
+            context.externalSubjectRecordId ??
+            context.regressionConversation?.externalSubjectId ??
+            resolveSubjectId(
+              input,
+              parsed.memorySubjectPath,
+              "Agent node memory"
+            ),
+          namespace: resolveNamespace(
+            parsed.memoryNamespace,
+            context.workflowId,
+            "Agent node memory"
+          ),
           limit: DEFAULT_MEMORY_RECALL_LIMIT,
         })
         if (memories.length > 0) {
@@ -432,6 +441,11 @@ export class AiNode implements NodeHandler {
       iteration < maxIterations;
       iteration++
     ) {
+      assertWithinExecutionBudget(
+        context.priorExecutionTokens,
+        tokensInput,
+        tokensOutput
+      )
       // Unlike HttpNode, idempotencyKey isn't forwarded — no supported provider accepts one.
       const result = await provider.complete(apiKey, {
         model: parsed.model,
@@ -459,6 +473,12 @@ export class AiNode implements NodeHandler {
           tokensOutput,
         })
       }
+      // Tool results only feed the next model call, so skip them when that call can't happen.
+      assertWithinExecutionBudget(
+        context.priorExecutionTokens,
+        tokensInput,
+        tokensOutput
+      )
       conversation.push({ role: "assistant", toolCalls: result.toolCalls })
       // The write itself is lease-fenced (see saveAiNodeProgress) — this local check is just an
       // early exit, skipping a DB round trip we already know the fencing would reject.
@@ -474,6 +494,14 @@ export class AiNode implements NodeHandler {
         })
       }
       for (const call of result.toolCalls) {
+        const method = toolsByName.get(call.name)?.method
+        if (context.diagnostic && method !== undefined && method !== "GET") {
+          throw new UsageError(
+            `Tool "${call.name}" (${method}) isn't called in Replay or Regression runs: it would repeat the original write`,
+            tokensInput,
+            tokensOutput
+          )
+        }
         conversation.push(
           await resolveToolCallTurn(
             call,
@@ -484,8 +512,10 @@ export class AiNode implements NodeHandler {
         )
       }
     }
-    throw new Error(
-      `AI node exceeded maxIterations (${maxIterations}) without a final answer`
+    throw new UsageError(
+      `AI node exceeded maxIterations (${maxIterations}) without a final answer`,
+      tokensInput,
+      tokensOutput
     )
   }
 }

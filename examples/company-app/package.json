@@ -7,7 +7,8 @@
     "build:deps": "pnpm --filter \"linea-company-app-example^...\" build",
     "build:web": "esbuild web/main.tsx --bundle --format=esm --target=es2022 --jsx=automatic --outfile=dist/main.js",
     "start": "pnpm build:deps && pnpm build:web && node --experimental-strip-types src/server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/*.test.ts"
   },
   "dependencies": {
     "@linea/sdk": "workspace:*",

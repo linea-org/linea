@@ -51,6 +51,7 @@ describe('Agent authoring input', () => {
       },
       { ...input.definition, maxIterations: 0 },
       { ...input.definition, maxIterations: 1.5 },
+      { ...input.definition, maxIterations: 26 },
     ])
       expect(
         createAgentVersionSchema.safeParse({ ...input, definition }).success,

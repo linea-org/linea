@@ -53,6 +53,7 @@ export const githubListRepositoriesOperation: ConnectorReadOperation =
     providerErrorMessage: "GitHub repository read failed",
     inputSchema,
     outputSchema,
+    traceOutput: (output) => outputSchema.parse(output),
     async execute(rawInput, credential, signal) {
       const input = inputSchema.parse(rawInput)
       const url = githubUrl(

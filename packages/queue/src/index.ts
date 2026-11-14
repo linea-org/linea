@@ -31,3 +31,7 @@ export {
 } from "./queues/webhook-delivery.js"
 
 export { withWebhookAdmission } from "./webhook-admission.js"
+export {
+  EXECUTION_WORKSPACE_CONCURRENCY,
+  withExecutionAdmission,
+} from "./execution-admission.js"

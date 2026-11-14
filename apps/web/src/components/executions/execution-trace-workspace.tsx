@@ -203,6 +203,7 @@ export function ExecutionTraceWorkspace({
                 step={selected}
                 nodeConfig={nodeConfigs[selected.nodeId]}
                 replayable={detail.replayable}
+                contentRestricted={detail.traceContentRestricted}
                 resumedAt={resumedAtByStepId.get(selected.id)}
                 onReplayTriggered={(stepId) => {
                   setStatus("all")

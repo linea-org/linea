@@ -27,6 +27,7 @@ function detail(
     nodeConfigs: {},
     replayable: false,
     nestedAgents: [],
+    traceContentRestricted: false,
   }
 }
 

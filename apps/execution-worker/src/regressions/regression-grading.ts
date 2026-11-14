@@ -97,8 +97,10 @@ const JUDGE_TOOL: ToolDefinition = {
 }
 
 // An explicit model is required; only implicit selection may fall through to another provider.
+export type GradingScope = { workspaceId: string; environmentId: string }
+
 async function resolveJudgeModelAndKey(
-  environmentId: string,
+  scope: GradingScope,
   config: Record<string, unknown>
 ): Promise<{ model: string; apiKey: string }> {
   const explicitModel =
@@ -110,7 +112,7 @@ async function resolveJudgeModelAndKey(
   for (const model of candidates) {
     try {
       const keyName = resolveKeyName(model)
-      const { apiKey } = await resolveApiKey(db, environmentId, keyName)
+      const { apiKey } = await resolveApiKey(db, { ...scope, keyName })
       return { model, apiKey }
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error))
@@ -122,7 +124,7 @@ async function resolveJudgeModelAndKey(
 }
 
 async function evaluateLlmJudge(
-  environmentId: string,
+  scope: GradingScope,
   content: string,
   config: Record<string, unknown>
 ): Promise<{
@@ -135,7 +137,7 @@ async function evaluateLlmJudge(
     typeof config.rubric === "string"
       ? config.rubric
       : "Judge whether the content is acceptable."
-  const { model, apiKey } = await resolveJudgeModelAndKey(environmentId, config)
+  const { model, apiKey } = await resolveJudgeModelAndKey(scope, config)
   const provider = resolveProvider(model)
   const result = await provider.complete(apiKey, {
     model,
@@ -172,7 +174,7 @@ async function evaluateLlmJudge(
 }
 
 export async function evaluateAssertion(
-  environmentId: string,
+  scope: GradingScope,
   output: unknown,
   assertion: Assertion
 ): Promise<AssertionResult> {
@@ -191,7 +193,7 @@ export async function evaluateAssertion(
     // One judge failure must not prevent the remaining assertions from producing results.
     let judged: Awaited<ReturnType<typeof evaluateLlmJudge>>
     try {
-      judged = await evaluateLlmJudge(environmentId, text, assertion.config)
+      judged = await evaluateLlmJudge(scope, text, assertion.config)
     } catch (error) {
       return {
         type: assertion.type,
@@ -241,7 +243,7 @@ export type GradeOutcome = {
 
 // Empty assertion lists pass because the case makes no claims to disprove.
 export async function gradeOutput(
-  environmentId: string,
+  scope: GradingScope,
   output: unknown,
   assertions: Assertion[]
 ): Promise<GradeOutcome> {
@@ -249,9 +251,7 @@ export async function gradeOutput(
     return { status: "passed", score: null, costMicros: 0n, details: [] }
   }
   const details = await Promise.all(
-    assertions.map((assertion) =>
-      evaluateAssertion(environmentId, output, assertion)
-    )
+    assertions.map((assertion) => evaluateAssertion(scope, output, assertion))
   )
   const passed = details.every((d) => d.passed)
   const score = details.reduce((sum, d) => sum + d.score, 0) / details.length

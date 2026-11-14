@@ -1,23 +1,33 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { randomUUID } from 'node:crypto'
+import { after, test } from 'node:test'
 import { ExpressAdapter } from '@nestjs/platform-express'
 import request from 'supertest'
 import { betterAuth } from 'better-auth'
 import { memoryAdapter } from 'better-auth/adapters/memory'
 import { toNodeHandler } from 'better-auth/node'
+import { Redis } from 'ioredis'
 import { configureAuthClientIp } from '../src/common/auth-client-ip.ts'
 
 process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:1/ip_test'
 process.env.BETTER_AUTH_URL = 'http://localhost:3000'
 process.env.BETTER_AUTH_SECRET = 'auth-client-ip-regression-test-secret'
 
-const { auth } = await import('@linea/auth')
+const { auth, createAuthRateLimiter } = await import('@linea/auth')
+const redis = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: 1 })
+after(() => redis.quit())
 
 function createApp(trustedProxies) {
   const app = new ExpressAdapter().getInstance()
   configureAuthClientIp(app, trustedProxies)
+  const limiter = createAuthRateLimiter(
+    redis,
+    `auth-client-ip-test:${randomUUID()}`,
+  )
   const isolatedAuth = betterAuth({
     ...auth.options,
+    rateLimit: { ...auth.options.rateLimit, customStorage: limiter.storage },
+    hooks: limiter.hooks,
     database: memoryAdapter({
       user: [],
       session: [],

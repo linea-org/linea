@@ -20,6 +20,7 @@ import {
   WorkflowGraphError,
 } from '@linea/runtime'
 import { StepReplayQueueService } from '../queue/step-replay-queue.service'
+import { isTraceContentRestricted } from './end-user-trace-access'
 import type { CountNewWorkspaceExecutionsDto } from './dto/count-new-workspace-executions.dto'
 import type { ListWorkspaceExecutionsDto } from './dto/list-workspace-executions.dto'
 import type { SendChatMessageDto } from './dto/chat-preview.dto'
@@ -191,6 +192,7 @@ export class ExecutionsService {
             environment: 'draft',
             triggeredByUserId,
             externalSubjectId,
+            conversationId,
           },
         )
       switch (result.outcome) {
@@ -340,7 +342,18 @@ export class ExecutionsService {
         pausedAtNode = { nodeId: waitingOn.nodeId, type: 'agent' }
       }
     }
-    return { ...result, nodeConfigs, replayable, pausedAtNode, nestedAgents }
+    // Rows written before stacks moved to server logs may still carry one.
+    const steps = result.steps.map((step) =>
+      step.error ? { ...step, error: { message: step.error.message } } : step,
+    )
+    return {
+      ...result,
+      steps,
+      nodeConfigs,
+      replayable,
+      pausedAtNode,
+      nestedAgents,
+    }
   }
 
   async replayStep(
@@ -348,6 +361,7 @@ export class ExecutionsService {
     executionId: string,
     stepId: string,
     input: ReplayStepDto,
+    userId: string | undefined,
   ): Promise<{ replayStepId: string }> {
     const result = await repositories.execution.getExecutionWithSteps(
       db,
@@ -362,6 +376,12 @@ export class ExecutionsService {
       !repositories.execution.terminalStatuses.includes(result.execution.status)
     ) {
       throw new BadRequestException('Execution is not replayable')
+    }
+    // The replayed step is sent its recorded input, which an overridden URL could forward elsewhere.
+    if (await isTraceContentRestricted(result.execution, userId)) {
+      throw new ForbiddenException(
+        'Replaying a step from an End-User execution requires a signed-in admin or owner',
+      )
     }
 
     const step = result.steps.find((s) => s.id === stepId)

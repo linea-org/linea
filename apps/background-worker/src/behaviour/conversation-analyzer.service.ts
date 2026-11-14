@@ -356,7 +356,11 @@ export class ConversationAnalyzerService
     const model = behaviourModel ?? DEFAULT_BEHAVIOUR_MODEL
     const provider = resolveProvider(model)
     const keyName = resolveKeyName(model)
-    const { apiKey } = await resolveApiKey(db, environmentId, keyName)
+    const { apiKey } = await resolveApiKey(db, {
+      workspaceId,
+      environmentId,
+      keyName,
+    })
     const evidenceMessageIds = new Map(
       messages.map((message, index) => [`m${index + 1}`, message.id])
     )

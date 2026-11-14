@@ -21,7 +21,7 @@ const aiInputSchema = z.object({
   // Empty/omitted keeps today's exact one-shot completion behavior — no tool-calling loop.
   tools: z.array(aiToolSchema).optional(),
   // Not yet UI-exposed — caps the tool-calling loop; defaulted by the execution-worker handler.
-  maxIterations: z.number().int().positive().optional(),
+  maxIterations: z.number().int().positive().max(25).optional(),
   // Empty/omitted keeps today's exact behavior — no memory lookup at all.
   memorySubjectPath: z.string().optional(),
   memoryNamespace: z.string().optional(),
@@ -82,7 +82,7 @@ export const aiNode: NodeDefinition<
         label: "Memory subject path",
         widget: "text",
         description:
-          "Dot-path into this node's input identifying whose memory to recall (e.g. your app's own user id) — not a Linea user. Leave empty to skip memory entirely.",
+          "Dot-path into this node's input identifying whose memory to recall (e.g. your app's own user id). Ignored when an End User started the run: their own memory is recalled. Leave empty to skip memory entirely.",
       },
       {
         key: "memoryNamespace",

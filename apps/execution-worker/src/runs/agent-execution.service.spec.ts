@@ -72,6 +72,31 @@ function modelTurn(resourceIds: string[]): CompletionResult {
   }
 }
 
+function mockOneReadThenFinish() {
+  return jest
+    .spyOn(registry["gpt-5"], "complete")
+    .mockResolvedValueOnce({
+      text: "",
+      tokensInput: 1,
+      tokensOutput: 1,
+      toolCalls: [
+        {
+          id: "read-one",
+          name: "read",
+          arguments: {
+            connectionId: fixture.connectionId,
+            input: { resourceId: "one" },
+          },
+        },
+      ],
+    })
+    .mockResolvedValue({
+      text: '{"result":"read"}',
+      tokensInput: 1,
+      tokensOutput: 1,
+    })
+}
+
 async function decide(executionId: string, outcome: "approved" | "rejected") {
   const approval =
     await repositories.approvalRequest.getPendingApprovalRequestForExecution(
@@ -293,28 +318,7 @@ it("stops after rejection while preserving a completed effect", async () => {
 })
 
 it("consumes a real Redis delivery and does not repeat a completed read on duplicate delivery", async () => {
-  const model = jest
-    .spyOn(registry["gpt-5"], "complete")
-    .mockResolvedValueOnce({
-      text: "",
-      tokensInput: 1,
-      tokensOutput: 1,
-      toolCalls: [
-        {
-          id: "read-one",
-          name: "read",
-          arguments: {
-            connectionId: fixture.connectionId,
-            input: { resourceId: "one" },
-          },
-        },
-      ],
-    })
-    .mockResolvedValue({
-      text: '{"result":"read"}',
-      tokensInput: 1,
-      tokensOutput: 1,
-    })
+  const model = mockOneReadThenFinish()
   const execution = await start()
   const connection = createConnection()
   const queueName = `agent-execution-${randomUUID()}`
@@ -341,6 +345,29 @@ it("consumes a real Redis delivery and does not repeat a completed read on dupli
     await queue.close()
     await connection.quit()
   }
+})
+
+it("records only the trace projection of a read in the step while the checkpoint keeps the full output", async () => {
+  const model = mockOneReadThenFinish()
+  const execution = await start()
+  await runs.execute(execution.id)
+  const steps = await repositories.checkpoint.getStepsForExecution(
+    db,
+    execution.id
+  )
+  const toolStep = steps.find((step) => step.nodeId === "agent:tool:0:0")
+  expect(toolStep?.output).toEqual({ resourceId: "one" })
+  const checkpoint = await repositories.checkpoint.getLatestCheckpoint(
+    db,
+    execution.id
+  )
+  expect(checkpoint?.context["agent:tool:0:0"]).toEqual({
+    resourceId: "one",
+    label: "recorded read",
+  })
+  expect(JSON.stringify(model.mock.calls[1][1].history)).toContain(
+    "recorded read"
+  )
 })
 
 it("recovers a provider success lost before its checkpoint without creating a second effect", async () => {
@@ -443,4 +470,51 @@ it("records a failed connector step when a tool call fails, but not for an appro
       node_id: "agent:tool:0:0",
     }),
   ])
+})
+
+it("fails a run that outlives its work budget and records the stalled model turn", async () => {
+  jest.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), ms > 29 * 60_000 ? 25 : ms).unref()
+    return controller.signal
+  })
+  jest.spyOn(registry["gpt-5"], "complete").mockImplementation(
+    (_apiKey, request) =>
+      new Promise((_resolve, reject) => {
+        request.signal?.addEventListener("abort", () =>
+          reject(new Error("aborted by signal"))
+        )
+      })
+  )
+  const execution = await start()
+  await expect(runs.execute(execution.id)).rejects.toThrow(
+    "Agent run exceeded its 30 minute work budget"
+  )
+  const final = await repositories.execution.getExecutionById(db, execution.id)
+  expect(final?.status).toBe("failed")
+  expect(await failedSteps(execution.id)).toEqual([
+    expect.objectContaining({ name: "ai", node_id: "agent:model:0" }),
+  ])
+})
+
+it("keeps the work budget spent before an approval pause when the run resumes", async () => {
+  jest
+    .spyOn(registry["gpt-5"], "complete")
+    .mockResolvedValue(modelTurn(["budget"]))
+  const execution = await start()
+  await runs.execute(execution.id)
+  expect(
+    (await repositories.execution.getExecutionById(db, execution.id))?.status
+  ).toBe("paused")
+  await pool.query(
+    "UPDATE execution_steps SET started_at = ended_at - interval '31 minutes' WHERE execution_id = $1",
+    [execution.id]
+  )
+  await decide(execution.id, "approved")
+  await expect(runs.execute(execution.id)).rejects.toThrow(
+    "Agent run exceeded its 30 minute work budget"
+  )
+  expect(effects).not.toContain("budget")
+  const final = await repositories.execution.getExecutionById(db, execution.id)
+  expect(final?.status).toBe("failed")
 })

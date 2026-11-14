@@ -22,7 +22,11 @@ import type {
   NodeHandler,
 } from "./node-handler.interface"
 import { NonRetryableError } from "./non-retryable-error"
-import { RetryableUsageError, UsageError } from "./usage-error"
+import {
+  assertWithinExecutionBudget,
+  RetryableUsageError,
+  UsageError,
+} from "./usage-error"
 
 function parseConfig(config: Record<string, unknown>): EvaluatorConfig {
   const result = nodeRegistry.evaluator.inputSchema.safeParse(config)
@@ -98,7 +102,11 @@ export class EvaluatorNode implements NodeHandler {
         throw new NonRetryableError("Evaluator node requires a judge model")
       }
       const keyName = resolveKeyName(parsed.model)
-      const { apiKey } = await resolveApiKey(db, context.environmentId, keyName)
+      const { apiKey } = await resolveApiKey(db, {
+        workspaceId: context.workspaceId,
+        environmentId: context.environmentId,
+        keyName,
+      })
       judge = {
         model: parsed.model,
         provider: resolveProvider(parsed.model),
@@ -154,6 +162,11 @@ export class EvaluatorNode implements NodeHandler {
           let steps =
             metric.evaluationSteps ?? metricProgress.steps ?? cachedSteps?.steps
           if (!steps) {
+            assertWithinExecutionBudget(
+              context.priorExecutionTokens,
+              tokensInput,
+              tokensOutput
+            )
             const generated = await generateEvaluationSteps(
               resolvedJudge.provider,
               resolvedJudge.apiKey,
@@ -179,6 +192,11 @@ export class EvaluatorNode implements NodeHandler {
             progress.metrics[metric.id] = metricProgress
             await saveProgress()
           }
+          assertWithinExecutionBudget(
+            context.priorExecutionTokens,
+            tokensInput,
+            tokensOutput
+          )
           const judged = await scoreEvaluationSample(
             resolvedJudge.provider,
             resolvedJudge.apiKey,
@@ -211,6 +229,7 @@ export class EvaluatorNode implements NodeHandler {
           progress.metrics[metric.id] = metricProgress
           await saveProgress()
         } catch (error) {
+          if (error instanceof UsageError) throw error
           if (error instanceof EvaluationResponseError) {
             throw new UsageError(
               error.message,

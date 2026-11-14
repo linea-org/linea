@@ -75,6 +75,7 @@ export const executionDetailResponseSchema = z.object({
   replayable: z.boolean(),
   pausedAtNode: z.object({ nodeId: z.string(), type: z.string() }).optional(),
   nestedAgents: z.array(nestedAgentSchema).default([]),
+  traceContentRestricted: z.boolean(),
 })
 
 export type ExecutionSummary = z.infer<typeof executionSummarySchema>

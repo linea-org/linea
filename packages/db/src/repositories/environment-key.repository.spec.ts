@@ -1,6 +1,6 @@
 import { configureTestEnvironment } from "./test-utils.js"
 import { createApplication } from "./application.repository.js"
-import { eq } from "drizzle-orm"
+import { and, eq, ne } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import {
   environments,
@@ -11,6 +11,7 @@ import {
 import {
   authenticateEnvironmentKey,
   createEnvironmentKey,
+  deleteEnvironmentKeyActivityBefore,
   listEnvironmentKeys,
   recordEnvironmentKeyActivity,
   revokeEnvironmentKey,
@@ -80,7 +81,8 @@ describe("Environment key repository", () => {
         tx,
         result.environmentKey,
         "environment_key.used",
-        { environmentId: environment.id }
+        { environmentId: environment.id },
+        new Date()
       )
       const [persisted] = await tx
         .select()
@@ -103,6 +105,163 @@ describe("Environment key repository", () => {
       ).toMatchObject({
         actorEnvironmentKeyId: result.environmentKey.id,
       })
+    })
+  })
+  it("coalesces repeated use and denials into bounded audit rows", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const environment = await createEnvironmentRecord(tx, organization.id)
+      const actor = await createActor(tx, organization.id)
+      const keys = []
+      for (const suffix of ["coalesced", "untouched"]) {
+        const result = await createEnvironmentKey(
+          tx,
+          {
+            workspaceId: organization.id,
+            environmentId: environment.id,
+            name: suffix,
+            scopes: ["executions:read"],
+            hashedKey: `${suffix}-${crypto.randomUUID()}`,
+            keyPrefix: "lin_env_coal",
+          },
+          { userId: actor.id }
+        )
+        if (result.outcome !== "created") throw new Error(result.outcome)
+        keys.push(result.environmentKey)
+      }
+      const [key, untouched] = keys
+      const now = new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000)
+      const activity = async (keyId: string) =>
+        (
+          await tx
+            .select({ action: auditLogs.action })
+            .from(auditLogs)
+            .where(
+              and(
+                eq(auditLogs.resourceId, keyId),
+                ne(auditLogs.action, "environment_key.created")
+              )
+            )
+        ).map((row) => row.action)
+      for (let attempt = 0; attempt < 50; attempt++) {
+        const at = new Date(now.getTime() + attempt * 1000)
+        await recordEnvironmentKeyActivity(
+          tx,
+          key,
+          "environment_key.used",
+          { environmentId: environment.id },
+          at
+        )
+        await recordEnvironmentKeyActivity(
+          tx,
+          key,
+          "environment_key.scope_denied",
+          { requiredScopes: ["executions:start"] },
+          at
+        )
+        await recordEnvironmentKeyActivity(
+          tx,
+          key,
+          "environment_key.cross_environment_access_denied",
+          { requestedEnvironmentId: crypto.randomUUID() },
+          at
+        )
+      }
+      const coalesced = await activity(key.id)
+      expect(
+        coalesced.filter((action) => action === "environment_key.used")
+      ).toHaveLength(1)
+      expect(
+        coalesced.filter((action) => action === "environment_key.scope_denied")
+      ).toHaveLength(1)
+      expect(
+        coalesced.filter(
+          (action) =>
+            action === "environment_key.cross_environment_access_denied"
+        )
+      ).toHaveLength(20)
+      const [touched] = await tx
+        .select({ lastUsedAt: environmentKeys.lastUsedAt })
+        .from(environmentKeys)
+        .where(eq(environmentKeys.id, key.id))
+      expect(touched?.lastUsedAt).toEqual(now)
+      await recordEnvironmentKeyActivity(
+        tx,
+        key,
+        "environment_key.scope_denied",
+        { requiredScopes: ["conversations:write"] },
+        now
+      )
+      const nextHour = new Date(now.getTime() + 3_600_000)
+      await recordEnvironmentKeyActivity(
+        tx,
+        key,
+        "environment_key.used",
+        { environmentId: environment.id },
+        nextHour
+      )
+      await recordEnvironmentKeyActivity(
+        tx,
+        key,
+        "environment_key.scope_denied",
+        { requiredScopes: ["executions:start"] },
+        nextHour
+      )
+      expect((await activity(key.id)).length).toBe(coalesced.length + 3)
+      await recordEnvironmentKeyActivity(
+        tx,
+        untouched,
+        "environment_key.scope_denied",
+        { requiredScopes: ["executions:start"] },
+        now
+      )
+      expect(await activity(untouched.id)).toEqual([
+        "environment_key.scope_denied",
+      ])
+    })
+  })
+  it("expires Environment key activity audit rows but keeps lifecycle rows", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const environment = await createEnvironmentRecord(tx, organization.id)
+      const actor = await createActor(tx, organization.id)
+      const result = await createEnvironmentKey(
+        tx,
+        {
+          workspaceId: organization.id,
+          environmentId: environment.id,
+          name: "Retained key",
+          scopes: ["executions:read"],
+          hashedKey: `retained-${crypto.randomUUID()}`,
+          keyPrefix: "lin_env_keep",
+        },
+        { userId: actor.id }
+      )
+      if (result.outcome !== "created") throw new Error(result.outcome)
+      await recordEnvironmentKeyActivity(
+        tx,
+        result.environmentKey,
+        "environment_key.used",
+        { environmentId: environment.id },
+        new Date()
+      )
+      await tx
+        .update(auditLogs)
+        .set({ createdAt: new Date("2000-01-01T00:00:00Z") })
+        .where(eq(auditLogs.resourceId, result.environmentKey.id))
+      expect(
+        await deleteEnvironmentKeyActivityBefore(
+          tx,
+          new Date("2001-01-01T00:00:00Z")
+        )
+      ).toBeGreaterThanOrEqual(1)
+      const remaining = await tx
+        .select({ action: auditLogs.action })
+        .from(auditLogs)
+        .where(eq(auditLogs.resourceId, result.environmentKey.id))
+      expect(remaining.map((row) => row.action)).toEqual([
+        "environment_key.created",
+      ])
     })
   })
   it("keeps listing and revocation inside one Environment and workspace", async () => {

@@ -35,6 +35,7 @@ export const listEnvironmentConnectorAuditEventsOperation = {
     "authentication_failed",
     "scope_denied",
     "resource_not_found",
+    "rate_limited",
   ],
 } as const satisfies OperationDefinition
 

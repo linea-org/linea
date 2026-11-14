@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import { eq } from "drizzle-orm"
-import { executions } from "../schema/index.js"
+import { environmentAgentBindings, executions } from "../schema/index.js"
 import {
   createAgent,
   createAgentVersion,
@@ -305,6 +305,54 @@ describe("startNestedAgentExecution", () => {
       })
       expect((await getExecutionById(tx, f.parent.id))?.status).toBe("queued")
       expect(await claim("a")).toEqual({ outcome: "already-decided" })
+    })
+  })
+  it("fails a child whose Agent deployment was disabled before its claim and wakes the paused parent", async () => {
+    await withRollback(async (tx) => {
+      const f = await fixture(tx)
+      const deployed = await deployAgent(
+        tx,
+        f.organization.id,
+        f.workflow.applicationId,
+        f.environmentId,
+        "revoked"
+      )
+      const started = await startNestedAgentExecution(tx, {
+        workspaceId: f.organization.id,
+        parentExecutionId: f.parent.id,
+        nodeId: "n",
+        agentId: deployed.agent.id,
+        agentContractRevisionId: deployed.contract.id,
+        input: {},
+      })
+      if (started.outcome !== "created") throw new Error(started.outcome)
+      expect(
+        await claimPauseForNestedAgent(
+          tx,
+          f.organization.id,
+          f.parent.id,
+          "n",
+          "a"
+        )
+      ).toEqual({ outcome: "paused" })
+      await tx
+        .update(environmentAgentBindings)
+        .set({ enabled: false })
+        .where(eq(environmentAgentBindings.agentId, deployed.agent.id))
+      expect(
+        await startExecution(
+          tx,
+          started.execution.id,
+          "c",
+          new Date(Date.now() + 60_000)
+        )
+      ).toBeUndefined()
+      expect(await getExecutionById(tx, started.execution.id)).toMatchObject({
+        status: "failed",
+        leasedBy: null,
+        error: { code: "authority_revoked" },
+      })
+      expect((await getExecutionById(tx, f.parent.id))?.status).toBe("queued")
     })
   })
 })

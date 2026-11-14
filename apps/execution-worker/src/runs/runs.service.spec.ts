@@ -363,394 +363,258 @@ describe("RunsService failure accounting", () => {
   })
 })
 
+const singleAiGraph: WorkflowGraph = {
+  version: 1,
+  trigger: { type: "manual" },
+  entryNodeId: "n1",
+  nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
+  edges: [],
+}
+
+type ChatWorkflow = {
+  workspaceId: string
+  workflowId: string
+  versionId: string
+}
+
+async function withChatWorkflow(
+  graph: WorkflowGraph,
+  test: (fixture: ChatWorkflow) => Promise<void>
+): Promise<void> {
+  const suffix = randomUUID()
+  const [organization] = await db
+    .insert(schema.organizations)
+    .values({
+      name: "Runs Service Chat Test Org",
+      slug: `runs-chat-${suffix}`,
+      createdAt: new Date(),
+    })
+    .returning()
+  try {
+    const workflow = await repositories.workflow.createWorkflow(db, {
+      applicationId: await getTestApplicationId(db, organization.id),
+      workspaceId: organization.id,
+      name: "Runs Service Chat Test Workflow",
+      slug: `runs-chat-workflow-${suffix}`,
+    })
+    const version = await repositories.workflow.createWorkflowVersion(db, {
+      workflowId: workflow.id,
+      graph,
+      contentHash: `runs-chat-${suffix}`,
+    })
+    await test({
+      workspaceId: organization.id,
+      workflowId: workflow.id,
+      versionId: version.id,
+    })
+  } finally {
+    await pool.query("DELETE FROM organizations WHERE id = $1", [
+      organization.id,
+    ])
+  }
+}
+
+function userTurn(
+  fixture: ChatWorkflow,
+  conversationId: string,
+  content = "hello"
+) {
+  return repositories.chatMessage.createBuilderChatMessage(db, {
+    workspaceId: fixture.workspaceId,
+    workflowId: fixture.workflowId,
+    conversationId,
+    role: "user",
+    content,
+  })
+}
+
+/** A builder chat-preview turn: draft run with its conversation stored on the row. */
+function chatExecution(
+  fixture: ChatWorkflow,
+  conversationId: string,
+  triggerPayload: Record<string, unknown>
+) {
+  return createTestExecution(db, {
+    workspaceId: fixture.workspaceId,
+    workflowId: fixture.workflowId,
+    workflowVersionId: fixture.versionId,
+    trigger: "manual",
+    environment: "draft",
+    conversationId,
+    triggerPayload,
+  })
+}
+
+function completingRuns(completed: Map<string, unknown>) {
+  const run = jest.fn().mockResolvedValue({
+    result: { status: "completed" as const },
+    totalTokensInput: 10,
+    totalTokensOutput: 5,
+    totalCostMicros: 0n,
+    costUnpriced: false,
+    completed,
+  })
+  const runs = new RunsService(
+    new CheckpointsService(),
+    { run } as unknown as InterpreterService,
+    new RunLeaseService(),
+    new AgentExecutionService(
+      new CheckpointsService(),
+      new ConnectorGatewayService()
+    )
+  )
+  return { run, runs }
+}
+
+async function messageRoles(fixture: ChatWorkflow, conversationId: string) {
+  const messages = await repositories.chatMessage.listChatMessages(
+    db,
+    fixture.workspaceId,
+    fixture.workflowId,
+    conversationId
+  )
+  return messages.map((message) => message.role)
+}
+
 describe("RunsService chat-preview message persistence", () => {
-  it("does not persist a reply when triggerPayload carries a conversationId but no chatMessageId to link it to", async () => {
-    const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Runs Service Chat Test Org",
-        slug: `runs-chat-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
-    try {
-      const graph: WorkflowGraph = {
-        version: 1,
-        trigger: { type: "manual" },
-        entryNodeId: "n1",
-        nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
-        edges: [],
-      }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Chat Test Workflow",
-        slug: `runs-chat-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "runs-chat-hash",
-      })
+  it("does not persist a reply when the turn has no chatMessageId to link it to", () =>
+    withChatWorkflow(singleAiGraph, async (fixture) => {
       const conversationId = randomUUID()
-      const execution = await createTestExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: { conversationId },
+      await userTurn(fixture, conversationId)
+      const execution = await chatExecution(fixture, conversationId, {
+        conversationId,
       })
-      const fastInterpreter = {
-        run: () =>
-          Promise.resolve({
-            result: { status: "completed" as const },
-            totalTokensInput: 10,
-            totalTokensOutput: 5,
-            totalCostMicros: 0n,
-            costUnpriced: false,
-            completed: new Map([["n1", { text: "the assistant's reply" }]]),
-          }),
-      } as unknown as InterpreterService
-      const runs = new RunsService(
-        new CheckpointsService(),
-        fastInterpreter,
-        new RunLeaseService(),
-        new AgentExecutionService(
-          new CheckpointsService(),
-          new ConnectorGatewayService()
-        )
+      const { runs } = completingRuns(
+        new Map([["n1", { text: "should not be persisted" }]])
       )
       await runs.execute(execution.id)
-      const messages = await repositories.chatMessage.listChatMessages(
-        db,
-        organization.id,
-        workflow.id,
-        conversationId
-      )
-      expect(messages).toHaveLength(0)
-    } finally {
-      await pool.query("DELETE FROM organizations WHERE id = $1", [
-        organization.id,
-      ])
-    }
-  })
-  it("does not persist a reply when chatMessageId points to a real user message from a different conversation", async () => {
-    const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Runs Service Chat Forged Test Org",
-        slug: `runs-chat-forged-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
-    try {
-      const graph: WorkflowGraph = {
-        version: 1,
-        trigger: { type: "manual" },
-        entryNodeId: "n1",
-        nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
-        edges: [],
-      }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Chat Forged Test Workflow",
-        slug: `runs-chat-forged-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "runs-chat-forged-hash",
-      })
+      expect(await messageRoles(fixture, conversationId)).toEqual(["user"])
+    }))
+  it("does not persist a reply when chatMessageId points to a real user message from a different conversation", () =>
+    withChatWorkflow(singleAiGraph, async (fixture) => {
       // Real row, wrong conversation — passes the FK constraint, so only an explicit scope check catches this.
-      const foreignMessage =
-        await repositories.chatMessage.createBuilderChatMessage(db, {
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          conversationId: randomUUID(),
-          role: "user",
-          content: "a message from a different conversation",
-        })
-      const conversationId = randomUUID()
-      // Simulates an ordinary execution whose triggerPayload happens to carry a mismatched pair.
-      const execution = await createTestExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: { conversationId, chatMessageId: foreignMessage.id },
-      })
-      const fastInterpreter = {
-        run: () =>
-          Promise.resolve({
-            result: { status: "completed" as const },
-            totalTokensInput: 10,
-            totalTokensOutput: 5,
-            totalCostMicros: 0n,
-            costUnpriced: false,
-            completed: new Map([["n1", { text: "should not be persisted" }]]),
-          }),
-      } as unknown as InterpreterService
-      const runs = new RunsService(
-        new CheckpointsService(),
-        fastInterpreter,
-        new RunLeaseService(),
-        new AgentExecutionService(
-          new CheckpointsService(),
-          new ConnectorGatewayService()
-        )
+      const foreignMessage = await userTurn(
+        fixture,
+        randomUUID(),
+        "a message from a different conversation"
       )
+      const conversationId = randomUUID()
+      await userTurn(fixture, conversationId, "this conversation's own turn")
+      const execution = await chatExecution(fixture, conversationId, {
+        conversationId,
+        chatMessageId: foreignMessage.id,
+      })
+      const { runs } = completingRuns(
+        new Map([["n1", { text: "should not be persisted" }]])
+      )
+      await runs.execute(execution.id)
+      expect(await messageRoles(fixture, conversationId)).toEqual(["user"])
+    }))
+  it("links the persisted assistant reply to its own triggering user message via respondsToMessageId", () =>
+    withChatWorkflow(singleAiGraph, async (fixture) => {
+      const conversationId = randomUUID()
+      const userMessage = await userTurn(fixture, conversationId)
+      const execution = await chatExecution(fixture, conversationId, {
+        conversationId,
+        chatMessageId: userMessage.id,
+      })
+      const { runs } = completingRuns(new Map([["n1", { text: "the reply" }]]))
       await runs.execute(execution.id)
       const messages = await repositories.chatMessage.listChatMessages(
         db,
-        organization.id,
-        workflow.id,
-        conversationId
-      )
-      expect(messages).toHaveLength(0)
-    } finally {
-      await pool.query("DELETE FROM organizations WHERE id = $1", [
-        organization.id,
-      ])
-    }
-  })
-  it("links the persisted assistant reply to its own triggering user message via respondsToMessageId", async () => {
-    const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Runs Service Chat Order Test Org",
-        slug: `runs-chat-order-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
-    try {
-      const graph: WorkflowGraph = {
-        version: 1,
-        trigger: { type: "manual" },
-        entryNodeId: "n1",
-        nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
-        edges: [],
-      }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Chat Order Test Workflow",
-        slug: `runs-chat-order-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "runs-chat-order-hash",
-      })
-      const conversationId = randomUUID()
-      const userMessage =
-        await repositories.chatMessage.createBuilderChatMessage(db, {
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          conversationId,
-          role: "user",
-          content: "hello",
-        })
-      const execution = await createTestExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: { conversationId, chatMessageId: userMessage.id },
-      })
-      const fastInterpreter = {
-        run: () =>
-          Promise.resolve({
-            result: { status: "completed" as const },
-            totalTokensInput: 10,
-            totalTokensOutput: 5,
-            totalCostMicros: 0n,
-            costUnpriced: false,
-            completed: new Map([["n1", { text: "the reply" }]]),
-          }),
-      } as unknown as InterpreterService
-      const runs = new RunsService(
-        new CheckpointsService(),
-        fastInterpreter,
-        new RunLeaseService(),
-        new AgentExecutionService(
-          new CheckpointsService(),
-          new ConnectorGatewayService()
-        )
-      )
-      await runs.execute(execution.id)
-      const messages = await repositories.chatMessage.listChatMessages(
-        db,
-        organization.id,
-        workflow.id,
+        fixture.workspaceId,
+        fixture.workflowId,
         conversationId
       )
       const reply = messages.find((m) => m.role === "assistant")
       expect(reply?.respondsToMessageId).toBe(userMessage.id)
-    } finally {
-      await pool.query("DELETE FROM organizations WHERE id = $1", [
-        organization.id,
-      ])
-    }
-  })
-  it("does not mistake a later non-ai node's coincidental text field for the assistant's reply", async () => {
-    const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Runs Service Chat Non-AI Text Test Org",
-        slug: `runs-chat-non-ai-text-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
-    try {
-      const graph: WorkflowGraph = {
-        version: 1,
-        trigger: { type: "manual" },
-        entryNodeId: "n1",
+    }))
+  it("does not mistake a later non-ai node's coincidental text field for the assistant's reply", () =>
+    withChatWorkflow(
+      {
+        ...singleAiGraph,
         nodes: [
-          { id: "n1", type: "ai", config: { model: "groq/compound" } },
+          ...singleAiGraph.nodes,
           { id: "n2", type: "transform", config: { expression: "input" } },
         ],
         edges: [{ from: "n1", to: "n2" }],
-      }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Chat Non-AI Text Test Workflow",
-        slug: `runs-chat-non-ai-text-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "runs-chat-non-ai-text-hash",
-      })
-      const conversationId = randomUUID()
-      const userMessage =
-        await repositories.chatMessage.createBuilderChatMessage(db, {
-          workspaceId: organization.id,
-          workflowId: workflow.id,
+      },
+      async (fixture) => {
+        const conversationId = randomUUID()
+        const userMessage = await userTurn(fixture, conversationId)
+        const execution = await chatExecution(fixture, conversationId, {
           conversationId,
-          role: "user",
-          content: "hello",
+          chatMessageId: userMessage.id,
         })
-      const execution = await createTestExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
-        trigger: "manual",
-        triggerPayload: { conversationId, chatMessageId: userMessage.id },
-      })
-      const fastInterpreter = {
-        run: () =>
-          Promise.resolve({
-            result: { status: "completed" as const },
-            totalTokensInput: 10,
-            totalTokensOutput: 5,
-            totalCostMicros: 0n,
-            costUnpriced: false,
-            // n2 (a transform node) ran after the ai node and happens to also carry a `text` field.
-            completed: new Map([
-              ["n1", { text: "the actual ai reply" }],
-              ["n2", { text: "coincidental transform output" }],
-            ]),
-          }),
-      } as unknown as InterpreterService
-      const runs = new RunsService(
-        new CheckpointsService(),
-        fastInterpreter,
-        new RunLeaseService(),
-        new AgentExecutionService(
-          new CheckpointsService(),
-          new ConnectorGatewayService()
+        // n2 (a transform node) ran after the ai node and happens to also carry a `text` field.
+        const { runs } = completingRuns(
+          new Map([
+            ["n1", { text: "the actual ai reply" }],
+            ["n2", { text: "coincidental transform output" }],
+          ])
         )
+        await runs.execute(execution.id)
+        const messages = await repositories.chatMessage.listChatMessages(
+          db,
+          fixture.workspaceId,
+          fixture.workflowId,
+          conversationId
+        )
+        const reply = messages.find((m) => m.role === "assistant")
+        expect(reply?.content).toBe("the actual ai reply")
+      }
+    ))
+  it("ignores a conversation that is named only in caller-supplied triggerPayload", () =>
+    withChatWorkflow(singleAiGraph, async (fixture) => {
+      const victimConversationId = randomUUID()
+      const victimMessage = await userTurn(
+        fixture,
+        victimConversationId,
+        "another subject's turn"
+      )
+      const execution = await createTestExecution(db, {
+        workspaceId: fixture.workspaceId,
+        workflowId: fixture.workflowId,
+        workflowVersionId: fixture.versionId,
+        trigger: "api",
+        triggerPayload: {
+          conversationId: victimConversationId,
+          chatMessageId: victimMessage.id,
+        },
+      })
+      const { run, runs } = completingRuns(
+        new Map([["n1", { text: "must stay out" }]])
       )
       await runs.execute(execution.id)
-      const messages = await repositories.chatMessage.listChatMessages(
-        db,
-        organization.id,
-        workflow.id,
-        conversationId
+      expect(run).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conversationId: undefined,
+          chatMessageId: undefined,
+        })
       )
-      const reply = messages.find((m) => m.role === "assistant")
-      expect(reply?.content).toBe("the actual ai reply")
-    } finally {
-      await pool.query("DELETE FROM organizations WHERE id = $1", [
-        organization.id,
+      expect(await messageRoles(fixture, victimConversationId)).toEqual([
+        "user",
       ])
-    }
-  })
-  it("persists nothing when triggerPayload has no conversationId", async () => {
-    const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Runs Service Non-Chat Test Org",
-        slug: `runs-non-chat-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
-    try {
-      const graph: WorkflowGraph = {
-        version: 1,
-        trigger: { type: "manual" },
-        entryNodeId: "n1",
-        nodes: [{ id: "n1", type: "ai", config: { model: "groq/compound" } }],
-        edges: [],
-      }
-      const workflow = await repositories.workflow.createWorkflow(db, {
-        applicationId: await getTestApplicationId(db, organization.id),
-        workspaceId: organization.id,
-        name: "Runs Service Non-Chat Test Workflow",
-        slug: `runs-non-chat-workflow-${suffix}`,
-      })
-      const version = await repositories.workflow.createWorkflowVersion(db, {
-        workflowId: workflow.id,
-        graph,
-        contentHash: "runs-non-chat-hash",
-      })
+    }))
+  it("persists nothing when the run has no conversation", () =>
+    withChatWorkflow(singleAiGraph, async (fixture) => {
       const execution = await createTestExecution(db, {
-        workspaceId: organization.id,
-        workflowId: workflow.id,
-        workflowVersionId: version.id,
+        workspaceId: fixture.workspaceId,
+        workflowId: fixture.workflowId,
+        workflowVersionId: fixture.versionId,
         trigger: "manual",
         triggerPayload: {},
       })
-      const fastInterpreter = {
-        run: () =>
-          Promise.resolve({
-            result: { status: "completed" as const },
-            totalTokensInput: 10,
-            totalTokensOutput: 5,
-            totalCostMicros: 0n,
-            costUnpriced: false,
-            completed: new Map([["n1", { text: "should not be persisted" }]]),
-          }),
-      } as unknown as InterpreterService
-      const runs = new RunsService(
-        new CheckpointsService(),
-        fastInterpreter,
-        new RunLeaseService(),
-        new AgentExecutionService(
-          new CheckpointsService(),
-          new ConnectorGatewayService()
-        )
+      const { runs } = completingRuns(
+        new Map([["n1", { text: "should not be persisted" }]])
       )
       await runs.execute(execution.id)
       const { rows } = await pool.query(
         "SELECT id FROM chat_messages WHERE workspace_id = $1",
-        [organization.id]
+        [fixture.workspaceId]
       )
       expect(rows).toHaveLength(0)
-    } finally {
-      await pool.query("DELETE FROM organizations WHERE id = $1", [
-        organization.id,
-      ])
-    }
-  })
+    }))
 })
 
 describe("RunsService fencing identity", () => {

@@ -14,11 +14,17 @@ const saveEvaluatorMetricSteps = jest.fn(
   (_db: unknown, input: { steps: string[] }) => Promise.resolve(input.steps)
 )
 
-jest.mock("@linea/ai", () => ({
-  resolveProvider,
-  resolveKeyName,
-  resolveApiKey,
-}))
+jest.mock("@linea/ai", () => {
+  const { MAX_EXECUTION_TOKENS, executionBudgetMessage } =
+    jest.requireActual<typeof import("@linea/ai")>("@linea/ai")
+  return {
+    resolveProvider,
+    resolveKeyName,
+    resolveApiKey,
+    MAX_EXECUTION_TOKENS,
+    executionBudgetMessage,
+  }
+})
 
 jest.mock("@linea/db", () => ({
   db: {},
@@ -253,6 +259,59 @@ describe("EvaluatorNode", () => {
     expect(scoreRequest?.prompt).toContain(
       '"expectedOutput":"The cat climbed the tree."'
     )
+  })
+
+  it("stops between judge calls once the execution budget is used", async () => {
+    complete
+      .mockResolvedValueOnce({
+        text: "",
+        tokensInput: 10,
+        tokensOutput: 3,
+        toolCalls: [
+          {
+            id: "steps-1",
+            name: "report_evaluation_steps",
+            arguments: { steps: ["Check the answer."] },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        text: "",
+        tokensInput: 20,
+        tokensOutput: 5,
+        toolCalls: [
+          {
+            id: "score-1",
+            name: "report_evaluation",
+            arguments: { score: 1, reason: "Correct." },
+          },
+        ],
+      })
+    const metric = {
+      type: "g_eval",
+      threshold: 0.5,
+      criteria: "Is actualOutput correct?",
+      evaluationParams: ["actualOutput"],
+    }
+    await expect(
+      new EvaluatorNode().execute(
+        {
+          model: "claude-sonnet-5",
+          sample: { actualOutputPath: "answer" },
+          metrics: [
+            { ...metric, id: "first", name: "First" },
+            { ...metric, id: "second", name: "Second" },
+          ],
+        },
+        { answer: "The cat." },
+        { workspaceId: "ws-1", priorExecutionTokens: 999_970 }
+      )
+    ).rejects.toMatchObject({
+      name: "UsageError",
+      tokensInput: 30,
+      tokensOutput: 8,
+    })
+    expect(complete).toHaveBeenCalledTimes(2)
   })
 
   it("resumes with saved evaluation steps instead of generating them again", async () => {

@@ -1193,6 +1193,35 @@
               }
             },
             "description": "Stable errors: resource_not_found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": ["rate_limited"],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: rate_limited"
           }
         },
         "security": [
@@ -1203,7 +1232,7 @@
         "summary": "List redacted connector audit events for one Environment.",
         "tags": ["control"],
         "x-linea-idempotency": "None.",
-        "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
+        "x-linea-rate-limit": "Environment-key reads share 600 requests per key and 3,000 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
           "importPath": "@linea/sdk/server",
@@ -3446,7 +3475,7 @@
         "summary": "List Conversations visible to an Environment.",
         "tags": ["control"],
         "x-linea-idempotency": "None.",
-        "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
+        "x-linea-rate-limit": "Environment-key reads share 600 requests per key and 3,000 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
           "importPath": "@linea/sdk/server",
@@ -3770,7 +3799,7 @@
         "summary": "Create an isolated Conversation for a provisioned External Subject.",
         "tags": ["control"],
         "x-linea-idempotency": "Requires Idempotency-Key; replay returns the original response and conflicting input fails.",
-        "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
+        "x-linea-rate-limit": "Environment-key writes share 120 requests per key and 600 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
           "importPath": "@linea/sdk/server",
@@ -4017,7 +4046,7 @@
         "summary": "Get one Conversation visible to an Environment.",
         "tags": ["control"],
         "x-linea-idempotency": "None.",
-        "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
+        "x-linea-rate-limit": "Environment-key reads share 600 requests per key and 3,000 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
           "importPath": "@linea/sdk/server",
@@ -4585,7 +4614,7 @@
         "summary": "Start an Execution through an Environment workflow binding.",
         "tags": ["control"],
         "x-linea-idempotency": "Requires Idempotency-Key; replay returns the original response and conflicting input fails.",
-        "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
+        "x-linea-rate-limit": "Environment-key writes share 120 requests per key and 600 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
           "importPath": "@linea/sdk/server",
@@ -4908,7 +4937,7 @@
         "summary": "Provision or retrieve an External Subject in an Environment.",
         "tags": ["control"],
         "x-linea-idempotency": "The external identity is the natural idempotency key.",
-        "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
+        "x-linea-rate-limit": "Environment-key writes share 120 requests per key and 600 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
           "importPath": "@linea/sdk/server",
@@ -5739,7 +5768,7 @@
         "summary": "List webhook delivery attempts for an Environment.",
         "tags": ["control"],
         "x-linea-idempotency": "None.",
-        "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
+        "x-linea-rate-limit": "Environment-key reads share 600 requests per key and 3,000 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
           "importPath": "@linea/sdk/server",
@@ -6150,7 +6179,7 @@
         "summary": "Get one Execution visible to an Environment.",
         "tags": ["control"],
         "x-linea-idempotency": "None.",
-        "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
+        "x-linea-rate-limit": "Environment-key reads share 600 requests per key and 3,000 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
           "importPath": "@linea/sdk/server",
@@ -6604,7 +6633,7 @@
         "summary": "Cancel a cancellable Environment Execution.",
         "tags": ["control"],
         "x-linea-idempotency": "Requires Idempotency-Key; replay returns the original response and conflicting input fails.",
-        "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
+        "x-linea-rate-limit": "Environment-key writes share 120 requests per key and 600 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
           "importPath": "@linea/sdk/server",
@@ -11612,7 +11641,7 @@
         "summary": "Create an isolated Conversation for the authenticated End User.",
         "tags": ["end_user"],
         "x-linea-idempotency": "Requires Idempotency-Key; replay returns the original response and conflicting input fails.",
-        "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
+        "x-linea-rate-limit": "20 Conversations per External Subject each minute.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
           "importPath": "@linea/sdk/user",
@@ -15111,7 +15140,7 @@
         "summary": "Queue a Regression Run for a Workflow.",
         "tags": ["control"],
         "x-linea-idempotency": "None.",
-        "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
+        "x-linea-rate-limit": "10 requests per caller and 30 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaWorkspaceClient",
           "importPath": "@linea/sdk/server",

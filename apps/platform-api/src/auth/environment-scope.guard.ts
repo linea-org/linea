@@ -44,6 +44,7 @@ export class EnvironmentScopeGuard implements CanActivate {
         },
         'environment_key.cross_environment_access_denied',
         { requestedEnvironmentId },
+        new Date(),
       )
       throw new NotFoundException(
         publicError('resource_not_found', 'Resource not found'),
@@ -64,6 +65,7 @@ export class EnvironmentScopeGuard implements CanActivate {
         },
         'environment_key.scope_denied',
         { requiredScopes },
+        new Date(),
       )
       throw new ForbiddenException(
         publicError('scope_denied', 'Environment key scope denied'),

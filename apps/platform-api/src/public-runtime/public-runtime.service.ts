@@ -47,6 +47,7 @@ import {
 import { pendingActionIntentProjection } from './action-intent.projections'
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
+const CONVERSATION_RATE_LIMIT = 20
 const MESSAGE_RATE_LIMIT = 60
 const EXECUTION_RATE_LIMIT = 10
 function hash(value: string): string {
@@ -74,6 +75,11 @@ export class PublicRuntimeService {
     input: CreateEndUserConversation,
     idempotencyKey: string,
   ) {
+    await this.enforceRateLimit(
+      'conversation',
+      principal.externalSubjectId,
+      CONVERSATION_RATE_LIMIT,
+    )
     return this.createConversation(
       principal,
       principal.externalSubjectId,
@@ -650,7 +656,7 @@ export class PublicRuntimeService {
   }
 
   private async enforceRateLimit(
-    operation: 'execution' | 'message',
+    operation: 'conversation' | 'execution' | 'message',
     actorId: string,
     limit: number,
   ) {

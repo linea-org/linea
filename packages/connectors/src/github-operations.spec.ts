@@ -332,6 +332,27 @@ describe("GitHub Connector Operations", () => {
       hasMore: false,
     })
     expect(JSON.stringify(result)).not.toContain("raw_secret")
+    const traced = githubListIssuesOperation.traceOutput(result)
+    expect(traced).toEqual({
+      issues: [
+        {
+          id: "9042",
+          number: 42,
+          title: "Provider title",
+          bodyTruncated: false,
+          state: "open",
+          htmlUrl: "https://github.test/acme/widgets/issues/42",
+          author: "octocat",
+          labels: ["bug"],
+          createdAt: "2026-09-20T00:00:00Z",
+          updatedAt: "2026-09-20T00:01:00Z",
+        },
+      ],
+      page: 1,
+      perPage: 5,
+      hasMore: false,
+    })
+    expect(JSON.stringify(traced)).not.toContain("Provider body")
   })
   it("owns exact issue parameters and reports a possibly sent request as unknown", async () => {
     const normalized = githubCreateIssueOperation.normalize({

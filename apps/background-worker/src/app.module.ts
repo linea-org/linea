@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common"
 import { ApprovalsModule } from "./approvals/approvals.module"
+import { AuditModule } from "./audit/audit.module"
 import { BehaviourModule } from "./behaviour/behaviour.module"
 import { ChatModule } from "./chat/chat.module"
 import { EndUserAuthorizationModule } from "./end-user-authorization/end-user-authorization.module"
@@ -26,6 +27,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module"
     BehaviourModule,
     EndUserAuthorizationModule,
     WebhooksModule,
+    AuditModule,
   ],
 })
 export class AppModule {}

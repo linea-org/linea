@@ -34,6 +34,7 @@ export type AiProviderKeyStatus = {
   label: string
   keyName: string
   configured: boolean
+  platformFallback: boolean
 }
 
 export const listAiProvidersFn = createServerFn({ method: "GET" })

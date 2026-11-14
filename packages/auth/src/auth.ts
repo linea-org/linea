@@ -3,7 +3,9 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter"
 import { expo } from "@better-auth/expo"
 import { magicLink, organization } from "better-auth/plugins"
 import { eq } from "drizzle-orm"
+import { Redis } from "ioredis"
 import { db, repositories, schema } from "@linea/db"
+import { createAuthRateLimiter } from "./auth-rate-limit.js"
 import { sendEmail } from "./email.js"
 import { createMagicLinkEmailUrl } from "./magic-link-email-url.js"
 import { RECENT_AUTHENTICATION_WINDOW_SECONDS } from "./session-policy.js"
@@ -17,6 +19,7 @@ import {
 
 const baseUrl = process.env.BETTER_AUTH_URL
 const secret = process.env.BETTER_AUTH_SECRET
+const redisUrl = process.env.REDIS_URL
 
 if (!baseUrl) {
   throw new Error("BETTER_AUTH_URL is required to initialize @linea/auth")
@@ -25,6 +28,20 @@ if (!baseUrl) {
 if (!secret) {
   throw new Error("BETTER_AUTH_SECRET is required to initialize @linea/auth")
 }
+
+if (!redisUrl) {
+  throw new Error("REDIS_URL is required to initialize @linea/auth")
+}
+
+// Lazy so importing the package (e.g. for types or enabledSocialProviders) opens no socket.
+const rateLimitRedis = new Redis(redisUrl, {
+  lazyConnect: true,
+  maxRetriesPerRequest: 1,
+})
+rateLimitRedis.on("error", (error: Error) => {
+  console.error(`Auth rate limit Redis error: ${error.message}`)
+})
+const rateLimiter = createAuthRateLimiter(rateLimitRedis, "auth-rate-limit")
 
 const appUrl = process.env.APP_URL ?? baseUrl
 const trustedOrigins = (process.env.TRUSTED_ORIGINS ?? appUrl)
@@ -107,6 +124,13 @@ async function describeSignInMethod(userId: string): Promise<string> {
   return "Sign in to your account"
 }
 
+// Social sign-in only needs the provider identity; nothing reads these tokens, so they are never stored.
+const discardedProviderTokens = {
+  accessToken: null,
+  refreshToken: null,
+  idToken: null,
+}
+
 // Lets tsup name Better Auth's inferred `auth` type (Zod `$strip`).
 export type { $strip } from "zod/v4/core"
 
@@ -145,9 +169,25 @@ export const auth = betterAuth({
       "/get-session": false,
       "/organization/list": false,
     },
+    customStorage: rateLimiter.storage,
   },
+  hooks: rateLimiter.hooks,
   session: {
     freshAge: RECENT_AUTHENTICATION_WINDOW_SECONDS,
+  },
+  verification: {
+    // Requires better-auth >=1.7.7: older releases' plain-identifier fallback let OAuth state rows be redeemed as magic links (GHSA-965c-763c-88jm).
+    storeIdentifier: "hashed",
+  },
+  databaseHooks: {
+    account: {
+      create: {
+        before: () => Promise.resolve({ data: discardedProviderTokens }),
+      },
+      update: {
+        before: () => Promise.resolve({ data: discardedProviderTokens }),
+      },
+    },
   },
   socialProviders: {
     ...(googleCredentials
@@ -155,6 +195,7 @@ export const auth = betterAuth({
           google: {
             ...googleCredentials,
             prompt: "select_account" as const,
+            disableIdTokenSignIn: true,
           },
         }
       : {}),

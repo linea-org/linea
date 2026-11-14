@@ -219,6 +219,7 @@ function App() {
   const [task, setTask] = useState<Task>()
   const [error, setError] = useState<string>()
   const [needsCode, setNeedsCode] = useState(false)
+  const [signedIn, setSignedIn] = useState(false)
   const taskId = task?.id
   useEffect(() => {
     const id = savedTaskId()
@@ -227,7 +228,10 @@ function App() {
     api(`/api/tasks/${encodeURIComponent(id)}`, {
       signal: controller.signal,
     }).then(
-      (restored) => setTask({ ...restored, id }),
+      (restored) => {
+        setTask({ ...restored, id })
+        setSignedIn(true)
+      },
       () => saveTaskId(undefined)
     )
     return () => controller.abort()
@@ -246,7 +250,10 @@ function App() {
         (next) => setTask({ ...next, id: taskId }),
         (cause: unknown) => {
           if (controller.signal.aborted) return
-          if (cause instanceof Unauthorized) return setNeedsCode(true)
+          if (cause instanceof Unauthorized) {
+            setSignedIn(false)
+            return setNeedsCode(true)
+          }
           setError(cause instanceof Error ? cause.message : "Lost connection")
         }
       )
@@ -266,10 +273,24 @@ function App() {
           body: JSON.stringify({ repository }),
         })
       )
+      setSignedIn(true)
     } catch (cause) {
-      if (cause instanceof Unauthorized) return setNeedsCode(true)
+      if (cause instanceof Unauthorized) {
+        setSignedIn(false)
+        return setNeedsCode(true)
+      }
       setError(cause instanceof Error ? cause.message : "Request failed")
     }
+  }
+  async function signOut() {
+    const response = await fetch("/api/session/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    })
+    if (!response.ok) return setError("Sign-out failed")
+    saveTaskId(undefined)
+    setTask(undefined)
+    setSignedIn(false)
   }
   return (
     <LineaUserProvider client={client}>
@@ -290,11 +311,17 @@ function App() {
         >
           Suggest two follow-ups
         </button>
+        {signedIn ? (
+          <button type="button" onClick={() => void signOut()}>
+            Sign out of the demo
+          </button>
+        ) : null}
         {error ? <p role="alert">{error}</p> : null}
         {needsCode ? (
           <AccessCode
             onSignedIn={() => {
               setNeedsCode(false)
+              setSignedIn(true)
               void submit()
             }}
           />

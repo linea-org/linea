@@ -41,7 +41,7 @@ export const memoryNode: NodeDefinition<
         label: "Subject path",
         widget: "text",
         description:
-          "Dot-path into this node's input identifying whose memory this is (e.g. your app's own user id) — not a Linea user.",
+          "Dot-path into this node's input identifying whose memory this is (e.g. your app's own user id). Ignored when an End User started the run: memory then belongs to that verified End User. Memory is always kept per Environment.",
       },
       {
         key: "namespace",
@@ -67,7 +67,8 @@ export const memoryNode: NodeDefinition<
         key: "ttlSeconds",
         label: "Expires after (seconds)",
         widget: "text",
-        description: "Leave empty to keep this value indefinitely.",
+        description:
+          "Leave empty to keep this value for 90 days. At most one year.",
         showIf: { key: "operation", equals: "write" },
       },
     ],
