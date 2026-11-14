@@ -91,15 +91,20 @@ export class ExternalSubjectsService {
     externalSubjectId: string,
     actorUserId: string,
   ): Promise<void> {
-    const subject = await repositories.externalSubject.eraseExternalSubject(
+    const result = await repositories.externalSubject.eraseExternalSubject(
       db,
       workspaceId,
       externalSubjectId,
       actorUserId,
     )
-    if (!subject) {
+    if (result.outcome === 'not_found') {
       throw new NotFoundException(
         publicError('resource_not_found', 'External Subject not found'),
+      )
+    }
+    if (result.outcome === 'action_intent_executing') {
+      throw new ConflictException(
+        'An Action Intent of this External Subject is executing; retry erasure once it finishes',
       )
     }
   }

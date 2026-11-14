@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull } from "drizzle-orm"
 import {
+  executions,
   regressionCases,
   type RegressionCase,
   type NewRegressionCase,
@@ -88,27 +89,35 @@ export type CreateRegressionCaseFromStepInput = {
   assertions?: RegressionAssertion[]
 }
 
-/** Rejects cross-workspace steps before copying their input into the caller's regression suite. */
-export async function createRegressionCaseFromStep(
+/** Rejects cross-workspace steps; shares the execution lock so erasure cannot finish between the read and the copy. */
+export function createRegressionCaseFromStep(
   db: DbClient,
   input: CreateRegressionCaseFromStepInput
 ): Promise<RegressionCase | undefined> {
-  const step = await getExecutionStepById(db, input.stepId)
-  if (!step || step.workspaceId !== input.workspaceId) return undefined
-  const execution = await getExecutionById(db, step.executionId)
-  if (!execution?.workflowId || execution.workspaceId !== input.workspaceId) {
-    return undefined
-  }
-
-  return createRegressionCase(db, {
-    workspaceId: step.workspaceId,
-    workflowId: execution.workflowId,
-    caseType: "node",
-    nodeId: step.nodeId,
-    input: { nodeInput: step.input ?? {} },
-    assertions: input.assertions ?? [],
-    sourceStepId: step.id,
-    sourceSignalId: input.sourceSignalId,
+  return db.transaction(async (tx) => {
+    const found = await getExecutionStepById(tx, input.stepId)
+    if (!found || found.workspaceId !== input.workspaceId) return undefined
+    await tx
+      .select({ id: executions.id })
+      .from(executions)
+      .where(eq(executions.id, found.executionId))
+      .for("share")
+    const step = await getExecutionStepById(tx, input.stepId)
+    if (!step) return undefined
+    const execution = await getExecutionById(tx, step.executionId)
+    if (!execution?.workflowId || execution.workspaceId !== input.workspaceId) {
+      return undefined
+    }
+    return createRegressionCase(tx, {
+      workspaceId: step.workspaceId,
+      workflowId: execution.workflowId,
+      caseType: "node",
+      nodeId: step.nodeId,
+      input: { nodeInput: step.input ?? {} },
+      assertions: input.assertions ?? [],
+      sourceStepId: step.id,
+      sourceSignalId: input.sourceSignalId,
+    })
   })
 }
 

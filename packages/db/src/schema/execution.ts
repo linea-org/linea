@@ -112,6 +112,7 @@ export const executions = snakeCase.table(
 
     startedAt: timestamp({ withTimezone: true }),
     completedAt: timestamp({ withTimezone: true }),
+    contentErasedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [

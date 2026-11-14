@@ -1,5 +1,6 @@
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, inArray } from "drizzle-orm"
 import {
+  regressionCases,
   regressionResults,
   regressionRuns,
   type RegressionResult,
@@ -87,6 +88,7 @@ export type NewRegressionResultInput = Omit<
   "runId" | "workspaceId"
 >
 
+/** A result for a case erased while the run was in flight is stored without its output. */
 export async function insertRegressionResults(
   db: DbClient,
   runId: string,
@@ -94,9 +96,28 @@ export async function insertRegressionResults(
   results: NewRegressionResultInput[]
 ): Promise<void> {
   if (results.length === 0) return
-  await db
-    .insert(regressionResults)
-    .values(results.map((result) => ({ ...result, runId, workspaceId })))
+  await db.transaction(async (tx) => {
+    const live = await tx
+      .select({ id: regressionCases.id })
+      .from(regressionCases)
+      .where(
+        inArray(
+          regressionCases.id,
+          results.map(({ caseId }) => caseId)
+        )
+      )
+      .orderBy(regressionCases.id)
+      .for("share")
+    const liveIds = new Set(live.map(({ id }) => id))
+    await tx.insert(regressionResults).values(
+      results.map((result) => ({
+        ...result,
+        runId,
+        workspaceId,
+        output: liveIds.has(result.caseId) ? result.output : null,
+      }))
+    )
+  })
 }
 
 export async function listRegressionResults(

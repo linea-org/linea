@@ -23,6 +23,7 @@ import {
   type ConnectorAuditFact,
 } from "../schema/index.js"
 import type { DbClient } from "./types.js"
+import { redactedActionIntentContent } from "./end-user-content.repository.js"
 
 const DAY_MS = 24 * 60 * 60 * 1_000
 
@@ -302,13 +303,7 @@ export async function applyRetention(
     const intentsErased = await tx
       .update(actionIntents)
       .set({
-        target: { redacted: true },
-        normalizedParameters: { redacted: true },
-        providerPreconditions: { redacted: true },
-        safeDisplay: { title: "Content expired" },
-        canonicalEnvelope: sql`jsonb_build_object('version', 1, 'operationRevision', ${actionIntents.operationRevision}, 'connectionId', ${actionIntents.connectionId}::text, 'connector', ${actionIntents.connector}, 'operation', ${actionIntents.operationId}, 'target', jsonb_build_object('redacted', true), 'parameters', jsonb_build_object('redacted', true), 'providerPreconditions', jsonb_build_object('redacted', true))`,
-        normalizedResult: null,
-        normalizedError: null,
+        ...redactedActionIntentContent,
         contentErasedAt: now,
       })
       .from(environments)
