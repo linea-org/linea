@@ -90,7 +90,7 @@ export class ApplicationsController {
     return application
   }
   @Get(':id/workflows')
-  @RequireWorkspaceKeyScopes('applications:read')
+  @RequireWorkspaceKeyScopes('applications:read', 'workflows:read')
   async workflows(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('id', ParseUUIDPipe) id: string,

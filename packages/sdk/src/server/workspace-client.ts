@@ -1,22 +1,15 @@
 import {
-  archiveRegressionCaseOperation,
-  createRegressionCaseFromFlagOperation,
-  createRegressionCaseFromStepOperation,
   getRegressionRunOperation,
   listRegressionCasesOperation,
   listRegressionRunsOperation,
   listWorkspaceConnectorAuditEventsOperation,
-  triggerRegressionRunOperation,
 } from "@linea/protocol/operations"
 import type {
-  CreateRegressionCaseFromFlag,
-  CreateRegressionCaseFromStep,
   ListRegressionCases,
   ListRegressionRuns,
   RegressionCase,
   RegressionRun,
   RegressionRunDetail,
-  TriggerRegressionRun,
   OperatorConnectorAuditEvent,
   WorkspaceConnectorAuditQuery,
 } from "@linea/protocol/resources"
@@ -59,35 +52,6 @@ export class LineaWorkspaceClient extends LineaClient {
     })
   }
 
-  createRegressionCaseFromStep(
-    workflowId: string,
-    input: CreateRegressionCaseFromStep
-  ): Promise<RegressionCase> {
-    return this.serverTransport.execute(createRegressionCaseFromStepOperation, {
-      path: { workflowId },
-      body: input,
-    })
-  }
-
-  createRegressionCaseFromFlag(
-    workflowId: string,
-    input: CreateRegressionCaseFromFlag
-  ): Promise<RegressionCase> {
-    return this.serverTransport.execute(createRegressionCaseFromFlagOperation, {
-      path: { workflowId },
-      body: input,
-    })
-  }
-
-  archiveRegressionCase(
-    workflowId: string,
-    regressionCaseId: string
-  ): Promise<RegressionCase> {
-    return this.serverTransport.execute(archiveRegressionCaseOperation, {
-      path: { workflowId, id: regressionCaseId },
-    })
-  }
-
   listRegressionRuns(
     workflowId: string,
     query: ListRegressionRuns = {}
@@ -95,16 +59,6 @@ export class LineaWorkspaceClient extends LineaClient {
     return this.serverTransport.execute(listRegressionRunsOperation, {
       path: { workflowId },
       query,
-    })
-  }
-
-  triggerRegressionRun(
-    workflowId: string,
-    input: TriggerRegressionRun = {}
-  ): Promise<{ queued: true }> {
-    return this.serverTransport.execute(triggerRegressionRunOperation, {
-      path: { workflowId },
-      body: input,
     })
   }
 

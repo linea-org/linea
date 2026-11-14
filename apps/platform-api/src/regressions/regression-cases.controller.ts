@@ -54,7 +54,6 @@ export class RegressionCasesController {
 
   // Cases copy recorded production input into the suite that runs on every publish, so curating them is admin-only.
   @Post('workflows/:workflowId/regression-cases/from-step')
-  @RequireWorkspaceKeyScopes('regressions:write')
   @RequireRole('admin')
   async createFromStep(
     @CurrentWorkspaceId() workspaceId: string,
@@ -74,7 +73,6 @@ export class RegressionCasesController {
   }
 
   @Post('workflows/:workflowId/regression-cases/from-flag')
-  @RequireWorkspaceKeyScopes('regressions:write')
   @RequireRole('admin')
   async createFromFlag(
     @CurrentWorkspaceId() workspaceId: string,
@@ -88,7 +86,6 @@ export class RegressionCasesController {
   }
 
   @Post('workflows/:workflowId/regression-cases/:id/archive')
-  @RequireWorkspaceKeyScopes('regressions:write')
   @RequireRole('admin')
   async archive(
     @CurrentWorkspaceId() workspaceId: string,

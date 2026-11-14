@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "de2452f2-73ca-426d-87c3-7738481d1710",
+  "id": "a20cec8e-b6ee-41c3-8fb6-1add9a79866c",
   "prevIds": [
-    "71fc0cfc-35e6-4a8d-95b2-5b3bb40a623d"
+    "234fea53-e58d-4ebe-86ab-56b76251981b"
   ],
   "ddl": [
     {
@@ -8116,6 +8116,32 @@
       "table": "memories"
     },
     {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "environment_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "memories"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "external_subject_record_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "memories"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -8254,6 +8280,19 @@
       "generated": null,
       "identity": null,
       "name": "behaviour_model",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "workspace_settings"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "platform_model_key_enabled",
       "entityType": "columns",
       "schema": "public",
       "table": "workspace_settings"
@@ -13865,48 +13904,6 @@
           "opclass": null
         },
         {
-          "value": "external_subject_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "namespace",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "key",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "memories_scope_key_uidx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "memories"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "workspace_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
           "value": "workflow_id",
           "isExpression": false,
           "asc": true,
@@ -17284,6 +17281,44 @@
       "table": "memories"
     },
     {
+      "nameExplicit": true,
+      "columns": [
+        "environment_id",
+        "workspace_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "environments",
+      "columnsTo": [
+        "id",
+        "workspace_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "memories_environment_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "memories"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "external_subject_record_id",
+        "workspace_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "external_subjects",
+      "columnsTo": [
+        "id",
+        "workspace_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "memories_subject_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "memories"
+    },
+    {
       "nameExplicit": false,
       "columns": [
         "workspace_id"
@@ -18684,6 +18719,22 @@
       "schema": "public",
       "table": "environment_agent_bindings",
       "entityType": "pks"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "workspace_id",
+        "environment_id",
+        "external_subject_record_id",
+        "external_subject_id",
+        "namespace",
+        "key"
+      ],
+      "nullsNotDistinct": true,
+      "name": "memories_scope_key_uniq",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "memories"
     },
     {
       "nameExplicit": false,

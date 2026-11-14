@@ -215,11 +215,14 @@ describe('WorkspaceAuthGuard', () => {
         guard.canActivate(
           contextWithRequest(keyRequest(rawKey), 'startExecutions'),
         ),
-      ).rejects.toThrow(
-        new ForbiddenException(
-          'API key is missing required scope: executions:start',
-        ),
-      )
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'scope_denied',
+            message: 'API key is missing required scope: executions:start',
+          },
+        },
+      })
       const stored = await repositories.apiKey.getApiKeyByHash(
         db,
         apiKey.hashedKey,

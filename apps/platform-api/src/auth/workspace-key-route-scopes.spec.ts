@@ -61,7 +61,7 @@ const expectedKeyRoutes: Record<string, string[]> = {
   'GET /applications': ['applications:read'],
   'GET /applications/:id': ['applications:read'],
   'GET /applications/:id/environments': ['applications:read'],
-  'GET /applications/:id/workflows': ['applications:read'],
+  'GET /applications/:id/workflows': ['applications:read', 'workflows:read'],
   'GET /audit-events': ['audit:read'],
   'GET /executions': ['executions:read'],
   'GET /executions/new-count': ['executions:read'],
@@ -91,16 +91,6 @@ const expectedKeyRoutes: Record<string, string[]> = {
   'POST /workflows/:id/versions': ['workflows:write'],
   'POST /workflows/:id/versions/:versionId/publish': ['workflows:publish'],
   'POST /workflows/:workflowId/executions': ['executions:start'],
-  'POST /workflows/:workflowId/regression-cases/:id/archive': [
-    'regressions:write',
-  ],
-  'POST /workflows/:workflowId/regression-cases/from-flag': [
-    'regressions:write',
-  ],
-  'POST /workflows/:workflowId/regression-cases/from-step': [
-    'regressions:write',
-  ],
-  'POST /workflows/:workflowId/regression-runs': ['regressions:write'],
   'PUT /workflows/:id/draft': ['workflows:write'],
 }
 

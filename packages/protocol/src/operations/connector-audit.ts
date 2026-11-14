@@ -55,7 +55,7 @@ export const listWorkspaceConnectorAuditEventsOperation = {
     status: 200,
     body: paginatedResponseSchema(operatorConnectorAuditEventSchema),
   },
-  errors: ["validation_failed", "authentication_failed"],
+  errors: ["validation_failed", "authentication_failed", "scope_denied"],
 } as const satisfies OperationDefinition
 
 export const listEndUserConnectorAuditEventsOperation = {
