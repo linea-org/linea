@@ -1625,7 +1625,7 @@ List redacted connector audit events for one workspace.
 
 - Caller plane: `control`
 - Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Authentication: workspace_key; scopes: audit:read
 - Method and path: `GET /v1/audit-events`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
@@ -1907,6 +1907,7 @@ Status: `200`
 | ----------------------- | -----: | --------------------------- |
 | `validation_failed`     |    400 | not automatically retryable |
 | `authentication_failed` |    401 | not automatically retryable |
+| `scope_denied`          |    403 | not automatically retryable |
 
 ### TypeScript
 
@@ -10208,7 +10209,7 @@ List saved Regression Cases for a Workflow.
 
 - Caller plane: `control`
 - Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Authentication: workspace_key; scopes: regressions:read
 - Method and path: `GET /v1/workflows/{workflowId}/regression-cases`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
@@ -10359,6 +10360,7 @@ Status: `200`
 | ----------------------- | -----: | --------------------------- |
 | `validation_failed`     |    400 | not automatically retryable |
 | `authentication_failed` |    401 | not automatically retryable |
+| `scope_denied`          |    403 | not automatically retryable |
 | `resource_not_found`    |    404 | not automatically retryable |
 | `rate_limited`          |    429 | retryable                   |
 
@@ -10384,14 +10386,14 @@ curl --request GET "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-c
 Create a Regression Case from an Execution step.
 
 - Caller plane: `control`
-- Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Intended caller: A workspace administrator with an Operator session.
+- Authentication: workspace_session
 - Method and path: `POST /v1/workflows/{workflowId}/regression-cases/from-step`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
-- SDK method: `LineaWorkspaceClient.createRegressionCaseFromStep` from `@linea/sdk/server`
+- SDK method: No SDK method: Regression writes require an administrator session; workspace API keys cannot call them.
 
 ### Request
 
@@ -10425,14 +10427,7 @@ Header parameters:
 ```json
 {
   "additionalProperties": false,
-  "properties": {
-    "authorization": {
-      "format": "starts_with",
-      "pattern": "^Bearer .*",
-      "type": "string"
-    }
-  },
-  "required": ["authorization"],
+  "properties": {},
   "type": "object"
 }
 ```
@@ -10538,25 +10533,17 @@ Status: `201`
 | ----------------------- | -----: | --------------------------- |
 | `validation_failed`     |    400 | not automatically retryable |
 | `authentication_failed` |    401 | not automatically retryable |
+| `scope_denied`          |    403 | not automatically retryable |
 | `resource_not_found`    |    404 | not automatically retryable |
 | `rate_limited`          |    429 | retryable                   |
 
 ### TypeScript
 
-```ts
-import { LineaWorkspaceClient } from "@linea/sdk/server"
-
-await client.createRegressionCaseFromStep(/* typed arguments */)
-```
+No example: Regression writes require an administrator session; workspace API keys cannot call them.
 
 ### cURL
 
-```sh
-curl --request POST "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-cases/from-step" \
-  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY" \
-  --header 'Content-Type: application/json' \
-  --data "$REQUEST_JSON"
-```
+Requires an authenticated workspace administrator session with recent authentication.
 
 <!-- operation:createRegressionCaseFromFlag -->
 
@@ -10565,14 +10552,14 @@ curl --request POST "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-
 Create a Regression Case from a flagged Execution.
 
 - Caller plane: `control`
-- Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Intended caller: A workspace administrator with an Operator session.
+- Authentication: workspace_session
 - Method and path: `POST /v1/workflows/{workflowId}/regression-cases/from-flag`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
-- SDK method: `LineaWorkspaceClient.createRegressionCaseFromFlag` from `@linea/sdk/server`
+- SDK method: No SDK method: Regression writes require an administrator session; workspace API keys cannot call them.
 
 ### Request
 
@@ -10606,14 +10593,7 @@ Header parameters:
 ```json
 {
   "additionalProperties": false,
-  "properties": {
-    "authorization": {
-      "format": "starts_with",
-      "pattern": "^Bearer .*",
-      "type": "string"
-    }
-  },
-  "required": ["authorization"],
+  "properties": {},
   "type": "object"
 }
 ```
@@ -10719,25 +10699,17 @@ Status: `201`
 | ----------------------- | -----: | --------------------------- |
 | `validation_failed`     |    400 | not automatically retryable |
 | `authentication_failed` |    401 | not automatically retryable |
+| `scope_denied`          |    403 | not automatically retryable |
 | `resource_not_found`    |    404 | not automatically retryable |
 | `rate_limited`          |    429 | retryable                   |
 
 ### TypeScript
 
-```ts
-import { LineaWorkspaceClient } from "@linea/sdk/server"
-
-await client.createRegressionCaseFromFlag(/* typed arguments */)
-```
+No example: Regression writes require an administrator session; workspace API keys cannot call them.
 
 ### cURL
 
-```sh
-curl --request POST "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-cases/from-flag" \
-  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY" \
-  --header 'Content-Type: application/json' \
-  --data "$REQUEST_JSON"
-```
+Requires an authenticated workspace administrator session with recent authentication.
 
 <!-- operation:archiveRegressionCase -->
 
@@ -10746,14 +10718,14 @@ curl --request POST "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-
 Archive a Regression Case.
 
 - Caller plane: `control`
-- Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Intended caller: A workspace administrator with an Operator session.
+- Authentication: workspace_session
 - Method and path: `POST /v1/workflows/{workflowId}/regression-cases/{id}/archive`
 - Idempotency: Repeated archive requests leave the case archived.
 - Rate limits: No operation-specific limit; platform protections apply.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
-- SDK method: `LineaWorkspaceClient.archiveRegressionCase` from `@linea/sdk/server`
+- SDK method: No SDK method: Regression writes require an administrator session; workspace API keys cannot call them.
 
 ### Request
 
@@ -10790,14 +10762,7 @@ Header parameters:
 ```json
 {
   "additionalProperties": false,
-  "properties": {
-    "authorization": {
-      "format": "starts_with",
-      "pattern": "^Bearer .*",
-      "type": "string"
-    }
-  },
-  "required": ["authorization"],
+  "properties": {},
   "type": "object"
 }
 ```
@@ -10893,23 +10858,17 @@ Status: `201`
 | ----------------------- | -----: | --------------------------- |
 | `validation_failed`     |    400 | not automatically retryable |
 | `authentication_failed` |    401 | not automatically retryable |
+| `scope_denied`          |    403 | not automatically retryable |
 | `resource_not_found`    |    404 | not automatically retryable |
 | `rate_limited`          |    429 | retryable                   |
 
 ### TypeScript
 
-```ts
-import { LineaWorkspaceClient } from "@linea/sdk/server"
-
-await client.archiveRegressionCase(/* typed arguments */)
-```
+No example: Regression writes require an administrator session; workspace API keys cannot call them.
 
 ### cURL
 
-```sh
-curl --request POST "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-cases/$ID/archive" \
-  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY"
-```
+Requires an authenticated workspace administrator session with recent authentication.
 
 <!-- operation:listRegressionRuns -->
 
@@ -10919,7 +10878,7 @@ List recent Regression Runs for a Workflow.
 
 - Caller plane: `control`
 - Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Authentication: workspace_key; scopes: regressions:read
 - Method and path: `GET /v1/workflows/{workflowId}/regression-runs`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
@@ -11052,6 +11011,7 @@ Status: `200`
 | ----------------------- | -----: | --------------------------- |
 | `validation_failed`     |    400 | not automatically retryable |
 | `authentication_failed` |    401 | not automatically retryable |
+| `scope_denied`          |    403 | not automatically retryable |
 | `resource_not_found`    |    404 | not automatically retryable |
 | `rate_limited`          |    429 | retryable                   |
 
@@ -11077,14 +11037,14 @@ curl --request GET "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-r
 Queue a Regression Run for a Workflow.
 
 - Caller plane: `control`
-- Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Intended caller: A workspace administrator with an Operator session.
+- Authentication: workspace_session
 - Method and path: `POST /v1/workflows/{workflowId}/regression-runs`
 - Idempotency: None.
 - Rate limits: 10 requests per caller and 30 per workspace each minute.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
-- SDK method: `LineaWorkspaceClient.triggerRegressionRun` from `@linea/sdk/server`
+- SDK method: No SDK method: Regression writes require an administrator session; workspace API keys cannot call them.
 
 ### Request
 
@@ -11118,14 +11078,7 @@ Header parameters:
 ```json
 {
   "additionalProperties": false,
-  "properties": {
-    "authorization": {
-      "format": "starts_with",
-      "pattern": "^Bearer .*",
-      "type": "string"
-    }
-  },
-  "required": ["authorization"],
+  "properties": {},
   "type": "object"
 }
 ```
@@ -11167,25 +11120,17 @@ Status: `201`
 | ----------------------- | -----: | --------------------------- |
 | `validation_failed`     |    400 | not automatically retryable |
 | `authentication_failed` |    401 | not automatically retryable |
+| `scope_denied`          |    403 | not automatically retryable |
 | `resource_not_found`    |    404 | not automatically retryable |
 | `rate_limited`          |    429 | retryable                   |
 
 ### TypeScript
 
-```ts
-import { LineaWorkspaceClient } from "@linea/sdk/server"
-
-await client.triggerRegressionRun(/* typed arguments */)
-```
+No example: Regression writes require an administrator session; workspace API keys cannot call them.
 
 ### cURL
 
-```sh
-curl --request POST "https://api.linea.dev/v1/workflows/$WORKFLOW_ID/regression-runs" \
-  --header "Authorization: Bearer $LINEA_WORKSPACE_KEY" \
-  --header 'Content-Type: application/json' \
-  --data "$REQUEST_JSON"
-```
+Requires an authenticated workspace administrator session with recent authentication.
 
 <!-- operation:getRegressionRun -->
 
@@ -11195,7 +11140,7 @@ Get a Regression Run and its results.
 
 - Caller plane: `control`
 - Intended caller: A trusted Operator backend acting for one workspace.
-- Authentication: workspace_key
+- Authentication: workspace_key; scopes: regressions:read
 - Method and path: `GET /v1/workflows/{workflowId}/regression-runs/{id}`
 - Idempotency: None.
 - Rate limits: No operation-specific limit; platform protections apply.
@@ -11407,6 +11352,7 @@ Status: `200`
 | ----------------------- | -----: | --------------------------- |
 | `validation_failed`     |    400 | not automatically retryable |
 | `authentication_failed` |    401 | not automatically retryable |
+| `scope_denied`          |    403 | not automatically retryable |
 | `resource_not_found`    |    404 | not automatically retryable |
 | `rate_limited`          |    429 | retryable                   |
 

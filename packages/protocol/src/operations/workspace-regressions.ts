@@ -20,6 +20,7 @@ const regressionRunPathSchema = workflowPathSchema.extend({ id: z.string() })
 const workspaceErrors = [
   "validation_failed",
   "authentication_failed",
+  "scope_denied",
   "resource_not_found",
   "rate_limited",
 ] as const
@@ -29,7 +30,7 @@ export const listRegressionCasesOperation = {
   method: "GET",
   path: "/v1/workflows/{workflowId}/regression-cases",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["regressions:read"] },
   request: {
     path: workflowPathSchema,
     query: z.strictObject({
@@ -47,11 +48,11 @@ export const createRegressionCaseFromStepOperation = {
   method: "POST",
   path: "/v1/workflows/{workflowId}/regression-cases/from-step",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_session", scopes: [] },
   request: {
     path: workflowPathSchema,
     query: emptySchema,
-    headers: authorizationSchema,
+    headers: emptySchema,
     body: createRegressionCaseFromStepSchema,
   },
   response: { status: 201, body: regressionCaseSchema },
@@ -63,11 +64,11 @@ export const createRegressionCaseFromFlagOperation = {
   method: "POST",
   path: "/v1/workflows/{workflowId}/regression-cases/from-flag",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_session", scopes: [] },
   request: {
     path: workflowPathSchema,
     query: emptySchema,
-    headers: authorizationSchema,
+    headers: emptySchema,
     body: createRegressionCaseFromFlagSchema,
   },
   response: { status: 201, body: regressionCaseSchema },
@@ -79,11 +80,11 @@ export const archiveRegressionCaseOperation = {
   method: "POST",
   path: "/v1/workflows/{workflowId}/regression-cases/{id}/archive",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_session", scopes: [] },
   request: {
     path: regressionCasePathSchema,
     query: emptySchema,
-    headers: authorizationSchema,
+    headers: emptySchema,
     body: z.undefined(),
   },
   response: { status: 201, body: regressionCaseSchema },
@@ -95,7 +96,7 @@ export const listRegressionRunsOperation = {
   method: "GET",
   path: "/v1/workflows/{workflowId}/regression-runs",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["regressions:read"] },
   request: {
     path: workflowPathSchema,
     query: z.strictObject({
@@ -113,11 +114,11 @@ export const triggerRegressionRunOperation = {
   method: "POST",
   path: "/v1/workflows/{workflowId}/regression-runs",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_session", scopes: [] },
   request: {
     path: workflowPathSchema,
     query: emptySchema,
-    headers: authorizationSchema,
+    headers: emptySchema,
     body: triggerRegressionRunSchema,
   },
   response: { status: 201, body: queuedRegressionRunSchema },
@@ -129,7 +130,7 @@ export const getRegressionRunOperation = {
   method: "GET",
   path: "/v1/workflows/{workflowId}/regression-runs/{id}",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["regressions:read"] },
   request: {
     path: regressionRunPathSchema,
     query: emptySchema,

@@ -2,6 +2,7 @@ import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import { ConversationAnalysesService } from './conversation-analyses.service'
 import {
@@ -18,6 +19,7 @@ export class ConversationAnalysesController {
   ) {}
 
   @Get(':conversationId/analysis')
+  @RequireWorkspaceKeyScopes('executions:read')
   get(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,

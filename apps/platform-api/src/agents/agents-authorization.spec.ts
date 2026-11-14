@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing'
 import { z } from 'zod'
+import { workspaceKeyScopes } from '@linea/protocol/resources'
 import type { INestApplication } from '@nestjs/common'
 import type { Request, Response, NextFunction } from 'express'
 import request from 'supertest'
@@ -14,7 +15,14 @@ import { EnvironmentAgentBindingsService } from '../environments/environment-age
 const mockRole = jest.fn<Promise<string | null>, unknown[]>()
 const mockApiKey = jest.fn<
   Promise<
-    | { id: string; workspaceId: string; purpose: string; revokedAt: null }
+    | {
+        id: string
+        workspaceId: string
+        scopes: readonly string[]
+        expiresAt: Date
+        createdByUserId: null
+        revokedAt: null
+      }
     | undefined
   >,
   unknown[]
@@ -123,12 +131,14 @@ describe('Agent management authorization', () => {
       await request(app.getHttpServer()).get(path).expect(401)
     expect(mockList).not.toHaveBeenCalled()
   })
-  it('requires an admin session even for a valid workspace API key', async () => {
+  it('requires an admin session even for a valid workspace API key holding every scope', async () => {
     signedIn = false
     mockApiKey.mockResolvedValue({
       id: applicationId,
       workspaceId: applicationId,
-      purpose: 'general',
+      scopes: workspaceKeyScopes,
+      expiresAt: new Date(Date.now() + 86_400_000),
+      createdByUserId: null,
       revokedAt: null,
     })
     for (const path of paths)

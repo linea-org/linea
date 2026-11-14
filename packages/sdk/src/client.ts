@@ -26,7 +26,7 @@ const DEFAULT_BASE_URL = "http://localhost:3000"
  * Node-only HTTP client for the Linea platform API's trigger, execution, and signal endpoints.
  *
  * Do NOT construct this in a browser or any code shipped to an end user's device. The API key is
- * a bearer credential scoped to an entire workspace with no finer-grained permissions, and the
+ * a bearer credential for a whole workspace, limited only by the scopes it was minted with, and the
  * platform's CORS allowlist only blocks browser requests that carry an `Origin` header — it does
  * not protect a key embedded in client-side JS from a non-browser caller who obtains it. Use this
  * only from trusted server-side code.
