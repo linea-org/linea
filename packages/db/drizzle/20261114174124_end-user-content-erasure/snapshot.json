@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "d7580abc-c28b-4b15-8841-228054ec1058",
+  "id": "c760ea24-f1c9-41d4-9b95-cb3e831e4b6e",
   "prevIds": [
-    "234fea53-e58d-4ebe-86ab-56b76251981b"
+    "a20cec8e-b6ee-41c3-8fb6-1add9a79866c"
   ],
   "ddl": [
     {
@@ -209,10 +209,19 @@
     },
     {
       "values": [
-        "platform",
-        "ingest"
+        "workflows:read",
+        "workflows:write",
+        "workflows:publish",
+        "applications:read",
+        "executions:read",
+        "executions:start",
+        "signals:read",
+        "signals:write",
+        "regressions:read",
+        "regressions:write",
+        "audit:read"
       ],
-      "name": "api_key_purpose",
+      "name": "workspace_key_scope",
       "entityType": "enums",
       "schema": "public"
     },
@@ -4545,14 +4554,14 @@
       "table": "api_keys"
     },
     {
-      "type": "api_key_purpose",
+      "type": "workspace_key_scope",
       "typeSchema": "public",
       "notNull": true,
-      "dimensions": 0,
-      "default": "'platform'",
+      "dimensions": 1,
+      "default": null,
       "generated": null,
       "identity": null,
-      "name": "purpose",
+      "name": "scopes",
       "entityType": "columns",
       "schema": "public",
       "table": "api_keys"
@@ -4584,6 +4593,19 @@
       "table": "api_keys"
     },
     {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "api_keys"
+    },
+    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": false,
@@ -4592,6 +4614,19 @@
       "generated": null,
       "identity": null,
       "name": "last_used_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "api_keys"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "expires_at",
       "entityType": "columns",
       "schema": "public",
       "table": "api_keys"
@@ -12432,6 +12467,34 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "workspace_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_by_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "api_keys_creator_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "api_keys"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "dedupe_key",
           "isExpression": false,
           "asc": true,
@@ -16124,6 +16187,23 @@
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "api_keys_workspace_id_organizations_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "api_keys"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "api_keys_created_by_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "api_keys"

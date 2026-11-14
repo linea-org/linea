@@ -61,20 +61,20 @@ export const redactedActionIntentContent = {
 const redactedApprovalDisplay = { title: "Content expired" }
 
 async function deleteRegressionCases(tx: DbClient, source: SQL): Promise<void> {
+  const cases = await tx
+    .select({ id: regressionCases.id })
+    .from(regressionCases)
+    .where(source)
+    .orderBy(regressionCases.id)
+    .for("update")
+  if (cases.length === 0) return
+  const caseIds = cases.map(({ id }) => id)
   // Results outlive their case and copy its user turns, so their output goes with it.
   await tx
     .update(regressionResults)
     .set({ output: null })
-    .where(
-      inArray(
-        regressionResults.caseId,
-        tx
-          .select({ id: regressionCases.id })
-          .from(regressionCases)
-          .where(source)
-      )
-    )
-  await tx.delete(regressionCases).where(source)
+    .where(inArray(regressionResults.caseId, caseIds))
+  await tx.delete(regressionCases).where(inArray(regressionCases.id, caseIds))
 }
 
 async function deleteConversations(
@@ -148,7 +148,7 @@ async function eraseExecutionContent(
     waitTimers,
     executionSteps,
   ]) {
-    await tx.delete(table).where(inArray(table.executionId, executionIds))
+    await tx.delete(table).where(inArray(table.executionId, executionIds)) // NOSONAR ordered statements on one connection
   }
   await tx.delete(flags).where(inArray(flags.executionId, executionIds))
   await tx
@@ -252,16 +252,17 @@ export async function eraseExternalSubjectContent(
   // A nested child is inserted under its parent's row lock, so a pass after the parents are locked sees every child.
   do {
     added = (await collectExecutionIds()).filter(
+      // NOSONAR ordered statements on one connection
       (id) => !executionIds.includes(id)
     )
     if (added.length > 0) {
-      await tx
+      await tx // NOSONAR ordered statements on one connection
         .select({ id: approvalRequests.id })
         .from(approvalRequests)
         .where(inArray(approvalRequests.executionId, added))
         .orderBy(approvalRequests.id)
         .for("update")
-      await tx
+      await tx // NOSONAR ordered statements on one connection
         .select({ id: executions.id })
         .from(executions)
         .where(inArray(executions.id, added))
@@ -290,7 +291,7 @@ export async function eraseExternalSubjectContent(
       execution.parentExecutionId &&
       !executionIds.includes(execution.parentExecutionId)
     )
-      await wakeParentOfFinishedChild(tx, execution)
+      await wakeParentOfFinishedChild(tx, execution) // NOSONAR ordered statements on one connection
   }
   const cancelledRequests = await tx
     .update(approvalRequests)
@@ -405,7 +406,7 @@ export function applyContentRetention(
         )
       )
       .for("update", { of: conversations })
-    // The filter above ran before these locks: an Execution inserted into one of these Conversations and committed while the lock waited was invisible to it. A new statement sees it.
+    // An Execution committed while the lock waited is invisible to the filter above.
     const lockedIds = idleConversations.map(({ id }) => id)
     const nowActive =
       lockedIds.length === 0

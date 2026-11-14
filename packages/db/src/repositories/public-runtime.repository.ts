@@ -38,32 +38,30 @@ type Idempotency = {
   requestHash: string
 }
 
-/**
- * Writers that add content for the subject (Executions, Conversations) pass `lock`: erasure
- * holds FOR NO KEY UPDATE on the subject row, which the plain foreign-key lock of an insert does
- * not conflict with, so without this a write that checked the status just before erasure began
- * would commit private content after the purge collected its set. FOR SHARE waits for an erasure
- * in flight, and the status read below runs afterwards, so it sees the erased subject.
- */
+/** Waits for an erasure in flight, which a foreign-key lock on insert does not. */
+export async function lockExternalSubject(
+  db: DbClient,
+  workspaceId: string,
+  externalSubjectId: string
+) {
+  await db
+    .select({ id: externalSubjects.id })
+    .from(externalSubjects)
+    .where(
+      and(
+        eq(externalSubjects.workspaceId, workspaceId),
+        eq(externalSubjects.id, externalSubjectId)
+      )
+    )
+    .for("share")
+}
+
 export async function resolveSubject(
   db: DbClient,
   workspaceId: string,
   environmentId: string,
-  externalSubjectId: string,
-  options: { lock?: boolean } = {}
+  externalSubjectId: string
 ) {
-  if (options.lock) {
-    await db
-      .select({ id: externalSubjects.id })
-      .from(externalSubjects)
-      .where(
-        and(
-          eq(externalSubjects.workspaceId, workspaceId),
-          eq(externalSubjects.id, externalSubjectId)
-        )
-      )
-      .for("share")
-  }
   const [identity] = await db
     .select({
       environment: environments.environment,
@@ -188,12 +186,12 @@ export async function createPublicConversation(
       if (!conversation) throw new Error("Idempotent Conversation disappeared")
       return { outcome: "replay", conversation }
     }
+    await lockExternalSubject(tx, input.workspaceId, input.externalSubjectId)
     const identity = await resolveSubject(
       tx,
       input.workspaceId,
       input.environmentId,
-      input.externalSubjectId,
-      { lock: true }
+      input.externalSubjectId
     )
     if (!identity) {
       await releasePublicRequest(tx, reservation.recordId)
@@ -338,12 +336,12 @@ export async function startPublicExecution(
       if (!execution) throw new Error("Idempotent Execution disappeared")
       return { outcome: "replay", execution }
     }
+    await lockExternalSubject(tx, input.workspaceId, input.externalSubjectId)
     const identity = await resolveSubject(
       tx,
       input.workspaceId,
       input.environmentId,
-      input.externalSubjectId,
-      { lock: true }
+      input.externalSubjectId
     )
     if (!identity) {
       await releasePublicRequest(tx, reservation.recordId)
@@ -361,7 +359,7 @@ export async function startPublicExecution(
       return { outcome: "workflow_start_not_allowed" }
     }
     if (input.conversationId) {
-      // Retention locks idle Conversations FOR UPDATE; sharing the row here makes an Execution start and a retention pass wait for each other, and the read below then sees whichever committed first.
+      // Retention locks idle Conversations FOR UPDATE; sharing the row serializes with it.
       await tx
         .select({ id: conversations.id })
         .from(conversations)

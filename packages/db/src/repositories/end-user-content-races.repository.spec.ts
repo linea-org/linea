@@ -8,9 +8,19 @@ import {
   executions,
   externalSubjectEnvironments,
   externalSubjects,
+  regressionCases,
+  regressionResults,
 } from "../schema/index.js"
 import { applyContentRetention } from "./end-user-content.repository.js"
-import { resolveSubject } from "./public-runtime.repository.js"
+import {
+  lockExternalSubject,
+  resolveSubject,
+} from "./public-runtime.repository.js"
+import { createRegressionCase } from "./regression-case.repository.js"
+import {
+  createRegressionRun,
+  insertRegressionResults,
+} from "./regression-run.repository.js"
 import {
   createTestFixtures,
   fixtureIssuer,
@@ -20,7 +30,6 @@ import type { Transaction } from "./types.js"
 
 const DAY_MS = 24 * 60 * 60 * 1_000
 
-/** Committed rows, because each race needs two connections that can see each other's work. */
 async function createRaceFixture(tx: Transaction) {
   const fixtures = await createTestFixtures(tx)
   const [environment] = await tx
@@ -39,11 +48,13 @@ async function createRaceFixture(tx: Transaction) {
       oidcJwksUrl: "https://identity.example.com/jwks.json",
     })
     .returning()
+  const issuer = fixtureIssuer(environment)
+  if (!issuer) throw new Error("Fixture identity trust missing")
   const [subject] = await tx
     .insert(externalSubjects)
     .values({
       workspaceId: fixtures.organization.id,
-      issuer: fixtureIssuer(environment) ?? "https://identity.example.com",
+      issuer,
       issuerSubject: randomUUID(),
       status: "verified",
       verifiedAt: new Date(),
@@ -81,22 +92,14 @@ async function createRaceFixture(tx: Transaction) {
   return { ...fixtures, environment, subject, conversation }
 }
 
-async function deleteRaceFixture(
-  fixture: Awaited<ReturnType<typeof createRaceFixture>>
-) {
-  await pool.query("DELETE FROM organizations WHERE id = $1", [
-    fixture.organization.id,
-  ])
+async function deleteOrganization(organizationId: string) {
+  await pool.query("DELETE FROM organizations WHERE id = $1", [organizationId])
 }
 
-/** Resolves once a backend is blocked on a row lock inside a statement that mentions `table`. */
 async function waitForLockWait(table: string) {
   for (let attempt = 0; attempt < 500; attempt++) {
     const waiting = await pool.query(
-      `SELECT 1 FROM pg_stat_activity
-       WHERE datname = current_database()
-         AND wait_event_type = 'Lock'
-         AND query ILIKE '%' || $1 || '%'`,
+      `SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE '%' || $1 || '%'`,
       [`"${table}"`]
     )
     if (waiting.rowCount) return
@@ -119,8 +122,6 @@ describe("End-User content races", () => {
     try {
       const inserted = gate()
       const commit = gate()
-      // The insert's foreign-key lock on the Conversation blocks retention's FOR UPDATE, but the
-      // idle-Conversation filter already ran before that wait and cannot see this Execution.
       const writer = db.transaction(async (tx) => {
         await tx.insert(executions).values({
           workspaceId: fixture.organization.id,
@@ -156,16 +157,14 @@ describe("End-User content races", () => {
         "succeeded",
       ])
     } finally {
-      await deleteRaceFixture(fixture)
+      await deleteOrganization(fixture.organization.id)
     }
   })
-
   it("makes a locking subject read wait for an erasure in flight and then see the erased subject", async () => {
     const fixture = await db.transaction(createRaceFixture)
     try {
       const locked = gate()
       const finish = gate()
-      // Erasure holds FOR NO KEY UPDATE, which an insert's plain foreign-key lock does not conflict with.
       const erasure = db.transaction(async (tx) => {
         await tx
           .select({ id: externalSubjects.id })
@@ -185,31 +184,84 @@ describe("End-User content races", () => {
         await finish.opened
       })
       await locked.opened
-      const read = (options?: { lock: boolean }) =>
+      const resolve = (client: Transaction | typeof db) =>
         resolveSubject(
-          db,
+          client,
           fixture.organization.id,
           fixture.environment.id,
-          fixture.subject.id,
-          options
+          fixture.subject.id
         )
-      // Without the lock a writer reads the committed, un-erased row and would go on to insert.
-      expect(await read()).toBeDefined()
-      const writer = db.transaction((tx) =>
-        resolveSubject(
+      expect(await resolve(db)).toBeDefined()
+      const writer = db.transaction(async (tx) => {
+        await lockExternalSubject(
           tx,
           fixture.organization.id,
-          fixture.environment.id,
-          fixture.subject.id,
-          { lock: true }
+          fixture.subject.id
         )
-      )
+        return resolve(tx)
+      })
       await waitForLockWait("external_subjects")
       finish.open()
       await erasure
       expect(await writer).toBeUndefined()
     } finally {
-      await deleteRaceFixture(fixture)
+      await deleteOrganization(fixture.organization.id)
+    }
+  })
+  it("stores a result without its output when the case is erased while the run is in flight", async () => {
+    const fixture = await db.transaction(createTestFixtures)
+    try {
+      const regressionCase = await createRegressionCase(db, {
+        workspaceId: fixture.organization.id,
+        workflowId: fixture.workflow.id,
+        caseType: "conversation",
+        input: { turns: [{ role: "user", content: "private question" }] },
+      })
+      const run = await createRegressionRun(db, {
+        workspaceId: fixture.organization.id,
+        workflowId: fixture.workflow.id,
+        workflowVersionId: fixture.version.id,
+        trigger: "manual",
+      })
+      const locked = gate()
+      const finish = gate()
+      const erasure = db.transaction(async (tx) => {
+        await tx
+          .select({ id: regressionCases.id })
+          .from(regressionCases)
+          .where(eq(regressionCases.id, regressionCase.id))
+          .for("update")
+        await tx
+          .delete(regressionCases)
+          .where(eq(regressionCases.id, regressionCase.id))
+        locked.open()
+        await finish.opened
+      })
+      await locked.opened
+      const writer = insertRegressionResults(
+        db,
+        run.id,
+        fixture.organization.id,
+        [
+          {
+            caseId: regressionCase.id,
+            status: "passed",
+            output: [{ role: "user", content: "private question" }],
+          },
+        ]
+      )
+      await waitForLockWait("regression_cases")
+      finish.open()
+      await erasure
+      await writer
+      const stored = await db
+        .select()
+        .from(regressionResults)
+        .where(eq(regressionResults.runId, run.id))
+      expect(stored).toHaveLength(1)
+      expect(stored[0].output).toBeNull()
+    } finally {
+      await deleteOrganization(fixture.organization.id)
     }
   })
 })

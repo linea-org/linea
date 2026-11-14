@@ -8,6 +8,7 @@ import {
   executions,
 } from "../schema/index.js"
 import {
+  lockExternalSubject,
   resolveSubject,
   getPublicExecution,
   type StartPublicExecutionResult,
@@ -58,12 +59,12 @@ export function startAgentExecution(
       if (!execution) throw new Error("Idempotent Execution disappeared")
       return { outcome: "replay", execution }
     }
+    await lockExternalSubject(tx, input.workspaceId, input.externalSubjectId)
     const identity = await resolveSubject(
       tx,
       input.workspaceId,
       input.environmentId,
-      input.externalSubjectId,
-      { lock: true }
+      input.externalSubjectId
     )
     const [deployment] = await tx
       .select({ version: agentVersions, contract: agentContractRevisions })
