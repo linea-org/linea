@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { afterAll, beforeAll, expect, it, vi } from "vitest"
 import { betterAuth } from "better-auth"
 import { memoryAdapter } from "better-auth/adapters/memory"
@@ -11,6 +12,21 @@ vi.mock("./email.js", () => ({
     sentEmails.push(email)
   },
 }))
+
+// The fixed addresses below would otherwise consume the production `auth-rate-limit` prefix on every run.
+vi.mock("./auth-rate-limit.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./auth-rate-limit.js")>()
+  return {
+    ...actual,
+    createAuthRateLimiter: (
+      ...[redis]: Parameters<typeof actual.createAuthRateLimiter>
+    ) =>
+      actual.createAuthRateLimiter(
+        redis,
+        `auth-rate-limit-test:${randomUUID()}`
+      ),
+  }
+})
 
 beforeAll(() => {
   vi.stubEnv("DATABASE_URL", "postgresql://test:test@127.0.0.1:1/at_rest_test")

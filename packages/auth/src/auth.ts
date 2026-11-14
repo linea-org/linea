@@ -181,8 +181,12 @@ export const auth = betterAuth({
   },
   databaseHooks: {
     account: {
-      create: { before: async () => ({ data: discardedProviderTokens }) },
-      update: { before: async () => ({ data: discardedProviderTokens }) },
+      create: {
+        before: () => Promise.resolve({ data: discardedProviderTokens }),
+      },
+      update: {
+        before: () => Promise.resolve({ data: discardedProviderTokens }),
+      },
     },
   },
   socialProviders: {
