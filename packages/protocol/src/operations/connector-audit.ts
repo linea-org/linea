@@ -44,7 +44,7 @@ export const listWorkspaceConnectorAuditEventsOperation = {
   method: "GET",
   path: "/v1/audit-events",
   plane: "control",
-  auth: { kind: "workspace_key", scopes: [] },
+  auth: { kind: "workspace_key", scopes: ["audit:read"] },
   request: {
     path: emptySchema,
     query: workspaceConnectorAuditQuerySchema,
@@ -55,7 +55,7 @@ export const listWorkspaceConnectorAuditEventsOperation = {
     status: 200,
     body: paginatedResponseSchema(operatorConnectorAuditEventSchema),
   },
-  errors: ["validation_failed", "authentication_failed"],
+  errors: ["validation_failed", "authentication_failed", "scope_denied"],
 } as const satisfies OperationDefinition
 
 export const listEndUserConnectorAuditEventsOperation = {

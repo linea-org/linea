@@ -10,6 +10,7 @@ import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { OptionalUserId } from '../auth/optional-user-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { WorkspaceRateLimit } from '../auth/workspace-rate-limit.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
@@ -25,6 +26,7 @@ export class TriggersController {
   constructor(private readonly triggers: TriggersService) {}
 
   @Post(':environmentId/:slug')
+  @RequireWorkspaceKeyScopes('executions:start')
   @WorkspaceRateLimit('start')
   trigger(
     @CurrentWorkspaceId() workspaceId: string,

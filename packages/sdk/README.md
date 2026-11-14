@@ -91,6 +91,13 @@ requires an admin session — API keys can't be created using another API key
 (so a leaked key can't mint further keys for itself). The raw key is shown
 once, at creation time — store it somewhere safe.
 
+Every key is minted with an explicit list of scopes and a lifetime of 1–365
+days (`POST /v1/api-keys` with `{ name, scopes, expiresInDays }`). Grant only
+what the integration calls: `executions:start` for `triggerWorkflow`,
+`executions:read` for the execution reads, `signals:read`/`signals:write` for
+signals. A key also stops working when the admin who minted it leaves the
+workspace or loses the admin role.
+
 ## Quickstart
 
 ```ts

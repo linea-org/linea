@@ -70,9 +70,12 @@ describe('WorkflowsService', () => {
       expect(fetched.id).toBe(created.id)
       const list = await service.list(workspaceId)
       expect(list.map((w) => w.id)).toContain(created.id)
-      const updated = await service.update(workspaceId, created.id, {
-        name: 'Renamed',
-      })
+      const updated = await service.update(
+        workspaceId,
+        created.id,
+        { name: 'Renamed' },
+        undefined,
+      )
       expect(updated.name).toBe('Renamed')
       await withOrg(async (otherWorkspaceId) => {
         await expect(

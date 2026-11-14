@@ -86,7 +86,7 @@ This document replaces the external-subject approval architecture in issue #84. 
 - Conversations are inferred from grouped `chat_messages`; there is no first-class conversation record that pins application, subject, environment, or lifecycle.
 - Chat Preview is a builder-only draft flow, not a production end-user interface.
 - `executionEnvironment` belongs to each execution and already distinguishes `draft`, `dev`, and `production`.
-- `@linea/sdk` is a server-only client authenticated by a workspace-wide API key.
+- `@linea/sdk` is a server-only client authenticated by a scoped, expiring Workspace Key.
 - `@linea/sdk-react` is currently a stub.
 - Approval creation, execution pausing, timeout resolution, and queue publication already contain useful race-handling machinery, but there is no external-subject protocol or durable public event channel.
 

@@ -12,6 +12,7 @@ import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { OptionalUserId } from '../auth/optional-user-id.decorator'
 import { RequireRole } from '../auth/require-role.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
+import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { WorkspaceRoleGuard } from '../auth/workspace-role.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
@@ -36,6 +37,7 @@ export class RegressionCasesController {
   constructor(private readonly regressionCases: RegressionCasesService) {}
 
   @Get('workflows/:workflowId/regression-cases')
+  @RequireWorkspaceKeyScopes('regressions:read')
   async list(
     @CurrentWorkspaceId() workspaceId: string,
     @Param('workflowId') workflowId: string,

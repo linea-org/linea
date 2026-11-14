@@ -105,6 +105,30 @@ export async function putEnvironmentWorkflowBinding(
   })
 }
 
+/** Counts disabled bindings too, since an admin can re-enable one without touching the Workflow. */
+export async function hasProductionWorkflowBinding(
+  db: DbClient,
+  workspaceId: string,
+  workflowId: string
+): Promise<boolean> {
+  const [binding] = await db
+    .select({ id: environmentWorkflowBindings.id })
+    .from(environmentWorkflowBindings)
+    .innerJoin(
+      environments,
+      eq(environments.id, environmentWorkflowBindings.environmentId)
+    )
+    .where(
+      and(
+        eq(environmentWorkflowBindings.workspaceId, workspaceId),
+        eq(environmentWorkflowBindings.workflowId, workflowId),
+        eq(environments.environment, "production")
+      )
+    )
+    .limit(1)
+  return Boolean(binding)
+}
+
 export async function listEnvironmentWorkflowBindings(
   db: DbClient,
   workspaceId: string,

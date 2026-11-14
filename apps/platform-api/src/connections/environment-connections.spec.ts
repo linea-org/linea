@@ -486,6 +486,9 @@ describe('shared Environment Connection API and Gateway', () => {
     await repositories.apiKey.createApiKey(db, {
       workspaceId,
       name: 'Backend',
+      scopes: ['executions:read'],
+      expiresAt: new Date(Date.now() + 86_400_000),
+      createdByUserId: operatorId,
       hashedKey: key.hashedKey,
       keyPrefix: key.keyPrefix,
     })
@@ -496,7 +499,7 @@ describe('shared Environment Connection API and Gateway', () => {
       .expect(403)
     expect(machine.body).toMatchObject({
       message:
-        "Requires a signed-in session with admin role or higher — API keys can't be used here",
+        "Requires a signed-in session — workspace API keys can't be used here",
     })
   })
   it('stores independent installation authority encrypted with no fictional Subject', async () => {

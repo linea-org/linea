@@ -1,6 +1,7 @@
 import { z } from "zod"
 import type { PublicErrorCode } from "../errors/error-code"
 import type { EnvironmentKeyScope } from "../resources/environment-key"
+import type { WorkspaceKeyScope } from "../resources/workspace-key"
 
 export const httpMethodSchema = z.enum([
   "GET",
@@ -46,7 +47,14 @@ export type OperationDefinition = {
         readonly scopes: readonly EnvironmentKeyScope[]
       }
     | {
-        readonly kind: Exclude<OperationAuthKind, "environment_key">
+        readonly kind: "workspace_key"
+        readonly scopes: readonly WorkspaceKeyScope[]
+      }
+    | {
+        readonly kind: Exclude<
+          OperationAuthKind,
+          "environment_key" | "workspace_key"
+        >
         readonly scopes: readonly string[]
       }
   readonly request: OperationRequestSchemas

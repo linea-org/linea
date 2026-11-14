@@ -672,7 +672,7 @@ export const operationMetadata = {
   },
   createRegressionCaseFromStep: {
     purpose: "Create a Regression Case from an Execution step.",
-    caller: workspaceCaller,
+    caller: "A workspace administrator with an Operator session.",
     idempotency: none,
     rateLimit: platformProtection,
     pagination: none,
@@ -681,11 +681,14 @@ export const operationMetadata = {
       "apps/platform-api/src/regressions/regression-cases.controller.ts",
       "createFromStep"
     ),
-    sdk: workspaceSdk("createRegressionCaseFromStep"),
+    sdk: {
+      reason:
+        "Regression writes require an administrator session; workspace API keys cannot call them.",
+    },
   },
   createRegressionCaseFromFlag: {
     purpose: "Create a Regression Case from a flagged Execution.",
-    caller: workspaceCaller,
+    caller: "A workspace administrator with an Operator session.",
     idempotency: none,
     rateLimit: platformProtection,
     pagination: none,
@@ -694,11 +697,14 @@ export const operationMetadata = {
       "apps/platform-api/src/regressions/regression-cases.controller.ts",
       "createFromFlag"
     ),
-    sdk: workspaceSdk("createRegressionCaseFromFlag"),
+    sdk: {
+      reason:
+        "Regression writes require an administrator session; workspace API keys cannot call them.",
+    },
   },
   archiveRegressionCase: {
     purpose: "Archive a Regression Case.",
-    caller: workspaceCaller,
+    caller: "A workspace administrator with an Operator session.",
     idempotency: "Repeated archive requests leave the case archived.",
     rateLimit: platformProtection,
     pagination: none,
@@ -707,7 +713,10 @@ export const operationMetadata = {
       "apps/platform-api/src/regressions/regression-cases.controller.ts",
       "archive"
     ),
-    sdk: workspaceSdk("archiveRegressionCase"),
+    sdk: {
+      reason:
+        "Regression writes require an administrator session; workspace API keys cannot call them.",
+    },
   },
   listRegressionRuns: {
     purpose: "List recent Regression Runs for a Workflow.",
@@ -724,7 +733,7 @@ export const operationMetadata = {
   },
   triggerRegressionRun: {
     purpose: "Queue a Regression Run for a Workflow.",
-    caller: workspaceCaller,
+    caller: "A workspace administrator with an Operator session.",
     idempotency: none,
     rateLimit: "10 requests per caller and 30 per workspace each minute.",
     pagination: none,
@@ -733,7 +742,10 @@ export const operationMetadata = {
       "apps/platform-api/src/regressions/regression-runs.controller.ts",
       "trigger"
     ),
-    sdk: workspaceSdk("triggerRegressionRun"),
+    sdk: {
+      reason:
+        "Regression writes require an administrator session; workspace API keys cannot call them.",
+    },
   },
   getRegressionRun: {
     purpose: "Get a Regression Run and its results.",
