@@ -600,7 +600,7 @@ describe("end-user content erasure", () => {
 async function runErasureBackfill(tx: DbClient) {
   const migration = await readFile(
     new URL(
-      "../../drizzle/20261113090611_end-user-content-erasure/migration.sql",
+      "../../drizzle/20261114172910_end-user-content-erasure/migration.sql",
       import.meta.url
     ),
     "utf8"

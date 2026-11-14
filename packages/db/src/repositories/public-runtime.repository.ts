@@ -38,12 +38,32 @@ type Idempotency = {
   requestHash: string
 }
 
+/**
+ * Writers that add content for the subject (Executions, Conversations) pass `lock`: erasure
+ * holds FOR NO KEY UPDATE on the subject row, which the plain foreign-key lock of an insert does
+ * not conflict with, so without this a write that checked the status just before erasure began
+ * would commit private content after the purge collected its set. FOR SHARE waits for an erasure
+ * in flight, and the status read below runs afterwards, so it sees the erased subject.
+ */
 export async function resolveSubject(
   db: DbClient,
   workspaceId: string,
   environmentId: string,
-  externalSubjectId: string
+  externalSubjectId: string,
+  options: { lock?: boolean } = {}
 ) {
+  if (options.lock) {
+    await db
+      .select({ id: externalSubjects.id })
+      .from(externalSubjects)
+      .where(
+        and(
+          eq(externalSubjects.workspaceId, workspaceId),
+          eq(externalSubjects.id, externalSubjectId)
+        )
+      )
+      .for("share")
+  }
   const [identity] = await db
     .select({
       environment: environments.environment,
@@ -172,7 +192,8 @@ export async function createPublicConversation(
       tx,
       input.workspaceId,
       input.environmentId,
-      input.externalSubjectId
+      input.externalSubjectId,
+      { lock: true }
     )
     if (!identity) {
       await releasePublicRequest(tx, reservation.recordId)
@@ -321,7 +342,8 @@ export async function startPublicExecution(
       tx,
       input.workspaceId,
       input.environmentId,
-      input.externalSubjectId
+      input.externalSubjectId,
+      { lock: true }
     )
     if (!identity) {
       await releasePublicRequest(tx, reservation.recordId)
@@ -339,6 +361,17 @@ export async function startPublicExecution(
       return { outcome: "workflow_start_not_allowed" }
     }
     if (input.conversationId) {
+      // Retention locks idle Conversations FOR UPDATE; sharing the row here makes an Execution start and a retention pass wait for each other, and the read below then sees whichever committed first.
+      await tx
+        .select({ id: conversations.id })
+        .from(conversations)
+        .where(
+          and(
+            eq(conversations.workspaceId, input.workspaceId),
+            eq(conversations.id, input.conversationId)
+          )
+        )
+        .for("share")
       const conversation = await getPublicConversation(
         tx,
         input.workspaceId,

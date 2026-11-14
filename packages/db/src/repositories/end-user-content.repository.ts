@@ -345,7 +345,7 @@ export async function eraseExternalSubjectContent(
 }
 
 /** Only production content is retained by the Environment's window; draft and dev data follow internal-development retention. */
-export async function applyContentRetention(
+export function applyContentRetention(
   db: DbClient,
   now: Date
 ): Promise<{
@@ -405,9 +405,24 @@ export async function applyContentRetention(
         )
       )
       .for("update", { of: conversations })
+    // The filter above ran before these locks: an Execution inserted into one of these Conversations and committed while the lock waited was invisible to it. A new statement sees it.
+    const lockedIds = idleConversations.map(({ id }) => id)
+    const nowActive =
+      lockedIds.length === 0
+        ? []
+        : await tx
+            .select({ id: executions.conversationId })
+            .from(executions)
+            .where(
+              and(
+                inArray(executions.conversationId, lockedIds),
+                inArray(executions.status, [...ACTIVE_EXECUTION_STATUSES])
+              )
+            )
+    const stillActive = new Set(nowActive.map(({ id }) => id))
     await deleteConversations(
       tx,
-      idleConversations.map(({ id }) => id)
+      lockedIds.filter((id) => !stillActive.has(id))
     )
     // One locked set: a request decided mid-pass would otherwise be marked erased with its new comment intact.
     const expiredRequestIds = (

@@ -62,7 +62,8 @@ export function startAgentExecution(
       tx,
       input.workspaceId,
       input.environmentId,
-      input.externalSubjectId
+      input.externalSubjectId,
+      { lock: true }
     )
     const [deployment] = await tx
       .select({ version: agentVersions, contract: agentContractRevisions })
