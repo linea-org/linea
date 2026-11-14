@@ -10,6 +10,7 @@ import { db, repositories, type ApiKey } from '@linea/db'
 import type { WorkspaceKeyScope } from '@linea/protocol/resources'
 import type { Request } from 'express'
 import { hashApiKey } from './api-key.util'
+import { publicError } from './public-error'
 import { WORKSPACE_KEY_SCOPES_KEY } from './require-workspace-key-scopes.decorator'
 
 export type AuthenticatedRequest = Request & {
@@ -20,7 +21,7 @@ export type AuthenticatedRequest = Request & {
   } | null
 }
 
-const KEY_MINTING_ROLES = ['admin', 'owner']
+const KEY_MINTING_ROLES = new Set(['admin', 'owner'])
 
 /** Resolves the current workspace from either a Better Auth session (browser) or an `Authorization: Bearer <api-key>` header (external callers). Apply alongside @OptionalAuth() so the global session guard doesn't reject a request before this one runs. */
 @Injectable()
@@ -82,7 +83,7 @@ export class WorkspaceAuthGuard implements CanActivate {
       apiKey.workspaceId,
       apiKey.createdByUserId,
     )
-    if (!role || !KEY_MINTING_ROLES.includes(role)) {
+    if (!role || !KEY_MINTING_ROLES.has(role)) {
       throw new UnauthorizedException(
         "API key's creator is no longer a workspace admin",
       )
@@ -106,7 +107,10 @@ export class WorkspaceAuthGuard implements CanActivate {
     )
     if (missingScopes.length > 0) {
       throw new ForbiddenException(
-        `API key is missing required scope: ${missingScopes.join(', ')}`,
+        publicError(
+          'scope_denied',
+          `API key is missing required scope: ${missingScopes.join(', ')}`,
+        ),
       )
     }
   }

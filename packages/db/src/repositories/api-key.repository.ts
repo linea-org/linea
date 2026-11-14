@@ -41,7 +41,7 @@ async function recordApiKeyAudit(
   })
 }
 
-export async function createApiKey(
+export function createApiKey(
   db: DbClient,
   input: CreateApiKeyInput
 ): Promise<ApiKey> {
@@ -84,7 +84,7 @@ export async function touchApiKeyLastUsed(
 }
 
 /** Scoped by workspaceId in the same query, not a separate ownership check, so a caller can't revoke a key it doesn't own by guessing its id. */
-export async function revokeApiKey(
+export function revokeApiKey(
   db: DbClient,
   workspaceId: string,
   id: string,
@@ -111,7 +111,7 @@ export async function revokeApiKey(
 }
 
 /** A key must not outlive its creator's membership, so removing a member revokes every live key they minted in that workspace. */
-export async function revokeApiKeysCreatedBy(
+export function revokeApiKeysCreatedBy(
   db: DbClient,
   workspaceId: string,
   createdByUserId: string

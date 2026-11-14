@@ -807,6 +807,35 @@
               }
             },
             "description": "Stable errors: authentication_failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": ["scope_denied"],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: scope_denied"
           }
         },
         "security": [
@@ -13944,6 +13973,35 @@
             },
             "description": "Stable errors: authentication_failed"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": ["scope_denied"],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: scope_denied"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -14021,7 +14079,7 @@
     },
     "/v1/workflows/{workflowId}/regression-cases/{id}/archive": {
       "post": {
-        "description": "A trusted Operator backend acting for one workspace.",
+        "description": "A workspace administrator with an Operator session.",
         "operationId": "archiveRegressionCase",
         "parameters": [
           {
@@ -14181,6 +14239,35 @@
             },
             "description": "Stable errors: authentication_failed"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": ["scope_denied"],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: scope_denied"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -14242,7 +14329,7 @@
         },
         "security": [
           {
-            "workspaceKey": ["regressions:write"]
+            "workspaceSession": []
           }
         ],
         "summary": "Archive a Regression Case.",
@@ -14250,15 +14337,13 @@
         "x-linea-idempotency": "Repeated archive requests leave the case archived.",
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
-          "client": "LineaWorkspaceClient",
-          "importPath": "@linea/sdk/server",
-          "method": "archiveRegressionCase"
+          "reason": "Regression writes require an administrator session; workspace API keys cannot call them."
         }
       }
     },
     "/v1/workflows/{workflowId}/regression-cases/from-flag": {
       "post": {
-        "description": "A trusted Operator backend acting for one workspace.",
+        "description": "A workspace administrator with an Operator session.",
         "operationId": "createRegressionCaseFromFlag",
         "parameters": [
           {
@@ -14426,6 +14511,35 @@
             },
             "description": "Stable errors: authentication_failed"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": ["scope_denied"],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: scope_denied"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -14487,7 +14601,7 @@
         },
         "security": [
           {
-            "workspaceKey": ["regressions:write"]
+            "workspaceSession": []
           }
         ],
         "summary": "Create a Regression Case from a flagged Execution.",
@@ -14495,15 +14609,13 @@
         "x-linea-idempotency": "None.",
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
-          "client": "LineaWorkspaceClient",
-          "importPath": "@linea/sdk/server",
-          "method": "createRegressionCaseFromFlag"
+          "reason": "Regression writes require an administrator session; workspace API keys cannot call them."
         }
       }
     },
     "/v1/workflows/{workflowId}/regression-cases/from-step": {
       "post": {
-        "description": "A trusted Operator backend acting for one workspace.",
+        "description": "A workspace administrator with an Operator session.",
         "operationId": "createRegressionCaseFromStep",
         "parameters": [
           {
@@ -14671,6 +14783,35 @@
             },
             "description": "Stable errors: authentication_failed"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": ["scope_denied"],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: scope_denied"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -14732,7 +14873,7 @@
         },
         "security": [
           {
-            "workspaceKey": ["regressions:write"]
+            "workspaceSession": []
           }
         ],
         "summary": "Create a Regression Case from an Execution step.",
@@ -14740,9 +14881,7 @@
         "x-linea-idempotency": "None.",
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
-          "client": "LineaWorkspaceClient",
-          "importPath": "@linea/sdk/server",
-          "method": "createRegressionCaseFromStep"
+          "reason": "Regression writes require an administrator session; workspace API keys cannot call them."
         }
       }
     },
@@ -14894,6 +15033,35 @@
             },
             "description": "Stable errors: authentication_failed"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": ["scope_denied"],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: scope_denied"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -14969,7 +15137,7 @@
         }
       },
       "post": {
-        "description": "A trusted Operator backend acting for one workspace.",
+        "description": "A workspace administrator with an Operator session.",
         "operationId": "triggerRegressionRun",
         "parameters": [
           {
@@ -15073,6 +15241,35 @@
             },
             "description": "Stable errors: authentication_failed"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": ["scope_denied"],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: scope_denied"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -15134,7 +15331,7 @@
         },
         "security": [
           {
-            "workspaceKey": ["regressions:write"]
+            "workspaceSession": []
           }
         ],
         "summary": "Queue a Regression Run for a Workflow.",
@@ -15142,9 +15339,7 @@
         "x-linea-idempotency": "None.",
         "x-linea-rate-limit": "10 requests per caller and 30 per workspace each minute.",
         "x-linea-sdk": {
-          "client": "LineaWorkspaceClient",
-          "importPath": "@linea/sdk/server",
-          "method": "triggerRegressionRun"
+          "reason": "Regression writes require an administrator session; workspace API keys cannot call them."
         }
       }
     },
@@ -15342,6 +15537,35 @@
               }
             },
             "description": "Stable errors: authentication_failed"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "error": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "enum": ["scope_denied"],
+                          "type": "string"
+                        },
+                        "message": {
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": ["code", "message"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["error"],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Stable errors: scope_denied"
           },
           "404": {
             "content": {

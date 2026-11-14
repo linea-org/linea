@@ -148,12 +148,12 @@ describe("api-key repository", () => {
         creator.id
       )
       expect(revoked.map((key) => key.id)).toEqual([own.id])
-      expect((await getApiKeyByHash(tx, "hash-elsewhere"))?.revokedAt).toBe(
-        null
-      )
-      expect((await getApiKeyByHash(tx, "hash-colleague"))?.revokedAt).toBe(
-        null
-      )
+      expect(
+        (await getApiKeyByHash(tx, "hash-elsewhere"))?.revokedAt
+      ).toBeNull()
+      expect(
+        (await getApiKeyByHash(tx, "hash-colleague"))?.revokedAt
+      ).toBeNull()
       const [audit] = await tx
         .select()
         .from(auditLogs)

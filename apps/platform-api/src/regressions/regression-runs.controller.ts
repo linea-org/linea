@@ -49,7 +49,6 @@ export class RegressionRunsController {
   }
 
   @Post('workflows/:workflowId/regression-runs')
-  @RequireWorkspaceKeyScopes('regressions:write')
   @RequireRole('admin')
   @WorkspaceRateLimit('diagnostic')
   async trigger(
