@@ -20,7 +20,7 @@ import { ExecutionGanttChart } from "./execution-gantt-chart"
 import { ExecutionStepDetails } from "./execution-step-details"
 import { attachResumeMarkers } from "./execution-step-order"
 import { stepTitle } from "./execution-step-presentation"
-import { filterTraceSteps } from "./filter-trace-steps"
+import { filterTraceSteps, pickSelectedStep } from "./filter-trace-steps"
 import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
 
 const statusFilterSchema = z.enum([
@@ -53,9 +53,7 @@ export function ExecutionTraceWorkspace({
   const recorded = steps.filter((step) => !step.isSystemEvent)
   const query = search.trim().toLowerCase()
   const filtered = filterTraceSteps(recorded, status, query)
-  const selected = selectedId
-    ? recorded.find((step) => step.id === selectedId)
-    : (filtered.find((step) => step.status === "failed") ?? filtered[0])
+  const selected = pickSelectedStep(recorded, filtered, selectedId)
   const { resumedAtByStepId, orphanedResumeEvents } = attachResumeMarkers(steps)
   const parent = selected?.parentSpanId
     ? recorded.find((step) => step.spanId === selected.parentSpanId)

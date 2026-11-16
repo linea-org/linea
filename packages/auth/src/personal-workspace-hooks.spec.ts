@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, expect, it, vi } from "vitest"
-import { betterAuth } from "better-auth"
-import { memoryAdapter } from "better-auth/adapters/memory"
+import { createIsolatedAuth } from "./isolated-auth.js"
 
 beforeAll(() => {
   vi.stubEnv("DATABASE_URL", "postgresql://test:test@127.0.0.1:1/personal_test")
@@ -12,25 +11,7 @@ afterAll(() => vi.unstubAllEnvs())
 const password = "PersonalSpace123!"
 
 async function signedInOwner() {
-  const { auth } = await import("./auth.js")
-  const isolated = betterAuth({
-    ...auth.options,
-    database: memoryAdapter({
-      user: [],
-      session: [],
-      account: [],
-      verification: [],
-      member: [],
-      organization: [],
-      invitation: [],
-    }),
-    emailAndPassword: {
-      ...auth.options.emailAndPassword,
-      enabled: true,
-      requireEmailVerification: false,
-    },
-    emailVerification: { sendOnSignUp: false, sendOnSignIn: false },
-  })
+  const isolated = await createIsolatedAuth()
   await isolated.api.signUpEmail({
     body: { email: "owner@example.test", password, name: "Owner" },
   })

@@ -6,7 +6,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
-import { FlaskConicalIcon, PencilIcon, PencilRulerIcon } from "lucide-react"
+import { PencilIcon, PencilRulerIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
 import { Card } from "@linea/ui/components/card"
@@ -19,9 +19,13 @@ import {
 import { regressionPollInterval } from "@/lib/regression-poll-interval"
 import { WorkflowOverview } from "@/components/workflows/workflow-overview"
 
-import { RegressionCaseList, RegressionRunList } from "@/components/regressions"
+import {
+  RegressionCaseList,
+  RegressionRunList,
+  RunRegressionButton,
+} from "@/components/regressions"
+import { WorkflowExecutionsSection } from "@/components/executions/workflow-executions-section"
 import { RunWorkflowDialog } from "@/components/workflows/run-workflow-dialog"
-import { ExecutionList } from "@/components/executions"
 import {
   SignalFlagTypeBreakdown,
   SignalList,
@@ -129,20 +133,11 @@ function WorkflowDetailPage() {
   const noRuns = regressionRuns?.length === 0
   const noCases = regressionCases?.length === 0
   const runNowButton = (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={() => runRegression.mutate()}
-      disabled={runRegression.isPending || !workflow.publishedVersionId}
-      title={
-        workflow.publishedVersionId
-          ? undefined
-          : "Publish a version before running the regression suite"
-      }
-    >
-      <FlaskConicalIcon />
-      {runRegression.isPending ? "Queuing…" : "Run now"}
-    </Button>
+    <RunRegressionButton
+      published={Boolean(workflow.publishedVersionId)}
+      pending={runRegression.isPending}
+      onRun={() => runRegression.mutate()}
+    />
   )
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
@@ -187,23 +182,14 @@ function WorkflowDetailPage() {
           />
         )}
         {view === "executions" && (
-          <section aria-label={workflowViews.executions}>
-            {executionsErrored ? (
-              <p className="text-sm text-destructive">
-                Could not load executions.
-              </p>
-            ) : executionsPending ? (
-              <p className="text-sm text-muted-foreground">
-                Loading executions…
-              </p>
-            ) : (
-              <ExecutionList
-                executions={executions}
-                slug={slug}
-                workflowId={workflowId}
-              />
-            )}
-          </section>
+          <WorkflowExecutionsSection
+            label={workflowViews.executions}
+            slug={slug}
+            workflowId={workflowId}
+            executions={executions}
+            errored={executionsErrored}
+            pending={executionsPending}
+          />
         )}
         {view === "monitoring" && (
           <section aria-label={workflowViews.monitoring}>

@@ -9,6 +9,15 @@ function matchesQuery(step: ExecutionStepSummary, query: string): boolean {
     .includes(query)
 }
 
+export function pickSelectedStep(
+  recorded: ExecutionStepSummary[],
+  filtered: ExecutionStepSummary[],
+  selectedId: string | null
+): ExecutionStepSummary | undefined {
+  if (selectedId) return recorded.find((step) => step.id === selectedId)
+  return filtered.find((step) => step.status === "failed") ?? filtered[0]
+}
+
 export function filterTraceSteps(
   steps: ExecutionStepSummary[],
   status: string,

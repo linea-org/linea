@@ -30,36 +30,36 @@ export function NeedsModelDialog({
     ...modelSetupQueryOptions(slug),
     enabled: open,
   })
+  let content = <Spinner />
+  if (setup) {
+    content = (
+      <ModelSetupForm
+        slug={slug}
+        setup={setup}
+        onSaved={() => {
+          if (mutation.variables) mutation.mutate(mutation.variables)
+        }}
+      />
+    )
+  } else if (isError) {
+    content = (
+      <div className="flex flex-col items-start gap-3">
+        <p role="alert" className="text-sm text-destructive">
+          Could not load your model settings.
+        </p>
+        <Button type="button" variant="outline" onClick={() => void refetch()}>
+          Retry
+        </Button>
+      </div>
+    )
+  }
   return (
     <Dialog open={open} onOpenChange={() => mutation.reset()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add a model to continue</DialogTitle>
         </DialogHeader>
-        {setup ? (
-          <ModelSetupForm
-            slug={slug}
-            setup={setup}
-            onSaved={() => {
-              if (mutation.variables) mutation.mutate(mutation.variables)
-            }}
-          />
-        ) : isError ? (
-          <div className="flex flex-col items-start gap-3">
-            <p role="alert" className="text-sm text-destructive">
-              Could not load your model settings.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void refetch()}
-            >
-              Retry
-            </Button>
-          </div>
-        ) : (
-          <Spinner />
-        )}
+        {content}
       </DialogContent>
     </Dialog>
   )
