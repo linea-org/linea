@@ -151,39 +151,45 @@ export function EnvironmentConnectorPolicy({
           </p>
         )}
       </Field>
-      {permissions.map((permission) => (
-        <Field key={permission.name}>
-          <FieldLabel htmlFor={environment.id + "-policy-" + permission.name}>
-            {permission.label}
-          </FieldLabel>
-          <Controller
-            control={control}
-            name={permission.name}
-            render={({ field }) => (
-              <Select
-                value={field.value}
-                onValueChange={(value) => {
-                  if (value !== "none" && value !== "read" && value !== "write")
-                    return
-                  field.onChange(value)
-                }}
-              >
-                <SelectTrigger
-                  id={environment.id + "-policy-" + permission.name}
-                  className="w-full"
+      <div className="grid gap-4 md:grid-cols-2">
+        {permissions.map((permission) => (
+          <Field key={permission.name}>
+            <FieldLabel htmlFor={environment.id + "-policy-" + permission.name}>
+              {permission.label}
+            </FieldLabel>
+            <Controller
+              control={control}
+              name={permission.name}
+              render={({ field }) => (
+                <Select
+                  value={field.value}
+                  onValueChange={(value) => {
+                    if (
+                      value !== "none" &&
+                      value !== "read" &&
+                      value !== "write"
+                    )
+                      return
+                    field.onChange(value)
+                  }}
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="read">Read</SelectItem>
-                  <SelectItem value="write">Read and write</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Field>
-      ))}
+                  <SelectTrigger
+                    id={environment.id + "-policy-" + permission.name}
+                    className="w-full"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="read">Read</SelectItem>
+                    <SelectItem value="write">Read and write</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
+        ))}
+      </div>
       {save.error && (
         <p className="text-sm text-destructive">{save.error.message}</p>
       )}
