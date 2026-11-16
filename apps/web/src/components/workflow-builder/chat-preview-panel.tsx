@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { MessageCircleIcon, SendIcon } from "lucide-react"
 
+import { Button } from "@linea/ui/components/button"
 import { Bubble, BubbleContent, BubbleGroup } from "@linea/ui/components/bubble"
 import {
   Empty,
@@ -14,7 +15,6 @@ import {
 import {
   InputGroup,
   InputGroupAddon,
-  InputGroupButton,
   InputGroupTextarea,
 } from "@linea/ui/components/input-group"
 import { Marker, MarkerContent } from "@linea/ui/components/marker"
@@ -260,15 +260,15 @@ export function ChatPreviewPanel({
             className="max-h-40"
           />
           <InputGroupAddon align="block-end" className="justify-end">
-            <InputGroupButton
-              size="icon-sm"
-              variant="default"
+            <Button
+              type="button"
+              size="icon"
               onClick={handleSend}
               disabled={!input.trim() || send.isPending || isWaiting}
               aria-label="Send message"
             >
               <SendIcon />
-            </InputGroupButton>
+            </Button>
           </InputGroupAddon>
         </InputGroup>
         {send.isError ? (
