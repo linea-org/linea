@@ -115,7 +115,7 @@ export function EnvironmentSettings(props: Readonly<EnvironmentSettingsProps>) {
       className="gap-3"
     >
       <div className="flex items-center gap-2">
-        <TabsList variant="line">
+        <TabsList className="h-8!">
           {sections.map((section) => (
             <TabsTrigger key={section.label} value={section.label}>
               {section.label}
