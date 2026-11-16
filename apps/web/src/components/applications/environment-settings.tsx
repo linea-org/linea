@@ -1,4 +1,11 @@
+import { useState } from "react"
 import { Card } from "@linea/ui/components/card"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@linea/ui/components/tabs"
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
 import { InfoTip } from "./info-tip"
@@ -98,19 +105,34 @@ const sections = [
 export function EnvironmentSettings(props: Readonly<EnvironmentSettingsProps>) {
   const { environment } = props
   const name = environmentName(environment.environment)
+  const [active, setActive] = useState(sections[0].label)
+  const current = sections.find((section) => section.label === active)
   return (
-    <section aria-label={`${name} Environment`} className="flex flex-col gap-3">
+    <Tabs
+      value={active}
+      onValueChange={setActive}
+      aria-label={`${name} Environment`}
+      className="gap-3"
+    >
+      <div className="flex items-center gap-2">
+        <TabsList variant="line">
+          {sections.map((section) => (
+            <TabsTrigger key={section.label} value={section.label}>
+              {section.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {current ? (
+          <InfoTip label={current.label} text={current.description} />
+        ) : null}
+      </div>
       {sections.map((section) => (
-        <section key={section.label} className="flex flex-col gap-3">
-          <div className="flex items-center gap-1.5 pl-1">
-            <h3 className="text-base font-medium">{section.label}</h3>
-            <InfoTip label={section.label} text={section.description} />
-          </div>
+        <TabsContent key={section.label} value={section.label}>
           <Card size="sm" className="flex flex-col gap-4 px-(--card-spacing)">
             {section.content(props)}
           </Card>
-        </section>
+        </TabsContent>
       ))}
-    </section>
+    </Tabs>
   )
 }
