@@ -135,7 +135,7 @@ function WorkflowDetailPage() {
   })
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-medium">{workflowViews[view]}</h2>
           <div className="flex shrink-0 items-center gap-2">
@@ -202,7 +202,7 @@ function WorkflowDetailPage() {
             ) : signalsPending ? (
               <p className="text-sm text-muted-foreground">Loading signals…</p>
             ) : (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-6">
                 <SignalStatCards signals={signals} />
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                   <div className="flex flex-col gap-2 lg:col-span-2">
@@ -237,7 +237,7 @@ function WorkflowDetailPage() {
         )}
         {view === "regression" && (
           <section aria-label={workflowViews.regression}>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-6">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-3 pl-1">
                   <p className="text-base font-medium text-foreground">Runs</p>

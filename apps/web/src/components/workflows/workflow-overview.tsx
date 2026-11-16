@@ -42,7 +42,7 @@ export function WorkflowOverview({
   ).length
   const lastRun = executions?.[0]?.createdAt
   return (
-    <section aria-label="Overview" className="flex flex-col gap-4">
+    <section aria-label="Overview" className="flex flex-col gap-6">
       {workflow.description ? (
         <p className="pl-1 text-sm text-muted-foreground">
           {workflow.description}
