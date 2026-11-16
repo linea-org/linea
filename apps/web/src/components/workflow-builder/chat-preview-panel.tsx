@@ -258,7 +258,7 @@ export function ChatPreviewPanel({
             placeholder="Send a message…"
             rows={1}
           />
-          <InputGroupAddon align="inline-end">
+          <InputGroupAddon align="block-end" className="justify-end">
             <InputGroupButton
               size="icon-sm"
               variant="default"
