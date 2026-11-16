@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { registry } from '@linea/ai'
 import { db, encryptSecret, pool, repositories, schema } from '@linea/db'
@@ -9,6 +9,10 @@ import { ModelSettingsService } from './model-settings.service'
 
 afterAll(async () => {
   await pool.end()
+})
+
+beforeEach(() => {
+  process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString('base64')
 })
 
 async function workspaceId() {
