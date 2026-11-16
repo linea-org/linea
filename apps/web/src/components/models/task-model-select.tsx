@@ -92,7 +92,6 @@ export function TaskModelSelect({
           setModel(value)
           save.mutate(value)
         }}
-        disabled={keyed.size === 0 && unsetLabel === null}
       >
         <SelectTrigger size="sm" className="w-64" aria-label={label}>
           <SelectValue>
