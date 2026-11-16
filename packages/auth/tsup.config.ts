@@ -7,6 +7,7 @@ export default defineConfig({
     email: "src/email.ts",
     emails: "src/emails/index.ts",
     "session-policy": "src/session-policy.ts",
+    "personal-workspace": "src/personal-workspace.ts",
   },
   format: ["esm", "cjs"],
   dts: true,

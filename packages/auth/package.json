@@ -50,6 +50,11 @@
       "import": "./dist/session-policy.js",
       "require": "./dist/session-policy.cjs"
     },
+    "./personal-workspace": {
+      "types": "./dist/personal-workspace.d.ts",
+      "import": "./dist/personal-workspace.js",
+      "require": "./dist/personal-workspace.cjs"
+    },
     "./emails": {
       "types": "./dist/emails.d.ts",
       "import": "./dist/emails.js",

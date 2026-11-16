@@ -55,6 +55,7 @@ import { UserAvatar } from "@/components/account/user-avatar"
 import { InviteMemberDialog } from "@/components/members"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
+import { isPersonalWorkspace } from "@linea/auth/personal-workspace"
 import { authClient } from "@/lib/auth-client"
 import {
   cancelInvitation,
@@ -227,12 +228,14 @@ function MembersPage() {
           onChange={setSearch}
           placeholder="Search members"
         />
-        <div className="ml-auto">
-          <Button onClick={() => setInviteOpen(true)}>
-            <UserPlusIcon />
-            Invite
-          </Button>
-        </div>
+        {isPersonalWorkspace(activeOrg?.metadata) ? null : (
+          <div className="ml-auto">
+            <Button onClick={() => setInviteOpen(true)}>
+              <UserPlusIcon />
+              Invite
+            </Button>
+          </div>
+        )}
       </PageToolbar>
       {isPending ? (
         <ListSkeleton className="px-4 py-2" />

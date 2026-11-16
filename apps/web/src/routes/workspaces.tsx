@@ -41,6 +41,9 @@ export const Route = createFileRoute("/workspaces")({
     if (!orgs.length) {
       throw redirect({ to: "/onboarding/workspace" })
     }
+    if (orgs.length === 1) {
+      throw redirect({ to: "/w/$slug", params: { slug: orgs[0].slug } })
+    }
     return { orgs }
   },
   component: WorkspacesPage,

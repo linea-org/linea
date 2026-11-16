@@ -19,6 +19,7 @@ import { EndUserAuthorizationModule } from './end-user-authorization/end-user-au
 import { EndUserSessionsModule } from './end-user-sessions/end-user-sessions.module'
 import { HealthController } from './health/health.controller'
 import { MeController } from './me/me.controller'
+import { PersonalWorkspaceController } from './personal-workspace/personal-workspace.controller'
 import { NotificationsModule } from './notifications/notifications.module'
 import { PublicRuntimeModule } from './public-runtime/public-runtime.module'
 import { PublicRuntimeRateLimitFilter } from './public-runtime/public-runtime-rate-limit.filter'
@@ -58,7 +59,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     ConversationAnalysesModule,
     RegressionsModule,
   ],
-  controllers: [HealthController, MeController],
+  controllers: [HealthController, MeController, PersonalWorkspaceController],
   providers: [{ provide: APP_FILTER, useClass: PublicRuntimeRateLimitFilter }],
 })
 export class AppModule {}

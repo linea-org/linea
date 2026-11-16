@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth"
+import { APIError } from "better-auth/api"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter"
 import { expo } from "@better-auth/expo"
 import { magicLink, organization, twoFactor } from "better-auth/plugins"
@@ -8,6 +9,7 @@ import { db, repositories, schema } from "@linea/db"
 import { createAuthRateLimiter } from "./auth-rate-limit.js"
 import { sendEmail } from "./email.js"
 import { createMagicLinkEmailUrl } from "./magic-link-email-url.js"
+import { isPersonalWorkspace } from "./personal-workspace.js"
 import { RECENT_AUTHENTICATION_WINDOW_SECONDS } from "./session-policy.js"
 import { stepUp } from "./step-up.js"
 import {
@@ -17,6 +19,12 @@ import {
   resetPasswordEmailHtml,
   verificationEmailHtml,
 } from "./emails/index.js"
+
+function refusePersonal(organization: { metadata?: unknown }, message: string) {
+  if (isPersonalWorkspace(organization.metadata)) {
+    throw new APIError("FORBIDDEN", { message })
+  }
+}
 
 const baseUrl = process.env.BETTER_AUTH_URL
 const secret = process.env.BETTER_AUTH_SECRET
@@ -285,6 +293,15 @@ export const auth = betterAuth({
         })
       },
       organizationHooks: {
+        async beforeDeleteOrganization({ organization }) {
+          refusePersonal(organization, "A personal workspace can't be deleted")
+        },
+        async beforeCreateInvitation({ organization }) {
+          refusePersonal(
+            organization,
+            "A personal workspace is for one person. Create a workspace to invite others"
+          )
+        },
         async afterRemoveMember({ member, organization }) {
           await repositories.apiKey.revokeApiKeysCreatedBy(
             db,

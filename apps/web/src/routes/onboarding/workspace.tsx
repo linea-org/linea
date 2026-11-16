@@ -4,29 +4,19 @@ import { Alert, AlertDescription } from "@linea/ui/components/alert"
 
 import { AuthShell } from "@/components/auth"
 import { CreateWorkspaceForm } from "@/components/workspace"
-import { createOrganizationFn } from "@/lib/auth-session"
-import {
-  listOrganizations,
-  requireVerifiedUser,
-  slugify,
-} from "@/lib/auth-redirect"
+import { ensurePersonalWorkspaceFn } from "@/lib/auth-session"
+import { listOrganizations, requireVerifiedUser } from "@/lib/auth-redirect"
 
 /** A new account gets a workspace named after them, so the first screen is already useful. */
 export const Route = createFileRoute("/onboarding/workspace")({
   beforeLoad: async () => {
-    const session = await requireVerifiedUser()
+    await requireVerifiedUser()
     const orgs = await listOrganizations()
     if (orgs.length > 0) {
       throw redirect({ to: "/workspaces" })
     }
-    const firstName = session.user.name.trim().split(/\s+/)[0] || "My"
-    const created = await createOrganizationFn({
-      data: {
-        name: `${firstName}'s workspace`,
-        slug: `${slugify(firstName) || "workspace"}-${crypto.randomUUID().slice(0, 6)}`,
-      },
-    })
-    throw redirect({ to: "/w/$slug", params: { slug: created.slug } })
+    const workspace = await ensurePersonalWorkspaceFn()
+    throw redirect({ to: "/w/$slug", params: { slug: workspace.slug } })
   },
   errorComponent: ({ error }) => (
     <CreateWorkspacePage

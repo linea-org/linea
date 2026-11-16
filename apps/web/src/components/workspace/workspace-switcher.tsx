@@ -2,6 +2,8 @@ import { useNavigate } from "@tanstack/react-router"
 import { CheckIcon, ChevronsUpDownIcon, PlusIcon } from "lucide-react"
 import { useState } from "react"
 
+import { isPersonalWorkspace } from "@linea/auth/personal-workspace"
+import { Badge } from "@linea/ui/components/badge"
 import { buttonVariants } from "@linea/ui/components/button"
 import {
   Dialog,
@@ -30,6 +32,7 @@ export type WorkspaceOption = {
   id: string
   name: string
   slug: string
+  metadata?: string | { personal?: boolean } | null
 }
 
 type WorkspaceSwitcherProps = {
@@ -153,8 +156,13 @@ export function WorkspaceSwitcher({
                         className="size-8"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">
-                          {workspace.name}
+                        <span className="flex items-center gap-1.5">
+                          <span className="truncate text-sm font-medium">
+                            {workspace.name}
+                          </span>
+                          {isPersonalWorkspace(workspace.metadata) ? (
+                            <Badge variant="secondary">Personal</Badge>
+                          ) : null}
                         </span>
                         <span className="block truncate text-sm text-muted-foreground">
                           {pending ? "Opening…" : workspace.slug}
