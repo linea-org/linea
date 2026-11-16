@@ -162,7 +162,7 @@ export function AssistantComposer({
     onChange("")
   }
   return (
-    <div className={cn(!hero && "px-4 pb-4")}>
+    <div className={cn(!hero && "border-t border-border p-3")}>
       <InputGroup className="mx-auto max-w-3xl rounded-2xl shadow-sm">
         {options.attachments.length > 0 ? (
           <InputGroupAddon align="block-start" className="flex-wrap gap-1.5">
