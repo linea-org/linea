@@ -81,10 +81,6 @@ export function EnvironmentKeys({
   const error = loadError ?? create.error ?? revoke.error ?? rotate.error
   return (
     <section className="flex flex-col gap-3">
-      <p className="text-sm text-muted-foreground">
-        These keys access this Environment. Human approvals require a verified
-        user session.
-      </p>
       <form
         onSubmit={(event) => {
           void handleSubmit((data) => create.mutate(data))(event)

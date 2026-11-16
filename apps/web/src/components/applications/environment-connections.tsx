@@ -23,11 +23,6 @@ export function EnvironmentConnections({
   })
   return (
     <section className="flex flex-col gap-6">
-      <p className="text-sm text-muted-foreground">
-        Company integrations belong to this Environment. Assign requester access
-        and reviewer authority separately; each reviewer signs in as a real
-        customer user.
-      </p>
       <EnvironmentConnectorPolicy environment={environment} onSaved={onSaved} />
       <Separator />
       <GithubInstallationForm

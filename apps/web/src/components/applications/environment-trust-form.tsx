@@ -106,11 +106,6 @@ export function EnvironmentTrustForm({
       }}
       className="flex flex-col gap-3"
     >
-      <p className="text-sm text-muted-foreground">
-        Configure the identity provider for users of your product. Enter
-        multiple origins separated by commas. Updating trust revokes existing
-        user sessions.
-      </p>
       {fields.map((field) => (
         <Field key={field.key}>
           <FieldLabel htmlFor={`${environment.id}-${field.key}`}>

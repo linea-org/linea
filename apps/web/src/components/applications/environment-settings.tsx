@@ -50,7 +50,8 @@ const sections = [
   },
   {
     label: "Connections",
-    description: "Connect integrations and manage access.",
+    description:
+      "Company integrations belong to this Environment. Assign requester access and reviewer authority separately; each reviewer signs in as a real customer user.",
     content: ({ environment, onSaved }: EnvironmentSettingsProps) => (
       <EnvironmentConnections environment={environment} onSaved={onSaved} />
     ),
@@ -67,7 +68,8 @@ const sections = [
   },
   {
     label: "Backend keys",
-    description: "Allow your server to access this Environment.",
+    description:
+      "Allow your server to access this Environment. Human approvals require a verified user session.",
     content: ({ workspaceSlug, environment }: EnvironmentSettingsProps) => (
       <EnvironmentKeys
         workspaceSlug={workspaceSlug}
@@ -78,7 +80,8 @@ const sections = [
   },
   {
     label: "User identity",
-    description: "Configure sign-in and allowed origins for your users.",
+    description:
+      "Configure sign-in and allowed origins, separated by commas. Updating trust revokes existing user sessions.",
     content: ({ environment, onSaved }: EnvironmentSettingsProps) => (
       <EnvironmentTrustForm environment={environment} onSaved={onSaved} />
     ),
