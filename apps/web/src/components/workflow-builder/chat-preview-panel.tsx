@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
 import {
   HistoryIcon,
   MessageCircleIcon,
@@ -50,6 +51,7 @@ import {
   type ConversationSummary,
 } from "@/lib/chat-preview-api"
 import { executionQueryOptions, type JsonValue } from "@/lib/executions-api"
+import { runFailureFix } from "@/lib/run-failure"
 
 import { ChatMarkdown } from "./chat-markdown"
 
@@ -71,6 +73,10 @@ export function ChatPreviewPanel({
   const [pendingExecutionId, setPendingExecutionId] = useState<string | null>(
     null
   )
+  const [finished, setFinished] = useState<{
+    id: string
+    failure: string | null
+  } | null>(null)
   const [input, setInput] = useState("")
   // "Test as" knob for memory-scoped nodes — editable only before a conversation's first message,
   // then locked (mirrors conversationId itself already being fixed for the conversation's lifetime).
@@ -95,6 +101,13 @@ export function ChatPreviewPanel({
   useEffect(() => {
     const status = pendingExecution?.execution.status
     if (pendingExecutionId && (status === "succeeded" || status === "failed")) {
+      setFinished({
+        id: pendingExecutionId,
+        failure:
+          status === "failed"
+            ? (pendingExecution?.execution.error?.message ?? "This run failed.")
+            : null,
+      })
       void queryClient.invalidateQueries({
         queryKey: chatMessagesQueryOptions(slug, workflowId, conversationId)
           .queryKey,
@@ -139,6 +152,7 @@ export function ChatPreviewPanel({
   function selectConversation(conversation: ConversationSummary | null) {
     setConversationId(conversation?.conversationId ?? null)
     setPendingExecutionId(null)
+    setFinished(null)
     setExternalSubjectId(conversation?.externalSubjectId ?? "")
     setContextOpen(false)
   }
@@ -147,17 +161,19 @@ export function ChatPreviewPanel({
     // Blocked while a prior turn is still unanswered — overlapping turns would race each other for AI history.
     if (!trimmed || send.isPending || isWaiting) return
     setInput("")
+    setFinished(null)
     send.mutate(trimmed)
   }
   function startNewChat() {
     setConversationId(null)
     setPendingExecutionId(null)
+    setFinished(null)
     setInput("")
     setExternalSubjectId("")
     setContextOpen(false)
   }
   const isWaiting = pendingExecutionId !== null
-  const failed = pendingExecution?.execution.status === "failed"
+  const fix = finished?.failure ? runFailureFix(finished.failure) : null
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
@@ -303,14 +319,35 @@ export function ChatPreviewPanel({
                   <MarkerContent className="shimmer">Thinking…</MarkerContent>
                 </Marker>
               )}
-              {failed && (
+              {finished?.failure ? (
                 <Marker>
                   <MarkerContent className="text-destructive">
-                    {pendingExecution?.execution.error?.message ??
-                      "This run failed."}
+                    {finished.failure}
+                    {fix ? (
+                      <Link
+                        to="/w/$slug/settings/models"
+                        params={{ slug }}
+                        className="ml-2 font-medium underline underline-offset-4"
+                      >
+                        {fix.label}
+                      </Link>
+                    ) : null}
                   </MarkerContent>
                 </Marker>
-              )}
+              ) : null}
+              {finished && !finished.failure ? (
+                <Marker>
+                  <MarkerContent>
+                    <Link
+                      to="/w/$slug/executions/$executionId"
+                      params={{ slug, executionId: finished.id }}
+                      className="font-medium underline underline-offset-4"
+                    >
+                      View trace
+                    </Link>
+                  </MarkerContent>
+                </Marker>
+              ) : null}
             </MessageScrollerContent>
           </MessageScrollerViewport>
           <MessageScrollerButton />

@@ -14,10 +14,7 @@ export function useCreateFromTemplate(
   return useMutation({
     mutationFn: create,
     onSuccess: async (result) => {
-      if (result.kind === "needs-model") {
-        await navigate({ to: "/w/$slug/settings/models", params: { slug } })
-        return
-      }
+      if (result.kind === "needs-model") return
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: applicationsQueryOptions(slug).queryKey,

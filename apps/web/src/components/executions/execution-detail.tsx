@@ -183,6 +183,9 @@ export function ExecutionDetailView({
             ))}
           </div>
         </header>
+        <p className="border-b px-4 py-2 text-sm text-muted-foreground">
+          Each step shows what it received and what it returned.
+        </p>
         <NestedAgentRuns nested={detail.nestedAgents} />
         <RunSummaryCard detail={detail} />
         {execution.error ? (

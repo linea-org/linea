@@ -3,6 +3,7 @@ import { WorkflowIcon } from "lucide-react"
 import { Button } from "@linea/ui/components/button"
 import { Spinner } from "@linea/ui/components/spinner"
 
+import { NeedsModelDialog } from "@/components/models/needs-model-dialog"
 import { useCreateFromTemplate } from "@/components/workflows/use-create-from-template"
 import { createWorkflowFromTemplate } from "@/lib/create-from-template"
 
@@ -12,6 +13,7 @@ export function StartStarterWorkflowButton({
   const create = useCreateFromTemplate(slug, createWorkflowFromTemplate)
   return (
     <div className="flex items-center gap-2">
+      <NeedsModelDialog slug={slug} mutation={create} />
       {create.isError && (
         <p className="text-sm text-destructive">{create.error.message}</p>
       )}

@@ -1,5 +1,5 @@
 import { Link, useLocation, useMatches } from "@tanstack/react-router"
-import { BookOpenIcon, WandSparklesIcon } from "lucide-react"
+import { BookOpenIcon, MessageCircleIcon, WandSparklesIcon } from "lucide-react"
 
 import { buttonVariants } from "@linea/ui/components/button"
 import { Separator } from "@linea/ui/components/separator"
@@ -82,6 +82,16 @@ export function WorkspaceTopBar({
           >
             <BookOpenIcon />
             <span className="hidden sm:inline">Docs</span>
+          </a>
+          <a
+            href="https://discord.gg/7FWR97VkBD"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Talk to the maintainer"
+            className={buttonVariants({ variant: "ghost", size: "sm" })}
+          >
+            <MessageCircleIcon />
+            <span className="hidden sm:inline">Talk to us</span>
           </a>
         </div>
       </div>

@@ -14,7 +14,7 @@ export type ResolvedApiKey = {
 export class ModelKeyMissingError extends Error {
   constructor(readonly keyName: string) {
     super(
-      `No ${keyName} is set for this Environment. Add one in the Environment's model keys to run this step.`
+      `No ${keyName} is set. Add your key under Settings, Models to run this step.`
     )
     this.name = "ModelKeyMissingError"
   }

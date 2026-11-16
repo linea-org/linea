@@ -36,9 +36,11 @@ type FormValues = { model: string; apiKey: string }
 export function ModelSetupForm({
   slug,
   setup,
+  onSaved,
 }: Readonly<{
   slug: string
   setup: ModelSetup
+  onSaved?: () => void
 }>) {
   const queryClient = useQueryClient()
   const { models } = setup.settings
@@ -101,6 +103,7 @@ export function ModelSetupForm({
       await queryClient.invalidateQueries({
         queryKey: modelSetupKey(slug),
       })
+      onSaved?.()
     },
   })
   const providerGroups = [
