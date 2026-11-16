@@ -15,7 +15,7 @@ import { ExecutionList } from "@/components/executions"
 import type { ExecutionSummary } from "@/lib/executions-api"
 import type { SignalSummary } from "@/lib/signals-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
-import { WorkflowStatusBadge } from "./workflow-status-badge"
+import { workflowStatus } from "./workflow-status-badge"
 
 const RECENT_LIMIT = 5
 
@@ -68,7 +68,7 @@ export function WorkflowOverview({
       ) : null}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatTile label="Status" icon={CircleDotIcon}>
-          <WorkflowStatusBadge workflow={workflow} />
+          {workflowStatus(workflow)}
         </StatTile>
         <StatTile label="Executions" icon={PlayIcon}>
           {executions?.length ?? "—"}
