@@ -16,12 +16,12 @@ function StatTile({
   children,
 }: Readonly<{ label: string; children: React.ReactNode }>) {
   return (
-    <Card size="sm" className="gap-1 py-3">
-      <div className="px-4">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <div className="text-base font-medium tabular-nums">{children}</div>
+    <div className="flex flex-col gap-1 px-4 lg:border-border lg:not-first:border-l">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <div className="flex h-7 items-center text-xl font-semibold tabular-nums">
+        {children}
       </div>
-    </Card>
+    </div>
   )
 }
 
@@ -48,7 +48,7 @@ export function WorkflowOverview({
           {workflow.description}
         </p>
       ) : null}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <Card className="grid grid-cols-2 gap-y-4 py-4 lg:grid-cols-5">
         <StatTile label="Status">
           <WorkflowStatusBadge workflow={workflow} />
         </StatTile>
@@ -58,7 +58,7 @@ export function WorkflowOverview({
         <StatTile label="Last run">
           {lastRun ? new Date(lastRun).toLocaleDateString() : "—"}
         </StatTile>
-      </div>
+      </Card>
       <div className="flex flex-col gap-2">
         <div className="flex h-8 items-center justify-between pl-1">
           <p className="text-base font-medium text-foreground">
