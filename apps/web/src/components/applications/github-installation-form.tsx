@@ -69,13 +69,7 @@ export function GithubInstallationForm({
         void handleSubmit(submit)(event)
       }}
     >
-      <div className="flex flex-col gap-1">
-        <h3 className="text-base font-medium">Connect a company GitHub App</h3>
-        <p className="text-sm text-muted-foreground">
-          Install your GitHub App on the company account first. Match its
-          permissions to the Environment policy below.
-        </p>
-      </div>
+      <h3 className="text-base font-medium">Connect a company GitHub App</h3>
       <GithubInstallationFields register={register} control={control} />
       {Object.keys(errors).length > 0 && (
         <p className="text-sm text-destructive">

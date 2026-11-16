@@ -51,7 +51,7 @@ const sections = [
   {
     label: "Connections",
     description:
-      "Company integrations belong to this Environment. Assign requester access and reviewer authority separately; each reviewer signs in as a real customer user.",
+      "Company integrations belong to this Environment. Assign requester access and reviewer authority separately; each reviewer signs in as a real customer user. An empty GitHub repository list denies all GitHub operations, and writes still require exact-action human approval. Install your GitHub App on the company account first and match its permissions to the repository policy.",
     content: ({ environment, onSaved }: EnvironmentSettingsProps) => (
       <EnvironmentConnections environment={environment} onSaved={onSaved} />
     ),

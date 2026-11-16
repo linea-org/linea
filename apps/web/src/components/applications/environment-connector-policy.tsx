@@ -119,14 +119,7 @@ export function EnvironmentConnectorPolicy({
         void handleSubmit((data) => save.mutate(data))(event)
       }}
     >
-      <div className="flex flex-col gap-1">
-        <h3 className="text-base font-medium">GitHub repository policy</h3>
-        <p className="text-sm text-muted-foreground">
-          Choose repositories and maximum permissions for all GitHub Connections
-          in this Environment. An empty repository list denies all GitHub
-          operations. Writes still require exact-action human approval.
-        </p>
-      </div>
+      <h3 className="text-base font-medium">GitHub repository policy</h3>
       <Field>
         <FieldLabel htmlFor={environment.id + "-repositories"}>
           Allowed repositories (owner/repository, comma separated)
