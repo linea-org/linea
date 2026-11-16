@@ -80,7 +80,6 @@ function WorkspaceHomePage() {
           <RecentExecutionsWidget
             slug={slug}
             executions={executionsPage.executions}
-            total={executionsPage.total}
           />
         </div>
       </div>

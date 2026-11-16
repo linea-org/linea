@@ -24,7 +24,6 @@ import type {
 } from "@/lib/executions-api"
 import { ExecutionStatusBadge, formatCost } from "../executions"
 import { HomePanel } from "./home-panel"
-import { ViewMoreFooter } from "./view-more-footer"
 import { formatDuration } from "@/lib/format"
 
 const triggerLabel: Record<ExecutionTrigger, string> = {
@@ -39,11 +38,9 @@ const HOME_LIMIT = 5
 export function RecentExecutionsWidget({
   slug,
   executions,
-  total,
 }: {
   slug: string
   executions: WorkspaceExecutionSummary[]
-  total: number
 }) {
   const shown = executions.slice(0, HOME_LIMIT)
   return (
@@ -135,10 +132,6 @@ export function RecentExecutionsWidget({
           </TableBody>
         </Table>
       )}
-      <ViewMoreFooter
-        hidden={total - shown.length}
-        link={<Link to="/w/$slug/executions" params={{ slug }} />}
-      />
     </HomePanel>
   )
 }
