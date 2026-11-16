@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  Get,
+  ParseUUIDPipe,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { RequireRole } from '../auth/require-role.decorator'
@@ -19,8 +27,12 @@ export class ModelSettingsController {
 
   @Get()
   @RequireRole('member')
-  get(@CurrentWorkspaceId() workspaceId: string) {
-    return this.settings.get(workspaceId)
+  get(
+    @CurrentWorkspaceId() workspaceId: string,
+    @Query('applicationId', new ParseUUIDPipe({ optional: true }))
+    applicationId?: string,
+  ) {
+    return this.settings.get(workspaceId, applicationId)
   }
 
   @Put()

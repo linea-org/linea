@@ -84,6 +84,7 @@ export const createWorkflowFn = createServerFn({ method: "POST" })
       name: string
       slug: string
       description?: string
+      graph?: Record<string, JsonValue>
     }) => data
   )
   .handler(async ({ data }): Promise<WorkflowSummary> => {

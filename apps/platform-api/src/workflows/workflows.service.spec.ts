@@ -286,6 +286,48 @@ describe('WorkflowsService', () => {
     })
     await moduleRef.close()
   })
+  it('creates a workflow with its draft in one step, and leaves nothing behind when the draft is refused', async () => {
+    const moduleRef = await Test.createTestingModule({ providers }).compile()
+    const service = moduleRef.get(WorkflowsService)
+    await withOrg(async (workspaceId) => {
+      const application = await repositories.application.createApplication(db, {
+        workspaceId,
+        name: 'Home',
+        slug: randomUUID(),
+      })
+      const graph = { nodes: [{ id: 'n1' }] }
+      const created = await service.create(workspaceId, {
+        applicationId: application.id,
+        name: 'With draft',
+        slug: 'with-draft',
+        graph,
+      })
+      expect(created.draftGraph).toEqual(graph)
+      await expect(
+        service.create(workspaceId, {
+          applicationId: application.id,
+          name: 'Refused',
+          slug: 'refused',
+          graph: {
+            nodes: [
+              {
+                id: 'run',
+                type: 'agent',
+                config: {
+                  agentId: randomUUID(),
+                  agentContractRevisionId: randomUUID(),
+                },
+              },
+            ],
+          },
+        }),
+      ).rejects.toThrow()
+      const slugs = (await service.list(workspaceId)).map((item) => item.slug)
+      expect(slugs).toContain('with-draft')
+      expect(slugs).not.toContain('refused')
+    })
+    await moduleRef.close()
+  })
   it('broadcasts a draft save to the workflow room only when a saver is given', async () => {
     const moduleRef = await Test.createTestingModule({
       providers,

@@ -43,19 +43,21 @@ const SUGGESTIONS = [
 export function AssistantPanel({
   slug,
   workflowId,
+  applicationId,
   graph,
   onApply,
   onClose,
 }: Readonly<{
   slug: string
   workflowId: string
+  applicationId: string | undefined
   graph: Record<string, JsonValue>
   onApply: (proposal: WorkflowGraph) => void
   onClose: () => void
 }>) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState("")
-  const { data: setup } = useQuery(modelSetupQueryOptions(slug))
+  const { data: setup } = useQuery(modelSetupQueryOptions(slug, applicationId))
   const options = useComposerOptions(setup)
   const conversationsOptions = assistantConversationsQueryOptions(
     slug,

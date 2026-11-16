@@ -14,6 +14,7 @@ export const createWorkflowSchema = z.object({
   name: z.string().min(1).max(200),
   slug: slugSchema,
   description: z.string().max(2000).optional(),
+  graph: z.record(z.string(), z.unknown()).optional(),
 })
 
 export type CreateWorkflowDto = z.infer<typeof createWorkflowSchema>

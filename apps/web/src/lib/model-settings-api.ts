@@ -3,9 +3,6 @@ import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
 
 import { apiFetch, parseErrorMessage } from "./api-fetch"
-import { listApplicationsFn } from "./applications-api"
-import { listEnvironmentsFn } from "./environments-api"
-import { listAiProvidersFn, type AiProviderKeyStatus } from "./secrets-api"
 
 const modelSettingsSchema = z.object({
   defaultModel: z.string().nullable(),
@@ -22,6 +19,15 @@ const modelSettingsSchema = z.object({
       keyName: z.string(),
     })
   ),
+  providers: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      keyName: z.string(),
+      configured: z.boolean(),
+      platformFallback: z.boolean(),
+    })
+  ),
 })
 
 export type ModelSettings = z.infer<typeof modelSettingsSchema>
@@ -32,17 +38,20 @@ export type TaskModelKey =
   | "stepModel"
 export type CatalogModel = ModelSettings["models"][number]
 
-export const getModelSettingsFn = createServerFn({ method: "GET" }).handler(
-  async (): Promise<ModelSettings> => {
-    const res = await apiFetch("/model-settings")
+export const getModelSettingsFn = createServerFn({ method: "GET" })
+  .validator((data: { applicationId?: string } | undefined) => data)
+  .handler(async ({ data }): Promise<ModelSettings> => {
+    const query = data?.applicationId
+      ? `?applicationId=${data.applicationId}`
+      : ""
+    const res = await apiFetch(`/model-settings${query}`)
     if (!res.ok) {
       throw new Error(
         await parseErrorMessage(res, "Could not load model settings")
       )
     }
     return modelSettingsSchema.parse(await res.json())
-  }
-)
+  })
 
 export const updateModelSettingsFn = createServerFn({ method: "POST" })
   .validator((data: Partial<Record<TaskModelKey, string | null>>) => data)
@@ -58,38 +67,13 @@ export const updateModelSettingsFn = createServerFn({ method: "POST" })
     return modelSettingsSchema.parse(await res.json())
   })
 
-/** Without a Development Environment nothing can hold a key yet, so every catalog provider is unconnected. */
-function catalogProviders(settings: ModelSettings): AiProviderKeyStatus[] {
-  const byKey = new Map(
-    settings.models.map((model) => [
-      model.keyName,
-      {
-        id: model.providerId,
-        label: model.providerLabel,
-        keyName: model.keyName,
-        configured: false,
-        platformFallback: false,
-      },
-    ])
-  )
-  return [...byKey.values()]
-}
-
-/** The chosen model, plus which providers already have a key in the default Application's Development Environment. */
-export const getModelSetupFn = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const settings = await getModelSettingsFn()
-    const [application] = await listApplicationsFn()
-    const environments = application
-      ? await listEnvironmentsFn({ data: { applicationId: application.id } })
-      : []
-    const development = environments.find((item) => item.environment === "dev")
-    const providers: AiProviderKeyStatus[] = development
-      ? await listAiProvidersFn({ data: { environmentId: development.id } })
-      : catalogProviders(settings)
+/** The chosen model, plus which providers already have a key where the assistant runs. */
+export const getModelSetupFn = createServerFn({ method: "GET" })
+  .validator((data: { applicationId?: string } | undefined) => data)
+  .handler(async ({ data }) => {
+    const { providers, ...settings } = await getModelSettingsFn({ data })
     return { settings, providers }
-  }
-)
+  })
 
 export type ModelSetup = Awaited<ReturnType<typeof getModelSetupFn>>
 
@@ -100,10 +84,14 @@ export function modelSettingsQueryOptions(workspaceSlug: string) {
   })
 }
 
-export function modelSetupQueryOptions(workspaceSlug: string) {
+/** Without an application id the setup reads the workspace's default Application. */
+export function modelSetupQueryOptions(
+  workspaceSlug: string,
+  applicationId?: string
+) {
   return queryOptions({
-    queryKey: ["model-setup", workspaceSlug],
-    queryFn: () => getModelSetupFn(),
+    queryKey: ["model-setup", workspaceSlug, applicationId ?? null],
+    queryFn: () => getModelSetupFn({ data: { applicationId } }),
   })
 }
 

@@ -1,8 +1,9 @@
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
-import { BadRequestException } from '@nestjs/common'
+import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { registry } from '@linea/ai'
-import { db, pool, schema } from '@linea/db'
+import { db, encryptSecret, pool, repositories, schema } from '@linea/db'
+import { getTestApplicationId } from '@linea/db/testing'
 import { buildModelCatalog } from './model-catalog'
 import { ModelSettingsService } from './model-settings.service'
 
@@ -78,5 +79,70 @@ describe('ModelSettingsService', () => {
     const b = await workspaceId()
     await service.update(a, { defaultModel: 'gpt-5' })
     expect((await service.get(b)).defaultModel).toBeNull()
+  })
+
+  it('reports every provider as unconnected before an application exists', async () => {
+    const { providers } = await new ModelSettingsService().get(
+      await workspaceId(),
+    )
+    expect(providers.length).toBeGreaterThan(0)
+    expect(providers.every((provider) => !provider.configured)).toBe(true)
+  })
+
+  it('shows which providers have a key without exposing its value', async () => {
+    const workspace = await workspaceId()
+    const applicationId = await getTestApplicationId(db, workspace)
+    const environments = await repositories.environment.listEnvironments(
+      db,
+      workspace,
+      applicationId,
+    )
+    const development = environments.find((item) => item.environment === 'dev')!
+    const [first] = (await new ModelSettingsService().get(workspace)).providers
+    await repositories.secret.upsertSecret(
+      db,
+      development.id,
+      first.keyName,
+      encryptSecret('sk-never-shown'),
+    )
+    const settings = await new ModelSettingsService().get(workspace)
+    expect(
+      settings.providers.find((provider) => provider.keyName === first.keyName)
+        ?.configured,
+    ).toBe(true)
+    expect(JSON.stringify(settings)).not.toContain('sk-never-shown')
+  })
+
+  it('keeps reading the oldest application after another is created', async () => {
+    const workspace = await workspaceId()
+    const applicationId = await getTestApplicationId(db, workspace)
+    const environments = await repositories.environment.listEnvironments(
+      db,
+      workspace,
+      applicationId,
+    )
+    const development = environments.find((item) => item.environment === 'dev')!
+    const [first] = (await new ModelSettingsService().get(workspace)).providers
+    await repositories.secret.upsertSecret(
+      db,
+      development.id,
+      first.keyName,
+      encryptSecret('sk-test'),
+    )
+    await db
+      .insert(schema.applications)
+      .values({ workspaceId: workspace, name: 'Newer', slug: 'newer' })
+    const settings = await new ModelSettingsService().get(workspace)
+    expect(
+      settings.providers.find((provider) => provider.keyName === first.keyName)
+        ?.configured,
+    ).toBe(true)
+  })
+
+  it('rejects an application from another workspace', async () => {
+    const other = await getTestApplicationId(db, await workspaceId())
+    await expect(
+      new ModelSettingsService().get(await workspaceId(), other),
+    ).rejects.toThrow(NotFoundException)
   })
 })

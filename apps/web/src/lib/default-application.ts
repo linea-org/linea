@@ -2,10 +2,11 @@ import { createApplicationFn, listApplicationsFn } from "./applications-api"
 import { listEnvironmentsFn } from "./environments-api"
 import { STARTER_APPLICATION } from "./starter-workflow"
 
+/** The oldest Application, so creating another never moves where keys and chats live. */
 export async function findOrCreateDefaultApplication() {
   const applications = await listApplicationsFn()
   return (
-    applications[0] ??
+    applications.at(-1) ??
     (await createApplicationFn({ data: STARTER_APPLICATION }))
   )
 }

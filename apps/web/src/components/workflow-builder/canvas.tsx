@@ -887,6 +887,7 @@ function WorkflowBuilderCanvasInner({
                 <AssistantPanel
                   slug={slug}
                   workflowId={workflowId}
+                  applicationId={workflow?.applicationId}
                   graph={buildGraph(entryNodeId)}
                   onApply={applyAssistantGraph}
                   onClose={() => setRightPanel(null)}

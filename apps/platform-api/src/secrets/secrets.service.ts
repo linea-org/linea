@@ -19,6 +19,26 @@ export type AiProviderKeyStatus = {
   platformFallback: boolean
 }
 
+/** Never reveals a value: only whether a key is set and whether Linea's own key would stand in. */
+export async function aiProviderStatuses(
+  workspaceId: string,
+  configuredKeys: ReadonlySet<string>,
+): Promise<AiProviderKeyStatus[]> {
+  return Promise.all(
+    providers.map(async (provider) => ({
+      id: provider.id,
+      label: provider.label,
+      keyName: provider.keyName,
+      configured: configuredKeys.has(provider.keyName),
+      platformFallback: await isPlatformModelKeyAvailable(
+        db,
+        workspaceId,
+        provider.keyName,
+      ),
+    })),
+  )
+}
+
 @Injectable()
 export class SecretsService {
   private async requireEnvironment(
@@ -78,19 +98,7 @@ export class SecretsService {
         (secret) => secret.key,
       ),
     )
-    return Promise.all(
-      providers.map(async (provider) => ({
-        id: provider.id,
-        label: provider.label,
-        keyName: provider.keyName,
-        configured: configuredKeys.has(provider.keyName),
-        platformFallback: await isPlatformModelKeyAvailable(
-          db,
-          workspaceId,
-          provider.keyName,
-        ),
-      })),
-    )
+    return aiProviderStatuses(workspaceId, configuredKeys)
   }
 
   async delete(
