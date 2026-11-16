@@ -18,7 +18,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@linea/ui/components/dropdown-menu"
-import { Separator } from "@linea/ui/components/separator"
 
 type Crumb =
   | {
@@ -251,7 +250,6 @@ export function TopBarBreadcrumb({ slug }: { slug: string }) {
   const hidden = collapsed ? crumbs.slice(1, -1) : []
   return (
     <>
-      <Separator orientation="vertical" className="h-4" />
       <Breadcrumb className="min-w-0 overflow-hidden">
         <BreadcrumbList className="flex-nowrap">
           {visible.map((crumb, index) => (
