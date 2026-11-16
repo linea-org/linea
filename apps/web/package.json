@@ -12,6 +12,7 @@
     "test:agent-onboarding": "playwright test agent-onboarding.browser.ts",
     "test:execution-trace": "playwright test execution-trace.browser.ts",
     "test:application-ui": "playwright test application-workflows.browser.ts",
+    "test:first-run": "playwright test first-run.browser.ts",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit"
