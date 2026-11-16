@@ -82,7 +82,7 @@ export const environmentWorkflowBindings = snakeCase.table(
         workflowContractRevisions.id,
         workflowContractRevisions.workspaceId,
       ],
-    }),
+    }).onDelete("cascade"),
   ]
 )
 

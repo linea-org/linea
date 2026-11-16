@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "629b82af-f054-4d75-90ac-ce298194581c",
+  "id": "05c902c4-8fb4-491b-8b5a-81bf7b96e6e7",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -18351,7 +18351,7 @@
         "workspace_id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "environment_workflow_bindings_contract_revision_fkey",
       "entityType": "fks",
       "schema": "public",
