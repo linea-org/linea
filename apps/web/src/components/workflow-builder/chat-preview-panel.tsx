@@ -1,25 +1,9 @@
 import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import {
-  HistoryIcon,
-  MessageCircleIcon,
-  PlusIcon,
-  SendIcon,
-  SquarePenIcon,
-  XIcon,
-} from "lucide-react"
+import { MessageCircleIcon, SendIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
 import { Bubble, BubbleContent, BubbleGroup } from "@linea/ui/components/bubble"
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@linea/ui/components/combobox"
 import {
   Empty,
   EmptyDescription,
@@ -27,7 +11,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@linea/ui/components/empty"
-import { Input } from "@linea/ui/components/input"
 import {
   InputGroup,
   InputGroupAddon,
@@ -54,6 +37,7 @@ import { executionQueryOptions, type JsonValue } from "@/lib/executions-api"
 import { runFailureFix } from "@/lib/run-failure"
 
 import { ChatMarkdown } from "./chat-markdown"
+import { ChatPreviewHeader } from "./chat-preview-header"
 
 export function ChatPreviewPanel({
   slug,
@@ -81,15 +65,12 @@ export function ChatPreviewPanel({
   // "Test as" knob for memory-scoped nodes — editable only before a conversation's first message,
   // then locked (mirrors conversationId itself already being fixed for the conversation's lifetime).
   const [externalSubjectId, setExternalSubjectId] = useState("")
-  const [contextOpen, setContextOpen] = useState(false)
   const { data: messages = [] } = useQuery(
     chatMessagesQueryOptions(slug, workflowId, conversationId)
   )
   const { data: conversations = [] } = useQuery(
     conversationsQueryOptions(slug, workflowId)
   )
-  const selectedConversation =
-    conversations.find((c) => c.conversationId === conversationId) ?? null
   const { data: pendingExecution } = useQuery({
     ...executionQueryOptions(slug, pendingExecutionId ?? ""),
     enabled: pendingExecutionId !== null,
@@ -154,7 +135,6 @@ export function ChatPreviewPanel({
     setPendingExecutionId(null)
     setFinished(null)
     setExternalSubjectId(conversation?.externalSubjectId ?? "")
-    setContextOpen(false)
   }
   function handleSend() {
     const trimmed = input.trim()
@@ -170,111 +150,22 @@ export function ChatPreviewPanel({
     setFinished(null)
     setInput("")
     setExternalSubjectId("")
-    setContextOpen(false)
   }
   const isWaiting = pendingExecutionId !== null
   const fix = finished?.failure ? runFailureFix(finished.failure) : null
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-          Chat preview
-          {conversationId !== null && externalSubjectId ? (
-            <span className="font-normal text-muted-foreground">
-              {" "}
-              · Testing as: {externalSubjectId}
-            </span>
-          ) : null}
-        </p>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={startNewChat}
-          disabled={(!conversationId && messages.length === 0) || isWaiting}
-        >
-          <SquarePenIcon />
-          New chat
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          aria-label="Close panel"
-        >
-          <XIcon />
-        </Button>
-      </div>
-      {conversationId === null ? (
-        <div className="border-b border-border px-3 py-2">
-          {contextOpen ? (
-            <div className="flex items-center gap-2">
-              <Input
-                value={externalSubjectId}
-                onChange={(event) => setExternalSubjectId(event.target.value)}
-                placeholder="External subject ID (optional)"
-                className="h-7 text-sm"
-                disabled={isWaiting}
-                autoFocus
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setContextOpen(false)}
-                aria-label="Hide test context"
-              >
-                <XIcon />
-              </Button>
-            </div>
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setContextOpen(true)}
-            >
-              <PlusIcon />
-              Test context
-            </Button>
-          )}
-        </div>
-      ) : null}
-      {conversations.length > 0 && (
-        <div className="border-b border-border p-2">
-          <Combobox
-            items={conversations}
-            value={selectedConversation}
-            onValueChange={selectConversation}
-            itemToStringLabel={(item) => item.preview}
-            isItemEqualToValue={(a, b) => a.conversationId === b.conversationId}
-          >
-            <ComboboxInput
-              placeholder="Search past conversations…"
-              showClear
-              className="cursor-pointer"
-              disabled={isWaiting}
-            />
-            <ComboboxContent>
-              <ComboboxEmpty>No matching conversations.</ComboboxEmpty>
-              <ComboboxList>
-                {(item: ConversationSummary) => (
-                  <ComboboxItem key={item.conversationId} value={item}>
-                    <HistoryIcon className="text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate">{item.preview}</p>
-                      <p className="truncate text-sm text-muted-foreground">
-                        {new Date(item.lastMessageAt).toLocaleString()} ·{" "}
-                        {item.messageCount} message
-                        {item.messageCount === 1 ? "" : "s"}
-                      </p>
-                    </div>
-                  </ComboboxItem>
-                )}
-              </ComboboxList>
-            </ComboboxContent>
-          </Combobox>
-        </div>
-      )}
+      <ChatPreviewHeader
+        conversations={conversations}
+        conversationId={conversationId}
+        subject={externalSubjectId}
+        onSubjectChange={setExternalSubjectId}
+        busy={isWaiting}
+        canStartNew={conversationId !== null || messages.length > 0}
+        onSelectConversation={selectConversation}
+        onNewChat={startNewChat}
+        onClose={onClose}
+      />
       <MessageScrollerProvider autoScroll>
         <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport>
@@ -354,7 +245,7 @@ export function ChatPreviewPanel({
         </MessageScroller>
       </MessageScrollerProvider>
       <div className="border-t border-border p-3">
-        <InputGroup>
+        <InputGroup className="rounded-2xl shadow-sm">
           <InputGroupTextarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
