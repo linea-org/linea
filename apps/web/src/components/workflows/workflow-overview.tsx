@@ -10,13 +10,6 @@ import {
 
 import { Button } from "@linea/ui/components/button"
 import { Card } from "@linea/ui/components/card"
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "@linea/ui/components/item"
 
 import { ExecutionList } from "@/components/executions"
 import type { ExecutionSummary } from "@/lib/executions-api"
@@ -36,21 +29,16 @@ function StatTile({
   children: React.ReactNode
 }>) {
   return (
-    <Card size="sm" className="py-0">
-      <Item>
-        <ItemMedia
-          variant="icon"
-          className="size-9 translate-y-0 self-center rounded-md bg-muted text-muted-foreground"
-        >
-          <Icon />
-        </ItemMedia>
-        <ItemContent className="min-w-0 gap-0.5">
-          <ItemDescription className="text-sm">{label}</ItemDescription>
-          <ItemTitle className="h-7 text-xl font-semibold tabular-nums">
-            {children}
-          </ItemTitle>
-        </ItemContent>
-      </Item>
+    <Card size="sm" className="gap-1 py-3">
+      <div className="flex flex-col gap-1 px-4">
+        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Icon className="size-4" />
+          {label}
+        </p>
+        <div className="flex min-h-7 items-center text-lg font-semibold tabular-nums">
+          {children}
+        </div>
+      </div>
     </Card>
   )
 }
