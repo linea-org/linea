@@ -62,7 +62,7 @@ test("a new account reaches a traced run from its personal workspace", async ({
   await dialog.getByRole("button", { name: "Save model", exact: true }).click()
 
   await expect(page).toHaveURL(/\/workflows\/[a-f0-9-]+\/builder/)
-  const composer = page.getByRole("textbox", { name: "Send a message…" })
+  const composer = page.getByPlaceholder("Send a message…")
   await composer.fill("Say hello")
   await page.getByRole("button", { name: "Send message", exact: true }).click()
 
@@ -71,8 +71,12 @@ test("a new account reaches a traced run from its personal workspace", async ({
 
   await page.goto(`${workspaceHome}/executions`)
   await page.getByRole("link", { name: "Chat assistant" }).first().click()
+  const trace = page.getByRole("region", {
+    name: "Execution trace",
+    exact: true,
+  })
   await expect(
-    page.getByRole("region", { name: "Execution trace", exact: true })
+    trace.getByRole("heading", { name: /Trace.*[1-9]\d* steps?/ })
   ).toBeVisible()
   expect(pageErrors).toEqual([])
 })
