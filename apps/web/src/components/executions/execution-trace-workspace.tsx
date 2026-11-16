@@ -92,36 +92,6 @@ export function ExecutionTraceWorkspace({
             · {recorded.length} steps
           </span>
         </h2>
-        <Input
-          className="w-full sm:w-64"
-          aria-label="Search trace steps"
-          placeholder="Search steps or errors"
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value)
-            clearSelection()
-          }}
-        />
-        <Select
-          value={status}
-          onValueChange={(value) => {
-            const parsed = statusFilterSchema.safeParse(value)
-            if (!parsed.success) return
-            setStatus(parsed.data)
-            clearSelection()
-          }}
-        >
-          <SelectTrigger aria-label="Filter trace status">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="running">Running</SelectItem>
-            <SelectItem value="succeeded">Succeeded</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
-            <SelectItem value="skipped">Skipped</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
       {execution.status === "succeeded" || recorded.length > 2 ? (
         <p className="border-b px-4 py-2 text-sm text-muted-foreground">
@@ -157,86 +127,128 @@ export function ExecutionTraceWorkspace({
             : event.startedAt}
         </p>
       ))}
-      {filtered.length === 0 ? (
+      {recorded.length === 0 ? (
         <Empty className="min-h-0 rounded-none border-0 bg-transparent py-8 sm:p-8">
           <EmptyHeader>
-            <EmptyTitle>
-              {recorded.length ? "No matching steps" : "No steps recorded yet"}
-            </EmptyTitle>
+            <EmptyTitle>No steps recorded yet</EmptyTitle>
           </EmptyHeader>
         </Empty>
       ) : (
-        <>
-          <div className="border-b px-4 py-3">
-            <ExecutionGanttChart
-              steps={filtered}
-              executionStartedAt={execution.startedAt}
-              executionCompletedAt={execution.completedAt}
-              selectedStepId={selected?.id ?? null}
-              onStepSelect={selectStep}
-            />
-          </div>
-          {selected ? (
-            <div className="flex flex-col gap-4 px-4 py-3">
-              {parent && (
-                <Button
-                  variant="ghost"
-                  className="self-start"
-                  onClick={() => {
-                    setStatus("all")
-                    setSearch("")
-                    selectStep(parent.id)
-                  }}
-                >
-                  View parent step: {stepTitle(parent.name)}
-                </Button>
-              )}
-              {selected.replayedFromStepId && (
-                <Button
-                  variant="ghost"
-                  className="self-start"
-                  onClick={() => {
-                    setStatus("all")
-                    setSearch("")
-                    selectStep(selected.replayedFromStepId ?? selected.id)
-                  }}
-                >
-                  View original step
-                </Button>
-              )}
-              <ExecutionStepDetails
-                key={selected.id}
-                executionId={execution.id}
-                workflowId={execution.workflowId}
-                step={selected}
-                nodeConfig={nodeConfigs[selected.nodeId]}
-                replayable={detail.replayable}
-                contentRestricted={detail.traceContentRestricted}
-                resumedAt={resumedAtByStepId.get(selected.id)}
-                runErrorMessage={execution.error?.message}
-                onReplayTriggered={(stepId) => {
-                  setStatus("all")
-                  setSearch("")
-                  selectStep(stepId)
-                  onReplayTriggered(stepId)
+        <div className="grid md:grid-cols-[20rem_minmax(0,1fr)]">
+          <aside className="flex min-w-0 flex-col gap-2 border-b p-3 md:border-r md:border-b-0">
+            <div className="flex gap-2">
+              <Input
+                className="w-full"
+                aria-label="Search trace steps"
+                placeholder="Search steps or errors"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value)
+                  clearSelection()
                 }}
               />
+              <Select
+                value={status}
+                onValueChange={(value) => {
+                  const parsed = statusFilterSchema.safeParse(value)
+                  if (!parsed.success) return
+                  setStatus(parsed.data)
+                  clearSelection()
+                }}
+              >
+                <SelectTrigger aria-label="Filter trace status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="running">Running</SelectItem>
+                  <SelectItem value="succeeded">Succeeded</SelectItem>
+                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="skipped">Skipped</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          ) : null}
-        </>
-      )}
-      {selectedId && !selected ? (
-        <div className="px-4 py-4 text-sm text-muted-foreground">
-          <p>
-            {selectedId === pendingReplayStepId
-              ? "Waiting for the replay step to be recorded…"
-              : "This step is not available in this execution."}
-          </p>
-          <Button variant="outline" className="mt-3" onClick={clearSelection}>
-            Clear step selection
-          </Button>
+            {filtered.length === 0 ? (
+              <p className="px-1 py-4 text-sm text-muted-foreground">
+                No matching steps
+              </p>
+            ) : (
+              <ExecutionGanttChart
+                steps={filtered}
+                executionStartedAt={execution.startedAt}
+                executionCompletedAt={execution.completedAt}
+                selectedStepId={selected?.id ?? null}
+                onStepSelect={selectStep}
+              />
+            )}
+          </aside>
+          <div className="min-w-0">
+            {selected ? (
+              <div className="flex flex-col gap-4 px-4 py-3">
+                {parent && (
+                  <Button
+                    variant="ghost"
+                    className="self-start"
+                    onClick={() => {
+                      setStatus("all")
+                      setSearch("")
+                      selectStep(parent.id)
+                    }}
+                  >
+                    View parent step: {stepTitle(parent.name)}
+                  </Button>
+                )}
+                {selected.replayedFromStepId && (
+                  <Button
+                    variant="ghost"
+                    className="self-start"
+                    onClick={() => {
+                      setStatus("all")
+                      setSearch("")
+                      selectStep(selected.replayedFromStepId ?? selected.id)
+                    }}
+                  >
+                    View original step
+                  </Button>
+                )}
+                <ExecutionStepDetails
+                  key={selected.id}
+                  executionId={execution.id}
+                  workflowId={execution.workflowId}
+                  step={selected}
+                  nodeConfig={nodeConfigs[selected.nodeId]}
+                  replayable={detail.replayable}
+                  contentRestricted={detail.traceContentRestricted}
+                  resumedAt={resumedAtByStepId.get(selected.id)}
+                  runErrorMessage={execution.error?.message}
+                  onReplayTriggered={(stepId) => {
+                    setStatus("all")
+                    setSearch("")
+                    selectStep(stepId)
+                    onReplayTriggered(stepId)
+                  }}
+                />
+              </div>
+            ) : null}
+            {selectedId && !selected ? (
+              <div className="px-4 py-4 text-sm text-muted-foreground">
+                <p>
+                  {selectedId === pendingReplayStepId
+                    ? "Waiting for the replay step to be recorded…"
+                    : "This step is not available in this execution."}
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-3"
+                  onClick={clearSelection}
+                >
+                  Clear step selection
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </div>
-      ) : null}
+      )}
     </section>
   )
 }

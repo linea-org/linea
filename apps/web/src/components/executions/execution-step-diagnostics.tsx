@@ -38,18 +38,13 @@ export function ReplayAction({
   })
   if (!open) {
     return (
-      <Button
-        type="button"
-        variant="outline"
-        className="mt-3"
-        onClick={() => setOpen(true)}
-      >
+      <Button type="button" variant="outline" onClick={() => setOpen(true)}>
         Replay
       </Button>
     )
   }
   return (
-    <div className="mt-3 space-y-2">
+    <div className="space-y-2">
       <p className="text-sm font-medium text-muted-foreground">
         Config override — edit and re-run this step against the same input
       </p>
@@ -111,13 +106,11 @@ export function AddToRegressionAction({
   })
   if (mutation.isSuccess) {
     return (
-      <p className="mt-3 text-sm text-muted-foreground">
-        Added to regression suite
-      </p>
+      <p className="text-sm text-muted-foreground">Added to regression suite</p>
     )
   }
   return (
-    <div className="mt-3">
+    <div>
       <Button
         type="button"
         variant="outline"

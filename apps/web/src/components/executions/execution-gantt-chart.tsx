@@ -10,7 +10,6 @@ import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
 
 const MIN_BAR_WIDTH_PCT = 1.5
 const COMPACT_BELOW_MS = 100
-const TICK_COUNT = 4
 
 const CATEGORY_BAR: Record<NodeUICategory, string> = {
   ai: "bg-primary",
@@ -108,28 +107,8 @@ export function ExecutionGanttChart({
   )
   const rangeMs = Math.max(rangeEndMs - rangeStartMs, 1)
   const compact = rangeMs < COMPACT_BELOW_MS
-  const ticks = Array.from({ length: TICK_COUNT + 1 }, (_, i) => {
-    const fraction = i / TICK_COUNT
-    return { fraction, label: formatElapsed(fraction * rangeMs) }
-  })
   return (
     <div className="flex flex-col text-sm">
-      {compact ? null : (
-        <div className="sticky top-0 z-10 flex bg-inherit pb-2">
-          <div className="w-40 shrink-0" />
-          <div className="relative h-4 min-w-0 flex-1">
-            {ticks.map((tick) => (
-              <span
-                key={tick.fraction}
-                className="absolute -translate-x-1/2 font-mono text-xs text-muted-foreground first:translate-x-0 last:-translate-x-full"
-                style={{ left: `${tick.fraction * 100}%` }}
-              >
-                {tick.label}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
       <div className="flex flex-col gap-0.5">
         {rows.map((step) => {
           const startMs = new Date(step.startedAt).getTime()
@@ -154,11 +133,11 @@ export function ExecutionGanttChart({
               aria-label={`${label} · ${step.status} · attempt ${step.attempt}`}
               aria-pressed={selectedStepId === step.id}
               className={cn(
-                "flex w-full items-center gap-2 rounded-md py-1 pr-1 text-left hover:bg-muted/50",
+                "flex w-full flex-col gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-muted/50",
                 selectedStepId === step.id && "bg-muted"
               )}
             >
-              <div className="flex w-40 shrink-0 items-center gap-2 pl-1">
+              <div className="flex w-full items-center gap-2">
                 <span
                   className={cn(
                     "inline-flex size-5 shrink-0 items-center justify-center rounded-md",
@@ -175,23 +154,21 @@ export function ExecutionGanttChart({
                 <span className="min-w-0 flex-1 truncate text-foreground">
                   {label}
                 </span>
+                {step.status === "failed" ? (
+                  <span
+                    aria-hidden
+                    className="size-1.5 shrink-0 rounded-full bg-destructive"
+                  />
+                ) : null}
                 <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
                   {formatElapsed(endMs - startMs)}
                 </span>
               </div>
               {compact ? null : (
-                <div className="relative min-w-0 flex-1 py-1.5">
-                  {ticks.map((tick) => (
-                    <span
-                      key={tick.fraction}
-                      className="absolute inset-y-0 w-px bg-border/70 first:hidden last:hidden"
-                      style={{ left: `${tick.fraction * 100}%` }}
-                    />
-                  ))}
-                  <div className="h-2 w-full rounded-full bg-muted/60" />
+                <div className="relative h-1 w-full rounded-full bg-muted/60">
                   <div
                     className={cn(
-                      "absolute top-1/2 h-2 -translate-y-1/2 rounded-full",
+                      "absolute h-1 rounded-full",
                       barClass(step.status, step.name),
                       step.status === "running" && "animate-pulse"
                     )}

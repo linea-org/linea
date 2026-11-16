@@ -31,7 +31,7 @@ function Sent({
     typeof payload?.chatMessageId === "string" ? payload.chatMessageId : null
   const conversationId =
     typeof payload?.conversationId === "string" ? payload.conversationId : null
-  const { data: messages } = useQuery({
+  const { data: messages, isLoading } = useQuery({
     ...chatMessagesQueryOptions(
       slug,
       execution.workflowId ?? "",
@@ -39,6 +39,7 @@ function Sent({
     ),
   })
   const sent = messages?.find((message) => message.id === chatMessageId)
+  if (isLoading) return <span className="text-muted-foreground">…</span>
   if (sent)
     return <p className="break-words whitespace-pre-wrap">{sent.content}</p>
   if (!payload)
