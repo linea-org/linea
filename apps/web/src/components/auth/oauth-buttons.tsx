@@ -58,7 +58,7 @@ export function OAuthButtons({
   invitationId,
   redirect,
   onError,
-}: OAuthButtonsProps) {
+}: Readonly<OAuthButtonsProps>) {
   const [pendingProvider, setPendingProvider] = useState<
     "google" | "github" | null
   >(null)

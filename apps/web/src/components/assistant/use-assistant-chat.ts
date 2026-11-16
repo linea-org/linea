@@ -100,14 +100,10 @@ export function useAssistantChat(
   const [leafId, setLeafId] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [failedId, setFailedId] = useState<string | null>(null)
   const request = useMutation({
     mutationFn: ({ input }: PendingAsk) => askAssistant(input),
-    onError: (_error, { pendingId, input }) => {
-      setMessages((current) =>
-        current.filter((message) => message.id !== pendingId)
-      )
-      setLeafId(input.parentMessageId)
-    },
+    onError: (_error, { pendingId }) => setFailedId(pendingId),
     onSuccess: (answer, { pendingId }) => {
       const reply = toMessage(answer, answer.userMessageId)
       setConversationId(answer.conversationId)
@@ -143,13 +139,16 @@ export function useAssistantChat(
   ) {
     const message = text.trim()
     if (!message || request.isPending) return
+    const failed = messages.find((item) => item.id === failedId)
+    const parent = parentId === failedId ? (failed?.parentId ?? null) : parentId
     const pendingId = crypto.randomUUID()
-    const above = branchTo(messages, parentId)
+    const above = branchTo(messages, parent)
+    setFailedId(null)
     setMessages((current) => [
-      ...current,
+      ...current.filter((item) => item.id !== failedId),
       {
         id: pendingId,
-        parentId,
+        parentId: parent,
         role: "user",
         content: message,
         attachments: attachments.map(({ name }) => ({ name })),
@@ -165,7 +164,7 @@ export function useAssistantChat(
       pendingId,
       input: {
         message,
-        parentMessageId: parentId,
+        parentMessageId: parent,
         graph: graph ?? latestGraph(above),
         attachments,
         conversationId: conversationId ?? undefined,
@@ -199,6 +198,7 @@ export function useAssistantChat(
   }
   function open(id: string, saved: ChatMessage[]) {
     request.reset()
+    setFailedId(null)
     setConversationId(id)
     setMessages(saved)
     setLeafId(saved.at(-1)?.id ?? null)
@@ -206,6 +206,7 @@ export function useAssistantChat(
   }
   function startNew() {
     request.reset()
+    setFailedId(null)
     setConversationId(null)
     setMessages([])
     setLeafId(null)

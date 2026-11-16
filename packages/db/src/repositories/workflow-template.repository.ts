@@ -73,7 +73,8 @@ export async function listWorkflowTemplates(
     pageSize: number
   }
 ): Promise<{ items: ListedTemplate[]; total: number }> {
-  const needle = `%${options.query.trim().replace(/[\\%_]/g, String.raw`\$&`)}%`
+  const escapedQuery = options.query.trim().replace(/[\\%_]/g, String.raw`\$&`)
+  const needle = `%${escapedQuery}%`
   const where = and(
     options.scope === "workspace"
       ? eq(workflowTemplates.workspaceId, viewer.workspaceId)

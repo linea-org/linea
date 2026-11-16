@@ -91,12 +91,12 @@ function ProviderRow({
   models,
   onEdit,
   onRemove,
-}: {
+}: Readonly<{
   provider: AiProviderKeyStatus
   models: CatalogModel[]
   onEdit: () => void
   onRemove: () => void
-}) {
+}>) {
   return (
     <TableRow>
       <TableCell className="font-medium">{provider.label}</TableCell>
@@ -145,10 +145,10 @@ function ProviderRow({
 export function ProviderKeysTable({
   slug,
   setup,
-}: {
+}: Readonly<{
   slug: string
   setup: ModelSetup
-}) {
+}>) {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<AiProviderKeyStatus | null>(null)
   const [removing, setRemoving] = useState<AiProviderKeyStatus | null>(null)

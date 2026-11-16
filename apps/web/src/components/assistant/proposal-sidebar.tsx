@@ -32,11 +32,11 @@ export function ProposalSidebar({
   proposal,
   actions,
   onClose,
-}: {
+}: Readonly<{
   proposal: Proposal
   actions: ReactNode
   onClose: () => void
-}) {
+}>) {
   const [expanded, setExpanded] = useState(false)
   const steps = proposal.graph.nodes.map(describeStep)
   return (

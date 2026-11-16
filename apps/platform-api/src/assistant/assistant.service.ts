@@ -218,10 +218,7 @@ export class AssistantService {
         history,
         prompt,
       )
-      if (prompt !== undefined) {
-        history.push({ role: 'user', content: prompt })
-        prompt = undefined
-      }
+      prompt = undefined
       if (result.toolCalls?.length) {
         toolRounds += 1
         if (toolRounds > MAX_TOOL_ROUNDS) {
@@ -236,15 +233,7 @@ export class AssistantService {
         continue
       }
       try {
-        const parsed = parseAssistantReply(result.text)
-        const graph = parsed.graph ? validateAssistantGraph(parsed.graph) : null
-        return {
-          reply: parsed.reply,
-          title: graph ? (parsed.title ?? null) : null,
-          graph,
-          actions,
-          model: result.model,
-        }
+        return buildReply(result.text, result.model, actions)
       } catch (error) {
         if (!(error instanceof AssistantOutputError)) throw error
         rejections += 1
@@ -261,14 +250,14 @@ export class AssistantService {
     }
   }
 
-  private completeTurn(
+  private async completeTurn(
     workspaceId: string,
     environmentId: string,
     input: AssistantMessageDto,
     history: ConversationTurn[],
     prompt: string | undefined,
   ) {
-    return this.model
+    const result = await this.model
       .complete(
         workspaceId,
         environmentId,
@@ -288,6 +277,8 @@ export class AssistantService {
         }
         throw error
       })
+    if (prompt !== undefined) history.push({ role: 'user', content: prompt })
+    return result
   }
 
   /** Sequential on purpose: each tool result is appended to the history in call order. */
@@ -305,6 +296,22 @@ export class AssistantService {
         content: outcome.content,
       })
     }
+  }
+}
+
+function buildReply(
+  text: string,
+  model: string,
+  actions: AssistantAction[],
+): Reply {
+  const parsed = parseAssistantReply(text)
+  const graph = parsed.graph ? validateAssistantGraph(parsed.graph) : null
+  return {
+    reply: parsed.reply,
+    title: graph ? (parsed.title ?? null) : null,
+    graph,
+    actions,
+    model,
   }
 }
 

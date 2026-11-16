@@ -46,13 +46,13 @@ export function TaskModelSelect({
   task,
   label,
   unsetLabel,
-}: {
+}: Readonly<{
   slug: string
   setup: ModelSetup
   task: TaskModelKey
   label: string
   unsetLabel: string | null
-}) {
+}>) {
   const queryClient = useQueryClient()
   const { models } = setup.settings
   const keyed = new Set(
