@@ -10,7 +10,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@linea/ui/components/empty"
-import { Badge } from "@linea/ui/components/badge"
 import { Button } from "@linea/ui/components/button"
 import {
   DropdownMenu,
@@ -172,12 +171,12 @@ function ApplicationPage() {
           ) : null}
           {view === "environments" && selectedEnvironment ? (
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-medium">
+              <h2 className="text-base font-medium">
                 {environmentName(selectedEnvironment.environment)} Environment
               </h2>
-              <Badge variant="outline">
+              <span className="text-sm text-muted-foreground">
                 {selectedEnvironment.enabled ? "Enabled" : "Disabled"}
-              </Badge>
+              </span>
             </div>
           ) : null}
         </PageToolbar>

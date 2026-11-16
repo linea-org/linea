@@ -96,20 +96,14 @@ export function EnvironmentSettings(props: Readonly<EnvironmentSettingsProps>) {
   const { environment } = props
   const name = environmentName(environment.environment)
   return (
-    <section
-      aria-label={`${name} Environment`}
-      className="flex flex-col gap-6 p-4"
-    >
+    <section aria-label={`${name} Environment`} className="flex flex-col gap-4">
       {sections.map((section) => (
-        <section key={section.label} className="flex flex-col gap-3">
-          <div className="flex items-center gap-1.5">
+        <section key={section.label} className="flex flex-col gap-2">
+          <div className="flex items-center gap-1.5 pl-1">
             <h3 className="text-base font-medium">{section.label}</h3>
             <InfoTip label={section.label} text={section.description} />
           </div>
-          <Card
-            size="sm"
-            className="flex flex-col gap-0 gap-4 px-(--card-spacing)"
-          >
+          <Card size="sm" className="flex flex-col gap-4 px-(--card-spacing)">
             {section.content(props)}
           </Card>
         </section>
