@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { ActivityIcon, WorkflowIcon } from "lucide-react"
+import { ActivityIcon, LayoutDashboardIcon, WorkflowIcon } from "lucide-react"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -18,6 +18,10 @@ import {
 
 import type { SidebarContext } from "./sidebar-history"
 
+const activityViews = workflowViewSchema.options.filter(
+  (section) => section !== "overview"
+)
+
 export function WorkflowSectionNav({
   slug,
   context,
@@ -33,7 +37,7 @@ export function WorkflowSectionNav({
           <SidebarMenuItem>
             <SidebarMenuButton
               size="sm"
-              tooltip="Overview"
+              tooltip="All workflows"
               render={
                 <Link
                   to="/w/$slug/workflows"
@@ -44,6 +48,24 @@ export function WorkflowSectionNav({
               }
             >
               <WorkflowIcon />
+              <span>All workflows</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="sm"
+              tooltip="Overview"
+              isActive={view === "overview"}
+              render={
+                <Link
+                  to="/w/$slug/workflows/$workflowId"
+                  params={{ slug, workflowId }}
+                  search={{ view: "overview" }}
+                  aria-current={view === "overview" ? "page" : undefined}
+                />
+              }
+            >
+              <LayoutDashboardIcon />
               <span>Overview</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -52,7 +74,7 @@ export function WorkflowSectionNav({
             icon={ActivityIcon}
             active={true}
           >
-            {workflowViewSchema.options.map((section) => (
+            {activityViews.map((section) => (
               <SidebarMenuSubItem key={section}>
                 <SidebarMenuSubButton
                   size="sm"

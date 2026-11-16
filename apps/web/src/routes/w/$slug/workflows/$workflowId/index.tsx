@@ -12,9 +12,11 @@ import { Button } from "@linea/ui/components/button"
 import { Card } from "@linea/ui/components/card"
 import { z } from "zod"
 import {
+  DEFAULT_WORKFLOW_VIEW,
   workflowViewSchema,
   workflowViews,
 } from "@/components/workflows/workflow-views"
+import { WorkflowOverview } from "@/components/workflows/workflow-overview"
 
 import { RegressionCaseList, RegressionRunList } from "@/components/regressions"
 import { RunWorkflowDialog } from "@/components/workflows/run-workflow-dialog"
@@ -67,7 +69,7 @@ export const Route = createFileRoute("/w/$slug/workflows/$workflowId/")({
 
 function WorkflowDetailPage() {
   const { slug, workflowId } = Route.useParams()
-  const { view = "executions" } = Route.useSearch()
+  const { view = DEFAULT_WORKFLOW_VIEW } = Route.useSearch()
   const initialData = Route.useLoaderData()
   const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = useState(false)
@@ -164,6 +166,14 @@ function WorkflowDetailPage() {
             </Button>
           </div>
         </div>
+        {view === "overview" && (
+          <WorkflowOverview
+            slug={slug}
+            workflow={workflow}
+            executions={executions}
+            signals={signals}
+          />
+        )}
         {view === "executions" && (
           <section aria-label={workflowViews.executions}>
             {executionsErrored ? (
