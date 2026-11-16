@@ -19,6 +19,16 @@ import {
   markOutboxMessagePublished,
   recordOutboxMessageFailure,
 } from "./outbox-message.repository.js"
+import type { DbClient } from "./types.js"
+
+// Claims take the oldest pending message in the table, and other specs commit messages of their
+// own, so a test that claims makes its own message the oldest.
+async function makeOldest(client: DbClient, messageId: string) {
+  await client
+    .update(outboxMessages)
+    .set({ availableAt: new Date(0) })
+    .where(eq(outboxMessages.id, messageId))
+}
 
 describe("outbox message repository", () => {
   it("stores workflow dispatch and public events in the caller transaction", async () => {
@@ -92,6 +102,7 @@ describe("outbox message repository", () => {
         workspaceId: fixture.organization.id,
         executionId: "00000000-0000-4000-8000-000000000001",
       })
+      await makeOldest(db, message.id)
       const now = new Date()
       const claims = await Promise.all([
         claimWorkflowExecutionMessage(db, {
@@ -126,6 +137,7 @@ describe("outbox message repository", () => {
         workspaceId: fixture.organization.id,
         executionId: "00000000-0000-4000-8000-000000000001",
       })
+      await makeOldest(tx, message.id)
       const now = new Date()
       const firstClaim = await claimWorkflowExecutionMessage(tx, {
         claimedBy: "dispatcher-a",
@@ -186,6 +198,7 @@ describe("outbox message repository", () => {
         workspaceId: fixture.organization.id,
         executionId: "00000000-0000-4000-8000-000000000001",
       })
+      await makeOldest(tx, message.id)
       const now = new Date()
       await tx
         .update(outboxMessages)
@@ -231,6 +244,7 @@ describe("outbox message repository", () => {
         workspaceId: fixture.organization.id,
         executionId: execution.id,
       })
+      await makeOldest(tx, message.id)
       const now = new Date()
       await tx
         .update(outboxMessages)
