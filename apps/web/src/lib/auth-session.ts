@@ -23,6 +23,17 @@ export type OrganizationSummary = {
   metadata?: string | { personal?: boolean } | null
 }
 
+export type WorkspaceWithRole = OrganizationSummary & { role: string }
+
+export const listMyWorkspacesFn = createServerFn({ method: "GET" }).handler(
+  async (): Promise<WorkspaceWithRole[]> => {
+    const res = await apiFetch("/me/workspaces")
+    if (!res.ok)
+      throw new Error("Could not load your workspaces. Please try again.")
+    return (await res.json()) as WorkspaceWithRole[]
+  }
+)
+
 export const listOrganizationsFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<OrganizationSummary[]> => {
     const res = await apiFetch("/auth/organization/list")

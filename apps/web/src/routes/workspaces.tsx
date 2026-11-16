@@ -21,23 +21,17 @@ import {
   type CreatedWorkspace,
 } from "../components/workspace"
 import { setActiveOrganization } from "../lib/auth-queries"
-import {
-  authErrorMessage,
-  listOrganizations,
-  requireVerifiedUser,
-} from "../lib/auth-redirect"
+import { authErrorMessage, requireVerifiedUser } from "../lib/auth-redirect"
+import { listMyWorkspacesFn, type WorkspaceWithRole } from "../lib/auth-session"
+import { WorkspaceRowActions } from "../components/workspace/workspace-row-actions"
+import { Badge } from "@linea/ui/components/badge"
 import { Card } from "@linea/ui/components/card"
-
-type WorkspaceListItem = {
-  id: string
-  name: string
-  slug: string
-}
+import { isPersonalWorkspace } from "@linea/auth/personal-workspace"
 
 export const Route = createFileRoute("/workspaces")({
   beforeLoad: async () => {
     await requireVerifiedUser()
-    const orgs = await listOrganizations()
+    const orgs = await listMyWorkspacesFn()
     if (!orgs.length) {
       throw redirect({ to: "/onboarding/workspace" })
     }
@@ -52,13 +46,7 @@ export const Route = createFileRoute("/workspaces")({
 function WorkspacesPage() {
   const navigate = Route.useNavigate()
   const { orgs: initialOrgs } = Route.useRouteContext()
-  const [orgs, setOrgs] = useState<WorkspaceListItem[]>(() =>
-    initialOrgs.map((org) => ({
-      id: org.id,
-      name: org.name,
-      slug: org.slug,
-    }))
-  )
+  const [orgs, setOrgs] = useState<WorkspaceWithRole[]>(initialOrgs)
   const [createOpen, setCreateOpen] = useState(false)
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -77,9 +65,21 @@ function WorkspacesPage() {
 
   async function onCreated(org: CreatedWorkspace) {
     setOrgs((prev) =>
-      prev.some((item) => item.id === org.id) ? prev : [...prev, org]
+      prev.some((item) => item.id === org.id)
+        ? prev
+        : [...prev, { ...org, role: "owner" }]
     )
     setCreateOpen(false)
+  }
+
+  async function onRemoved(workspaceId: string) {
+    const remaining = orgs.filter((item) => item.id !== workspaceId)
+    setOrgs(remaining)
+    if (remaining.length === 1) {
+      await navigate({ to: "/w/$slug", params: { slug: remaining[0].slug } })
+    } else if (remaining.length === 0) {
+      await navigate({ to: "/onboarding/workspace" })
+    }
   }
 
   return (
@@ -112,11 +112,11 @@ function WorkspacesPage() {
             {orgs.map((org) => {
               const opening = pendingId === org.id
               return (
-                <li key={org.id}>
+                <li key={org.id} className="flex items-center pr-2">
                   <button
                     type="button"
                     className={cn(
-                      "flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left",
+                      "flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-4 py-3 text-left",
                       "hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
                       "disabled:cursor-not-allowed disabled:opacity-50"
                     )}
@@ -131,8 +131,13 @@ function WorkspacesPage() {
                       className="size-8"
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium text-foreground">
-                        {org.name}
+                      <span className="flex items-center gap-1.5">
+                        <span className="truncate text-sm font-medium text-foreground">
+                          {org.name}
+                        </span>
+                        {isPersonalWorkspace(org.metadata) ? (
+                          <Badge variant="secondary">Personal</Badge>
+                        ) : null}
                       </span>
                       <span className="block truncate text-sm text-muted-foreground">
                         {org.slug}
@@ -151,6 +156,10 @@ function WorkspacesPage() {
                       )}
                     </span>
                   </button>
+                  <WorkspaceRowActions
+                    workspace={org}
+                    onRemoved={(id) => void onRemoved(id)}
+                  />
                 </li>
               )
             })}

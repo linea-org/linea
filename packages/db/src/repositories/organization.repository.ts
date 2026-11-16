@@ -122,3 +122,19 @@ export async function getMemberRole(
     )
   return member?.role
 }
+
+/** The user's workspaces with their role in each, oldest first. */
+export async function listUserWorkspaces(db: DbClient, userId: string) {
+  return db
+    .select({
+      id: organizations.id,
+      name: organizations.name,
+      slug: organizations.slug,
+      metadata: organizations.metadata,
+      role: members.role,
+    })
+    .from(members)
+    .innerJoin(organizations, eq(organizations.id, members.organizationId))
+    .where(eq(members.userId, userId))
+    .orderBy(organizations.createdAt)
+}
