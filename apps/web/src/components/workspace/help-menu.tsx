@@ -29,14 +29,14 @@ export function HelpMenu() {
         <span className="hidden sm:inline">Help</span>
         <ChevronDownIcon className="size-3.5 transition-transform group-data-popup-open/button:rotate-180" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-60">
+      <DropdownMenuContent align="end" className="min-w-40">
         <DropdownMenuItem
           render={
             <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" />
           }
         >
           <BookOpenIcon />
-          Documentation
+          Docs
         </DropdownMenuItem>
         <DropdownMenuItem
           render={
@@ -44,7 +44,7 @@ export function HelpMenu() {
           }
         >
           <DiscordIcon />
-          Chat with us on Discord
+          Community
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
