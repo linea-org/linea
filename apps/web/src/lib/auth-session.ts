@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start"
 
 import type { SessionData } from "./auth-client"
-import { apiFetch } from "./api-fetch"
+import { apiFetch, parseErrorMessage } from "./api-fetch"
+import { getAppOrigin } from "./workspace-host"
 
 export const fetchSessionFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<SessionData | null> => {
@@ -30,6 +31,26 @@ export const listOrganizationsFn = createServerFn({ method: "GET" }).handler(
     return data ?? []
   }
 )
+
+// Server-side so it works when the page renders there. The auth API rejects a POST with no Origin.
+export const createOrganizationFn = createServerFn({ method: "POST" })
+  .validator((data: { name: string; slug: string }) => data)
+  .handler(async ({ data }): Promise<OrganizationSummary> => {
+    const res = await apiFetch("/auth/organization/create", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: getAppOrigin(),
+      },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+      throw new Error(
+        await parseErrorMessage(res, "Could not create workspace")
+      )
+    }
+    return (await res.json()) as OrganizationSummary
+  })
 
 export const setActiveOrganizationFn = createServerFn({ method: "POST" })
   .validator((data: { organizationId: string }) => data)

@@ -11,6 +11,12 @@ describe("runFailureFix", () => {
     ).toEqual({ label: "Add your key" })
   })
 
+  it("offers to update the key when the provider rejects it", () => {
+    expect(
+      runFailureFix("401 Incorrect API key provided: sk-fake-****-key.")
+    ).toEqual({ label: "Update your key" })
+  })
+
   it("offers to choose another model when the model is unknown", () => {
     expect(runFailureFix('Unknown model: "gpt-0"')).toEqual({
       label: "Choose a model",
