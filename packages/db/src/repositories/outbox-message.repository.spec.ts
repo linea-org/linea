@@ -21,9 +21,8 @@ import {
 } from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
 
-// Claims take any eligible message in the table and other packages' tests commit their own, so a
-// claiming test parks its message at the epoch and runs on a clock one millisecond later: only
-// that message is eligible, whatever else is in the table.
+// Other packages' tests commit eligible messages, so claiming tests park theirs at the epoch and
+// claim on a clock one millisecond later: only their own message is eligible.
 const TEST_NOW = new Date(1)
 
 async function parkAtEpoch(client: DbClient, messageId: string) {
