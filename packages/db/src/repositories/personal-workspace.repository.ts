@@ -14,10 +14,7 @@ function slugBase(name: string): string {
   return slug || "workspace"
 }
 
-/**
- * Finds or creates the user's personal workspace. A per-user advisory lock makes concurrent calls
- * return the same workspace instead of creating one each.
- */
+/** Per-user advisory lock: concurrent calls return the same workspace instead of creating one each. */
 export function ensurePersonalWorkspace(
   db: DbClient,
   user: { id: string; name: string },
