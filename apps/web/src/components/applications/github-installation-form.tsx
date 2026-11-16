@@ -64,16 +64,18 @@ export function GithubInstallationForm({
   }
   return (
     <form
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-4"
       onSubmit={(event) => {
         void handleSubmit(submit)(event)
       }}
     >
-      <h3 className="font-medium">Connect a company GitHub App</h3>
-      <p className="text-sm text-muted-foreground">
-        Install your GitHub App on the company account first. Match its
-        permissions to the Environment policy below.
-      </p>
+      <div className="flex flex-col gap-1">
+        <h3 className="text-base font-medium">Connect a company GitHub App</h3>
+        <p className="text-sm text-muted-foreground">
+          Install your GitHub App on the company account first. Match its
+          permissions to the Environment policy below.
+        </p>
+      </div>
       <GithubInstallationFields register={register} control={control} />
       {Object.keys(errors).length > 0 && (
         <p className="text-sm text-destructive">
