@@ -6,7 +6,7 @@ import { cn } from "@linea/ui/lib/utils"
 
 import { chatMessagesQueryOptions } from "@/lib/chat-preview-api"
 import type { ExecutionDetailResponse } from "@/lib/execution-detail-schema"
-import { runFailureFix } from "@/lib/run-failure"
+import { runFailureFix, type RunFailureFix } from "@/lib/run-failure"
 import { isUnknownOutcome, previewJson, summarizeRun } from "@/lib/run-summary"
 import { ErrorCallout } from "./error-callout"
 
@@ -36,7 +36,44 @@ function useSentMessage(slug: string, detail: ExecutionDetailResponse) {
       execution.workflowId ? conversationId : null
     )
   )
-  return messages?.find((message) => message.id === chatMessageId)?.content
+  const chatMessage = messages?.find(
+    (message) => message.id === chatMessageId
+  )?.content
+  if (chatMessage) return chatMessage
+  return chatMessageId === null && payload ? previewJson(payload) : undefined
+}
+
+const fixLinkClass = cn(
+  buttonVariants({ variant: "outline", size: "sm" }),
+  "bg-background hover:bg-muted"
+)
+
+function FixLink({
+  slug,
+  fix,
+  workflowId,
+}: Readonly<{ slug: string; fix: RunFailureFix; workflowId: string | null }>) {
+  if (fix.to === "models") {
+    return (
+      <Link
+        to="/w/$slug/settings/models"
+        params={{ slug }}
+        className={fixLinkClass}
+      >
+        {fix.label}
+      </Link>
+    )
+  }
+  if (!workflowId) return null
+  return (
+    <Link
+      to="/w/$slug/workflows/$workflowId/builder"
+      params={{ slug, workflowId }}
+      className={fixLinkClass}
+    >
+      {fix.label}
+    </Link>
+  )
 }
 
 function FailureCard({
@@ -52,16 +89,11 @@ function FailureCard({
       message={message ?? "The run stopped with an error."}
       action={
         fix ? (
-          <Link
-            to="/w/$slug/settings/models"
-            params={{ slug }}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "bg-background hover:bg-muted"
-            )}
-          >
-            {fix.label}
-          </Link>
+          <FixLink
+            slug={slug}
+            fix={fix}
+            workflowId={detail.execution.workflowId}
+          />
         ) : null
       }
     />

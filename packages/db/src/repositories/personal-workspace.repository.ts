@@ -7,8 +7,9 @@ const SLUG_ATTEMPTS = 4
 function slugBase(name: string): string {
   const slug = name
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .join("-")
     .slice(0, 48)
   return slug || "workspace"
 }
@@ -17,16 +18,15 @@ function slugBase(name: string): string {
  * Finds or creates the user's personal workspace. A per-user advisory lock makes concurrent calls
  * return the same workspace instead of creating one each.
  */
-export async function ensurePersonalWorkspace(
+export function ensurePersonalWorkspace(
   db: DbClient,
   user: { id: string; name: string },
   personalMetadata: string
 ): Promise<{ id: string; slug: string }> {
   const firstName = user.name.trim().split(/\s+/)[0] ?? ""
+  const lockKey = "personal-workspace:" + user.id
   return db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtext(${`personal-workspace:${user.id}`}))`
-    )
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`)
     const [existing] = await tx
       .select({ id: organizations.id, slug: organizations.slug })
       .from(members)

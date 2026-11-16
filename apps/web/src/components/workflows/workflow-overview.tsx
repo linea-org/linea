@@ -18,6 +18,13 @@ import type { WorkflowSummary } from "@/lib/workflows-api"
 import { workflowStatus } from "./workflow-status-badge"
 
 const RECENT_LIMIT = 5
+// Matches the repository default: the API returns at most this many of the newest runs.
+const EXECUTIONS_WINDOW = 50
+
+function count(value: number | undefined, capped: boolean) {
+  if (value === undefined) return "—"
+  return capped ? `${value}+` : value
+}
 
 function StatTile({
   label,
@@ -47,11 +54,13 @@ export function WorkflowOverview({
   slug,
   workflow,
   executions,
+  executionsError,
   signals,
 }: Readonly<{
   slug: string
   workflow: WorkflowSummary
   executions: ExecutionSummary[] | undefined
+  executionsError: boolean
   signals: SignalSummary[] | undefined
 }>) {
   const failed = executions?.filter((run) => run.status === "failed").length
@@ -59,6 +68,7 @@ export function WorkflowOverview({
     (signal) => signal.status !== "resolved"
   ).length
   const lastRun = executions?.[0]?.createdAt
+  const capped = (executions?.length ?? 0) >= EXECUTIONS_WINDOW
   return (
     <section aria-label="Overview" className="flex flex-col gap-4">
       {workflow.description ? (
@@ -71,10 +81,10 @@ export function WorkflowOverview({
           {workflowStatus(workflow)}
         </StatTile>
         <StatTile label="Executions" icon={PlayIcon}>
-          {executions?.length ?? "—"}
+          {count(executions?.length, capped)}
         </StatTile>
         <StatTile label="Failed" icon={TriangleAlertIcon}>
-          {failed ?? "—"}
+          {count(failed, capped)}
         </StatTile>
         <StatTile label="Open signals" icon={SirenIcon}>
           {openSignals ?? "—"}
@@ -103,11 +113,15 @@ export function WorkflowOverview({
             View all
           </Button>
         </div>
-        <ExecutionList
-          executions={(executions ?? []).slice(0, RECENT_LIMIT)}
-          slug={slug}
-          workflowId={workflow.id}
-        />
+        {executionsError ? (
+          <p className="text-sm text-destructive">Could not load executions.</p>
+        ) : (
+          <ExecutionList
+            executions={(executions ?? []).slice(0, RECENT_LIMIT)}
+            slug={slug}
+            workflowId={workflow.id}
+          />
+        )}
       </div>
     </section>
   )

@@ -6,7 +6,17 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@linea/ui/lib/utils"
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+const SelectItemsContext = React.createContext<unknown>(undefined)
+
+function Select<Value, Multiple extends boolean | undefined = false>(
+  props: SelectPrimitive.Root.Props<Value, Multiple>
+) {
+  return (
+    <SelectItemsContext.Provider value={props.items}>
+      <SelectPrimitive.Root {...props} />
+    </SelectItemsContext.Provider>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
@@ -32,6 +42,7 @@ function SelectValue({
   placeholder,
   ...props
 }: SelectPrimitive.Value.Props) {
+  const hasItems = React.useContext(SelectItemsContext) !== undefined
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
@@ -39,7 +50,10 @@ function SelectValue({
       placeholder={placeholder}
       {...props}
     >
-      {children ?? ((value: unknown) => capitalizedValue(value, placeholder))}
+      {children ??
+        (hasItems
+          ? undefined
+          : (value: unknown) => capitalizedValue(value, placeholder))}
     </SelectPrimitive.Value>
   )
 }

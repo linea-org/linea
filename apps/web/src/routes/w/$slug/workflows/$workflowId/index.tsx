@@ -16,6 +16,7 @@ import {
   workflowViewSchema,
   workflowViews,
 } from "@/components/workflows/workflow-views"
+import { regressionPollInterval } from "@/lib/regression-poll-interval"
 import { WorkflowOverview } from "@/components/workflows/workflow-overview"
 
 import { RegressionCaseList, RegressionRunList } from "@/components/regressions"
@@ -103,16 +104,8 @@ function WorkflowDetailPage() {
   } = useQuery({
     ...workflowRegressionRunsQueryOptions(slug, workflowId),
     // Poll until a triggered run appears and completes so its summary cannot remain stale.
-    refetchInterval: (query) => {
-      const data = query.state.data
-      // In-flight server state must resume polling after this component remounts.
-      if (data?.some((r) => !r.completedAt)) return 2000
-      if (!regressionRunTriggeredAt) return false
-      const triggered = data?.find(
-        (r) => r.startedAt > regressionRunTriggeredAt
-      )
-      return triggered ? false : 2000
-    },
+    refetchInterval: (query) =>
+      regressionPollInterval(query.state.data, regressionRunTriggeredAt),
   })
   const {
     data: regressionCases,
@@ -189,6 +182,7 @@ function WorkflowDetailPage() {
             slug={slug}
             workflow={workflow}
             executions={executions}
+            executionsError={executionsErrored}
             signals={signals}
           />
         )}

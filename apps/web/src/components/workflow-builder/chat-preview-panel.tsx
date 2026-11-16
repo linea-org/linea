@@ -153,6 +153,7 @@ export function ChatPreviewPanel({
   }
   const isWaiting = pendingExecutionId !== null
   const fix = finished?.failure ? runFailureFix(finished.failure) : null
+  const keyFix = fix?.to === "models" ? fix : null
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
       <ChatPreviewHeader
@@ -214,13 +215,13 @@ export function ChatPreviewPanel({
                 <Marker>
                   <MarkerContent className="text-destructive">
                     {finished.failure}
-                    {fix ? (
+                    {keyFix ? (
                       <Link
                         to="/w/$slug/settings/models"
                         params={{ slug }}
                         className="ml-2 font-medium underline underline-offset-4"
                       >
-                        {fix.label}
+                        {keyFix.label}
                       </Link>
                     ) : null}
                   </MarkerContent>

@@ -48,7 +48,11 @@ function splitErrorMessage(message: string): {
   return { summary: trimmed }
 }
 
-export function ErrorCallout({ title, message, action }: ErrorCalloutProps) {
+export function ErrorCallout({
+  title,
+  message,
+  action,
+}: Readonly<ErrorCalloutProps>) {
   const { summary, rest } = splitErrorMessage(message)
   const details = rest ?? ""
   const [open, setOpen] = useState(false)

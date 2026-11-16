@@ -124,7 +124,7 @@ export async function getMemberRole(
 }
 
 /** The user's workspaces with their role in each, oldest first. */
-export async function listUserWorkspaces(db: DbClient, userId: string) {
+export function listUserWorkspaces(db: DbClient, userId: string) {
   return db
     .select({
       id: organizations.id,

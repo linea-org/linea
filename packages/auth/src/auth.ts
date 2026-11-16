@@ -293,14 +293,16 @@ export const auth = betterAuth({
         })
       },
       organizationHooks: {
-        async beforeDeleteOrganization({ organization }) {
+        beforeDeleteOrganization({ organization }) {
           refusePersonal(organization, "A personal workspace can't be deleted")
+          return Promise.resolve()
         },
-        async beforeCreateInvitation({ organization }) {
+        beforeCreateInvitation({ organization }) {
           refusePersonal(
             organization,
             "A personal workspace is for one person. Create a workspace to invite others"
           )
+          return Promise.resolve()
         },
         async afterRemoveMember({ member, organization }) {
           await repositories.apiKey.revokeApiKeysCreatedBy(

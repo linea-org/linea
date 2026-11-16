@@ -249,8 +249,7 @@ export function TopBarBreadcrumb({ slug }: { slug: string }) {
   const visible = collapsed ? [first, last] : crumbs
   const hidden = collapsed ? crumbs.slice(1, -1) : []
   return (
-    <>
-      <Breadcrumb className="min-w-0 overflow-hidden">
+    <Breadcrumb className="min-w-0 overflow-hidden">
         <BreadcrumbList className="flex-nowrap">
           {visible.map((crumb, index) => (
             <Fragment key={`${crumb.label}-${index}`}>
@@ -270,7 +269,6 @@ export function TopBarBreadcrumb({ slug }: { slug: string }) {
             </Fragment>
           ))}
         </BreadcrumbList>
-      </Breadcrumb>
-    </>
+    </Breadcrumb>
   )
 }

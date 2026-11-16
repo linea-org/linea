@@ -52,9 +52,7 @@ export function WorkspaceTopBar({
             className="shrink-0"
           />
           {workflow ? (
-            <>
-              <WorkflowHeading slug={slug} workflow={workflow} />
-            </>
+            <WorkflowHeading slug={slug} workflow={workflow} />
           ) : (
             <TopBarBreadcrumb slug={slug} />
           )}

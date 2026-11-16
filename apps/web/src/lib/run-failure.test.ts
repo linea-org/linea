@@ -8,18 +8,19 @@ describe("runFailureFix", () => {
       runFailureFix(
         "No OPENAI_API_KEY is set. Add your key under Settings, Models to run this step."
       )
-    ).toEqual({ label: "Add your key" })
+    ).toEqual({ label: "Add your key", to: "models" })
   })
 
   it("offers to update the key when the provider rejects it", () => {
     expect(
       runFailureFix("401 Incorrect API key provided: sk-fake-****-key.")
-    ).toEqual({ label: "Update your key" })
+    ).toEqual({ label: "Update your key", to: "models" })
   })
 
-  it("offers to choose another model when the model is unknown", () => {
+  it("points at the workflow when the node's model is unknown", () => {
     expect(runFailureFix('Unknown model: "gpt-0"')).toEqual({
-      label: "Choose a model",
+      label: "Change the model",
+      to: "workflow",
     })
   })
 

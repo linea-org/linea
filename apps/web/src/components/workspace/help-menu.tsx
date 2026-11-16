@@ -23,7 +23,9 @@ export function HelpMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={<Button type="button" variant="ghost" size="sm" />}
+        render={
+          <Button type="button" variant="ghost" size="sm" aria-label="Help" />
+        }
       >
         <CircleHelpIcon />
         <span className="hidden sm:inline">Help</span>
@@ -32,7 +34,12 @@ export function HelpMenu() {
       <DropdownMenuContent align="end" className="min-w-40">
         <DropdownMenuItem
           render={
-            <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" />
+            <a
+              href={DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Docs"
+            />
           }
         >
           <BookOpenIcon />
@@ -40,7 +47,12 @@ export function HelpMenu() {
         </DropdownMenuItem>
         <DropdownMenuItem
           render={
-            <a href={COMMUNITY_URL} target="_blank" rel="noopener noreferrer" />
+            <a
+              href={COMMUNITY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Community"
+            />
           }
         >
           <DiscordIcon />
