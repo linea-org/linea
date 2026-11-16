@@ -262,13 +262,13 @@ function EmptyThread({
     <div className="mx-auto flex min-h-full max-w-xl flex-col items-center justify-center py-12 text-center">
       <AssistantMark className="size-12 rounded-xl" />
       <h2 className="mt-5 text-xl font-semibold tracking-tight">{title}</h2>
-      <div className="mt-6 flex flex-wrap justify-center gap-2">
+      <div className="mt-6 flex max-w-full flex-wrap justify-center gap-2">
         {suggestions.map((suggestion) => (
           <Button
             key={suggestion}
             type="button"
             variant="outline"
-            className="h-auto rounded-full px-3.5 py-2 font-normal"
+            className="h-auto max-w-full rounded-full px-3.5 py-2 font-normal whitespace-normal"
             onClick={() => onSuggest(suggestion)}
           >
             {suggestion}

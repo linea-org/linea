@@ -218,7 +218,7 @@ export function AssistantComposer({
           autoFocus={hero}
           className={cn("max-h-60", hero ? "min-h-24 text-base" : "min-h-12")}
         />
-        <InputGroupAddon align="block-end">
+        <InputGroupAddon align="block-end" className="gap-1">
           <input
             ref={fileInput}
             type="file"
