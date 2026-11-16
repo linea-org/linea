@@ -1,0 +1,71 @@
+import { useEffect, useRef } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
+
+import {
+  assistantConversationQueryOptions,
+  assistantConversationsQueryOptions,
+  sendApplicationAssistantMessageFn,
+} from "@/lib/assistant-api"
+import { findOrCreateDefaultApplication } from "@/lib/default-application"
+import { toChatMessages, useAssistantChat } from "./use-assistant-chat"
+import type { useComposerOptions } from "./use-composer-options"
+
+/** The general chat: kept in step with the chat named in the address and the saved list. */
+export function useWeaverChat({
+  slug,
+  conversationId,
+  options,
+  onReset,
+}: {
+  slug: string
+  // The saved chat named in the address, if any.
+  conversationId: string | undefined
+  options: ReturnType<typeof useComposerOptions>
+  onReset: () => void
+}) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const listKey = assistantConversationsQueryOptions(slug, null).queryKey
+  const chat = useAssistantChat(async (input) => {
+    const application = await findOrCreateDefaultApplication()
+    const answer = await sendApplicationAssistantMessageFn({
+      data: {
+        applicationId: application.id,
+        ...input,
+        model: options.model?.value,
+        tools: { web: options.web },
+      },
+    })
+    await queryClient.invalidateQueries({ queryKey: listKey })
+    if (answer.conversationId !== conversationId) {
+      await navigate({
+        to: "/w/$slug/assistant",
+        params: { slug },
+        search: { c: answer.conversationId },
+        replace: true,
+      })
+    }
+    return answer
+  })
+  const saved = useQuery({
+    ...assistantConversationQueryOptions(conversationId ?? ""),
+    enabled: conversationId !== undefined,
+  })
+  const { conversationId: activeId, open, startNew } = chat
+  useEffect(() => {
+    if (conversationId && saved.data && activeId !== conversationId) {
+      open(conversationId, toChatMessages(saved.data.messages))
+    }
+  }, [conversationId, saved.data, activeId, open])
+  // The sidebar's New chat clears the address's chat; start fresh when that happens.
+  const addressedId = useRef(conversationId)
+  useEffect(() => {
+    if (addressedId.current !== undefined && conversationId === undefined) {
+      startNew()
+      onReset()
+    }
+    addressedId.current = conversationId
+  }, [conversationId, startNew, onReset])
+  return { chat, title: saved.data?.conversation.title ?? "New chat" }
+}

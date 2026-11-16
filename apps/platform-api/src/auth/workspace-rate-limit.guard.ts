@@ -14,6 +14,7 @@ import type { AuthenticatedRequest } from './workspace-auth.guard'
 export const WORKSPACE_RATE_LIMITS = {
   start: { actor: 60, workspace: 300 },
   diagnostic: { actor: 10, workspace: 30 },
+  assistant: { actor: 20, workspace: 100 },
 }
 
 type WorkspaceRateLimitClass = keyof typeof WORKSPACE_RATE_LIMITS

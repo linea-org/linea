@@ -7,6 +7,8 @@ import { auth } from '@linea/auth'
 import { ApiKeysModule } from './api-keys/api-keys.module'
 import { EnvironmentsModule } from './environments/environments.module'
 import { ApprovalsModule } from './approvals/approvals.module'
+import { AssistantModule } from './assistant/assistant.module'
+import { ModelSettingsModule } from './model-settings/model-settings.module'
 import { ConversationAnalysesModule } from './conversation-analyses/conversation-analyses.module'
 import { ConnectionsModule } from './connections/connections.module'
 import { REQUEST_BODY_LIMITS } from './common/request-body-limits'
@@ -49,6 +51,8 @@ import { WorkflowsModule } from './workflows/workflows.module'
     SecretsModule,
     NotificationsModule,
     ApprovalsModule,
+    AssistantModule,
+    ModelSettingsModule,
     ConversationAnalysesModule,
     RegressionsModule,
   ],

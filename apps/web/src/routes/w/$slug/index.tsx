@@ -48,12 +48,9 @@ function WorkspaceHomePage() {
   })
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3 pl-1">
+      <header className="mb-2 flex flex-wrap items-center justify-between gap-3 pl-1">
         <div>
           <h1 className="text-sm font-medium">Add an Agent to your product</h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Start with a task, then configure and deploy your Agent.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <StartStarterWorkflowButton slug={slug} />
@@ -74,7 +71,7 @@ function WorkspaceHomePage() {
         executions={executionsPage.executions}
         executionTotal={executionsPage.total}
       />
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <WorkflowsWidget slug={slug} workflows={workflows} />
         <OpenSignalsWidget slug={slug} signals={signals} />
         <div className="lg:col-span-2">

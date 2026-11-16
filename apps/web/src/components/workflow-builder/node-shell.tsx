@@ -46,7 +46,9 @@ export function NodeShell({ id, data, selected }: WorkflowNodeShellProps) {
     >
       {!isStart && (
         <>
-          <NodeHoverToolbar nodeId={id} selected={selected} canDelete />
+          {!data.readOnly && (
+            <NodeHoverToolbar nodeId={id} selected={selected} canDelete />
+          )}
           <Handle
             type="target"
             position={Position.Left}

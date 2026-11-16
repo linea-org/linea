@@ -19,6 +19,7 @@ export const sidebarContextSchema = z.discriminatedUnion("kind", [
     environment: environmentNameSchema,
     environments: z.array(environmentNameSchema),
   }),
+  z.object({ kind: z.literal("assistant") }),
   z.object({ kind: z.literal("workflows") }),
   z.object({
     kind: z.literal("workflow"),
@@ -53,6 +54,7 @@ export function sidebarContextKey(context: SidebarContext) {
     case "workflow":
       return `workflow:${context.workflowId}`
     case "main":
+    case "assistant":
     case "workflows":
     case "executions":
       return context.kind

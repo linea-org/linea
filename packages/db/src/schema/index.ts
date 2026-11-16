@@ -53,4 +53,5 @@ export * from "./connection-access-grant.js"
 
 export * from "./connection-reviewer-assignment.js"
 export * from "./agent.js"
+export * from "./assistant-conversation.js"
 export * from "./environment-agent-binding.js"

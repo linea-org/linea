@@ -51,6 +51,7 @@ function applicationContext(match: ApplicationMatch): Kind<"application"> {
 }
 
 function pathContext(slug: string, pathname: string): SidebarContext {
+  if (pathname.startsWith(`/w/${slug}/assistant`)) return { kind: "assistant" }
   if (pathname.startsWith(`/w/${slug}/workflows`)) return { kind: "workflows" }
   if (
     pathname.startsWith(`/w/${slug}/executions`) ||

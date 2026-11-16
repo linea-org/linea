@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type DragEvent,
-} from "react"
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react"
 import {
   Background,
   Controls,
@@ -28,7 +21,11 @@ import {
 import "@xyflow/react/dist/style.css"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useTheme } from "next-themes"
-import { nodeRegistry, type NodeTypeId } from "@linea/runtime/browser"
+import {
+  nodeRegistry,
+  type NodeTypeId,
+  type WorkflowGraph,
+} from "@linea/runtime/browser"
 import { Button } from "@linea/ui/components/button"
 import {
   Dialog,
@@ -50,6 +47,7 @@ import {
   PlayIcon,
   Redo2Icon,
   RefreshCwIcon,
+  SparklesIcon,
   Undo2Icon,
 } from "lucide-react"
 import { cn } from "@linea/ui/lib/utils"
@@ -61,6 +59,7 @@ import {
   TooltipTrigger,
 } from "@linea/ui/components/tooltip"
 import { useWorkspaceOverlayNav } from "../workspace"
+import { ASSISTANT_NAME } from "@/lib/assistant-api"
 import { authClient } from "@/lib/auth-client"
 import { isWorkspaceAdmin } from "@/lib/workspace-role"
 import {
@@ -68,6 +67,7 @@ import {
   testRunFn,
   type JsonValue,
 } from "@/lib/executions-api"
+import { AssistantPanel } from "./assistant-panel"
 import { ChatPreviewPanel } from "./chat-preview-panel"
 import {
   createWorkflowVersionFn,
@@ -95,6 +95,7 @@ import {
   WORKFLOW_NODE_TYPE,
   type WorkflowBuilderNodeData,
 } from "./graph-conversion"
+import { FLOW_THEME_VARS } from "./flow-theme"
 
 const nodeTypes: NodeTypes = { [WORKFLOW_NODE_TYPE]: NodeShell }
 
@@ -110,36 +111,6 @@ function defaultNodeConfig(nodeType: NodeTypeId): Record<string, unknown> {
 }
 
 const DRAFT_SAVE_DEBOUNCE_MS = 1200
-
-// @xyflow/react ships its own light-mode colors via these CSS variables — remap them to our tokens so Controls/MiniMap/edges follow dark mode.
-const FLOW_THEME_VARS = {
-  "--xy-background-color": "var(--surface-canvas)",
-  "--xy-background-pattern-color":
-    "color-mix(in oklch, var(--foreground) 22%, transparent)",
-  "--xy-edge-stroke": "var(--muted-foreground)",
-  "--xy-edge-stroke-selected": "var(--primary)",
-  "--xy-connectionline-stroke": "var(--muted-foreground)",
-  "--xy-edge-label-background-color": "var(--popover)",
-  "--xy-edge-label-color": "var(--foreground)",
-  "--xy-selection-background-color":
-    "color-mix(in oklch, var(--primary) 12%, transparent)",
-  "--xy-selection-border": "1px solid var(--primary)",
-  "--xy-handle-background-color": "var(--muted-foreground)",
-  "--xy-handle-border-color": "var(--card)",
-  "--xy-node-background-color": "transparent",
-  "--xy-node-color": "var(--foreground)",
-  "--xy-node-border": "none",
-  "--xy-controls-button-background-color": "var(--card)",
-  "--xy-controls-button-background-color-hover": "var(--secondary)",
-  "--xy-controls-button-color": "var(--foreground)",
-  "--xy-controls-button-color-hover": "var(--foreground)",
-  "--xy-controls-button-border-color": "var(--border)",
-  "--xy-minimap-background-color": "var(--card)",
-  "--xy-minimap-mask-background-color":
-    "color-mix(in oklch, var(--surface-canvas) 70%, transparent)",
-  "--xy-minimap-node-background-color": "var(--muted)",
-  "--xy-minimap-node-stroke-color": "var(--border)",
-} as CSSProperties
 
 function CategoryConnectionLine({
   fromX,
@@ -219,9 +190,9 @@ function WorkflowBuilderCanvasInner({
   // Which of the two right-hand panels is visible — kept as one variable, not two
   // independent booleans, so a node selection and the chat toggle can never both
   // decide to show a panel at the same time.
-  const [rightPanel, setRightPanel] = useState<"config" | "chat" | null>(
-    openChat ? "chat" : null
-  )
+  const [rightPanel, setRightPanel] = useState<
+    "config" | "chat" | "assistant" | null
+  >(openChat ? "chat" : null)
   const { resolvedTheme } = useTheme()
   const { screenToFlowPosition } = useReactFlow<Node<WorkflowBuilderNodeData>>()
   const history = useUndoHistory({ nodes: initial.nodes, edges: initial.edges })
@@ -503,6 +474,13 @@ function WorkflowBuilderCanvasInner({
     },
     [nodes, edges, screenToFlowPosition, setNodes, pushHistory]
   )
+  function applyAssistantGraph(proposal: WorkflowGraph) {
+    const flow = graphToFlow(ensureStartNode(proposal))
+    setNodes(flow.nodes)
+    setEdges(flow.edges)
+    setSelectedNodeId(null)
+    pushHistory(flow.nodes, flow.edges)
+  }
   function undo() {
     const snapshot = history.undo()
     if (!snapshot) return
@@ -595,6 +573,20 @@ function WorkflowBuilderCanvasInner({
               Saved
             </span>
           )}
+          <Button
+            type="button"
+            variant={rightPanel === "assistant" ? "secondary" : "outline"}
+            size="xs"
+            onClick={() =>
+              setRightPanel((current) =>
+                current === "assistant" ? null : "assistant"
+              )
+            }
+            aria-pressed={rightPanel === "assistant"}
+          >
+            <SparklesIcon />
+            {ASSISTANT_NAME}
+          </Button>
           {hasAgentNode && (
             <Button
               type="button"
@@ -859,6 +851,27 @@ function WorkflowBuilderCanvasInner({
                     )
                     setNodes(nextNodes)
                   }}
+                />
+              </ResizablePanel>
+            </>
+          )}
+          {rightPanel === "assistant" && (
+            <>
+              <ResizableHandle className="w-0 bg-transparent" />
+              <ResizablePanel
+                id="builder-assistant"
+                defaultSize={340}
+                minSize={280}
+                maxSize={640}
+                groupResizeBehavior="preserve-pixel-size"
+                className="min-h-0"
+              >
+                <AssistantPanel
+                  slug={slug}
+                  workflowId={workflowId}
+                  graph={buildGraph(entryNodeId)}
+                  onApply={applyAssistantGraph}
+                  onClose={() => setRightPanel(null)}
                 />
               </ResizablePanel>
             </>

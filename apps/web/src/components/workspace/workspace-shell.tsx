@@ -14,8 +14,11 @@ import {
   BoxesIcon,
   HistoryIcon,
   HouseIcon,
+  SparklesIcon,
   WorkflowIcon,
 } from "lucide-react"
+
+import { ASSISTANT_NAME } from "@/lib/assistant-api"
 
 import {
   Sidebar,
@@ -41,6 +44,7 @@ import { TopBarSearch } from "./top-bar-search"
 import { WorkspaceSwitcher, type WorkspaceOption } from "./workspace-switcher"
 import { ApplicationSectionNav } from "./application-section-nav"
 import { AgentSectionNav } from "./agent-section-nav"
+import { AssistantSectionNav } from "./assistant-section-nav"
 import { ExecutionSectionNav } from "./execution-section-nav"
 import { WorkflowSectionNav } from "./workflow-section-nav"
 import { WorkspaceSettingsNav } from "./workspace-settings-nav"
@@ -90,6 +94,21 @@ function MainNav({
         >
           <HouseIcon />
           <span>Home</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          size="sm"
+          isActive={pathname.startsWith(`/w/${slug}/assistant`)}
+          tooltip={ASSISTANT_NAME}
+          render={<Link to="/w/$slug/assistant" params={{ slug }} />}
+        >
+          <SparklesIcon />
+          <span>{ASSISTANT_NAME}</span>
+          <ChevronRightIcon
+            aria-hidden
+            className="ml-auto group-data-[collapsible=icon]:hidden"
+          />
         </SidebarMenuButton>
       </SidebarMenuItem>
       <SidebarMenuItem>
@@ -151,6 +170,8 @@ function WorkspaceSectionNav({
       return <AgentSectionNav slug={slug} context={context} />
     case "application":
       return <ApplicationSectionNav slug={slug} context={context} />
+    case "assistant":
+      return <AssistantSectionNav slug={slug} />
     case "executions":
       return <ExecutionSectionNav slug={slug} context={context} />
     case "workflow":
@@ -216,6 +237,7 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   const { pathname } = useLocation()
   const isBuilder = pathname.endsWith("/builder")
+  const onHome = pathname === `/w/${slug}` || pathname === `/w/${slug}/`
   const { history, back, setExpanded } = useSidebarHistory(slug)
   const currentContext = history.trail[0]
   const currentKey = sidebarContextKey(currentContext)
@@ -237,16 +259,19 @@ export function WorkspaceShell({
     <>
       {isBuilder ? (
         <SidebarHeader className="p-1 pb-2">
+          {history.trail.length > 1 && <SidebarBack onBack={back} />}
           <WorkspaceSwitcher currentSlug={slug} workspaces={workspaces} />
         </SidebarHeader>
       ) : (
-        <SidebarHeader className="px-1 py-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:py-2">
-          <TopBarSearch />
-        </SidebarHeader>
+        (onHome || history.trail.length > 1) && (
+          <SidebarHeader className="px-1 py-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:py-2">
+            {history.trail.length > 1 && <SidebarBack onBack={back} />}
+            {onHome && <TopBarSearch />}
+          </SidebarHeader>
+        )
       )}
       <SidebarSeparator className="mx-0 -mt-px w-full data-horizontal:w-full" />
       <SidebarContent className="gap-0">
-        {history.trail.length > 1 && <SidebarBack onBack={back} />}
         <SidebarContextPanel
           key={currentKey}
           slug={slug}

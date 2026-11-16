@@ -1,6 +1,8 @@
 import { Fragment } from "react"
 import { Link, useMatches, useNavigate } from "@tanstack/react-router"
 
+import { ASSISTANT_NAME } from "@/lib/assistant-api"
+
 import {
   Breadcrumb,
   BreadcrumbEllipsis,
@@ -49,6 +51,8 @@ function crumbsForMatch(match: RouteMatch, slug: string): Crumb[] {
   switch (match.routeId) {
     case "/w/$slug/agents/new":
       return [applicationsCrumb(slug), { label: "Add Agent" }]
+    case "/w/$slug/assistant":
+      return [{ label: ASSISTANT_NAME }]
     case "/w/$slug/applications/":
       return [{ label: "Applications" }]
     case "/w/$slug/applications/$applicationId": {
@@ -139,6 +143,8 @@ function crumbsForMatch(match: RouteMatch, slug: string): Crumb[] {
       return [{ label: "Members" }]
     case "/w/$slug/settings/secrets":
       return [{ label: "Secrets" }]
+    case "/w/$slug/settings/models":
+      return [{ label: "Models" }]
     case "/w/$slug/workflows/$workflowId/builder":
       return [
         workflowsCrumb(slug),
