@@ -1,7 +1,22 @@
 import { Link } from "@tanstack/react-router"
+import {
+  CalendarClockIcon,
+  CircleDotIcon,
+  PlayIcon,
+  SirenIcon,
+  TriangleAlertIcon,
+  type LucideIcon,
+} from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
 import { Card } from "@linea/ui/components/card"
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@linea/ui/components/item"
 
 import { ExecutionList } from "@/components/executions"
 import type { ExecutionSummary } from "@/lib/executions-api"
@@ -13,15 +28,30 @@ const RECENT_LIMIT = 5
 
 function StatTile({
   label,
+  icon: Icon,
   children,
-}: Readonly<{ label: string; children: React.ReactNode }>) {
+}: Readonly<{
+  label: string
+  icon: LucideIcon
+  children: React.ReactNode
+}>) {
   return (
-    <div className="flex flex-col gap-1 px-4 lg:border-border lg:not-first:border-l">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <div className="flex h-7 items-center text-xl font-semibold tabular-nums">
-        {children}
-      </div>
-    </div>
+    <Card size="sm" className="py-0">
+      <Item>
+        <ItemMedia
+          variant="icon"
+          className="size-9 translate-y-0 self-center rounded-md bg-muted text-muted-foreground"
+        >
+          <Icon />
+        </ItemMedia>
+        <ItemContent className="min-w-0 gap-0.5">
+          <ItemDescription className="text-sm">{label}</ItemDescription>
+          <ItemTitle className="h-7 text-xl font-semibold tabular-nums">
+            {children}
+          </ItemTitle>
+        </ItemContent>
+      </Item>
+    </Card>
   )
 }
 
@@ -48,17 +78,23 @@ export function WorkflowOverview({
           {workflow.description}
         </p>
       ) : null}
-      <Card className="grid grid-cols-2 gap-y-4 py-4 lg:grid-cols-5">
-        <StatTile label="Status">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <StatTile label="Status" icon={CircleDotIcon}>
           <WorkflowStatusBadge workflow={workflow} />
         </StatTile>
-        <StatTile label="Executions">{executions?.length ?? "—"}</StatTile>
-        <StatTile label="Failed">{failed ?? "—"}</StatTile>
-        <StatTile label="Open signals">{openSignals ?? "—"}</StatTile>
-        <StatTile label="Last run">
+        <StatTile label="Executions" icon={PlayIcon}>
+          {executions?.length ?? "—"}
+        </StatTile>
+        <StatTile label="Failed" icon={TriangleAlertIcon}>
+          {failed ?? "—"}
+        </StatTile>
+        <StatTile label="Open signals" icon={SirenIcon}>
+          {openSignals ?? "—"}
+        </StatTile>
+        <StatTile label="Last run" icon={CalendarClockIcon}>
           {lastRun ? new Date(lastRun).toLocaleDateString() : "—"}
         </StatTile>
-      </Card>
+      </div>
       <div className="flex flex-col gap-2">
         <div className="flex h-8 items-center justify-between pl-1">
           <p className="text-base font-medium text-foreground">
