@@ -117,7 +117,6 @@ function ApplicationPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      size="xs"
                       aria-label="Filter agents"
                     />
                   }
@@ -154,7 +153,7 @@ function ApplicationPage() {
                   workspaceSlug={slug}
                   applicationId={applicationId}
                   trigger={
-                    <Button size="xs">
+                    <Button>
                       <PlusIcon />
                       Add Agent
                     </Button>
@@ -173,7 +172,7 @@ function ApplicationPage() {
           ) : null}
           {view === "environments" && selectedEnvironment ? (
             <div className="flex items-center gap-2">
-              <h2 className="text-xs font-medium">
+              <h2 className="text-sm font-medium">
                 {environmentName(selectedEnvironment.environment)} Environment
               </h2>
               <Badge variant="outline">

@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import { Controller, useFormContext } from "react-hook-form"
 import { z } from "zod"
 import {
@@ -34,22 +35,26 @@ export function AgentDefinitionFields({
   } = useFormContext<z.infer<typeof createAgentVersionInputSchema>>()
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <Field className="rounded-lg border border-border bg-card p-4">
-        <FieldLabel htmlFor="agent-instructions">Instructions</FieldLabel>
-        <FieldDescription>
-          Describe the work to do, the expected result, and any rules the Agent
-          must follow.
-        </FieldDescription>
-        <Textarea
-          id="agent-instructions"
-          rows={9}
-          className="min-h-36"
-          placeholder="Describe the task, constraints, and expected outcome…"
-          {...register("definition.instructions")}
-        />
-        <FieldError>{errors.definition?.instructions?.message}</FieldError>
-      </Field>
-      <div className="grid gap-4 rounded-lg border border-border bg-card p-4 sm:grid-cols-2">
+      <Card size="sm" className="gap-0 px-(--card-spacing)">
+        <Field>
+          <FieldLabel htmlFor="agent-instructions">Instructions</FieldLabel>
+          <FieldDescription>
+            The task, expected result and rules.
+          </FieldDescription>
+          <Textarea
+            id="agent-instructions"
+            rows={9}
+            className="min-h-36"
+            placeholder="Describe the task, constraints, and expected outcome…"
+            {...register("definition.instructions")}
+          />
+          <FieldError>{errors.definition?.instructions?.message}</FieldError>
+        </Field>
+      </Card>
+      <Card
+        size="sm"
+        className="grid gap-0 gap-4 px-(--card-spacing) sm:grid-cols-2"
+      >
         <Field>
           <FieldLabel htmlFor="agent-model">Model</FieldLabel>
           <Controller
@@ -120,12 +125,10 @@ export function AgentDefinitionFields({
               </Select>
             )}
           />
-          <FieldDescription>
-            The input and output schemas your application integrates with.
-          </FieldDescription>
+          <FieldDescription>Input and output schemas.</FieldDescription>
           <FieldError>{errors.agentContractRevisionId?.message}</FieldError>
         </Field>
-      </div>
+      </Card>
     </div>
   )
 }

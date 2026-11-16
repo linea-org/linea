@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
 import { InfoTip } from "./info-tip"
@@ -33,8 +34,7 @@ export function environmentName(
 const sections = [
   {
     label: "Deployments",
-    description:
-      "Choose the published Workflow versions to use. Publish in the builder, then deploy an exact version. Updating this Environment does not change the other one.",
+    description: "Published workflow versions this environment runs.",
     content: ({
       workspaceSlug,
       environment,
@@ -103,12 +103,15 @@ export function EnvironmentSettings(props: Readonly<EnvironmentSettingsProps>) {
       {sections.map((section) => (
         <section key={section.label} className="flex flex-col gap-3">
           <div className="flex items-center gap-1.5">
-            <h3 className="text-sm font-medium">{section.label}</h3>
+            <h3 className="text-base font-medium">{section.label}</h3>
             <InfoTip label={section.label} text={section.description} />
           </div>
-          <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
+          <Card
+            size="sm"
+            className="flex flex-col gap-0 gap-4 px-(--card-spacing)"
+          >
             {section.content(props)}
-          </div>
+          </Card>
         </section>
       ))}
     </section>

@@ -2,6 +2,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { nodeRegistry } from "@linea/runtime/browser"
 import { cn } from "@linea/ui/lib/utils"
 import { NodeIcon } from "./node-icon"
+import { branchOutputs } from "./branch-outputs"
 import { NODE_CATEGORY_COLORS } from "./node-category-colors"
 import { NodeHoverToolbar } from "./node-hover-toolbar"
 import type { WorkflowBuilderNodeData } from "./graph-conversion"
@@ -21,10 +22,7 @@ export function NodeShell({ id, data, selected }: WorkflowNodeShellProps) {
   const title = customName || definition.ui.label
   const isStart = data.nodeType === "start"
   const isEnd = data.nodeType === "end"
-  const branches =
-    data.nodeType === "branch"
-      ? Object.keys((data.config.cases as Record<string, unknown>) ?? {})
-      : []
+  const branches = data.nodeType === "branch" ? branchOutputs(data.config) : []
   const summaryField = definition.ui.summaryField
   const summaryFieldMeta = summaryField
     ? definition.ui.fields.find((field) => field.key === summaryField)
@@ -46,7 +44,9 @@ export function NodeShell({ id, data, selected }: WorkflowNodeShellProps) {
     >
       {!isStart && (
         <>
-          <NodeHoverToolbar nodeId={id} selected={selected} canDelete />
+          {!data.readOnly && (
+            <NodeHoverToolbar nodeId={id} selected={selected} canDelete />
+          )}
           <Handle
             type="target"
             position={Position.Left}
@@ -55,12 +55,12 @@ export function NodeShell({ id, data, selected }: WorkflowNodeShellProps) {
         </>
       )}
       <div className="flex items-center justify-between gap-2 px-2.5 py-2">
-        <p className="min-w-0 truncate text-xs font-medium text-foreground">
+        <p className="min-w-0 truncate text-sm font-medium text-foreground">
           {title}
         </p>
         <span
           className={cn(
-            "inline-flex h-5 max-w-[7rem] shrink-0 items-center gap-1 rounded-full px-2 text-xs font-medium",
+            "inline-flex h-5 max-w-28 shrink-0 items-center gap-1 rounded-full px-2 text-sm font-medium",
             colors.badge
           )}
         >
@@ -69,7 +69,7 @@ export function NodeShell({ id, data, selected }: WorkflowNodeShellProps) {
         </span>
       </div>
       {summaryValue !== undefined && (
-        <div className="flex min-w-0 items-center gap-1.5 px-2.5 pb-2 text-xs text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-1.5 px-2.5 pb-2 text-sm text-muted-foreground">
           {summaryFieldMeta ? (
             <span className="shrink-0">{summaryFieldMeta.label}:</span>
           ) : null}
@@ -79,7 +79,7 @@ export function NodeShell({ id, data, selected }: WorkflowNodeShellProps) {
         </div>
       )}
       {branches.length > 0 && (
-        <div className="flex flex-col gap-1.5 border-t border-border px-2.5 py-2 text-xs text-muted-foreground">
+        <div className="flex flex-col gap-1.5 border-t border-border px-2.5 py-2 text-sm text-muted-foreground">
           {branches.map((branch) => (
             <div
               key={branch}

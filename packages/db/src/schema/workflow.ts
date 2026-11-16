@@ -1,4 +1,5 @@
 import {
+  boolean,
   foreignKey,
   index,
   integer,
@@ -35,6 +36,9 @@ export const workflows = snakeCase.table(
     draftUpdatedAt: timestamp({ withTimezone: true }),
 
     archivedAt: timestamp({ withTimezone: true }),
+
+    // A workflow the assistant runs a proposal on; never listed, so a run leaves nothing for the member to tidy.
+    scratch: boolean().default(false).notNull(),
 
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp({ withTimezone: true })

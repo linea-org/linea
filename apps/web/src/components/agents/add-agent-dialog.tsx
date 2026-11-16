@@ -11,6 +11,7 @@ import {
 
 import { applicationsQueryOptions } from "@/lib/applications-api"
 import { AgentOnboardingForm } from "./agent-onboarding-form"
+import { ListSkeleton } from "@/components/workspace/list-skeleton"
 
 export function AddAgentDialog({
   workspaceSlug,
@@ -28,11 +29,11 @@ export function AddAgentDialog({
   })
   function applicationsContent() {
     if (applications.isPending) {
-      return <p className="text-xs text-muted-foreground">Loading…</p>
+      return <ListSkeleton />
     }
     if (applications.isError) {
       return (
-        <p className="text-xs text-destructive">{applications.error.message}</p>
+        <p className="text-sm text-destructive">{applications.error.message}</p>
       )
     }
     if (!applications.data) return null
@@ -49,7 +50,7 @@ export function AddAgentDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={trigger} />
-      <DialogContent className="max-h-[min(40rem,calc(100%-2rem))] overflow-y-auto">
+      <DialogContent className="max-h-4/5 overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Agent</DialogTitle>
         </DialogHeader>

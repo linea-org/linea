@@ -3,7 +3,7 @@ import {
   ArchiveRestoreIcon,
   CircleAlertIcon,
   CircleCheckIcon,
-  EllipsisVerticalIcon,
+  EllipsisIcon,
   InfoIcon,
   MailIcon,
   MailOpenIcon,
@@ -75,7 +75,7 @@ export function NotificationRow({
     <>
       <span
         className={cn(
-          "block text-xs text-foreground",
+          "block text-sm text-foreground",
           compact ? "truncate" : "line-clamp-2",
           !notification.read && "font-medium"
         )}
@@ -84,8 +84,8 @@ export function NotificationRow({
       </span>
       <span
         className={cn(
-          "mt-0.5 block text-xs text-muted-foreground",
-          compact ? "truncate" : "line-clamp-2"
+          "block text-sm text-muted-foreground",
+          compact ? "truncate" : "mt-0.5 line-clamp-2"
         )}
       >
         {notification.body}
@@ -116,70 +116,68 @@ export function NotificationRow({
   return (
     <div
       className={cn(
-        "flex items-start gap-1 hover:bg-muted/40",
-        compact ? "px-3 py-2.5" : "px-4 py-3.5",
-        !notification.read && "bg-muted/20"
+        "group/row flex items-start hover:bg-muted/50",
+        compact ? "gap-2.5 px-3 py-2.5" : "gap-3 px-4 py-3.5"
       )}
     >
-      {!notification.read ? (
-        <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />
-      ) : (
-        <span className="mt-2 size-1.5 shrink-0" />
-      )}
-      <Icon
+      <span
         className={cn(
-          "mt-1 size-4 shrink-0",
+          "relative mt-0.5 grid shrink-0 place-items-center rounded-lg bg-muted",
+          compact ? "size-7" : "size-8",
           severityColor[notification.severity]
         )}
-        aria-hidden="true"
-      />
+      >
+        <Icon className="size-4" aria-hidden="true" />
+        {!notification.read ? (
+          <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary ring-2 ring-card" />
+        ) : null}
+      </span>
       {content}
-      <div className="flex shrink-0 items-center gap-0.5">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={notification.read ? "Mark unread" : "Mark read"}
-          title={notification.read ? "Mark unread" : "Mark read"}
-          onClick={() => onToggleRead(notification.id, !notification.read)}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Options for ${notification.title}`}
+              className={cn(
+                "shrink-0 text-muted-foreground",
+                compact &&
+                  "opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100 data-popup-open:opacity-100"
+              )}
+            />
+          }
         >
-          {notification.read ? <MailIcon /> : <MailOpenIcon />}
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`More options for ${notification.title}`}
-              />
-            }
+          <EllipsisIcon />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44 min-w-44">
+          <DropdownMenuItem
+            onClick={() => onToggleRead(notification.id, !notification.read)}
           >
-            <EllipsisVerticalIcon />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44 min-w-44">
-            {archived && onUnarchive ? (
-              <DropdownMenuItem onClick={() => onUnarchive(notification.id)}>
-                <ArchiveRestoreIcon />
-                Unarchive
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onClick={() => onArchive(notification.id)}>
-                <ArchiveIcon />
-                Archive
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => onDelete(notification.id)}
-            >
-              <Trash2Icon />
-              Delete
+            {notification.read ? <MailIcon /> : <MailOpenIcon />}
+            {notification.read ? "Mark unread" : "Mark read"}
+          </DropdownMenuItem>
+          {archived && onUnarchive ? (
+            <DropdownMenuItem onClick={() => onUnarchive(notification.id)}>
+              <ArchiveRestoreIcon />
+              Unarchive
             </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+          ) : (
+            <DropdownMenuItem onClick={() => onArchive(notification.id)}>
+              <ArchiveIcon />
+              Archive
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => onDelete(notification.id)}
+          >
+            <Trash2Icon />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { Button } from "@linea/ui/components/button"
+import { Card } from "@linea/ui/components/card"
 
 import { createRegressionCaseFromFlagFn } from "@/lib/regression-cases-api"
 import {
@@ -63,7 +64,7 @@ function ConversationFindingLink({
       params={{ slug, workflowId, conversationId }}
       search={{ findingId: flag.conversationFindingId }}
       hash={`finding-${flag.conversationFindingId}`}
-      className="text-xs text-foreground hover:underline"
+      className="text-sm text-foreground hover:underline"
     >
       View finding
     </Link>
@@ -92,7 +93,6 @@ function CreateRegressionCaseAction({
     <Button
       type="button"
       variant="outline"
-      size="xs"
       disabled={mutation.isPending}
       onClick={() => mutation.mutate()}
       title={mutation.isError ? mutation.error.message : undefined}
@@ -109,8 +109,8 @@ function CreateRegressionCaseAction({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-card px-4 py-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 truncate text-xs text-foreground">{value}</p>
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="mt-0.5 truncate text-sm text-foreground">{value}</p>
     </div>
   )
 }
@@ -148,13 +148,13 @@ export function SignalDetailView({
 
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <Card className="gap-0 py-0">
         <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-foreground">
+            <p className="truncate text-sm font-medium text-foreground">
               {flagTypeLabel[signal.flagType] ?? signal.flagType}
             </p>
-            <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+            <p className="mt-0.5 truncate font-mono text-sm text-muted-foreground">
               {signal.nodeId ?? "—"}
             </p>
           </div>
@@ -164,7 +164,6 @@ export function SignalDetailView({
               <Button
                 type="button"
                 variant="outline"
-                size="xs"
                 onClick={() => resolve.mutate()}
                 disabled={resolve.isPending}
               >
@@ -188,19 +187,19 @@ export function SignalDetailView({
             value={new Date(signal.lastFlaggedAt).toLocaleString()}
           />
         </div>
-      </div>
+      </Card>
 
       {resolve.isError && (
-        <p className="mt-2 text-xs text-destructive">{resolve.error.message}</p>
+        <p className="mt-2 text-sm text-destructive">{resolve.error.message}</p>
       )}
 
       <div className="mt-4 flex flex-col gap-2">
-        <p className="pl-1 text-sm font-medium text-foreground">Trend</p>
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <p className="pl-1 text-base font-medium text-foreground">Trend</p>
+        <Card className="gap-0 py-0">
           <div className="px-4 py-4">
             <SignalTrendChart trend={signal.trend} />
           </div>
-        </div>
+        </Card>
       </div>
 
       <SignalDimensions
@@ -210,7 +209,7 @@ export function SignalDetailView({
       />
 
       <div className="mt-4 flex flex-col gap-2">
-        <p className="pl-1 text-sm font-medium text-foreground">
+        <p className="pl-1 text-base font-medium text-foreground">
           Occurrences
           {signal.occurrenceCount > occurrences.length && (
             <span className="ml-2 font-normal text-muted-foreground">
@@ -219,15 +218,15 @@ export function SignalDetailView({
             </span>
           )}
         </p>
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <Card className="gap-0 py-0">
           {occurrences.length === 0 ? (
-            <p className="px-4 py-6 text-xs text-muted-foreground">
+            <p className="px-4 py-6 text-sm text-muted-foreground">
               No occurrences recorded.
             </p>
           ) : (
             <ul className="divide-y divide-border">
               {occurrences.map((flag) => (
-                <li key={flag.id} className="px-4 py-3 text-xs">
+                <li key={flag.id} className="px-4 py-3 text-sm">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">
                       {new Date(flag.createdAt).toLocaleString()}
@@ -246,7 +245,7 @@ export function SignalDetailView({
                             workflowId,
                             executionId: flag.executionId,
                           }}
-                          className="font-mono text-xs text-foreground hover:underline"
+                          className="font-mono text-sm text-foreground hover:underline"
                         >
                           {flag.executionId}
                         </Link>
@@ -262,7 +261,7 @@ export function SignalDetailView({
                     </div>
                   </div>
                   {rationaleOf(flag) && (
-                    <p className="mt-1.5 text-xs text-foreground">
+                    <p className="mt-1.5 text-sm text-foreground">
                       {rationaleOf(flag)}
                     </p>
                   )}
@@ -270,7 +269,7 @@ export function SignalDetailView({
               ))}
             </ul>
           )}
-        </div>
+        </Card>
       </div>
     </main>
   )

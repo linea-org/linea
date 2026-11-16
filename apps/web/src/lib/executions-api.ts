@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 
-import { apiFetch } from "./api-fetch"
+import { apiFetch, parseErrorMessage } from "./api-fetch"
 
 import { z } from "zod"
 import {
@@ -52,10 +52,7 @@ export const triggerExecutionFn = createServerFn({ method: "POST" })
       body: JSON.stringify({ triggerPayload: data.triggerPayload }),
     })
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as {
-        message?: string
-      } | null
-      throw new Error(body?.message ?? "Could not run workflow")
+      throw new Error(await parseErrorMessage(res, "Could not run workflow"))
     }
     return (await res.json()) as ExecutionSummary
   })
@@ -71,10 +68,7 @@ export const testRunFn = createServerFn({ method: "POST" })
       body: JSON.stringify({ graph: data.graph }),
     })
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as {
-        message?: string
-      } | null
-      throw new Error(body?.message ?? "Could not run workflow")
+      throw new Error(await parseErrorMessage(res, "Could not run workflow"))
     }
     return (await res.json()) as ExecutionSummary
   })
@@ -107,10 +101,7 @@ export const replayStepFn = createServerFn({ method: "POST" })
       }
     )
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as {
-        message?: string
-      } | null
-      throw new Error(body?.message ?? "Could not replay step")
+      throw new Error(await parseErrorMessage(res, "Could not replay step"))
     }
     return (await res.json()) as { replayStepId: string }
   })

@@ -1,6 +1,8 @@
 import { Fragment } from "react"
 import { Link, useMatches, useNavigate } from "@tanstack/react-router"
 
+import { ASSISTANT_NAME } from "@/lib/assistant-api"
+
 import {
   Breadcrumb,
   BreadcrumbEllipsis,
@@ -16,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@linea/ui/components/dropdown-menu"
+import { Separator } from "@linea/ui/components/separator"
 
 type Crumb =
   | {
@@ -49,6 +52,17 @@ function crumbsForMatch(match: RouteMatch, slug: string): Crumb[] {
   switch (match.routeId) {
     case "/w/$slug/agents/new":
       return [applicationsCrumb(slug), { label: "Add Agent" }]
+    case "/w/$slug/assistant":
+      return [{ label: ASSISTANT_NAME }]
+    case "/w/$slug/templates":
+      return [
+        {
+          label: ASSISTANT_NAME,
+          to: "/w/$slug/assistant",
+          params: { slug },
+        },
+        { label: "Templates" },
+      ]
     case "/w/$slug/applications/":
       return [{ label: "Applications" }]
     case "/w/$slug/applications/$applicationId": {
@@ -139,6 +153,8 @@ function crumbsForMatch(match: RouteMatch, slug: string): Crumb[] {
       return [{ label: "Members" }]
     case "/w/$slug/settings/secrets":
       return [{ label: "Secrets" }]
+    case "/w/$slug/settings/models":
+      return [{ label: "Models" }]
     case "/w/$slug/workflows/$workflowId/builder":
       return [
         workflowsCrumb(slug),
@@ -221,7 +237,8 @@ function HiddenCrumbs({ crumbs }: { crumbs: Crumb[] }) {
 
 export function TopBarBreadcrumb({ slug }: { slug: string }) {
   const crumbs = useWorkspaceCrumbs(slug)
-  if (crumbs.length === 0) {
+  // A lone page title repeats the sidebar's active item; only a trail with a parent is shown.
+  if (crumbs.length < 2) {
     return null
   }
   const first = crumbs[0]
@@ -233,23 +250,29 @@ export function TopBarBreadcrumb({ slug }: { slug: string }) {
   const visible = collapsed ? [first, last] : crumbs
   const hidden = collapsed ? crumbs.slice(1, -1) : []
   return (
-    <Breadcrumb className="min-w-0 overflow-hidden">
-      <BreadcrumbList className="flex-nowrap">
-        {visible.map((crumb, index) => (
-          <Fragment key={`${crumb.label}-${index}`}>
-            {index > 0 ? <BreadcrumbSeparator className="shrink-0" /> : null}
-            {index === 1 && hidden.length > 0 ? (
-              <>
-                <HiddenCrumbs crumbs={hidden} />
-                <BreadcrumbSeparator className="shrink-0" />
-              </>
-            ) : null}
-            <BreadcrumbItem className="min-w-0">
-              <CrumbItem crumb={crumb} current={index === visible.length - 1} />
-            </BreadcrumbItem>
-          </Fragment>
-        ))}
-      </BreadcrumbList>
-    </Breadcrumb>
+    <>
+      <Separator orientation="vertical" className="h-4" />
+      <Breadcrumb className="min-w-0 overflow-hidden">
+        <BreadcrumbList className="flex-nowrap">
+          {visible.map((crumb, index) => (
+            <Fragment key={`${crumb.label}-${index}`}>
+              {index > 0 ? <BreadcrumbSeparator className="shrink-0" /> : null}
+              {index === 1 && hidden.length > 0 ? (
+                <>
+                  <HiddenCrumbs crumbs={hidden} />
+                  <BreadcrumbSeparator className="shrink-0" />
+                </>
+              ) : null}
+              <BreadcrumbItem className="min-w-0">
+                <CrumbItem
+                  crumb={crumb}
+                  current={index === visible.length - 1}
+                />
+              </BreadcrumbItem>
+            </Fragment>
+          ))}
+        </BreadcrumbList>
+      </Breadcrumb>
+    </>
   )
 }

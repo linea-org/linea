@@ -71,7 +71,7 @@ function MagicLinkPage() {
         </>
       }
     >
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {error ? (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
@@ -80,7 +80,6 @@ function MagicLinkPage() {
         <Button
           type="button"
           className="w-full"
-          size="lg"
           disabled={pending}
           onClick={() => {
             void continueSignIn()

@@ -84,7 +84,7 @@ export function AgentApplicationFields({
             })}
           />
           <FieldDescription>
-            Development and Production Environments are created with it.
+            Comes with Development and Production.
           </FieldDescription>
           <FieldError>
             {getFieldState("application.name").error?.message}

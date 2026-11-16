@@ -15,6 +15,8 @@ export const sessions = snakeCase.table(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     activeOrganizationId: uuid(),
+    // Last authenticator-code check; sensitive actions accept it in place of a fresh sign-in.
+    stepUpAt: timestamp(),
   },
   (table) => [index("sessions_userId_idx").on(table.userId)]
 )

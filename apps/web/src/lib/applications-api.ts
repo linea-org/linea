@@ -88,3 +88,35 @@ export function applicationsQueryOptions(workspaceSlug: string) {
     queryFn: () => listApplicationsFn(),
   })
 }
+
+const applicationOverviewSchema = z.object({
+  applicationId: z.uuid(),
+  environments: z.array(
+    z.object({
+      environment: z.enum(["dev", "production"]),
+      enabled: z.boolean(),
+      live: z.boolean(),
+    })
+  ),
+  hasProviderKey: z.boolean(),
+  openSignals: z.number(),
+  runsByDay: z.array(z.object({ day: z.string(), count: z.number() })),
+  lastRun: z.object({ at: z.string(), status: z.string() }).nullable(),
+})
+
+export type ApplicationOverview = z.infer<typeof applicationOverviewSchema>
+
+export const listApplicationOverviewsFn = createServerFn({
+  method: "GET",
+}).handler(async () => {
+  const response = await apiFetch("/applications/overview")
+  if (!response.ok) throw new Error("Could not load Application health")
+  return z.array(applicationOverviewSchema).parse(await response.json())
+})
+
+export function applicationOverviewsQueryOptions(workspaceSlug: string) {
+  return queryOptions({
+    queryKey: ["applications", workspaceSlug, "overview"],
+    queryFn: () => listApplicationOverviewsFn(),
+  })
+}

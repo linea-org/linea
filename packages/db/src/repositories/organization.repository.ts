@@ -19,6 +19,17 @@ export async function getOrganizationBySlug(
   return organization
 }
 
+export async function getOrganizationById(
+  db: DbClient,
+  id: string
+): Promise<Organization | undefined> {
+  const [organization] = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.id, id))
+  return organization
+}
+
 /** Atomic: concurrent callers racing to create the same slug never crash on the unique constraint — the loser's insert no-ops and it re-reads whatever the winner inserted. */
 export async function findOrCreateOrganizationBySlug(
   db: DbClient,

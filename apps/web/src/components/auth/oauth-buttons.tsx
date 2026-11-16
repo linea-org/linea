@@ -8,6 +8,7 @@ import { authErrorMessage } from "@/lib/auth-redirect"
 
 type OAuthButtonsProps = {
   invitationId?: string
+  redirect?: string
   onError?: (message: string | null) => void
 }
 
@@ -53,7 +54,11 @@ function GitHubIcon() {
   )
 }
 
-export function OAuthButtons({ invitationId, onError }: OAuthButtonsProps) {
+export function OAuthButtons({
+  invitationId,
+  redirect,
+  onError,
+}: Readonly<OAuthButtonsProps>) {
   const [pendingProvider, setPendingProvider] = useState<
     "google" | "github" | null
   >(null)
@@ -65,7 +70,7 @@ export function OAuthButtons({ invitationId, onError }: OAuthButtonsProps) {
     const origin = window.location.origin
     const callbackURL = invitationId
       ? `${origin}/accept-invitation/${invitationId}`
-      : `${origin}/`
+      : `${origin}${redirect ?? "/"}`
     const newUserCallbackURL = invitationId
       ? callbackURL
       : `${origin}/onboarding/workspace`
@@ -86,45 +91,37 @@ export function OAuthButtons({ invitationId, onError }: OAuthButtonsProps) {
   const busy = pendingProvider !== null
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-2.5">
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-2 gap-3">
         <Button
           type="button"
           variant="outline"
-          size="lg"
-          className="w-full"
+          aria-label="Continue with Google"
           disabled={busy}
           onClick={() => {
             void signInWith("google")
           }}
         >
           <GoogleIcon />
-          {pendingProvider === "google"
-            ? "Redirecting…"
-            : "Continue with Google"}
+          {pendingProvider === "google" ? "Redirecting…" : "Google"}
         </Button>
         <Button
           type="button"
           variant="outline"
-          size="lg"
-          className="w-full"
+          aria-label="Continue with GitHub"
           disabled={busy}
           onClick={() => {
             void signInWith("github")
           }}
         >
           <GitHubIcon />
-          {pendingProvider === "github"
-            ? "Redirecting…"
-            : "Continue with GitHub"}
+          {pendingProvider === "github" ? "Redirecting…" : "GitHub"}
         </Button>
       </div>
 
-      <div className="relative flex items-center gap-3">
+      <div className="flex items-center gap-3">
         <Separator className="flex-1" />
-        <span className="shrink-0 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          or
-        </span>
+        <span className="text-xs text-muted-foreground">or</span>
         <Separator className="flex-1" />
       </div>
     </div>

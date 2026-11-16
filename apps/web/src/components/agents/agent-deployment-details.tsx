@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import type { ReactNode } from "react"
 import { RocketIcon } from "lucide-react"
 import { Badge } from "@linea/ui/components/badge"
@@ -51,7 +52,7 @@ function ArchivedNote({
   return (
     <p
       role="note"
-      className="border-t border-border px-5 py-3 text-xs leading-relaxed text-muted-foreground"
+      className="border-t border-border px-5 py-3 text-sm leading-relaxed text-muted-foreground"
     >
       {binding?.enabled
         ? "This Agent is archived. Its version cannot be changed, but you can disable this deployment below."
@@ -107,9 +108,9 @@ export function AgentDeploymentDetails({
   const status = deploymentStatus(environment, binding)
   const details = deploymentFacts(environment, version, contract)
   return (
-    <article className="overflow-hidden rounded-xl border border-border bg-card">
+    <Card render={<article />} className="gap-0 py-0">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
-        <h3 className="text-sm font-medium">Deployment details</h3>
+        <h3 className="text-base font-medium">Deployment details</h3>
         <Badge
           variant={
             binding?.enabled && environment.enabled ? "secondary" : "outline"
@@ -124,20 +125,20 @@ export function AgentDeploymentDetails({
             <RocketIcon className="size-5 text-muted-foreground" />
           </div>
           <div className="flex flex-col gap-1">
-            <p className="text-xs text-muted-foreground">Deployed version</p>
+            <p className="text-sm text-muted-foreground">Deployed version</p>
             <p className="text-xl font-medium">
               {versionHeadline(version, binding)}
             </p>
-            <p className="max-w-64 text-xs leading-relaxed text-muted-foreground">
+            <p className="max-w-64 text-sm leading-relaxed text-muted-foreground">
               {versionHint(environment, binding)}
             </p>
           </div>
         </div>
-        <dl className="grid grid-cols-1 content-start gap-x-6 gap-y-5 min-[400px]:grid-cols-2">
+        <dl className="grid grid-cols-1 content-start gap-x-6 gap-y-5 sm:grid-cols-2">
           {details.map(({ label, value }) => (
             <div key={label} className="flex min-w-0 flex-col gap-1">
-              <dt className="text-xs text-muted-foreground">{label}</dt>
-              <dd className="text-sm break-words">{value}</dd>
+              <dt className="text-sm text-muted-foreground">{label}</dt>
+              <dd className="text-base break-words">{value}</dd>
             </div>
           ))}
         </dl>
@@ -152,7 +153,7 @@ export function AgentDeploymentDetails({
       {!environment.enabled && (
         <p
           role="note"
-          className="border-t border-border px-5 py-3 text-xs text-muted-foreground"
+          className="border-t border-border px-5 py-3 text-sm text-muted-foreground"
         >
           This Environment is disabled. Deployment settings are read-only.
         </p>
@@ -168,7 +169,7 @@ export function AgentDeploymentDetails({
             Deployment settings
           </AccordionTrigger>
           <AccordionContent keepMounted className="px-5 pb-5">
-            <p className="mb-4 text-xs text-muted-foreground">
+            <p className="mb-4 text-sm text-muted-foreground">
               {archived
                 ? "Archived Agents cannot be moved to another version or enabled again."
                 : "Select a published version and choose whether new requests can use it in this Environment."}
@@ -177,6 +178,6 @@ export function AgentDeploymentDetails({
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-    </article>
+    </Card>
   )
 }

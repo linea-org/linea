@@ -91,7 +91,7 @@ export function WorkflowTitle({
           className="h-8 w-48"
         />
         {rename.error ? (
-          <span className="max-w-48 truncate text-xs text-destructive">
+          <span className="max-w-48 truncate text-sm text-destructive">
             {rename.error.message}
           </span>
         ) : null}
@@ -100,13 +100,13 @@ export function WorkflowTitle({
   }
   return (
     <div className="hidden items-center lg:flex">
-      <span className="max-w-48 truncate px-2 text-xs font-medium">
+      <span className="max-w-48 truncate px-2 text-sm font-medium">
         {workflow.name}
       </span>
       <Button
         type="button"
         variant="ghost"
-        size="icon-xs"
+        size="icon-sm"
         aria-label="Edit workflow name"
         onClick={() => {
           skipCommit.current = false

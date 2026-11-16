@@ -115,7 +115,7 @@ function VerifyEmailPage() {
         </>
       }
     >
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {error ? (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
@@ -130,7 +130,6 @@ function VerifyEmailPage() {
           <Button
             type="button"
             className="w-full"
-            size="lg"
             disabled={pending}
             onClick={() => {
               void activate()
@@ -142,7 +141,6 @@ function VerifyEmailPage() {
           <Button
             type="button"
             className="w-full"
-            size="lg"
             disabled={pending || !email}
             onClick={() => {
               void resend()
@@ -151,9 +149,6 @@ function VerifyEmailPage() {
             {pending ? "Sending…" : "Resend verification email"}
           </Button>
         )}
-        <p className="text-center text-xs text-muted-foreground">
-          After verifying, you’ll continue to workspace setup automatically.
-        </p>
       </div>
     </AuthShell>
   )

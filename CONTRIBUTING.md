@@ -103,8 +103,7 @@ linea/
 │   ├── web/                # workspace dashboard and workflow builder
 │   ├── platform-api/       # workspace and public /v1 HTTP interfaces
 │   ├── execution-worker/   # graph execution, checkpoints, replay, connectors
-│   ├── background-worker/  # schedules, outbox delivery, notifications, analysis
-│   └── run-gateway/        # reserved scaffold for future sandbox execution
+│   └── background-worker/  # schedules, outbox delivery, notifications, analysis
 └── packages/
     ├── protocol/           # public resources, operations, events, and errors
     ├── sdk/                # server, End-User, and webhook TypeScript clients
@@ -116,9 +115,7 @@ linea/
     ├── queue/              # BullMQ queues and dispatch contracts
     ├── auth/               # better-auth configuration and email delivery
     ├── ui/                 # shared React primitives and design tokens
-    ├── config/             # shared lint and TypeScript configuration
-    ├── types/              # shared internal TypeScript types
-    └── sandbox-provider/   # reserved scaffold for future sandbox implementations
+    └── config/             # shared lint and TypeScript configuration
 ```
 
 The documentation site is not part of this workspace; it lives in
@@ -132,12 +129,10 @@ Apps never import from one another. Shared contracts and behavior belong in
 `packages/*`. The browser imports `@linea/runtime/browser`; server-only graph
 execution remains in the full runtime package and workers.
 
-See [docs/repo-structure.md](docs/repo-structure.md) for current ownership and
-dependency rules, [docs/roadmap.md](docs/roadmap.md) for strategic sequencing,
-[docs/execution-architecture.md](docs/execution-architecture.md) for the
-execution data model, and
-[docs/documentation-strategy.md](docs/documentation-strategy.md) for how
-documentation itself is organized as the product grows.
+See [docs/architecture/repo-structure.md](docs/architecture/repo-structure.md) for current ownership and
+dependency rules, [docs/product/roadmap.md](docs/product/roadmap.md) for strategic sequencing,
+[docs/architecture/execution-architecture.md](docs/architecture/execution-architecture.md) for the
+execution data model.
 
 ## Common commands
 
@@ -156,7 +151,8 @@ pnpm test                 # test suites across all packages
 pnpm check:contracts      # verify generated public contracts are current
 pnpm test:launch          # first external-subject approval launch gate
 pnpm test:connections-launch # Connections and Action Consent launch gate
-pnpm test:connections-smoke  # optional live Google/GitHub provider smoke tests
+pnpm --filter @linea/connectors test:google-live   # optional, needs credentials
+pnpm --filter @linea/connectors test:github:live   # optional, needs credentials
 
 # Database
 pnpm db:up                # start Postgres via Docker

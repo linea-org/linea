@@ -1,5 +1,9 @@
 import { createAuthClient } from "better-auth/react"
-import { magicLinkClient, organizationClient } from "better-auth/client/plugins"
+import {
+  magicLinkClient,
+  organizationClient,
+  twoFactorClient,
+} from "better-auth/client/plugins"
 
 const baseURL =
   import.meta.env.VITE_APP_URL?.replace(/\/$/, "") || "http://localhost:3001"
@@ -7,7 +11,7 @@ const baseURL =
 export const authClient = createAuthClient({
   baseURL,
   basePath: "/v1/auth",
-  plugins: [organizationClient(), magicLinkClient()],
+  plugins: [organizationClient(), magicLinkClient(), twoFactorClient()],
 })
 
 export type SessionData = {

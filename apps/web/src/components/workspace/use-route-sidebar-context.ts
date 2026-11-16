@@ -51,15 +51,11 @@ function applicationContext(match: ApplicationMatch): Kind<"application"> {
 }
 
 function pathContext(slug: string, pathname: string): SidebarContext {
-  if (pathname.startsWith(`/w/${slug}/workflows`)) return { kind: "workflows" }
   if (
-    pathname.startsWith(`/w/${slug}/executions`) ||
-    pathname === `/w/${slug}/approvals`
+    pathname.startsWith(`/w/${slug}/assistant`) ||
+    pathname.startsWith(`/w/${slug}/templates`)
   ) {
-    return {
-      kind: "executions",
-      view: pathname.endsWith("/approvals") ? "approvals" : "history",
-    }
+    return { kind: "assistant" }
   }
   return { kind: "main", pathname }
 }

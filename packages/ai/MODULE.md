@@ -6,19 +6,17 @@ inferred from a model name string.
 
 ## Non-obvious invariants
 
-- **`resolveApiKey` currently returns a workspace's stored key as
-  plaintext.** No encryption utility exists anywhere in this repo yet — the
-  `secrets` table's `encryptedValue` column is opaque storage, and
-  encrypting/decrypting is documented as the call site's job
-  (`packages/db/MODULE.md`). This package is that call site, and it doesn't
-  encrypt or decrypt anything yet. This is a tracked gap, not an oversight —
-  see `roadmap.md`'s Phase 1 secrets work. Don't use this for a real
-  customer's key before that lands.
+- **`resolveApiKey` is where stored secrets are decrypted.** The `secrets`
+  table's `encryptedValue` column is opaque storage; decrypting is the call
+  site's job (`packages/db/MODULE.md`) and this package is that call site.
+  A stored value that isn't in the encrypted format is returned as-is
+  (legacy or out-of-band rows); one that looks encrypted but fails
+  validation throws.
 - **The registry maps a model id to a provider explicitly**, one entry per
   model, rather than inferring the provider from the string (e.g. "starts
   with `gpt`"). A typo'd or unregistered model throws immediately instead of
   silently resolving to the wrong provider or no provider.
-- **A workspace's own key always wins over the platform key.** `resolveApiKey`'s
+- **An Environment's own key wins over the platform key.** `resolveApiKey`'s
   `keyName` doubles as both the `secrets` table lookup key and the platform
   fallback's env var name (e.g. `ANTHROPIC_API_KEY`) — one name per provider
   serves both purposes. A caller gets it from `resolveKeyName(model)` rather
@@ -57,7 +55,7 @@ inferred from a model name string.
 ## Public surface
 
 `registry`, `resolveProvider(model)`, `resolveKeyName(model)`,
-`resolveApiKey(db, workspaceId, keyName)`, `createOpenAiCompatibleProvider(baseURL?)`,
+`resolveApiKey(db, { workspaceId, environmentId?, keyName })`, `createOpenAiCompatibleProvider(baseURL?)`,
 `calculateCostMicros(model, tokensInput, tokensOutput)`,
 and the `AiProvider` / `CompletionRequest` / `CompletionResult` / `ModelPrice` types.
 
@@ -68,4 +66,4 @@ when it's needed. Embeddings — `AiProvider` only has `complete()`, no
 `embed()`, until `packages/kb` needs one in Phase 4. Image, video, and
 voice generation (Grok Imagine, Grok Voice, and equivalents from other
 providers) — a different capability shape than text completion, not
-attempted here. Real secrets encryption — see the invariant above.
+attempted here.

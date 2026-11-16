@@ -120,3 +120,29 @@ export function organizationInviteEmailHtml(
     ctaUrl: input.inviteUrl,
   })
 }
+
+/** A short notice from the company about something of the recipient's, with an optional button. Paragraphs are plain text, escaped here. */
+export function noticeEmailHtml(
+  input: {
+    name?: string | null
+    title: string
+    preview: string
+    paragraphs: string[]
+    ctaLabel?: string
+    ctaUrl?: string
+  } & EmailTemplateOptions
+) {
+  const greeting = input.name ? `Hi ${escapeHtml(input.name)},` : "Hi,"
+  const paragraphs = input.paragraphs
+    .map((text) => `<p style="margin:0 0 14px;">${escapeHtml(text)}</p>`)
+    .join("")
+  return renderEmailLayout({
+    logo: input.logo ?? "linea",
+    logoUrl: input.logoUrl,
+    preview: input.preview,
+    title: input.title,
+    bodyHtml: `<p style="margin:0 0 14px;">${greeting}</p>${paragraphs}`,
+    ctaLabel: input.ctaLabel,
+    ctaUrl: input.ctaUrl,
+  })
+}

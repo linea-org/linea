@@ -284,7 +284,7 @@ export function KeyValueEditor({
             id={index === 0 ? id : undefined}
             placeholder="Key"
             value={row.key}
-            className="h-8 w-24 shrink-0"
+            className="w-24 shrink-0"
             onChange={(e) => updateRow(row.id, { key: e.target.value })}
             onKeyDown={(e) => handleEditorKey(e, row)}
           />
@@ -304,11 +304,7 @@ export function KeyValueEditor({
               }}
               modal={false}
             >
-              <SelectTrigger
-                size="sm"
-                className="h-8 w-[5.75rem] shrink-0"
-                aria-label="Value type"
-              >
+              <SelectTrigger className="w-23 shrink-0" aria-label="Value type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -333,7 +329,7 @@ export function KeyValueEditor({
                 }}
                 modal={false}
               >
-                <SelectTrigger size="sm" className="h-8 w-full">
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -347,7 +343,7 @@ export function KeyValueEditor({
                 value={row.valueText}
                 rows={9}
                 aria-invalid={Boolean(row.error)}
-                className="field-sizing-fixed min-h-40 resize-y overflow-auto py-1.5 font-mono text-xs"
+                className="field-sizing-fixed min-h-40 resize-y overflow-auto py-1.5 font-mono text-sm"
                 onChange={(e) => setValueText(row, e.target.value)}
                 onKeyDown={(e) => handleEditorKey(e, row)}
               />
@@ -357,19 +353,19 @@ export function KeyValueEditor({
                 placeholder="Value"
                 value={row.valueText}
                 aria-invalid={Boolean(row.error)}
-                className="h-8 font-mono text-xs"
+                className="font-mono text-sm"
                 onChange={(e) => setValueText(row, e.target.value)}
                 onKeyDown={(e) => handleEditorKey(e, row)}
               />
             )}
             {row.error && (
-              <p className="mt-1 text-[11px] text-destructive">{row.error}</p>
+              <p className="mt-1 text-xs text-destructive">{row.error}</p>
             )}
           </div>
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
+            size="icon-sm"
             aria-label="Remove row"
             className="mt-0.5 shrink-0"
             onClick={() => removeRow(row.id)}
@@ -381,7 +377,6 @@ export function KeyValueEditor({
       <Button
         type="button"
         variant="outline"
-        size="xs"
         className="self-start"
         onClick={addRow}
       >

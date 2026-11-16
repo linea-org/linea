@@ -14,6 +14,7 @@ export const users = snakeCase.table("users", {
   email: text().notNull().unique(),
   emailVerified: boolean().default(false).notNull(),
   image: text(),
+  twoFactorEnabled: boolean().default(false).notNull(),
   createdAt: timestamp().defaultNow().notNull(),
   updatedAt: timestamp()
     .defaultNow()

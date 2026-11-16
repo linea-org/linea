@@ -7,8 +7,8 @@ function Field({
 }: Readonly<{ label: string; children: React.ReactNode }>) {
   return (
     <div className="min-w-0 space-y-1">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-xs">{children}</dd>
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="text-sm">{children}</dd>
     </div>
   )
 }

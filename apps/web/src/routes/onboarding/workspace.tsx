@@ -21,7 +21,7 @@ function CreateWorkspacePage() {
   return (
     <AuthShell
       title="Create a workspace"
-      description="Workspaces keep your workflows, members, and settings together."
+      description="Holds workflows, members and settings."
     >
       <CreateWorkspaceForm
         setActive

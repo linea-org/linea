@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { and, desc, eq, isNull, max } from "drizzle-orm"
 import {
   workflows,
@@ -38,6 +39,50 @@ export async function findOrCreateWorkflowBySlug(
     throw new Error(`Failed to find or create workflow "${input.slug}"`)
   }
   return existing
+}
+
+const SCRATCH_SLUG = "assistant-scratch"
+
+/** The one hidden workflow in an application that proposals are run on, never a user's own. */
+export async function findOrCreateScratchWorkflow(
+  db: DbClient,
+  workspaceId: string,
+  applicationId: string
+): Promise<Workflow> {
+  const findScratch = async () => {
+    const [scratch] = await db
+      .select()
+      .from(workflows)
+      .where(
+        and(
+          eq(workflows.workspaceId, workspaceId),
+          eq(workflows.applicationId, applicationId),
+          eq(workflows.scratch, true)
+        )
+      )
+    return scratch
+  }
+  const existing = await findScratch()
+  if (existing) return existing
+  for (const slug of [SCRATCH_SLUG, `${SCRATCH_SLUG}-${randomUUID()}`]) {
+    const [inserted] = await db
+      .insert(workflows)
+      .values({
+        workspaceId,
+        applicationId,
+        name: "Assistant scratch",
+        slug,
+        scratch: true,
+      })
+      .onConflictDoNothing({
+        target: [workflows.applicationId, workflows.slug],
+      })
+      .returning()
+    if (inserted) return inserted
+    const raced = await findScratch()
+    if (raced) return raced
+  }
+  throw new Error("Failed to find or create the scratch workflow")
 }
 
 export type CreateWorkflowVersionInput = {
@@ -266,6 +311,7 @@ export async function listWorkflows(
         options.applicationId
           ? eq(workflows.applicationId, options.applicationId)
           : undefined,
+        eq(workflows.scratch, false),
         options.includeArchived ? undefined : isNull(workflows.archivedAt)
       )
     )

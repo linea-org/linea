@@ -1,1 +1,0 @@
-ALTER TABLE "workspace_settings" ADD COLUMN "platform_model_key_enabled" boolean DEFAULT false NOT NULL;

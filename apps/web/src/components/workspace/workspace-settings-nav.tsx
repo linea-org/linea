@@ -1,5 +1,5 @@
 import { Link, useMatchRoute } from "@tanstack/react-router"
-import { KeyIcon, SettingsIcon, UsersIcon } from "lucide-react"
+import { CpuIcon, KeyIcon, SettingsIcon, UsersIcon } from "lucide-react"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -52,6 +52,24 @@ export function WorkspaceSettingsNav({ slug }: Readonly<{ slug: string }>) {
               >
                 <KeyIcon />
                 <span>Secrets</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="sm"
+                isActive={
+                  !!matchRoute({
+                    to: "/w/$slug/settings/models",
+                    params: { slug },
+                  })
+                }
+                tooltip="Models"
+                render={
+                  <Link to="/w/$slug/settings/models" params={{ slug }} />
+                }
+              >
+                <CpuIcon />
+                <span>Models</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>

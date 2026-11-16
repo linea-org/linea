@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 
 import { Badge } from "@linea/ui/components/badge"
+import { Card } from "@linea/ui/components/card"
 
 import { formatCost } from "@/components/executions/execution-list"
 import {
@@ -9,6 +10,7 @@ import {
   type RegressionRunDetail as RegressionRunDetailResponse,
 } from "@/lib/regression-runs-api"
 import { RegressionResultStatusBadge } from "./regression-result-status-badge"
+import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
 
 export async function loadRegressionRunDetail(
   workflowId: string,
@@ -20,8 +22,8 @@ export async function loadRegressionRunDetail(
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-card px-4 py-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 truncate text-xs text-foreground">{value}</p>
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="mt-0.5 truncate text-sm text-foreground">{value}</p>
     </div>
   )
 }
@@ -55,13 +57,13 @@ export function RegressionRunDetailView({
 
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <Card className="gap-0 py-0">
         <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-foreground">
+            <p className="truncate text-sm font-medium text-foreground">
               Regression run
             </p>
-            <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+            <p className="mt-0.5 truncate font-mono text-sm text-muted-foreground">
               {run.id}
             </p>
           </div>
@@ -77,37 +79,37 @@ export function RegressionRunDetailView({
             value={new Date(run.startedAt).toLocaleString()}
           />
         </div>
-      </div>
+      </Card>
 
       <div className="mt-4 flex flex-col gap-2">
-        <p className="pl-1 text-sm font-medium text-foreground">Results</p>
+        <p className="pl-1 text-base font-medium text-foreground">Results</p>
         {run.results.length === 0 ? (
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <p className="px-4 py-6 text-xs text-muted-foreground">
-              No results recorded.
-            </p>
-          </div>
+          <Empty className="min-h-0 py-8 sm:p-8">
+            <EmptyHeader>
+              <EmptyTitle>No results recorded</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+          <Card className="gap-0 divide-y divide-border py-0">
             {run.results.map((result) => (
               <div key={result.id} className="px-4 py-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <RegressionResultStatusBadge status={result.status} />
                   {result.score !== null && (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-sm text-muted-foreground">
                       score {result.score}
                     </span>
                   )}
-                  <span className="ml-auto font-mono text-xs text-muted-foreground">
+                  <span className="ml-auto font-mono text-sm text-muted-foreground">
                     {formatCost(result.costMicros)}
                   </span>
                 </div>
-                <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap text-foreground">
+                <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground">
                   {formatJson(result.output)}
                 </pre>
               </div>
             ))}
-          </div>
+          </Card>
         )}
       </div>
     </main>

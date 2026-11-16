@@ -17,6 +17,7 @@ import { Button } from "@linea/ui/components/button"
 import { Badge } from "@linea/ui/components/badge"
 import { publishAgentVersionFn } from "@/lib/agents-api"
 import type { AgentContract, AgentVersion } from "@/lib/agent-schemas"
+import { Card } from "@linea/ui/components/card"
 
 export function AgentVersions({
   agentId,
@@ -48,18 +49,20 @@ export function AgentVersions({
             </EmptyMedia>
             <EmptyTitle>No versions yet</EmptyTitle>
             <EmptyDescription>
-              Save a configuration to create the first version of this Agent.
+              Save to create the first version.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : null}
       {versions.map((version) => (
-        <article
+        <Card
           key={version.id}
-          className="flex flex-col gap-3 rounded-lg border p-4"
+          render={<article />}
+          size="sm"
+          className="gap-3 px-(--card-spacing)"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-xs font-medium">
+            <h3 className="text-sm font-medium">
               Version {version.version} · Contract revision{" "}
               {
                 contracts.find(
@@ -71,7 +74,7 @@ export function AgentVersions({
               {version.publishedAt ? "Published" : "Unpublished"}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {version.definition.model} · {version.definition.maxIterations}{" "}
             iterations · {version.definition.tools.length} tools
           </p>
@@ -79,7 +82,7 @@ export function AgentVersions({
             <AccordionItem value="definition">
               <AccordionTrigger>Inspect definition</AccordionTrigger>
               <AccordionContent>
-                <pre className="mt-3 max-h-96 overflow-auto rounded-md bg-surface-canvas p-3 text-xs break-words whitespace-pre-wrap">
+                <pre className="mt-3 max-h-96 overflow-auto rounded-md bg-surface-canvas p-3 text-sm break-words whitespace-pre-wrap">
                   {JSON.stringify(version.definition, null, 2)}
                 </pre>
               </AccordionContent>
@@ -89,7 +92,6 @@ export function AgentVersions({
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
-                size="xs"
                 variant="outline"
                 onClick={() => onLoad(version)}
               >
@@ -98,7 +100,6 @@ export function AgentVersions({
               {!version.publishedAt && (
                 <Button
                   type="button"
-                  size="xs"
                   disabled={publish.isPending}
                   onClick={() => publish.mutate(version.id)}
                 >
@@ -109,15 +110,15 @@ export function AgentVersions({
               )}
             </div>
           )}
-        </article>
+        </Card>
       ))}
       {publish.error && (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-sm text-destructive">
           {publish.error.message}
         </p>
       )}
       {publish.isSuccess && (
-        <output className="block text-xs text-muted-foreground">
+        <output className="block text-sm text-muted-foreground">
           Version published. Choose an Environment to deploy it.
         </output>
       )}

@@ -12,6 +12,7 @@ import {
   EmptyTitle,
 } from "@linea/ui/components/empty"
 import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
+import { Card } from "@linea/ui/components/card"
 
 import { NotificationRow } from "@/components/notifications"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
@@ -25,6 +26,7 @@ import {
   unarchiveNotificationFn,
   unreadNotificationCountQueryOptions,
 } from "@/lib/notifications-api"
+import { ListSkeleton } from "@/components/workspace/list-skeleton"
 
 export const Route = createFileRoute("/w/$slug/notifications")({
   component: NotificationsPage,
@@ -84,7 +86,7 @@ function NotificationsPage() {
             <TabsTrigger value="inbox">
               Inbox
               {unreadCount > 0 ? (
-                <span className="rounded-full bg-primary/10 px-1.5 text-[11px] font-medium text-primary">
+                <span className="rounded-full bg-primary/10 px-1.5 text-xs font-medium text-primary">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               ) : null}
@@ -96,7 +98,6 @@ function NotificationsPage() {
           <div className="ml-auto">
             <Button
               variant="outline"
-              size="xs"
               onClick={() => markAllRead.mutate()}
               disabled={unreadCount === 0 || markAllRead.isPending}
             >
@@ -107,9 +108,9 @@ function NotificationsPage() {
         ) : null}
       </PageToolbar>
       {notificationsQuery.isPending ? (
-        <p className="px-4 py-8 text-xs text-muted-foreground">Loading…</p>
+        <ListSkeleton className="px-4 py-2" />
       ) : notificationsQuery.isError ? (
-        <p className="px-4 py-8 text-xs text-destructive">
+        <p className="px-4 py-8 text-sm text-destructive">
           {notificationsQuery.error.message}
         </p>
       ) : notifications.length === 0 ? (
@@ -130,7 +131,7 @@ function NotificationsPage() {
         </Empty>
       ) : (
         <div className="px-4 py-2">
-          <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border bg-card">
+          <Card className="gap-0 divide-y divide-border/70 py-0">
             {notifications.map((notification) => (
               <NotificationRow
                 key={notification.id}
@@ -143,7 +144,7 @@ function NotificationsPage() {
                 onDelete={(id) => remove.mutate(id)}
               />
             ))}
-          </div>
+          </Card>
         </div>
       )}
     </main>

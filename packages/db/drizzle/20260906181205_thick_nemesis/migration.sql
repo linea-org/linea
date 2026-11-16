@@ -1,1 +1,0 @@
-ALTER TABLE "flags" ADD COLUMN "conversation_finding_id" uuid;

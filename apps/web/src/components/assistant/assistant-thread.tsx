@@ -1,0 +1,373 @@
+import { useState, type ReactNode } from "react"
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  CopyIcon,
+  GlobeIcon,
+  RotateCcwIcon,
+  WorkflowIcon,
+} from "lucide-react"
+
+import { Alert, AlertDescription } from "@linea/ui/components/alert"
+import { Badge } from "@linea/ui/components/badge"
+import { Bubble, BubbleContent, BubbleGroup } from "@linea/ui/components/bubble"
+import { Button } from "@linea/ui/components/button"
+import { Card } from "@linea/ui/components/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@linea/ui/components/dropdown-menu"
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "@linea/ui/components/message-scroller"
+import { Skeleton } from "@linea/ui/components/skeleton"
+import { Spinner } from "@linea/ui/components/spinner"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@linea/ui/components/tooltip"
+import { cn } from "@linea/ui/lib/utils"
+
+import { UserTurn } from "./user-turn"
+import { WorkflowPreview } from "./workflow-preview"
+import type { ChatMessage, VisibleMessage } from "./use-assistant-chat"
+
+const ENTER = "animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
+
+export type RetryOptions = {
+  /** Models that have a key, so a retry can run on them. */
+  models: { value: string; label: string }[]
+  current: string | undefined
+  onRetry: (id: string, model: string) => void
+}
+
+function AssistantMark({ className }: Readonly<{ className?: string }>) {
+  return (
+    <span
+      className={cn(
+        "size-8 shrink-0 overflow-hidden rounded-full ring-1 ring-border",
+        className
+      )}
+    >
+      <img src="/assets/linea.svg" alt="" className="size-full dark:hidden" />
+      <img
+        src="/assets/linea-dark.svg"
+        alt=""
+        className="hidden size-full dark:block"
+      />
+    </span>
+  )
+}
+
+function RetryControls({
+  message,
+  retry,
+}: Readonly<{
+  message: ChatMessage
+  retry: RetryOptions
+}>) {
+  const answeredWith = message.model ?? retry.current
+  const label =
+    retry.models.find((model) => model.value === answeredWith)?.label ?? "Model"
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Retry"
+              disabled={!answeredWith}
+              onClick={() => {
+                if (answeredWith) retry.onRetry(message.id, answeredWith)
+              }}
+            />
+          }
+        >
+          <RotateCcwIcon />
+        </TooltipTrigger>
+        <TooltipContent>Retry</TooltipContent>
+      </Tooltip>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              aria-label="Retry with another model"
+              className="font-normal text-muted-foreground"
+            />
+          }
+        >
+          {label}
+          <ChevronDownIcon data-icon="inline-end" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-48">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Retry with</DropdownMenuLabel>
+            {retry.models.map((model) => (
+              <DropdownMenuItem
+                key={model.value}
+                onClick={() => retry.onRetry(message.id, model.value)}
+              >
+                {model.label}
+                {model.value === answeredWith ? (
+                  <CheckIcon className="ml-auto" />
+                ) : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
+  )
+}
+
+function ActionChips({
+  actions,
+}: Readonly<{ actions: ChatMessage["actions"] }>) {
+  if (actions.length === 0) return null
+  return (
+    <ul className="flex flex-wrap gap-1.5">
+      {actions.map((action, index) => (
+        <li key={`${action.url}-${index}`} className="max-w-full">
+          <Badge variant={action.error ? "warning" : "outline"}>
+            <GlobeIcon />
+            {action.error
+              ? `Couldn't fetch ${new URL(action.url).hostname}`
+              : `Fetched ${new URL(action.url).hostname}`}
+          </Badge>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function ProposalChip({
+  message,
+  selected,
+  onSelect,
+}: Readonly<{
+  message: ChatMessage
+  selected: boolean
+  onSelect: () => void
+}>) {
+  if (!message.proposal) return null
+  return (
+    <Card
+      render={<button type="button" onClick={onSelect} />}
+      data-selected={selected}
+      className="w-full cursor-pointer flex-row items-stretch gap-0 py-0 text-left data-[selected=true]:ring-primary"
+    >
+      <span className="pointer-events-none block h-24 w-36 shrink-0 border-r bg-muted">
+        <WorkflowPreview graph={message.proposal.graph} view="fit" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-4">
+        <span className="truncate font-medium">
+          {message.proposal.title ?? "Proposed workflow"}
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <WorkflowIcon className="size-3.5" />
+          {message.proposal.graph.nodes.length} steps
+        </span>
+      </span>
+      <ChevronRightIcon className="mr-4 size-4 shrink-0 self-center text-muted-foreground" />
+    </Card>
+  )
+}
+
+function TurnActions({
+  text,
+  children,
+}: Readonly<{
+  text: string
+  children?: ReactNode
+}>) {
+  const [copy, setCopy] = useState<"idle" | "copied" | "failed">("idle")
+  async function copyText() {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopy("copied")
+    } catch {
+      setCopy("failed")
+    }
+    window.setTimeout(() => setCopy("idle"), 1500)
+  }
+  const label = { idle: "Copy", copied: "Copied", failed: "Couldn't copy" }[
+    copy
+  ]
+  return (
+    <div className="flex items-center gap-0.5 text-muted-foreground">
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={label}
+              onClick={() => void copyText()}
+            />
+          }
+        >
+          {copy === "copied" ? <CheckIcon /> : <CopyIcon />}
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+      {children}
+    </div>
+  )
+}
+
+function Thinking() {
+  return (
+    <output className={cn("flex gap-3", ENTER)}>
+      <AssistantMark />
+      <div className="min-w-0 flex-1 space-y-3 pt-1">
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Spinner className="size-3.5" />
+          Designing your workflow…
+        </div>
+        <Skeleton className="h-3.5 w-11/12 rounded-full" />
+        <Skeleton className="h-3.5 w-7/10 rounded-full" />
+      </div>
+    </output>
+  )
+}
+
+function EmptyThread({
+  title,
+  suggestions,
+  onSuggest,
+}: Readonly<{
+  title: string
+  suggestions: string[]
+  onSuggest: (text: string) => void
+}>) {
+  return (
+    <div className="mx-auto flex min-h-full max-w-xl flex-col items-center justify-center py-12 text-center">
+      <AssistantMark className="size-12 rounded-xl" />
+      <h2 className="mt-5 text-xl font-semibold tracking-tight">{title}</h2>
+      <div className="mt-6 flex flex-wrap justify-center gap-2">
+        {suggestions.map((suggestion) => (
+          <Button
+            key={suggestion}
+            type="button"
+            variant="outline"
+            className="h-auto rounded-full px-3.5 py-2 font-normal"
+            onClick={() => onSuggest(suggestion)}
+          >
+            {suggestion}
+          </Button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function AssistantThread({
+  messages,
+  isPending,
+  error,
+  selectedProposalId,
+  onSelectProposal,
+  onEdit,
+  onSwitch,
+  empty,
+  retry,
+  renderProposalActions,
+}: Readonly<{
+  messages: VisibleMessage[]
+  isPending: boolean
+  error: Error | null
+  selectedProposalId: string | null
+  onSelectProposal: (id: string) => void
+  onEdit: (id: string, text: string) => void
+  onSwitch: (id: string) => void
+  empty: {
+    title: string
+    suggestions: string[]
+    onSuggest: (text: string) => void
+  }
+  retry: RetryOptions
+  renderProposalActions?: (message: ChatMessage) => ReactNode
+}>) {
+  return (
+    <MessageScrollerProvider autoScroll>
+      <MessageScroller className="min-h-0 flex-1">
+        <MessageScrollerViewport>
+          <MessageScrollerContent className="mx-auto w-full max-w-3xl justify-end gap-3 px-4 pb-6">
+            {messages.length === 0 && !isPending ? (
+              <EmptyThread {...empty} />
+            ) : (
+              messages.map((message) => (
+                <MessageScrollerItem className="p-1" key={message.id}>
+                  {message.role === "user" ? (
+                    <UserTurn
+                      message={message}
+                      enter={ENTER}
+                      disabled={isPending}
+                      onEdit={onEdit}
+                      onSwitch={onSwitch}
+                    />
+                  ) : (
+                    <div className={cn("flex gap-3", message.fresh && ENTER)}>
+                      <AssistantMark className="mt-px" />
+                      <div className="min-w-0 flex-1 space-y-3">
+                        <BubbleGroup>
+                          <Bubble variant="ghost">
+                            <BubbleContent className="whitespace-pre-wrap">
+                              {message.content}
+                            </BubbleContent>
+                          </Bubble>
+                        </BubbleGroup>
+                        <ActionChips actions={message.actions} />
+                        <ProposalChip
+                          message={message}
+                          selected={message.id === selectedProposalId}
+                          onSelect={() => onSelectProposal(message.id)}
+                        />
+                        {renderProposalActions?.(message)}
+                        {!isPending ? (
+                          <TurnActions text={message.content}>
+                            {retry.models.length > 0 &&
+                            messages.find(
+                              (question) => question.id === message.parentId
+                            )?.attachments.length === 0 ? (
+                              <RetryControls message={message} retry={retry} />
+                            ) : null}
+                          </TurnActions>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+                </MessageScrollerItem>
+              ))
+            )}
+            {isPending ? <Thinking /> : null}
+            {error ? (
+              <Alert variant="destructive">
+                <AlertDescription>{error.message}</AlertDescription>
+              </Alert>
+            ) : null}
+          </MessageScrollerContent>
+        </MessageScrollerViewport>
+        <MessageScrollerButton />
+      </MessageScroller>
+    </MessageScrollerProvider>
+  )
+}

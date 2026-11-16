@@ -30,8 +30,7 @@ export function AgentVersionReplacement({
         <AlertDialogHeader>
           <AlertDialogTitle>Replace unsaved changes?</AlertDialogTitle>
           <AlertDialogDescription>
-            Load version {version?.version} into the definition editor. This
-            replaces your unsaved changes.
+            Loads version {version?.version} over your edits.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

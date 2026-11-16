@@ -61,7 +61,7 @@ export function ErrorCallout({ title, message }: ErrorCalloutProps) {
           <div className="mt-2">
             <button
               type="button"
-              className="inline-flex items-center gap-1 text-xs font-medium text-destructive hover:underline"
+              className="inline-flex items-center gap-1 text-sm font-medium text-destructive hover:underline"
               onClick={() => setOpen((current) => !current)}
             >
               <ChevronDownIcon
@@ -73,7 +73,7 @@ export function ErrorCallout({ title, message }: ErrorCalloutProps) {
               {open ? "Hide details" : "Show details"}
             </button>
             {open ? (
-              <pre className="mt-2 max-h-56 overflow-auto rounded-md bg-background/70 p-2.5 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap text-foreground">
+              <pre className="mt-2 max-h-56 overflow-auto rounded-md bg-background/70 p-2.5 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground">
                 {details}
               </pre>
             ) : null}

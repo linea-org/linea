@@ -75,7 +75,6 @@ export function CreateApplicationDialog({
             <FieldLabel htmlFor="application-name">Name</FieldLabel>
             <Input
               id="application-name"
-              className="h-9"
               autoFocus
               {...register("name", {
                 onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,19 +92,18 @@ export function CreateApplicationDialog({
             <FieldLabel htmlFor="application-slug">Slug</FieldLabel>
             <Input
               id="application-slug"
-              className="h-9"
               placeholder="support-assistant"
               {...register("slug")}
             />
             <FieldError>{errors.slug?.message}</FieldError>
           </Field>
           {create.error && (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-sm text-destructive">
               {create.error.message}
             </p>
           )}
           <DialogFooter>
-            <Button type="submit" size="xs" disabled={create.isPending}>
+            <Button type="submit" disabled={create.isPending}>
               {create.isPending ? "Creating…" : "Create Application"}
             </Button>
           </DialogFooter>

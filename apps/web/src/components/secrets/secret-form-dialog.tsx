@@ -15,7 +15,6 @@ import {
 } from "@linea/ui/components/dialog"
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -85,17 +84,17 @@ export function SecretFormDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            Can&apos;t be viewed after saving.
+          </DialogDescription>
         </DialogHeader>
-        <DialogDescription>
-          Encrypted at rest. You won&apos;t be able to read it back after
-          saving.
-        </DialogDescription>
         <form
           onSubmit={(event) => {
             void handleSubmit((values) => mutation.mutate(values))(event)
           }}
+          className="flex flex-col gap-4"
         >
-          <FieldGroup className="gap-4">
+          <FieldGroup>
             {nameField === "none" ? (
               <input type="hidden" {...register("name")} />
             ) : (
@@ -103,7 +102,6 @@ export function SecretFormDialog({
                 <FieldLabel htmlFor="secret-name">Name</FieldLabel>
                 <Input
                   id="secret-name"
-                  className="h-9"
                   placeholder="Stripe"
                   autoFocus={nameField === "open"}
                   readOnly={nameField === "locked"}
@@ -121,19 +119,14 @@ export function SecretFormDialog({
                 autoFocus={nameField !== "open"}
                 {...register("secret")}
               />
-              <FieldDescription>
-                Shown only while you type it in.
-              </FieldDescription>
               <FieldError>{errors.secret?.message}</FieldError>
             </Field>
           </FieldGroup>
           {mutation.isError ? (
-            <p className="mt-3 text-xs text-destructive">
-              {mutation.error.message}
-            </p>
+            <p className="text-sm text-destructive">{mutation.error.message}</p>
           ) : null}
           <DialogFooter>
-            <Button type="submit" size="xs" disabled={mutation.isPending}>
+            <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? "Saving…" : submitLabel}
             </Button>
           </DialogFooter>

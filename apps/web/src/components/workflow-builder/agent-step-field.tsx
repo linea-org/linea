@@ -46,7 +46,7 @@ export function AgentStepField({
   const error = agents.error ?? contracts.error
   if (error)
     return (
-      <p role="alert" className="text-xs text-destructive">
+      <p role="alert" className="text-sm text-destructive">
         Could not load Agents: {error.message}
       </p>
     )
@@ -83,12 +83,12 @@ export function AgentStepField({
         </SelectContent>
       </Select>
       {agents.data && items.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           This Application has no active Agents yet. Add one from Applications.
         </p>
       ) : null}
       {value && contracts.data && revisionItems.length === 0 ? (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-sm text-destructive">
           This Agent has no Contract yet. Add one first.
         </p>
       ) : null}
@@ -118,14 +118,14 @@ export function AgentStepField({
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             The step runs only while the Agent is deployed with this Contract
             revision. Pick the one deployed in your Environments; a different
             deployment fails the step before the Agent runs.
           </p>
         </>
       ) : null}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         The previous step's output is sent as the Agent's input. The Agent must
         be deployed and enabled in the Environment this Workflow runs in; the
         deployed version is pinned when the step starts.

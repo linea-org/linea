@@ -117,6 +117,7 @@ export async function listApplications(
         select count(*)::int from ${workflows}
         where ${workflows.applicationId} = "applications"."id"
           and ${workflows.archivedAt} is null
+          and not ${workflows.scratch}
       )`,
     })
     .from(applications)

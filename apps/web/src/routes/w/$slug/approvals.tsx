@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
@@ -18,6 +19,7 @@ import {
   pendingApprovalsQueryOptions,
   respondToApprovalFn,
 } from "@/lib/approvals-api"
+import { ListSkeleton } from "@/components/workspace/list-skeleton"
 
 export const Route = createFileRoute("/w/$slug/approvals")({
   validateSearch: z.object({ executionId: z.uuid().optional() }),
@@ -51,9 +53,9 @@ function ApprovalsPage() {
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
       {approvalsQuery.isError ? (
-        <p className="text-xs text-destructive">Could not load approvals.</p>
+        <p className="text-sm text-destructive">Could not load approvals.</p>
       ) : approvalsQuery.isPending ? (
-        <p className="text-xs text-muted-foreground">Loading…</p>
+        <ListSkeleton />
       ) : approvals.length === 0 ? (
         <Empty>
           <EmptyHeader>
@@ -73,23 +75,25 @@ function ApprovalsPage() {
       ) : (
         <ul className="flex flex-col gap-4">
           {approvals.map((approval) => (
-            <li
+            <Card
+              render={<li />}
+              size="sm"
+              className="gap-0 px-(--card-spacing)"
               key={approval.id}
-              className="rounded-xl border border-border bg-card p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-foreground">
+                  <p className="text-sm font-medium text-foreground">
                     {approval.message ?? "Approval requested"}
                   </p>
                   <Link
                     to="/w/$slug/executions/$executionId"
                     params={{ slug, executionId: approval.executionId }}
-                    className="mt-0.5 block truncate font-mono text-xs text-muted-foreground hover:underline"
+                    className="mt-0.5 block truncate font-mono text-sm text-muted-foreground hover:underline"
                   >
                     {approval.executionId}
                   </Link>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="mt-0.5 text-sm text-muted-foreground">
                     Requested {new Date(approval.createdAt).toLocaleString()}
                   </p>
                 </div>
@@ -109,7 +113,6 @@ function ApprovalsPage() {
               <div className="mt-3 flex items-center gap-2">
                 <Button
                   type="button"
-                  size="xs"
                   onClick={() =>
                     respond.mutate({ id: approval.id, approved: true })
                   }
@@ -121,7 +124,6 @@ function ApprovalsPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  size="xs"
                   onClick={() =>
                     respond.mutate({ id: approval.id, approved: false })
                   }
@@ -131,12 +133,12 @@ function ApprovalsPage() {
                   Reject
                 </Button>
               </div>
-            </li>
+            </Card>
           ))}
         </ul>
       )}
       {respond.isError && (
-        <p className="mt-3 text-xs text-destructive">{respond.error.message}</p>
+        <p className="mt-3 text-sm text-destructive">{respond.error.message}</p>
       )}
     </main>
   )

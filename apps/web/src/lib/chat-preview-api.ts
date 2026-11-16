@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 
-import { apiFetch } from "./api-fetch"
+import { apiFetch, parseErrorMessage } from "./api-fetch"
 import type { JsonValue } from "./executions-api"
 
 export type ChatMessageRole = "user" | "assistant"
@@ -25,16 +25,6 @@ export type ConversationSummary = {
   lastMessageAt: string
   messageCount: number
   externalSubjectId: string | null
-}
-
-async function parseErrorMessage(
-  res: Response,
-  fallback: string
-): Promise<string> {
-  const body = (await res.json().catch(() => null)) as {
-    message?: string
-  } | null
-  return body?.message ?? fallback
 }
 
 export const sendChatMessageFn = createServerFn({ method: "POST" })

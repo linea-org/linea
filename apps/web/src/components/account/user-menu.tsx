@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router"
+import { useNavigate, useParams } from "@tanstack/react-router"
 import {
   EllipsisVerticalIcon,
   LogOutIcon,
@@ -35,6 +35,7 @@ export function UserMenu({
   showDetails = false,
 }: UserMenuProps) {
   const navigate = useNavigate()
+  const { slug } = useParams({ strict: false })
   const { data: session } = authClient.useSession()
   const user = session?.user
   const { resolvedTheme, setTheme } = useTheme()
@@ -47,7 +48,9 @@ export function UserMenu({
   const isDark = mounted && resolvedTheme === "dark"
 
   function goToAccount() {
-    void navigate({ to: "/account" })
+    void (slug
+      ? navigate({ to: "/w/$slug/account", params: { slug } })
+      : navigate({ to: "/account" }))
   }
 
   async function signOut() {
@@ -82,7 +85,7 @@ export function UserMenu({
         />
         {showDetails ? (
           <>
-            <span className="min-w-0 truncate text-left text-xs font-medium text-foreground group-data-[collapsible=icon]:hidden">
+            <span className="min-w-0 truncate text-left text-sm font-medium text-foreground group-data-[collapsible=icon]:hidden">
               {user?.name || "Account"}
             </span>
             <EllipsisVerticalIcon className="ml-auto size-3 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
@@ -98,10 +101,10 @@ export function UserMenu({
             className="size-7"
           />
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-foreground">
+            <p className="truncate text-sm font-medium text-foreground">
               {user?.name || "Account"}
             </p>
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="truncate text-sm text-muted-foreground">
               {user?.email}
             </p>
           </div>

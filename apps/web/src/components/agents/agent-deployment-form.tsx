@@ -177,7 +177,6 @@ export function AgentDeploymentForm({
         </Field>
         <Button
           type="submit"
-          size="xs"
           disabled={
             published.length === 0 ||
             (archived && watch("enabled") !== "disabled")
@@ -189,12 +188,12 @@ export function AgentDeploymentForm({
         </Button>
       </fieldset>
       {deploy.error && (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-sm text-destructive">
           {deploy.error.message}
         </p>
       )}
       {deploy.isSuccess && (
-        <output className="block text-xs text-muted-foreground">
+        <output className="block text-sm text-muted-foreground">
           Deployment saved.
         </output>
       )}

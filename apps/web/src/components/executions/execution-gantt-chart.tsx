@@ -6,6 +6,7 @@ import type { ExecutionStepSummary } from "@/lib/executions-api"
 import { NODE_CATEGORY_COLORS } from "../workflow-builder/node-category-colors"
 import { NodeIcon } from "../workflow-builder/node-icon"
 import { isNodeTypeId, stepTitle } from "./execution-step-presentation"
+import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
 
 const MIN_BAR_WIDTH_PCT = 1.5
 const TICK_COUNT = 4
@@ -77,9 +78,11 @@ export function ExecutionGanttChart({
     )
   if (rows.length === 0) {
     return (
-      <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-        No steps recorded yet.
-      </p>
+      <Empty className="min-h-0 rounded-none border-0 bg-transparent py-8 sm:p-8">
+        <EmptyHeader>
+          <EmptyTitle>No steps recorded yet</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
     )
   }
   const now = hydrated
@@ -108,14 +111,14 @@ export function ExecutionGanttChart({
     return { fraction, label: formatElapsed(fraction * rangeMs) }
   })
   return (
-    <div className="flex flex-col text-xs">
+    <div className="flex flex-col text-sm">
       <div className="sticky top-0 z-10 flex bg-inherit pb-2">
         <div className="w-40 shrink-0" />
         <div className="relative h-4 min-w-0 flex-1">
           {ticks.map((tick) => (
             <span
               key={tick.fraction}
-              className="absolute -translate-x-1/2 font-mono text-[10px] text-muted-foreground first:translate-x-0 last:-translate-x-full"
+              className="absolute -translate-x-1/2 font-mono text-xs text-muted-foreground first:translate-x-0 last:-translate-x-full"
               style={{ left: `${tick.fraction * 100}%` }}
             >
               {tick.label}
@@ -168,7 +171,7 @@ export function ExecutionGanttChart({
                 <span className="min-w-0 flex-1 truncate text-foreground">
                   {label}
                 </span>
-                <span className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums">
+                <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
                   {formatElapsed(endMs - startMs)}
                 </span>
               </div>

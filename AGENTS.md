@@ -8,7 +8,9 @@ AI coding agent. Follow them strictly.
 - Only add a comment when the WHY is non-obvious: a hidden constraint, a
   subtle invariant, a specific bug workaround.
 - Never explain what the code does — well-named identifiers already do that.
-- No multi-line comment blocks. One short line max.
+- Keep a comment to one or two lines, wrapped at 100 columns. A rationale
+  that needs more belongs in an ADR under `docs/adr/`, with a one-line
+  comment pointing at it.
 - Same exception for exported functions, types, and other public
   declarations: add a one-line `/** ... */` only when the contract isn't
   derivable from the name, types, and signature (an invariant it enforces,
@@ -23,10 +25,10 @@ AI coding agent. Follow them strictly.
 
 - Formatting itself is enforced by Prettier (`pnpm format`, checked in CI via
   `pnpm format:check`) — don't hand-format against it.
-- All text (code, strings, comments) must be continuous — no blank lines
-  inside a function or block body.
-- A single blank line between top-level declarations is fine. Inside a
-  function, never.
+- A single blank line between top-level declarations.
+- Inside a function, a blank line may separate distinct phases. A function
+  that needs many of them is too long: split it. ESLint warns above 150
+  lines (`max-lines-per-function`) and above 5 parameters (`max-params`).
 
 ## Icons
 
@@ -49,8 +51,8 @@ AI coding agent. Follow them strictly.
 - Write the minimum code that correctly solves the problem. If the same
   outcome is achievable in fewer lines without sacrificing clarity, write
   fewer lines.
-- No abstraction until there are at least three concrete use-sites.
-  Duplication is cheaper than the wrong abstraction.
+- No abstraction until there are three concrete use-sites. At the third copy,
+  extract it — a helper copied more than twice is a bug waiting to diverge.
 - No optional parameters, overloads, or config objects added "for future
   flexibility" — design for what is needed now.
 
@@ -76,7 +78,8 @@ AI coding agent. Follow them strictly.
 ## React
 
 - This app (TanStack Start) doesn't use React Server Components — don't
-  add `"use client"` directives, they have no effect here.
+  add `"use client"` directives, they have no effect here. `packages/ui` is
+  vendored shadcn and keeps its upstream directives and style.
 - Keep components small — if a component needs more than one screen to
   read, split it.
 - Co-locate state as close to where it is used as possible. Lift only when
@@ -98,7 +101,8 @@ AI coding agent. Follow them strictly.
 ## TypeScript
 
 - No `any` unless interfacing with an untyped external boundary, and even
-  then confine it to one cast at the boundary.
+  then confine it to one cast at the boundary. ESLint enforces
+  `no-explicit-any` and `no-console` (`warn` and `error` are allowed).
 - Prefer `type` over `interface` for object shapes that won't be extended.
   Use `interface` for contracts that will be implemented or extended.
 - Never cast with `as` to paper over a type error — fix the type.
@@ -115,9 +119,12 @@ AI coding agent. Follow them strictly.
   sheet, or modal — the topmost floating layer). A new floating surface reuses
   `--popover`; a new base surface reuses `--surface-canvas`. Don't invent a
   one-off background color for a new panel.
-- Build on `@linea/ui`'s existing primitives (`Sidebar`, `Sheet`, `Field`,
-  `Select`, ...) before writing new chrome from scratch — check
-  `packages/ui/src/components/` first.
+- Use only `@linea/ui` components in the app (`Button`, `Card`, `Badge`,
+  `Sidebar`, `Sheet`, `Field`, `Select`, ...). Never hand-roll a card, badge,
+  button, or other element that has a component in
+  `packages/ui/src/components/`, and don't add a one-off component to
+  `apps/web` when a `@linea/ui` one exists. Check that directory first; if
+  nothing fits, extend the `@linea/ui` component rather than forking it.
 - A feature with several variants (node types, flag types, ...) gets one
   generic, data/schema-driven component plus a registry of metadata — never a
   separate component per variant, and never the variant's presentation

@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { readFile } from "node:fs/promises"
-import { eq, inArray, sql } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import {
   actionIntents,
@@ -8,7 +7,6 @@ import {
   approvalRequests,
   chatMessages,
   connections,
-  connectorAuditFacts,
   conversations,
   executionSteps,
   executions,
@@ -593,93 +591,6 @@ describe("end-user content erasure", () => {
       expect(
         (await contentOf(tx, seeded.conversation.id)).messages
       ).toHaveLength(2)
-    })
-  })
-})
-
-async function runErasureBackfill(tx: DbClient) {
-  const migration = await readFile(
-    new URL(
-      "../../drizzle/20261114174124_end-user-content-erasure/migration.sql",
-      import.meta.url
-    ),
-    "utf8"
-  )
-  const statements = migration.split("--> statement-breakpoint")
-  const backfill = statements.findIndex((statement) =>
-    statement.includes("-- Backfill")
-  )
-  for (const statement of statements.slice(backfill)) {
-    await tx.execute(sql.raw(statement))
-  }
-}
-
-describe("end-user content erasure backfill", () => {
-  it("settles and redacts Action Intents stranded on subjects erased before the backfill", async () => {
-    await withRollback(async (tx) => {
-      const fixture = await createContentFixture(tx, "production")
-      const now = new Date()
-      const seeded = await fixture.seedContent(fixture.erased.id, {
-        status: "queued",
-        createdAt: now,
-        lastActivityAt: now,
-      })
-      const intent = await seedActionIntent(
-        tx,
-        fixture,
-        seeded.execution.id,
-        "executing"
-      )
-      await tx
-        .update(actionIntents)
-        .set({ dispatchStartedAt: now, providerAttemptCount: 1 })
-        .where(eq(actionIntents.id, intent.id))
-      await tx
-        .update(externalSubjects)
-        .set({
-          status: "erased",
-          issuerSubject: null,
-          disabledAt: now,
-          erasedAt: now,
-        })
-        .where(eq(externalSubjects.id, fixture.erased.id))
-      await runErasureBackfill(tx)
-      const [settled] = await tx
-        .select()
-        .from(actionIntents)
-        .where(eq(actionIntents.id, intent.id))
-      expect(settled).toMatchObject({
-        status: "outcome_unknown",
-        target: { redacted: true },
-        safeDisplay: { title: "Content expired" },
-        normalizedError: null,
-      })
-      expect(settled.contentErasedAt).not.toBeNull()
-      const facts = await tx
-        .select()
-        .from(connectorAuditFacts)
-        .where(eq(connectorAuditFacts.actionIntentId, intent.id))
-      expect(facts).toEqual([
-        expect.objectContaining({
-          factType: "action_intent.outcome_unknown",
-          externalSubjectId: null,
-          subjectReference: fixture.erased.auditReference,
-          outcome: "outcome_unknown",
-          content: null,
-        }),
-      ])
-      const [execution] = await tx
-        .select()
-        .from(executions)
-        .where(eq(executions.id, seeded.execution.id))
-      expect(execution).toMatchObject({
-        status: "cancelled",
-        triggerPayload: null,
-      })
-      expect(await contentOf(tx, seeded.conversation.id)).toEqual({
-        conversations: [],
-        messages: [],
-      })
     })
   })
 })

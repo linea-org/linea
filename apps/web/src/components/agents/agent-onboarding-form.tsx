@@ -151,13 +151,13 @@ export function AgentOnboardingForm({
           <AgentOnboardingAdvanced open={advanced} onOpenChange={setAdvanced} />
         </fieldset>
         {createdApplication && (
-          <output className="block px-4 pb-4 text-xs text-muted-foreground">
+          <output className="block px-4 pb-4 text-sm text-muted-foreground">
             Application “{createdApplication.name}” was created. It is available
             in the Application selector.
           </output>
         )}
         {create.error && (
-          <p role="alert" className="px-4 pb-4 text-xs text-destructive">
+          <p role="alert" className="px-4 pb-4 text-sm text-destructive">
             {create.error.message} Your entries have been kept.
           </p>
         )}
@@ -170,13 +170,13 @@ export function AgentOnboardingForm({
             <Link
               to="/w/$slug/agents/$agentId"
               params={{ slug: workspaceSlug, agentId: createdAgent.id }}
-              className={buttonVariants({ size: "sm" })}
+              className={buttonVariants()}
             >
               Open Agent
               <ArrowRightIcon />
             </Link>
           ) : (
-            <Button type="submit" size="xs" disabled={create.isPending}>
+            <Button type="submit" disabled={create.isPending}>
               {create.isPending ? "Creating…" : "Continue to configure"}
               <ArrowRightIcon />
             </Button>

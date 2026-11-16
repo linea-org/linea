@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { Button } from "@linea/ui/components/button"
 import { Separator } from "@linea/ui/components/separator"
+import { Card } from "@linea/ui/components/card"
 
 import { PlayfulAvatar } from "@/components/avatar"
 import {
@@ -140,7 +141,7 @@ export function ExecutionDetailView({
   const workflowName = initialData.definitionName
   return (
     <main className="flex min-w-0 flex-1 flex-col px-4 py-2">
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <Card className="gap-0 py-0">
         <header className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
           <PlayfulAvatar
             name={workflowName}
@@ -148,12 +149,12 @@ export function ExecutionDetailView({
             className="size-8"
           />
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium">{workflowName}</p>
-            <p className="truncate font-mono text-xs text-muted-foreground">
+            <p className="truncate text-sm font-medium">{workflowName}</p>
+            <p className="truncate font-mono text-sm text-muted-foreground">
               {execution.id}
             </p>
           </div>
-          <div className="ml-auto flex flex-wrap items-center text-xs text-muted-foreground">
+          <div className="ml-auto flex flex-wrap items-center text-sm text-muted-foreground">
             <ExecutionStatusBadge status={execution.status} />
             {(
               [
@@ -196,17 +197,13 @@ export function ExecutionDetailView({
           {error && (
             <div
               role="alert"
-              className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 text-xs text-destructive"
+              className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 text-sm text-destructive"
             >
               <p>
                 Could not refresh this execution. Showing the last recorded
                 state.
               </p>
-              <Button
-                variant="outline"
-                size="xs"
-                onClick={() => void refetch()}
-              >
+              <Button variant="outline" onClick={() => void refetch()}>
                 Retry refresh
               </Button>
             </div>
@@ -218,7 +215,7 @@ export function ExecutionDetailView({
             onReplayTriggered={setPendingReplayStepId}
           />
         </div>
-      </div>
+      </Card>
     </main>
   )
 }

@@ -14,6 +14,8 @@ import {
 const BLANK_GRAPH: WorkflowBuilderGraph = { nodes: [], edges: [] }
 
 export const Route = createFileRoute("/w/$slug/workflows/$workflowId/builder")({
+  validateSearch: (search: Record<string, unknown>) =>
+    search.chat === true ? { chat: true } : {},
   loader: async ({ params }) => {
     const workflow = await getWorkflowFn({ data: { id: params.workflowId } })
 
@@ -33,6 +35,7 @@ export const Route = createFileRoute("/w/$slug/workflows/$workflowId/builder")({
 
 function WorkflowBuilderPage() {
   const { slug, workflowId } = Route.useParams()
+  const { chat } = Route.useSearch()
   const initialData = Route.useLoaderData()
   useSuspenseQuery({
     ...workflowQueryOptions(slug, workflowId),
@@ -47,6 +50,7 @@ function WorkflowBuilderPage() {
         workflowId={workflowId}
         slug={slug}
         initialGraph={initialData.graph}
+        openChat={chat === true}
       />
     </div>
   )

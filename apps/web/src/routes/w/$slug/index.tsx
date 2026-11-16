@@ -8,6 +8,7 @@ import {
   HomeStats,
   OpenSignalsWidget,
   RecentExecutionsWidget,
+  StartStarterWorkflowButton,
   WorkflowsWidget,
 } from "@/components/home"
 import {
@@ -46,31 +47,33 @@ function WorkspaceHomePage() {
     initialData: initialData.workflows,
   })
   return (
-    <main className="flex flex-1 flex-col px-4 py-4">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3 pl-1">
-        <div>
-          <h1 className="text-sm font-medium">Add an Agent to your product</h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Start with a task, then configure and deploy your Agent.
-          </p>
-        </div>
-        <AddAgentDialog
-          workspaceSlug={slug}
-          trigger={
-            <Button size="xs">
-              <PlusIcon />
-              Add Agent
-            </Button>
-          }
+    <main className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex flex-col gap-2">
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-base font-semibold">
+            Add an Agent to your product
+          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <StartStarterWorkflowButton slug={slug} />
+            <AddAgentDialog
+              workspaceSlug={slug}
+              trigger={
+                <Button>
+                  <PlusIcon />
+                  Add Agent
+                </Button>
+              }
+            />
+          </div>
+        </header>
+        <HomeStats
+          workflows={workflows}
+          signals={signals}
+          executions={executionsPage.executions}
+          executionTotal={executionsPage.total}
         />
-      </header>
-      <HomeStats
-        workflows={workflows}
-        signals={signals}
-        executions={executionsPage.executions}
-        executionTotal={executionsPage.total}
-      />
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      </div>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <WorkflowsWidget slug={slug} workflows={workflows} />
         <OpenSignalsWidget slug={slug} signals={signals} />
         <div className="lg:col-span-2">

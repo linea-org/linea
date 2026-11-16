@@ -161,7 +161,7 @@ export function ChatPreviewPanel({
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
           Chat preview
           {conversationId !== null && externalSubjectId ? (
             <span className="font-normal text-muted-foreground">
@@ -173,7 +173,6 @@ export function ChatPreviewPanel({
         <Button
           type="button"
           variant="ghost"
-          size="xs"
           onClick={startNewChat}
           disabled={(!conversationId && messages.length === 0) || isWaiting}
         >
@@ -183,7 +182,7 @@ export function ChatPreviewPanel({
         <Button
           type="button"
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           onClick={onClose}
           aria-label="Close panel"
         >
@@ -198,14 +197,14 @@ export function ChatPreviewPanel({
                 value={externalSubjectId}
                 onChange={(event) => setExternalSubjectId(event.target.value)}
                 placeholder="External subject ID (optional)"
-                className="h-7 text-xs"
+                className="h-7 text-sm"
                 disabled={isWaiting}
                 autoFocus
               />
               <Button
                 type="button"
                 variant="ghost"
-                size="icon-sm"
+                size="icon"
                 onClick={() => setContextOpen(false)}
                 aria-label="Hide test context"
               >
@@ -216,7 +215,6 @@ export function ChatPreviewPanel({
             <Button
               type="button"
               variant="ghost"
-              size="xs"
               onClick={() => setContextOpen(true)}
             >
               <PlusIcon />
@@ -248,7 +246,7 @@ export function ChatPreviewPanel({
                     <HistoryIcon className="text-muted-foreground" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate">{item.preview}</p>
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className="truncate text-sm text-muted-foreground">
                         {new Date(item.lastMessageAt).toLocaleString()} ·{" "}
                         {item.messageCount} message
                         {item.messageCount === 1 ? "" : "s"}
@@ -271,7 +269,7 @@ export function ChatPreviewPanel({
                     <EmptyMedia variant="icon">
                       <MessageCircleIcon />
                     </EmptyMedia>
-                    <EmptyTitle className="text-xs">
+                    <EmptyTitle className="text-sm">
                       Test this workflow
                     </EmptyTitle>
                     <EmptyDescription>
@@ -345,7 +343,7 @@ export function ChatPreviewPanel({
           </InputGroupAddon>
         </InputGroup>
         {send.isError ? (
-          <p className="mt-2 text-xs text-destructive">{send.error.message}</p>
+          <p className="mt-2 text-sm text-destructive">{send.error.message}</p>
         ) : null}
       </div>
     </aside>

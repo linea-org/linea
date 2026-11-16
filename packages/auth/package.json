@@ -51,9 +51,9 @@
       "require": "./dist/session-policy.cjs"
     },
     "./emails": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "types": "./dist/emails.d.ts",
+      "import": "./dist/emails.js",
+      "require": "./dist/emails.cjs"
     }
   },
   "files": [

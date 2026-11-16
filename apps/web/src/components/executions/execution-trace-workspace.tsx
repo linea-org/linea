@@ -20,6 +20,7 @@ import { ExecutionGanttChart } from "./execution-gantt-chart"
 import { ExecutionStepDetails } from "./execution-step-details"
 import { attachResumeMarkers } from "./execution-step-order"
 import { stepTitle } from "./execution-step-presentation"
+import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
 
 const statusFilterSchema = z.enum([
   "all",
@@ -85,14 +86,14 @@ export function ExecutionTraceWorkspace({
   return (
     <section aria-label="Execution trace" className="flex min-w-0 flex-col">
       <div className="flex h-12 flex-wrap items-center gap-2 border-b bg-muted/40 px-4">
-        <h2 className="mr-auto text-xs font-medium">
+        <h2 className="mr-auto text-sm font-medium">
           Trace
           <span className="ml-1 font-normal text-muted-foreground">
             · {recorded.length} steps
           </span>
         </h2>
         <Input
-          className="h-8 w-full sm:w-64"
+          className="w-full sm:w-64"
           aria-label="Search trace steps"
           placeholder="Search steps or errors"
           value={search}
@@ -110,7 +111,7 @@ export function ExecutionTraceWorkspace({
             clearSelection()
           }}
         >
-          <SelectTrigger size="xs" aria-label="Filter trace status">
+          <SelectTrigger aria-label="Filter trace status">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -124,7 +125,7 @@ export function ExecutionTraceWorkspace({
       </div>
       {pausedAtNode && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <p className="text-xs">
+          <p className="text-sm">
             Paused at {stepTitle(pausedAtNode.type)} ·{" "}
             <span className="font-mono">{pausedAtNode.nodeId}</span>
           </p>
@@ -133,7 +134,7 @@ export function ExecutionTraceWorkspace({
               to="/w/$slug/approvals"
               params={{ slug }}
               search={{ executionId: execution.id }}
-              className={buttonVariants({ size: "xs", variant: "outline" })}
+              className={buttonVariants({ variant: "outline" })}
             >
               View approvals
             </Link>
@@ -143,7 +144,7 @@ export function ExecutionTraceWorkspace({
       {orphanedResumeEvents.map((event) => (
         <p
           key={event.id}
-          className="border-b px-4 py-3 text-xs text-muted-foreground"
+          className="border-b px-4 py-3 text-sm text-muted-foreground"
         >
           Resumed{" "}
           {hydrated
@@ -152,9 +153,13 @@ export function ExecutionTraceWorkspace({
         </p>
       ))}
       {filtered.length === 0 ? (
-        <p className="px-4 py-8 text-xs text-muted-foreground">
-          {recorded.length ? "No matching steps." : "No steps recorded yet."}
-        </p>
+        <Empty className="min-h-0 rounded-none border-0 bg-transparent py-8 sm:p-8">
+          <EmptyHeader>
+            <EmptyTitle>
+              {recorded.length ? "No matching steps" : "No steps recorded yet"}
+            </EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <>
           <div className="border-b px-4 py-3">
@@ -170,7 +175,6 @@ export function ExecutionTraceWorkspace({
             <div className="flex flex-col gap-4 px-4 py-3">
               {parent && (
                 <Button
-                  size="xs"
                   variant="ghost"
                   className="self-start"
                   onClick={() => {
@@ -184,7 +188,6 @@ export function ExecutionTraceWorkspace({
               )}
               {selected.replayedFromStepId && (
                 <Button
-                  size="xs"
                   variant="ghost"
                   className="self-start"
                   onClick={() => {
@@ -217,18 +220,13 @@ export function ExecutionTraceWorkspace({
         </>
       )}
       {selectedId && !selected ? (
-        <div className="px-4 py-4 text-xs text-muted-foreground">
+        <div className="px-4 py-4 text-sm text-muted-foreground">
           <p>
             {selectedId === pendingReplayStepId
               ? "Waiting for the replay step to be recorded…"
               : "This step is not available in this execution."}
           </p>
-          <Button
-            size="xs"
-            variant="outline"
-            className="mt-3"
-            onClick={clearSelection}
-          >
+          <Button variant="outline" className="mt-3" onClick={clearSelection}>
             Clear step selection
           </Button>
         </div>

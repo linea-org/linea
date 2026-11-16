@@ -76,6 +76,18 @@ export function NotificationTargetLink({
           {children}
         </Link>
       )
+    case "templates":
+      return (
+        <Link
+          to="/w/$slug/templates"
+          params={{ slug }}
+          search={{ tab: "workspace" }}
+          className={className}
+          onClick={onClick}
+        >
+          {children}
+        </Link>
+      )
     default: {
       const exhaustive: never = target
       return exhaustive

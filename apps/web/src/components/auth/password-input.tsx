@@ -21,7 +21,7 @@ export function PasswordInput({
       <Button
         type="button"
         variant="ghost"
-        size="icon-xs"
+        size="icon-sm"
         className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground"
         aria-label={visible ? "Hide password" : "Show password"}
         aria-pressed={visible}

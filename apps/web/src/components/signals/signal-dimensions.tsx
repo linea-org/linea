@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import {
   Select,
   SelectContent,
@@ -61,8 +62,10 @@ export function SignalDimensions({
     <div className="mt-4 flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3 pl-1">
         <div>
-          <p className="text-sm font-medium text-foreground">Model breakdown</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-base font-medium text-foreground">
+            Model breakdown
+          </p>
+          <p className="text-sm text-muted-foreground">
             Last {signal.dimensionScope.windowDays} days · successful native
             runs
           </p>
@@ -80,7 +83,7 @@ export function SignalDimensions({
             }
           }}
         >
-          <SelectTrigger size="sm">
+          <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -92,9 +95,9 @@ export function SignalDimensions({
           </SelectContent>
         </Select>
       </div>
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <Card className="gap-0 py-0">
         {signal.dimensions.length === 0 ? (
-          <p className="px-4 py-6 text-xs text-muted-foreground">
+          <p className="px-4 py-6 text-sm text-muted-foreground">
             {emptyMessage(signal)}
           </p>
         ) : (
@@ -104,7 +107,7 @@ export function SignalDimensions({
                 key={`${dimension.provider ?? "unknown"}:${dimension.model}`}
                 className="px-4 py-3"
               >
-                <div className="flex items-start justify-between gap-4 text-xs">
+                <div className="flex items-start justify-between gap-4 text-sm">
                   <div className="min-w-0">
                     <p className="truncate font-medium text-foreground">
                       {dimension.model}
@@ -139,12 +142,12 @@ export function SignalDimensions({
           </ul>
         )}
         {signal.totalRuns > 0 && (
-          <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+          <p className="border-t border-border px-4 py-2 text-sm text-muted-foreground">
             Model attribution covers {signal.attributedRuns} of{" "}
             {signal.totalRuns} eligible runs.
           </p>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

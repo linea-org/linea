@@ -1,17 +1,13 @@
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
-import { cn } from "@linea/ui/lib/utils"
-
-import { AuthGradientPanel } from "./auth-gradient-panel"
+import { Card } from "@linea/ui/components/card"
 
 type AuthShellProps = {
   title: string
   description?: string
   children: ReactNode
   footer?: ReactNode
-  steps?: { label: string; active?: boolean; done?: boolean }[]
-  className?: string
 }
 
 export function AuthShell({
@@ -19,68 +15,42 @@ export function AuthShell({
   description,
   children,
   footer,
-  steps,
-  className,
 }: AuthShellProps) {
   return (
-    <section className="h-svh w-screen overflow-hidden bg-background text-foreground antialiased">
-      <div className="grid h-full w-full lg:grid-cols-2">
-        <div className="flex h-full items-center overflow-y-auto bg-card px-6 py-10 sm:px-10 lg:px-14 xl:px-20">
-          <div className={cn("mx-auto w-full max-w-md", className)}>
-            <Link to="/" className="mb-8 inline-flex items-center gap-2.5">
-              <img
-                src="/assets/linea.svg"
-                alt="Linea"
-                width={36}
-                height={36}
-                className="size-9 rounded ring-1 ring-black/5"
-              />
-              <span className="font-heading text-xl font-semibold tracking-tight">
-                Linea
-              </span>
-            </Link>
-
-            {steps && steps.length > 0 ? (
-              <ol className="mb-6 flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-                {steps.map((step, index) => (
-                  <li key={step.label} className="flex items-center gap-2">
-                    {index > 0 ? (
-                      <span className="mx-0.5 h-px w-5 bg-border" aria-hidden />
-                    ) : null}
-                    <span
-                      className={cn(
-                        "rounded-full px-2.5 py-1",
-                        step.active && "bg-primary/10 text-primary",
-                        step.done && !step.active && "text-foreground",
-                        !step.active && !step.done && "text-muted-foreground"
-                      )}
-                    >
-                      {step.label}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            ) : null}
-
-            <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-              {title}
-            </h1>
+    <main className="flex min-h-svh flex-col bg-background p-2 text-foreground">
+      <div className="relative isolate flex flex-1 flex-col items-center justify-center gap-6 overflow-hidden rounded-xl bg-linear-to-b from-stage-sky via-stage-mist to-stage-floor p-4 py-20">
+        <div
+          aria-hidden
+          className="absolute inset-0 -z-10 bg-grain opacity-30 mix-blend-overlay"
+        />
+        <Link
+          to="/"
+          className="absolute top-5 left-5 flex items-center gap-2 text-stage-foreground sm:top-6 sm:left-6"
+        >
+          <img
+            src="/assets/linea.svg"
+            alt=""
+            width={28}
+            height={28}
+            className="size-7 rounded-md"
+          />
+          <span className="text-base font-semibold tracking-tight">Linea</span>
+        </Link>
+        <Card className="w-full max-w-sm px-6 shadow-2xl">
+          <div className="flex flex-col gap-1 text-center">
+            <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
             {description ? (
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground sm:text-base">
-                {description}
-              </p>
-            ) : null}
-
-            <div className="mt-8">{children}</div>
-
-            {footer ? (
-              <div className="mt-8 text-xs text-muted-foreground">{footer}</div>
+              <p className="text-sm text-muted-foreground">{description}</p>
             ) : null}
           </div>
-        </div>
-
-        <AuthGradientPanel />
+          {children}
+        </Card>
+        {footer ? (
+          <p className="text-center text-sm text-stage-floor-foreground [&_a]:font-medium [&_a]:text-stage-floor-foreground [&_a]:underline [&_a]:underline-offset-4">
+            {footer}
+          </p>
+        ) : null}
       </div>
-    </section>
+    </main>
   )
 }

@@ -21,29 +21,28 @@ export function EnvironmentConnectionOutcomes({
     <section className="flex flex-col gap-2">
       <h3 className="font-medium">Connection activity and approval outcomes</h3>
       {data?.data.length === 0 && (
-        <p className="text-sm text-muted-foreground">No recorded activity.</p>
+        <p className="text-base text-muted-foreground">No recorded activity.</p>
       )}
       {data?.data.map((event) => (
-        <div className="rounded border p-2 text-sm" key={event.id}>
+        <div className="rounded border p-2 text-base" key={event.id}>
           <p>
             {event.display?.title ?? event.type} · {event.outcome ?? event.type}
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {new Date(event.occurredAt).toLocaleString()} · Connection{" "}
             {event.connectionId}
           </p>
           {event.digest && (
-            <p className="font-mono text-xs break-all text-muted-foreground">
+            <p className="font-mono text-sm break-all text-muted-foreground">
               Reviewed digest: {event.digest}
             </p>
           )}
         </div>
       ))}
-      {error && <p className="text-sm text-destructive">{error.message}</p>}
+      {error && <p className="text-base text-destructive">{error.message}</p>}
       <div className="flex gap-2">
         <Button
           variant="outline"
-          size="xs"
           disabled={cursorHistory.length === 1 || isFetching}
           onClick={() => setCursorHistory([undefined])}
         >
@@ -51,7 +50,6 @@ export function EnvironmentConnectionOutcomes({
         </Button>
         <Button
           variant="outline"
-          size="xs"
           disabled={cursorHistory.length === 1 || isFetching}
           onClick={() => setCursorHistory((history) => history.slice(0, -1))}
         >
@@ -59,7 +57,6 @@ export function EnvironmentConnectionOutcomes({
         </Button>
         <Button
           variant="outline"
-          size="xs"
           disabled={!data?.nextCursor || isFetching}
           onClick={() => {
             const nextCursor = data?.nextCursor

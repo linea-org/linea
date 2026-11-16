@@ -20,6 +20,7 @@ import {
 } from "@linea/ui/components/alert-dialog"
 import { Badge } from "@linea/ui/components/badge"
 import { Button } from "@linea/ui/components/button"
+import { Card } from "@linea/ui/components/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +51,7 @@ import {
   isForbidden,
   type SecretEditor,
 } from "./use-environment-secrets"
+import { ListSkeleton } from "@/components/workspace/list-skeleton"
 
 function editorNameField(
   editor: SecretEditor | null
@@ -172,10 +174,10 @@ function ProviderRow({
 }) {
   return (
     <TableRow>
-      <TableCell className="px-4 py-3 font-medium text-foreground">
+      <TableCell className="px-4 font-medium text-foreground">
         {provider.label}
       </TableCell>
-      <TableCell className="px-4 py-3">
+      <TableCell className="px-4">
         <Badge variant={provider.configured ? "default" : "secondary"}>
           {provider.configured
             ? "This Environment"
@@ -184,14 +186,14 @@ function ProviderRow({
               : "Not set"}
         </Badge>
       </TableCell>
-      <TableCell className="px-2 py-3 text-right">
+      <TableCell className="px-2 text-right">
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
               <Button
                 type="button"
                 variant="ghost"
-                size="icon-sm"
+                size="icon"
                 aria-label={`More options for ${provider.label}`}
               />
             }
@@ -234,19 +236,19 @@ function ProviderSecretsSection({
   return (
     <>
       {" "}
-      <p className="pl-1 text-sm font-medium text-foreground">AI providers</p>
-      <p className="mt-1 pl-1 text-xs text-muted-foreground">
+      <p className="pl-1 text-base font-medium text-foreground">AI providers</p>
+      <p className="mt-1 pl-1 text-sm text-muted-foreground">
         Use your own account for models, or keep Linea&apos;s default.
       </p>
       {providersErrored && providersError && !isForbidden(providersError) ? (
-        <p className="mt-4 text-xs text-destructive">
+        <p className="mt-4 text-sm text-destructive">
           {providersError.message}
         </p>
       ) : null}
       {providersPending ? (
-        <p className="mt-4 text-xs text-muted-foreground">Loading…</p>
+        <ListSkeleton className="mt-4" />
       ) : providers ? (
-        <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+        <Card className="mt-4 gap-0 py-0">
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow className="hover:bg-transparent">
@@ -280,7 +282,7 @@ function ProviderSecretsSection({
               ))}
             </TableBody>
           </Table>
-        </div>
+        </Card>
       ) : null}
     </>
   )
@@ -315,16 +317,16 @@ function CustomSecretsSection({
           placeholder="Search secrets"
         />
         <div className="ml-auto">
-          <Button size="xs" onClick={() => onEdit({ kind: "create" })}>
+          <Button onClick={() => onEdit({ kind: "create" })}>
             <PlusIcon />
             Add secret
           </Button>
         </div>
       </div>
       {isError && error ? (
-        <p className="text-xs text-destructive">{error.message}</p>
+        <p className="text-sm text-destructive">{error.message}</p>
       ) : isPending ? (
-        <p className="text-xs text-muted-foreground">Loading…</p>
+        <ListSkeleton />
       ) : customSecrets.length === 0 ? (
         <Empty>
           <EmptyHeader>
@@ -342,7 +344,7 @@ function CustomSecretsSection({
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <Card className="gap-0 py-0">
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow className="hover:bg-transparent">
@@ -365,7 +367,7 @@ function CustomSecretsSection({
               ))}
             </TableBody>
           </Table>
-        </div>
+        </Card>
       )}
     </>
   )
@@ -382,23 +384,23 @@ function CustomSecretRow({
 }) {
   return (
     <TableRow key={secret.id}>
-      <TableCell className="px-4 py-3 font-medium text-foreground">
+      <TableCell className="px-4 font-medium text-foreground">
         {secret.key}
       </TableCell>
-      <TableCell className="px-4 py-3 tracking-widest text-muted-foreground">
+      <TableCell className="px-4 tracking-widest text-muted-foreground">
         ••••••••
       </TableCell>
-      <TableCell className="px-4 py-3 text-muted-foreground">
+      <TableCell className="px-4 text-muted-foreground">
         {new Date(secret.updatedAt).toLocaleDateString()}
       </TableCell>
-      <TableCell className="px-2 py-3 text-right">
+      <TableCell className="px-2 text-right">
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
               <Button
                 type="button"
                 variant="ghost"
-                size="icon-sm"
+                size="icon"
                 aria-label={`More options for ${secret.key}`}
               />
             }
@@ -476,8 +478,7 @@ function SecretDialogs({
           <AlertDialogHeader>
             <AlertDialogTitle>Remove {deleteTarget?.label}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Workflows using this credential will fail until it&apos;s added
-              again.
+              Workflows using it will fail.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

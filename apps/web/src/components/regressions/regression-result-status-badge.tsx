@@ -13,11 +13,11 @@ export const regressionResultStatusLabel: Record<
 
 const variantByStatus: Record<
   RegressionResultStatus,
-  "default" | "secondary" | "outline" | "destructive"
+  "success" | "warning" | "destructive"
 > = {
-  passed: "secondary",
+  passed: "success",
   failed: "destructive",
-  errored: "destructive",
+  errored: "warning",
 }
 
 export function RegressionResultStatusBadge({

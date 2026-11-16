@@ -4,6 +4,8 @@ import type { NodeTypeId } from "@linea/runtime/browser"
 export type WorkflowBuilderNodeData = {
   nodeType: NodeTypeId
   config: Record<string, unknown>
+  // Set by read-only previews so a node doesn't offer to delete itself.
+  readOnly?: boolean
 }
 
 export const WORKFLOW_NODE_TYPE = "workflowNode"

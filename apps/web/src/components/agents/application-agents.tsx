@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import { BotIcon } from "lucide-react"
 import {
   Empty,
@@ -19,6 +20,7 @@ import {
 import { PlayfulAvatar } from "@/components/avatar"
 import { listAgentsFn } from "@/lib/agents-api"
 import { formatDate } from "@/lib/format"
+import { ListSkeleton } from "@/components/workspace/list-skeleton"
 
 export function ApplicationAgents({
   workspaceSlug,
@@ -49,13 +51,9 @@ export function ApplicationAgents({
   })
   return (
     <section className="flex flex-col">
-      {isPending && (
-        <output className="block px-4 py-8 text-xs text-muted-foreground">
-          Loading Agents…
-        </output>
-      )}
+      {isPending && <ListSkeleton className="px-4 py-2" />}
       {error && (
-        <p role="alert" className="px-4 py-8 text-xs text-destructive">
+        <p role="alert" className="px-4 py-8 text-sm text-destructive">
           {error.message}
         </p>
       )}
@@ -78,7 +76,7 @@ export function ApplicationAgents({
       )}
       {visible.length > 0 && (
         <div className="px-4 py-2">
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Card className="gap-0 py-0">
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow className="hover:bg-transparent">
@@ -95,8 +93,8 @@ export function ApplicationAgents({
               </TableHeader>
               <TableBody>
                 {visible.map((agent) => (
-                  <TableRow key={agent.id} className="hover:bg-muted/40">
-                    <TableCell className="px-4 py-3">
+                  <TableRow key={agent.id}>
+                    <TableCell className="px-4">
                       <Link
                         to="/w/$slug/agents/$agentId"
                         params={{ slug: workspaceSlug, agentId: agent.id }}
@@ -105,29 +103,24 @@ export function ApplicationAgents({
                         <PlayfulAvatar
                           name={agent.name}
                           shape="rounded"
-                          className="size-8"
+                          className="size-6"
                         />
-                        <span className="min-w-0">
-                          <span className="block truncate text-xs font-medium">
-                            {agent.name}
-                          </span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {agent.slug}
-                          </span>
+                        <span className="truncate text-sm font-medium">
+                          {agent.name}
                         </span>
                       </Link>
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground">
+                    <TableCell className="px-4 text-muted-foreground">
                       {agent.archivedAt ? "Archived" : "Active"}
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                    <TableCell className="px-4 text-muted-foreground tabular-nums">
                       {formatDate(agent.updatedAt)}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </Card>
         </div>
       )}
     </section>

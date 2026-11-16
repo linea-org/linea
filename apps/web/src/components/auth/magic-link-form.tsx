@@ -91,16 +91,15 @@ export function MagicLinkForm({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       {fieldError ? (
-        <p className="text-xs text-destructive">{fieldError}</p>
+        <p className="text-sm text-destructive">{fieldError}</p>
       ) : null}
       <Button
         type="button"
         variant="outline"
         className="w-full"
         disabled={isSubmitting}
-        size="lg"
         onClick={() => {
           void onSubmit()
         }}

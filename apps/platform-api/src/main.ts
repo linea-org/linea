@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { Logger } from '@nestjs/common'
 import type { Request } from 'express'
 import helmet from 'helmet'
 import { NestFactory } from '@nestjs/core'
@@ -71,7 +72,7 @@ async function bootstrap() {
     enabledSocialProviders.length > 0
       ? enabledSocialProviders.join(', ')
       : 'none'
-  console.log(`OAuth providers: ${oauth}`)
+  new Logger('Bootstrap').log(`OAuth providers: ${oauth}`)
 }
 
 void bootstrap()

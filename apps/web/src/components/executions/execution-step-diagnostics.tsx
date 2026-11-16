@@ -41,7 +41,6 @@ export function ReplayAction({
       <Button
         type="button"
         variant="outline"
-        size="xs"
         className="mt-3"
         onClick={() => setOpen(true)}
       >
@@ -51,7 +50,7 @@ export function ReplayAction({
   }
   return (
     <div className="mt-3 space-y-2">
-      <p className="text-xs font-medium text-muted-foreground">
+      <p className="text-sm font-medium text-muted-foreground">
         Config override — edit and re-run this step against the same input
       </p>
       <Textarea
@@ -61,18 +60,17 @@ export function ReplayAction({
           setParseError(null)
         }}
         rows={6}
-        className="font-mono text-xs"
+        className="font-mono text-sm"
       />
       {parseError ? (
-        <p className="text-xs text-destructive">{parseError}</p>
+        <p className="text-sm text-destructive">{parseError}</p>
       ) : null}
       {mutation.isError ? (
-        <p className="text-xs text-destructive">{mutation.error.message}</p>
+        <p className="text-sm text-destructive">{mutation.error.message}</p>
       ) : null}
       <div className="flex gap-2">
         <Button
           type="button"
-          size="xs"
           disabled={mutation.isPending}
           onClick={() => {
             let parsed: Record<string, unknown>
@@ -91,7 +89,6 @@ export function ReplayAction({
         <Button
           type="button"
           variant="ghost"
-          size="xs"
           disabled={mutation.isPending}
           onClick={() => setOpen(false)}
         >
@@ -114,7 +111,7 @@ export function AddToRegressionAction({
   })
   if (mutation.isSuccess) {
     return (
-      <p className="mt-3 text-xs text-muted-foreground">
+      <p className="mt-3 text-sm text-muted-foreground">
         Added to regression suite
       </p>
     )
@@ -124,14 +121,13 @@ export function AddToRegressionAction({
       <Button
         type="button"
         variant="outline"
-        size="xs"
         disabled={mutation.isPending}
         onClick={() => mutation.mutate()}
       >
         {mutation.isPending ? "Adding…" : "Add to regression suite"}
       </Button>
       {mutation.isError ? (
-        <p className="mt-1.5 text-xs text-destructive">
+        <p className="mt-1.5 text-sm text-destructive">
           {mutation.error.message}
         </p>
       ) : null}

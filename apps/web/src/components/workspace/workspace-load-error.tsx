@@ -8,7 +8,7 @@ export function WorkspaceLoadError({ reset }: ErrorComponentProps) {
       <h1 className="font-heading text-xl font-semibold">
         Unable to load workspace
       </h1>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-base text-muted-foreground">
         Try again to check your session and reload this page.
       </p>
       <Button

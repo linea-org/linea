@@ -64,7 +64,18 @@ export class WorkflowsService {
         )
       if (contract.outcome !== 'created')
         throw new Error('Workflow contract creation failed')
-      return workflow
+      if (!input.graph) return workflow
+      await this.assertAgentReferences(workflow, input.graph, {
+        requireAgent: false,
+      })
+      const drafted = await repositories.workflow.saveWorkflowDraft(
+        tx,
+        workspaceId,
+        workflow.id,
+        input.graph,
+      )
+      if (!drafted) throw new Error('Workflow draft creation failed')
+      return drafted
     })
   }
 

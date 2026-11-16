@@ -6,4 +6,5 @@ export {
   magicLinkEmailHtml,
   organizationInviteEmailHtml,
   existingAccountEmailHtml,
+  noticeEmailHtml,
 } from "./templates.js"

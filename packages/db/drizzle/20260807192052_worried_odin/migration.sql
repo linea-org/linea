@@ -1,1 +1,0 @@
-ALTER TABLE "executions" ADD COLUMN "enqueue_attempts" integer DEFAULT 0 NOT NULL;

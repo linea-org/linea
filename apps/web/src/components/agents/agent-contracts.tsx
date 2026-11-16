@@ -37,8 +37,7 @@ export function AgentContracts({
               </EmptyMedia>
               <EmptyTitle>No contracts yet</EmptyTitle>
               <EmptyDescription>
-                Define the request and response schemas your application will
-                use.
+                Define request and response schemas.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -58,10 +57,10 @@ export function AgentContracts({
                       )[]
                     ).map((name) => (
                       <div key={name} className="min-w-0">
-                        <h3 className="mb-2 text-xs text-muted-foreground">
+                        <h3 className="mb-2 text-sm text-muted-foreground">
                           {name === "inputSchema" ? "Input" : "Output"}
                         </h3>
-                        <pre className="overflow-auto rounded-md bg-surface-canvas p-3 text-xs">
+                        <pre className="overflow-auto rounded-md bg-surface-canvas p-3 text-sm">
                           {JSON.stringify(contract[name], null, 2)}
                         </pre>
                       </div>

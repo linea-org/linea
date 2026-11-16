@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
+    "@linea/auth": "workspace:*",
     "@linea/protocol": "workspace:*",
     "@linea/runtime": "workspace:*",
     "@linea/ui": "workspace:*",
@@ -38,6 +39,7 @@
     "react-dom": "^19.2.6",
     "react-hook-form": "^7.85.0",
     "react-markdown": "^10.1.0",
+    "react-qr-code": "^2.2.0",
     "recharts": "3.8.0",
     "remark-gfm": "^4.0.1",
     "socket.io-client": "^4.8.3",

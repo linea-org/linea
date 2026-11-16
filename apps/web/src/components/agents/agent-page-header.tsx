@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import { Link, useSearch } from "@tanstack/react-router"
 import { Button } from "@linea/ui/components/button"
 import { Badge } from "@linea/ui/components/badge"
@@ -32,7 +33,7 @@ export function AgentPageHeader({
     <>
       <header className="flex h-12 items-center justify-between gap-3 border-b border-border px-4">
         <div className="flex min-w-0 items-center gap-2">
-          <h2 className="truncate text-sm font-medium">
+          <h2 className="truncate text-base font-medium">
             {section === "deployments"
               ? deploymentName
               : agentSections[section].label}
@@ -46,7 +47,6 @@ export function AgentPageHeader({
             <Button
               nativeButton={false}
               role="link"
-              size="xs"
               variant="outline"
               render={
                 <Link
@@ -62,7 +62,6 @@ export function AgentPageHeader({
           <Button
             nativeButton={false}
             role="link"
-            size="xs"
             variant="outline"
             render={
               <Link to="/w/$slug/executions" params={{ slug: workspaceSlug }} />
@@ -73,10 +72,7 @@ export function AgentPageHeader({
         </div>
       </header>
       {archived && section !== "deployments" && (
-        <div
-          role="note"
-          className="m-4 mb-0 rounded-lg border border-border bg-card px-4 py-3 text-xs"
-        >
+        <Card className="m-4 mb-0 gap-0 px-4 py-3 text-sm" role="note">
           <p className="font-medium">
             This Agent is archived. Configuration is read-only.
           </p>
@@ -84,7 +80,7 @@ export function AgentPageHeader({
             You can review its Contracts, versions, and deployments. Existing
             deployments can still be disabled.
           </p>
-        </div>
+        </Card>
       )}
     </>
   )

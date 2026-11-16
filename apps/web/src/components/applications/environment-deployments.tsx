@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { EnvironmentDeploymentForm } from "./environment-deployment-form"
 import { listDeploymentsFn } from "@/lib/deployments-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
+import { Card } from "@linea/ui/components/card"
 
 export function EnvironmentDeployments({
   workspaceSlug,
@@ -21,14 +22,14 @@ export function EnvironmentDeployments({
   return (
     <section className="flex flex-col gap-3">
       {deployments.map((deployment) => (
-        <div key={deployment.id} className="rounded-lg border p-2 text-xs">
+        <Card key={deployment.id} className="block p-2">
           {workflows.find((workflow) => workflow.id === deployment.workflowId)
             ?.name ?? "Workflow"}{" "}
           · {deployment.enabled ? "Enabled" : "Disabled"}
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Pinned version: {deployment.workflowVersionId}
           </p>
-        </div>
+        </Card>
       ))}
       <EnvironmentDeploymentForm
         workspaceSlug={workspaceSlug}
@@ -36,7 +37,7 @@ export function EnvironmentDeployments({
         workflows={workflows}
         enabled={enabled}
       />
-      {error && <p className="text-xs text-destructive">{error.message}</p>}
+      {error && <p className="text-sm text-destructive">{error.message}</p>}
     </section>
   )
 }

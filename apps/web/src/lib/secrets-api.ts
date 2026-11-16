@@ -1,22 +1,12 @@
 import { createServerFn } from "@tanstack/react-start"
 
-import { apiFetch } from "./api-fetch"
+import { apiFetch, parseErrorMessage } from "./api-fetch"
 
 export type SecretSummary = {
   id: string
   key: string
   createdAt: string
   updatedAt: string
-}
-
-async function parseErrorMessage(
-  res: Response,
-  fallback: string
-): Promise<string> {
-  const body = (await res.json().catch(() => null)) as {
-    message?: string
-  } | null
-  return body?.message ?? fallback
 }
 
 export const listSecretsFn = createServerFn({ method: "GET" })

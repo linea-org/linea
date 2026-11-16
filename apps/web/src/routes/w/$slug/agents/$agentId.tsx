@@ -40,8 +40,8 @@ export const Route = createFileRoute("/w/$slug/agents/$agentId")({
   component: AgentPage,
   errorComponent: ({ error }) => (
     <main className="flex flex-1 flex-col gap-2 p-4">
-      <h1 className="text-sm font-medium">Agent unavailable</h1>
-      <p role="alert" className="text-sm text-destructive">
+      <h1 className="text-base font-medium">Agent unavailable</h1>
+      <p role="alert" className="text-base text-destructive">
         {error instanceof Error ? error.message : "Agent could not be loaded"}
       </p>
     </main>

@@ -9,7 +9,9 @@ const browserStateSchema = z
         trail: sidebarTrailSchema,
         expanded: z.record(z.string(), z.boolean()).default({}),
       })
-      .optional(),
+      .optional()
+      // History entries saved by an older menu layout can't be restored; start that entry fresh.
+      .catch(undefined),
   })
   .nullable()
 

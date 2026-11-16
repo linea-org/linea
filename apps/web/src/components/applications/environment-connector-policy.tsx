@@ -120,7 +120,7 @@ export function EnvironmentConnectorPolicy({
       }}
     >
       <h3 className="font-medium">GitHub repository policy</h3>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Choose repositories and maximum permissions for all GitHub Connections
         in this Environment. An empty repository list denies all GitHub
         operations. Writes still require exact-action human approval.
@@ -151,7 +151,7 @@ export function EnvironmentConnectorPolicy({
           })}
         />
         {errors.repositories && (
-          <p className="text-xs text-destructive">
+          <p className="text-sm text-destructive">
             {errors.repositories.message}
           </p>
         )}
@@ -190,13 +190,9 @@ export function EnvironmentConnectorPolicy({
         </Field>
       ))}
       {save.error && (
-        <p className="text-xs text-destructive">{save.error.message}</p>
+        <p className="text-sm text-destructive">{save.error.message}</p>
       )}
-      <Button
-        type="submit"
-        size="xs"
-        disabled={!environment.enabled || save.isPending}
-      >
+      <Button type="submit" disabled={!environment.enabled || save.isPending}>
         Save GitHub policy
       </Button>
     </form>

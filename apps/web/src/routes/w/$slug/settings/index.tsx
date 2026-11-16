@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -85,9 +86,11 @@ function WorkspaceSettingsPage() {
     <main className="flex min-w-0 flex-1 flex-col">
       <div className="flex w-full flex-col gap-6 p-4">
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium">General</h2>
-          <form
-            className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4"
+          <h2 className="text-base font-medium">General</h2>
+          <Card
+            render={<form />}
+            size="sm"
+            className="flex flex-col gap-0 gap-4 px-(--card-spacing)"
             onSubmit={(event) => {
               void handleSubmit((values) => save.mutate(values))(event)
             }}
@@ -95,54 +98,48 @@ function WorkspaceSettingsPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <FieldLabel htmlFor="workspace-name">Name</FieldLabel>
-                <Input
-                  id="workspace-name"
-                  className="h-8"
-                  {...register("name")}
-                />
+                <Input id="workspace-name" {...register("name")} />
                 <FieldError>{errors.name?.message}</FieldError>
               </div>
               <div className="flex flex-col gap-1.5">
                 <FieldLabel htmlFor="workspace-slug">Slug</FieldLabel>
-                <Input
-                  id="workspace-slug"
-                  className="h-8"
-                  {...register("slug")}
-                />
+                <Input id="workspace-slug" {...register("slug")} />
                 <FieldError>{errors.slug?.message}</FieldError>
               </div>
             </div>
             {save.isError ? (
-              <p className="text-xs text-destructive">{save.error.message}</p>
+              <p className="text-sm text-destructive">{save.error.message}</p>
             ) : null}
             <div className="flex justify-end">
-              <Button type="submit" size="xs" disabled={save.isPending}>
+              <Button type="submit" disabled={save.isPending}>
                 {save.isPending ? "Saving…" : "Save"}
               </Button>
             </div>
-          </form>
+          </Card>
         </section>
         {isOwner ? (
           <section className="flex flex-col gap-3">
-            <h2 className="text-sm font-medium">Danger zone</h2>
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-card p-4">
+            <h2 className="text-base font-medium">Danger zone</h2>
+            <Card
+              size="sm"
+              className="flex-row items-center justify-between gap-3 px-(--card-spacing) ring-destructive/30"
+            >
               <div className="flex min-w-0 flex-col gap-0.5">
-                <p className="text-xs font-medium text-foreground">
+                <p className="text-sm font-medium text-foreground">
                   Delete workspace
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Permanently removes the workspace and its history.
                 </p>
               </div>
               <Button
                 type="button"
                 variant="destructive"
-                size="xs"
                 onClick={() => setDeleteOpen(true)}
               >
                 Delete
               </Button>
-            </div>
+            </Card>
           </section>
         ) : null}
       </div>
@@ -151,8 +148,7 @@ function WorkspaceSettingsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {activeOrg?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes the workspace, its workflows, and all
-              execution history. This can&apos;t be undone.
+              Deletes all workflows and run history. This can&apos;t be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

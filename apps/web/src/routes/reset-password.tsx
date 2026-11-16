@@ -92,14 +92,14 @@ function ResetPasswordPage() {
         </>
       }
     >
-      <p className="text-sm text-muted-foreground">
+      <p className="text-base text-muted-foreground">
         Resetting your password signs out all devices. Sign in again afterward.
       </p>
       <form
         onSubmit={(event) => {
           void onSubmit(event)
         }}
-        className="space-y-5"
+        className="flex flex-col gap-6"
       >
         {error ? (
           <Alert variant="destructive">
@@ -146,12 +146,7 @@ function ResetPasswordPage() {
             <FieldError>{fieldErrors.confirm}</FieldError>
           </Field>
         </FieldGroup>
-        <Button
-          type="submit"
-          className="w-full"
-          disabled={pending || !token}
-          size="lg"
-        >
+        <Button type="submit" className="w-full" disabled={pending || !token}>
           {pending ? "Saving…" : "Update password"}
         </Button>
       </form>

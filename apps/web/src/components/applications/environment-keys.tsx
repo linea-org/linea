@@ -11,12 +11,14 @@ import { Checkbox } from "@linea/ui/components/checkbox"
 import { Button } from "@linea/ui/components/button"
 import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
+import { Label } from "@linea/ui/components/label"
 import {
   createEnvironmentKeyFn,
   listEnvironmentKeysFn,
   revokeEnvironmentKeyFn,
   rotateEnvironmentKeyFn,
 } from "@/lib/environment-keys-api"
+import { Card } from "@linea/ui/components/card"
 
 const schema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -79,7 +81,7 @@ export function EnvironmentKeys({
   const error = loadError ?? create.error ?? revoke.error ?? rotate.error
   return (
     <section className="flex flex-col gap-3">
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         These keys access this Environment. Human approvals require a verified
         user session.
       </p>
@@ -96,10 +98,10 @@ export function EnvironmentKeys({
           <Input id={`${environmentId}-key-name`} {...register("name")} />
           <FieldError>{errors.name?.message}</FieldError>
         </Field>
-        <fieldset className="grid gap-2 text-xs sm:grid-cols-2">
+        <fieldset className="grid gap-2 text-sm sm:grid-cols-2">
           <legend className="mb-2 font-medium">Permissions</legend>
           {environmentKeyScopes.map((scope) => (
-            <label key={scope} className="flex items-center gap-2">
+            <Label key={scope} className="font-normal">
               <Controller
                 name="scopes"
                 control={control}
@@ -117,21 +119,20 @@ export function EnvironmentKeys({
                 )}
               />
               {scope.replace(":", " · ")}
-            </label>
+            </Label>
           ))}
         </fieldset>
         <FieldError>{errors.scopes?.message}</FieldError>
-        <Button type="submit" size="xs" disabled={!enabled || create.isPending}>
+        <Button type="submit" disabled={!enabled || create.isPending}>
           Create key
         </Button>
       </form>
       {rawKey && (
-        <div className="rounded-lg border bg-popover p-3">
-          <p className="text-xs">Copy this key now. It is shown once.</p>
-          <code className="text-xs break-all">{rawKey}</code>
+        <Card size="sm" className="gap-2 px-(--card-spacing)">
+          <p className="text-sm">Copy this key now. It is shown once.</p>
+          <code className="text-sm break-all">{rawKey}</code>
           <Button
             variant="ghost"
-            size="xs"
             onClick={() => {
               setRawKey(null)
               create.reset()
@@ -140,20 +141,20 @@ export function EnvironmentKeys({
           >
             Dismiss
           </Button>
-        </div>
+        </Card>
       )}
-      {error && <p className="text-xs text-destructive">{error.message}</p>}
+      {error && <p className="text-sm text-destructive">{error.message}</p>}
       {keys.map((key) => (
-        <div
+        <Card
           key={key.id}
-          className="flex flex-wrap items-center gap-2 rounded-lg border p-2"
+          size="sm"
+          className="flex-row flex-wrap items-center gap-2 p-2"
         >
-          <span className="mr-auto text-xs">
+          <span className="mr-auto text-sm">
             {key.name} · {key.keyPrefix} ·{" "}
             {key.revokedAt ? "Revoked" : "Active"}
           </span>
           <Button
-            size="xs"
             variant="outline"
             disabled={!enabled || !!key.revokedAt || rotate.isPending}
             onClick={() => rotate.mutate(key.id)}
@@ -161,14 +162,13 @@ export function EnvironmentKeys({
             Rotate
           </Button>
           <Button
-            size="xs"
             variant="outline"
             disabled={!!key.revokedAt || revoke.isPending}
             onClick={() => revoke.mutate(key.id)}
           >
             Revoke
           </Button>
-        </div>
+        </Card>
       ))}
     </section>
   )

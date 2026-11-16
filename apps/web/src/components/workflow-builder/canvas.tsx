@@ -1,11 +1,7 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type DragEvent,
-} from "react"
+import { PublishTemplateDialog } from "@/components/templates/publish-template-dialog"
+import { Spinner } from "@linea/ui/components/spinner"
+import { ToolbarIconButton } from "./toolbar-icon-button"
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react"
 import {
   Background,
   Controls,
@@ -28,7 +24,11 @@ import {
 import "@xyflow/react/dist/style.css"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useTheme } from "next-themes"
-import { nodeRegistry, type NodeTypeId } from "@linea/runtime/browser"
+import {
+  nodeRegistry,
+  type NodeTypeId,
+  type WorkflowGraph,
+} from "@linea/runtime/browser"
 import { Button } from "@linea/ui/components/button"
 import {
   Dialog,
@@ -43,13 +43,16 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@linea/ui/components/resizable"
+import { useCanGoBack, useNavigate, useRouter } from "@tanstack/react-router"
 import {
+  ArrowLeftIcon,
   CheckIcon,
   MessageCircleIcon,
-  PanelLeftIcon,
+  GitCommitHorizontalIcon,
   PlayIcon,
   Redo2Icon,
   RefreshCwIcon,
+  WandSparklesIcon,
   Undo2Icon,
 } from "lucide-react"
 import { cn } from "@linea/ui/lib/utils"
@@ -60,14 +63,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@linea/ui/components/tooltip"
-import { useWorkspaceOverlayNav } from "../workspace"
+import { ASSISTANT_NAME } from "@/lib/assistant-api"
 import { authClient } from "@/lib/auth-client"
+import { modelSettingsQueryOptions } from "@/lib/model-settings-api"
 import { isWorkspaceAdmin } from "@/lib/workspace-role"
 import {
   executionsQueryOptions,
   testRunFn,
   type JsonValue,
 } from "@/lib/executions-api"
+import { AssistantPanel } from "./assistant-panel"
 import { ChatPreviewPanel } from "./chat-preview-panel"
 import {
   createWorkflowVersionFn,
@@ -95,51 +100,30 @@ import {
   WORKFLOW_NODE_TYPE,
   type WorkflowBuilderNodeData,
 } from "./graph-conversion"
+import { FLOW_THEME_VARS } from "./flow-theme"
 
 const nodeTypes: NodeTypes = { [WORKFLOW_NODE_TYPE]: NodeShell }
 
-function defaultNodeConfig(nodeType: NodeTypeId): Record<string, unknown> {
+function defaultNodeConfig(
+  nodeType: NodeTypeId,
+  stepModel: string | null
+): Record<string, unknown> {
   const config: Record<string, unknown> = {}
   for (const field of nodeRegistry[nodeType].ui.fields) {
     if (field.widget !== "select" || field.showIf || !field.options?.[0]) {
       continue
     }
-    config[field.key] = field.options[0].value
+    const preferred =
+      field.key === "model" &&
+      field.options.some((option) => option.value === stepModel)
+        ? stepModel
+        : null
+    config[field.key] = preferred ?? field.options[0].value
   }
   return config
 }
 
 const DRAFT_SAVE_DEBOUNCE_MS = 1200
-
-// @xyflow/react ships its own light-mode colors via these CSS variables — remap them to our tokens so Controls/MiniMap/edges follow dark mode.
-const FLOW_THEME_VARS = {
-  "--xy-background-color": "var(--surface-canvas)",
-  "--xy-background-pattern-color":
-    "color-mix(in oklch, var(--foreground) 22%, transparent)",
-  "--xy-edge-stroke": "var(--muted-foreground)",
-  "--xy-edge-stroke-selected": "var(--primary)",
-  "--xy-connectionline-stroke": "var(--muted-foreground)",
-  "--xy-edge-label-background-color": "var(--popover)",
-  "--xy-edge-label-color": "var(--foreground)",
-  "--xy-selection-background-color":
-    "color-mix(in oklch, var(--primary) 12%, transparent)",
-  "--xy-selection-border": "1px solid var(--primary)",
-  "--xy-handle-background-color": "var(--muted-foreground)",
-  "--xy-handle-border-color": "var(--card)",
-  "--xy-node-background-color": "transparent",
-  "--xy-node-color": "var(--foreground)",
-  "--xy-node-border": "none",
-  "--xy-controls-button-background-color": "var(--card)",
-  "--xy-controls-button-background-color-hover": "var(--secondary)",
-  "--xy-controls-button-color": "var(--foreground)",
-  "--xy-controls-button-color-hover": "var(--foreground)",
-  "--xy-controls-button-border-color": "var(--border)",
-  "--xy-minimap-background-color": "var(--card)",
-  "--xy-minimap-mask-background-color":
-    "color-mix(in oklch, var(--surface-canvas) 70%, transparent)",
-  "--xy-minimap-node-background-color": "var(--muted)",
-  "--xy-minimap-node-stroke-color": "var(--border)",
-} as CSSProperties
 
 function CategoryConnectionLine({
   fromX,
@@ -192,6 +176,7 @@ type WorkflowBuilderCanvasProps = {
   workflowId: string
   slug: string
   initialGraph: WorkflowBuilderGraph
+  openChat: boolean
 }
 
 export function WorkflowBuilderCanvas(props: WorkflowBuilderCanvasProps) {
@@ -206,18 +191,24 @@ function WorkflowBuilderCanvasInner({
   workflowId,
   slug,
   initialGraph,
+  openChat,
 }: WorkflowBuilderCanvasProps) {
   const { data: workflow } = useQuery(workflowQueryOptions(slug, workflowId))
+  const { data: modelSettings } = useQuery(modelSettingsQueryOptions(slug))
   const seeded = ensureStartNode(initialGraph)
   const initial = graphToFlow(seeded)
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges)
-  const [entryNodeId] = useState(seeded.entryNodeId)
+  const entryNodeId =
+    nodes.find((node) => node.data.nodeType === "start")?.id ??
+    seeded.entryNodeId
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   // Which of the two right-hand panels is visible — kept as one variable, not two
   // independent booleans, so a node selection and the chat toggle can never both
   // decide to show a panel at the same time.
-  const [rightPanel, setRightPanel] = useState<"config" | "chat" | null>(null)
+  const [rightPanel, setRightPanel] = useState<
+    "config" | "chat" | "assistant" | null
+  >(openChat ? "chat" : null)
   const { resolvedTheme } = useTheme()
   const { screenToFlowPosition } = useReactFlow<Node<WorkflowBuilderNodeData>>()
   const history = useUndoHistory({ nodes: initial.nodes, edges: initial.edges })
@@ -486,7 +477,10 @@ function WorkflowBuilderCanvasInner({
         type: WORKFLOW_NODE_TYPE,
         position,
         selected: true,
-        data: { nodeType, config: defaultNodeConfig(nodeType) },
+        data: {
+          nodeType,
+          config: defaultNodeConfig(nodeType, modelSettings?.stepModel ?? null),
+        },
       }
       const nextNodes = [
         ...nodes.map((n) => ({ ...n, selected: false })),
@@ -497,8 +491,15 @@ function WorkflowBuilderCanvasInner({
       setRightPanel("config")
       pushHistory(nextNodes, edges)
     },
-    [nodes, edges, screenToFlowPosition, setNodes, pushHistory]
+    [nodes, edges, screenToFlowPosition, setNodes, pushHistory, modelSettings]
   )
+  function applyAssistantGraph(proposal: WorkflowGraph) {
+    const flow = graphToFlow(ensureStartNode(proposal))
+    setNodes(flow.nodes)
+    setEdges(flow.edges)
+    setSelectedNodeId(null)
+    pushHistory(flow.nodes, flow.edges)
+  }
   function undo() {
     const snapshot = history.undo()
     if (!snapshot) return
@@ -521,22 +522,29 @@ function WorkflowBuilderCanvasInner({
       strokeWidth: 2,
     },
   }))
-  const toggleNav = useWorkspaceOverlayNav()
+  const router = useRouter()
+  const navigate = useNavigate()
+  const canGoBack = useCanGoBack()
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-card">
       <div className="flex shrink-0 items-center justify-between gap-2 p-2">
         <div className="flex items-center gap-1">
-          {toggleNav && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              onClick={toggleNav}
-              aria-label="Toggle navigation"
-            >
-              <PanelLeftIcon />
-            </Button>
-          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Back"
+            onClick={() => {
+              if (canGoBack) router.history.back()
+              else
+                void navigate({
+                  to: "/w/$slug/workflows/$workflowId",
+                  params: { slug, workflowId },
+                })
+            }}
+          >
+            <ArrowLeftIcon />
+          </Button>
           {workflow && <WorkflowTitle slug={slug} workflow={workflow} />}
         </div>
         <div className="flex items-center justify-end gap-2">
@@ -565,7 +573,7 @@ function WorkflowBuilderCanvasInner({
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
+            size="icon-sm"
             onClick={undo}
             disabled={!history.canUndo()}
             aria-label="Undo"
@@ -575,7 +583,7 @@ function WorkflowBuilderCanvasInner({
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
+            size="icon-sm"
             onClick={redo}
             disabled={!history.canRedo()}
             aria-label="Redo"
@@ -583,51 +591,60 @@ function WorkflowBuilderCanvasInner({
             <Redo2Icon />
           </Button>
           {saveStatus === "saving" && (
-            <span className="text-xs text-muted-foreground">Saving…</span>
+            <span className="text-sm text-muted-foreground">Saving…</span>
           )}
           {saveStatus === "saved" && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1 text-sm text-muted-foreground">
               <CheckIcon className="size-3.5" />
               Saved
             </span>
           )}
+          <ToolbarIconButton
+            label={ASSISTANT_NAME}
+            pressed={rightPanel === "assistant"}
+            onClick={() =>
+              setRightPanel((current) =>
+                current === "assistant" ? null : "assistant"
+              )
+            }
+          >
+            <WandSparklesIcon />
+          </ToolbarIconButton>
           {hasAgentNode && (
-            <Button
-              type="button"
-              variant={rightPanel === "chat" ? "secondary" : "outline"}
-              size="xs"
+            <ToolbarIconButton
+              label="Chat preview"
+              pressed={rightPanel === "chat"}
               onClick={() =>
                 setRightPanel((current) => (current === "chat" ? null : "chat"))
               }
-              aria-pressed={rightPanel === "chat"}
             >
               <MessageCircleIcon />
-              Chat preview
-            </Button>
+            </ToolbarIconButton>
           )}
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
+          {workflow ? (
+            <PublishTemplateDialog
+              slug={slug}
+              workflowId={workflowId}
+              workflowName={workflow.name}
+            />
+          ) : null}
+          <ToolbarIconButton
+            label={testRun.isPending ? "Running…" : "Test run"}
             onClick={() => testRun.mutate()}
             disabled={testRun.isPending}
           >
-            <PlayIcon />
-            {testRun.isPending ? "Running…" : "Test run"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
+            {testRun.isPending ? <Spinner /> : <PlayIcon />}
+          </ToolbarIconButton>
+          <ToolbarIconButton
+            label="Commit"
             onClick={() => setCommitDialog("commit")}
             disabled={saveVersion.isPending}
           >
-            Commit
-          </Button>
+            <GitCommitHorizontalIcon />
+          </ToolbarIconButton>
           {canPublish ? (
             <Button
               type="button"
-              size="xs"
               onClick={() => setCommitDialog("publish")}
               disabled={publish.isPending}
             >
@@ -640,7 +657,6 @@ function WorkflowBuilderCanvasInner({
                   render={
                     <Button
                       type="button"
-                      size="xs"
                       disabled
                       focusableWhenDisabled
                       className="cursor-not-allowed opacity-50"
@@ -659,12 +675,12 @@ function WorkflowBuilderCanvasInner({
         </div>
       </div>
       {(saveVersion.isError || publish.isError || testRun.isError) && (
-        <p className="border-b border-border bg-destructive/10 px-3 py-2 text-xs text-destructive">
+        <p className="border-b border-border bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {(saveVersion.error ?? publish.error ?? testRun.error)?.message}
         </p>
       )}
       {pendingRemoteUpdate && (
-        <div className="flex items-center justify-between gap-3 border-b border-border bg-secondary px-3 py-2 text-xs">
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-secondary px-3 py-2 text-sm">
           <span>
             <strong>{pendingRemoteUpdate.savedBy.name}</strong> made changes
             while you were editing. Reloading replaces your unsaved changes with
@@ -674,7 +690,6 @@ function WorkflowBuilderCanvasInner({
             <Button
               type="button"
               variant="ghost"
-              size="xs"
               onClick={() => setPendingRemoteUpdate(null)}
             >
               Dismiss
@@ -682,7 +697,6 @@ function WorkflowBuilderCanvasInner({
             <Button
               type="button"
               variant="outline"
-              size="xs"
               onClick={() => applyRemoteGraph(pendingRemoteUpdate)}
             >
               <RefreshCwIcon />
@@ -699,7 +713,7 @@ function WorkflowBuilderCanvasInner({
         <ResizablePanelGroup
           orientation="horizontal"
           className={cn(
-            "min-h-0 min-w-0 flex-1 pb-2 transition-[padding] duration-500 ease-in",
+            "min-h-0 min-w-0 flex-1 pb-2 transition-all duration-500 ease-in",
             paletteCollapsed && "pl-2",
             !rightPanel && "pr-2"
           )}
@@ -859,6 +873,28 @@ function WorkflowBuilderCanvasInner({
               </ResizablePanel>
             </>
           )}
+          {rightPanel === "assistant" && (
+            <>
+              <ResizableHandle className="w-0 bg-transparent" />
+              <ResizablePanel
+                id="builder-assistant"
+                defaultSize={340}
+                minSize={280}
+                maxSize={640}
+                groupResizeBehavior="preserve-pixel-size"
+                className="min-h-0"
+              >
+                <AssistantPanel
+                  slug={slug}
+                  workflowId={workflowId}
+                  applicationId={workflow?.applicationId}
+                  graph={buildGraph(entryNodeId)}
+                  onApply={applyAssistantGraph}
+                  onClose={() => setRightPanel(null)}
+                />
+              </ResizablePanel>
+            </>
+          )}
           {rightPanel === "chat" && (
             <>
               <ResizableHandle className="w-0 bg-transparent" />
@@ -906,16 +942,15 @@ function WorkflowBuilderCanvasInner({
             value={commitMessage}
             onChange={(e) => setCommitMessage(e.target.value)}
           />
-          <DialogFooter className="mt-2">
+          <DialogFooter>
             <Button
               type="button"
               variant="ghost"
-              size="xs"
               onClick={() => setCommitDialog(null)}
             >
               Cancel
             </Button>
-            <Button type="button" size="xs" onClick={confirmCommit}>
+            <Button type="button" onClick={confirmCommit}>
               {commitDialog === "publish" ? "Publish" : "Commit"}
             </Button>
           </DialogFooter>

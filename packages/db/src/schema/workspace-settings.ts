@@ -25,6 +25,12 @@ export const workspaceSettings = snakeCase.table("workspace_settings", {
   // of the enabled flag, so a workspace can dial spend down without turning the feature off.
   behaviourSampleRate: real().notNull().default(1),
   behaviourModel: text(),
+  // Null until a member picks one: nothing runs on a model the workspace did not choose.
+  defaultModel: text(),
+  // Null means the grader takes the first keyed model from its own candidate list.
+  judgeModel: text(),
+  // Preselected on new AI workflow steps; existing steps keep the model they were saved with.
+  stepModel: text(),
   // Linea grants this, never the workspace, because it spends the platform's own provider key.
   platformModelKeyEnabled: boolean().notNull().default(false),
 
