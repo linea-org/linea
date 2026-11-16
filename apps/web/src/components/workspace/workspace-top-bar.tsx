@@ -1,5 +1,5 @@
 import { Link, useLocation, useMatches } from "@tanstack/react-router"
-import { BookOpenIcon, WandSparklesIcon } from "lucide-react"
+import { WandSparklesIcon } from "lucide-react"
 
 import { buttonVariants } from "@linea/ui/components/button"
 import { Separator } from "@linea/ui/components/separator"
@@ -8,6 +8,7 @@ import { cn } from "@linea/ui/lib/utils"
 
 import { ASSISTANT_NAME } from "@/lib/assistant-api"
 
+import { HelpMenu } from "./help-menu"
 import { TopBarBreadcrumb } from "./top-bar-breadcrumb"
 import { TopBarSearch, TopBarSearchIcon } from "./top-bar-search"
 import { WorkflowHeading } from "./workflow-heading"
@@ -45,12 +46,13 @@ export function WorkspaceTopBar({
       <Separator orientation="vertical" className="hidden h-12 md:block" />
       <div className="flex min-w-0 flex-1 items-center gap-3 px-3">
         <div className="flex min-w-0 flex-1 basis-0 items-center gap-2">
-          <SidebarTrigger size="icon-sm" className="shrink-0" />
+          <SidebarTrigger
+            variant="secondary"
+            size="icon-sm"
+            className="shrink-0"
+          />
           {workflow ? (
-            <>
-              <Separator orientation="vertical" className="h-4" />
-              <WorkflowHeading slug={slug} workflow={workflow} />
-            </>
+            <WorkflowHeading slug={slug} workflow={workflow} />
           ) : (
             <TopBarBreadcrumb slug={slug} />
           )}
@@ -73,16 +75,7 @@ export function WorkspaceTopBar({
             <WandSparklesIcon />
             <span className="hidden sm:inline">Ask {ASSISTANT_NAME}</span>
           </Link>
-          <a
-            href="https://docs.getlinea.app"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Learn about Linea"
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-          >
-            <BookOpenIcon />
-            <span className="hidden sm:inline">Docs</span>
-          </a>
+          <HelpMenu />
         </div>
       </div>
     </header>

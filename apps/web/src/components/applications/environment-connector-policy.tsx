@@ -114,17 +114,12 @@ export function EnvironmentConnectorPolicy({
   })
   return (
     <form
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-4"
       onSubmit={(event) => {
         void handleSubmit((data) => save.mutate(data))(event)
       }}
     >
-      <h3 className="font-medium">GitHub repository policy</h3>
-      <p className="text-sm text-muted-foreground">
-        Choose repositories and maximum permissions for all GitHub Connections
-        in this Environment. An empty repository list denies all GitHub
-        operations. Writes still require exact-action human approval.
-      </p>
+      <h3 className="text-base font-medium">GitHub repository policy</h3>
       <Field>
         <FieldLabel htmlFor={environment.id + "-repositories"}>
           Allowed repositories (owner/repository, comma separated)
@@ -156,39 +151,45 @@ export function EnvironmentConnectorPolicy({
           </p>
         )}
       </Field>
-      {permissions.map((permission) => (
-        <Field key={permission.name}>
-          <FieldLabel htmlFor={environment.id + "-policy-" + permission.name}>
-            {permission.label}
-          </FieldLabel>
-          <Controller
-            control={control}
-            name={permission.name}
-            render={({ field }) => (
-              <Select
-                value={field.value}
-                onValueChange={(value) => {
-                  if (value !== "none" && value !== "read" && value !== "write")
-                    return
-                  field.onChange(value)
-                }}
-              >
-                <SelectTrigger
-                  id={environment.id + "-policy-" + permission.name}
-                  className="w-full"
+      <div className="grid gap-4 md:grid-cols-2">
+        {permissions.map((permission) => (
+          <Field key={permission.name}>
+            <FieldLabel htmlFor={environment.id + "-policy-" + permission.name}>
+              {permission.label}
+            </FieldLabel>
+            <Controller
+              control={control}
+              name={permission.name}
+              render={({ field }) => (
+                <Select
+                  value={field.value}
+                  onValueChange={(value) => {
+                    if (
+                      value !== "none" &&
+                      value !== "read" &&
+                      value !== "write"
+                    )
+                      return
+                    field.onChange(value)
+                  }}
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="read">Read</SelectItem>
-                  <SelectItem value="write">Read and write</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Field>
-      ))}
+                  <SelectTrigger
+                    id={environment.id + "-policy-" + permission.name}
+                    className="w-full"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="read">Read</SelectItem>
+                    <SelectItem value="write">Read and write</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
+        ))}
+      </div>
       {save.error && (
         <p className="text-sm text-destructive">{save.error.message}</p>
       )}

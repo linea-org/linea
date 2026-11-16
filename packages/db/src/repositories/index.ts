@@ -1,4 +1,5 @@
 export * as organization from "./organization.repository.js"
+export * as personalWorkspace from "./personal-workspace.repository.js"
 export * as workflow from "./workflow.repository.js"
 export * as workflowContract from "./workflow-contract.repository.js"
 export * as execution from "./execution.repository.js"

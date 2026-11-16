@@ -1,4 +1,11 @@
+import { useState } from "react"
 import { Card } from "@linea/ui/components/card"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@linea/ui/components/tabs"
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
 import { InfoTip } from "./info-tip"
@@ -50,7 +57,8 @@ const sections = [
   },
   {
     label: "Connections",
-    description: "Connect integrations and manage access.",
+    description:
+      "Company integrations belong to this Environment. Assign requester access and reviewer authority separately; each reviewer signs in as a real customer user. An empty GitHub repository list denies all GitHub operations, and writes still require exact-action human approval. Install your GitHub App on the company account first and match its permissions to the repository policy.",
     content: ({ environment, onSaved }: EnvironmentSettingsProps) => (
       <EnvironmentConnections environment={environment} onSaved={onSaved} />
     ),
@@ -67,7 +75,8 @@ const sections = [
   },
   {
     label: "Backend keys",
-    description: "Allow your server to access this Environment.",
+    description:
+      "Allow your server to access this Environment. Human approvals require a verified user session.",
     content: ({ workspaceSlug, environment }: EnvironmentSettingsProps) => (
       <EnvironmentKeys
         workspaceSlug={workspaceSlug}
@@ -78,7 +87,8 @@ const sections = [
   },
   {
     label: "User identity",
-    description: "Configure sign-in and allowed origins for your users.",
+    description:
+      "Configure sign-in and allowed origins, separated by commas. Updating trust revokes existing user sessions.",
     content: ({ environment, onSaved }: EnvironmentSettingsProps) => (
       <EnvironmentTrustForm environment={environment} onSaved={onSaved} />
     ),
@@ -95,25 +105,34 @@ const sections = [
 export function EnvironmentSettings(props: Readonly<EnvironmentSettingsProps>) {
   const { environment } = props
   const name = environmentName(environment.environment)
+  const [active, setActive] = useState(sections[0].label)
+  const current = sections.find((section) => section.label === active)
   return (
-    <section
+    <Tabs
+      value={active}
+      onValueChange={setActive}
       aria-label={`${name} Environment`}
-      className="flex flex-col gap-6 p-4"
+      className="gap-3"
     >
+      <div className="flex items-center gap-2">
+        <TabsList className="h-8!">
+          {sections.map((section) => (
+            <TabsTrigger key={section.label} value={section.label}>
+              {section.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {current ? (
+          <InfoTip label={current.label} text={current.description} />
+        ) : null}
+      </div>
       {sections.map((section) => (
-        <section key={section.label} className="flex flex-col gap-3">
-          <div className="flex items-center gap-1.5">
-            <h3 className="text-base font-medium">{section.label}</h3>
-            <InfoTip label={section.label} text={section.description} />
-          </div>
-          <Card
-            size="sm"
-            className="flex flex-col gap-0 gap-4 px-(--card-spacing)"
-          >
+        <TabsContent key={section.label} value={section.label}>
+          <Card size="sm" className="flex flex-col gap-4 px-(--card-spacing)">
             {section.content(props)}
           </Card>
-        </section>
+        </TabsContent>
       ))}
-    </section>
+    </Tabs>
   )
 }

@@ -16,13 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@linea/ui/components/dropdown-menu"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@linea/ui/components/empty"
+import { EmptyCard } from "@/components/empty-card"
 import type { RegressionCase } from "@/lib/regression-cases-api"
 
 const caseTypeLabel: Record<RegressionCase["caseType"], string> = {
@@ -54,22 +48,16 @@ export function RegressionCaseList({
 }) {
   if (cases.length === 0) {
     return (
-      <Empty className="mt-4">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <FlaskConicalIcon />
-          </EmptyMedia>
-          <EmptyTitle>No regression cases yet</EmptyTitle>
-          <EmptyDescription>
-            Snapshot a step or signal to add a case.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <EmptyCard
+        icon={FlaskConicalIcon}
+        title="No regression cases yet"
+        description="Snapshot a step or signal to add a case."
+      />
     )
   }
 
   return (
-    <Card className="mt-4 gap-0 py-0">
+    <Card className="gap-0 py-0">
       <Table>
         <TableHeader className="bg-muted/40">
           <TableRow className="hover:bg-transparent">

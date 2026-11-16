@@ -104,26 +104,23 @@ export function EnvironmentTrustForm({
       onSubmit={(event) => {
         void handleSubmit((values) => save.mutate(values))(event)
       }}
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-4"
     >
-      <p className="text-sm text-muted-foreground">
-        Configure the identity provider for users of your product. Enter
-        multiple origins separated by commas. Updating trust revokes existing
-        user sessions.
-      </p>
-      {fields.map((field) => (
-        <Field key={field.key}>
-          <FieldLabel htmlFor={`${environment.id}-${field.key}`}>
-            {field.label}
-          </FieldLabel>
-          <Input
-            id={`${environment.id}-${field.key}`}
-            placeholder={field.placeholder}
-            {...register(field.key)}
-          />
-          <FieldError>{errors[field.key]?.message}</FieldError>
-        </Field>
-      ))}
+      <div className="grid gap-4 md:grid-cols-2">
+        {fields.map((field) => (
+          <Field key={field.key}>
+            <FieldLabel htmlFor={`${environment.id}-${field.key}`}>
+              {field.label}
+            </FieldLabel>
+            <Input
+              id={`${environment.id}-${field.key}`}
+              placeholder={field.placeholder}
+              {...register(field.key)}
+            />
+            <FieldError>{errors[field.key]?.message}</FieldError>
+          </Field>
+        ))}
+      </div>
       {save.error && (
         <p className="text-sm text-destructive">{save.error.message}</p>
       )}

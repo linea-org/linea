@@ -8,6 +8,7 @@ import {
   getOrganizationBySlug,
   listMemberUserIdsByEmail,
   listMembersByEmail,
+  listUserWorkspaces,
 } from "./organization.repository.js"
 
 describe("findOrCreateOrganizationBySlug", () => {
@@ -89,6 +90,49 @@ describe("listMemberUserIdsByEmail", () => {
       ).toEqual([{ userId: member.id, email: member.email }])
       const { organization: other } = await createTestFixtures(tx)
       expect(await listMembersByEmail(tx, other.id, [member.email])).toEqual([])
+    })
+  })
+})
+
+describe("listUserWorkspaces", () => {
+  it("returns only the user's workspaces, each with their role", async () => {
+    await withRollback(async (tx) => {
+      const [user] = await tx
+        .insert(users)
+        .values({
+          name: "Member",
+          email: `member-${randomUUID()}@test.dev`,
+          emailVerified: true,
+        })
+        .returning()
+      const { organization: owned } = await createTestFixtures(tx)
+      const { organization: joined } = await createTestFixtures(tx)
+      await createTestFixtures(tx)
+      await tx.insert(members).values([
+        {
+          organizationId: owned.id,
+          userId: user.id,
+          role: "owner",
+          createdAt: new Date(),
+        },
+        {
+          organizationId: joined.id,
+          userId: user.id,
+          role: "member",
+          createdAt: new Date(),
+        },
+      ])
+      const workspaces = await listUserWorkspaces(tx, user.id)
+      expect(
+        workspaces
+          .map(({ id, role }) => ({ id, role }))
+          .sort((a, b) => a.id.localeCompare(b.id))
+      ).toEqual(
+        [
+          { id: owned.id, role: "owner" },
+          { id: joined.id, role: "member" },
+        ].sort((a, b) => a.id.localeCompare(b.id))
+      )
     })
   })
 })

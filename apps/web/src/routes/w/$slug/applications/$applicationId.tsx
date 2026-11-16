@@ -10,7 +10,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@linea/ui/components/empty"
-import { Badge } from "@linea/ui/components/badge"
 import { Button } from "@linea/ui/components/button"
 import {
   DropdownMenu,
@@ -18,16 +17,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@linea/ui/components/dropdown-menu"
-import {
-  EnvironmentSettings,
-  environmentName,
-} from "@/components/applications/environment-settings"
+import { EnvironmentSettings } from "@/components/applications/environment-settings"
 import {
   ApplicationWorkflowCreateButton,
   ApplicationWorkflows,
 } from "@/components/applications/application-workflows"
 import { AddAgentDialog } from "@/components/agents/add-agent-dialog"
 import { ApplicationAgents } from "@/components/agents/application-agents"
+import { cn } from "@linea/ui/lib/utils"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import {
@@ -101,87 +98,84 @@ function ApplicationPage() {
     })
   }
   return (
-    <main className="flex min-w-0 flex-1 flex-col">
-      <div className="flex min-w-0 flex-col">
-        <PageToolbar className="border-b border-border/70">
-          {view === "agents" ? (
-            <>
-              <ToolbarSearch
-                value={agentQuery}
-                onChange={setAgentQuery}
-                placeholder="Search Agents"
-              />
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      aria-label="Filter agents"
-                    />
-                  }
-                >
-                  <ListFilterIcon />
-                  Filter
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  className="w-max max-w-64 min-w-(--anchor-width)"
-                >
-                  <DropdownMenuItem
-                    className="truncate"
-                    onClick={() => setAgentStatus("all")}
+    <main
+      className={cn(
+        "flex min-w-0 flex-1 flex-col p-4",
+        view === "environments" && "pt-3"
+      )}
+    >
+      <div className="flex min-w-0 flex-col gap-4">
+        {view !== "environments" ? (
+          <PageToolbar>
+            {view === "agents" ? (
+              <>
+                <ToolbarSearch
+                  value={agentQuery}
+                  onChange={setAgentQuery}
+                  placeholder="Search Agents"
+                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        aria-label="Filter agents"
+                      />
+                    }
                   >
-                    All
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="truncate"
-                    onClick={() => setAgentStatus("active")}
+                    <ListFilterIcon />
+                    Filter
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="w-max max-w-64 min-w-(--anchor-width)"
                   >
-                    Active
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="truncate"
-                    onClick={() => setAgentStatus("archived")}
-                  >
-                    Archived
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuItem
+                      className="truncate"
+                      onClick={() => setAgentStatus("all")}
+                    >
+                      All
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="truncate"
+                      onClick={() => setAgentStatus("active")}
+                    >
+                      Active
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="truncate"
+                      onClick={() => setAgentStatus("archived")}
+                    >
+                      Archived
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <div className="ml-auto">
+                  <AddAgentDialog
+                    workspaceSlug={slug}
+                    applicationId={applicationId}
+                    trigger={
+                      <Button>
+                        <PlusIcon />
+                        Add Agent
+                      </Button>
+                    }
+                  />
+                </div>
+              </>
+            ) : null}
+            {view === "workflows" ? (
               <div className="ml-auto">
-                <AddAgentDialog
+                <ApplicationWorkflowCreateButton
                   workspaceSlug={slug}
                   applicationId={applicationId}
-                  trigger={
-                    <Button>
-                      <PlusIcon />
-                      Add Agent
-                    </Button>
-                  }
                 />
               </div>
-            </>
-          ) : null}
-          {view === "workflows" ? (
-            <div className="ml-auto">
-              <ApplicationWorkflowCreateButton
-                workspaceSlug={slug}
-                applicationId={applicationId}
-              />
-            </div>
-          ) : null}
-          {view === "environments" && selectedEnvironment ? (
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-medium">
-                {environmentName(selectedEnvironment.environment)} Environment
-              </h2>
-              <Badge variant="outline">
-                {selectedEnvironment.enabled ? "Enabled" : "Disabled"}
-              </Badge>
-            </div>
-          ) : null}
-        </PageToolbar>
-        <div className="flex flex-col">
+            ) : null}
+          </PageToolbar>
+        ) : null}
+        <div className="flex flex-col gap-4">
           {view === "workflows" && (
             <ApplicationWorkflows
               key={applicationId}

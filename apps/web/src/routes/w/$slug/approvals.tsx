@@ -51,7 +51,7 @@ function ApprovalsPage() {
   })
 
   return (
-    <main className="flex flex-1 flex-col px-4 py-4">
+    <main className="flex flex-1 flex-col p-4">
       {approvalsQuery.isError ? (
         <p className="text-sm text-destructive">Could not load approvals.</p>
       ) : approvalsQuery.isPending ? (

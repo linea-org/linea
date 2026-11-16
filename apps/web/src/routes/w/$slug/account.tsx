@@ -77,7 +77,7 @@ function AccountPage() {
     window.location.href = `${getAppOrigin()}/sign-in`
   }
   return (
-    <main className="flex w-full min-w-0 flex-1 flex-col gap-6 p-4">
+    <main className="flex w-full min-w-0 flex-1 flex-col gap-4 p-4">
       <Section title="Profile">
         <Card className="gap-0 py-0">
           <div className="flex items-center gap-3 px-4 py-3">

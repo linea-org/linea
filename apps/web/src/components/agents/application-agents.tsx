@@ -51,14 +51,14 @@ export function ApplicationAgents({
   })
   return (
     <section className="flex flex-col">
-      {isPending && <ListSkeleton className="px-4 py-2" />}
+      {isPending && <ListSkeleton />}
       {error && (
-        <p role="alert" className="px-4 py-8 text-sm text-destructive">
+        <p role="alert" className="py-8 text-sm text-destructive">
           {error.message}
         </p>
       )}
       {agents && visible.length === 0 && (
-        <Empty className="mx-4 my-2 w-auto">
+        <Empty className="w-auto">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <BotIcon />
@@ -75,7 +75,7 @@ export function ApplicationAgents({
         </Empty>
       )}
       {visible.length > 0 && (
-        <div className="px-4 py-2">
+        <div>
           <Card className="gap-0 py-0">
             <Table>
               <TableHeader className="bg-muted/40">

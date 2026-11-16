@@ -106,6 +106,13 @@ export async function updateOrganization(
   }
 }
 
+export async function leaveOrganization(organizationId: string) {
+  const { error } = await authClient.organization.leave({ organizationId })
+  if (error) {
+    throw new Error(authErrorMessage(error, "Could not leave workspace"))
+  }
+}
+
 export async function deleteOrganization(organizationId: string) {
   const { error } = await authClient.organization.delete({ organizationId })
   if (error) {

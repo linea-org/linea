@@ -5,6 +5,7 @@ import { Card } from "@linea/ui/components/card"
 import { Spinner } from "@linea/ui/components/spinner"
 
 import { WorkflowPreview } from "@/components/assistant/workflow-preview"
+import { NeedsModelDialog } from "@/components/models/needs-model-dialog"
 import { useCreateFromTemplate } from "@/components/workflows/use-create-from-template"
 import type { TemplateResult } from "@/lib/create-from-template"
 
@@ -55,6 +56,7 @@ export function TemplateGrid({
           </div>
         ))}
       </div>
+      <NeedsModelDialog slug={slug} mutation={mutation} />
       {mutation.isError ? (
         <p className="mt-3 text-sm text-destructive">
           {mutation.error.message}

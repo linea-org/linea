@@ -55,6 +55,7 @@ import { UserAvatar } from "@/components/account/user-avatar"
 import { InviteMemberDialog } from "@/components/members"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
+import { isPersonalWorkspace } from "@linea/auth/personal-workspace"
 import { authClient } from "@/lib/auth-client"
 import {
   cancelInvitation,
@@ -220,24 +221,26 @@ function MembersPage() {
   const confirmPending =
     confirmTarget?.kind === "member" ? remove.isPending : cancelInvite.isPending
   return (
-    <main className="flex min-w-0 flex-1 flex-col">
+    <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
       <PageToolbar>
         <ToolbarSearch
           value={search}
           onChange={setSearch}
           placeholder="Search members"
         />
-        <div className="ml-auto">
-          <Button onClick={() => setInviteOpen(true)}>
-            <UserPlusIcon />
-            Invite
-          </Button>
-        </div>
+        {isPersonalWorkspace(activeOrg?.metadata) ? null : (
+          <div className="ml-auto">
+            <Button onClick={() => setInviteOpen(true)}>
+              <UserPlusIcon />
+              Invite
+            </Button>
+          </div>
+        )}
       </PageToolbar>
       {isPending ? (
-        <ListSkeleton className="px-4 py-2" />
+        <ListSkeleton />
       ) : filteredMembers.length === 0 ? (
-        <Empty className="mx-4 my-2 w-auto">
+        <Empty className="w-auto">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               {query ? <SearchIcon /> : <UsersIcon />}
@@ -253,7 +256,7 @@ function MembersPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="px-4 py-2">
+        <div>
           <Card className="gap-0 py-0">
             <Table>
               <TableHeader className="bg-muted/40">
@@ -365,11 +368,11 @@ function MembersPage() {
         </div>
       )}
       {filteredInvites.length > 0 ? (
-        <>
-          <p className="px-4 pt-6 pb-2 text-sm font-medium text-foreground">
+        <div className="flex flex-col gap-2">
+          <p className="pl-1 text-sm font-medium text-foreground">
             Pending invitations
           </p>
-          <div className="px-4 pb-2">
+          <div>
             <Card className="gap-0 py-0">
               <Table>
                 <TableHeader className="bg-muted/40">
@@ -430,7 +433,7 @@ function MembersPage() {
               </Table>
             </Card>
           </div>
-        </>
+        </div>
       ) : null}
       <InviteMemberDialog
         open={inviteOpen}

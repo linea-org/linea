@@ -10,14 +10,7 @@ import {
   TableRow,
 } from "@linea/ui/components/table"
 
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@linea/ui/components/empty"
-
+import { EmptyCard } from "@/components/empty-card"
 import type { SignalSummary } from "@/lib/signals-api"
 import { flagTypeLabel } from "./flag-type-label"
 import { SignalStatusBadge } from "./signal-status-badge"
@@ -33,20 +26,16 @@ export function SignalList({
 }) {
   if (signals.length === 0) {
     return (
-      <Empty className="mt-4">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <ActivityIcon />
-          </EmptyMedia>
-          <EmptyTitle>No signals</EmptyTitle>
-          <EmptyDescription>Recurring issues show up here.</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <EmptyCard
+        icon={ActivityIcon}
+        title="No signals"
+        description="Recurring issues show up here."
+      />
     )
   }
 
   return (
-    <Card className="mt-4 gap-0 py-0">
+    <Card className="gap-0 py-0">
       <Table>
         <TableHeader className="bg-muted/40">
           <TableRow className="hover:bg-transparent">

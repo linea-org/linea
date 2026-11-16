@@ -6,19 +6,26 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
-import { FlaskConicalIcon, PencilIcon, PencilRulerIcon } from "lucide-react"
+import { PencilIcon, PencilRulerIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
 import { Card } from "@linea/ui/components/card"
 import { z } from "zod"
 import {
+  DEFAULT_WORKFLOW_VIEW,
   workflowViewSchema,
   workflowViews,
 } from "@/components/workflows/workflow-views"
+import { regressionPollInterval } from "@/lib/regression-poll-interval"
+import { WorkflowOverview } from "@/components/workflows/workflow-overview"
 
-import { RegressionCaseList, RegressionRunList } from "@/components/regressions"
+import {
+  RegressionCaseList,
+  RegressionRunList,
+  RunRegressionButton,
+} from "@/components/regressions"
+import { WorkflowExecutionsSection } from "@/components/executions/workflow-executions-section"
 import { RunWorkflowDialog } from "@/components/workflows/run-workflow-dialog"
-import { ExecutionList } from "@/components/executions"
 import {
   SignalFlagTypeBreakdown,
   SignalList,
@@ -67,7 +74,7 @@ export const Route = createFileRoute("/w/$slug/workflows/$workflowId/")({
 
 function WorkflowDetailPage() {
   const { slug, workflowId } = Route.useParams()
-  const { view = "executions" } = Route.useSearch()
+  const { view = DEFAULT_WORKFLOW_VIEW } = Route.useSearch()
   const initialData = Route.useLoaderData()
   const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = useState(false)
@@ -101,16 +108,8 @@ function WorkflowDetailPage() {
   } = useQuery({
     ...workflowRegressionRunsQueryOptions(slug, workflowId),
     // Poll until a triggered run appears and completes so its summary cannot remain stale.
-    refetchInterval: (query) => {
-      const data = query.state.data
-      // In-flight server state must resume polling after this component remounts.
-      if (data?.some((r) => !r.completedAt)) return 2000
-      if (!regressionRunTriggeredAt) return false
-      const triggered = data?.find(
-        (r) => r.startedAt > regressionRunTriggeredAt
-      )
-      return triggered ? false : 2000
-    },
+    refetchInterval: (query) =>
+      regressionPollInterval(query.state.data, regressionRunTriggeredAt),
   })
   const {
     data: regressionCases,
@@ -131,9 +130,18 @@ function WorkflowDetailPage() {
       })
     },
   })
+  const noRuns = regressionRuns?.length === 0
+  const noCases = regressionCases?.length === 0
+  const runNowButton = (
+    <RunRegressionButton
+      published={Boolean(workflow.publishedVersionId)}
+      pending={runRegression.isPending}
+      onRun={() => runRegression.mutate()}
+    />
+  )
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-medium">{workflowViews[view]}</h2>
           <div className="flex shrink-0 items-center gap-2">
@@ -164,45 +172,43 @@ function WorkflowDetailPage() {
             </Button>
           </div>
         </div>
+        {view === "overview" && (
+          <WorkflowOverview
+            slug={slug}
+            workflow={workflow}
+            executions={executions}
+            executionsError={executionsErrored}
+            signals={signals}
+          />
+        )}
         {view === "executions" && (
-          <section aria-label={workflowViews.executions}>
-            {executionsErrored ? (
-              <p className="mt-4 text-sm text-destructive">
-                Could not load executions.
-              </p>
-            ) : executionsPending ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Loading executions…
-              </p>
-            ) : (
-              <ExecutionList
-                executions={executions}
-                slug={slug}
-                workflowId={workflowId}
-              />
-            )}
-          </section>
+          <WorkflowExecutionsSection
+            label={workflowViews.executions}
+            slug={slug}
+            workflowId={workflowId}
+            executions={executions}
+            errored={executionsErrored}
+            pending={executionsPending}
+          />
         )}
         {view === "monitoring" && (
           <section aria-label={workflowViews.monitoring}>
             {signalsErrored ? (
-              <p className="mt-4 text-sm text-destructive">
+              <p className="text-sm text-destructive">
                 Could not load signals.
               </p>
             ) : signalsPending ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Loading signals…
-              </p>
+              <p className="text-sm text-muted-foreground">Loading signals…</p>
             ) : (
-              <div className="mt-4 flex flex-col gap-4">
+              <div className="flex flex-col gap-4">
                 <SignalStatCards signals={signals} />
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                   <div className="flex flex-col gap-2 lg:col-span-2">
                     <p className="pl-1 text-base font-medium text-foreground">
                       Trend
                     </p>
-                    <Card className="gap-0 py-0">
-                      <div className="px-4 py-4">
+                    <Card className="min-h-60 flex-1 gap-0 py-0">
+                      <div className="flex flex-1 flex-col justify-center px-4 py-4">
                         <SignalTrendChart trend={signalsTrend ?? []} />
                       </div>
                     </Card>
@@ -211,8 +217,8 @@ function WorkflowDetailPage() {
                     <p className="pl-1 text-base font-medium text-foreground">
                       By type
                     </p>
-                    <Card className="gap-0 py-0">
-                      <div className="px-4 py-4">
+                    <Card className="min-h-60 flex-1 gap-0 py-0">
+                      <div className="flex flex-1 flex-col justify-center px-4 py-4">
                         <SignalFlagTypeBreakdown signals={signals} />
                       </div>
                     </Card>
@@ -229,38 +235,27 @@ function WorkflowDetailPage() {
         )}
         {view === "regression" && (
           <section aria-label={workflowViews.regression}>
-            <div className="mt-4 flex flex-col gap-6">
-              <div>
-                <div className="flex items-center justify-between gap-3 pl-1">
-                  <p className="text-base font-medium text-foreground">Runs</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => runRegression.mutate()}
-                    disabled={
-                      runRegression.isPending || !workflow.publishedVersionId
-                    }
-                    title={
-                      workflow.publishedVersionId
-                        ? undefined
-                        : "Publish a version before running the regression suite"
-                    }
-                  >
-                    <FlaskConicalIcon />
-                    {runRegression.isPending ? "Queuing…" : "Run now"}
-                  </Button>
-                </div>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                {noRuns ? null : (
+                  <div className="flex items-center justify-between gap-3 pl-1">
+                    <p className="text-base font-medium text-foreground">
+                      Runs
+                    </p>
+                    {runNowButton}
+                  </div>
+                )}
                 {runRegression.isError && (
-                  <p className="mt-2 text-sm text-destructive">
+                  <p className="text-sm text-destructive">
                     {runRegression.error.message}
                   </p>
                 )}
                 {regressionRunsErrored ? (
-                  <p className="mt-4 text-sm text-destructive">
+                  <p className="text-sm text-destructive">
                     Could not load regression runs.
                   </p>
                 ) : regressionRunsPending ? (
-                  <p className="mt-4 text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Loading regression runs…
                   </p>
                 ) : (
@@ -268,24 +263,27 @@ function WorkflowDetailPage() {
                     runs={regressionRuns}
                     slug={slug}
                     workflowId={workflowId}
+                    emptyAction={runNowButton}
                   />
                 )}
               </div>
-              <div>
-                <p className="pl-1 text-base font-medium text-foreground">
-                  Cases
-                </p>
+              <div className="flex flex-col gap-2">
+                {noCases ? null : (
+                  <p className="pl-1 text-base font-medium text-foreground">
+                    Cases
+                  </p>
+                )}
                 {archiveCase.isError && (
-                  <p className="mt-2 text-sm text-destructive">
+                  <p className="text-sm text-destructive">
                     {archiveCase.error.message}
                   </p>
                 )}
                 {regressionCasesErrored ? (
-                  <p className="mt-4 text-sm text-destructive">
+                  <p className="text-sm text-destructive">
                     Could not load regression cases.
                   </p>
                 ) : regressionCasesPending ? (
-                  <p className="mt-4 text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Loading regression cases…
                   </p>
                 ) : (

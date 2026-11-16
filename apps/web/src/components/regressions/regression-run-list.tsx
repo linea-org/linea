@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { Card } from "@linea/ui/components/card"
 import { Link } from "@tanstack/react-router"
 import { FlaskConicalIcon } from "lucide-react"
@@ -10,15 +11,8 @@ import {
   TableRow,
 } from "@linea/ui/components/table"
 
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@linea/ui/components/empty"
-
 import { formatCost } from "@/components/executions/execution-list"
+import { EmptyCard } from "@/components/empty-card"
 import type { RegressionRun } from "@/lib/regression-runs-api"
 
 const triggerLabel: Record<RegressionRun["trigger"], string> = {
@@ -30,26 +24,25 @@ export function RegressionRunList({
   runs,
   slug,
   workflowId,
+  emptyAction,
 }: {
   runs: RegressionRun[]
   slug: string
   workflowId: string
+  emptyAction?: ReactNode
 }) {
   if (runs.length === 0) {
     return (
-      <Empty className="mt-4">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <FlaskConicalIcon />
-          </EmptyMedia>
-          <EmptyTitle>No regression runs yet</EmptyTitle>
-          <EmptyDescription>Runs start on publish.</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <EmptyCard
+        icon={FlaskConicalIcon}
+        title="No regression runs yet"
+        description="Runs start on publish."
+        action={emptyAction}
+      />
     )
   }
   return (
-    <Card className="mt-4 gap-0 py-0">
+    <Card className="gap-0 py-0">
       <Table>
         <TableHeader className="bg-muted/40">
           <TableRow className="hover:bg-transparent">

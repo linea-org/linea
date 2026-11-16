@@ -8,3 +8,4 @@ export {
   RegressionResultStatusBadge,
   regressionResultStatusLabel,
 } from "./regression-result-status-badge"
+export { RunRegressionButton } from "./run-regression-button"

@@ -20,6 +20,7 @@ import { Button } from "@linea/ui/components/button"
 import { FieldError, FieldLabel } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
 
+import { isPersonalWorkspace } from "@linea/auth/personal-workspace"
 import { authClient } from "@/lib/auth-client"
 import { deleteOrganization, updateOrganization } from "@/lib/auth-queries"
 
@@ -84,7 +85,7 @@ function WorkspaceSettingsPage() {
   })
   return (
     <main className="flex min-w-0 flex-1 flex-col">
-      <div className="flex w-full flex-col gap-6 p-4">
+      <div className="flex w-full flex-col gap-4 p-4">
         <section className="flex flex-col gap-3">
           <h2 className="text-base font-medium">General</h2>
           <Card
@@ -117,7 +118,7 @@ function WorkspaceSettingsPage() {
             </div>
           </Card>
         </section>
-        {isOwner ? (
+        {isOwner && !isPersonalWorkspace(activeOrg?.metadata) ? (
           <section className="flex flex-col gap-3">
             <h2 className="text-base font-medium">Danger zone</h2>
             <Card

@@ -27,7 +27,7 @@ export function GithubInstallationFields({
 }) {
   const environmentId = useId()
   return (
-    <>
+    <div className="grid gap-4 md:grid-cols-2">
       <Field>
         <FieldLabel htmlFor={environmentId + "-github-app"}>
           App or client ID
@@ -51,7 +51,7 @@ export function GithubInstallationFields({
           })}
         />
       </Field>
-      <Field>
+      <Field className="md:col-span-2">
         <FieldLabel htmlFor={environmentId + "-github-key"}>
           App private key
         </FieldLabel>
@@ -121,6 +121,6 @@ export function GithubInstallationFields({
           )}
         />
       </Field>
-    </>
+    </div>
   )
 }

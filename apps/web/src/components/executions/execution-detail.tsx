@@ -14,7 +14,7 @@ import {
 } from "@/lib/executions-api"
 import { getAgentFn } from "@/lib/agents-api"
 import { getWorkflowFn } from "@/lib/workflows-api"
-import { ErrorCallout } from "./error-callout"
+import { CopyableId } from "./copyable-id"
 import { NestedAgentRuns } from "./nested-agent-runs"
 import { RunSummaryCard } from "./run-summary-card"
 import { ExecutionStatusBadge } from "./execution-status-badge"
@@ -23,15 +23,15 @@ import { formatCost } from "./execution-list"
 import { formatElapsed } from "@/lib/format"
 
 const triggerLabel: Record<ExecutionTrigger, string> = {
-  manual: "Manual",
-  schedule: "Schedule",
-  webhook: "Webhook",
-  api: "API",
+  manual: "Triggered manually",
+  schedule: "Scheduled",
+  webhook: "Triggered by webhook",
+  api: "Triggered by API",
 }
 
 const environmentLabel: Record<ExecutionDetail["environment"], string> = {
-  draft: "Draft",
-  dev: "Dev",
+  draft: "Draft version",
+  dev: "Dev environment",
   production: "Production",
 }
 
@@ -140,7 +140,7 @@ export function ExecutionDetailView({
   const { execution } = detail
   const workflowName = initialData.definitionName
   return (
-    <main className="flex min-w-0 flex-1 flex-col px-4 py-2">
+    <main className="flex min-w-0 flex-1 flex-col p-4">
       <Card className="gap-0 py-0">
         <header className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
           <PlayfulAvatar
@@ -149,50 +149,36 @@ export function ExecutionDetailView({
             className="size-8"
           />
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{workflowName}</p>
-            <p className="truncate font-mono text-sm text-muted-foreground">
-              {execution.id}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="truncate text-sm font-medium">{workflowName}</p>
+              <ExecutionStatusBadge status={execution.status} />
+            </div>
+            <CopyableId id={execution.id} />
           </div>
           <div className="ml-auto flex flex-wrap items-center text-sm text-muted-foreground">
-            <ExecutionStatusBadge status={execution.status} />
-            {(
-              [
-                ["trigger", triggerLabel[execution.trigger]],
-                ["environment", environmentLabel[execution.environment]],
-                ["duration", executionDuration(execution, detail.steps)],
-                [
-                  "cost",
-                  formatCost(execution.costMicros, execution.costUnpriced),
-                ],
-                [
-                  "when",
-                  execution.startedAt
-                    ? new Date(execution.startedAt).toLocaleString()
-                    : "—",
-                ],
-              ] as const
-            ).map(([key, value]) => (
-              <span key={key} className="flex items-center">
-                <Separator
-                  orientation="vertical"
-                  className="mx-3 h-3 data-vertical:h-3 data-vertical:self-center"
-                />
+            {[
+              triggerLabel[execution.trigger],
+              environmentLabel[execution.environment],
+              executionDuration(execution, detail.steps),
+              formatCost(execution.costMicros, execution.costUnpriced),
+              execution.startedAt
+                ? new Date(execution.startedAt).toLocaleString()
+                : "—",
+            ].map((value, index) => (
+              <span key={`${index}-${value}`} className="flex items-center">
+                {index > 0 ? (
+                  <Separator
+                    orientation="vertical"
+                    className="mx-3 h-3 data-vertical:h-3 data-vertical:self-center"
+                  />
+                ) : null}
                 <span className="tabular-nums">{value}</span>
               </span>
             ))}
           </div>
         </header>
         <NestedAgentRuns nested={detail.nestedAgents} />
-        <RunSummaryCard detail={detail} />
-        {execution.error ? (
-          <div className="border-b px-4 py-3">
-            <ErrorCallout
-              title="This run failed"
-              message={execution.error.message}
-            />
-          </div>
-        ) : null}
+        <RunSummaryCard slug={slug} detail={detail} />
         <div className="flex min-h-0 flex-1 flex-col">
           {error && (
             <div

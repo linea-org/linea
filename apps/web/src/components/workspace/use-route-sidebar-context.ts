@@ -1,4 +1,5 @@
 import { useLocation, useMatch, useMatches } from "@tanstack/react-router"
+import { DEFAULT_WORKFLOW_VIEW } from "@/components/workflows/workflow-views"
 import type { SidebarContext } from "./sidebar-history"
 
 type Kind<K extends SidebarContext["kind"]> = Extract<
@@ -108,7 +109,9 @@ export function useRouteSidebarContext(slug: string) {
     context = {
       kind: "workflow",
       workflowId: workflow.params.workflowId,
-      view: workflowView ? (workflowView.search.view ?? "executions") : null,
+      view: workflowView
+        ? (workflowView.search.view ?? DEFAULT_WORKFLOW_VIEW)
+        : null,
     }
   else context = pathContext(slug, location.pathname)
   const searchMatches = sameSearch(

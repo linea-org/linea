@@ -115,8 +115,8 @@ export function AssistantPanel({
   )
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
-      <div className="flex items-center gap-1 border-b border-border px-3 py-2">
-        <WandSparklesIcon className="size-3 text-primary" />
+      <div className="flex h-12 shrink-0 items-center gap-1 border-b border-border px-3">
+        <WandSparklesIcon className="size-4 text-primary" />
         <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
           {ASSISTANT_NAME}
         </p>
@@ -124,9 +124,13 @@ export function AssistantPanel({
           side="bottom"
           scope="all"
           trigger={
-            <Button type="button" variant="ghost">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="History"
+            >
               <HistoryIcon />
-              History
             </Button>
           }
           slug={slug}

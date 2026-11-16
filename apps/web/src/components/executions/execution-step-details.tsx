@@ -1,5 +1,6 @@
 import { nodeRegistry } from "@linea/runtime/browser"
 import { Badge } from "@linea/ui/components/badge"
+import { Card } from "@linea/ui/components/card"
 import { cn } from "@linea/ui/lib/utils"
 import { useHydrated } from "@tanstack/react-router"
 import {
@@ -20,71 +21,23 @@ import {
   stepTitle,
   stepStatusLabel,
   stepStatusVariant,
-  formatJson,
   isNodeTypeId,
 } from "./execution-step-presentation"
 import { ErrorCallout } from "./error-callout"
+import { StepPayloadCard } from "./step-payload-card"
 import { formatDuration } from "@/lib/format"
 
-function isJsonObject(
-  value: JsonValue | null
-): value is Record<string, JsonValue> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function StepPayload({
+function StatTile({
   label,
   value,
-}: Readonly<{
-  label: string
-  value: JsonValue | null
-}>) {
+}: Readonly<{ label: string; value: React.ReactNode }>) {
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <h3 className="text-sm font-medium">{label}</h3>
-      <PayloadBody label={label} value={value} />
-    </section>
-  )
-}
-
-function PayloadBody({
-  label,
-  value,
-}: Readonly<{ label: string; value: JsonValue | null }>) {
-  if (value === null)
-    return (
-      <p className="text-sm text-muted-foreground">
-        No {label.toLowerCase()} recorded.
-      </p>
-    )
-  if (!isJsonObject(value))
-    return (
-      <pre className="max-h-64 overflow-auto rounded-lg border px-3 py-2 font-mono text-sm whitespace-pre-wrap">
-        {formatJson(value)}
-      </pre>
-    )
-  const entries = Object.entries(value)
-  if (entries.length === 0)
-    return <p className="text-sm text-muted-foreground">Empty object.</p>
-  return (
-    <dl className="divide-y rounded-lg border">
-      {entries.map(([key, entry]) => (
-        <div key={key} className="min-w-0 px-3 py-2">
-          <dt className="mb-1 font-mono text-sm text-muted-foreground">
-            {key}
-          </dt>
-          <dd className="max-h-64 overflow-auto text-sm break-words whitespace-pre-wrap">
-            {typeof entry === "string" ? (
-              entry
-            ) : (
-              <pre className="font-mono whitespace-pre-wrap">
-                {formatJson(entry)}
-              </pre>
-            )}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <Card size="sm" className="gap-1 py-3">
+      <div className="px-4">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="text-base font-medium tabular-nums">{value}</p>
+      </div>
+    </Card>
   )
 }
 
@@ -96,6 +49,7 @@ export function ExecutionStepDetails({
   replayable,
   contentRestricted,
   resumedAt,
+  runErrorMessage,
   onReplayTriggered,
 }: Readonly<{
   executionId: string
@@ -105,6 +59,7 @@ export function ExecutionStepDetails({
   replayable: boolean
   contentRestricted: boolean
   resumedAt: string | undefined
+  runErrorMessage: string | undefined
   onReplayTriggered: (stepId: string) => void
 }>) {
   const hydrated = useHydrated()
@@ -136,30 +91,51 @@ export function ExecutionStepDetails({
             {model ? ` · ${model}` : ""}
           </p>
         </div>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-muted-foreground">
-          <Badge variant={stepStatusVariant[step.status]}>
-            {stepStatusLabel[step.status]}
-          </Badge>
-          <span className="tabular-nums">
-            {formatDuration(step.startedAt, step.endedAt)}
-          </span>
-          <span>Attempt {step.attempt}</span>
-          <span>
-            {formatCost(step.costMicros, stepCostUnpricedState(step))}
-          </span>
-          <span className="tabular-nums">
-            {step.tokensInput} in / {step.tokensOutput} out
-          </span>
-        </div>
+        <Badge variant={stepStatusVariant[step.status]}>
+          {stepStatusLabel[step.status]}
+        </Badge>
+        <span className="ml-auto" />
+        {replayable && !step.replayedFromStepId && step.name !== "agent" && (
+          <ReplayAction
+            executionId={executionId}
+            step={step}
+            nodeConfig={nodeConfig}
+            onReplayTriggered={onReplayTriggered}
+          />
+        )}
+        {workflowId && step.name !== "agent" && !contentRestricted && (
+          <AddToRegressionAction workflowId={workflowId} stepId={step.id} />
+        )}
       </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatTile
+          label="Latency"
+          value={formatDuration(step.startedAt, step.endedAt)}
+        />
+        <StatTile
+          label="Cost"
+          value={formatCost(step.costMicros, stepCostUnpricedState(step))}
+        />
+        <StatTile
+          label="Tokens"
+          value={`${step.tokensInput} in / ${step.tokensOutput} out`}
+        />
+        <StatTile label="Attempt" value={step.attempt} />
+      </div>
+      {step.name === "agent" ? (
+        <p className="text-sm text-muted-foreground">
+          Run Agent steps can&apos;t be replayed or saved as regression cases.
+          Start a new Workflow run to try again.
+        </p>
+      ) : null}
       {resumedAt && (
         <p className="text-sm text-muted-foreground">
           Resumed {hydrated ? new Date(resumedAt).toLocaleString() : resumedAt}
         </p>
       )}
-      {step.error && (
+      {step.error && step.error.message !== runErrorMessage ? (
         <ErrorCallout title="This step failed" message={step.error.message} />
-      )}
+      ) : null}
       <Tabs defaultValue="overview" className="min-w-0 gap-4">
         <TabsList className="h-8!">
           <TabsTrigger value="overview">Details</TabsTrigger>
@@ -173,8 +149,8 @@ export function ExecutionStepDetails({
             </p>
           ) : (
             <>
-              <StepPayload label="Input" value={step.input} />
-              <StepPayload label="Output" value={step.output} />
+              <StepPayloadCard label="Input" value={step.input} />
+              <StepPayloadCard label="Output" value={step.output} />
             </>
           )}
         </TabsContent>
@@ -184,25 +160,6 @@ export function ExecutionStepDetails({
           </pre>
         </TabsContent>
       </Tabs>
-      <div className="flex flex-wrap items-start gap-2">
-        {replayable && !step.replayedFromStepId && step.name !== "agent" && (
-          <ReplayAction
-            executionId={executionId}
-            step={step}
-            nodeConfig={nodeConfig}
-            onReplayTriggered={onReplayTriggered}
-          />
-        )}
-        {step.name === "agent" && (
-          <p className="text-sm text-muted-foreground">
-            Run Agent steps can't be replayed or saved as regression cases.
-            Start a new Workflow run to try again.
-          </p>
-        )}
-        {workflowId && step.name !== "agent" && !contentRestricted && (
-          <AddToRegressionAction workflowId={workflowId} stepId={step.id} />
-        )}
-      </div>
     </section>
   )
 }

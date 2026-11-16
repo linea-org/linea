@@ -16,7 +16,7 @@ export function HomePanel({
         <p className="text-sm font-medium text-foreground">{title}</p>
         {action}
       </div>
-      <Card className="flex min-h-0 flex-1 flex-col gap-0 py-0">
+      <Card className="flex min-h-60 flex-1 flex-col gap-0 py-0">
         {children}
       </Card>
     </section>

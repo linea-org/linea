@@ -1,3 +1,4 @@
+import { Separator } from "@linea/ui/components/separator"
 import { ConnectionManagementContext } from "./connection-management-context"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { EnvironmentSummary } from "@/lib/environments-api"
@@ -22,12 +23,8 @@ export function EnvironmentConnections({
   })
   return (
     <section className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">
-        Company integrations belong to this Environment. Assign requester access
-        and reviewer authority separately; each reviewer signs in as a real
-        customer user.
-      </p>
       <EnvironmentConnectorPolicy environment={environment} onSaved={onSaved} />
+      <Separator />
       <GithubInstallationForm
         environmentId={environment.id}
         enabled={environment.enabled}

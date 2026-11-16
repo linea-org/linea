@@ -27,6 +27,8 @@ import {
 import { WorkflowFormDialog, WorkflowStatusBadge } from "../workflows"
 import { HomePanel } from "./home-panel"
 
+const HOME_LIMIT = 5
+
 export function WorkflowsWidget({
   slug,
   workflows,
@@ -34,7 +36,7 @@ export function WorkflowsWidget({
   slug: string
   workflows: WorkflowSummary[]
 }) {
-  const recent = workflows.slice(0, 6)
+  const recent = workflows.slice(0, HOME_LIMIT)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const createDialog = (
