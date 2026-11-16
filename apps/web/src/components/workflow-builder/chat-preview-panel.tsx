@@ -171,7 +171,7 @@ export function ChatPreviewPanel({
           <MessageScrollerViewport>
             <MessageScrollerContent className="px-4 py-4">
               {messages.length === 0 && !isWaiting ? (
-                <Empty className="min-h-0 rounded-none border-0 bg-transparent py-8 sm:p-8">
+                <Empty className="min-h-0 flex-1 rounded-none border-0 bg-transparent py-8 sm:p-8">
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
                       <MessageCircleIcon />
