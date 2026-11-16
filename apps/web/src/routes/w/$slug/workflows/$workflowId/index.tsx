@@ -133,6 +133,24 @@ function WorkflowDetailPage() {
       })
     },
   })
+  const noRuns = regressionRuns?.length === 0
+  const noCases = regressionCases?.length === 0
+  const runNowButton = (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() => runRegression.mutate()}
+      disabled={runRegression.isPending || !workflow.publishedVersionId}
+      title={
+        workflow.publishedVersionId
+          ? undefined
+          : "Publish a version before running the regression suite"
+      }
+    >
+      <FlaskConicalIcon />
+      {runRegression.isPending ? "Queuing…" : "Run now"}
+    </Button>
+  )
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
       <div className="flex flex-col gap-6">
@@ -239,27 +257,16 @@ function WorkflowDetailPage() {
           <section aria-label={workflowViews.regression}>
             <div className="flex flex-col gap-6">
               <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-3 pl-1">
-                  <p className="text-base font-medium text-foreground">Runs</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => runRegression.mutate()}
-                    disabled={
-                      runRegression.isPending || !workflow.publishedVersionId
-                    }
-                    title={
-                      workflow.publishedVersionId
-                        ? undefined
-                        : "Publish a version before running the regression suite"
-                    }
-                  >
-                    <FlaskConicalIcon />
-                    {runRegression.isPending ? "Queuing…" : "Run now"}
-                  </Button>
-                </div>
+                {noRuns ? null : (
+                  <div className="flex items-center justify-between gap-3 pl-1">
+                    <p className="text-base font-medium text-foreground">
+                      Runs
+                    </p>
+                    {runNowButton}
+                  </div>
+                )}
                 {runRegression.isError && (
-                  <p className="mt-2 text-sm text-destructive">
+                  <p className="text-sm text-destructive">
                     {runRegression.error.message}
                   </p>
                 )}
@@ -276,15 +283,18 @@ function WorkflowDetailPage() {
                     runs={regressionRuns}
                     slug={slug}
                     workflowId={workflowId}
+                    emptyAction={runNowButton}
                   />
                 )}
               </div>
               <div className="flex flex-col gap-2">
-                <p className="pl-1 text-base font-medium text-foreground">
-                  Cases
-                </p>
+                {noCases ? null : (
+                  <p className="pl-1 text-base font-medium text-foreground">
+                    Cases
+                  </p>
+                )}
                 {archiveCase.isError && (
-                  <p className="mt-2 text-sm text-destructive">
+                  <p className="text-sm text-destructive">
                     {archiveCase.error.message}
                   </p>
                 )}

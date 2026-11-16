@@ -17,14 +17,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@linea/ui/components/dropdown-menu"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@linea/ui/components/empty"
 
+import { EmptyCard } from "@/components/empty-card"
 import type {
   ExecutionStepSummary,
   ExecutionSummary,
@@ -77,17 +71,11 @@ export function ExecutionList({
   const navigate = useNavigate()
   if (executions.length === 0) {
     return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <HistoryIcon />
-          </EmptyMedia>
-          <EmptyTitle>No executions yet</EmptyTitle>
-          <EmptyDescription>
-            Runs of this workflow will show up here.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <EmptyCard
+        icon={HistoryIcon}
+        title="No executions yet"
+        description="Runs of this workflow will show up here."
+      />
     )
   }
   return (
