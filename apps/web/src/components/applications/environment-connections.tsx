@@ -22,7 +22,7 @@ export function EnvironmentConnections({
       listSharedConnectionsFn({ data: { environmentId: environment.id } }),
   })
   return (
-    <section className="flex flex-col gap-6">
+    <section className="flex flex-col gap-4">
       <EnvironmentConnectorPolicy environment={environment} onSaved={onSaved} />
       <Separator />
       <GithubInstallationForm
