@@ -302,7 +302,11 @@ export function ActionsGroup({ slug, run }: Readonly<GroupProps>) {
         keywords={["help", "docs", "learn"]}
         onSelect={() =>
           run(() =>
-            window.open("https://docs.getlinea.app", "_blank", "noreferrer")
+            window.open(
+              "https://docs.getlinea.app",
+              "_blank",
+              "noopener,noreferrer"
+            )
           )
         }
       >
