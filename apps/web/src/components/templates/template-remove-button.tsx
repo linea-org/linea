@@ -23,10 +23,10 @@ import {
 export function TemplateRemoveButton({
   slug,
   template,
-}: {
+}: Readonly<{
   slug: string
   template: SharedTemplate
-}) {
+}>) {
   const queryClient = useQueryClient()
   const remove = useMutation({
     mutationFn: () => deleteTemplateFn({ data: { id: template.id } }),

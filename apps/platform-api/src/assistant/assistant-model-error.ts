@@ -1,4 +1,4 @@
-/** The workspace has not finished setting up a model; the message is safe to show to the user as is. */
+/** The workspace has not finished setting up a model; the message is safe to show as is. */
 export class AssistantModelUnavailableError extends Error {}
 
 /** The HTTP status the provider SDKs attach to their API errors; other failures have none. */

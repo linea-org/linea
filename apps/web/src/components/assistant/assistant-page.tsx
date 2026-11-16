@@ -27,12 +27,12 @@ export function AssistantPage({
   slug,
   initialSetup,
   conversationId,
-}: {
+}: Readonly<{
   slug: string
   initialSetup: ModelSetup
   // The saved chat named in the address, if any.
   conversationId: string | undefined
-}) {
+}>) {
   const wide = useWideLayout()
   const { data: setup } = useSuspenseQuery({
     ...modelSetupQueryOptions(slug),

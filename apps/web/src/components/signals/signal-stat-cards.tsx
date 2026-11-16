@@ -1,7 +1,10 @@
 import type { SignalSummary } from "@/lib/signals-api"
 import { Card } from "@linea/ui/components/card"
 
-function StatCell({ label, value }: { label: string; value: number }) {
+function StatCell({
+  label,
+  value,
+}: Readonly<{ label: string; value: number }>) {
   return (
     <div className="bg-card px-4 py-3">
       <p className="text-sm text-muted-foreground">{label}</p>

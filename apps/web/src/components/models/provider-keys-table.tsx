@@ -50,7 +50,7 @@ import {
 
 const SHOWN_MODELS = 2
 
-function ModelSummary({ models }: { models: CatalogModel[] }) {
+function ModelSummary({ models }: Readonly<{ models: CatalogModel[] }>) {
   const shown = models.slice(0, SHOWN_MODELS)
   const rest = models.slice(SHOWN_MODELS)
   return (
@@ -76,6 +76,16 @@ function ModelSummary({ models }: { models: CatalogModel[] }) {
   )
 }
 
+function ProviderStatus({
+  provider,
+}: Readonly<{ provider: AiProviderKeyStatus }>) {
+  if (provider.configured) return <Badge variant="success">Connected</Badge>
+  if (provider.platformFallback) {
+    return <Badge variant="outline">Platform key</Badge>
+  }
+  return <span className="text-muted-foreground">Not connected</span>
+}
+
 function ProviderRow({
   provider,
   models,
@@ -94,13 +104,7 @@ function ProviderRow({
         <ModelSummary models={models} />
       </TableCell>
       <TableCell>
-        {provider.configured ? (
-          <Badge variant="success">Connected</Badge>
-        ) : provider.platformFallback ? (
-          <Badge variant="outline">Platform key</Badge>
-        ) : (
-          <span className="text-muted-foreground">Not connected</span>
-        )}
+        <ProviderStatus provider={provider} />
       </TableCell>
       <TableCell className="text-right">
         {provider.configured ? (

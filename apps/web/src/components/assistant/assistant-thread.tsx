@@ -52,7 +52,7 @@ export type RetryOptions = {
   onRetry: (id: string, model: string) => void
 }
 
-function AssistantMark({ className }: { className?: string }) {
+function AssistantMark({ className }: Readonly<{ className?: string }>) {
   return (
     <span
       className={cn(
@@ -73,10 +73,10 @@ function AssistantMark({ className }: { className?: string }) {
 function RetryControls({
   message,
   retry,
-}: {
+}: Readonly<{
   message: ChatMessage
   retry: RetryOptions
-}) {
+}>) {
   const answeredWith = message.model ?? retry.current
   const label =
     retry.models.find((model) => model.value === answeredWith)?.label ?? "Model"
@@ -137,7 +137,9 @@ function RetryControls({
   )
 }
 
-function ActionChips({ actions }: { actions: ChatMessage["actions"] }) {
+function ActionChips({
+  actions,
+}: Readonly<{ actions: ChatMessage["actions"] }>) {
   if (actions.length === 0) return null
   return (
     <ul className="flex flex-wrap gap-1.5">
@@ -159,11 +161,11 @@ function ProposalChip({
   message,
   selected,
   onSelect,
-}: {
+}: Readonly<{
   message: ChatMessage
   selected: boolean
   onSelect: () => void
-}) {
+}>) {
   if (!message.proposal) return null
   return (
     <Card
@@ -191,10 +193,10 @@ function ProposalChip({
 function TurnActions({
   text,
   children,
-}: {
+}: Readonly<{
   text: string
   children?: ReactNode
-}) {
+}>) {
   const [copy, setCopy] = useState<"idle" | "copied" | "failed">("idle")
   async function copyText() {
     try {
@@ -233,7 +235,7 @@ function TurnActions({
 
 function Thinking() {
   return (
-    <div className={cn("flex gap-3", ENTER)} role="status">
+    <output className={cn("flex gap-3", ENTER)}>
       <AssistantMark />
       <div className="min-w-0 flex-1 space-y-3 pt-1">
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -243,7 +245,7 @@ function Thinking() {
         <Skeleton className="h-3.5 w-11/12 rounded-full" />
         <Skeleton className="h-3.5 w-7/10 rounded-full" />
       </div>
-    </div>
+    </output>
   )
 }
 
@@ -251,11 +253,11 @@ function EmptyThread({
   title,
   suggestions,
   onSuggest,
-}: {
+}: Readonly<{
   title: string
   suggestions: string[]
   onSuggest: (text: string) => void
-}) {
+}>) {
   return (
     <div className="mx-auto flex min-h-full max-w-xl flex-col items-center justify-center py-12 text-center">
       <AssistantMark className="size-12 rounded-xl" />
@@ -288,7 +290,7 @@ export function AssistantThread({
   empty,
   retry,
   renderProposalActions,
-}: {
+}: Readonly<{
   messages: VisibleMessage[]
   isPending: boolean
   error: Error | null
@@ -303,7 +305,7 @@ export function AssistantThread({
   }
   retry: RetryOptions
   renderProposalActions?: (message: ChatMessage) => ReactNode
-}) {
+}>) {
   return (
     <MessageScrollerProvider autoScroll>
       <MessageScroller className="min-h-0 flex-1">

@@ -73,7 +73,7 @@ export type ConversationCursor = { updatedAt: string; id: string }
 export type ListedConversation = AssistantConversation & { cursorAt: string }
 
 /** General chats when workflowId is null; otherwise the chats about that workflow. */
-export async function listPinnedAssistantConversations(
+export function listPinnedAssistantConversations(
   db: DbClient,
   workspaceId: string,
   userId: string,
@@ -92,7 +92,7 @@ export async function listPinnedAssistantConversations(
 }
 
 /** The unpinned chats, newest first, one page after `after`. */
-export async function listAssistantConversations(
+export function listAssistantConversations(
   db: DbClient,
   workspaceId: string,
   userId: string,
@@ -142,7 +142,7 @@ export async function setAssistantConversationPinned(
   return conversation
 }
 
-export async function listAssistantMessages(
+export function listAssistantMessages(
   db: DbClient,
   workspaceId: string,
   conversationId: string
@@ -159,7 +159,7 @@ export async function listAssistantMessages(
     .orderBy(asc(assistantMessages.sequence))
 }
 
-export async function appendAssistantMessage(
+export function appendAssistantMessage(
   db: DbClient,
   input: NewAssistantMessage
 ): Promise<AssistantMessage> {

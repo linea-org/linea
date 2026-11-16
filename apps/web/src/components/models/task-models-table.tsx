@@ -32,10 +32,10 @@ function tasks(setup: ModelSetup) {
 export function TaskModelsTable({
   slug,
   setup,
-}: {
+}: Readonly<{
   slug: string
   setup: ModelSetup
-}) {
+}>) {
   return (
     <Card className="gap-0 py-0">
       <Table>

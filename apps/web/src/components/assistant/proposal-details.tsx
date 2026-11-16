@@ -13,11 +13,11 @@ export function ProposalDetails({
   slug,
   proposal,
   onClose,
-}: {
+}: Readonly<{
   slug: string
   proposal: Proposal
   onClose: () => void
-}) {
+}>) {
   const create = useCreateFromProposal(slug)
   const { start, run, executionId } = useProposalRun()
   return (

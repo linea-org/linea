@@ -91,6 +91,8 @@ export function toChatMessages(saved: SavedMessage[]): ChatMessage[] {
   }))
 }
 
+type PendingAsk = { input: AskInput; pendingId: string }
+
 export function useAssistantChat(
   askAssistant: (input: AskInput) => Promise<AssistantAnswer>
 ) {
@@ -99,8 +101,13 @@ export function useAssistantChat(
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const request = useMutation({
-    mutationFn: ({ input }: { input: AskInput; pendingId: string }) =>
-      askAssistant(input),
+    mutationFn: ({ input }: PendingAsk) => askAssistant(input),
+    onError: (_error, { pendingId, input }) => {
+      setMessages((current) =>
+        current.filter((message) => message.id !== pendingId)
+      )
+      setLeafId(input.parentMessageId)
+    },
     onSuccess: (answer, { pendingId }) => {
       const reply = toMessage(answer, answer.userMessageId)
       setConversationId(answer.conversationId)

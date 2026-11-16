@@ -20,11 +20,11 @@ export function TemplateGrid({
   slug,
   cards,
   create,
-}: {
+}: Readonly<{
   slug: string
   cards: TemplateCardData[]
   create: (templateId: string) => Promise<TemplateResult>
-}) {
+}>) {
   const mutation = useCreateFromTemplate(slug, create)
   return (
     <>

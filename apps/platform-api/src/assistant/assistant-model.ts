@@ -16,7 +16,7 @@ import {
 } from './assistant-model-error'
 import { buildModelCatalog } from '../model-settings/model-catalog'
 
-/** Runs on the model the workspace chose, with the Environment's own key. Nothing is picked for it. */
+/** Runs on the model the workspace chose, with the Environment's own key. */
 @Injectable()
 export class AssistantModel {
   async complete(

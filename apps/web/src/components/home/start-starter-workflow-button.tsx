@@ -6,7 +6,9 @@ import { Spinner } from "@linea/ui/components/spinner"
 import { useCreateFromTemplate } from "@/components/workflows/use-create-from-template"
 import { createWorkflowFromTemplate } from "@/lib/create-from-template"
 
-export function StartStarterWorkflowButton({ slug }: { slug: string }) {
+export function StartStarterWorkflowButton({
+  slug,
+}: Readonly<{ slug: string }>) {
   const create = useCreateFromTemplate(slug, createWorkflowFromTemplate)
   return (
     <div className="flex items-center gap-2">

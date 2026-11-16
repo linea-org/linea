@@ -40,7 +40,7 @@ import { ASSISTANT_NAME } from "@/lib/assistant-api"
 import { readAttachments } from "@/lib/attachments"
 import type { ComposerOptions } from "./use-composer-options"
 
-function ToolsMenu({ options }: { options: ComposerOptions }) {
+function ToolsMenu({ options }: Readonly<{ options: ComposerOptions }>) {
   return (
     <Popover>
       <PopoverTrigger
@@ -64,7 +64,7 @@ function ToolsMenu({ options }: { options: ComposerOptions }) {
   )
 }
 
-function ModelMenu({ options }: { options: ComposerOptions }) {
+function ModelMenu({ options }: Readonly<{ options: ComposerOptions }>) {
   const { slug } = useParams({ strict: false })
   const providers = [
     ...new Map(
@@ -138,7 +138,7 @@ export function AssistantComposer({
   placeholder,
   options,
   hero,
-}: {
+}: Readonly<{
   value: string
   onChange: (value: string) => void
   onSend: (text: string) => void
@@ -146,7 +146,7 @@ export function AssistantComposer({
   placeholder: string
   options: ComposerOptions
   hero: boolean
-}) {
+}>) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [problems, setProblems] = useState<string[]>([])
   async function attach(files: FileList | null) {
@@ -170,10 +170,12 @@ export function AssistantComposer({
               <Badge key={file.name} variant="secondary" className="pr-1">
                 <FileTextIcon />
                 <span className="max-w-40 truncate">{file.name}</span>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-xs"
                   aria-label={`Remove ${file.name}`}
-                  className="grid size-4 place-items-center rounded-full hover:bg-foreground/10"
+                  className="size-4 rounded-full"
                   onClick={() =>
                     options.onAttachmentsChange(
                       options.attachments.filter((item) => item !== file)
@@ -181,7 +183,7 @@ export function AssistantComposer({
                   }
                 >
                   <XIcon className="size-3" />
-                </button>
+                </Button>
               </Badge>
             ))}
           </InputGroupAddon>

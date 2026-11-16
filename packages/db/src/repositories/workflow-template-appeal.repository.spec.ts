@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto"
+import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
-import { organizations, users } from "../schema/index.js"
+import {
+  organizations,
+  users,
+  workflowTemplateReports,
+} from "../schema/index.js"
 import { withRollback } from "./test-utils.js"
 import type { Transaction } from "./types.js"
 import {
@@ -11,6 +16,7 @@ import {
   listTemplateAppeals,
 } from "./workflow-template-appeal.repository.js"
 import {
+  createTemplateReport,
   getTemplateForModeration,
   setTemplateHidden,
 } from "./workflow-template-moderation.repository.js"
@@ -112,6 +118,46 @@ describe("template appeals", () => {
         ["appeal", "appeal_upheld", "hide"].sort()
       )
       expect(detail?.appeals).toHaveLength(1)
+    })
+  })
+
+  it("closes the reports that hid the template when an appeal is upheld, so one new report does not hide it again", async () => {
+    await withRollback(async (tx) => {
+      const f = await fixture(tx, false)
+      const reporters = await tx
+        .insert(users)
+        .values(
+          [1, 2, 3, 4].map((n) => ({
+            name: `reporter${n}`,
+            email: `${randomUUID()}@test.dev`,
+          }))
+        )
+        .returning()
+      const report = (index: number) =>
+        createTemplateReport(tx, {
+          templateId: f.template.id,
+          reporterId: reporters[index].id,
+          reporterWorkspaceId: f.other.id,
+          reason: "other",
+          details: null,
+        })
+      await report(0)
+      await report(1)
+      expect((await report(2)).autoHidden).toBe(true)
+      const created = await f.appeal()
+      if (created.outcome !== "created") throw new Error("expected an appeal")
+      await decideTemplateAppeal(tx, {
+        appealId: created.appeal.id,
+        actorId: f.staff.id,
+        decision: "upheld",
+        note: null,
+      })
+      const open = await tx
+        .select()
+        .from(workflowTemplateReports)
+        .where(eq(workflowTemplateReports.status, "open"))
+      expect(open.filter((r) => r.templateId === f.template.id)).toHaveLength(0)
+      expect((await report(3)).autoHidden).toBe(false)
     })
   })
 

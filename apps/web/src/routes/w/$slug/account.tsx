@@ -29,7 +29,10 @@ const THEMES = [
   { value: "system", label: "System" },
 ]
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({
+  title,
+  children,
+}: Readonly<{ title: string; children: ReactNode }>) {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-base font-medium">{title}</h2>

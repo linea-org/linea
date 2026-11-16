@@ -89,7 +89,7 @@ function ConversationRow({
 }
 
 /** Asks for the next page when scrolled into view. */
-function EndOfList({ onReach }: { onReach: () => void }) {
+function EndOfList({ onReach }: Readonly<{ onReach: () => void }>) {
   const ref = useRef<HTMLLIElement>(null)
   useEffect(() => {
     const node = ref.current
@@ -111,7 +111,7 @@ function Section({
   conversations,
   handlers,
   end,
-}: {
+}: Readonly<{
   label: string | null
   labelClassName: string
   open: boolean
@@ -119,7 +119,7 @@ function Section({
   conversations: ConversationListItem[]
   handlers: Handlers
   end?: ReactNode
-}) {
+}>) {
   return (
     <Collapsible
       open={open}

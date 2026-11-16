@@ -408,6 +408,34 @@ describe("listWorkflows", () => {
       expect(list.map((w) => w.id)).not.toContain(scratch.id)
     })
   })
+  it("does not run the assistant on a user's workflow that owns the scratch slug", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const applicationId = await getTestApplicationId(tx, organization.id)
+      const [own] = await tx
+        .insert(workflows)
+        .values({
+          workspaceId: organization.id,
+          applicationId,
+          name: "Mine",
+          slug: "assistant-scratch",
+        })
+        .returning()
+      const scratch = await findOrCreateScratchWorkflow(
+        tx,
+        organization.id,
+        applicationId
+      )
+      expect(scratch.id).not.toBe(own.id)
+      expect(scratch.scratch).toBe(true)
+      const again = await findOrCreateScratchWorkflow(
+        tx,
+        organization.id,
+        applicationId
+      )
+      expect(again.id).toBe(scratch.id)
+    })
+  })
   it("does not return another workspace's workflows", async () => {
     await withRollback(async (tx) => {
       const { organization } = await createTestFixtures(tx)

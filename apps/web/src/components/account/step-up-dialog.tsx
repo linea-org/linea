@@ -75,13 +75,14 @@ function CodeForm() {
   )
 }
 
+async function signInAgain() {
+  const redirect = window.location.pathname + window.location.search
+  await authClient.signOut()
+  window.location.href = `${getAppOrigin()}/sign-in?redirect=${encodeURIComponent(redirect)}`
+}
+
 function SignInAgain() {
   const { slug } = useParams({ strict: false })
-  async function signInAgain() {
-    const redirect = window.location.pathname + window.location.search
-    await authClient.signOut()
-    window.location.href = `${getAppOrigin()}/sign-in?redirect=${encodeURIComponent(redirect)}`
-  }
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">

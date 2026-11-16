@@ -38,11 +38,11 @@ function TurnOffDialog({
   open,
   hasPassword,
   onOpenChange,
-}: {
+}: Readonly<{
   open: boolean
   hasPassword: boolean
   onOpenChange: (open: boolean) => void
-}) {
+}>) {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)

@@ -19,10 +19,10 @@ const APPEAL_STATUS = {
 function SharedTemplateFooter({
   slug,
   template,
-}: {
+}: Readonly<{
   slug: string
   template: SharedTemplate
-}) {
+}>) {
   return (
     <div className="flex items-center gap-1 text-sm text-muted-foreground">
       <TemplateStarButton slug={slug} template={template} />
@@ -64,10 +64,10 @@ function SharedTemplateFooter({
 export function SharedTemplateGrid({
   slug,
   templates,
-}: {
+}: Readonly<{
   slug: string
   templates: SharedTemplate[]
-}) {
+}>) {
   const parsed = templates.map((template) => ({
     template,
     graph: workflowGraphSchema.safeParse(template.graph),

@@ -45,12 +45,12 @@ function AppealForm({
   template,
   types,
   onDone,
-}: {
+}: Readonly<{
   slug: string
   template: SharedTemplate
   types: AppealType[]
   onDone: () => void
-}) {
+}>) {
   const queryClient = useQueryClient()
   const {
     control,
@@ -142,10 +142,10 @@ function AppealForm({
 export function AppealTemplateDialog({
   slug,
   template,
-}: {
+}: Readonly<{
   slug: string
   template: SharedTemplate
-}) {
+}>) {
   const [open, setOpen] = useState(false)
   const { data: types } = useSuspenseQuery(appealTypesQueryOptions)
   return (

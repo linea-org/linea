@@ -4,6 +4,7 @@ import {
   users,
   workflowTemplateAppeals,
   workflowTemplateModerationEvents,
+  workflowTemplateReports,
   workflowTemplates,
   type TemplateAppealTypeId,
   type WorkflowTemplate,
@@ -19,7 +20,7 @@ export type AppealOutcome =
   | { outcome: "not_found" | "not_hidden" | "already_open" | "limit_reached" }
 
 /** Only the authoring workspace's hidden template can be appealed, one open appeal at a time. The template row is locked so two appeals cannot both pass the checks. */
-export async function createTemplateAppeal(
+export function createTemplateAppeal(
   db: DbClient,
   input: {
     templateId: string
@@ -153,7 +154,7 @@ export async function listTemplateAppeals(
   return { items, total }
 }
 
-export async function listAppealsForTemplate(
+export function listAppealsForTemplate(
   db: DbClient,
   templateId: string
 ): Promise<AppealListItem[]> {
@@ -174,7 +175,7 @@ export async function listAppealsForTemplate(
 }
 
 /** Upholding restores the template; rejecting leaves it hidden. Either way the author is told why, and the decision is recorded. */
-export async function decideTemplateAppeal(
+export function decideTemplateAppeal(
   db: DbClient,
   input: {
     appealId: string
@@ -216,6 +217,21 @@ export async function decideTemplateAppeal(
             .select()
             .from(workflowTemplates)
             .where(eq(workflowTemplates.id, appeal.templateId))
+    if (input.decision === "upheld") {
+      await tx
+        .update(workflowTemplateReports)
+        .set({
+          status: "dismissed",
+          resolvedAt: sql`now()`,
+          resolvedBy: input.actorId,
+        })
+        .where(
+          and(
+            eq(workflowTemplateReports.templateId, appeal.templateId),
+            eq(workflowTemplateReports.status, "open")
+          )
+        )
+    }
     if (template) {
       await tx.insert(workflowTemplateModerationEvents).values({
         templateId: template.id,

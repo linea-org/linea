@@ -73,7 +73,7 @@ export async function listWorkflowTemplates(
     pageSize: number
   }
 ): Promise<{ items: ListedTemplate[]; total: number }> {
-  const needle = `%${options.query.trim().replace(/[\\%_]/g, "\\$&")}%`
+  const needle = `%${options.query.trim().replace(/[\\%_]/g, String.raw`\$&`)}%`
   const where = and(
     options.scope === "workspace"
       ? eq(workflowTemplates.workspaceId, viewer.workspaceId)
@@ -133,7 +133,7 @@ export async function getVisibleWorkflowTemplate(
 }
 
 /** Idempotent: starring twice, or unstarring what was never starred, changes nothing. */
-export async function setWorkflowTemplateStar(
+export function setWorkflowTemplateStar(
   db: DbClient,
   viewer: { workspaceId: string; userId: string },
   id: string,

@@ -21,11 +21,11 @@ function BranchSwitcher({
   message,
   disabled,
   onSwitch,
-}: {
+}: Readonly<{
   message: VisibleMessage
   disabled: boolean
   onSwitch: (id: string) => void
-}) {
+}>) {
   const index = message.siblingIds.indexOf(message.id)
   const count = message.siblingIds.length
   return (
@@ -59,11 +59,11 @@ function EditForm({
   initial,
   onCancel,
   onSubmit,
-}: {
+}: Readonly<{
   initial: string
   onCancel: () => void
   onSubmit: (text: string) => void
-}) {
+}>) {
   const [text, setText] = useState(initial)
   const changed = text.trim() !== "" && text.trim() !== initial.trim()
   return (
@@ -102,13 +102,13 @@ export function UserTurn({
   disabled,
   onEdit,
   onSwitch,
-}: {
+}: Readonly<{
   message: VisibleMessage
   enter: string | false
   disabled: boolean
   onEdit: (id: string, text: string) => void
   onSwitch: (id: string) => void
-}) {
+}>) {
   const [editing, setEditing] = useState(false)
   const { data: session } = authClient.useSession()
   return (

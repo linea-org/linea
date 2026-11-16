@@ -3,7 +3,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common'
-import type { ConversationTurn } from '@linea/ai'
+import type { ConversationTurn, ToolCall } from '@linea/ai'
 import { db, repositories } from '@linea/db'
 import type { WorkflowGraph } from '@linea/runtime'
 import { branchUpTo } from './assistant-branch'
@@ -190,7 +190,7 @@ export class AssistantService {
         userId,
         input.conversationId,
       )
-    if (!conversation || conversation.workflowId !== workflowId) {
+    if (conversation?.workflowId !== workflowId) {
       throw new NotFoundException('Conversation not found')
     }
     return conversation
@@ -202,7 +202,6 @@ export class AssistantService {
     input: AssistantMessageDto,
     history: ConversationTurn[],
   ): Promise<Reply> {
-    const tools = input.tools.web ? [WEB_TOOL] : undefined
     const actions: AssistantAction[] = []
     let prompt: string | undefined = buildAssistantUserTurn(
       input.message,
@@ -210,30 +209,15 @@ export class AssistantService {
       input.attachments,
     )
     let rejections = 0
-    let usedModel: string | null = null
     let toolRounds = 0
     for (;;) {
-      const result = await this.model
-        .complete(
-          workspaceId,
-          environmentId,
-          {
-            systemPrompt: buildAssistantSystemPrompt(input.tools),
-            history: [...history],
-            prompt,
-            tools,
-            maxTokens: MAX_OUTPUT_TOKENS,
-            temperature: 0.2,
-          },
-          input.model,
-        )
-        .catch((error: unknown) => {
-          if (error instanceof AssistantModelUnavailableError) {
-            throw new UnprocessableEntityException(error.message)
-          }
-          throw error
-        })
-      usedModel = result.model
+      const result = await this.completeTurn(
+        workspaceId,
+        environmentId,
+        input,
+        history,
+        prompt,
+      )
       if (prompt !== undefined) {
         history.push({ role: 'user', content: prompt })
         prompt = undefined
@@ -241,25 +225,14 @@ export class AssistantService {
       if (result.toolCalls?.length) {
         toolRounds += 1
         if (toolRounds > MAX_TOOL_ROUNDS) {
-          return {
-            reply:
-              'I used too many steps on that and stopped. Try a narrower ask.',
-            title: null,
-            graph: null,
+          return noGraphReply(
+            'I used too many steps on that and stopped. Try a narrower ask.',
             actions,
-            model: usedModel,
-          }
+            result.model,
+          )
         }
         history.push({ role: 'assistant', toolCalls: result.toolCalls })
-        for (const call of result.toolCalls) {
-          const outcome = await this.tools.run(call)
-          if (outcome.action) actions.push(outcome.action)
-          history.push({
-            role: 'tool',
-            toolCallId: call.id,
-            content: outcome.content,
-          })
-        }
+        await this.runToolCalls(result.toolCalls, history, actions)
         continue
       }
       try {
@@ -270,23 +243,75 @@ export class AssistantService {
           title: graph ? (parsed.title ?? null) : null,
           graph,
           actions,
-          model: usedModel,
+          model: result.model,
         }
       } catch (error) {
         if (!(error instanceof AssistantOutputError)) throw error
         rejections += 1
         if (rejections >= MAX_ATTEMPTS) {
-          return {
-            reply: `I couldn't produce a valid workflow for that: ${error.message}`,
-            title: null,
-            graph: null,
+          return noGraphReply(
+            `I couldn't produce a valid workflow for that: ${error.message}`,
             actions,
-            model: usedModel,
-          }
+            result.model,
+          )
         }
         history.push({ role: 'assistant', content: result.text })
         prompt = `Your last answer was rejected: ${error.message}\nAnswer again with the corrected JSON object only.`
       }
     }
   }
+
+  private completeTurn(
+    workspaceId: string,
+    environmentId: string,
+    input: AssistantMessageDto,
+    history: ConversationTurn[],
+    prompt: string | undefined,
+  ) {
+    return this.model
+      .complete(
+        workspaceId,
+        environmentId,
+        {
+          systemPrompt: buildAssistantSystemPrompt(input.tools),
+          history: [...history],
+          prompt,
+          tools: input.tools.web ? [WEB_TOOL] : undefined,
+          maxTokens: MAX_OUTPUT_TOKENS,
+          temperature: 0.2,
+        },
+        input.model,
+      )
+      .catch((error: unknown) => {
+        if (error instanceof AssistantModelUnavailableError) {
+          throw new UnprocessableEntityException(error.message)
+        }
+        throw error
+      })
+  }
+
+  /** Sequential on purpose: each tool result is appended to the history in call order. */
+  private async runToolCalls(
+    calls: ToolCall[],
+    history: ConversationTurn[],
+    actions: AssistantAction[],
+  ) {
+    for (const call of calls) {
+      const outcome = await this.tools.run(call)
+      if (outcome.action) actions.push(outcome.action)
+      history.push({
+        role: 'tool',
+        toolCallId: call.id,
+        content: outcome.content,
+      })
+    }
+  }
+}
+
+function noGraphReply(
+  reply: string,
+  actions: AssistantAction[],
+  model: string,
+): Reply {
+  return { reply, title: null, graph: null, actions, model }
 }

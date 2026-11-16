@@ -25,9 +25,9 @@ function environmentState(item: ApplicationOverview["environments"][number]) {
 
 export function EnvironmentPills({
   environments,
-}: {
+}: Readonly<{
   environments: ApplicationOverview["environments"]
-}) {
+}>) {
   return (
     <div className="flex items-center gap-1.5">
       {environments.map((item) => {
@@ -69,9 +69,9 @@ export function setupChecks(
 
 export function SetupProgress({
   checks,
-}: {
+}: Readonly<{
   checks: ReturnType<typeof setupChecks>
-}) {
+}>) {
   const done = checks.filter((check) => check.done).length
   const next = checks.find((check) => !check.done)
   return (
@@ -129,7 +129,9 @@ const runStatusDot: Record<string, string> = {
   cancelled: "bg-muted-foreground/40",
 }
 
-function RunBars({ days }: { days: { date: string; count: number }[] }) {
+function RunBars({
+  days,
+}: Readonly<{ days: { date: string; count: number }[] }>) {
   const peak = Math.max(...days.map((day) => day.count), 1)
   return (
     <span className="flex h-4 items-end gap-0.5" aria-hidden>
@@ -151,9 +153,9 @@ function RunBars({ days }: { days: { date: string; count: number }[] }) {
 /** Compact footer figure: a seven-day sparkline and run count; last run in the tooltip. */
 export function RecentActivity({
   overview,
-}: {
+}: Readonly<{
   overview: ApplicationOverview
-}) {
+}>) {
   const days = lastDays(overview.runsByDay)
   const total = days.reduce((sum, day) => sum + day.count, 0)
   return (

@@ -33,13 +33,13 @@ export function toPageText(body: string, contentType: string): string {
   const text = contentType.includes('html')
     ? body
         .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&nbsp;/g, ' ')
+        .replace(/<[^<>]+>/g, ' ')
+        .replaceAll('&nbsp;', ' ')
     : body
   return text.replace(/\s+/g, ' ').trim().slice(0, MAX_CHARS)
 }
 
-/** The only things the assistant can do besides talk. Each call is checked as untrusted model output. */
+/** The only things the assistant can do besides talk; each call is untrusted model output. */
 @Injectable()
 export class AssistantTools {
   async run(call: ToolCall): Promise<ToolOutcome> {

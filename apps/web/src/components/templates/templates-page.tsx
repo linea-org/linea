@@ -89,13 +89,13 @@ function Pager({
   page,
   pageCount,
   onGo,
-}: {
+}: Readonly<{
   slug: string
   search: TemplatesSearch
   page: number
   pageCount: number
   onGo: (page: number) => void
-}) {
+}>) {
   if (pageCount <= 1) return null
   // A real address so the link opens in a new tab; a plain click navigates in place.
   const link = (target: number) => {
@@ -134,12 +134,12 @@ function SharedTab({
   search,
   text,
   onGo,
-}: {
+}: Readonly<{
   slug: string
   search: TemplatesSearch & { tab: "workspace" | "public" }
   text: string
   onGo: (page: number) => void
-}) {
+}>) {
   const { data, error } = useQuery(
     sharedTemplatesQueryOptions(slug, {
       scope: search.tab,
@@ -185,13 +185,13 @@ function StarterTab({
   search,
   text,
   onGo,
-}: {
+}: Readonly<{
   slug: string
   setup: ModelSetup
   search: TemplatesSearch
   text: string
   onGo: (page: number) => void
-}) {
+}>) {
   const { model } = useComposerOptions(setup)
   const current = paginate(matchesStarter(text), search.page, PAGE_SIZE)
   if (!model) {
@@ -234,11 +234,11 @@ export function TemplatesPage({
   slug,
   initialSetup,
   search,
-}: {
+}: Readonly<{
   slug: string
   initialSetup: ModelSetup
   search: TemplatesSearch
-}) {
+}>) {
   const navigate = useNavigate()
   const { data: setup } = useSuspenseQuery({
     ...modelSetupQueryOptions(slug),

@@ -11,11 +11,11 @@ export function StarterTemplateGrid({
   slug,
   model,
   templates,
-}: {
+}: Readonly<{
   slug: string
   model: string
   templates: WorkflowTemplate[]
-}) {
+}>) {
   const cards = useMemo(
     () =>
       templates.map((template) => ({

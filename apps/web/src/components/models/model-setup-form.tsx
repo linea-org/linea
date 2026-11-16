@@ -36,10 +36,10 @@ type FormValues = { model: string; apiKey: string }
 export function ModelSetupForm({
   slug,
   setup,
-}: {
+}: Readonly<{
   slug: string
   setup: ModelSetup
-}) {
+}>) {
   const queryClient = useQueryClient()
   const { models } = setup.settings
   const schema = useMemo(

@@ -27,10 +27,10 @@ type Enrollment = { totpURI: string; backupCodes: string[] }
 function StartStep({
   hasPassword,
   onEnrolled,
-}: {
+}: Readonly<{
   hasPassword: boolean
   onEnrolled: (enrollment: Enrollment) => void
-}) {
+}>) {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -89,10 +89,10 @@ function StartStep({
 function ScanStep({
   totpURI,
   onVerified,
-}: {
+}: Readonly<{
   totpURI: string
   onVerified: () => void
-}) {
+}>) {
   const [code, setCode] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -153,10 +153,10 @@ function ScanStep({
 function BackupCodesStep({
   codes,
   onDone,
-}: {
+}: Readonly<{
   codes: string[]
   onDone: () => void
-}) {
+}>) {
   const [copied, setCopied] = useState(false)
   return (
     <div className="flex flex-col gap-4">
@@ -200,14 +200,16 @@ export function TwoFactorSetupDialog({
   open,
   hasPassword,
   onOpenChange,
-}: {
+}: Readonly<{
   open: boolean
   hasPassword: boolean
   onOpenChange: (open: boolean) => void
-}) {
+}>) {
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null)
   const [verified, setVerified] = useState(false)
-  const step = verified ? "codes" : enrollment ? "scan" : "start"
+  let step: "start" | "scan" | "codes" = "start"
+  if (verified) step = "codes"
+  else if (enrollment) step = "scan"
 
   function close() {
     onOpenChange(false)

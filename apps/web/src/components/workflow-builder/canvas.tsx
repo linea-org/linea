@@ -199,7 +199,9 @@ function WorkflowBuilderCanvasInner({
   const initial = graphToFlow(seeded)
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges)
-  const [entryNodeId] = useState(seeded.entryNodeId)
+  const entryNodeId =
+    nodes.find((node) => node.data.nodeType === "start")?.id ??
+    seeded.entryNodeId
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   // Which of the two right-hand panels is visible — kept as one variable, not two
   // independent booleans, so a node selection and the chat toggle can never both

@@ -13,10 +13,10 @@ import {
 export function TemplateStarButton({
   slug,
   template,
-}: {
+}: Readonly<{
   slug: string
   template: SharedTemplate
-}) {
+}>) {
   const queryClient = useQueryClient()
   const star = useMutation({
     mutationFn: () =>

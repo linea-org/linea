@@ -26,6 +26,20 @@ const SAVED_VISIBLE_MS = 2000
 // Select values can't be null, so the "unset" choice travels as this sentinel.
 const UNSET = "unset"
 
+function SaveStatus({
+  pending,
+  success,
+}: Readonly<{ pending: boolean; success: boolean }>) {
+  if (!pending && !success) return null
+  const Icon = pending ? Spinner : CheckIcon
+  return (
+    <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+      <Icon className="size-3.5" />
+      {pending ? "Saving" : "Saved"}
+    </span>
+  )
+}
+
 export function TaskModelSelect({
   slug,
   setup,
@@ -120,17 +134,7 @@ export function TaskModelSelect({
           ))}
         </SelectContent>
       </Select>
-      {save.isPending ? (
-        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <Spinner className="size-3.5" />
-          Saving
-        </span>
-      ) : save.isSuccess ? (
-        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <CheckIcon className="size-3.5" />
-          Saved
-        </span>
-      ) : null}
+      <SaveStatus pending={save.isPending} success={save.isSuccess} />
       {chosen && !keyed.has(chosen.keyName) ? (
         <span className="text-sm text-warning">
           Add a {chosen.providerLabel} key to use this model.

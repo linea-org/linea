@@ -40,7 +40,7 @@ export async function grantPlatformAdmin(
 }
 
 /** Counts once per person; the report that tips it over the threshold hides the template in the same transaction. */
-export async function createTemplateReport(
+export function createTemplateReport(
   db: DbClient,
   input: {
     templateId: string
@@ -51,6 +51,11 @@ export async function createTemplateReport(
   }
 ): Promise<{ created: boolean; autoHidden: boolean }> {
   return db.transaction(async (tx) => {
+    await tx
+      .select({ id: workflowTemplates.id })
+      .from(workflowTemplates)
+      .where(eq(workflowTemplates.id, input.templateId))
+      .for("update")
     const [inserted] = await tx
       .insert(workflowTemplateReports)
       .values(input)
@@ -170,7 +175,7 @@ export async function listTemplatesForModeration(
     pageSize: number
   }
 ): Promise<{ items: ModerationListItem[]; total: number }> {
-  const needle = `%${options.query.trim().replace(/[\\%_]/g, "\\$&")}%`
+  const needle = `%${options.query.trim().replace(/[\\%_]/g, String.raw`\$&`)}%`
   const where = and(
     eq(workflowTemplates.visibility, "public"),
     options.status
@@ -274,7 +279,7 @@ export async function getTemplateForModeration(
 }
 
 /** Hiding also closes the template's open reports as actioned; the decision and who made it are recorded. */
-export async function setTemplateHidden(
+export function setTemplateHidden(
   db: DbClient,
   input: {
     templateId: string
@@ -323,7 +328,7 @@ export async function setTemplateHidden(
 }
 
 /** The event is written first and outlives the template, which it names. */
-export async function removeTemplateAsModerator(
+export function removeTemplateAsModerator(
   db: DbClient,
   input: { templateId: string; actorId: string; note: string | null }
 ): Promise<WorkflowTemplate | undefined> {
@@ -348,7 +353,7 @@ export async function removeTemplateAsModerator(
   })
 }
 
-export async function dismissTemplateReport(
+export function dismissTemplateReport(
   db: DbClient,
   input: { reportId: string; actorId: string; note: string | null }
 ): Promise<WorkflowTemplateReport | undefined> {

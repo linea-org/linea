@@ -51,7 +51,10 @@ const IDEAS: Idea[] = [
 
 const HERO_TEMPLATES = workflowTemplates.slice(0, 8)
 
-function TemplateCards({ slug, model }: { slug: string; model: string }) {
+function TemplateCards({
+  slug,
+  model,
+}: Readonly<{ slug: string; model: string }>) {
   return (
     <section className="mt-12">
       <div className="flex items-center justify-between">
@@ -86,7 +89,7 @@ export function AssistantHero({
   onDraftChange,
   onSend,
   disabled,
-}: {
+}: Readonly<{
   slug: string
   setup: ModelSetup
   ready: boolean
@@ -95,7 +98,7 @@ export function AssistantHero({
   onDraftChange: (value: string) => void
   onSend: (text: string) => void
   disabled: boolean
-}) {
+}>) {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-12">
       <h1 className="text-center text-xl font-semibold tracking-tight">

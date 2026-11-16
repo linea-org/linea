@@ -10,9 +10,7 @@ import { ScrollArea } from "@linea/ui/components/scroll-area"
 import { WorkflowPreview } from "./workflow-preview"
 import type { Proposal } from "./proposal"
 
-type Step = WorkflowGraphNode
-
-type WorkflowGraphNode = Proposal["graph"]["nodes"][number]
+type Step = Proposal["graph"]["nodes"][number]
 
 function describeStep(node: Step) {
   const definition = nodeRegistry[node.type]

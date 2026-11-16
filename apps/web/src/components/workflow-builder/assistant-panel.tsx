@@ -46,13 +46,13 @@ export function AssistantPanel({
   graph,
   onApply,
   onClose,
-}: {
+}: Readonly<{
   slug: string
   workflowId: string
   graph: Record<string, JsonValue>
   onApply: (proposal: WorkflowGraph) => void
   onClose: () => void
-}) {
+}>) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState("")
   const { data: setup } = useQuery(modelSetupQueryOptions(slug))
@@ -174,21 +174,20 @@ export function AssistantPanel({
           suggestions: SUGGESTIONS,
           onSuggest: (text) => chat.send(text, [], graph),
         }}
-        renderProposalActions={(message) =>
-          message.proposal ? (
-            message.applied ? (
-              <Badge variant="success">Applied to canvas</Badge>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => apply(message)}
-              >
-                Apply to canvas
-              </Button>
-            )
-          ) : null
-        }
+        renderProposalActions={(message) => {
+          if (!message.proposal) return null
+          return message.applied ? (
+            <Badge variant="success">Applied to canvas</Badge>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => apply(message)}
+            >
+              Apply to canvas
+            </Button>
+          )
+        }}
       />
       <AssistantComposer
         hero={false}

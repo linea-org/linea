@@ -54,11 +54,11 @@ function PublishedNotice({
   slug,
   name,
   onDone,
-}: {
+}: Readonly<{
   slug: string
   name: string
   onDone: () => void
-}) {
+}>) {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-base">Published “{name}”.</p>
@@ -87,11 +87,11 @@ export function PublishTemplateDialog({
   slug,
   workflowId,
   workflowName,
-}: {
+}: Readonly<{
   slug: string
   workflowId: string
   workflowName: string
-}) {
+}>) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
   const {

@@ -11,11 +11,11 @@ export function ProposalRunResult({
   slug,
   executionId,
   detail,
-}: {
+}: Readonly<{
   slug: string
   executionId: string
   detail: ExecutionDetailResponse | undefined
-}) {
+}>) {
   if (!detail) {
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">

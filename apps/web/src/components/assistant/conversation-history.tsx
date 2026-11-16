@@ -18,7 +18,7 @@ export function ConversationHistory({
   activeId,
   onOpen,
   onDeleted,
-}: {
+}: Readonly<{
   trigger: ReactElement
   side: "bottom" | "right"
   scope: "all" | "pinned"
@@ -27,7 +27,7 @@ export function ConversationHistory({
   activeId: string | null
   onOpen: (id: string) => void
   onDeleted: (id: string) => void
-}) {
+}>) {
   const [open, setOpen] = useState(false)
   const { pinned, recent, hasMore, loadMore, error, remove, pin } =
     useConversations(slug, workflowId, onDeleted)
@@ -43,11 +43,10 @@ export function ConversationHistory({
       >
         {shownPinned.length + shownRecent.length === 0 ? (
           <p className="px-3 py-4 text-center text-sm text-muted-foreground">
-            {error
-              ? error.message
-              : scope === "pinned"
+            {error?.message ??
+              (scope === "pinned"
                 ? "No pinned chats yet"
-                : "No saved chats yet"}
+                : "No saved chats yet")}
           </p>
         ) : (
           <div className="no-scrollbar max-h-80 scroll-fade-b overflow-y-auto">

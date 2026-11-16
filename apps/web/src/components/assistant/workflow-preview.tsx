@@ -43,10 +43,10 @@ function RefitOnResize() {
 export function WorkflowPreview({
   graph,
   view,
-}: {
+}: Readonly<{
   graph: WorkflowGraph
   view: PreviewView
-}) {
+}>) {
   const { resolvedTheme } = useTheme()
   const flow = useMemo(() => {
     const { nodes, edges } = graphToFlow(ensureStartNode(graph))

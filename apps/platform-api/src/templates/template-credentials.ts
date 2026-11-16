@@ -4,7 +4,7 @@ const URL_CREDENTIALS = /:\/\/[^/\s:@]+:[^/\s@]+@/
 const URL_SECRET_PARAM =
   /[?&](api[-_]?key|token|access_token|secret|key|password)=[^&\s]+/i
 
-// Shapes of well-known secrets, which give themselves away wherever they appear, whatever the key is called.
+// Shapes of well-known secrets, which give themselves away whatever the key is called.
 const TOKEN_SHAPES = [
   /\bsk-[A-Za-z0-9_-]{16,}/,
   /\bgh[pousr]_[A-Za-z0-9]{20,}/,
@@ -13,10 +13,10 @@ const TOKEN_SHAPES = [
   /\bAIza[0-9A-Za-z_-]{30,}/,
   /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/,
   /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
-  /\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{16,}/i,
+  /\b(?:Bearer|Basic)\s+[a-z0-9._~+/=-]{16,}/i,
 ]
 
-/** Where a graph holds what looks like a literal credential, as "node.path" strings. Publishing shares the graph, so these must be moved out first. */
+/** Where a graph holds a literal credential, as "node.path" strings; move them out first. */
 export function findLiteralCredentials(graph: {
   nodes?: { id?: unknown; config?: unknown }[]
 }): string[] {
