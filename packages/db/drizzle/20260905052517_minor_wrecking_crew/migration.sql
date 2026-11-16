@@ -1,1 +1,0 @@
-ALTER TABLE "checkpoints" ADD COLUMN "variables" jsonb DEFAULT '{}' NOT NULL;

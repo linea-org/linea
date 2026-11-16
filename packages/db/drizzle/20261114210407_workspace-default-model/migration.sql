@@ -1,1 +1,0 @@
-ALTER TABLE "workspace_settings" ADD COLUMN "default_model" text;
