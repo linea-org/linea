@@ -71,11 +71,6 @@ export function WorkflowOverview({
   const capped = (executions?.length ?? 0) >= EXECUTIONS_WINDOW
   return (
     <section aria-label="Overview" className="flex flex-col gap-4">
-      {workflow.description ? (
-        <p className="pl-1 text-sm text-muted-foreground">
-          {workflow.description}
-        </p>
-      ) : null}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatTile label="Status" icon={CircleDotIcon}>
           {workflowStatus(workflow)}
