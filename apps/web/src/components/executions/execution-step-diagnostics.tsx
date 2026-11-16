@@ -44,7 +44,7 @@ export function ReplayAction({
     )
   }
   return (
-    <div className="space-y-2">
+    <div className="w-full space-y-2">
       <p className="text-sm font-medium text-muted-foreground">
         Config override — edit and re-run this step against the same input
       </p>

@@ -1,5 +1,5 @@
 import { Link, useLocation, useMatches } from "@tanstack/react-router"
-import { BookOpenIcon, MessageCircleIcon, WandSparklesIcon } from "lucide-react"
+import { WandSparklesIcon } from "lucide-react"
 
 import { buttonVariants } from "@linea/ui/components/button"
 import { Separator } from "@linea/ui/components/separator"
@@ -8,6 +8,7 @@ import { cn } from "@linea/ui/lib/utils"
 
 import { ASSISTANT_NAME } from "@/lib/assistant-api"
 
+import { HelpMenu } from "./help-menu"
 import { TopBarBreadcrumb } from "./top-bar-breadcrumb"
 import { TopBarSearch, TopBarSearchIcon } from "./top-bar-search"
 import { WorkflowHeading } from "./workflow-heading"
@@ -73,26 +74,7 @@ export function WorkspaceTopBar({
             <WandSparklesIcon />
             <span className="hidden sm:inline">Ask {ASSISTANT_NAME}</span>
           </Link>
-          <a
-            href="https://docs.getlinea.app"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Learn about Linea"
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-          >
-            <BookOpenIcon />
-            <span className="hidden sm:inline">Docs</span>
-          </a>
-          <a
-            href="https://discord.gg/7FWR97VkBD"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Talk to the maintainer"
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
-          >
-            <MessageCircleIcon />
-            <span className="hidden sm:inline">Talk to us</span>
-          </a>
+          <HelpMenu />
         </div>
       </div>
     </header>

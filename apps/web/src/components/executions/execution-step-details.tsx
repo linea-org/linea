@@ -91,9 +91,21 @@ export function ExecutionStepDetails({
             {model ? ` · ${model}` : ""}
           </p>
         </div>
-        <Badge variant={stepStatusVariant[step.status]} className="ml-auto">
+        <Badge variant={stepStatusVariant[step.status]}>
           {stepStatusLabel[step.status]}
         </Badge>
+        <span className="ml-auto" />
+        {replayable && !step.replayedFromStepId && step.name !== "agent" && (
+          <ReplayAction
+            executionId={executionId}
+            step={step}
+            nodeConfig={nodeConfig}
+            onReplayTriggered={onReplayTriggered}
+          />
+        )}
+        {workflowId && step.name !== "agent" && !contentRestricted && (
+          <AddToRegressionAction workflowId={workflowId} stepId={step.id} />
+        )}
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile
@@ -110,25 +122,12 @@ export function ExecutionStepDetails({
         />
         <StatTile label="Attempt" value={step.attempt} />
       </div>
-      <div className="flex flex-wrap items-start gap-2">
-        {replayable && !step.replayedFromStepId && step.name !== "agent" && (
-          <ReplayAction
-            executionId={executionId}
-            step={step}
-            nodeConfig={nodeConfig}
-            onReplayTriggered={onReplayTriggered}
-          />
-        )}
-        {step.name === "agent" && (
-          <p className="text-sm text-muted-foreground">
-            Run Agent steps can't be replayed or saved as regression cases.
-            Start a new Workflow run to try again.
-          </p>
-        )}
-        {workflowId && step.name !== "agent" && !contentRestricted && (
-          <AddToRegressionAction workflowId={workflowId} stepId={step.id} />
-        )}
-      </div>
+      {step.name === "agent" ? (
+        <p className="text-sm text-muted-foreground">
+          Run Agent steps can&apos;t be replayed or saved as regression cases.
+          Start a new Workflow run to try again.
+        </p>
+      ) : null}
       {resumedAt && (
         <p className="text-sm text-muted-foreground">
           Resumed {hydrated ? new Date(resumedAt).toLocaleString() : resumedAt}

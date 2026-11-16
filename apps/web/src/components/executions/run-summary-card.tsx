@@ -21,39 +21,21 @@ function Field({
   )
 }
 
-function Sent({
-  slug,
-  detail,
-}: Readonly<{ slug: string; detail: ExecutionDetailResponse }>) {
+function useSentMessage(slug: string, detail: ExecutionDetailResponse) {
   const { execution } = detail
   const payload = execution.triggerPayload ?? null
   const chatMessageId =
     typeof payload?.chatMessageId === "string" ? payload.chatMessageId : null
   const conversationId =
     typeof payload?.conversationId === "string" ? payload.conversationId : null
-  const { data: messages, isLoading } = useQuery({
-    ...chatMessagesQueryOptions(
+  const { data: messages } = useQuery(
+    chatMessagesQueryOptions(
       slug,
       execution.workflowId ?? "",
       execution.workflowId ? conversationId : null
-    ),
-  })
-  const sent = messages?.find((message) => message.id === chatMessageId)
-  if (isLoading) return <span className="text-muted-foreground">…</span>
-  if (sent)
-    return <p className="break-words whitespace-pre-wrap">{sent.content}</p>
-  if (!payload)
-    return <span className="text-muted-foreground">Nothing sent.</span>
-  return (
-    <details>
-      <summary className="cursor-pointer text-muted-foreground">
-        Show raw request
-      </summary>
-      <pre className="mt-1 max-h-32 overflow-auto font-mono break-words whitespace-pre-wrap">
-        {previewJson(payload)}
-      </pre>
-    </details>
+    )
   )
+  return messages?.find((message) => message.id === chatMessageId)?.content
 }
 
 function FailureCard({
@@ -89,6 +71,7 @@ export function RunSummaryCard({
   const summary = summarizeRun(detail)
   const failed = detail.execution.status === "failed"
   const failureMessage = detail.execution.error?.message
+  const sent = useSentMessage(slug, detail)
   return (
     <section
       aria-label="Run summary"
@@ -105,9 +88,11 @@ export function RunSummaryCard({
         </div>
       ) : null}
       <dl className="contents">
-        <Field label="Sent">
-          <Sent slug={slug} detail={detail} />
-        </Field>
+        {sent ? (
+          <Field label="Sent">
+            <p className="break-words whitespace-pre-wrap">{sent}</p>
+          </Field>
+        ) : null}
         {failed ? null : (
           <Field label="What happened">
             <p className="font-medium">{summary.outcome}</p>

@@ -1,7 +1,12 @@
 import { useState, type ReactNode } from "react"
 import { ChevronDownIcon, CircleAlertIcon } from "lucide-react"
 
-import { Alert, AlertDescription, AlertTitle } from "@linea/ui/components/alert"
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@linea/ui/components/alert"
 import { cn } from "@linea/ui/lib/utils"
 
 type ErrorCalloutProps = {
@@ -50,15 +55,15 @@ export function ErrorCallout({ title, message, action }: ErrorCalloutProps) {
   return (
     <Alert
       variant="destructive"
-      className="border-destructive/30 bg-destructive/10"
+      className="border-destructive/30 bg-destructive/10 has-data-[slot=alert-action]:pr-40"
     >
       <CircleAlertIcon />
+      {action ? <AlertAction>{action}</AlertAction> : null}
       <AlertTitle>{title}</AlertTitle>
       <AlertDescription>
         <p className="break-words whitespace-pre-wrap text-foreground">
           {summary}
         </p>
-        {action ? <div className="mt-2">{action}</div> : null}
         {details ? (
           <div className="mt-2">
             <button
