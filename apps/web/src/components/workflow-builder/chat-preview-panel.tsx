@@ -257,6 +257,7 @@ export function ChatPreviewPanel({
             }}
             placeholder="Send a message…"
             rows={1}
+            className="max-h-40"
           />
           <InputGroupAddon align="block-end" className="justify-end">
             <InputGroupButton

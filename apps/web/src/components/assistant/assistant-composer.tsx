@@ -216,7 +216,7 @@ export function AssistantComposer({
           placeholder={placeholder}
           rows={hero ? 3 : 2}
           autoFocus={hero}
-          className={cn("max-h-60", hero ? "min-h-24 text-base" : "min-h-12")}
+          className={hero ? "max-h-60 min-h-24 text-base" : "max-h-40"}
         />
         <InputGroupAddon align="block-end" className="gap-1">
           <input
