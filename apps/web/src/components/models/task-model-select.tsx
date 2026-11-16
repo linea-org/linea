@@ -116,7 +116,11 @@ export function TaskModelSelect({
               {models
                 .filter((item) => item.providerId === providerId)
                 .map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
+                  <SelectItem
+                    key={item.value}
+                    value={item.value}
+                    disabled={!keyed.has(item.keyName)}
+                  >
                     {item.label}
                     {keyed.has(item.keyName) ? null : (
                       <span className="ml-auto text-xs text-muted-foreground">
