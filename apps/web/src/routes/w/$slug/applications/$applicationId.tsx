@@ -24,6 +24,7 @@ import {
 } from "@/components/applications/application-workflows"
 import { AddAgentDialog } from "@/components/agents/add-agent-dialog"
 import { ApplicationAgents } from "@/components/agents/application-agents"
+import { cn } from "@linea/ui/lib/utils"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import {
@@ -97,7 +98,12 @@ function ApplicationPage() {
     })
   }
   return (
-    <main className="flex min-w-0 flex-1 flex-col p-4">
+    <main
+      className={cn(
+        "flex min-w-0 flex-1 flex-col p-4",
+        view === "environments" && "pt-3"
+      )}
+    >
       <div className="flex min-w-0 flex-col gap-4">
         {view !== "environments" ? (
           <PageToolbar>
