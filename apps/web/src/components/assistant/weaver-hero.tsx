@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { Link } from "@tanstack/react-router"
 import {
   FileTextIcon,
   GlobeIcon,
@@ -7,18 +7,15 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-import { workflowGraphSchema } from "@linea/runtime/browser"
 import { Button } from "@linea/ui/components/button"
 import { Card, CardContent } from "@linea/ui/components/card"
-import { Spinner } from "@linea/ui/components/spinner"
 
 import { ModelSetupForm } from "@/components/models/model-setup-form"
-import { useCreateFromTemplate } from "@/components/workflows/use-create-from-template"
+import { StarterTemplateGrid } from "@/components/templates/starter-template-grid"
 import type { ModelSetup } from "@/lib/model-settings-api"
 import { workflowTemplates } from "@/lib/workflow-templates"
 import { AssistantComposer } from "./assistant-composer"
 import type { ComposerOptions } from "./use-composer-options"
-import { WorkflowPreview } from "./workflow-preview"
 
 type Idea = {
   label: string
@@ -52,48 +49,31 @@ const IDEAS: Idea[] = [
   },
 ]
 
+const HERO_TEMPLATES = workflowTemplates.slice(0, 6)
+
 function TemplateCards({ slug, model }: { slug: string; model: string }) {
-  const create = useCreateFromTemplate(slug)
-  const cards = useMemo(
-    () =>
-      workflowTemplates.map((template) => ({
-        template,
-        graph: workflowGraphSchema.parse(template.build(model)),
-      })),
-    [model]
-  )
   return (
     <section className="mt-12">
-      <h2 className="text-sm font-medium">Templates</h2>
-      <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map(({ template, graph }) => (
-          <div key={template.id} className="flex flex-col gap-2">
-            <Card
-              render={
-                <button
-                  type="button"
-                  disabled={create.isPending}
-                  onClick={() => create.mutate(template.id)}
-                />
-              }
-              className="pointer-events-auto relative h-40 cursor-pointer gap-0 bg-muted py-0 transition-shadow hover:ring-primary disabled:opacity-60"
-            >
-              <span className="pointer-events-none block h-full">
-                <WorkflowPreview graph={graph} view="fit" />
-              </span>
-              {create.isPending && create.variables === template.id ? (
-                <span className="absolute inset-0 grid place-items-center bg-background/60">
-                  <Spinner />
-                </span>
-              ) : null}
-            </Card>
-            <span className="text-xs font-medium">{template.name}</span>
-          </div>
-        ))}
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium">Templates</h2>
+        <Button
+          variant="ghost"
+          size="xs"
+          nativeButton={false}
+          render={
+            <Link to="/w/$slug/templates" params={{ slug }} search={{}} />
+          }
+        >
+          View all
+        </Button>
       </div>
-      {create.isError ? (
-        <p className="mt-3 text-xs text-destructive">{create.error.message}</p>
-      ) : null}
+      <div className="mt-3">
+        <StarterTemplateGrid
+          slug={slug}
+          model={model}
+          templates={HERO_TEMPLATES}
+        />
+      </div>
     </section>
   )
 }

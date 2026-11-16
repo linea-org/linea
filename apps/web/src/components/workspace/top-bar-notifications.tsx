@@ -84,7 +84,9 @@ export function TopBarNotifications({ slug }: { slug: string }) {
         ) : null}
       </div>
       <PopoverContent
+        side="right"
         align="end"
+        sideOffset={8}
         className="w-[28rem] gap-0 overflow-hidden rounded-xl p-0"
       >
         <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2.5">

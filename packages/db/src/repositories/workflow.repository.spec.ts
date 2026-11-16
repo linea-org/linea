@@ -13,6 +13,7 @@ import {
   getWorkflowById,
   getWorkflowBySlug,
   getWorkflowVersionById,
+  findOrCreateScratchWorkflow,
   listWorkflows,
   publishWorkflowVersion,
   saveWorkflowDraft,
@@ -383,6 +384,28 @@ describe("listWorkflows", () => {
       const fullIds = fullList.map((w) => w.id)
       expect(fullIds).toContain(active.id)
       expect(fullIds).toContain(archived.id)
+    })
+  })
+  it("never lists the assistant's scratch workflow, and reuses the one it has", async () => {
+    await withRollback(async (tx) => {
+      const { organization } = await createTestFixtures(tx)
+      const applicationId = await getTestApplicationId(tx, organization.id)
+      const scratch = await findOrCreateScratchWorkflow(
+        tx,
+        organization.id,
+        applicationId
+      )
+      const again = await findOrCreateScratchWorkflow(
+        tx,
+        organization.id,
+        applicationId
+      )
+      expect(again.id).toBe(scratch.id)
+      expect(scratch.scratch).toBe(true)
+      const list = await listWorkflows(tx, organization.id, {
+        includeArchived: true,
+      })
+      expect(list.map((w) => w.id)).not.toContain(scratch.id)
     })
   })
   it("does not return another workspace's workflows", async () => {

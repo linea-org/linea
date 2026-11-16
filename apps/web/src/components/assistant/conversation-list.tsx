@@ -1,6 +1,17 @@
-import { useEffect, useRef, type ReactNode } from "react"
-import { EllipsisIcon, PinIcon, PinOffIcon, Trash2Icon } from "lucide-react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import {
+  ChevronDownIcon,
+  EllipsisIcon,
+  PinIcon,
+  PinOffIcon,
+  Trash2Icon,
+} from "lucide-react"
 
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@linea/ui/components/collapsible"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -92,42 +103,73 @@ function EndOfList({ onReach }: { onReach: () => void }) {
   return <li ref={ref} aria-hidden className="h-px" />
 }
 
+/** True once the element has scrolled out of the top of its scroller. */
+function useScrolledPast() {
+  const ref = useRef<HTMLDivElement>(null)
+  const [past, setPast] = useState(false)
+  useEffect(() => {
+    const node = ref.current
+    if (!node) return
+    const observer = new IntersectionObserver(([entry]) =>
+      setPast(!entry.isIntersecting)
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+  return { ref, past }
+}
+
 function Section({
   label,
   labelClassName,
+  bordered,
+  open,
+  onOpenChange,
   conversations,
   handlers,
   end,
 }: {
   label: string | null
   labelClassName: string
+  // A top border while the heading rests; it goes once the heading sticks to the top.
+  bordered: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
   conversations: ConversationListItem[]
   handlers: Handlers
   end?: ReactNode
 }) {
+  const { ref, past } = useScrolledPast()
   return (
-    <div>
+    <Collapsible open={open} onOpenChange={onOpenChange}>
+      <div ref={ref} aria-hidden className="h-px" />
       {label ? (
         <SidebarGroupLabel
+          render={<CollapsibleTrigger />}
           className={cn(
-            "sticky top-0 z-10 -mx-1 mb-1 rounded-none border-b border-sidebar-border px-3 after:pointer-events-none after:absolute after:inset-x-0 after:top-[calc(100%+1px)] after:h-2 after:bg-linear-to-b after:to-transparent",
+            bordered && !past && "border-t",
+            "group/heading sticky top-0 z-10 -mx-1 w-[calc(100%+0.5rem)] cursor-pointer justify-between rounded-none border-b border-sidebar-border px-3 after:pointer-events-none after:absolute after:inset-x-0 after:top-[calc(100%+1px)] after:h-2 after:bg-linear-to-b after:to-transparent",
             labelClassName
           )}
         >
           {label}
+          <ChevronDownIcon className="transition-transform group-not-data-[panel-open]/heading:-rotate-90" />
         </SidebarGroupLabel>
       ) : null}
-      <SidebarMenu>
-        {conversations.map((conversation) => (
-          <ConversationRow
-            key={conversation.id}
-            conversation={conversation}
-            {...handlers}
-          />
-        ))}
-        {end}
-      </SidebarMenu>
-    </div>
+      {/* Kept mounted while shut: the loaded chats are not fetched again on reopening. */}
+      <CollapsibleContent keepMounted>
+        <SidebarMenu className="pt-1">
+          {conversations.map((conversation) => (
+            <ConversationRow
+              key={conversation.id}
+              conversation={conversation}
+              {...handlers}
+            />
+          ))}
+          {end}
+        </SidebarMenu>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 
@@ -146,11 +188,16 @@ export function ConversationList({
   // Headings stick over the rows, so they need the surface colour of wherever the list sits.
   labelClassName: string
 }) {
+  const [pinnedOpen, setPinnedOpen] = useState(true)
+  const [recentOpen, setRecentOpen] = useState(true)
   return (
     <>
       {pinned.length > 0 ? (
         <Section
           label="Pinned"
+          bordered={false}
+          open={pinnedOpen}
+          onOpenChange={setPinnedOpen}
           labelClassName={labelClassName}
           conversations={pinned}
           handlers={handlers}
@@ -159,6 +206,9 @@ export function ConversationList({
       {recent.length > 0 ? (
         <Section
           label={pinned.length > 0 ? "Recent" : null}
+          bordered={pinnedOpen}
+          open={recentOpen}
+          onOpenChange={setRecentOpen}
           labelClassName={labelClassName}
           conversations={recent}
           handlers={handlers}

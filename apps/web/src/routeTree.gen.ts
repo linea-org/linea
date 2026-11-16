@@ -27,6 +27,7 @@ import { Route as WSlugIndexRouteImport } from './routes/w/$slug/index'
 import { Route as WSlugApprovalsRouteImport } from './routes/w/$slug/approvals'
 import { Route as WSlugAssistantRouteImport } from './routes/w/$slug/assistant'
 import { Route as WSlugNotificationsRouteImport } from './routes/w/$slug/notifications'
+import { Route as WSlugTemplatesRouteImport } from './routes/w/$slug/templates'
 import { Route as WSlugAgentsAgentIdRouteImport } from './routes/w/$slug/agents/$agentId'
 import { Route as WSlugAgentsNewRouteImport } from './routes/w/$slug/agents/new'
 import { Route as WSlugApplicationsIndexRouteImport } from './routes/w/$slug/applications/index'
@@ -135,6 +136,11 @@ const WSlugAssistantRoute = WSlugAssistantRouteImport.update({
 const WSlugNotificationsRoute = WSlugNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => WSlugRoute,
+} as any)
+const WSlugTemplatesRoute = WSlugTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
   getParentRoute: () => WSlugRoute,
 } as any)
 const WSlugAgentsAgentIdRoute = WSlugAgentsAgentIdRouteImport.update({
@@ -255,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/assistant': typeof WSlugAssistantRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
+  '/w/$slug/templates': typeof WSlugTemplatesRoute
   '/w/$slug/': typeof WSlugIndexRoute
   '/w/$slug/agents/$agentId': typeof WSlugAgentsAgentIdRoute
   '/w/$slug/agents/new': typeof WSlugAgentsNewRoute
@@ -292,6 +299,7 @@ export interface FileRoutesByTo {
   '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/assistant': typeof WSlugAssistantRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
+  '/w/$slug/templates': typeof WSlugTemplatesRoute
   '/w/$slug': typeof WSlugIndexRoute
   '/w/$slug/agents/$agentId': typeof WSlugAgentsAgentIdRoute
   '/w/$slug/agents/new': typeof WSlugAgentsNewRoute
@@ -330,6 +338,7 @@ export interface FileRoutesById {
   '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/assistant': typeof WSlugAssistantRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
+  '/w/$slug/templates': typeof WSlugTemplatesRoute
   '/w/$slug/': typeof WSlugIndexRoute
   '/w/$slug/agents/$agentId': typeof WSlugAgentsAgentIdRoute
   '/w/$slug/agents/new': typeof WSlugAgentsNewRoute
@@ -370,6 +379,7 @@ export interface FileRouteTypes {
     | '/w/$slug/approvals'
     | '/w/$slug/assistant'
     | '/w/$slug/notifications'
+    | '/w/$slug/templates'
     | '/w/$slug/'
     | '/w/$slug/agents/$agentId'
     | '/w/$slug/agents/new'
@@ -407,6 +417,7 @@ export interface FileRouteTypes {
     | '/w/$slug/approvals'
     | '/w/$slug/assistant'
     | '/w/$slug/notifications'
+    | '/w/$slug/templates'
     | '/w/$slug'
     | '/w/$slug/agents/$agentId'
     | '/w/$slug/agents/new'
@@ -444,6 +455,7 @@ export interface FileRouteTypes {
     | '/w/$slug/approvals'
     | '/w/$slug/assistant'
     | '/w/$slug/notifications'
+    | '/w/$slug/templates'
     | '/w/$slug/'
     | '/w/$slug/agents/$agentId'
     | '/w/$slug/agents/new'
@@ -610,6 +622,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugNotificationsRouteImport
       parentRoute: typeof WSlugRoute
     }
+    '/w/$slug/templates': {
+      id: '/w/$slug/templates'
+      path: '/templates'
+      fullPath: '/w/$slug/templates'
+      preLoaderRoute: typeof WSlugTemplatesRouteImport
+      parentRoute: typeof WSlugRoute
+    }
     '/w/$slug/agents/$agentId': {
       id: '/w/$slug/agents/$agentId'
       path: '/agents/$agentId'
@@ -771,6 +790,7 @@ interface WSlugRouteChildren {
   WSlugApprovalsRoute: typeof WSlugApprovalsRoute
   WSlugAssistantRoute: typeof WSlugAssistantRoute
   WSlugNotificationsRoute: typeof WSlugNotificationsRoute
+  WSlugTemplatesRoute: typeof WSlugTemplatesRoute
   WSlugIndexRoute: typeof WSlugIndexRoute
   WSlugAgentsAgentIdRoute: typeof WSlugAgentsAgentIdRoute
   WSlugAgentsNewRoute: typeof WSlugAgentsNewRoute
@@ -790,6 +810,7 @@ const WSlugRouteChildren: WSlugRouteChildren = {
   WSlugApprovalsRoute: WSlugApprovalsRoute,
   WSlugAssistantRoute: WSlugAssistantRoute,
   WSlugNotificationsRoute: WSlugNotificationsRoute,
+  WSlugTemplatesRoute: WSlugTemplatesRoute,
   WSlugIndexRoute: WSlugIndexRoute,
   WSlugAgentsAgentIdRoute: WSlugAgentsAgentIdRoute,
   WSlugAgentsNewRoute: WSlugAgentsNewRoute,

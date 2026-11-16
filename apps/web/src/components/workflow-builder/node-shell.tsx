@@ -2,6 +2,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { nodeRegistry } from "@linea/runtime/browser"
 import { cn } from "@linea/ui/lib/utils"
 import { NodeIcon } from "./node-icon"
+import { branchOutputs } from "./branch-outputs"
 import { NODE_CATEGORY_COLORS } from "./node-category-colors"
 import { NodeHoverToolbar } from "./node-hover-toolbar"
 import type { WorkflowBuilderNodeData } from "./graph-conversion"
@@ -21,10 +22,7 @@ export function NodeShell({ id, data, selected }: WorkflowNodeShellProps) {
   const title = customName || definition.ui.label
   const isStart = data.nodeType === "start"
   const isEnd = data.nodeType === "end"
-  const branches =
-    data.nodeType === "branch"
-      ? Object.keys((data.config.cases as Record<string, unknown>) ?? {})
-      : []
+  const branches = data.nodeType === "branch" ? branchOutputs(data.config) : []
   const summaryField = definition.ui.summaryField
   const summaryFieldMeta = summaryField
     ? definition.ui.fields.find((field) => field.key === summaryField)

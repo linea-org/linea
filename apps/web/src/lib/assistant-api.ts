@@ -5,7 +5,7 @@ import { z } from "zod"
 
 import { apiFetch, parseErrorMessage } from "./api-fetch"
 import type { Attachment } from "./attachments"
-import type { JsonValue } from "./executions-api"
+import type { ExecutionSummary, JsonValue } from "./executions-api"
 
 export const ASSISTANT_NAME = "Weaver"
 
@@ -76,6 +76,27 @@ export const sendApplicationAssistantMessageFn = createServerFn({
   .handler(({ data: { applicationId, ...body } }) =>
     askAssistant(`/applications/${applicationId}/assistant`, body)
   )
+
+export const runAssistantProposalFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: { applicationId: string; graph: Record<string, JsonValue> }) => data
+  )
+  .handler(async ({ data }): Promise<ExecutionSummary> => {
+    const res = await apiFetch(
+      `/applications/${data.applicationId}/assistant/run`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ graph: data.graph }),
+      }
+    )
+    if (!res.ok) {
+      throw new Error(
+        await parseErrorMessage(res, "Could not run the proposal")
+      )
+    }
+    return (await res.json()) as ExecutionSummary
+  })
 
 const conversationListSchema = z.array(
   z.object({

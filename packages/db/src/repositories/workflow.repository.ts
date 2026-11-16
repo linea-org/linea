@@ -40,6 +40,23 @@ export async function findOrCreateWorkflowBySlug(
   return existing
 }
 
+const SCRATCH_SLUG = "assistant-scratch"
+
+/** The one hidden workflow in an application that proposals are run on. */
+export async function findOrCreateScratchWorkflow(
+  db: DbClient,
+  workspaceId: string,
+  applicationId: string
+): Promise<Workflow> {
+  return findOrCreateWorkflowBySlug(db, {
+    workspaceId,
+    applicationId,
+    name: "Assistant scratch",
+    slug: SCRATCH_SLUG,
+    scratch: true,
+  })
+}
+
 export type CreateWorkflowVersionInput = {
   workflowId: string
   graph: Record<string, unknown>
@@ -266,6 +283,7 @@ export async function listWorkflows(
         options.applicationId
           ? eq(workflows.applicationId, options.applicationId)
           : undefined,
+        eq(workflows.scratch, false),
         options.includeArchived ? undefined : isNull(workflows.archivedAt)
       )
     )

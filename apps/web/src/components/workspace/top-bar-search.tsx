@@ -2,17 +2,14 @@ import { CommandIcon, SearchIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { Button } from "@linea/ui/components/button"
-import {
-  CommandDialog,
-  CommandEmpty,
-  CommandInput,
-  CommandList,
-} from "@linea/ui/components/command"
+import { CommandDialog } from "@linea/ui/components/command"
 import { Kbd, KbdGroup } from "@linea/ui/components/kbd"
 import { useSidebar } from "@linea/ui/components/sidebar"
 import { cn } from "@linea/ui/lib/utils"
 
-export function TopBarSearch() {
+import { SearchPalette } from "./search-palette"
+
+export function TopBarSearch({ slug }: { slug: string }) {
   const [open, setOpen] = useState(false)
   const { isMobile, state } = useSidebar()
   const iconOnly = !isMobile && state === "collapsed"
@@ -55,10 +52,9 @@ export function TopBarSearch() {
         )}
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Search…" />
-        <CommandList>
-          <CommandEmpty className="py-10">No results found.</CommandEmpty>
-        </CommandList>
+        {open ? (
+          <SearchPalette slug={slug} onClose={() => setOpen(false)} />
+        ) : null}
       </CommandDialog>
     </>
   )

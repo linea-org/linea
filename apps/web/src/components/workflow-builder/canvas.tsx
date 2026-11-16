@@ -1,3 +1,4 @@
+import { PublishTemplateDialog } from "@/components/templates/publish-template-dialog"
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react"
 import {
   Background,
@@ -601,6 +602,13 @@ function WorkflowBuilderCanvasInner({
               Chat preview
             </Button>
           )}
+          {workflow ? (
+            <PublishTemplateDialog
+              slug={slug}
+              workflowId={workflowId}
+              workflowName={workflow.name}
+            />
+          ) : null}
           <Button
             type="button"
             variant="outline"

@@ -9,7 +9,11 @@ import {
   type CompletionResult,
 } from '@linea/ai'
 import { db, repositories } from '@linea/db'
-import { AssistantModelUnavailableError } from './assistant-model-error'
+import {
+  AssistantModelUnavailableError,
+  describeProviderFailure,
+  providerStatus,
+} from './assistant-model-error'
 import { buildModelCatalog } from '../model-settings/model-catalog'
 
 /** Runs on the model the workspace chose, with the Environment's own key. Nothing is picked for it. */
@@ -47,11 +51,22 @@ export class AssistantModel {
       })
       return { ...result, model }
     } catch (error) {
-      if (!(error instanceof ModelKeyMissingError)) throw error
       const entry = buildModelCatalog().find((item) => item.value === model)
-      throw new AssistantModelUnavailableError(
-        `Add your ${entry?.providerLabel ?? 'model provider'} API key in Settings → Models to use ${entry?.label ?? model}.`,
-      )
+      if (error instanceof ModelKeyMissingError) {
+        throw new AssistantModelUnavailableError(
+          `Add your ${entry?.providerLabel ?? 'model provider'} API key in Settings → Models to use ${entry?.label ?? model}.`,
+        )
+      }
+      const status = providerStatus(error)
+      const advice =
+        status === null
+          ? null
+          : describeProviderFailure(
+              status,
+              entry?.providerLabel ?? 'The provider',
+            )
+      if (advice) throw new AssistantModelUnavailableError(advice)
+      throw error
     }
   }
 }

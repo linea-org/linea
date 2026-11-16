@@ -138,21 +138,7 @@ export function UserTurn({
         />
       ) : (
         <>
-          <BubbleGroup>
-            <Bubble align="end" variant="default">
-              <BubbleContent className="whitespace-pre-wrap">
-                {message.content}
-              </BubbleContent>
-            </Bubble>
-          </BubbleGroup>
-          <div className="flex items-center gap-0.5">
-            {message.siblingIds.length > 1 ? (
-              <BranchSwitcher
-                message={message}
-                disabled={disabled}
-                onSwitch={onSwitch}
-              />
-            ) : null}
+          <div className="flex items-center gap-1">
             <Button
               type="button"
               variant="ghost"
@@ -164,7 +150,21 @@ export function UserTurn({
             >
               <PencilIcon />
             </Button>
+            <BubbleGroup className="max-w-[80%]">
+              <Bubble align="end" variant="default" className="max-w-full">
+                <BubbleContent className="whitespace-pre-wrap">
+                  {message.content}
+                </BubbleContent>
+              </Bubble>
+            </BubbleGroup>
           </div>
+          {message.siblingIds.length > 1 ? (
+            <BranchSwitcher
+              message={message}
+              disabled={disabled}
+              onSwitch={onSwitch}
+            />
+          ) : null}
         </>
       )}
     </div>

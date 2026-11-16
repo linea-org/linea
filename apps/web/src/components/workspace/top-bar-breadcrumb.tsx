@@ -53,6 +53,15 @@ function crumbsForMatch(match: RouteMatch, slug: string): Crumb[] {
       return [applicationsCrumb(slug), { label: "Add Agent" }]
     case "/w/$slug/assistant":
       return [{ label: ASSISTANT_NAME }]
+    case "/w/$slug/templates":
+      return [
+        {
+          label: ASSISTANT_NAME,
+          to: "/w/$slug/assistant",
+          params: { slug },
+        },
+        { label: "Templates" },
+      ]
     case "/w/$slug/applications/":
       return [{ label: "Applications" }]
     case "/w/$slug/applications/$applicationId": {

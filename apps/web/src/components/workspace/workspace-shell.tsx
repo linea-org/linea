@@ -99,7 +99,10 @@ function MainNav({
       <SidebarMenuItem>
         <SidebarMenuButton
           size="sm"
-          isActive={pathname.startsWith(`/w/${slug}/assistant`)}
+          isActive={
+            pathname.startsWith(`/w/${slug}/assistant`) ||
+            pathname.startsWith(`/w/${slug}/templates`)
+          }
           tooltip={ASSISTANT_NAME}
           render={<Link to="/w/$slug/assistant" params={{ slug }} />}
         >
@@ -266,7 +269,7 @@ export function WorkspaceShell({
         (onHome || history.trail.length > 1) && (
           <SidebarHeader className="px-1 py-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:py-2">
             {history.trail.length > 1 && <SidebarBack onBack={back} />}
-            {onHome && <TopBarSearch />}
+            {onHome && <TopBarSearch slug={slug} />}
           </SidebarHeader>
         )
       )}

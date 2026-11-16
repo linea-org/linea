@@ -89,7 +89,12 @@ export function WhatsNew() {
           </span>
         ) : null}
       </div>
-      <PopoverContent align="end" className="w-80 gap-0 overflow-hidden p-0">
+      <PopoverContent
+        side="right"
+        align="end"
+        sideOffset={8}
+        className="w-80 gap-0 overflow-hidden p-0"
+      >
         <div className="flex h-10 items-center gap-2 border-b border-border px-3">
           <p className="min-w-0 flex-1 text-xs font-medium text-foreground">
             What&apos;s new

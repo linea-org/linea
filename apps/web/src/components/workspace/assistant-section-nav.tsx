@@ -28,7 +28,7 @@ export function AssistantSectionNav({ slug }: Readonly<{ slug: string }>) {
     useConversations(slug, null, onDeleted)
   return (
     <>
-      <SidebarGroup className="px-1 pt-1 pb-2 group-data-[collapsible=icon]:p-1">
+      <SidebarGroup className="p-1">
         <SidebarGroupContent>
           <SidebarMenu>
             <SidebarMenuItem>

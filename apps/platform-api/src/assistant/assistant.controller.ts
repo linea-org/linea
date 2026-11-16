@@ -15,6 +15,8 @@ import { WorkspaceRateLimit } from '../auth/workspace-rate-limit.guard'
 import { WorkspaceRoleGuard } from '../auth/workspace-role.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import { requireUserId } from './assistant-user'
+import { AssistantRunService } from './assistant-run.service'
+import { testRunSchema, type TestRunDto } from '../executions/dto/test-run.dto'
 import { AssistantService } from './assistant.service'
 import {
   assistantMessageSchema,
@@ -26,7 +28,10 @@ import {
 @UseGuards(WorkspaceAuthGuard, WorkspaceRoleGuard)
 @RequireRole('member')
 export class AssistantController {
-  constructor(private readonly assistant: AssistantService) {}
+  constructor(
+    private readonly assistant: AssistantService,
+    private readonly runs: AssistantRunService,
+  ) {}
 
   @Post('workflows/:workflowId/assistant')
   @WorkspaceRateLimit('assistant')
@@ -55,6 +60,22 @@ export class AssistantController {
     body: AssistantMessageDto,
   ) {
     return this.assistant.replyForApplication(
+      workspaceId,
+      requireUserId(userId),
+      applicationId,
+      body,
+    )
+  }
+
+  @Post('applications/:applicationId/assistant/run')
+  @WorkspaceRateLimit('start')
+  runProposal(
+    @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() userId: string | undefined,
+    @Param('applicationId', ParseUUIDPipe) applicationId: string,
+    @Body(new ZodValidationPipe(testRunSchema)) body: TestRunDto,
+  ) {
+    return this.runs.run(
       workspaceId,
       requireUserId(userId),
       applicationId,

@@ -2,14 +2,17 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 
 import { applicationsQueryOptions } from "@/lib/applications-api"
-import { createWorkflowFromTemplate } from "@/lib/create-from-template"
+import type { TemplateResult } from "@/lib/create-from-template"
 import { workflowsQueryOptions } from "@/lib/workflows-api"
 
-export function useCreateFromTemplate(slug: string) {
+export function useCreateFromTemplate(
+  slug: string,
+  create: (templateId: string) => Promise<TemplateResult>
+) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: createWorkflowFromTemplate,
+    mutationFn: create,
     onSuccess: async (result) => {
       if (result.kind === "needs-model") {
         await navigate({ to: "/w/$slug/settings/models", params: { slug } })
