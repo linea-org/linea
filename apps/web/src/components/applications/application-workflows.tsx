@@ -77,7 +77,7 @@ export function ApplicationWorkflows({
   return (
     <section aria-label="Application Workflows" className="flex flex-col">
       {workflows.length === 0 && (
-        <Empty className="mx-4 my-2 w-auto">
+        <Empty className="w-auto">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <WorkflowIcon />
@@ -88,7 +88,7 @@ export function ApplicationWorkflows({
         </Empty>
       )}
       {workflows.length > 0 && (
-        <div className="px-4 py-2">
+        <div>
           <Card className="gap-0 py-0">
             <Table>
               <TableHeader className="bg-muted/40">

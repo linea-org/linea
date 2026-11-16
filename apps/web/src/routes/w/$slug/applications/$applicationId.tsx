@@ -101,9 +101,9 @@ function ApplicationPage() {
     })
   }
   return (
-    <main className="flex min-w-0 flex-1 flex-col">
-      <div className="flex min-w-0 flex-col">
-        <PageToolbar className="border-b border-border/70">
+    <main className="flex min-w-0 flex-1 flex-col p-4">
+      <div className="flex min-w-0 flex-col gap-4">
+        <PageToolbar>
           {view === "agents" ? (
             <>
               <ToolbarSearch
@@ -181,7 +181,7 @@ function ApplicationPage() {
             </div>
           ) : null}
         </PageToolbar>
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-4">
           {view === "workflows" && (
             <ApplicationWorkflows
               key={applicationId}

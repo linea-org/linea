@@ -110,7 +110,7 @@ function ApplicationsPage() {
   function renderApplications() {
     if (applications.length === 0) {
       return (
-        <Empty className="mx-4 my-2 w-auto">
+        <Empty className="w-auto">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <BoxesIcon />
@@ -123,7 +123,7 @@ function ApplicationsPage() {
     }
     if (visible.length === 0) {
       return (
-        <Empty className="mx-4 my-2 w-auto">
+        <Empty className="w-auto">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <BoxesIcon />
@@ -138,7 +138,7 @@ function ApplicationsPage() {
     }
     if (view === "grid") {
       return (
-        <div className="grid grid-cols-1 gap-3 px-4 pt-2 pb-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((application) => (
             <ApplicationCard
               key={application.id}
@@ -153,7 +153,7 @@ function ApplicationsPage() {
       )
     }
     return (
-      <div className="px-4 py-2">
+      <div>
         <Card className="gap-0 py-0">
           <Table>
             <TableHeader className="bg-muted/40">
@@ -218,7 +218,7 @@ function ApplicationsPage() {
     )
   }
   return (
-    <main className="flex min-w-0 flex-1 flex-col">
+    <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
       <PageToolbar>
         <ToolbarSearch
           inputRef={searchRef}

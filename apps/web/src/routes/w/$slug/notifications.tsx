@@ -74,8 +74,8 @@ function NotificationsPage() {
   const notifications = notificationsQuery.data ?? []
   const unreadCount = unreadCountQuery.data?.count ?? 0
   return (
-    <main className="flex min-w-0 flex-1 flex-col">
-      <PageToolbar className="border-b border-border/70">
+    <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
+      <PageToolbar>
         <Tabs
           value={tab}
           onValueChange={(value) => {
@@ -108,13 +108,13 @@ function NotificationsPage() {
         ) : null}
       </PageToolbar>
       {notificationsQuery.isPending ? (
-        <ListSkeleton className="px-4 py-2" />
+        <ListSkeleton />
       ) : notificationsQuery.isError ? (
         <p className="px-4 py-8 text-sm text-destructive">
           {notificationsQuery.error.message}
         </p>
       ) : notifications.length === 0 ? (
-        <Empty className="mx-4 my-2 w-auto">
+        <Empty className="w-auto">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               {tab === "archived" ? <ArchiveIcon /> : <BellIcon />}
@@ -130,7 +130,7 @@ function NotificationsPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="px-4 py-2">
+        <div>
           <Card className="gap-0 divide-y divide-border/70 py-0">
             {notifications.map((notification) => (
               <NotificationRow

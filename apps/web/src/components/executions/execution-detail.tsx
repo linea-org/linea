@@ -140,7 +140,7 @@ export function ExecutionDetailView({
   const { execution } = detail
   const workflowName = initialData.definitionName
   return (
-    <main className="flex min-w-0 flex-1 flex-col px-4 py-2">
+    <main className="flex min-w-0 flex-1 flex-col p-4">
       <Card className="gap-0 py-0">
         <header className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
           <PlayfulAvatar

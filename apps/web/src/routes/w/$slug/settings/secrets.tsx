@@ -19,8 +19,8 @@ export const Route = createFileRoute("/w/$slug/settings/secrets")({
 function SecretsPage() {
   const { slug } = Route.useParams()
   return (
-    <main className="flex min-w-0 flex-1 flex-col">
-      <PageToolbar className="border-b border-border/70">
+    <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
+      <PageToolbar>
         <div className="ml-auto">
           <Link
             to="/w/$slug/applications"
@@ -31,7 +31,7 @@ function SecretsPage() {
           </Link>
         </div>
       </PageToolbar>
-      <Empty className="mx-4 my-2 w-auto">
+      <Empty className="w-auto">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <KeyIcon />
