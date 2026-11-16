@@ -22,7 +22,11 @@ export function NeedsModelDialog({
   mutation: UseMutationResult<TemplateResult, Error, string>
 }>) {
   const open = mutation.data?.kind === "needs-model"
-  const { data: setup, isError, refetch } = useQuery({
+  const {
+    data: setup,
+    isError,
+    refetch,
+  } = useQuery({
     ...modelSetupQueryOptions(slug),
     enabled: open,
   })
@@ -45,7 +49,11 @@ export function NeedsModelDialog({
             <p role="alert" className="text-sm text-destructive">
               Could not load your model settings.
             </p>
-            <Button type="button" variant="outline" onClick={() => void refetch()}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void refetch()}
+            >
               Retry
             </Button>
           </div>

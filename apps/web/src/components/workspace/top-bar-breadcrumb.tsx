@@ -250,25 +250,22 @@ export function TopBarBreadcrumb({ slug }: { slug: string }) {
   const hidden = collapsed ? crumbs.slice(1, -1) : []
   return (
     <Breadcrumb className="min-w-0 overflow-hidden">
-        <BreadcrumbList className="flex-nowrap">
-          {visible.map((crumb, index) => (
-            <Fragment key={`${crumb.label}-${index}`}>
-              {index > 0 ? <BreadcrumbSeparator className="shrink-0" /> : null}
-              {index === 1 && hidden.length > 0 ? (
-                <>
-                  <HiddenCrumbs crumbs={hidden} />
-                  <BreadcrumbSeparator className="shrink-0" />
-                </>
-              ) : null}
-              <BreadcrumbItem className="min-w-0">
-                <CrumbItem
-                  crumb={crumb}
-                  current={index === visible.length - 1}
-                />
-              </BreadcrumbItem>
-            </Fragment>
-          ))}
-        </BreadcrumbList>
+      <BreadcrumbList className="flex-nowrap">
+        {visible.map((crumb, index) => (
+          <Fragment key={`${crumb.label}-${index}`}>
+            {index > 0 ? <BreadcrumbSeparator className="shrink-0" /> : null}
+            {index === 1 && hidden.length > 0 ? (
+              <>
+                <HiddenCrumbs crumbs={hidden} />
+                <BreadcrumbSeparator className="shrink-0" />
+              </>
+            ) : null}
+            <BreadcrumbItem className="min-w-0">
+              <CrumbItem crumb={crumb} current={index === visible.length - 1} />
+            </BreadcrumbItem>
+          </Fragment>
+        ))}
+      </BreadcrumbList>
     </Breadcrumb>
   )
 }
