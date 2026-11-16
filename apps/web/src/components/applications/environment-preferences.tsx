@@ -47,12 +47,12 @@ export function EnvironmentPreferences({
     onSuccess: onSaved,
   })
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <form
         onSubmit={(event) => {
           void handleSubmit((data) => retention.mutate(data))(event)
         }}
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-4"
       >
         <Field>
           <FieldLabel htmlFor={`${environment.id}-retention`}>
@@ -72,11 +72,7 @@ export function EnvironmentPreferences({
             {errors.contentRetentionDays && "Enter between 1 and 3650 days."}
           </FieldError>
         </Field>
-        <Button
-          type="submit"
-          className="self-start"
-          disabled={retention.isPending}
-        >
+        <Button type="submit" disabled={retention.isPending}>
           Save retention
         </Button>
         {retention.isSuccess && (
@@ -85,7 +81,7 @@ export function EnvironmentPreferences({
           </output>
         )}
       </form>
-      <div className="flex flex-col gap-3 border-t pt-4">
+      <div className="flex flex-col gap-4 border-t pt-4">
         <h3 className="text-base font-medium">Disable Environment</h3>
         <p className="text-sm text-muted-foreground">
           Disabling this Environment revokes its active user sessions.
