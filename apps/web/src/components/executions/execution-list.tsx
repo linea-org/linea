@@ -77,7 +77,7 @@ export function ExecutionList({
   const navigate = useNavigate()
   if (executions.length === 0) {
     return (
-      <Empty className="mt-4">
+      <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <HistoryIcon />
@@ -91,7 +91,7 @@ export function ExecutionList({
     )
   }
   return (
-    <Card className="mt-4 gap-0 py-0">
+    <Card className="gap-0 py-0">
       <Table>
         <TableHeader className="bg-muted/40">
           <TableRow className="hover:bg-transparent">

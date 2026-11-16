@@ -54,7 +54,7 @@ export function RegressionCaseList({
 }) {
   if (cases.length === 0) {
     return (
-      <Empty className="mt-4">
+      <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <FlaskConicalIcon />
@@ -69,7 +69,7 @@ export function RegressionCaseList({
   }
 
   return (
-    <Card className="mt-4 gap-0 py-0">
+    <Card className="gap-0 py-0">
       <Table>
         <TableHeader className="bg-muted/40">
           <TableRow className="hover:bg-transparent">

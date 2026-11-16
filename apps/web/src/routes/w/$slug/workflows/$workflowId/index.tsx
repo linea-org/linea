@@ -135,7 +135,7 @@ function WorkflowDetailPage() {
   })
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-medium">{workflowViews[view]}</h2>
           <div className="flex shrink-0 items-center gap-2">
@@ -177,11 +177,11 @@ function WorkflowDetailPage() {
         {view === "executions" && (
           <section aria-label={workflowViews.executions}>
             {executionsErrored ? (
-              <p className="mt-4 text-sm text-destructive">
+              <p className="text-sm text-destructive">
                 Could not load executions.
               </p>
             ) : executionsPending ? (
-              <p className="mt-4 text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Loading executions…
               </p>
             ) : (
@@ -196,23 +196,21 @@ function WorkflowDetailPage() {
         {view === "monitoring" && (
           <section aria-label={workflowViews.monitoring}>
             {signalsErrored ? (
-              <p className="mt-4 text-sm text-destructive">
+              <p className="text-sm text-destructive">
                 Could not load signals.
               </p>
             ) : signalsPending ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Loading signals…
-              </p>
+              <p className="text-sm text-muted-foreground">Loading signals…</p>
             ) : (
-              <div className="mt-4 flex flex-col gap-4">
+              <div className="flex flex-col gap-4">
                 <SignalStatCards signals={signals} />
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                   <div className="flex flex-col gap-2 lg:col-span-2">
                     <p className="pl-1 text-base font-medium text-foreground">
                       Trend
                     </p>
-                    <Card className="gap-0 py-0">
-                      <div className="px-4 py-4">
+                    <Card className="min-h-60 flex-1 gap-0 py-0">
+                      <div className="flex flex-1 flex-col justify-center px-4 py-4">
                         <SignalTrendChart trend={signalsTrend ?? []} />
                       </div>
                     </Card>
@@ -221,8 +219,8 @@ function WorkflowDetailPage() {
                     <p className="pl-1 text-base font-medium text-foreground">
                       By type
                     </p>
-                    <Card className="gap-0 py-0">
-                      <div className="px-4 py-4">
+                    <Card className="min-h-60 flex-1 gap-0 py-0">
+                      <div className="flex flex-1 flex-col justify-center px-4 py-4">
                         <SignalFlagTypeBreakdown signals={signals} />
                       </div>
                     </Card>
@@ -239,8 +237,8 @@ function WorkflowDetailPage() {
         )}
         {view === "regression" && (
           <section aria-label={workflowViews.regression}>
-            <div className="mt-4 flex flex-col gap-6">
-              <div>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-3 pl-1">
                   <p className="text-base font-medium text-foreground">Runs</p>
                   <Button
@@ -266,11 +264,11 @@ function WorkflowDetailPage() {
                   </p>
                 )}
                 {regressionRunsErrored ? (
-                  <p className="mt-4 text-sm text-destructive">
+                  <p className="text-sm text-destructive">
                     Could not load regression runs.
                   </p>
                 ) : regressionRunsPending ? (
-                  <p className="mt-4 text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Loading regression runs…
                   </p>
                 ) : (
@@ -281,7 +279,7 @@ function WorkflowDetailPage() {
                   />
                 )}
               </div>
-              <div>
+              <div className="flex flex-col gap-2">
                 <p className="pl-1 text-base font-medium text-foreground">
                   Cases
                 </p>
@@ -291,11 +289,11 @@ function WorkflowDetailPage() {
                   </p>
                 )}
                 {regressionCasesErrored ? (
-                  <p className="mt-4 text-sm text-destructive">
+                  <p className="text-sm text-destructive">
                     Could not load regression cases.
                   </p>
                 ) : regressionCasesPending ? (
-                  <p className="mt-4 text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Loading regression cases…
                   </p>
                 ) : (
