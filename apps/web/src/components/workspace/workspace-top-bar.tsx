@@ -49,7 +49,7 @@ export function WorkspaceTopBar({
           <SidebarTrigger size="icon-sm" className="shrink-0" />
           {workflow ? (
             <>
-              <Separator orientation="vertical" className="h-4" />
+              <Separator orientation="vertical" className="h-6" />
               <WorkflowHeading slug={slug} workflow={workflow} />
             </>
           ) : (
