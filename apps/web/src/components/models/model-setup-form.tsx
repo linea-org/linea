@@ -165,7 +165,7 @@ export function ModelSetupForm({
           </Field>
         ) : null}
         {save.isError ? (
-          <p className="text-xs text-destructive">{save.error.message}</p>
+          <p className="text-sm text-destructive">{save.error.message}</p>
         ) : null}
         <Button type="submit" disabled={save.isPending}>
           {save.isPending ? <Spinner /> : null}

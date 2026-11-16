@@ -37,6 +37,11 @@ export const notificationType = pgEnum("notification_type", [
   "execution.failed",
   "execution.approval_requested",
 
+  // Shared templates
+  "template.hidden",
+  "template.appeal_upheld",
+  "template.appeal_rejected",
+
   // System
   "system.info",
   "system.warning",

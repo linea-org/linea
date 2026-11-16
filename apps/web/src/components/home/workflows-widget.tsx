@@ -41,7 +41,7 @@ export function WorkflowsWidget({
     <WorkflowFormDialog
       workspaceSlug={slug}
       trigger={
-        <Button size="xs">
+        <Button size="sm">
           <PlusIcon />
           Create
         </Button>
@@ -66,8 +66,8 @@ export function WorkflowsWidget({
       action={
         <div className="flex items-center gap-1">
           <Button
-            variant="secondary"
-            size="xs"
+            variant="ghost"
+            size="sm"
             nativeButton={false}
             render={<Link to="/w/$slug/workflows" params={{ slug }} />}
           >
@@ -78,7 +78,7 @@ export function WorkflowsWidget({
       }
     >
       {recent.length === 0 ? (
-        <Empty className="flex-1 rounded-none border-0 bg-transparent">
+        <Empty className="min-h-40 flex-1 gap-3 rounded-none border-0 bg-transparent p-6 sm:p-6">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <WorkflowIcon />
@@ -106,8 +106,8 @@ export function WorkflowsWidget({
           </TableHeader>
           <TableBody>
             {recent.map((workflow) => (
-              <TableRow key={workflow.id} className="hover:bg-muted/40">
-                <TableCell className="px-4 py-3">
+              <TableRow key={workflow.id}>
+                <TableCell className="px-4">
                   <Link
                     to="/w/$slug/workflows/$workflowId"
                     params={{ slug, workflowId: workflow.id }}
@@ -116,22 +116,17 @@ export function WorkflowsWidget({
                     <PlayfulAvatar
                       name={workflow.name}
                       shape="rounded"
-                      className="size-8"
+                      className="size-6"
                     />
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-medium">
-                        {workflow.name}
-                      </span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {workflow.slug}
-                      </span>
+                    <span className="truncate text-sm font-medium">
+                      {workflow.name}
                     </span>
                   </Link>
                 </TableCell>
-                <TableCell className="px-4 py-3">
+                <TableCell className="px-4">
                   <WorkflowStatusBadge workflow={workflow} />
                 </TableCell>
-                <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                <TableCell className="px-4 text-muted-foreground tabular-nums">
                   {new Date(workflow.updatedAt).toLocaleDateString()}
                 </TableCell>
               </TableRow>

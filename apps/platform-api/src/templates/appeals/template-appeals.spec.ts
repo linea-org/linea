@@ -13,6 +13,7 @@ import {
   schema,
   templateAppealTypeIds,
 } from '@linea/db'
+import type { TemplateModerationNotifier } from '../moderation/template-moderation-notifier'
 import { TemplateModerationService } from '../moderation/template-moderation.service'
 import { TemplatesService } from '../templates.service'
 import { appealTypeDefinition, listAppealTypes } from './template-appeal-types'
@@ -33,9 +34,20 @@ const graph = {
   edges: [{ from: 'start', to: 'end' }],
 }
 
-const templates = new TemplatesService()
+const hidden = jest.fn()
+const appealDecided = jest.fn()
+const notifier = {
+  hidden,
+  appealDecided,
+} as unknown as TemplateModerationNotifier
+const templates = new TemplatesService(notifier)
 const appeals = new TemplateAppealsService()
-const moderation = new TemplateModerationService()
+const moderation = new TemplateModerationService(notifier)
+
+beforeEach(() => {
+  hidden.mockClear()
+  appealDecided.mockClear()
+})
 
 async function fixture() {
   const [workspace, others] = await db
@@ -185,6 +197,11 @@ describe('appealing a hidden template', () => {
       'rejected',
       'Still unsafe',
     )
+    expect(appealDecided).toHaveBeenCalledWith(
+      expect.objectContaining({ id: open.id }),
+      expect.objectContaining({ id: f.published.id }),
+      { upheld: false, note: 'Still unsafe', finalAppeal: false },
+    )
     expect(await f.viewAsAuthor()).toMatchObject({
       canAppeal: true,
       appeal: { status: 'rejected', decisionNote: 'Still unsafe' },
@@ -205,6 +222,11 @@ describe('appealing a hidden template', () => {
       detail.appeals[0].id,
       'upheld',
       undefined,
+    )
+    expect(appealDecided).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      { upheld: true, note: null, finalAppeal: false },
     )
     expect(
       (await moderation.detail(f.published.id)).template.moderationStatus,

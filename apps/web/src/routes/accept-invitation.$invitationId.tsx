@@ -70,7 +70,7 @@ function AcceptInvitationPage() {
   if (sessionPending || invitationQuery.isPending) {
     return (
       <AuthShell title="Loading invitation…" description="One moment.">
-        <p className="text-xs text-muted-foreground">Checking your session…</p>
+        <p className="text-sm text-muted-foreground">Checking your session…</p>
       </AuthShell>
     )
   }
@@ -88,7 +88,6 @@ function AcceptInvitationPage() {
         <div className="flex flex-col gap-2">
           <Button
             className="w-full"
-            size="lg"
             nativeButton={false}
             render={
               <Link
@@ -104,7 +103,6 @@ function AcceptInvitationPage() {
           </Button>
           <Button
             className="w-full"
-            size="lg"
             variant="outline"
             nativeButton={false}
             render={
@@ -128,11 +126,10 @@ function AcceptInvitationPage() {
     return (
       <AuthShell
         title="Verify your email first"
-        description="Confirm your email, then come back to accept this invitation."
+        description="Confirm your email to accept."
       >
         <Button
           className="w-full"
-          size="lg"
           nativeButton={false}
           render={
             <Link to="/verify-email" search={{ email: session.user.email }} />
@@ -158,7 +155,7 @@ function AcceptInvitationPage() {
           : "Accept this workspace invitation to continue."
       }
     >
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         {actionError ? (
           <Alert variant="destructive">
             <AlertDescription>{actionError}</AlertDescription>
@@ -175,7 +172,6 @@ function AcceptInvitationPage() {
         ) : null}
         <Button
           className="w-full"
-          size="lg"
           disabled={busy}
           onClick={() => {
             acceptMutation.mutate()

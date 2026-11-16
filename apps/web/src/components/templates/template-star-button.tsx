@@ -30,7 +30,6 @@ export function TemplateStarButton({
     <Button
       type="button"
       variant="ghost"
-      size="xs"
       aria-pressed={template.starred}
       aria-label={template.starred ? "Remove star" : "Star"}
       disabled={star.isPending}

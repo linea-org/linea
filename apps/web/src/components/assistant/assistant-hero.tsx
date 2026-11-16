@@ -49,16 +49,15 @@ const IDEAS: Idea[] = [
   },
 ]
 
-const HERO_TEMPLATES = workflowTemplates.slice(0, 6)
+const HERO_TEMPLATES = workflowTemplates.slice(0, 8)
 
 function TemplateCards({ slug, model }: { slug: string; model: string }) {
   return (
     <section className="mt-12">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium">Templates</h2>
+        <h2 className="text-base font-medium">Templates</h2>
         <Button
           variant="ghost"
-          size="xs"
           nativeButton={false}
           render={
             <Link to="/w/$slug/templates" params={{ slug }} search={{}} />
@@ -78,7 +77,7 @@ function TemplateCards({ slug, model }: { slug: string; model: string }) {
   )
 }
 
-export function WeaverHero({
+export function AssistantHero({
   slug,
   setup,
   ready,
@@ -98,11 +97,11 @@ export function WeaverHero({
   disabled: boolean
 }) {
   return (
-    <div className="mx-auto w-full max-w-[880px] px-4 py-12">
+    <div className="mx-auto w-full max-w-6xl px-4 py-12">
       <h1 className="text-center text-xl font-semibold tracking-tight">
         What can I help with?
       </h1>
-      <div className="mt-8">
+      <div className="mx-auto mt-8 max-w-3xl">
         {ready ? (
           <>
             <AssistantComposer
@@ -120,7 +119,6 @@ export function WeaverHero({
                   key={label}
                   type="button"
                   variant="secondary"
-                  size="xs"
                   onClick={() => {
                     onDraftChange(prompt)
                     if (web) options.onWebChange(true)
@@ -133,9 +131,9 @@ export function WeaverHero({
             </div>
           </>
         ) : (
-          <Card size="sm" className="mx-auto max-w-[420px]">
+          <Card size="sm" className="mx-auto max-w-md">
             <CardContent>
-              <h2 className="mb-4 text-sm font-medium">Choose a model</h2>
+              <h2 className="mb-4 text-base font-medium">Choose a model</h2>
               <ModelSetupForm slug={slug} setup={setup} />
             </CardContent>
           </Card>

@@ -21,6 +21,8 @@ import {
   createAgentVersionInputSchema,
   type AgentCatalog,
 } from "@/lib/agent-schemas"
+import { Card } from "@linea/ui/components/card"
+import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
 
 const toolLabels: Record<string, { group: string; label: string }> = {
   "github.issues.list": { group: "GitHub", label: "List issues" },
@@ -119,10 +121,9 @@ export function AgentToolFields({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-xs font-medium">Tools</h3>
+        <h3 className="text-sm font-medium">Tools</h3>
         <Button
           type="button"
-          size="xs"
           variant="outline"
           onClick={() => append({ name: "", operation: "" })}
         >
@@ -130,15 +131,17 @@ export function AgentToolFields({
           Add tool
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         The Agent can choose from these tools while carrying out a request.
         Access and approvals are enforced by its Environment.
       </p>
-      <div className="overflow-hidden rounded-xl border bg-card">
+      <Card className="gap-0 py-0">
         {fields.length === 0 ? (
-          <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-            No tools yet.
-          </p>
+          <Empty className="min-h-0 rounded-none border-0 bg-transparent py-8 sm:p-8">
+            <EmptyHeader>
+              <EmptyTitle>No tools yet</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : null}
         {fields.map((field, index) => {
           const selected = tools[index]?.operation ?? ""
@@ -226,7 +229,7 @@ export function AgentToolFields({
             </div>
           )
         })}
-      </div>
+      </Card>
       <FieldError>
         {errors.definition?.tools?.root?.message ??
           errors.definition?.tools?.message}

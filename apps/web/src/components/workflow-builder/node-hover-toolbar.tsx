@@ -42,7 +42,7 @@ export function NodeHoverToolbar({
   return (
     <div
       className={cn(
-        "nodrag nopan absolute bottom-[calc(100%-1px)] left-2.5 origin-bottom scale-y-0 transition-transform duration-200 ease-in",
+        "nodrag nopan absolute bottom-full left-2.5 -mb-px origin-bottom scale-y-0 transition-transform duration-200 ease-in",
         "pointer-events-none group-hover/node:pointer-events-auto group-hover/node:scale-y-100",
         selected && "pointer-events-auto scale-y-100"
       )}
@@ -61,7 +61,7 @@ export function NodeHoverToolbar({
         <Button
           type="button"
           variant="ghost"
-          size="icon-xs"
+          size="icon-sm"
           className="size-4 text-muted-foreground hover:text-foreground [&_svg:not([class*='size-'])]:size-2.5"
           aria-label="Duplicate node"
           onClick={duplicate}
@@ -73,7 +73,7 @@ export function NodeHoverToolbar({
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
+            size="icon-sm"
             className="size-4 text-muted-foreground hover:text-destructive [&_svg:not([class*='size-'])]:size-2.5"
             aria-label="Delete node"
             onClick={remove}

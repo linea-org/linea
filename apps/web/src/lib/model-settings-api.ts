@@ -5,10 +5,14 @@ import { z } from "zod"
 import { apiFetch, parseErrorMessage } from "./api-fetch"
 import { listApplicationsFn } from "./applications-api"
 import { listEnvironmentsFn } from "./environments-api"
-import { listAiProvidersFn } from "./secrets-api"
+import { listAiProvidersFn, type AiProviderKeyStatus } from "./secrets-api"
 
 const modelSettingsSchema = z.object({
   defaultModel: z.string().nullable(),
+  behaviourModel: z.string().nullable(),
+  judgeModel: z.string().nullable(),
+  stepModel: z.string().nullable(),
+  analysisFallbackModel: z.string(),
   models: z.array(
     z.object({
       value: z.string(),
@@ -21,6 +25,11 @@ const modelSettingsSchema = z.object({
 })
 
 export type ModelSettings = z.infer<typeof modelSettingsSchema>
+export type TaskModelKey =
+  | "defaultModel"
+  | "behaviourModel"
+  | "judgeModel"
+  | "stepModel"
 export type CatalogModel = ModelSettings["models"][number]
 
 export const getModelSettingsFn = createServerFn({ method: "GET" }).handler(
@@ -36,7 +45,7 @@ export const getModelSettingsFn = createServerFn({ method: "GET" }).handler(
 )
 
 export const updateModelSettingsFn = createServerFn({ method: "POST" })
-  .validator((data: { defaultModel: string | null }) => data)
+  .validator((data: Partial<Record<TaskModelKey, string | null>>) => data)
   .handler(async ({ data }): Promise<ModelSettings> => {
     const res = await apiFetch("/model-settings", {
       method: "PUT",
@@ -49,6 +58,23 @@ export const updateModelSettingsFn = createServerFn({ method: "POST" })
     return modelSettingsSchema.parse(await res.json())
   })
 
+/** Without a Development Environment nothing can hold a key yet, so every catalog provider is unconnected. */
+function catalogProviders(settings: ModelSettings): AiProviderKeyStatus[] {
+  const byKey = new Map(
+    settings.models.map((model) => [
+      model.keyName,
+      {
+        id: model.providerId,
+        label: model.providerLabel,
+        keyName: model.keyName,
+        configured: false,
+        platformFallback: false,
+      },
+    ])
+  )
+  return [...byKey.values()]
+}
+
 /** The chosen model, plus which providers already have a key in the default Application's Development Environment. */
 export const getModelSetupFn = createServerFn({ method: "GET" }).handler(
   async () => {
@@ -58,14 +84,21 @@ export const getModelSetupFn = createServerFn({ method: "GET" }).handler(
       ? await listEnvironmentsFn({ data: { applicationId: application.id } })
       : []
     const development = environments.find((item) => item.environment === "dev")
-    const providers = development
+    const providers: AiProviderKeyStatus[] = development
       ? await listAiProvidersFn({ data: { environmentId: development.id } })
-      : []
+      : catalogProviders(settings)
     return { settings, providers }
   }
 )
 
 export type ModelSetup = Awaited<ReturnType<typeof getModelSetupFn>>
+
+export function modelSettingsQueryOptions(workspaceSlug: string) {
+  return queryOptions({
+    queryKey: ["model-settings", workspaceSlug],
+    queryFn: () => getModelSettingsFn(),
+  })
+}
 
 export function modelSetupQueryOptions(workspaceSlug: string) {
   return queryOptions({

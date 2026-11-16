@@ -23,3 +23,7 @@ export type {
 export { calculateCostMicros } from "./pricing/pricing-table.js"
 export { executionBudgetMessage, MAX_EXECUTION_TOKENS } from "./usage-budget.js"
 export type { ModelPrice } from "./pricing/pricing-table.js"
+export {
+  DEFAULT_ANALYSIS_MODEL,
+  DEFAULT_JUDGE_MODEL_CANDIDATES,
+} from "./task-model-defaults.js"

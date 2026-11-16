@@ -22,7 +22,7 @@ export function EnvironmentConnections({
   })
   return (
     <section className="flex flex-col gap-4">
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Company integrations belong to this Environment. Assign requester access
         and reviewer authority separately; each reviewer signs in as a real
         customer user.
@@ -35,7 +35,7 @@ export function EnvironmentConnections({
           await queryClient.invalidateQueries({ queryKey })
         }}
       />
-      {error && <p className="text-xs text-destructive">{error.message}</p>}
+      {error && <p className="text-sm text-destructive">{error.message}</p>}
       {connections.map((connection) => (
         <ConnectionManagementContext
           key={connection.id}

@@ -34,7 +34,7 @@ export function ProposalDetails({
             />
           ) : null}
           {start.isError ? (
-            <p className="text-xs text-destructive">{start.error.message}</p>
+            <p className="text-sm text-destructive">{start.error.message}</p>
           ) : null}
           <Button
             type="button"
@@ -54,7 +54,7 @@ export function ProposalDetails({
             Create workflow
           </Button>
           {create.isError ? (
-            <p className="text-xs text-destructive">{create.error.message}</p>
+            <p className="text-sm text-destructive">{create.error.message}</p>
           ) : null}
         </>
       }

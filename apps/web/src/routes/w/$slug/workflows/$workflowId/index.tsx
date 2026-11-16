@@ -135,12 +135,11 @@ function WorkflowDetailPage() {
     <main className="flex flex-1 flex-col px-4 py-4">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-medium">{workflowViews[view]}</h2>
+          <h2 className="text-base font-medium">{workflowViews[view]}</h2>
           <div className="flex shrink-0 items-center gap-2">
             <Button
               type="button"
               variant="outline"
-              size="xs"
               onClick={() => setEditOpen(true)}
             >
               <PencilIcon />
@@ -152,7 +151,6 @@ function WorkflowDetailPage() {
               published={Boolean(workflow.publishedVersionId)}
             />
             <Button
-              size="xs"
               nativeButton={false}
               render={
                 <Link
@@ -169,11 +167,11 @@ function WorkflowDetailPage() {
         {view === "executions" && (
           <section aria-label={workflowViews.executions}>
             {executionsErrored ? (
-              <p className="mt-4 text-xs text-destructive">
+              <p className="mt-4 text-sm text-destructive">
                 Could not load executions.
               </p>
             ) : executionsPending ? (
-              <p className="mt-4 text-xs text-muted-foreground">
+              <p className="mt-4 text-sm text-muted-foreground">
                 Loading executions…
               </p>
             ) : (
@@ -188,11 +186,11 @@ function WorkflowDetailPage() {
         {view === "monitoring" && (
           <section aria-label={workflowViews.monitoring}>
             {signalsErrored ? (
-              <p className="mt-4 text-xs text-destructive">
+              <p className="mt-4 text-sm text-destructive">
                 Could not load signals.
               </p>
             ) : signalsPending ? (
-              <p className="mt-4 text-xs text-muted-foreground">
+              <p className="mt-4 text-sm text-muted-foreground">
                 Loading signals…
               </p>
             ) : (
@@ -200,7 +198,7 @@ function WorkflowDetailPage() {
                 <SignalStatCards signals={signals} />
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                   <div className="flex flex-col gap-2 lg:col-span-2">
-                    <p className="pl-1 text-sm font-medium text-foreground">
+                    <p className="pl-1 text-base font-medium text-foreground">
                       Trend
                     </p>
                     <Card className="gap-0 py-0">
@@ -210,7 +208,7 @@ function WorkflowDetailPage() {
                     </Card>
                   </div>
                   <div className="flex flex-col gap-2">
-                    <p className="pl-1 text-sm font-medium text-foreground">
+                    <p className="pl-1 text-base font-medium text-foreground">
                       By type
                     </p>
                     <Card className="gap-0 py-0">
@@ -234,11 +232,10 @@ function WorkflowDetailPage() {
             <div className="mt-4 flex flex-col gap-6">
               <div>
                 <div className="flex items-center justify-between gap-3 pl-1">
-                  <p className="text-sm font-medium text-foreground">Runs</p>
+                  <p className="text-base font-medium text-foreground">Runs</p>
                   <Button
                     type="button"
                     variant="outline"
-                    size="xs"
                     onClick={() => runRegression.mutate()}
                     disabled={
                       runRegression.isPending || !workflow.publishedVersionId
@@ -254,16 +251,16 @@ function WorkflowDetailPage() {
                   </Button>
                 </div>
                 {runRegression.isError && (
-                  <p className="mt-2 text-xs text-destructive">
+                  <p className="mt-2 text-sm text-destructive">
                     {runRegression.error.message}
                   </p>
                 )}
                 {regressionRunsErrored ? (
-                  <p className="mt-4 text-xs text-destructive">
+                  <p className="mt-4 text-sm text-destructive">
                     Could not load regression runs.
                   </p>
                 ) : regressionRunsPending ? (
-                  <p className="mt-4 text-xs text-muted-foreground">
+                  <p className="mt-4 text-sm text-muted-foreground">
                     Loading regression runs…
                   </p>
                 ) : (
@@ -275,20 +272,20 @@ function WorkflowDetailPage() {
                 )}
               </div>
               <div>
-                <p className="pl-1 text-sm font-medium text-foreground">
+                <p className="pl-1 text-base font-medium text-foreground">
                   Cases
                 </p>
                 {archiveCase.isError && (
-                  <p className="mt-2 text-xs text-destructive">
+                  <p className="mt-2 text-sm text-destructive">
                     {archiveCase.error.message}
                   </p>
                 )}
                 {regressionCasesErrored ? (
-                  <p className="mt-4 text-xs text-destructive">
+                  <p className="mt-4 text-sm text-destructive">
                     Could not load regression cases.
                   </p>
                 ) : regressionCasesPending ? (
-                  <p className="mt-4 text-xs text-muted-foreground">
+                  <p className="mt-4 text-sm text-muted-foreground">
                     Loading regression cases…
                   </p>
                 ) : (

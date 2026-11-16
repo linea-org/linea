@@ -363,6 +363,7 @@ describe('WorkflowsService', () => {
           image: null,
           email: 'ada@example.com',
           emailVerified: true,
+          twoFactorEnabled: false,
           createdAt: now,
           updatedAt: now,
         },

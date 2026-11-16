@@ -20,6 +20,7 @@ const providers = [
 ]
 
 jest.mock("@linea/ai", () => ({
+  DEFAULT_ANALYSIS_MODEL: "claude-haiku-4-5-20251001",
   resolveProvider,
   resolveKeyName,
   resolveApiKey,

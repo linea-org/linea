@@ -70,7 +70,6 @@ export function RunWorkflowDialog({
           <Button
             type="button"
             variant="outline"
-            size="xs"
             disabled={!published}
             title={published ? undefined : "Publish a version before running"}
             onClick={() => run.reset()}
@@ -84,8 +83,7 @@ export function RunWorkflowDialog({
         <DialogHeader>
           <DialogTitle>Run Workflow</DialogTitle>
           <DialogDescription>
-            Run the Development binding with input matching its Workflow
-            Contract. Backend starts must be enabled on the binding.
+            Runs in the Development environment.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -105,7 +103,7 @@ export function RunWorkflowDialog({
             <FieldError>{errors.payload?.message}</FieldError>
           </Field>
           {run.error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-base text-destructive">
               {run.error.message}
             </p>
           )}

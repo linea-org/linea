@@ -6,6 +6,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common'
 import { db, pool, repositories, schema } from '@linea/db'
+import type { TemplateModerationNotifier } from './moderation/template-moderation-notifier'
 import { TemplatesService } from './templates.service'
 
 afterAll(async () => {
@@ -62,8 +63,13 @@ const publishInput = (workflowId: string) => ({
   visibility: 'public' as const,
 })
 
+const notifier = {
+  hidden: jest.fn(),
+  appealDecided: jest.fn(),
+} as unknown as TemplateModerationNotifier
+
 describe('TemplatesService', () => {
-  const service = new TemplatesService()
+  const service = new TemplatesService(notifier)
 
   it('publishes a copy of the workflow for others to find', async () => {
     const f = await fixture()

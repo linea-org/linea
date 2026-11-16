@@ -9,6 +9,7 @@ import {
 import { db, pool, repositories, schema } from '@linea/db'
 import { PlatformAdminGuard } from '../../auth/platform-admin.guard'
 import { TemplatesService } from '../templates.service'
+import type { TemplateModerationNotifier } from './template-moderation-notifier'
 import { TemplateModerationService } from './template-moderation.service'
 
 afterAll(async () => {
@@ -25,6 +26,18 @@ const graph = {
   ],
   edges: [{ from: 'start', to: 'end' }],
 }
+
+const hidden = jest.fn()
+const appealDecided = jest.fn()
+const notifier = {
+  hidden,
+  appealDecided,
+} as unknown as TemplateModerationNotifier
+
+beforeEach(() => {
+  hidden.mockClear()
+  appealDecided.mockClear()
+})
 
 async function fixture() {
   const [authors, others] = await db
@@ -56,7 +69,7 @@ async function fixture() {
     slug: 'flow',
     draftGraph: graph,
   })
-  const templates = new TemplatesService()
+  const templates = new TemplatesService(notifier)
   const viewer = { workspaceId: authors.id, userId: author.id }
   const published = await templates.publish(viewer, {
     workflowId: workflow.id,
@@ -121,6 +134,11 @@ describe('reporting a template', () => {
         details: 'Has a key',
       })
     }
+    expect(hidden).toHaveBeenCalledTimes(1)
+    expect(hidden).toHaveBeenCalledWith(
+      expect.objectContaining({ id: f.published.id }),
+      expect.any(String),
+    )
     const listed = await f.templates.list(f.asReporter(0), {
       scope: 'public',
       q: '',
@@ -144,7 +162,7 @@ describe('reporting a template', () => {
 })
 
 describe('TemplateModerationService', () => {
-  const moderation = new TemplateModerationService()
+  const moderation = new TemplateModerationService(notifier)
 
   it('hides, restores and removes a template, and shows the trail', async () => {
     const f = await fixture()
@@ -155,12 +173,17 @@ describe('TemplateModerationService', () => {
       (await moderation.listReports({ status: 'open', page: 1 })).total,
     ).toBeGreaterThan(0)
     await moderation.setHidden(f.staff.id, f.published.id, true, 'Live key')
-    const hidden = await moderation.detail(f.published.id)
-    expect(hidden.template.moderationStatus).toBe('hidden')
-    expect(hidden.reports.every((report) => report.status === 'actioned')).toBe(
-      true,
+    expect(hidden).toHaveBeenCalledWith(
+      expect.objectContaining({ id: f.published.id }),
+      'Live key',
     )
+    const afterHide = await moderation.detail(f.published.id)
+    expect(afterHide.template.moderationStatus).toBe('hidden')
+    expect(
+      afterHide.reports.every((report) => report.status === 'actioned'),
+    ).toBe(true)
     await moderation.setHidden(f.staff.id, f.published.id, false, undefined)
+    expect(hidden).toHaveBeenCalledTimes(1)
     const restored = await moderation.detail(f.published.id)
     expect(restored.events.map((event) => event.action).sort()).toEqual([
       'hide',

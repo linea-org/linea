@@ -31,15 +31,13 @@ export function OpenSignalsWidget({
   return (
     <HomePanel title="Signals">
       {open.length === 0 ? (
-        <Empty className="flex-1 rounded-none border-0 bg-transparent">
+        <Empty className="min-h-40 flex-1 gap-3 rounded-none border-0 bg-transparent p-6 sm:p-6">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <ActivityIcon />
             </EmptyMedia>
             <EmptyTitle>Nothing flagged</EmptyTitle>
-            <EmptyDescription>
-              Recurring issues across your workflows will show up here.
-            </EmptyDescription>
+            <EmptyDescription>Recurring issues show up here.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -65,27 +63,27 @@ export function OpenSignalsWidget({
               const label = flagTypeLabel[signal.flagType] ?? signal.flagType
               const seen = new Date(signal.lastFlaggedAt).toLocaleDateString()
               return (
-                <TableRow key={signal.id} className="hover:bg-muted/40">
-                  <TableCell className="px-4 py-3">
+                <TableRow key={signal.id}>
+                  <TableCell className="px-4">
                     {signal.workflowId ? (
                       <Link
                         to="/w/$slug/workflows/$workflowId"
                         params={{ slug, workflowId: signal.workflowId }}
-                        className="text-xs font-medium"
+                        className="text-sm font-medium"
                       >
                         {label}
                       </Link>
                     ) : (
-                      <span className="text-xs font-medium">{label}</span>
+                      <span className="text-sm font-medium">{label}</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                  <TableCell className="px-4 text-muted-foreground tabular-nums">
                     {signal.occurrenceCount.toLocaleString()}
                   </TableCell>
-                  <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                  <TableCell className="px-4 text-muted-foreground tabular-nums">
                     {seen}
                   </TableCell>
-                  <TableCell className="px-4 py-3">
+                  <TableCell className="px-4">
                     <SignalStatusBadge status={signal.status} />
                   </TableCell>
                 </TableRow>

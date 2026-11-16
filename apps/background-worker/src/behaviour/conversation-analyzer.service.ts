@@ -10,6 +10,7 @@ import {
   resolveApiKey,
   resolveKeyName,
   resolveProvider,
+  DEFAULT_ANALYSIS_MODEL,
   type ToolDefinition,
 } from "@linea/ai"
 import { db, repositories, type ChatMessage, type Flag } from "@linea/db"
@@ -24,7 +25,6 @@ const POLL_INTERVAL_MS = 60_000
 // anywhere else yet.
 const BATCH_LIMIT = 20
 // Cheapest priced model in the registry — a background classifier, not the flagship agent call.
-const DEFAULT_BEHAVIOUR_MODEL = "claude-haiku-4-5-20251001"
 // Bump when the rubric/prompt changes meaningfully, so a re-analysis under a new version is
 // never confused with one run under the old rubric.
 const ANALYZER_VERSION = "v2"
@@ -353,7 +353,7 @@ export class ConversationAnalyzerService
       workflowId,
       conversationId
     )
-    const model = behaviourModel ?? DEFAULT_BEHAVIOUR_MODEL
+    const model = behaviourModel ?? DEFAULT_ANALYSIS_MODEL
     const provider = resolveProvider(model)
     const keyName = resolveKeyName(model)
     const { apiKey } = await resolveApiKey(db, {

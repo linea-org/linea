@@ -21,6 +21,8 @@ export type ChatMessage = {
   attachments: { name: string }[]
   proposal: Proposal | null
   actions: AssistantAction[]
+  // The model that wrote a reply; null for the user's own messages.
+  model: string | null
   applied: boolean
   // Written in this session, so it animates in; opened chats appear at once.
   fresh: boolean
@@ -35,6 +37,8 @@ type AskInput = {
   graph?: Record<string, JsonValue>
   attachments: Attachment[]
   conversationId?: string
+  // Set only by a retry that picked a model; otherwise the composer's model is used.
+  model?: string
 }
 
 function latestGraph(
@@ -58,6 +62,7 @@ function toMessage(answer: AssistantAnswer, parentId: string): ChatMessage {
         ? { id, title: answer.title, graph, raw: answer.graph }
         : null,
     actions: answer.actions,
+    model: answer.model,
     applied: false,
     fresh: true,
   }
@@ -80,6 +85,7 @@ export function toChatMessages(saved: SavedMessage[]): ChatMessage[] {
         }
       : null,
     actions: message.actions,
+    model: message.model,
     applied: false,
     fresh: false,
   }))
@@ -125,7 +131,8 @@ export function useAssistantChat(
     text: string,
     attachments: Attachment[],
     parentId: string | null,
-    graph?: Record<string, JsonValue>
+    graph?: Record<string, JsonValue>,
+    model?: string
   ) {
     const message = text.trim()
     if (!message || request.isPending) return
@@ -141,6 +148,7 @@ export function useAssistantChat(
         attachments: attachments.map(({ name }) => ({ name })),
         proposal: null,
         actions: [],
+        model: null,
         applied: false,
         fresh: true,
       },
@@ -154,6 +162,7 @@ export function useAssistantChat(
         graph: graph ?? latestGraph(above),
         attachments,
         conversationId: conversationId ?? undefined,
+        model,
       },
     })
   }
@@ -169,6 +178,13 @@ export function useAssistantChat(
     const original = messages.find((message) => message.id === id)
     if (!original) throw new Error(`Message ${id} is not in this chat`)
     ask(text, [], original.parentId, graph)
+  }
+  /** Asks the question behind a reply again, as a new version beside the old one. */
+  function retry(id: string, model: string, graph?: Record<string, JsonValue>) {
+    const reply = messages.find((message) => message.id === id)
+    const question = messages.find((message) => message.id === reply?.parentId)
+    if (!question) throw new Error(`Reply ${id} has no question in this chat`)
+    ask(question.content, [], question.parentId, graph, model)
   }
   function switchTo(id: string) {
     if (request.isPending) return
@@ -200,6 +216,7 @@ export function useAssistantChat(
     conversationId,
     send,
     edit,
+    retry,
     switchTo,
     open,
     startNew,

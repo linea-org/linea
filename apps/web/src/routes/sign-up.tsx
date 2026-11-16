@@ -91,7 +91,7 @@ function SignUpPage() {
   return (
     <AuthShell
       title="Create your account"
-      description="Start with your email. We’ll send a verification link next."
+      description="Build and run workflows in one workspace."
       footer={
         <>
           Already have an account?{" "}
@@ -105,7 +105,7 @@ function SignUpPage() {
         </>
       }
     >
-      <div className="space-y-5">
+      <div className="flex flex-col gap-6">
         {error ? (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
@@ -119,7 +119,7 @@ function SignUpPage() {
           onSubmit={(event) => {
             void onSubmit(event)
           }}
-          className="space-y-5"
+          className="flex flex-col gap-6"
         >
           <FieldGroup>
             <Field data-invalid={!!fieldErrors.name || undefined}>
@@ -160,7 +160,7 @@ function SignUpPage() {
               <FieldError>{fieldErrors.password}</FieldError>
             </Field>
           </FieldGroup>
-          <Button type="submit" className="w-full" disabled={pending} size="lg">
+          <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Creating account…" : "Create account"}
           </Button>
         </form>

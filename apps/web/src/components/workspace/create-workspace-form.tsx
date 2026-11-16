@@ -101,13 +101,12 @@ export function CreateWorkspaceForm({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      <FieldGroup className="gap-4">
+      <FieldGroup>
         <Field data-invalid={!!fieldErrors.name || undefined}>
           <FieldLabel htmlFor="workspace-name">Workspace name</FieldLabel>
           <Input
             id="workspace-name"
             name="name"
-            className="h-9"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Acme Studio"
@@ -121,7 +120,6 @@ export function CreateWorkspaceForm({
           <Input
             id="workspace-slug"
             name="slug"
-            className="h-9"
             value={slug}
             onChange={(e) => {
               setSlugTouched(true)
@@ -131,7 +129,7 @@ export function CreateWorkspaceForm({
             disabled={createMutation.isPending}
           />
           <FieldDescription>
-            Used in URLs. Lowercase letters, numbers, and hyphens only.
+            Lowercase letters, numbers and hyphens.
           </FieldDescription>
           <FieldError>{fieldErrors.slug}</FieldError>
         </Field>
@@ -140,7 +138,6 @@ export function CreateWorkspaceForm({
         type="submit"
         className="w-full"
         disabled={createMutation.isPending}
-        size="sm"
       >
         {createMutation.isPending ? "Creating…" : submitLabel}
       </Button>

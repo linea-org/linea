@@ -97,7 +97,7 @@ function AppealForm({
         void handleSubmit(submit)(event)
       }}
     >
-      <FieldGroup className="gap-4">
+      <FieldGroup>
         <Field>
           <Controller
             name="type"
@@ -107,7 +107,7 @@ function AppealForm({
                 {types.map((type) => (
                   <label
                     key={type.id}
-                    className="flex cursor-pointer items-start gap-2 text-sm"
+                    className="flex cursor-pointer items-start gap-2 text-base"
                   >
                     <RadioGroupItem value={type.id} className="mt-0.5" />
                     <span>{type.label}</span>
@@ -127,7 +127,7 @@ function AppealForm({
         </Field>
       </FieldGroup>
       {send.isError ? (
-        <p className="text-xs text-destructive">{send.error.message}</p>
+        <p className="text-sm text-destructive">{send.error.message}</p>
       ) : null}
       <DialogFooter>
         <Button type="submit" disabled={send.isPending}>
@@ -150,9 +150,7 @@ export function AppealTemplateDialog({
   const { data: types } = useSuspenseQuery(appealTypesQueryOptions)
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={<Button type="button" variant="outline" size="xs" />}
-      >
+      <DialogTrigger render={<Button type="button" variant="outline" />}>
         Appeal
       </DialogTrigger>
       <DialogContent>

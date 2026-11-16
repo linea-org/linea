@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react"
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import {
+  ActivityIcon,
   BotIcon,
   BoxesIcon,
   LayoutGridIcon,
@@ -33,14 +34,23 @@ import {
   TableRow,
 } from "@linea/ui/components/table"
 import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
+import { Badge } from "@linea/ui/components/badge"
 import { Card } from "@linea/ui/components/card"
 import { PlayfulAvatar } from "@/components/avatar"
 import { CreateApplicationDialog } from "@/components/applications/create-application-dialog"
 import { ApplicationCardMenu } from "@/components/applications/application-rename-popover"
+import {
+  EnvironmentPills,
+  RecentActivity,
+  SetupProgress,
+  setupChecks,
+} from "@/components/applications/application-health"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import {
+  applicationOverviewsQueryOptions,
   applicationsQueryOptions,
+  type ApplicationOverview,
   listApplicationsFn,
   type ApplicationSummary,
 } from "@/lib/applications-api"
@@ -60,6 +70,7 @@ function ApplicationsPage() {
     ...applicationsQueryOptions(slug),
     initialData: Route.useLoaderData(),
   })
+  const overviews = useQuery(applicationOverviewsQueryOptions(slug))
   const searchRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState("")
   const [sort, setSort] = useState<ApplicationSort>("updated")
@@ -105,9 +116,7 @@ function ApplicationsPage() {
               <BoxesIcon />
             </EmptyMedia>
             <EmptyTitle>Add your first Agent</EmptyTitle>
-            <EmptyDescription>
-              Start with an Agent and create its Application in the same flow.
-            </EmptyDescription>
+            <EmptyDescription>Create an Agent to start one.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       )
@@ -135,6 +144,9 @@ function ApplicationsPage() {
               key={application.id}
               slug={slug}
               application={application}
+              overview={overviews.data?.find(
+                (item) => item.applicationId === application.id
+              )}
             />
           ))}
         </div>
@@ -165,8 +177,8 @@ function ApplicationsPage() {
             </TableHeader>
             <TableBody>
               {visible.map((application) => (
-                <TableRow key={application.id} className="hover:bg-muted/40">
-                  <TableCell className="px-4 py-3">
+                <TableRow key={application.id}>
+                  <TableCell className="px-4">
                     <Link
                       to="/w/$slug/applications/$applicationId"
                       params={{ slug, applicationId: application.id }}
@@ -175,28 +187,23 @@ function ApplicationsPage() {
                       <PlayfulAvatar
                         name={application.name}
                         shape="rounded"
-                        className="size-8"
+                        className="size-6"
                       />
-                      <span className="min-w-0">
-                        <span className="block truncate text-xs font-medium">
-                          {application.name}
-                        </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {application.slug}
-                        </span>
+                      <span className="truncate text-sm font-medium">
+                        {application.name}
                       </span>
                     </Link>
                   </TableCell>
-                  <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                  <TableCell className="px-4 text-muted-foreground tabular-nums">
                     {application.agentCount}
                   </TableCell>
-                  <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                  <TableCell className="px-4 text-muted-foreground tabular-nums">
                     {application.workflowCount}
                   </TableCell>
-                  <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                  <TableCell className="px-4 text-muted-foreground tabular-nums">
                     {formatDate(application.updatedAt)}
                   </TableCell>
-                  <TableCell className="px-2 py-3 text-right">
+                  <TableCell className="px-2 text-right">
                     <ApplicationCardMenu
                       workspaceSlug={slug}
                       application={application}
@@ -226,7 +233,7 @@ function ApplicationsPage() {
               <Button
                 type="button"
                 variant="outline"
-                size="xs"
+                size="sm"
                 aria-label="Filter applications"
               />
             }
@@ -272,16 +279,13 @@ function ApplicationsPage() {
           <CreateApplicationDialog
             workspaceSlug={slug}
             trigger={
-              <Button size="xs" variant="outline">
+              <Button variant="outline" size="sm">
                 <PlusIcon />
                 Create Application
               </Button>
             }
           />
-          <Button
-            size="xs"
-            render={<Link to="/w/$slug/agents/new" params={{ slug }} />}
-          >
+          <Button render={<Link to="/w/$slug/agents/new" params={{ slug }} />}>
             <PlusIcon />
             Add Agent
           </Button>
@@ -299,47 +303,62 @@ function countLabel(count: number, singular: string, plural: string) {
 function ApplicationCard({
   slug,
   application,
+  overview,
 }: Readonly<{
   slug: string
   application: ApplicationSummary
+  overview: ApplicationOverview | undefined
 }>) {
   return (
-    <Card className="group relative gap-0 py-0 transition-colors hover:bg-muted/40 hover:ring-foreground/20">
+    <Card className="group relative gap-0 py-0">
       <Link
         to="/w/$slug/applications/$applicationId"
         params={{ slug, applicationId: application.id }}
         className="flex flex-col"
       >
-        <div className="flex min-w-0 items-center gap-3 px-4 py-5 pr-12">
+        <div className="flex min-w-0 items-center gap-3 px-3 pt-3 pr-11">
           <PlayfulAvatar
             name={application.name}
             shape="rounded"
             className="size-10"
           />
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-sm font-medium">{application.name}</h2>
-            <p className="truncate text-xs text-muted-foreground">
-              {application.slug}
-            </p>
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <h2 className="truncate text-base font-medium">
+              {application.name}
+            </h2>
+            {overview ? (
+              <EnvironmentPills environments={overview.environments} />
+            ) : null}
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex items-center gap-1.5 whitespace-nowrap">
-              <BotIcon className="size-3.5" />
-              {countLabel(application.agentCount, "Agent", "Agents")}
-            </span>
-            <span className="flex items-center gap-1.5 whitespace-nowrap">
-              <WorkflowIcon className="size-3.5" />
-              {countLabel(application.workflowCount, "Workflow", "Workflows")}
-            </span>
+        {overview ? (
+          <div className="px-3 py-3">
+            <SetupProgress checks={setupChecks(application, overview)} />
           </div>
-          <p className="shrink-0 tabular-nums">
-            {formatDate(application.updatedAt)}
-          </p>
+        ) : (
+          <div className="h-4" />
+        )}
+        <div className="flex items-center justify-between gap-3 border-t border-border px-3 py-2.5">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Badge variant="secondary">
+              <BotIcon />
+              {countLabel(application.agentCount, "Agent", "Agents")}
+            </Badge>
+            <Badge variant="secondary">
+              <WorkflowIcon />
+              {countLabel(application.workflowCount, "Workflow", "Workflows")}
+            </Badge>
+            {overview && overview.openSignals > 0 ? (
+              <Badge variant="warning">
+                <ActivityIcon />
+                {countLabel(overview.openSignals, "signal", "signals")}
+              </Badge>
+            ) : null}
+          </div>
+          {overview ? <RecentActivity overview={overview} /> : null}
         </div>
       </Link>
-      <div className="absolute top-[15px] right-3">
+      <div className="absolute top-2 right-2">
         <ApplicationCardMenu workspaceSlug={slug} application={application} />
       </div>
     </Card>

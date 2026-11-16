@@ -55,7 +55,7 @@ export function AgentContractForm({
       }}
       className="flex flex-col gap-4"
     >
-      <h2 className="text-sm font-medium">New Contract revision</h2>
+      <h2 className="text-base font-medium">New Contract revision</h2>
       {(
         ["inputSchema", "outputSchema"] satisfies (keyof z.input<
           typeof schema
@@ -68,28 +68,23 @@ export function AgentContractForm({
           <JsonTextarea
             id={`agent-${name}`}
             rows={9}
-            className="font-mono text-xs"
+            className="font-mono text-sm"
             {...register(name)}
           />
           <FieldError>{errors[name]?.message}</FieldError>
         </Field>
       ))}
       {save.error && (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-sm text-destructive">
           {save.error.message}
         </p>
       )}
       {save.isSuccess && (
-        <output className="block text-xs text-muted-foreground">
+        <output className="block text-sm text-muted-foreground">
           Contract revision saved. Select it in the definition editor.
         </output>
       )}
-      <Button
-        type="submit"
-        size="xs"
-        disabled={save.isPending}
-        className="self-start"
-      >
+      <Button type="submit" disabled={save.isPending} className="self-start">
         {save.isPending ? "Saving…" : "Create Contract revision"}
       </Button>
     </form>

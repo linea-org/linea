@@ -6,4 +6,7 @@ export {
 } from "./auth-rate-limit.js"
 export { sendEmail } from "./email.js"
 export * from "./emails/index.js"
-export { RECENT_AUTHENTICATION_WINDOW_SECONDS } from "./session-policy.js"
+export {
+  RECENT_AUTHENTICATION_REQUIRED,
+  RECENT_AUTHENTICATION_WINDOW_SECONDS,
+} from "./session-policy.js"

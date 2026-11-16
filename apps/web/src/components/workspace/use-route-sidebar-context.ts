@@ -57,16 +57,6 @@ function pathContext(slug: string, pathname: string): SidebarContext {
   ) {
     return { kind: "assistant" }
   }
-  if (pathname.startsWith(`/w/${slug}/workflows`)) return { kind: "workflows" }
-  if (
-    pathname.startsWith(`/w/${slug}/executions`) ||
-    pathname === `/w/${slug}/approvals`
-  ) {
-    return {
-      kind: "executions",
-      view: pathname.endsWith("/approvals") ? "approvals" : "history",
-    }
-  }
   return { kind: "main", pathname }
 }
 

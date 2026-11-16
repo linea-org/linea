@@ -16,7 +16,11 @@ import { WORKSPACE_KEY_SCOPES_KEY } from './require-workspace-key-scopes.decorat
 export type AuthenticatedRequest = Request & {
   workspaceId: string
   session?: {
-    session?: { activeOrganizationId?: string; createdAt?: Date }
+    session?: {
+      activeOrganizationId?: string
+      createdAt?: Date
+      stepUpAt?: Date | null
+    }
     user?: { id: string }
   } | null
 }

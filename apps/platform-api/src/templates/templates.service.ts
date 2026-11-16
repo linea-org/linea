@@ -12,6 +12,7 @@ import {
 } from '@linea/runtime'
 import type { ListTemplatesDto, PublishTemplateDto } from './dto/template.dto'
 import type { ReportTemplateDto } from './moderation/dto/moderation.dto'
+import { TemplateModerationNotifier } from './moderation/template-moderation-notifier'
 import { findLiteralCredentials } from './template-credentials'
 
 const PAGE_SIZE = 9
@@ -72,6 +73,7 @@ function toItem(
 
 @Injectable()
 export class TemplatesService {
+  constructor(private readonly notifier: TemplateModerationNotifier) {}
   async list(viewer: Viewer, query: ListTemplatesDto) {
     const isAdmin = await this.isAdmin(viewer)
     const { items, total } =
@@ -189,13 +191,22 @@ export class TemplatesService {
     if (template.workspaceId === viewer.workspaceId) {
       throw new ForbiddenException('You cannot report your own template.')
     }
-    await repositories.templateModeration.createTemplateReport(db, {
-      templateId: id,
-      reporterId: viewer.userId,
-      reporterWorkspaceId: viewer.workspaceId,
-      reason: input.reason,
-      details: input.details || null,
-    })
+    const filed = await repositories.templateModeration.createTemplateReport(
+      db,
+      {
+        templateId: id,
+        reporterId: viewer.userId,
+        reporterWorkspaceId: viewer.workspaceId,
+        reason: input.reason,
+        details: input.details || null,
+      },
+    )
+    if (filed.autoHidden) {
+      await this.notifier.hidden(
+        template,
+        'several people reported it, so it stays hidden until it has been reviewed.',
+      )
+    }
   }
 
   private async isAdmin(viewer: Viewer) {

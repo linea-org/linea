@@ -51,8 +51,7 @@ export function TemplateRemoveButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Remove “{template.name}”?</AlertDialogTitle>
           <AlertDialogDescription>
-            It disappears for everyone who could see it. Workflows already built
-            from it are not affected.
+            Removed for everyone. Existing workflows stay.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

@@ -61,8 +61,7 @@ export function RegressionCaseList({
           </EmptyMedia>
           <EmptyTitle>No regression cases yet</EmptyTitle>
           <EmptyDescription>
-            Snapshot an execution step, or a signal occurrence, to start
-            building a regression suite for this workflow.
+            Snapshot a step or signal to add a case.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -93,29 +92,29 @@ export function RegressionCaseList({
         </TableHeader>
         <TableBody>
           {cases.map((regressionCase) => (
-            <TableRow key={regressionCase.id} className="hover:bg-muted/40">
-              <TableCell className="max-w-md px-4 py-3">
-                <p className="truncate text-xs font-medium">
+            <TableRow key={regressionCase.id}>
+              <TableCell className="max-w-md px-4">
+                <p className="truncate text-sm font-medium">
                   {caseSummary(regressionCase)}
                 </p>
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground">
+              <TableCell className="px-4 text-muted-foreground">
                 {caseTypeLabel[regressionCase.caseType]}
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground">
+              <TableCell className="px-4 text-muted-foreground">
                 {sourceLabel(regressionCase) ?? "—"}
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+              <TableCell className="px-4 text-muted-foreground tabular-nums">
                 {new Date(regressionCase.createdAt).toLocaleString()}
               </TableCell>
-              <TableCell className="px-2 py-3 text-right">
+              <TableCell className="px-2 text-right">
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon-sm"
+                        size="icon"
                         aria-label="More options"
                       />
                     }

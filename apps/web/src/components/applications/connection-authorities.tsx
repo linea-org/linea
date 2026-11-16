@@ -30,18 +30,17 @@ export function ConnectionAuthorities() {
     <div className="flex flex-col gap-3">
       {roles.map((role) => (
         <section className="flex flex-col gap-2" key={role.kind}>
-          <h4 className="text-sm font-medium">{role.label}s</h4>
-          <p className="text-xs text-muted-foreground">{role.description}</p>
+          <h4 className="text-base font-medium">{role.label}s</h4>
+          <p className="text-sm text-muted-foreground">{role.description}</p>
           {data?.[role.key].map((record) => (
             <div className="flex items-center gap-2" key={record.id}>
-              <span className="min-w-0 flex-1 font-mono text-xs break-all">
+              <span className="min-w-0 flex-1 font-mono text-sm break-all">
                 {record.externalSubjectId}
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 {record.revokedAt ? "Revoked" : "Active"}
               </span>
               <Button
-                size="xs"
                 variant="outline"
                 disabled={!enabled || !!record.revokedAt || revoke.isPending}
                 onClick={() =>
@@ -56,7 +55,7 @@ export function ConnectionAuthorities() {
       ))}
       <ConnectionAuthorityForm />
       {(error || revoke.error) && (
-        <p className="text-xs text-destructive">
+        <p className="text-sm text-destructive">
           {error?.message ?? revoke.error?.message}
         </p>
       )}

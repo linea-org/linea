@@ -24,13 +24,13 @@ const components: Components = {
     <strong className="font-semibold">{children}</strong>
   ),
   h1: ({ children }) => (
-    <h1 className="mb-2 text-base font-semibold last:mb-0">{children}</h1>
+    <h1 className="mb-2 text-lg font-semibold last:mb-0">{children}</h1>
   ),
   h2: ({ children }) => (
-    <h2 className="mb-2 text-sm font-semibold last:mb-0">{children}</h2>
+    <h2 className="mb-2 text-base font-semibold last:mb-0">{children}</h2>
   ),
   h3: ({ children }) => (
-    <h3 className="mb-2 text-sm font-semibold last:mb-0">{children}</h3>
+    <h3 className="mb-2 text-base font-semibold last:mb-0">{children}</h3>
   ),
   blockquote: ({ children }) => (
     <blockquote className="mb-2 border-l-2 border-current/30 pl-3 italic last:mb-0">
@@ -43,13 +43,13 @@ const components: Components = {
     return isBlock ? (
       <code className={className}>{children}</code>
     ) : (
-      <code className="rounded bg-black/10 px-1 py-0.5 font-mono text-[0.85em] dark:bg-white/10">
+      <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
         {children}
       </code>
     )
   },
   pre: ({ children }) => (
-    <pre className="mb-2 overflow-x-auto rounded-md bg-black/10 p-2 font-mono text-[0.85em] last:mb-0 dark:bg-white/10">
+    <pre className="mb-2 overflow-x-auto rounded-md bg-muted p-2 font-mono text-xs last:mb-0">
       {children}
     </pre>
   ),

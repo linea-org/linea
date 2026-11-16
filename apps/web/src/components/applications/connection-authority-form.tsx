@@ -91,22 +91,22 @@ export function ConnectionAuthorityForm() {
                 /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
             })}
           />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Use the Subject ID provisioned for this customer user in this
             Environment. Assignment does not sign them in.
           </p>
           {errors.externalSubjectId && (
-            <p className="text-sm text-destructive">
+            <p className="text-base text-destructive">
               Enter a valid Subject ID.
             </p>
           )}
         </Field>
-        <Button size="xs" disabled={!enabled || assign.isPending} type="submit">
+        <Button disabled={!enabled || assign.isPending} type="submit">
           Assign access
         </Button>
       </form>
       {assign.error && (
-        <p className="text-sm text-destructive">{assign.error.message}</p>
+        <p className="text-base text-destructive">{assign.error.message}</p>
       )}
     </>
   )

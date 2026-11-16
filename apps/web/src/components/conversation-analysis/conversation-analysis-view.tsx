@@ -19,17 +19,19 @@ function ConversationTranscript({
 }) {
   return (
     <section>
-      <h2 className="px-1 text-sm font-medium text-foreground">Conversation</h2>
+      <h2 className="px-1 text-base font-medium text-foreground">
+        Conversation
+      </h2>
       <Card render={<ol />} className="mt-2 gap-0 py-0">
         {messages.map((message) => (
           <li
             key={message.id}
             className="border-b border-border px-4 py-3 last:border-b-0"
           >
-            <p className="text-xs font-medium text-muted-foreground">
+            <p className="text-sm font-medium text-muted-foreground">
               {displayName(message.role)}
             </p>
-            <p className="mt-1 text-sm text-foreground">{message.content}</p>
+            <p className="mt-1 text-base text-foreground">{message.content}</p>
           </li>
         ))}
       </Card>
@@ -51,8 +53,8 @@ function AnalysisState({
   return (
     <Card render={<section />} className="gap-0 px-4 py-6">
       <Badge variant={destructive ? "destructive" : "outline"}>{label}</Badge>
-      <h1 className="mt-3 text-sm font-medium text-foreground">{title}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      <h1 className="mt-3 text-base font-medium text-foreground">{title}</h1>
+      <p className="mt-1 text-base text-muted-foreground">{description}</p>
     </Card>
   )
 }
@@ -93,22 +95,22 @@ function FindingCard({
     >
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline">{displayName(finding.axis)}</Badge>
-        <span className="text-sm font-medium text-foreground">
+        <span className="text-base font-medium text-foreground">
           {displayName(finding.category)}
         </span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           {Math.round(finding.confidence * 100)}% confidence
         </span>
       </div>
       {finding.rationale ? (
-        <p className="mt-2 text-sm text-foreground">{finding.rationale}</p>
+        <p className="mt-2 text-base text-foreground">{finding.rationale}</p>
       ) : null}
       {evidence ? (
         <div className="mt-3 border-l-2 border-primary pl-3">
-          <p className="text-xs font-medium text-muted-foreground">
+          <p className="text-sm font-medium text-muted-foreground">
             Cited {displayName(evidence.role)} message
           </p>
-          <p className="mt-1 text-sm text-foreground">{evidence.content}</p>
+          <p className="mt-1 text-base text-foreground">{evidence.content}</p>
         </div>
       ) : null}
     </Card>
@@ -139,7 +141,7 @@ export function ConversationAnalysisView({
         <AnalysisState
           label="Analysis disabled"
           title="Conversation analysis is not enabled for this workspace"
-          description="Enable behavior analysis in workspace settings to analyze eligible conversations."
+          description="Turn on behavior analysis in settings."
           destructive={false}
         />
         <ConversationTranscript messages={analysis.conversation.messages} />
@@ -168,7 +170,7 @@ export function ConversationAnalysisView({
         <AnalysisState
           label="Sampled out"
           title="This conversation was not selected for model analysis"
-          description="Sampling controls analysis cost. The transcript remains available for review."
+          description="The transcript is still below."
           destructive={false}
         />
         <ConversationTranscript messages={analysis.conversation.messages} />
@@ -181,10 +183,10 @@ export function ConversationAnalysisView({
       <Card render={<section />} className="gap-0 py-0">
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div>
-            <h1 className="text-sm font-medium text-foreground">
+            <h1 className="text-base font-medium text-foreground">
               Conversation analysis
             </h1>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground">
               {analysis.conversation.externalSubjectId ??
                 "Unattributed subject"}
             </p>
@@ -193,55 +195,55 @@ export function ConversationAnalysisView({
         </div>
         <dl className="grid gap-px bg-border sm:grid-cols-3">
           <div className="bg-card px-4 py-3">
-            <dt className="text-xs text-muted-foreground">Model</dt>
-            <dd className="mt-1 text-xs text-foreground">
+            <dt className="text-sm text-muted-foreground">Model</dt>
+            <dd className="mt-1 text-sm text-foreground">
               {metadata.model ?? "Not recorded"}
             </dd>
           </div>
           <div className="bg-card px-4 py-3">
-            <dt className="text-xs text-muted-foreground">Provider</dt>
-            <dd className="mt-1 text-xs text-foreground">
+            <dt className="text-sm text-muted-foreground">Provider</dt>
+            <dd className="mt-1 text-sm text-foreground">
               {metadata.provider ?? "Not recorded"}
             </dd>
           </div>
           <div className="bg-card px-4 py-3">
-            <dt className="text-xs text-muted-foreground">Analyzer</dt>
-            <dd className="mt-1 text-xs text-foreground">
+            <dt className="text-sm text-muted-foreground">Analyzer</dt>
+            <dd className="mt-1 text-sm text-foreground">
               {metadata.analyzerVersion}
             </dd>
           </div>
           <div className="bg-card px-4 py-3">
-            <dt className="text-xs text-muted-foreground">Token usage</dt>
-            <dd className="mt-1 text-xs text-foreground">
+            <dt className="text-sm text-muted-foreground">Token usage</dt>
+            <dd className="mt-1 text-sm text-foreground">
               {metadata.tokensInput} input · {metadata.tokensOutput} output
             </dd>
           </div>
           <div className="bg-card px-4 py-3">
-            <dt className="text-xs text-muted-foreground">Cost</dt>
-            <dd className="mt-1 text-xs text-foreground">
+            <dt className="text-sm text-muted-foreground">Cost</dt>
+            <dd className="mt-1 text-sm text-foreground">
               {metadata.costMicros} µUSD
             </dd>
           </div>
           <div className="bg-card px-4 py-3">
-            <dt className="text-xs text-muted-foreground">Watermark</dt>
-            <dd className="mt-1 text-xs text-foreground">
+            <dt className="text-sm text-muted-foreground">Watermark</dt>
+            <dd className="mt-1 text-sm text-foreground">
               Analyzed through message {metadata.analyzedThroughSequence}
             </dd>
           </div>
           <div className="bg-card px-4 py-3">
-            <dt className="text-xs text-muted-foreground">Analyzed at</dt>
-            <dd className="mt-1 text-xs text-foreground">
+            <dt className="text-sm text-muted-foreground">Analyzed at</dt>
+            <dd className="mt-1 text-sm text-foreground">
               {new Date(metadata.createdAt).toLocaleString()}
             </dd>
           </div>
         </dl>
       </Card>
       <section>
-        <h2 className="px-1 text-sm font-medium text-foreground">Findings</h2>
+        <h2 className="px-1 text-base font-medium text-foreground">Findings</h2>
         {analysis.findings.length === 0 ? (
           <Card
             render={<p />}
-            className="mt-2 gap-0 px-4 py-6 text-sm text-muted-foreground"
+            className="mt-2 gap-0 px-4 py-6 text-base text-muted-foreground"
           >
             No notable behavior findings
           </Card>

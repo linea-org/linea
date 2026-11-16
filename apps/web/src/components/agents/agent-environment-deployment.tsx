@@ -6,6 +6,7 @@ import type { EnvironmentSummary } from "@/lib/environments-api"
 import { AgentDeploymentDetails } from "./agent-deployment-details"
 import { AgentDeploymentForm } from "./agent-deployment-form"
 import { environmentName } from "@/components/applications/environment-settings"
+import { ListSkeleton } from "@/components/workspace/list-skeleton"
 
 export function AgentEnvironmentDeployment({
   workspaceSlug,
@@ -70,13 +71,9 @@ export function AgentEnvironmentDeployment({
             aria-label={`${environmentName(candidate.environment)} deployment`}
             hidden={candidate.id !== environment.id}
           >
-            {query.isPending && (
-              <p className="text-sm text-muted-foreground">
-                Loading deployment…
-              </p>
-            )}
+            {query.isPending && <ListSkeleton />}
             {query.error && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-base text-destructive">
                 {query.error.message}
               </p>
             )}

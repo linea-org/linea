@@ -61,7 +61,7 @@ function ForgotPasswordPage() {
   return (
     <AuthShell
       title="Reset your password"
-      description="Enter your email and we’ll send a reset link if an account exists."
+      description="We’ll email you a reset link."
       footer={
         <>
           Remembered it?{" "}
@@ -85,7 +85,7 @@ function ForgotPasswordPage() {
           onSubmit={(event) => {
             void onSubmit(event)
           }}
-          className="space-y-5"
+          className="flex flex-col gap-6"
         >
           {error ? (
             <Alert variant="destructive">
@@ -107,7 +107,7 @@ function ForgotPasswordPage() {
               <FieldError>{fieldErrors.email}</FieldError>
             </Field>
           </FieldGroup>
-          <Button type="submit" className="w-full" disabled={pending} size="lg">
+          <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Sending…" : "Send reset link"}
           </Button>
         </form>

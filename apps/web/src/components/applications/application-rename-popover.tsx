@@ -70,7 +70,7 @@ export function ApplicationCardMenu({
       <Popover open={menuOpen} onOpenChange={setMenuOpen}>
         <PopoverTrigger
           className={cn(
-            buttonVariants({ variant: "ghost", size: "icon-xs" }),
+            buttonVariants({ variant: "ghost", size: "icon-sm" }),
             "rounded-md"
           )}
           aria-label={`Options for ${application.name}`}
@@ -80,7 +80,7 @@ export function ApplicationCardMenu({
         <PopoverContent align="end" className="w-40 gap-0 p-1">
           <button
             type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/40"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted/40"
             onClick={openEdit}
           >
             <PencilIcon className="size-3.5" />
@@ -109,23 +109,18 @@ export function ApplicationCardMenu({
           >
             <Field>
               <FieldLabel htmlFor={nameId}>Name</FieldLabel>
-              <Input
-                id={nameId}
-                className="h-9"
-                autoFocus
-                {...register("name")}
-              />
+              <Input id={nameId} autoFocus {...register("name")} />
               <FieldError>{errors.name?.message}</FieldError>
             </Field>
             <Field>
               <FieldLabel htmlFor={slugId}>Slug</FieldLabel>
-              <Input id={slugId} className="h-9" {...register("slug")} />
+              <Input id={slugId} {...register("slug")} />
               <FieldError>{errors.slug?.message}</FieldError>
             </Field>
             {update.error ? (
-              <p className="text-xs text-destructive">{update.error.message}</p>
+              <p className="text-sm text-destructive">{update.error.message}</p>
             ) : null}
-            <Button type="submit" size="xs" disabled={update.isPending}>
+            <Button type="submit" disabled={update.isPending}>
               Save
             </Button>
           </form>

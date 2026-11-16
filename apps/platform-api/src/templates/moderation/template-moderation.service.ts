@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { db, repositories } from '@linea/db'
+import { TemplateModerationNotifier } from './template-moderation-notifier'
 import type {
   ListAppealsDto,
   ListModerationTemplatesDto,
@@ -11,6 +12,7 @@ const PAGE_SIZE = 20
 /** What company staff do to shared templates. Every decision is written to the audit trail by the repository. */
 @Injectable()
 export class TemplateModerationService {
+  constructor(private readonly notifier: TemplateModerationNotifier) {}
   async listReports(query: ListReportsDto) {
     const { items, total } =
       await repositories.templateModeration.listTemplateReports(db, {
@@ -74,6 +76,23 @@ export class TemplateModerationService {
       note: note || null,
     })
     if (!appeal) throw new NotFoundException('Open appeal not found')
+    const template = await repositories.workflowTemplate.getOwnWorkflowTemplate(
+      db,
+      appeal.workspaceId,
+      appeal.templateId,
+    )
+    if (template) {
+      const states = await repositories.templateAppeal.getAppealStates(db, [
+        template.id,
+      ])
+      await this.notifier.appealDecided(appeal, template, {
+        upheld: decision === 'upheld',
+        note: note || null,
+        finalAppeal:
+          (states.get(template.id)?.total ?? 0) >=
+          repositories.templateAppeal.MAX_APPEALS_PER_TEMPLATE,
+      })
+    }
     return { status: appeal.status }
   }
 
@@ -95,6 +114,7 @@ export class TemplateModerationService {
       { templateId: id, actorId, hidden, note: note || null },
     )
     if (!template) throw new NotFoundException('Template not found')
+    if (hidden) await this.notifier.hidden(template, note || null)
     return { moderationStatus: template.moderationStatus }
   }
 

@@ -14,7 +14,14 @@ const models = [
 
 function setup(defaultModel: string | null, configured: boolean): ModelSetup {
   return {
-    settings: { defaultModel, models },
+    settings: {
+      defaultModel,
+      behaviourModel: null,
+      judgeModel: null,
+      stepModel: null,
+      analysisFallbackModel: "gpt-5",
+      models,
+    },
     providers: [
       {
         id: "openai",

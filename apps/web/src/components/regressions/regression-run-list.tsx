@@ -43,9 +43,7 @@ export function RegressionRunList({
             <FlaskConicalIcon />
           </EmptyMedia>
           <EmptyTitle>No regression runs yet</EmptyTitle>
-          <EmptyDescription>
-            Runs happen automatically on publish, or trigger one manually above.
-          </EmptyDescription>
+          <EmptyDescription>Runs start on publish.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -77,30 +75,30 @@ export function RegressionRunList({
         </TableHeader>
         <TableBody>
           {runs.map((run) => (
-            <TableRow key={run.id} className="hover:bg-muted/40">
-              <TableCell className="px-4 py-3">
+            <TableRow key={run.id}>
+              <TableCell className="px-4">
                 <Link
                   to="/w/$slug/workflows/$workflowId/regression-runs/$runId"
                   params={{ slug, workflowId, runId: run.id }}
-                  className="text-xs font-medium"
+                  className="text-sm font-medium"
                 >
                   {triggerLabel[run.trigger]}
                   {!run.completedAt ? " · running…" : ""}
                 </Link>
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+              <TableCell className="px-4 text-muted-foreground tabular-nums">
                 {new Date(run.startedAt).toLocaleString()}
               </TableCell>
-              <TableCell className="px-4 py-3 text-success tabular-nums">
+              <TableCell className="px-4 text-success tabular-nums">
                 {run.passed}
               </TableCell>
-              <TableCell className="px-4 py-3 text-destructive tabular-nums">
+              <TableCell className="px-4 text-destructive tabular-nums">
                 {run.failed}
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+              <TableCell className="px-4 text-muted-foreground tabular-nums">
                 {run.total}
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground">
+              <TableCell className="px-4 text-muted-foreground">
                 {formatCost(run.costMicros)}
               </TableCell>
             </TableRow>

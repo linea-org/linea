@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from "react"
 import {
   CheckIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   CopyIcon,
   GlobeIcon,
-  SparklesIcon,
+  RotateCcwIcon,
   WorkflowIcon,
 } from "lucide-react"
 
@@ -12,6 +14,14 @@ import { Badge } from "@linea/ui/components/badge"
 import { Bubble, BubbleContent, BubbleGroup } from "@linea/ui/components/bubble"
 import { Button } from "@linea/ui/components/button"
 import { Card } from "@linea/ui/components/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@linea/ui/components/dropdown-menu"
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -30,20 +40,100 @@ import {
 import { cn } from "@linea/ui/lib/utils"
 
 import { UserTurn } from "./user-turn"
+import { WorkflowPreview } from "./workflow-preview"
 import type { ChatMessage, VisibleMessage } from "./use-assistant-chat"
 
 const ENTER = "animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
+
+export type RetryOptions = {
+  /** Models that have a key, so a retry can run on them. */
+  models: { value: string; label: string }[]
+  current: string | undefined
+  onRetry: (id: string, model: string) => void
+}
 
 function AssistantMark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "grid size-7 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary",
+        "size-8 shrink-0 overflow-hidden rounded-full ring-1 ring-border",
         className
       )}
     >
-      <SparklesIcon className="size-4" />
+      <img src="/assets/linea.svg" alt="" className="size-full dark:hidden" />
+      <img
+        src="/assets/linea-dark.svg"
+        alt=""
+        className="hidden size-full dark:block"
+      />
     </span>
+  )
+}
+
+function RetryControls({
+  message,
+  retry,
+}: {
+  message: ChatMessage
+  retry: RetryOptions
+}) {
+  const answeredWith = message.model ?? retry.current
+  const label =
+    retry.models.find((model) => model.value === answeredWith)?.label ?? "Model"
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Retry"
+              disabled={!answeredWith}
+              onClick={() => {
+                if (answeredWith) retry.onRetry(message.id, answeredWith)
+              }}
+            />
+          }
+        >
+          <RotateCcwIcon />
+        </TooltipTrigger>
+        <TooltipContent>Retry</TooltipContent>
+      </Tooltip>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              aria-label="Retry with another model"
+              className="font-normal text-muted-foreground"
+            />
+          }
+        >
+          {label}
+          <ChevronDownIcon data-icon="inline-end" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-48">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Retry with</DropdownMenuLabel>
+            {retry.models.map((model) => (
+              <DropdownMenuItem
+                key={model.value}
+                onClick={() => retry.onRetry(message.id, model.value)}
+              >
+                {model.label}
+                {model.value === answeredWith ? (
+                  <CheckIcon className="ml-auto" />
+                ) : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   )
 }
 
@@ -78,26 +168,33 @@ function ProposalChip({
   return (
     <Card
       render={<button type="button" onClick={onSelect} />}
-      size="sm"
       data-selected={selected}
-      className="w-full cursor-pointer flex-row items-center gap-3 px-(--card-spacing) text-left transition-colors hover:bg-muted/50 data-[selected=true]:ring-primary"
+      className="w-full cursor-pointer flex-row items-stretch gap-0 py-0 text-left data-[selected=true]:ring-primary"
     >
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-        <WorkflowIcon className="size-4" />
+      <span className="pointer-events-none block h-24 w-36 shrink-0 border-r bg-muted">
+        <WorkflowPreview graph={message.proposal.graph} view="fit" />
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-xs font-medium">
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-4">
+        <span className="truncate font-medium">
           {message.proposal.title ?? "Proposed workflow"}
         </span>
-        <span className="block text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <WorkflowIcon className="size-3.5" />
           {message.proposal.graph.nodes.length} steps
         </span>
       </span>
+      <ChevronRightIcon className="mr-4 size-4 shrink-0 self-center text-muted-foreground" />
     </Card>
   )
 }
 
-function TurnActions({ text }: { text: string }) {
+function TurnActions({
+  text,
+  children,
+}: {
+  text: string
+  children?: ReactNode
+}) {
   const [copy, setCopy] = useState<"idle" | "copied" | "failed">("idle")
   async function copyText() {
     try {
@@ -129,6 +226,7 @@ function TurnActions({ text }: { text: string }) {
         </TooltipTrigger>
         <TooltipContent>{label}</TooltipContent>
       </Tooltip>
+      {children}
     </div>
   )
 }
@@ -138,12 +236,12 @@ function Thinking() {
     <div className={cn("flex gap-3", ENTER)} role="status">
       <AssistantMark />
       <div className="min-w-0 flex-1 space-y-3 pt-1">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Spinner className="size-3.5" />
           Designing your workflow…
         </div>
-        <Skeleton className="h-3.5 w-[92%] rounded-full" />
-        <Skeleton className="h-3.5 w-[70%] rounded-full" />
+        <Skeleton className="h-3.5 w-11/12 rounded-full" />
+        <Skeleton className="h-3.5 w-7/10 rounded-full" />
       </div>
     </div>
   )
@@ -159,9 +257,9 @@ function EmptyThread({
   onSuggest: (text: string) => void
 }) {
   return (
-    <div className="mx-auto flex min-h-full max-w-[560px] flex-col items-center justify-center py-12 text-center">
-      <AssistantMark className="size-12 rounded-2xl [&>svg]:size-6" />
-      <h2 className="mt-5 text-lg font-semibold tracking-tight">{title}</h2>
+    <div className="mx-auto flex min-h-full max-w-xl flex-col items-center justify-center py-12 text-center">
+      <AssistantMark className="size-12 rounded-xl" />
+      <h2 className="mt-5 text-xl font-semibold tracking-tight">{title}</h2>
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         {suggestions.map((suggestion) => (
           <Button
@@ -188,6 +286,7 @@ export function AssistantThread({
   onEdit,
   onSwitch,
   empty,
+  retry,
   renderProposalActions,
 }: {
   messages: VisibleMessage[]
@@ -202,13 +301,14 @@ export function AssistantThread({
     suggestions: string[]
     onSuggest: (text: string) => void
   }
+  retry: RetryOptions
   renderProposalActions?: (message: ChatMessage) => ReactNode
 }) {
   return (
     <MessageScrollerProvider autoScroll>
       <MessageScroller className="min-h-0 flex-1">
         <MessageScrollerViewport>
-          <MessageScrollerContent className="mx-auto w-full max-w-[720px] justify-end gap-3 px-4 pb-6">
+          <MessageScrollerContent className="mx-auto w-full max-w-3xl justify-end gap-3 px-4 pb-6">
             {messages.length === 0 && !isPending ? (
               <EmptyThread {...empty} />
             ) : (
@@ -241,7 +341,14 @@ export function AssistantThread({
                         />
                         {renderProposalActions?.(message)}
                         {!isPending ? (
-                          <TurnActions text={message.content} />
+                          <TurnActions text={message.content}>
+                            {retry.models.length > 0 &&
+                            messages.find(
+                              (question) => question.id === message.parentId
+                            )?.attachments.length === 0 ? (
+                              <RetryControls message={message} retry={retry} />
+                            ) : null}
+                          </TurnActions>
                         ) : null}
                       </div>
                     </div>

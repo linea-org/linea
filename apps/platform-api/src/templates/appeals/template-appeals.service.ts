@@ -58,7 +58,7 @@ export class TemplateAppealsService {
         throw new ConflictException('An appeal is already waiting for review.')
       case 'limit_reached':
         throw new ConflictException(
-          `This template has used its ${MAX_APPEALS_PER_TEMPLATE} appeals.`,
+          `This template has used its ${MAX_APPEALS_PER_TEMPLATE} appeals. Remove it and publish a corrected copy instead.`,
         )
     }
   }

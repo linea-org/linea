@@ -4,7 +4,12 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { HistoryIcon, SparklesIcon, SquarePenIcon, XIcon } from "lucide-react"
+import {
+  HistoryIcon,
+  WandSparklesIcon,
+  SquarePenIcon,
+  XIcon,
+} from "lucide-react"
 
 import type { WorkflowGraph } from "@linea/runtime/browser"
 import { Badge } from "@linea/ui/components/badge"
@@ -61,7 +66,7 @@ export function AssistantPanel({
       data: {
         workflowId,
         ...input,
-        model: options.model?.value,
+        model: input.model ?? options.model?.value,
         tools: { web: options.web },
       },
     })
@@ -109,15 +114,15 @@ export function AssistantPanel({
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
       <div className="flex items-center gap-1 border-b border-border px-3 py-2">
-        <SparklesIcon className="size-3 text-primary" />
-        <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+        <WandSparklesIcon className="size-3 text-primary" />
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
           {ASSISTANT_NAME}
         </p>
         <ConversationHistory
           side="bottom"
           scope="all"
           trigger={
-            <Button type="button" variant="ghost" size="xs">
+            <Button type="button" variant="ghost">
               <HistoryIcon />
               History
             </Button>
@@ -156,6 +161,13 @@ export function AssistantPanel({
         selectedProposalId={null}
         onSelectProposal={chat.select}
         onEdit={(id, text) => chat.edit(id, text, graph)}
+        retry={{
+          models: options.models.filter((model) =>
+            options.keyed.has(model.keyName)
+          ),
+          current: options.model?.value,
+          onRetry: (id, model) => chat.retry(id, model, graph),
+        }}
         onSwitch={chat.switchTo}
         empty={{
           title: `Build with ${ASSISTANT_NAME}`,
@@ -169,7 +181,6 @@ export function AssistantPanel({
             ) : (
               <Button
                 type="button"
-                size="xs"
                 variant="outline"
                 onClick={() => apply(message)}
               >
@@ -199,7 +210,7 @@ export function AssistantPanel({
       >
         <DialogContent
           showCloseButton={false}
-          className="flex h-[80vh] max-w-xl flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+          className="flex h-4/5 max-w-xl flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
         >
           <DialogTitle className="sr-only">Proposed workflow</DialogTitle>
           {selected?.proposal ? (

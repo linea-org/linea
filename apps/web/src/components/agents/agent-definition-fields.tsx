@@ -39,8 +39,7 @@ export function AgentDefinitionFields({
         <Field>
           <FieldLabel htmlFor="agent-instructions">Instructions</FieldLabel>
           <FieldDescription>
-            Describe the work to do, the expected result, and any rules the
-            Agent must follow.
+            The task, expected result and rules.
           </FieldDescription>
           <Textarea
             id="agent-instructions"
@@ -126,9 +125,7 @@ export function AgentDefinitionFields({
               </Select>
             )}
           />
-          <FieldDescription>
-            The input and output schemas your application integrates with.
-          </FieldDescription>
+          <FieldDescription>Input and output schemas.</FieldDescription>
           <FieldError>{errors.agentContractRevisionId?.message}</FieldError>
         </Field>
       </Card>

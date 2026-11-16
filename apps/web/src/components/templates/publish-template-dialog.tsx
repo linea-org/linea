@@ -4,6 +4,11 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { Share2Icon } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@linea/ui/components/tooltip"
 import { z } from "zod"
 
 import { Button } from "@linea/ui/components/button"
@@ -56,7 +61,7 @@ function PublishedNotice({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm">Published “{name}”.</p>
+      <p className="text-base">Published “{name}”.</p>
       <DialogFooter>
         <Button
           variant="outline"
@@ -126,12 +131,25 @@ export function PublishTemplateDialog({
   }
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogTrigger
-        render={<Button type="button" variant="outline" size="xs" />}
-      >
-        <Share2Icon />
-        Share
-      </DialogTrigger>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <DialogTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Share as a template"
+                />
+              }
+            />
+          }
+        >
+          <Share2Icon />
+        </TooltipTrigger>
+        <TooltipContent>Share as a template</TooltipContent>
+      </Tooltip>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Share as a template</DialogTitle>
@@ -149,7 +167,7 @@ export function PublishTemplateDialog({
               void handleSubmit((values) => publish.mutate(values))(event)
             }}
           >
-            <FieldGroup className="gap-4">
+            <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="template-name">Name</FieldLabel>
                 <Input id="template-name" {...register("name")} />
@@ -195,7 +213,7 @@ export function PublishTemplateDialog({
                   )}
                 />
                 {watch("visibility") === "public" ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Anyone on Linea will see this workflow’s prompts, URLs and
                     settings, and your workspace’s name.
                   </p>
@@ -203,7 +221,7 @@ export function PublishTemplateDialog({
               </Field>
             </FieldGroup>
             {publish.isError ? (
-              <p className="text-xs text-destructive">
+              <p className="text-sm text-destructive">
                 {publish.error.message}
               </p>
             ) : null}

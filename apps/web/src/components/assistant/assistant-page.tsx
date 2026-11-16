@@ -19,9 +19,9 @@ import { AssistantThread } from "./assistant-thread"
 import type { Proposal } from "./proposal"
 import { ProposalDetails } from "./proposal-details"
 import { useComposerOptions } from "./use-composer-options"
-import { useWeaverChat } from "./use-weaver-chat"
+import { usePageChat } from "./use-page-chat"
 import { useWideLayout } from "./use-wide-layout"
-import { WeaverHero } from "./weaver-hero"
+import { AssistantHero } from "./assistant-hero"
 
 export function AssistantPage({
   slug,
@@ -47,7 +47,7 @@ export function AssistantPage({
     setComposerGlides(false)
     setDraft("")
   }, [])
-  const { chat, title } = useWeaverChat({
+  const { chat, title } = usePageChat({
     slug,
     conversationId,
     options,
@@ -79,15 +79,15 @@ export function AssistantPage({
         <ResizablePanel id="chat" minSize="360px">
           <section className="flex h-full min-w-0 flex-col">
             {inHero ? null : (
-              <div className="flex h-12 shrink-0 items-center border-b border-border px-4">
-                <p className="min-w-0 flex-1 truncate text-sm font-medium">
+              <div className="flex h-12 shrink-0 items-center px-4">
+                <p className="min-w-0 flex-1 truncate text-base font-medium">
                   {title}
                 </p>
               </div>
             )}
             {inHero ? (
               <ScrollArea className="min-h-0 flex-1">
-                <WeaverHero
+                <AssistantHero
                   slug={slug}
                   setup={setup}
                   ready={isModelReady(setup)}
@@ -106,6 +106,13 @@ export function AssistantPage({
                   error={chat.error}
                   selectedProposalId={detail?.id ?? null}
                   onEdit={(id, text) => chat.edit(id, text)}
+                  retry={{
+                    models: options.models.filter((model) =>
+                      options.keyed.has(model.keyName)
+                    ),
+                    current: options.model?.value,
+                    onRetry: (id, model) => chat.retry(id, model),
+                  }}
                   onSwitch={chat.switchTo}
                   onSelectProposal={(id) => {
                     chat.select(id)

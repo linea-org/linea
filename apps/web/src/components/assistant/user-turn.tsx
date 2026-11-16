@@ -12,6 +12,9 @@ import { Button } from "@linea/ui/components/button"
 import { Textarea } from "@linea/ui/components/textarea"
 import { cn } from "@linea/ui/lib/utils"
 
+import { UserAvatar } from "@/components/account"
+import { authClient } from "@/lib/auth-client"
+
 import type { VisibleMessage } from "./use-assistant-chat"
 
 function BranchSwitcher({
@@ -26,7 +29,7 @@ function BranchSwitcher({
   const index = message.siblingIds.indexOf(message.id)
   const count = message.siblingIds.length
   return (
-    <div className="flex items-center text-xs text-muted-foreground tabular-nums">
+    <div className="flex items-center text-sm text-muted-foreground tabular-nums">
       <Button
         type="button"
         variant="ghost"
@@ -78,12 +81,11 @@ function EditForm({
         }}
       />
       <div className="flex justify-end gap-1.5">
-        <Button type="button" variant="ghost" size="xs" onClick={onCancel}>
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
         <Button
           type="button"
-          size="xs"
           disabled={!changed}
           onClick={() => onSubmit(text)}
         >
@@ -108,6 +110,7 @@ export function UserTurn({
   onSwitch: (id: string) => void
 }) {
   const [editing, setEditing] = useState(false)
+  const { data: session } = authClient.useSession()
   return (
     <div
       className={cn(
@@ -116,7 +119,7 @@ export function UserTurn({
       )}
     >
       {message.attachments.length > 0 ? (
-        <ul className="flex flex-wrap justify-end gap-1.5">
+        <ul className="flex flex-wrap justify-end gap-1.5 pr-11">
           {message.attachments.map((file, index) => (
             <li key={`${file.name}-${index}`}>
               <Badge variant="outline">
@@ -138,7 +141,30 @@ export function UserTurn({
         />
       ) : (
         <>
-          <div className="flex items-center gap-1">
+          <div className="flex w-full items-end justify-end gap-3">
+            <BubbleGroup className="max-w-4/5">
+              <Bubble align="end" variant="default" className="max-w-full">
+                <BubbleContent className="whitespace-pre-wrap">
+                  {message.content}
+                </BubbleContent>
+              </Bubble>
+            </BubbleGroup>
+            <UserAvatar
+              name={session?.user.name}
+              email={session?.user.email}
+              image={session?.user.image}
+              size="sm"
+              className="size-8 shrink-0 overflow-hidden rounded-full"
+            />
+          </div>
+          <div className="flex items-center gap-0.5 pr-11">
+            {message.siblingIds.length > 1 ? (
+              <BranchSwitcher
+                message={message}
+                disabled={disabled}
+                onSwitch={onSwitch}
+              />
+            ) : null}
             <Button
               type="button"
               variant="ghost"
@@ -150,21 +176,7 @@ export function UserTurn({
             >
               <PencilIcon />
             </Button>
-            <BubbleGroup className="max-w-[80%]">
-              <Bubble align="end" variant="default" className="max-w-full">
-                <BubbleContent className="whitespace-pre-wrap">
-                  {message.content}
-                </BubbleContent>
-              </Bubble>
-            </BubbleGroup>
           </div>
-          {message.siblingIds.length > 1 ? (
-            <BranchSwitcher
-              message={message}
-              disabled={disabled}
-              onSwitch={onSwitch}
-            />
-          ) : null}
         </>
       )}
     </div>

@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter"
 import { expo } from "@better-auth/expo"
-import { magicLink, organization } from "better-auth/plugins"
+import { magicLink, organization, twoFactor } from "better-auth/plugins"
 import { eq } from "drizzle-orm"
 import { Redis } from "ioredis"
 import { db, repositories, schema } from "@linea/db"
@@ -9,6 +9,7 @@ import { createAuthRateLimiter } from "./auth-rate-limit.js"
 import { sendEmail } from "./email.js"
 import { createMagicLinkEmailUrl } from "./magic-link-email-url.js"
 import { RECENT_AUTHENTICATION_WINDOW_SECONDS } from "./session-policy.js"
+import { stepUp } from "./step-up.js"
 import {
   existingAccountEmailHtml,
   magicLinkEmailHtml,
@@ -168,12 +169,18 @@ export const auth = betterAuth({
       // Server-rendered identity reads share an IP across users and navigation.
       "/get-session": false,
       "/organization/list": false,
+      // A session-bound code check has no per-challenge lockout, so cap guesses here.
+      "/two-factor/verify-totp": { window: 60, max: 5 },
+      "/two-factor/verify-backup-code": { window: 60, max: 5 },
     },
     customStorage: rateLimiter.storage,
   },
   hooks: rateLimiter.hooks,
   session: {
     freshAge: RECENT_AUTHENTICATION_WINDOW_SECONDS,
+    additionalFields: {
+      stepUpAt: { type: "date", required: false, input: false },
+    },
   },
   verification: {
     // Requires better-auth >=1.7.7: older releases' plain-identifier fallback let OAuth state rows be redeemed as magic links (GHSA-965c-763c-88jm).
@@ -248,6 +255,9 @@ export const auth = betterAuth({
   },
   plugins: [
     expo(),
+    // Social and magic-link users have no password, so they confirm setup with a code alone.
+    twoFactor({ issuer: "Linea", allowPasswordless: true }),
+    stepUp(),
     magicLink({
       storeToken: "hashed",
       sendMagicLink: async ({ email, url }) => {

@@ -1,24 +1,6 @@
-import {
-  createContext,
-  useContext,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react"
+import { useCallback, useMemo, useState, type ReactNode } from "react"
 import { Link, useLocation } from "@tanstack/react-router"
-import {
-  ChevronRightIcon,
-  BoxesIcon,
-  HistoryIcon,
-  HouseIcon,
-  SparklesIcon,
-  WorkflowIcon,
-} from "lucide-react"
-
-import { ASSISTANT_NAME } from "@/lib/assistant-api"
+import { BoxesIcon, HistoryIcon, HouseIcon, WorkflowIcon } from "lucide-react"
 
 import {
   Sidebar,
@@ -31,6 +13,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarSeparator,
   useSidebar,
@@ -40,27 +24,21 @@ import { cn } from "@linea/ui/lib/utils"
 import { UserMenu } from "../account"
 import { TopBarNotifications } from "./top-bar-notifications"
 import { WhatsNew } from "./whats-new"
-import { TopBarSearch } from "./top-bar-search"
-import { WorkspaceSwitcher, type WorkspaceOption } from "./workspace-switcher"
+import { StepUpDialog } from "@/components/account/step-up-dialog"
+
+import { CommandPaletteProvider } from "./command-palette"
+import type { WorkspaceOption } from "./workspace-switcher"
 import { ApplicationSectionNav } from "./application-section-nav"
 import { AgentSectionNav } from "./agent-section-nav"
 import { AssistantSectionNav } from "./assistant-section-nav"
-import { ExecutionSectionNav } from "./execution-section-nav"
 import { WorkflowSectionNav } from "./workflow-section-nav"
 import { WorkspaceSettingsNav } from "./workspace-settings-nav"
 import { SidebarBranchStateContext } from "./sidebar-branch-state"
 import { SidebarBack } from "./sidebar-back"
+import { SidebarSectionBranch } from "./sidebar-section-branch"
 import { useSidebarHistory } from "./use-sidebar-history"
 import { sidebarContextKey, type SidebarContext } from "./sidebar-history"
 import { WorkspaceTopBar } from "./workspace-top-bar"
-
-export const WorkspaceOverlayNavContext = createContext<(() => void) | null>(
-  null
-)
-
-export function useWorkspaceOverlayNav() {
-  return useContext(WorkspaceOverlayNavContext)
-}
 
 function InsetCollapseEdge() {
   const { toggleSidebar, open } = useSidebar()
@@ -100,24 +78,6 @@ function MainNav({
         <SidebarMenuButton
           size="sm"
           isActive={
-            pathname.startsWith(`/w/${slug}/assistant`) ||
-            pathname.startsWith(`/w/${slug}/templates`)
-          }
-          tooltip={ASSISTANT_NAME}
-          render={<Link to="/w/$slug/assistant" params={{ slug }} />}
-        >
-          <SparklesIcon />
-          <span>{ASSISTANT_NAME}</span>
-          <ChevronRightIcon
-            aria-hidden
-            className="ml-auto group-data-[collapsible=icon]:hidden"
-          />
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          size="sm"
-          isActive={
             pathname.startsWith(`/w/${slug}/applications`) ||
             pathname.startsWith(`/w/${slug}/agents/`)
           }
@@ -137,30 +97,35 @@ function MainNav({
         >
           <WorkflowIcon />
           <span>Workflows</span>
-          <ChevronRightIcon
-            aria-hidden
-            className="ml-auto group-data-[collapsible=icon]:hidden"
-          />
         </SidebarMenuButton>
       </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          size="sm"
-          isActive={
-            pathname.startsWith(`/w/${slug}/executions`) ||
-            pathname === `/w/${slug}/approvals`
-          }
-          tooltip="Executions"
-          render={<Link to="/w/$slug/executions" params={{ slug }} />}
-        >
-          <HistoryIcon />
-          <span>Executions</span>
-          <ChevronRightIcon
-            aria-hidden
-            className="ml-auto group-data-[collapsible=icon]:hidden"
-          />
-        </SidebarMenuButton>
-      </SidebarMenuItem>
+      <SidebarSectionBranch
+        label="Executions"
+        icon={HistoryIcon}
+        active={
+          pathname.startsWith(`/w/${slug}/executions`) ||
+          pathname === `/w/${slug}/approvals`
+        }
+      >
+        <SidebarMenuSubItem>
+          <SidebarMenuSubButton
+            size="sm"
+            isActive={pathname.startsWith(`/w/${slug}/executions`)}
+            render={<Link to="/w/$slug/executions" params={{ slug }} />}
+          >
+            History
+          </SidebarMenuSubButton>
+        </SidebarMenuSubItem>
+        <SidebarMenuSubItem>
+          <SidebarMenuSubButton
+            size="sm"
+            isActive={pathname === `/w/${slug}/approvals`}
+            render={<Link to="/w/$slug/approvals" params={{ slug }} />}
+          >
+            Approvals
+          </SidebarMenuSubButton>
+        </SidebarMenuSubItem>
+      </SidebarSectionBranch>
     </>
   )
 }
@@ -175,10 +140,7 @@ function WorkspaceSectionNav({
       return <ApplicationSectionNav slug={slug} context={context} />
     case "assistant":
       return <AssistantSectionNav slug={slug} />
-    case "executions":
-      return <ExecutionSectionNav slug={slug} context={context} />
     case "workflow":
-    case "workflows":
       return <WorkflowSectionNav slug={slug} context={context} />
     case "main":
       return (
@@ -200,11 +162,13 @@ function WorkspaceSectionNav({
 function SidebarContextPanel({
   slug,
   context,
+  direction,
   expanded,
   setExpanded,
 }: Readonly<{
   slug: string
   context: SidebarContext
+  direction: "forward" | "back" | null
   expanded: Record<string, boolean>
   setExpanded: (key: string, value: boolean) => void
 }>) {
@@ -222,7 +186,16 @@ function SidebarContextPanel({
   }, [expanded, key, setValue])
   return (
     <SidebarBranchStateContext.Provider value={branchState}>
-      <WorkspaceSectionNav slug={slug} context={context} />
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          direction && "animate-in duration-200 ease-out fade-in-0",
+          direction === "forward" && "slide-in-from-right-4",
+          direction === "back" && "slide-in-from-left-4"
+        )}
+      >
+        <WorkspaceSectionNav slug={slug} context={context} />
+      </div>
     </SidebarBranchStateContext.Provider>
   )
 }
@@ -240,45 +213,37 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   const { pathname } = useLocation()
   const isBuilder = pathname.endsWith("/builder")
-  const onHome = pathname === `/w/${slug}` || pathname === `/w/${slug}/`
   const { history, back, setExpanded } = useSidebarHistory(slug)
   const currentContext = history.trail[0]
   const currentKey = sidebarContextKey(currentContext)
-  const railOpenRef = useRef(true)
-  const wasBuilderRef = useRef(isBuilder)
-  const [open, setOpen] = useState(!isBuilder)
-  function handleOpenChange(next: boolean) {
-    setOpen(next)
-    if (!isBuilder) {
-      railOpenRef.current = next
-    }
+  const depth = history.trail.length
+  const [level, setLevel] = useState({
+    key: currentKey,
+    depth,
+    direction: null as "forward" | "back" | null,
+  })
+  if (level.key !== currentKey) {
+    setLevel({
+      key: currentKey,
+      depth,
+      direction: depth < level.depth ? "back" : "forward",
+    })
   }
-  useEffect(() => {
-    if (wasBuilderRef.current === isBuilder) return
-    wasBuilderRef.current = isBuilder
-    setOpen(isBuilder ? false : railOpenRef.current)
-  }, [isBuilder])
+  const [open, setOpen] = useState(true)
   const navigation = (
     <>
-      {isBuilder ? (
-        <SidebarHeader className="p-1 pb-2">
-          {history.trail.length > 1 && <SidebarBack onBack={back} />}
-          <WorkspaceSwitcher currentSlug={slug} workspaces={workspaces} />
+      {history.trail.length > 1 && (
+        <SidebarHeader className="p-1 group-data-[collapsible=icon]:items-center">
+          <SidebarBack onBack={back} />
         </SidebarHeader>
-      ) : (
-        (onHome || history.trail.length > 1) && (
-          <SidebarHeader className="px-1 py-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:py-2">
-            {history.trail.length > 1 && <SidebarBack onBack={back} />}
-            {onHome && <TopBarSearch slug={slug} />}
-          </SidebarHeader>
-        )
       )}
       <SidebarSeparator className="mx-0 -mt-px w-full data-horizontal:w-full" />
-      <SidebarContent className="gap-0">
+      <SidebarContent className="gap-0 overflow-x-hidden">
         <SidebarContextPanel
           key={currentKey}
           slug={slug}
           context={currentContext}
+          direction={level.direction}
           expanded={history.expanded}
           setExpanded={setExpanded}
         />
@@ -298,31 +263,24 @@ export function WorkspaceShell({
     </>
   )
   return (
-    <SidebarProvider
-      open={open}
-      onOpenChange={handleOpenChange}
-      className="relative h-svh max-h-svh flex-col overflow-hidden bg-sidebar has-data-[variant=inset]:bg-sidebar"
-    >
-      {!isBuilder ? (
-        <WorkspaceTopBar slug={slug} workspaces={workspaces} />
-      ) : null}
-      <div className="flex min-h-0 w-full flex-1">
-        {!isBuilder && (
-          <Sidebar
-            collapsible="icon"
-            className="top-12! bottom-0! h-auto! border-sidebar-border p-0!"
-          >
-            {navigation}
-          </Sidebar>
-        )}
-        {isBuilder && open && (
-          <div className="absolute inset-y-1 left-1 z-30 flex w-[var(--sidebar-width)] animate-in flex-col overflow-hidden rounded-lg bg-popover shadow-md ring-1 ring-foreground/10 duration-200 fade-in-0 slide-in-from-left-2">
-            {navigation}
-          </div>
-        )}
-        <WorkspaceOverlayNavContext.Provider
-          value={() => handleOpenChange(!open)}
-        >
+    <CommandPaletteProvider slug={slug} workspaces={workspaces}>
+      <SidebarProvider
+        open={open}
+        onOpenChange={setOpen}
+        className="relative h-svh max-h-svh flex-col overflow-hidden bg-sidebar has-data-[variant=inset]:bg-sidebar"
+      >
+        {!isBuilder ? (
+          <WorkspaceTopBar slug={slug} workspaces={workspaces} />
+        ) : null}
+        <div className="flex min-h-0 w-full flex-1">
+          {!isBuilder && (
+            <Sidebar
+              collapsible="icon"
+              className="top-12! bottom-0! h-auto! border-sidebar-border p-0!"
+            >
+              {navigation}
+            </Sidebar>
+          )}
           <SidebarInset
             className={cn(
               "relative z-10 min-h-0 overflow-hidden bg-sidebar shadow-none",
@@ -339,18 +297,11 @@ export function WorkspaceShell({
               )}
             >
               {children}
-              {isBuilder && open && (
-                <button
-                  type="button"
-                  className="absolute inset-0 z-20"
-                  aria-label="Close navigation"
-                  onClick={() => setOpen(false)}
-                />
-              )}
             </div>
           </SidebarInset>
-        </WorkspaceOverlayNavContext.Provider>
-      </div>
-    </SidebarProvider>
+        </div>
+      </SidebarProvider>
+      <StepUpDialog />
+    </CommandPaletteProvider>
   )
 }

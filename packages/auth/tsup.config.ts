@@ -5,6 +5,7 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     email: "src/email.ts",
+    emails: "src/emails/index.ts",
     "session-policy": "src/session-policy.ts",
   },
   format: ["esm", "cjs"],

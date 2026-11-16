@@ -87,14 +87,13 @@ export function AgentDefinitionForm({
             size="sm"
             className="flex flex-col gap-0 gap-4 px-(--card-spacing)"
           >
-            <h3 className="text-xs font-medium">Execution limits</h3>
+            <h3 className="text-sm font-medium">Execution limits</h3>
             <Field>
               <FieldLabel htmlFor="agent-iterations">
                 Maximum iterations
               </FieldLabel>
               <FieldDescription>
-                Stop the run after this many model iterations to bound its work
-                and cost.
+                Caps model iterations per run.
               </FieldDescription>
               <Input
                 className="max-w-48"
@@ -112,12 +111,12 @@ export function AgentDefinitionForm({
             </Field>
           </Card>
           {save.error && (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-sm text-destructive">
               {save.error.message}
             </p>
           )}
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {sourceVersion
                 ? `Based on version ${sourceVersion.version}. `
                 : ""}
@@ -125,7 +124,6 @@ export function AgentDefinitionForm({
             </p>
             <Button
               type="submit"
-              size="xs"
               disabled={save.isPending || contracts.length === 0}
               className="self-start"
             >

@@ -40,7 +40,7 @@ export function ApplicationWorkflowCreateButton({
     <WorkflowFormDialog
       workspaceSlug={workspaceSlug}
       trigger={
-        <Button size="xs">
+        <Button>
           <PlusIcon />
           Create Workflow
         </Button>
@@ -83,10 +83,7 @@ export function ApplicationWorkflows({
               <WorkflowIcon />
             </EmptyMedia>
             <EmptyTitle>No Workflows yet</EmptyTitle>
-            <EmptyDescription>
-              Create a Workflow to define a repeatable process for this
-              Application.
-            </EmptyDescription>
+            <EmptyDescription>Create one to get started.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       )}
@@ -109,8 +106,8 @@ export function ApplicationWorkflows({
               </TableHeader>
               <TableBody>
                 {workflows.map((workflow) => (
-                  <TableRow key={workflow.id} className="hover:bg-muted/40">
-                    <TableCell className="px-4 py-3">
+                  <TableRow key={workflow.id}>
+                    <TableCell className="px-4">
                       <Link
                         to="/w/$slug/workflows/$workflowId"
                         params={{
@@ -122,22 +119,17 @@ export function ApplicationWorkflows({
                         <PlayfulAvatar
                           name={workflow.name}
                           shape="rounded"
-                          className="size-8"
+                          className="size-6"
                         />
-                        <span className="min-w-0">
-                          <span className="block truncate text-xs font-medium">
-                            {workflow.name}
-                          </span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {workflow.slug}
-                          </span>
+                        <span className="truncate text-sm font-medium">
+                          {workflow.name}
                         </span>
                       </Link>
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground">
+                    <TableCell className="px-4 text-muted-foreground">
                       {workflowStatus(workflow)}
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                    <TableCell className="px-4 text-muted-foreground tabular-nums">
                       {formatDate(workflow.updatedAt)}
                     </TableCell>
                   </TableRow>

@@ -2,6 +2,7 @@ import { Progress } from "@linea/ui/components/progress"
 
 import type { SignalSummary } from "@/lib/signals-api"
 import { flagTypeLabel } from "./flag-type-label"
+import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
 
 export function SignalFlagTypeBreakdown({
   signals,
@@ -19,13 +20,19 @@ export function SignalFlagTypeBreakdown({
   const max = ranked[0]?.[1] ?? 0
 
   if (ranked.length === 0) {
-    return <p className="text-xs text-muted-foreground">No occurrences yet.</p>
+    return (
+      <Empty className="min-h-0 rounded-none border-0 bg-transparent py-8 sm:p-8">
+        <EmptyHeader>
+          <EmptyTitle>No occurrences yet</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
+    )
   }
 
   return (
     <ul className="space-y-3">
       {ranked.map(([flagType, count]) => (
-        <li key={flagType} className="text-xs">
+        <li key={flagType} className="text-sm">
           <div className="flex items-center justify-between gap-2">
             <span className="text-foreground">
               {flagTypeLabel[flagType] ?? flagType}

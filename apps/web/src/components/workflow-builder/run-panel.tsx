@@ -73,16 +73,16 @@ export function RunPanel({
         {data ? (
           <>
             <ExecutionStatusBadge status={data.execution.status} />
-            <span className="font-mono text-[11px] text-muted-foreground">
+            <span className="font-mono text-xs text-muted-foreground">
               {data.execution.id.slice(0, 8)}
             </span>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {formatDuration(
                 data.execution.startedAt,
                 data.execution.completedAt
               )}
             </span>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {formatCost(
                 data.execution.costMicros,
                 data.execution.costUnpriced
@@ -90,18 +90,18 @@ export function RunPanel({
             </span>
           </>
         ) : isError ? (
-          <span className="text-xs text-destructive">
+          <span className="text-sm text-destructive">
             Couldn't load this run
           </span>
         ) : (
-          <span className="text-xs text-muted-foreground">Loading run…</span>
+          <span className="text-sm text-muted-foreground">Loading run…</span>
         )}
         <div className="ml-auto flex items-center gap-1">
           <Link
             to="/w/$slug/executions/$executionId"
             params={{ slug, executionId }}
             hash={selectedStepId ? `step-${selectedStepId}` : ""}
-            className={buttonVariants({ variant: "ghost", size: "xs" })}
+            className={buttonVariants({ variant: "ghost" })}
           >
             Open trace
           </Link>
@@ -112,7 +112,7 @@ export function RunPanel({
                 if (value) onSelectExecution(value)
               }}
             >
-              <SelectTrigger size="sm" className="h-6 text-[11px]">
+              <SelectTrigger>
                 <SelectValue placeholder="Select a run">
                   {(value: string) => {
                     const execution = recentExecutions.find(
@@ -146,12 +146,11 @@ export function RunPanel({
             onStepSelect={setSelectedStepId}
           />
         ) : isError ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-xs text-destructive">
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-destructive">
             <span>Couldn't load this run.</span>
             <Button
               type="button"
               variant="outline"
-              size="xs"
               onClick={() => void refetch()}
             >
               Retry
@@ -160,7 +159,7 @@ export function RunPanel({
         ) : null}
       </div>
       {data?.execution.error ? (
-        <p className="shrink-0 border-t border-border bg-destructive/10 px-3 py-2 text-xs text-destructive">
+        <p className="shrink-0 border-t border-border bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {data.execution.error.message}
         </p>
       ) : null}
@@ -192,7 +191,7 @@ export function RunPanel({
                 }}
               />
             ) : (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Waiting for the recorded step…
               </p>
             )}
@@ -216,7 +215,7 @@ export function RunPanelTrigger({
     <Button
       type="button"
       variant="outline"
-      size="icon-xs"
+      size="icon-sm"
       disabled={!hasRun}
       className={cn(
         "absolute top-0 left-1/2 z-10 size-5 -translate-x-1/2 border-border bg-card p-0 shadow-none transition-transform duration-500 ease-in hover:bg-secondary dark:bg-card dark:hover:bg-secondary [&_svg:not([class*='size-'])]:size-2.5",

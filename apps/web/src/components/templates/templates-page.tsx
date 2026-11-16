@@ -39,6 +39,13 @@ import {
 import { workflowTemplates } from "@/lib/workflow-templates"
 import { SharedTemplateGrid } from "./shared-template-grid"
 import { StarterTemplateGrid } from "./starter-template-grid"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@linea/ui/components/empty"
+import { ListSkeleton } from "@/components/workspace/list-skeleton"
 
 export type TemplateTab = "starter" | "workspace" | "public"
 
@@ -111,7 +118,7 @@ function Pager({
         <PaginationItem>
           <PaginationPrevious {...link(page - 1)} />
         </PaginationItem>
-        <PaginationItem className="px-2 text-xs text-muted-foreground tabular-nums">
+        <PaginationItem className="px-2 text-sm text-muted-foreground tabular-nums">
           {page} / {pageCount}
         </PaginationItem>
         <PaginationItem>
@@ -120,10 +127,6 @@ function Pager({
       </PaginationContent>
     </Pagination>
   )
-}
-
-function Empty({ children }: { children: string }) {
-  return <p className="text-xs text-muted-foreground">{children}</p>
 }
 
 function SharedTab({
@@ -145,17 +148,22 @@ function SharedTab({
       page: search.page,
     })
   )
-  if (error) return <p className="text-xs text-destructive">{error.message}</p>
-  if (!data) return null
+  if (error) return <p className="text-sm text-destructive">{error.message}</p>
+  if (!data) return <ListSkeleton />
   return (
     <>
       {data.items.length === 0 ? (
         <Empty>
-          {text
-            ? `No templates match “${text}”.`
-            : search.tab === "workspace"
-              ? "Nothing published from this workspace yet. Open a workflow and share it."
-              : "Nothing has been published yet."}
+          <EmptyHeader>
+            <EmptyTitle>
+              {text ? `No templates match “${text}”` : "Nothing published yet"}
+            </EmptyTitle>
+            {!text && search.tab === "workspace" ? (
+              <EmptyDescription>
+                Open a workflow and share it as a template.
+              </EmptyDescription>
+            ) : null}
+          </EmptyHeader>
         </Empty>
       ) : (
         <SharedTemplateGrid slug={slug} templates={data.items} />
@@ -188,9 +196,9 @@ function StarterTab({
   const current = paginate(matchesStarter(text), search.page, PAGE_SIZE)
   if (!model) {
     return (
-      <Card size="sm" className="max-w-[420px]">
+      <Card size="sm" className="max-w-md">
         <CardContent>
-          <h2 className="mb-4 text-sm font-medium">Choose a model</h2>
+          <h2 className="mb-4 text-base font-medium">Choose a model</h2>
           <ModelSetupForm slug={slug} setup={setup} />
         </CardContent>
       </Card>
@@ -199,7 +207,11 @@ function StarterTab({
   return (
     <>
       {current.items.length === 0 ? (
-        <Empty>{`No templates match “${text}”.`}</Empty>
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>{`No templates match “${text}”`}</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <StarterTemplateGrid
           slug={slug}

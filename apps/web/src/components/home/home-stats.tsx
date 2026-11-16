@@ -28,19 +28,17 @@ function StatCard({
   data: { date: string; count: number }[]
 }) {
   return (
-    <Card render={<section />} className="flex min-h-48 flex-col gap-0 py-0">
-      <div className="flex items-start justify-between gap-3 px-4 pt-4">
-        <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="mt-1.5 truncate font-heading text-3xl font-semibold tracking-tight text-foreground tabular-nums">
-            {value}
-          </p>
-        </div>
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-          <Icon className="size-4" aria-hidden="true" />
-        </span>
+    <Card render={<section />} size="sm" className="gap-0 py-0">
+      <div className="flex items-center justify-between gap-3 px-4 pt-3">
+        <p className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+          <Icon className="size-4 shrink-0" aria-hidden />
+          <span className="truncate">{label}</span>
+        </p>
+        <p className="text-lg font-semibold text-foreground tabular-nums">
+          {value}
+        </p>
       </div>
-      <div className="min-h-24 flex-1">
+      <div className="h-28">
         <StatSparkline data={data} />
       </div>
     </Card>

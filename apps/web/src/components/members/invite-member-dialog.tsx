@@ -83,22 +83,21 @@ export function InviteMemberDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Invite a member</DialogTitle>
+          <DialogDescription>
+            They&apos;ll get an email invite.
+          </DialogDescription>
         </DialogHeader>
-        <DialogDescription>
-          They&apos;ll get an email with a link to join this workspace.
-        </DialogDescription>
         <form
           className="flex flex-col gap-4"
           onSubmit={(event) => {
             void handleSubmit((values) => mutation.mutate(values))(event)
           }}
         >
-          <FieldGroup className="gap-4">
+          <FieldGroup>
             <Field data-invalid={!!errors.email || undefined}>
               <FieldLabel htmlFor="invite-email">Email</FieldLabel>
               <Input
                 id="invite-email"
-                className="h-9"
                 type="email"
                 placeholder="teammate@example.com"
                 autoFocus
@@ -130,12 +129,10 @@ export function InviteMemberDialog({
             </Field>
           </FieldGroup>
           {mutation.isError ? (
-            <p className="mt-3 text-xs text-destructive">
-              {mutation.error.message}
-            </p>
+            <p className="text-sm text-destructive">{mutation.error.message}</p>
           ) : null}
           <DialogFooter>
-            <Button type="submit" size="xs" disabled={mutation.isPending}>
+            <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? "Sending…" : "Send invite"}
             </Button>
           </DialogFooter>

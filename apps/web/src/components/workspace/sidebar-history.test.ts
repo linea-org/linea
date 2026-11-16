@@ -31,12 +31,9 @@ describe("sidebar history", () => {
     let history = createSidebarHistory("main", main, "/w/company")
     history = visitSidebarContext(history, "app", application)
     history = visitSidebarContext(history, "agent", agent)
-    history = visitSidebarContext(history, "executions", {
-      kind: "executions",
-      view: "history",
-    })
+    history = visitSidebarContext(history, "assistant", { kind: "assistant" })
     const previous = rewindSidebar(history)
-    expect(previous.locationKey).toBe("executions")
+    expect(previous.locationKey).toBe("assistant")
     expect(previous.trail[0]).toEqual(agent)
     expect(rewindSidebar(previous).trail[0]).toEqual(application)
   })

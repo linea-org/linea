@@ -42,7 +42,7 @@ export function ConversationHistory({
         className="w-72 p-1"
       >
         {shownPinned.length + shownRecent.length === 0 ? (
-          <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+          <p className="px-3 py-4 text-center text-sm text-muted-foreground">
             {error
               ? error.message
               : scope === "pinned"
@@ -69,7 +69,7 @@ export function ConversationHistory({
           </div>
         )}
         {remove.isError ? (
-          <p className="px-3 py-2 text-xs text-destructive">
+          <p className="px-3 py-2 text-sm text-destructive">
             {remove.error.message}
           </p>
         ) : null}

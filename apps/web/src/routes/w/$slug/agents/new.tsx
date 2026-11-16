@@ -32,8 +32,8 @@ function AddAgentPage() {
   return (
     <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
       <header className="pl-1">
-        <h1 className="text-sm font-medium">Add an Agent to your product</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <h1 className="text-base font-medium">Add an Agent to your product</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Choose its Application, then configure what it should do.
         </p>
       </header>
@@ -45,16 +45,16 @@ function AddAgentPage() {
           initialApplicationId={applicationId}
         />
         <section className="flex flex-col gap-3 px-4 py-2">
-          <h2 className="text-sm font-medium">Start with one task</h2>
-          <p className="text-xs text-muted-foreground">
+          <h2 className="text-base font-medium">Start with one task</h2>
+          <p className="text-sm text-muted-foreground">
             An Agent uses your instructions and permitted tools to decide how to
             complete it.
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Configure and publish a version, then deploy it to Development or
             Production.
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Later, a Workflow can reuse the Agent as a step in a larger process.
           </p>
         </section>

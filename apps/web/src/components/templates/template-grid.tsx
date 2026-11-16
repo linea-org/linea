@@ -28,7 +28,7 @@ export function TemplateGrid({
   const mutation = useCreateFromTemplate(slug, create)
   return (
     <>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {cards.map(({ id, name, graph, footer }) => (
           <div key={id} className="flex flex-col gap-2">
             <Card
@@ -39,7 +39,7 @@ export function TemplateGrid({
                   onClick={() => mutation.mutate(id)}
                 />
               }
-              className="pointer-events-auto relative h-40 cursor-pointer gap-0 bg-muted py-0 transition-shadow hover:ring-primary disabled:opacity-60"
+              className="pointer-events-auto relative h-32 cursor-pointer gap-0 bg-muted py-0 disabled:opacity-60"
             >
               <span className="pointer-events-none block h-full">
                 <WorkflowPreview graph={graph} view="fit" />
@@ -50,13 +50,13 @@ export function TemplateGrid({
                 </span>
               ) : null}
             </Card>
-            <span className="text-xs font-medium">{name}</span>
+            <span className="text-sm font-medium">{name}</span>
             {footer}
           </div>
         ))}
       </div>
       {mutation.isError ? (
-        <p className="mt-3 text-xs text-destructive">
+        <p className="mt-3 text-sm text-destructive">
           {mutation.error.message}
         </p>
       ) : null}

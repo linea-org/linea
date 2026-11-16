@@ -17,6 +17,7 @@ import { Route as MagicLinkRouteImport } from './routes/magic-link'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as TwoFactorRouteImport } from './routes/two-factor'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as WorkspacesRouteImport } from './routes/workspaces'
 import { Route as AcceptInvitationInvitationIdRouteImport } from './routes/accept-invitation.$invitationId'
@@ -24,6 +25,7 @@ import { Route as OnboardingInviteRouteImport } from './routes/onboarding/invite
 import { Route as OnboardingWorkspaceRouteImport } from './routes/onboarding/workspace'
 import { Route as WSlugRouteImport } from './routes/w/$slug'
 import { Route as WSlugIndexRouteImport } from './routes/w/$slug/index'
+import { Route as WSlugAccountRouteImport } from './routes/w/$slug/account'
 import { Route as WSlugApprovalsRouteImport } from './routes/w/$slug/approvals'
 import { Route as WSlugAssistantRouteImport } from './routes/w/$slug/assistant'
 import { Route as WSlugNotificationsRouteImport } from './routes/w/$slug/notifications'
@@ -87,6 +89,11 @@ const SignUpRoute = SignUpRouteImport.update({
   path: '/sign-up',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TwoFactorRoute = TwoFactorRouteImport.update({
+  id: '/two-factor',
+  path: '/two-factor',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
@@ -121,6 +128,11 @@ const WSlugRoute = WSlugRouteImport.update({
 const WSlugIndexRoute = WSlugIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => WSlugRoute,
+} as any)
+const WSlugAccountRoute = WSlugAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => WSlugRoute,
 } as any)
 const WSlugApprovalsRoute = WSlugApprovalsRouteImport.update({
@@ -252,12 +264,14 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/two-factor': typeof TwoFactorRoute
   '/verify-email': typeof VerifyEmailRoute
   '/workspaces': typeof WorkspacesRoute
   '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/onboarding/invite': typeof OnboardingInviteRoute
   '/onboarding/workspace': typeof OnboardingWorkspaceRoute
   '/w/$slug': typeof WSlugRouteWithChildren
+  '/w/$slug/account': typeof WSlugAccountRoute
   '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/assistant': typeof WSlugAssistantRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
@@ -291,11 +305,13 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/two-factor': typeof TwoFactorRoute
   '/verify-email': typeof VerifyEmailRoute
   '/workspaces': typeof WorkspacesRoute
   '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/onboarding/invite': typeof OnboardingInviteRoute
   '/onboarding/workspace': typeof OnboardingWorkspaceRoute
+  '/w/$slug/account': typeof WSlugAccountRoute
   '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/assistant': typeof WSlugAssistantRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
@@ -329,12 +345,14 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/two-factor': typeof TwoFactorRoute
   '/verify-email': typeof VerifyEmailRoute
   '/workspaces': typeof WorkspacesRoute
   '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/onboarding/invite': typeof OnboardingInviteRoute
   '/onboarding/workspace': typeof OnboardingWorkspaceRoute
   '/w/$slug': typeof WSlugRouteWithChildren
+  '/w/$slug/account': typeof WSlugAccountRoute
   '/w/$slug/approvals': typeof WSlugApprovalsRoute
   '/w/$slug/assistant': typeof WSlugAssistantRoute
   '/w/$slug/notifications': typeof WSlugNotificationsRoute
@@ -370,12 +388,14 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
+    | '/two-factor'
     | '/verify-email'
     | '/workspaces'
     | '/accept-invitation/$invitationId'
     | '/onboarding/invite'
     | '/onboarding/workspace'
     | '/w/$slug'
+    | '/w/$slug/account'
     | '/w/$slug/approvals'
     | '/w/$slug/assistant'
     | '/w/$slug/notifications'
@@ -409,11 +429,13 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
+    | '/two-factor'
     | '/verify-email'
     | '/workspaces'
     | '/accept-invitation/$invitationId'
     | '/onboarding/invite'
     | '/onboarding/workspace'
+    | '/w/$slug/account'
     | '/w/$slug/approvals'
     | '/w/$slug/assistant'
     | '/w/$slug/notifications'
@@ -446,12 +468,14 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
+    | '/two-factor'
     | '/verify-email'
     | '/workspaces'
     | '/accept-invitation/$invitationId'
     | '/onboarding/invite'
     | '/onboarding/workspace'
     | '/w/$slug'
+    | '/w/$slug/account'
     | '/w/$slug/approvals'
     | '/w/$slug/assistant'
     | '/w/$slug/notifications'
@@ -486,6 +510,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  TwoFactorRoute: typeof TwoFactorRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   WorkspacesRoute: typeof WorkspacesRoute
   AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
@@ -552,6 +577,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignUpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/two-factor': {
+      id: '/two-factor'
+      path: '/two-factor'
+      fullPath: '/two-factor'
+      preLoaderRoute: typeof TwoFactorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verify-email': {
       id: '/verify-email'
       path: '/verify-email'
@@ -599,6 +631,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/w/$slug/'
       preLoaderRoute: typeof WSlugIndexRouteImport
+      parentRoute: typeof WSlugRoute
+    }
+    '/w/$slug/account': {
+      id: '/w/$slug/account'
+      path: '/account'
+      fullPath: '/w/$slug/account'
+      preLoaderRoute: typeof WSlugAccountRouteImport
       parentRoute: typeof WSlugRoute
     }
     '/w/$slug/approvals': {
@@ -787,6 +826,7 @@ const WSlugWorkflowsWorkflowIdRouteWithChildren =
   )
 
 interface WSlugRouteChildren {
+  WSlugAccountRoute: typeof WSlugAccountRoute
   WSlugApprovalsRoute: typeof WSlugApprovalsRoute
   WSlugAssistantRoute: typeof WSlugAssistantRoute
   WSlugNotificationsRoute: typeof WSlugNotificationsRoute
@@ -807,6 +847,7 @@ interface WSlugRouteChildren {
 }
 
 const WSlugRouteChildren: WSlugRouteChildren = {
+  WSlugAccountRoute: WSlugAccountRoute,
   WSlugApprovalsRoute: WSlugApprovalsRoute,
   WSlugAssistantRoute: WSlugAssistantRoute,
   WSlugNotificationsRoute: WSlugNotificationsRoute,
@@ -837,6 +878,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  TwoFactorRoute: TwoFactorRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   WorkspacesRoute: WorkspacesRoute,
   AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,

@@ -126,7 +126,7 @@ export function WorkflowFormDialog({
             void handleSubmit((values) => mutation.mutate(values))(e)
           }}
         >
-          <FieldGroup className="gap-4">
+          <FieldGroup>
             <Field>
               <FieldLabel htmlFor="workflow-application">
                 Application
@@ -163,7 +163,7 @@ export function WorkflowFormDialog({
                 {errors.applicationId?.message ?? applicationsError?.message}
               </FieldError>
               {applications.length === 0 && !applicationsError && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-base text-muted-foreground">
                   Create an Application before adding a Workflow.
                 </p>
               )}
@@ -172,7 +172,6 @@ export function WorkflowFormDialog({
               <FieldLabel htmlFor="workflow-name">Name</FieldLabel>
               <Input
                 id="workflow-name"
-                className="h-9"
                 placeholder="Order fulfillment"
                 autoFocus
                 {...register("name", {
@@ -186,7 +185,6 @@ export function WorkflowFormDialog({
               <FieldLabel htmlFor="workflow-slug">Slug</FieldLabel>
               <Input
                 id="workflow-slug"
-                className="h-9"
                 placeholder={slugify(name) || "order-fulfillment"}
                 {...register("slug")}
               />
@@ -206,12 +204,10 @@ export function WorkflowFormDialog({
             </Field>
           </FieldGroup>
           {mutation.isError && (
-            <p className="mt-3 text-xs text-destructive">
-              {mutation.error.message}
-            </p>
+            <p className="text-sm text-destructive">{mutation.error.message}</p>
           )}
           <DialogFooter>
-            <Button type="submit" size="xs" disabled={mutation.isPending}>
+            <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? "Saving…" : submitLabel}
             </Button>
           </DialogFooter>

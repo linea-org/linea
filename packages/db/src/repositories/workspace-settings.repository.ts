@@ -58,6 +58,8 @@ export type UpdateWorkspaceSettingsInput = Partial<
     | "behaviourSampleRate"
     | "behaviourModel"
     | "defaultModel"
+    | "judgeModel"
+    | "stepModel"
     | "retentionDays"
     | "redactionRules"
   >

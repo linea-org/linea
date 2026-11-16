@@ -6,8 +6,8 @@ import {
 } from "@linea/runtime/browser"
 import {
   ChevronDownIcon,
-  ChevronsLeftIcon,
-  ChevronsRightIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
   SearchIcon,
 } from "lucide-react"
 import { Button } from "@linea/ui/components/button"
@@ -21,7 +21,6 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@linea/ui/components/input-group"
-import { Kbd } from "@linea/ui/components/kbd"
 import { cn } from "@linea/ui/lib/utils"
 import { NodeIcon } from "./node-icon"
 import {
@@ -110,15 +109,15 @@ export function WorkflowPalette({
     <div className="relative z-20 flex min-h-0 shrink-0 self-stretch">
       <div
         className={cn(
-          "min-h-0 self-stretch overflow-hidden transition-[width] duration-500 ease-in",
-          collapsed ? "w-0" : "w-52"
+          "min-h-0 self-stretch overflow-hidden transition-all duration-300 ease-out",
+          collapsed ? "w-0" : "w-56"
         )}
       >
-        <aside className="flex h-full min-h-0 w-52 flex-col overflow-hidden bg-card">
-          <div className="shrink-0 px-2 pt-2 pb-1.5">
-            <InputGroup className="h-8 rounded-md border-0 bg-input/30 shadow-none">
+        <aside className="flex h-full min-h-0 w-56 flex-col overflow-hidden bg-card">
+          <div className="flex shrink-0 items-center gap-1 px-2 pt-2 pb-1">
+            <InputGroup>
               <InputGroupAddon>
-                <SearchIcon className="size-4 shrink-0 opacity-50" />
+                <SearchIcon className="size-4 shrink-0" />
               </InputGroupAddon>
               <InputGroupInput
                 ref={searchRef}
@@ -126,21 +125,24 @@ export function WorkflowPalette({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <InputGroupAddon
-                align="inline-end"
-                className="group-focus-within/input-group:hidden"
-              >
-                <Kbd className="h-4 min-w-4 text-[0.75rem] leading-none">
-                  Ctrl+K
-                </Kbd>
-              </InputGroupAddon>
             </InputGroup>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="shrink-0 text-muted-foreground"
+              onClick={() => onCollapsedChange(true)}
+              aria-label="Collapse node panel"
+              aria-expanded
+            >
+              <PanelLeftCloseIcon />
+            </Button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
             {[...grouped.entries()].map(([category, nodeTypes]) => (
               <Collapsible
                 key={category}
-                className="group px-1.5 pb-0.5"
+                className="group pt-1"
                 open={searching || !categoriesCollapsed.has(category)}
                 onOpenChange={(open) => {
                   if (searching) return
@@ -157,7 +159,7 @@ export function WorkflowPalette({
                   <ChevronDownIcon className="size-3.5 shrink-0 -rotate-90 transition-transform duration-200 group-data-open:rotate-0" />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <ul className="flex flex-col">
+                  <ul className="flex flex-col gap-0.5">
                     {nodeTypes.map((nodeType) => {
                       const definition = nodeRegistry[nodeType]
                       const colors =
@@ -176,21 +178,22 @@ export function WorkflowPalette({
                               setRoundedDragImage(e, e.currentTarget)
                             }}
                             title={definition.ui.description}
-                            className="flex h-7 w-full cursor-grab items-center justify-between gap-2 overflow-hidden rounded-md px-1.5 text-left hover:bg-muted active:cursor-grabbing"
+                            className="flex h-8 w-full cursor-grab items-center gap-2.5 overflow-hidden rounded-md px-1.5 text-left text-sm text-foreground hover:bg-accent active:cursor-grabbing"
                           >
-                            <span className="min-w-0 truncate text-xs">
-                              {definition.ui.label}
-                            </span>
                             <span
                               className={cn(
-                                "inline-flex size-5 shrink-0 items-center justify-center rounded-full",
-                                colors.badge
+                                "grid size-6 shrink-0 place-items-center rounded-md",
+                                colors.bg,
+                                colors.icon
                               )}
                             >
                               <NodeIcon
                                 icon={definition.ui.icon}
-                                className="size-2.5"
+                                className="size-3.5"
                               />
+                            </span>
+                            <span className="min-w-0 truncate">
+                              {definition.ui.label}
                             </span>
                           </button>
                         </li>
@@ -203,20 +206,19 @@ export function WorkflowPalette({
           </div>
         </aside>
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-xs"
-        className={cn(
-          "absolute top-4 left-full z-10 size-5 border-border bg-card p-0 shadow-none transition-transform duration-500 ease-in hover:bg-secondary [&_svg:not([class*='size-'])]:size-2.5",
-          !collapsed && "-translate-x-1/2"
-        )}
-        onClick={() => onCollapsedChange(!collapsed)}
-        aria-label={collapsed ? "Expand node panel" : "Collapse node panel"}
-        aria-expanded={!collapsed}
-      >
-        {collapsed ? <ChevronsRightIcon /> : <ChevronsLeftIcon />}
-      </Button>
+      {collapsed ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="absolute top-2 left-2 bg-card text-muted-foreground"
+          onClick={() => onCollapsedChange(false)}
+          aria-label="Expand node panel"
+          aria-expanded={false}
+        >
+          <PanelLeftOpenIcon />
+        </Button>
+      ) : null}
     </div>
   )
 }

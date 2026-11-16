@@ -26,6 +26,7 @@ import {
   listOrganizations,
   requireVerifiedUser,
 } from "../lib/auth-redirect"
+import { Card } from "@linea/ui/components/card"
 
 type WorkspaceListItem = {
   id: string
@@ -89,13 +90,13 @@ function WorkspacesPage() {
             height={20}
             className="size-5 rounded"
           />
-          <span className="text-sm font-medium">Linea</span>
+          <span className="text-base font-medium">Linea</span>
         </div>
         <UserMenu align="end" />
       </header>
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-16">
-        <h1 className="text-center text-sm font-medium">Workspaces</h1>
-        <p className="mt-1 text-center text-xs text-muted-foreground">
+        <h1 className="text-center text-base font-medium">Workspaces</h1>
+        <p className="mt-1 text-center text-sm text-muted-foreground">
           Pick a workspace to continue.
         </p>
         {error ? (
@@ -103,7 +104,7 @@ function WorkspacesPage() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
-        <div className="mt-6 overflow-hidden rounded-xl border bg-card">
+        <Card className="mt-6 gap-0 py-0">
           <ul className="divide-y divide-border/70">
             {orgs.map((org) => {
               const opening = pendingId === org.id
@@ -127,10 +128,10 @@ function WorkspacesPage() {
                       className="size-8"
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-medium text-foreground">
+                      <span className="block truncate text-sm font-medium text-foreground">
                         {org.name}
                       </span>
-                      <span className="block truncate text-xs text-muted-foreground">
+                      <span className="block truncate text-sm text-muted-foreground">
                         {org.slug}
                       </span>
                     </span>
@@ -151,12 +152,11 @@ function WorkspacesPage() {
               )
             })}
           </ul>
-        </div>
+        </Card>
         <div className="mt-3 flex justify-center">
           <Button
             type="button"
             variant="outline"
-            size="xs"
             onClick={() => setCreateOpen(true)}
           >
             <PlusIcon />
@@ -169,10 +169,10 @@ function WorkspacesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create a workspace</DialogTitle>
+            <DialogDescription>
+              Holds workflows, members and settings.
+            </DialogDescription>
           </DialogHeader>
-          <DialogDescription>
-            Workspaces keep your workflows, members, and settings together.
-          </DialogDescription>
           {createOpen ? <CreateWorkspaceForm onSuccess={onCreated} /> : null}
         </DialogContent>
       </Dialog>

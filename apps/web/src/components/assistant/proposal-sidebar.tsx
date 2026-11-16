@@ -44,10 +44,10 @@ export function ProposalSidebar({
   return (
     <aside className="flex h-full min-h-0 w-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
-        <p className="min-w-0 truncate text-sm font-medium">
+        <p className="min-w-0 truncate text-base font-medium">
           {proposal.title ?? "Proposed workflow"}
         </p>
-        <span className="shrink-0 text-xs text-muted-foreground">
+        <span className="shrink-0 text-sm text-muted-foreground">
           {steps.length} steps
         </span>
         <span className="flex-1" />
@@ -66,7 +66,6 @@ export function ProposalSidebar({
         <Button
           type="button"
           variant="secondary"
-          size="xs"
           className="absolute top-2 right-2"
           onClick={() => setExpanded(true)}
         >
@@ -75,8 +74,8 @@ export function ProposalSidebar({
         </Button>
       </div>
       <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="flex h-[80vh] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
-          <DialogTitle className="border-b border-border px-4 py-3 text-sm font-medium">
+        <DialogContent className="flex h-4/5 max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
+          <DialogTitle className="border-b border-border px-4 py-3 text-base font-medium">
             {proposal.title ?? "Proposed workflow"}
           </DialogTitle>
           <div className="min-h-0 flex-1">
@@ -91,13 +90,13 @@ export function ProposalSidebar({
               key={proposal.graph.nodes[index].id}
               className="flex items-start gap-3 rounded-lg px-2 py-2"
             >
-              <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-md bg-muted text-xs text-muted-foreground tabular-nums">
+              <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-md bg-muted text-sm text-muted-foreground tabular-nums">
                 {index + 1}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium">{step.title}</p>
+                <p className="truncate text-sm font-medium">{step.title}</p>
                 {step.detail ? (
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  <p className="mt-0.5 truncate text-sm text-muted-foreground">
                     {step.detail}
                   </p>
                 ) : null}

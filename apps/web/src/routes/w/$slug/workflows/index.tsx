@@ -134,9 +134,7 @@ function WorkflowSortHeader({
         {label}
         {<SortDirectionIcon direction={active?.direction} showIdle />}
         {active && sorts.length > 1 ? (
-          <span className="text-[10px] leading-none tabular-nums">
-            {index + 1}
-          </span>
+          <span className="text-xs leading-none tabular-nums">{index + 1}</span>
         ) : null}
       </button>
     </TableHead>
@@ -250,7 +248,7 @@ function WorkflowsListPage() {
       key={applicationId ?? "all"}
       workspaceSlug={slug}
       trigger={
-        <Button size="xs">
+        <Button size="sm">
           <PlusIcon />
           Create workflow
         </Button>
@@ -290,7 +288,6 @@ function WorkflowsListPage() {
           }}
         >
           <SelectTrigger
-            size="xs"
             aria-label="Filter by Application"
             className="bg-background"
           >
@@ -328,7 +325,7 @@ function WorkflowsListPage() {
             })
           }}
         >
-          <SelectTrigger size="xs" className="bg-background">
+          <SelectTrigger className="bg-background">
             <SelectValue placeholder="Status">
               {(value: string) => (value === "all" ? "All statuses" : value)}
             </SelectValue>
@@ -352,8 +349,7 @@ function WorkflowsListPage() {
             </EmptyMedia>
             <EmptyTitle>No workflows yet</EmptyTitle>
             <EmptyDescription>
-              Create a Workflow in an Application to define its process and
-              deploy it to an Environment.
+              Create one inside an Application.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -411,8 +407,8 @@ function WorkflowsListPage() {
                       (application) => application.id === workflow.applicationId
                     )?.name ?? "View Application"
                   return (
-                    <TableRow key={workflow.id} className="hover:bg-muted/40">
-                      <TableCell className="px-4 py-3">
+                    <TableRow key={workflow.id}>
+                      <TableCell className="px-4">
                         <Link
                           to="/w/$slug/workflows/$workflowId"
                           params={{ slug, workflowId: workflow.id }}
@@ -421,19 +417,14 @@ function WorkflowsListPage() {
                           <PlayfulAvatar
                             name={workflow.name}
                             shape="rounded"
-                            className="size-8"
+                            className="size-6"
                           />
-                          <span className="min-w-0">
-                            <span className="block truncate text-xs font-medium">
-                              {workflow.name}
-                            </span>
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {workflow.slug}
-                            </span>
+                          <span className="truncate text-sm font-medium">
+                            {workflow.name}
                           </span>
                         </Link>
                       </TableCell>
-                      <TableCell className="px-4 py-3">
+                      <TableCell className="px-4">
                         <Link
                           to="/w/$slug/applications/$applicationId"
                           params={{
@@ -441,25 +432,25 @@ function WorkflowsListPage() {
                             applicationId: workflow.applicationId,
                           }}
                           search={{ view: "workflows" }}
-                          className="text-xs text-muted-foreground hover:text-foreground"
+                          className="text-sm text-muted-foreground hover:text-foreground"
                         >
                           {applicationName}
                         </Link>
                       </TableCell>
-                      <TableCell className="px-4 py-3">
+                      <TableCell className="px-4">
                         <WorkflowStatusBadge workflow={workflow} />
                       </TableCell>
-                      <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                      <TableCell className="px-4 text-muted-foreground tabular-nums">
                         {formatDate(workflow.updatedAt)}
                       </TableCell>
-                      <TableCell className="px-2 py-3 text-right">
+                      <TableCell className="px-2 text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             render={
                               <Button
                                 type="button"
                                 variant="ghost"
-                                size="icon-sm"
+                                size="icon"
                                 aria-label={`More options for ${workflow.name}`}
                               />
                             }

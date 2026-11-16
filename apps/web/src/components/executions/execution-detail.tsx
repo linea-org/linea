@@ -149,12 +149,12 @@ export function ExecutionDetailView({
             className="size-8"
           />
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium">{workflowName}</p>
-            <p className="truncate font-mono text-xs text-muted-foreground">
+            <p className="truncate text-sm font-medium">{workflowName}</p>
+            <p className="truncate font-mono text-sm text-muted-foreground">
               {execution.id}
             </p>
           </div>
-          <div className="ml-auto flex flex-wrap items-center text-xs text-muted-foreground">
+          <div className="ml-auto flex flex-wrap items-center text-sm text-muted-foreground">
             <ExecutionStatusBadge status={execution.status} />
             {(
               [
@@ -197,17 +197,13 @@ export function ExecutionDetailView({
           {error && (
             <div
               role="alert"
-              className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 text-xs text-destructive"
+              className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 text-sm text-destructive"
             >
               <p>
                 Could not refresh this execution. Showing the last recorded
                 state.
               </p>
-              <Button
-                variant="outline"
-                size="xs"
-                onClick={() => void refetch()}
-              >
+              <Button variant="outline" onClick={() => void refetch()}>
                 Retry refresh
               </Button>
             </div>

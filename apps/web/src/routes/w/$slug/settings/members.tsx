@@ -63,6 +63,7 @@ import {
   updateMemberRole,
 } from "@/lib/auth-queries"
 import { formatDate } from "@/lib/format"
+import { ListSkeleton } from "@/components/workspace/list-skeleton"
 
 export const Route = createFileRoute("/w/$slug/settings/members")({
   component: MembersPage,
@@ -95,7 +96,7 @@ function RowOptions({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         className={cn(
-          buttonVariants({ variant: "ghost", size: "icon-xs" }),
+          buttonVariants({ variant: "ghost", size: "icon-sm" }),
           "rounded-md"
         )}
         aria-label={`Options for ${label}`}
@@ -105,7 +106,7 @@ function RowOptions({
       <PopoverContent align="end" className="w-40 gap-0 p-1">
         <button
           type="button"
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/40"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted/40"
           onClick={() => {
             void navigator.clipboard.writeText(copyValue)
             setOpen(false)
@@ -117,7 +118,7 @@ function RowOptions({
         {removeLabel && onRemove ? (
           <button
             type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-destructive hover:bg-muted/40"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-destructive hover:bg-muted/40"
             onClick={() => {
               setOpen(false)
               onRemove()
@@ -227,14 +228,14 @@ function MembersPage() {
           placeholder="Search members"
         />
         <div className="ml-auto">
-          <Button size="xs" onClick={() => setInviteOpen(true)}>
+          <Button onClick={() => setInviteOpen(true)}>
             <UserPlusIcon />
             Invite
           </Button>
         </div>
       </PageToolbar>
       {isPending ? (
-        <p className="px-4 py-8 text-xs text-muted-foreground">Loading…</p>
+        <ListSkeleton className="px-4 py-2" />
       ) : filteredMembers.length === 0 ? (
         <Empty className="mx-4 my-2 w-auto">
           <EmptyHeader>
@@ -276,8 +277,8 @@ function MembersPage() {
                   const isSelf = member.userId === session?.user.id
                   const isOwner = member.role === "owner"
                   return (
-                    <TableRow key={member.id} className="hover:bg-muted/40">
-                      <TableCell className="px-4 py-3">
+                    <TableRow key={member.id}>
+                      <TableCell className="px-4">
                         <div className="flex min-w-0 items-center gap-3">
                           <UserAvatar
                             name={member.user.name}
@@ -286,7 +287,7 @@ function MembersPage() {
                             className="size-8"
                           />
                           <div className="min-w-0">
-                            <p className="truncate text-xs font-medium">
+                            <p className="truncate text-sm font-medium">
                               {member.user.name}
                               {isSelf ? (
                                 <span className="ml-2 font-normal text-muted-foreground">
@@ -294,13 +295,13 @@ function MembersPage() {
                                 </span>
                               ) : null}
                             </p>
-                            <p className="truncate text-xs text-muted-foreground">
+                            <p className="truncate text-sm text-muted-foreground">
                               {member.user.email}
                             </p>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-3 text-muted-foreground">
+                      <TableCell className="px-4 text-muted-foreground">
                         {isOwner ? (
                           roleLabel(member.role)
                         ) : (
@@ -315,7 +316,7 @@ function MembersPage() {
                               }
                             }}
                           >
-                            <SelectTrigger size="sm" className="w-28">
+                            <SelectTrigger className="w-28">
                               <SelectValue>
                                 {() => roleLabel(member.role)}
                               </SelectValue>
@@ -333,10 +334,10 @@ function MembersPage() {
                           </Select>
                         )}
                       </TableCell>
-                      <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                      <TableCell className="px-4 text-muted-foreground tabular-nums">
                         {formatDate(member.createdAt)}
                       </TableCell>
-                      <TableCell className="px-2 py-3 text-right">
+                      <TableCell className="px-2 text-right">
                         <RowOptions
                           label={member.user.name}
                           copyValue={member.user.email}
@@ -365,7 +366,7 @@ function MembersPage() {
       )}
       {filteredInvites.length > 0 ? (
         <>
-          <p className="px-4 pt-6 pb-2 text-xs font-medium text-foreground">
+          <p className="px-4 pt-6 pb-2 text-sm font-medium text-foreground">
             Pending invitations
           </p>
           <div className="px-4 pb-2">
@@ -389,27 +390,27 @@ function MembersPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredInvites.map((invitation) => (
-                    <TableRow key={invitation.id} className="hover:bg-muted/40">
-                      <TableCell className="px-4 py-3">
+                    <TableRow key={invitation.id}>
+                      <TableCell className="px-4">
                         <div className="flex min-w-0 items-center gap-3">
                           <UserAvatar
                             email={invitation.email}
                             className="size-8"
                           />
-                          <p className="truncate text-xs font-medium">
+                          <p className="truncate text-sm font-medium">
                             {invitation.email}
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-3 text-muted-foreground">
+                      <TableCell className="px-4 text-muted-foreground">
                         {roleLabel(invitation.role ?? "member")}
                       </TableCell>
-                      <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                      <TableCell className="px-4 text-muted-foreground tabular-nums">
                         {invitation.expiresAt
                           ? formatDate(invitation.expiresAt)
                           : "—"}
                       </TableCell>
-                      <TableCell className="px-2 py-3 text-right">
+                      <TableCell className="px-2 text-right">
                         <RowOptions
                           label={invitation.email}
                           copyValue={invitation.email}

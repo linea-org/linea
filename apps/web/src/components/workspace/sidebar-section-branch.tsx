@@ -50,12 +50,18 @@ export function SidebarSectionBranch({
     >
       <CollapsibleTrigger
         render={
-          <SidebarMenuButton size="sm" isActive={active} tooltip={label} />
+          <SidebarMenuButton
+            size="default"
+            isActive={active && !expanded}
+            tooltip={label}
+          />
         }
       >
         <Icon />
         <span>{label}</span>
-        <ChevronRightIcon className="ml-auto transition-transform group-data-[collapsible=icon]:hidden group-data-open/branch:rotate-90" />
+        <div className="ml-auto grid size-5 shrink-0 place-items-center rounded-md bg-sidebar-foreground/10 transition group-data-[collapsible=icon]:hidden group-data-open/branch:rotate-90 [&>svg]:size-3.5!">
+          <ChevronRightIcon aria-hidden />
+        </div>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <SidebarMenuSub>{children}</SidebarMenuSub>

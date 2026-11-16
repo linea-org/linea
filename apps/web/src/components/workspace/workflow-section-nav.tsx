@@ -23,11 +23,9 @@ export function WorkflowSectionNav({
   context,
 }: Readonly<{
   slug: string
-  context: Extract<SidebarContext, { kind: "workflow" | "workflows" }>
+  context: Extract<SidebarContext, { kind: "workflow" }>
 }>) {
-  const onIndex = context.kind === "workflows"
-  const workflowId = context.kind === "workflow" ? context.workflowId : null
-  const view = context.kind === "workflow" ? context.view : null
+  const { workflowId, view } = context
   return (
     <SidebarGroup className="px-1 pt-1 pb-2 group-data-[collapsible=icon]:p-1">
       <SidebarGroupContent>
@@ -35,7 +33,6 @@ export function WorkflowSectionNav({
           <SidebarMenuItem>
             <SidebarMenuButton
               size="sm"
-              isActive={onIndex}
               tooltip="Overview"
               render={
                 <Link
@@ -50,35 +47,33 @@ export function WorkflowSectionNav({
               <span>Overview</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          {workflowId && (
-            <SidebarSectionBranch
-              label="Activity"
-              icon={ActivityIcon}
-              active={true}
-            >
-              {workflowViewSchema.options.map((section) => (
-                <SidebarMenuSubItem key={section}>
-                  <SidebarMenuSubButton
-                    size="sm"
-                    isActive={view === section}
-                    render={
-                      <Link
-                        to="/w/$slug/workflows/$workflowId"
-                        params={{
-                          slug,
-                          workflowId: workflowId,
-                        }}
-                        search={{ view: section }}
-                        aria-current={view === section ? "page" : undefined}
-                      />
-                    }
-                  >
-                    {workflowViews[section]}
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
-              ))}
-            </SidebarSectionBranch>
-          )}
+          <SidebarSectionBranch
+            label="Activity"
+            icon={ActivityIcon}
+            active={true}
+          >
+            {workflowViewSchema.options.map((section) => (
+              <SidebarMenuSubItem key={section}>
+                <SidebarMenuSubButton
+                  size="sm"
+                  isActive={view === section}
+                  render={
+                    <Link
+                      to="/w/$slug/workflows/$workflowId"
+                      params={{
+                        slug,
+                        workflowId: workflowId,
+                      }}
+                      search={{ view: section }}
+                      aria-current={view === section ? "page" : undefined}
+                    />
+                  }
+                >
+                  {workflowViews[section]}
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarSectionBranch>
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

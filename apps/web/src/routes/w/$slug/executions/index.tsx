@@ -247,9 +247,7 @@ function ExecutionSortHeader({
         {label}
         {<SortDirectionIcon direction={active?.direction} />}
         {active && sorts.length > 1 ? (
-          <span className="text-[10px] leading-none tabular-nums">
-            {index + 1}
-          </span>
+          <span className="text-xs leading-none tabular-nums">{index + 1}</span>
         ) : null}
       </button>
     </TableHead>
@@ -377,7 +375,7 @@ function ExecutionsPage() {
             })
           }}
         >
-          <SelectTrigger size="xs">
+          <SelectTrigger>
             <SelectValue placeholder="Status">
               {(value: string) =>
                 isExecutionStatus(value)
@@ -411,7 +409,7 @@ function ExecutionsPage() {
             })
           }}
         >
-          <SelectTrigger size="xs">
+          <SelectTrigger>
             <SelectValue placeholder="Trigger">
               {(value: string) =>
                 value === "all"
@@ -435,7 +433,7 @@ function ExecutionsPage() {
           <button
             type="button"
             onClick={showNewExecutions}
-            className="flex w-fit items-center gap-2 rounded-md border border-input bg-accent px-3 py-1.5 text-xs text-accent-foreground transition-colors hover:bg-accent/80"
+            className="flex w-fit items-center gap-2 rounded-md border border-input bg-accent px-3 py-1.5 text-sm text-accent-foreground transition-colors hover:bg-accent/80"
           >
             <SparklesIcon className="size-4" />
             {newCount === 1
@@ -515,8 +513,8 @@ function ExecutionsPage() {
               </TableHeader>
               <TableBody>
                 {sortedExecutions.map((execution) => (
-                  <TableRow key={execution.id} className="hover:bg-muted/40">
-                    <TableCell className="px-4 py-3">
+                  <TableRow key={execution.id}>
+                    <TableCell className="px-4">
                       <Link
                         to="/w/$slug/executions/$executionId"
                         params={{ slug, executionId: execution.id }}
@@ -525,45 +523,40 @@ function ExecutionsPage() {
                         <PlayfulAvatar
                           name={execution.workflowName}
                           shape="rounded"
-                          className="size-8"
+                          className="size-6"
                         />
-                        <span className="min-w-0">
-                          <span className="block truncate text-xs font-medium">
-                            {execution.workflowName}
-                          </span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {execution.workflowSlug}
-                          </span>
+                        <span className="truncate text-sm font-medium">
+                          {execution.workflowName}
                         </span>
                       </Link>
                     </TableCell>
-                    <TableCell className="px-4 py-3">
+                    <TableCell className="px-4">
                       <ExecutionStatusBadge status={execution.status} />
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground">
+                    <TableCell className="px-4 text-muted-foreground">
                       {triggerLabel[execution.trigger]}
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground">
+                    <TableCell className="px-4 text-muted-foreground">
                       {formatDuration(
                         execution.startedAt,
                         execution.completedAt,
                         execution.status
                       )}
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground">
+                    <TableCell className="px-4 text-muted-foreground">
                       {formatCost(execution.costMicros, execution.costUnpriced)}
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                    <TableCell className="px-4 text-muted-foreground tabular-nums">
                       {new Date(execution.createdAt).toLocaleString()}
                     </TableCell>
-                    <TableCell className="px-2 py-3 text-right">
+                    <TableCell className="px-2 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
                             <Button
                               type="button"
                               variant="ghost"
-                              size="icon-sm"
+                              size="icon"
                               aria-label={`More options for ${execution.workflowName}`}
                             />
                           }
@@ -615,7 +608,7 @@ function ExecutionsPage() {
           </Card>
           {isFirstPage && !hasMore ? null : (
             <div className="mt-4 flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Page {currentPageNumber} · {total} total
               </p>
               <Pagination className="mx-0 w-auto">

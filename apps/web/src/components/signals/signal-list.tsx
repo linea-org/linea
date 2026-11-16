@@ -39,10 +39,7 @@ export function SignalList({
             <ActivityIcon />
           </EmptyMedia>
           <EmptyTitle>No signals</EmptyTitle>
-          <EmptyDescription>
-            Recurring issues detected across this workflow's runs will show up
-            here.
-          </EmptyDescription>
+          <EmptyDescription>Recurring issues show up here.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -72,26 +69,26 @@ export function SignalList({
         </TableHeader>
         <TableBody>
           {signals.map((signal) => (
-            <TableRow key={signal.id} className="hover:bg-muted/40">
-              <TableCell className="px-4 py-3">
+            <TableRow key={signal.id}>
+              <TableCell className="px-4">
                 <Link
                   to="/w/$slug/workflows/$workflowId/signals/$signalId"
                   params={{ slug, workflowId, signalId: signal.id }}
-                  className="text-xs font-medium"
+                  className="text-sm font-medium"
                 >
                   {flagTypeLabel[signal.flagType] ?? signal.flagType}
                 </Link>
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground">
+              <TableCell className="px-4 text-muted-foreground">
                 {signal.nodeId ?? "—"}
               </TableCell>
-              <TableCell className="px-4 py-3">
+              <TableCell className="px-4">
                 <SignalStatusBadge status={signal.status} />
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+              <TableCell className="px-4 text-muted-foreground tabular-nums">
                 {signal.occurrenceCount}
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+              <TableCell className="px-4 text-muted-foreground tabular-nums">
                 {new Date(signal.lastFlaggedAt).toLocaleString()}
               </TableCell>
             </TableRow>

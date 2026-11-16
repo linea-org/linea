@@ -203,7 +203,7 @@ export function NodeConfigPanel({
           aria-invalid={invalid || undefined}
           className={
             isJsonWidget(field.widget)
-              ? "field-sizing-fixed font-mono text-xs"
+              ? "field-sizing-fixed font-mono text-sm"
               : undefined
           }
           placeholder={isJsonWidget(field.widget) ? "{}" : undefined}
@@ -222,13 +222,13 @@ export function NodeConfigPanel({
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
           {title}
         </p>
         <Button
           type="button"
           variant="ghost"
-          size="icon-xs"
+          size="icon-sm"
           onClick={onClose}
           aria-label="Close panel"
         >

@@ -20,12 +20,17 @@ const resolveApiKey = jest.fn() as jest.Mock<
 const calculateCostMicros = jest.fn(() => 7n)
 
 jest.mock("@linea/ai", () => ({
+  DEFAULT_JUDGE_MODEL_CANDIDATES: Object.keys(keyNameByModel),
   resolveProvider,
   resolveKeyName,
   resolveApiKey,
   calculateCostMicros,
 }))
-jest.mock("@linea/db", () => ({ db: {} }))
+const getOrCreateWorkspaceSettings = jest.fn()
+jest.mock("@linea/db", () => ({
+  db: {},
+  repositories: { workspaceSettings: { getOrCreateWorkspaceSettings } },
+}))
 
 import { evaluateAssertion, gradeOutput } from "./regression-grading"
 
@@ -35,6 +40,7 @@ beforeEach(() => {
   complete.mockReset()
   resolveApiKey.mockReset()
   resolveApiKey.mockResolvedValue({ apiKey: "secret" })
+  getOrCreateWorkspaceSettings.mockResolvedValue({ judgeModel: null })
 })
 
 describe("evaluateAssertion", () => {
@@ -225,6 +231,21 @@ describe("evaluateAssertion", () => {
     ]
     expect(apiKeyArg).toBe("groq-secret")
     expect(requestArg.model).toBe("openai/gpt-oss-20b")
+  })
+
+  it("llm_judge uses the workspace's grading model and does not fall through", async () => {
+    getOrCreateWorkspaceSettings.mockResolvedValue({ judgeModel: "gpt-5-mini" })
+    resolveApiKey.mockRejectedValue(new Error("No key configured"))
+
+    const result = await evaluateAssertion(
+      scope,
+      { text: "content" },
+      { type: "llm_judge", config: { rubric: "anything" } }
+    )
+
+    expect(result.passed).toBe(false)
+    expect(result.detail).toContain("tried gpt-5-mini:")
+    expect(resolveApiKey).toHaveBeenCalledTimes(1)
   })
 
   it("llm_judge fails gracefully with a clear detail, without throwing, when no default candidate's key is configured", async () => {

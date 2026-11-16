@@ -32,14 +32,14 @@ export function AgentReadinessPanel({
       aria-label="Readiness"
       className="border-t border-border px-5 py-4"
     >
-      <h4 className="text-xs font-medium">Readiness</h4>
+      <h4 className="text-sm font-medium">Readiness</h4>
       {failed ? (
-        <p role="alert" className="mt-2 text-xs text-destructive">
+        <p role="alert" className="mt-2 text-sm text-destructive">
           Could not check readiness: {failed.message}
         </p>
       ) : null}
       {!failed && !(catalog.data && connections.data) ? (
-        <p className="mt-2 text-xs text-muted-foreground">Checking…</p>
+        <p className="mt-2 text-sm text-muted-foreground">Checking…</p>
       ) : null}
       {!failed && catalog.data && connections.data ? (
         <ul className="mt-2 flex flex-col gap-2">
@@ -50,7 +50,7 @@ export function AgentReadinessPanel({
             operations: catalog.data.operations,
             connections: connections.data,
           }).map((item) => (
-            <li key={item.key} className="flex items-start gap-2 text-xs">
+            <li key={item.key} className="flex items-start gap-2 text-sm">
               {item.ready ? (
                 <CircleCheckIcon className="mt-0.5 size-3.5 text-muted-foreground" />
               ) : (

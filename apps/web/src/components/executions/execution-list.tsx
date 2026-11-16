@@ -123,42 +123,42 @@ export function ExecutionList({
         </TableHeader>
         <TableBody>
           {executions.map((execution) => (
-            <TableRow key={execution.id} className="hover:bg-muted/40">
-              <TableCell className="px-4 py-3">
+            <TableRow key={execution.id}>
+              <TableCell className="px-4">
                 <Link
                   to="/w/$slug/workflows/$workflowId/executions/$executionId"
                   params={{ slug, workflowId, executionId: execution.id }}
-                  className="font-mono text-xs font-medium"
+                  className="font-mono text-sm font-medium"
                 >
                   {execution.id}
                 </Link>
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground">
+              <TableCell className="px-4 text-muted-foreground">
                 {environmentLabel[execution.environment]}
               </TableCell>
-              <TableCell className="px-4 py-3">
+              <TableCell className="px-4">
                 <ExecutionStatusBadge status={execution.status} />
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground">
+              <TableCell className="px-4 text-muted-foreground">
                 {triggerLabel[execution.trigger]}
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground">
+              <TableCell className="px-4 text-muted-foreground">
                 {formatDuration(execution.startedAt, execution.completedAt)}
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground">
+              <TableCell className="px-4 text-muted-foreground">
                 {formatCost(execution.costMicros, execution.costUnpriced)}
               </TableCell>
-              <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+              <TableCell className="px-4 text-muted-foreground tabular-nums">
                 {new Date(execution.createdAt).toLocaleString()}
               </TableCell>
-              <TableCell className="px-2 py-3 text-right">
+              <TableCell className="px-2 text-right">
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon-sm"
+                        size="icon"
                         aria-label={`More options for execution ${execution.id}`}
                       />
                     }

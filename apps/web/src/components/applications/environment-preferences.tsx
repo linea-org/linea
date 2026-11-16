@@ -74,21 +74,20 @@ export function EnvironmentPreferences({
         </Field>
         <Button
           type="submit"
-          size="xs"
           className="self-start"
           disabled={retention.isPending}
         >
           Save retention
         </Button>
         {retention.isSuccess && (
-          <output className="block text-xs text-muted-foreground">
+          <output className="block text-sm text-muted-foreground">
             Retention saved.
           </output>
         )}
       </form>
       <div className="flex flex-col gap-3 border-t pt-4">
-        <h3 className="text-sm font-medium">Disable Environment</h3>
-        <p className="text-xs text-muted-foreground">
+        <h3 className="text-base font-medium">Disable Environment</h3>
+        <p className="text-sm text-muted-foreground">
           Disabling this Environment revokes its active user sessions.
         </p>
         <AlertDialog>
@@ -96,7 +95,6 @@ export function EnvironmentPreferences({
             render={
               <Button
                 variant="destructive"
-                size="xs"
                 className="self-start"
                 disabled={!environment.enabled || disable.isPending}
               />
@@ -108,8 +106,7 @@ export function EnvironmentPreferences({
             <AlertDialogHeader>
               <AlertDialogTitle>Disable this Environment?</AlertDialogTitle>
               <AlertDialogDescription>
-                Active user sessions will be revoked. Other Environments are not
-                affected.
+                Active sessions will be signed out.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -122,11 +119,11 @@ export function EnvironmentPreferences({
         </AlertDialog>
       </div>
       {(retention.error || disable.error) && (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-sm text-destructive">
           {retention.error?.message ?? disable.error?.message}
         </p>
       )}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Environment ID: <code className="break-all">{environment.id}</code>
       </p>
     </div>

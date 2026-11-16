@@ -1,4 +1,4 @@
-import { SparklesIcon } from "lucide-react"
+import { WorkflowIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
 import { Spinner } from "@linea/ui/components/spinner"
@@ -11,16 +11,15 @@ export function StartStarterWorkflowButton({ slug }: { slug: string }) {
   return (
     <div className="flex items-center gap-2">
       {create.isError && (
-        <p className="text-xs text-destructive">{create.error.message}</p>
+        <p className="text-sm text-destructive">{create.error.message}</p>
       )}
       <Button
-        size="xs"
         variant="outline"
         disabled={create.isPending}
         onClick={() => create.mutate("chat-assistant")}
       >
-        {create.isPending ? <Spinner /> : <SparklesIcon />}
-        Start from a starter workflow
+        {create.isPending ? <Spinner /> : <WorkflowIcon />}
+        Starter workflow
       </Button>
     </div>
   )

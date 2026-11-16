@@ -18,7 +18,7 @@ export function ProposalRunResult({
 }) {
   if (!detail) {
     return (
-      <p className="flex items-center gap-2 text-xs text-muted-foreground">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <Spinner className="size-3.5" />
         Starting…
       </p>
@@ -27,7 +27,7 @@ export function ProposalRunResult({
   const summary = summarizeRun(detail)
   const status = executionStatusDefinition[detail.execution.status]
   return (
-    <div className="flex flex-col gap-2 text-xs">
+    <div className="flex flex-col gap-2 text-sm">
       <div className="flex items-center gap-2">
         <Badge variant={status.variant}>{status.label}</Badge>
         <span className="min-w-0 flex-1 truncate text-muted-foreground">

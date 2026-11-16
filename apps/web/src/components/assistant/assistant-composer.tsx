@@ -44,9 +44,7 @@ function ToolsMenu({ options }: { options: ComposerOptions }) {
   return (
     <Popover>
       <PopoverTrigger
-        render={
-          <Button type="button" variant="ghost" size="xs" aria-label="Tools" />
-        }
+        render={<Button type="button" variant="ghost" aria-label="Tools" />}
       >
         <WrenchIcon />
         Tools
@@ -54,7 +52,7 @@ function ToolsMenu({ options }: { options: ComposerOptions }) {
       </PopoverTrigger>
       <PopoverContent align="start" className="w-56">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-medium">Browse the web</p>
+          <p className="text-sm font-medium">Browse the web</p>
           <Switch
             checked={options.web}
             onCheckedChange={options.onWebChange}
@@ -80,7 +78,6 @@ function ModelMenu({ options }: { options: ComposerOptions }) {
           <Button
             type="button"
             variant="ghost"
-            size="xs"
             disabled={options.models.length === 0}
             aria-label="Model"
           />
@@ -166,7 +163,7 @@ export function AssistantComposer({
   }
   return (
     <div className={cn(!hero && "px-4 pb-4")}>
-      <InputGroup className="mx-auto max-w-[720px] rounded-2xl shadow-sm">
+      <InputGroup className="mx-auto max-w-3xl rounded-2xl shadow-sm">
         {options.attachments.length > 0 ? (
           <InputGroupAddon align="block-start" className="flex-wrap gap-1.5">
             {options.attachments.map((file) => (
@@ -206,7 +203,7 @@ export function AssistantComposer({
           placeholder={placeholder}
           rows={hero ? 3 : 2}
           autoFocus={hero}
-          className={cn("max-h-60", hero ? "min-h-24 text-sm" : "min-h-12")}
+          className={cn("max-h-60", hero ? "min-h-24 text-base" : "min-h-12")}
         />
         <InputGroupAddon align="block-end">
           <input
@@ -245,7 +242,7 @@ export function AssistantComposer({
         </InputGroupAddon>
       </InputGroup>
       {problems.length > 0 ? (
-        <p className="mx-auto mt-2 max-w-[720px] text-xs text-destructive">
+        <p className="mx-auto mt-2 max-w-3xl text-sm text-destructive">
           {problems.join(" · ")}
         </p>
       ) : null}

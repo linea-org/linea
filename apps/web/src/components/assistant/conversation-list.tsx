@@ -103,26 +103,9 @@ function EndOfList({ onReach }: { onReach: () => void }) {
   return <li ref={ref} aria-hidden className="h-px" />
 }
 
-/** True once the element has scrolled out of the top of its scroller. */
-function useScrolledPast() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [past, setPast] = useState(false)
-  useEffect(() => {
-    const node = ref.current
-    if (!node) return
-    const observer = new IntersectionObserver(([entry]) =>
-      setPast(!entry.isIntersecting)
-    )
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [])
-  return { ref, past }
-}
-
 function Section({
   label,
   labelClassName,
-  bordered,
   open,
   onOpenChange,
   conversations,
@@ -131,24 +114,23 @@ function Section({
 }: {
   label: string | null
   labelClassName: string
-  // A top border while the heading rests; it goes once the heading sticks to the top.
-  bordered: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
   conversations: ConversationListItem[]
   handlers: Handlers
   end?: ReactNode
 }) {
-  const { ref, past } = useScrolledPast()
   return (
-    <Collapsible open={open} onOpenChange={onOpenChange}>
-      <div ref={ref} aria-hidden className="h-px" />
+    <Collapsible
+      open={open}
+      onOpenChange={onOpenChange}
+      className="flex flex-col"
+    >
       {label ? (
         <SidebarGroupLabel
           render={<CollapsibleTrigger />}
           className={cn(
-            bordered && !past && "border-t",
-            "group/heading sticky top-0 z-10 -mx-1 w-[calc(100%+0.5rem)] cursor-pointer justify-between rounded-none border-b border-sidebar-border px-3 after:pointer-events-none after:absolute after:inset-x-0 after:top-[calc(100%+1px)] after:h-2 after:bg-linear-to-b after:to-transparent",
+            "group/heading sticky top-0 z-10 -mx-1 cursor-pointer justify-between rounded-none px-3 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-2 after:bg-linear-to-b after:to-transparent",
             labelClassName
           )}
         >
@@ -195,7 +177,6 @@ export function ConversationList({
       {pinned.length > 0 ? (
         <Section
           label="Pinned"
-          bordered={false}
           open={pinnedOpen}
           onOpenChange={setPinnedOpen}
           labelClassName={labelClassName}
@@ -206,7 +187,6 @@ export function ConversationList({
       {recent.length > 0 ? (
         <Section
           label={pinned.length > 0 ? "Recent" : null}
-          bordered={pinnedOpen}
           open={recentOpen}
           onOpenChange={setRecentOpen}
           labelClassName={labelClassName}

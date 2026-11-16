@@ -1,12 +1,12 @@
-import { BellIcon, ChevronRightIcon, MailOpenIcon } from "lucide-react"
+import { BellIcon, CheckCheckIcon, ChevronRightIcon } from "lucide-react"
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 
+import { Badge } from "@linea/ui/components/badge"
 import { Button, buttonVariants } from "@linea/ui/components/button"
 import {
   Empty,
-  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
@@ -16,6 +16,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@linea/ui/components/popover"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@linea/ui/components/tooltip"
 import { cn } from "@linea/ui/lib/utils"
 
 import { NotificationRow } from "../notifications"
@@ -28,6 +33,7 @@ import {
   notificationsQueryOptions,
   unreadNotificationCountQueryOptions,
 } from "@/lib/notifications-api"
+import { ListSkeleton } from "./list-skeleton"
 
 export function TopBarNotifications({ slug }: { slug: string }) {
   const queryClient = useQueryClient()
@@ -66,7 +72,7 @@ export function TopBarNotifications({ slug }: { slug: string }) {
       <div className="relative">
         <PopoverTrigger
           className={cn(
-            buttonVariants({ variant: "ghost", size: "icon-xs" }),
+            buttonVariants({ variant: "ghost", size: "icon-sm" }),
             "rounded-md [&_svg]:size-3"
           )}
           aria-label={
@@ -78,7 +84,7 @@ export function TopBarNotifications({ slug }: { slug: string }) {
           <BellIcon />
         </PopoverTrigger>
         {unreadCount > 0 ? (
-          <span className="pointer-events-none absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-medium text-primary-foreground">
+          <span className="pointer-events-none absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-xs font-medium text-primary-foreground">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         ) : null}
@@ -87,50 +93,49 @@ export function TopBarNotifications({ slug }: { slug: string }) {
         side="right"
         align="end"
         sideOffset={8}
-        className="w-[28rem] gap-0 overflow-hidden rounded-xl p-0"
+        className="w-80 gap-0 overflow-hidden rounded-xl p-0"
       >
-        <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
-          <BellIcon
-            className="size-4 shrink-0 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-foreground">Notifications</p>
-            {unreadCount > 0 ? (
-              <p className="text-xs text-muted-foreground">
-                {unreadCount} unread
-              </p>
-            ) : null}
-          </div>
+        <div className="flex h-11 items-center gap-2 border-b pr-1.5 pl-3">
+          <p className="text-sm font-medium text-foreground">Notifications</p>
           {unreadCount > 0 ? (
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => markAllRead.mutate()}
-              disabled={markAllRead.isPending}
-            >
-              <MailOpenIcon />
-              Mark all read
-            </Button>
+            <Badge variant="secondary">{unreadCount}</Badge>
+          ) : null}
+          {unreadCount > 0 ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="ml-auto text-muted-foreground"
+                    aria-label="Mark all read"
+                    onClick={() => markAllRead.mutate()}
+                    disabled={markAllRead.isPending}
+                  />
+                }
+              >
+                <CheckCheckIcon />
+              </TooltipTrigger>
+              <TooltipContent>Mark all read</TooltipContent>
+            </Tooltip>
           ) : null}
         </div>
         <div className="max-h-80 overflow-auto">
           {notificationsQuery.isPending ? (
-            <p className="px-4 py-6 text-xs text-muted-foreground">Loading…</p>
+            <ListSkeleton className="p-2" />
           ) : notifications.length === 0 ? (
             <Empty className="min-h-0 rounded-none border-0 bg-transparent py-8 sm:p-8">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <BellIcon />
                 </EmptyMedia>
-                <EmptyTitle className="text-xs">
+                <EmptyTitle className="text-sm">
                   You&apos;re all caught up
                 </EmptyTitle>
-                <EmptyDescription>No new notifications.</EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : (
-            <div className="divide-y divide-border">
+            <div className="divide-y">
               {notifications.map((notification) => (
                 <NotificationRow
                   key={notification.id}
@@ -152,10 +157,10 @@ export function TopBarNotifications({ slug }: { slug: string }) {
           onClick={() => setOpen(false)}
           className={cn(
             buttonVariants({ variant: "ghost", size: "sm" }),
-            "w-full rounded-none border-t border-border"
+            "w-full rounded-none border-t text-muted-foreground"
           )}
         >
-          See all
+          All notifications
           <ChevronRightIcon />
         </Link>
       </PopoverContent>

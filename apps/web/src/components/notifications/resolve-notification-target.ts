@@ -11,6 +11,7 @@ export type NotificationTarget =
   | { kind: "workflows"; label: string }
   | { kind: "members"; label: string }
   | { kind: "settings"; label: string }
+  | { kind: "templates"; label: string }
 
 function metaString(
   meta: NonNullable<NotificationSummary["metadata"]>,
@@ -55,6 +56,10 @@ export function resolveNotificationTarget(
     case "workspace.member_removed":
     case "workspace.role_changed":
       return { kind: "members", label: "View members" }
+    case "template.hidden":
+    case "template.appeal_upheld":
+    case "template.appeal_rejected":
+      return { kind: "templates", label: "View templates" }
     case "workspace.transferred":
       return { kind: "settings", label: "View settings" }
     case "account.login_detected":

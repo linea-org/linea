@@ -131,12 +131,12 @@ export function AssistantSectionNav({ slug }: Readonly<{ slug: string }>) {
             disabled={remove.isPending}
           />
           {error ? (
-            <p className="px-2 py-2 text-xs text-destructive">
+            <p className="px-2 py-2 text-sm text-destructive">
               {error.message}
             </p>
           ) : null}
           {remove.isError ? (
-            <p className="px-2 py-2 text-xs text-destructive">
+            <p className="px-2 py-2 text-sm text-destructive">
               {remove.error.message}
             </p>
           ) : null}

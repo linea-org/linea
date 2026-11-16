@@ -122,11 +122,11 @@ export function EnvironmentDeploymentForm({
             {flag.label}
           </Label>
         ))}
-        <Button type="submit" size="xs" disabled={!enabled || deploy.isPending}>
+        <Button type="submit" disabled={!enabled || deploy.isPending}>
           Save deployment
         </Button>
       </form>
-      {error && <p className="text-xs text-destructive">{error.message}</p>}
+      {error && <p className="text-sm text-destructive">{error.message}</p>}
     </section>
   )
 }

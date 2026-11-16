@@ -25,7 +25,7 @@ function SecretsPage() {
           <Link
             to="/w/$slug/applications"
             params={{ slug }}
-            className={buttonVariants({ size: "xs" })}
+            className={buttonVariants({ size: "sm" })}
           >
             Open Applications
           </Link>
@@ -38,8 +38,7 @@ function SecretsPage() {
           </EmptyMedia>
           <EmptyTitle>Environment secrets</EmptyTitle>
           <EmptyDescription>
-            Manage provider keys inside an Application’s Development or
-            Production environment.
+            Keys live in each Application’s environments.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>

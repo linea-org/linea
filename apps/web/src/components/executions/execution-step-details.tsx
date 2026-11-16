@@ -41,7 +41,7 @@ function StepPayload({
 }>) {
   return (
     <section className="flex min-w-0 flex-col gap-3">
-      <h3 className="text-xs font-medium">{label}</h3>
+      <h3 className="text-sm font-medium">{label}</h3>
       <PayloadBody label={label} value={value} />
     </section>
   )
@@ -53,27 +53,27 @@ function PayloadBody({
 }: Readonly<{ label: string; value: JsonValue | null }>) {
   if (value === null)
     return (
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         No {label.toLowerCase()} recorded.
       </p>
     )
   if (!isJsonObject(value))
     return (
-      <pre className="max-h-64 overflow-auto rounded-lg border px-3 py-2 font-mono text-xs whitespace-pre-wrap">
+      <pre className="max-h-64 overflow-auto rounded-lg border px-3 py-2 font-mono text-sm whitespace-pre-wrap">
         {formatJson(value)}
       </pre>
     )
   const entries = Object.entries(value)
   if (entries.length === 0)
-    return <p className="text-xs text-muted-foreground">Empty object.</p>
+    return <p className="text-sm text-muted-foreground">Empty object.</p>
   return (
     <dl className="divide-y rounded-lg border">
       {entries.map(([key, entry]) => (
         <div key={key} className="min-w-0 px-3 py-2">
-          <dt className="mb-1 font-mono text-xs text-muted-foreground">
+          <dt className="mb-1 font-mono text-sm text-muted-foreground">
             {key}
           </dt>
-          <dd className="max-h-64 overflow-auto text-xs break-words whitespace-pre-wrap">
+          <dd className="max-h-64 overflow-auto text-sm break-words whitespace-pre-wrap">
             {typeof entry === "string" ? (
               entry
             ) : (
@@ -130,13 +130,13 @@ export function ExecutionStepDetails({
           ) : null}
         </span>
         <div className="min-w-0">
-          <h2 className="truncate text-xs font-medium">{title}</h2>
-          <p className="truncate text-xs text-muted-foreground">
+          <h2 className="truncate text-sm font-medium">{title}</h2>
+          <p className="truncate text-sm text-muted-foreground">
             {step.nodeId}
             {model ? ` · ${model}` : ""}
           </p>
         </div>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-muted-foreground">
           <Badge variant={stepStatusVariant[step.status]}>
             {stepStatusLabel[step.status]}
           </Badge>
@@ -153,7 +153,7 @@ export function ExecutionStepDetails({
         </div>
       </div>
       {resumedAt && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Resumed {hydrated ? new Date(resumedAt).toLocaleString() : resumedAt}
         </p>
       )}
@@ -167,7 +167,7 @@ export function ExecutionStepDetails({
         </TabsList>
         <TabsContent value="overview" className="flex min-w-0 flex-col gap-4">
           {contentRestricted ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               This run handled an End User&apos;s data, so step input and output
               are visible to workspace admins and owners only.
             </p>
@@ -179,7 +179,7 @@ export function ExecutionStepDetails({
           )}
         </TabsContent>
         <TabsContent value="raw" className="min-w-0">
-          <pre className="max-h-96 overflow-auto rounded-lg bg-surface-canvas p-3 font-mono text-xs break-words whitespace-pre-wrap">
+          <pre className="max-h-96 overflow-auto rounded-lg bg-surface-canvas p-3 font-mono text-sm break-words whitespace-pre-wrap">
             {JSON.stringify(step, null, 2)}
           </pre>
         </TabsContent>
@@ -194,7 +194,7 @@ export function ExecutionStepDetails({
           />
         )}
         {step.name === "agent" && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Run Agent steps can't be replayed or saved as regression cases.
             Start a new Workflow run to try again.
           </p>

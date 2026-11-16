@@ -1,7 +1,7 @@
 import { nodeRegistry } from '@linea/runtime'
 import { ASSISTANT_NODE_TYPES, type AssistantNodeType } from './assistant-nodes'
 
-export const ASSISTANT_NAME = 'Weaver'
+export const ASSISTANT_NAME = 'Inky'
 
 const RULES = `Graph format:
 {"version": 1, "trigger": {"type": "manual"}, "entryNodeId": "start", "nodes": [{"id": "start", "type": "start", "config": {"triggerType": "manual"}}], "edges": [{"from": "start", "to": "next"}]}

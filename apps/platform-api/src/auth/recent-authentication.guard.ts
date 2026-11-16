@@ -4,16 +4,23 @@ import {
   type CanActivate,
   type ExecutionContext,
 } from '@nestjs/common'
-import { RECENT_AUTHENTICATION_WINDOW_SECONDS } from '@linea/auth/session-policy'
+import {
+  RECENT_AUTHENTICATION_REQUIRED,
+  RECENT_AUTHENTICATION_WINDOW_SECONDS,
+} from '@linea/auth/session-policy'
 import type { AuthenticatedRequest } from './workspace-auth.guard'
 
+/** A sign-in or an authenticator-code check within the window both count as recent. */
 export function hasRecentAuthentication(
-  createdAt: Date | undefined,
+  session: { createdAt?: Date; stepUpAt?: Date | null } | undefined,
   now: Date,
 ): boolean {
-  if (!createdAt) return false
+  const times = [session?.createdAt, session?.stepUpAt]
+    .filter((time): time is Date => time instanceof Date)
+    .map((time) => time.getTime())
+  if (times.length === 0) return false
   return (
-    now.getTime() - createdAt.getTime() <
+    now.getTime() - Math.max(...times) <
     RECENT_AUTHENTICATION_WINDOW_SECONDS * 1000
   )
 }
@@ -22,9 +29,12 @@ export function hasRecentAuthentication(
 export class RecentAuthenticationGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>()
-    const createdAt = request.session?.session?.createdAt
-    if (!hasRecentAuthentication(createdAt, new Date())) {
-      throw new ForbiddenException('Recent authentication is required')
+    if (!hasRecentAuthentication(request.session?.session, new Date())) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: RECENT_AUTHENTICATION_REQUIRED,
+        message: 'Confirm it’s you to continue',
+      })
     }
     return true
   }

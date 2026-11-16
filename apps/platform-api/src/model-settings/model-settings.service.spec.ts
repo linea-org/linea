@@ -53,6 +53,17 @@ describe('ModelSettingsService', () => {
     ).toBeNull()
   })
 
+  it('saves each task model without touching the others', async () => {
+    const service = new ModelSettingsService()
+    const id = await workspaceId()
+    await service.update(id, { defaultModel: 'gpt-5' })
+    const settings = await service.update(id, { judgeModel: 'gpt-5-mini' })
+    expect(settings.defaultModel).toBe('gpt-5')
+    expect(settings.judgeModel).toBe('gpt-5-mini')
+    expect(settings.behaviourModel).toBeNull()
+    expect(settings.stepModel).toBeNull()
+  })
+
   it('rejects a model that is not registered', async () => {
     await expect(
       new ModelSettingsService().update(await workspaceId(), {

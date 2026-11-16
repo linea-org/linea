@@ -153,10 +153,10 @@ export function WorkspaceSwitcher({
                         className="size-8"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-xs font-medium">
+                        <span className="block truncate text-sm font-medium">
                           {workspace.name}
                         </span>
-                        <span className="block truncate text-xs text-muted-foreground">
+                        <span className="block truncate text-sm text-muted-foreground">
                           {pending ? "Opening…" : workspace.slug}
                         </span>
                       </span>
@@ -167,14 +167,14 @@ export function WorkspaceSwitcher({
                   )
                 })}
                 {error ? (
-                  <p className="px-2 py-1.5 text-xs text-destructive">
+                  <p className="px-2 py-1.5 text-sm text-destructive">
                     {error}
                   </p>
                 ) : null}
               </div>
             ) : null}
             {visible.length === 0 ? (
-              <p className="px-8 py-10 text-center text-xs text-muted-foreground">
+              <p className="px-8 py-10 text-center text-sm text-muted-foreground">
                 No workspaces match that search.
               </p>
             ) : null}
@@ -182,7 +182,7 @@ export function WorkspaceSwitcher({
           <div className="border-t border-border/70 p-2">
             <button
               type="button"
-              className="flex w-full items-center justify-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium hover:bg-muted/40"
+              className="flex w-full items-center justify-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium hover:bg-muted/40"
               onClick={() => {
                 setOpen(false)
                 setCreateOpen(true)

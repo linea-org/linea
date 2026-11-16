@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { redirect } from "@tanstack/react-router"
 
 import type { SessionData } from "./auth-client"
@@ -97,3 +98,10 @@ export function slugify(value: string) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 48)
 }
+
+/** Only same-origin paths, so a crafted sign-in link can't send someone to another site. */
+export const safeRedirectSchema = z
+  .string()
+  .refine((path) => path.startsWith("/") && !path.startsWith("//"))
+  .optional()
+  .catch(undefined)

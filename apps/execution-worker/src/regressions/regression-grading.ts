@@ -3,22 +3,15 @@ import {
   resolveApiKey,
   resolveKeyName,
   resolveProvider,
+  DEFAULT_JUDGE_MODEL_CANDIDATES,
   type ToolDefinition,
 } from "@linea/ai"
-import { db } from "@linea/db"
+import { db, repositories } from "@linea/db"
 import {
   evaluateRuleMetric,
   type EvaluationSample,
 } from "../evaluation/evaluation-engine.js"
 import { getPath } from "../graph/nodes/dot-path.js"
-
-// BYOK workspaces may configure only one provider, so the first keyed candidate wins.
-const DEFAULT_JUDGE_MODEL_CANDIDATES = [
-  "claude-haiku-4-5-20251001",
-  "gpt-5-mini",
-  "openai/gpt-oss-20b",
-  "grok-4.5",
-]
 
 export type Assertion = { type: string; config: Record<string, unknown> }
 
@@ -96,15 +89,20 @@ const JUDGE_TOOL: ToolDefinition = {
   },
 }
 
-// An explicit model is required; only implicit selection may fall through to another provider.
+// A model set on the check or the workspace must work; only the built-in list falls through.
 export type GradingScope = { workspaceId: string; environmentId: string }
 
 async function resolveJudgeModelAndKey(
   scope: GradingScope,
   config: Record<string, unknown>
 ): Promise<{ model: string; apiKey: string }> {
+  const { judgeModel } =
+    await repositories.workspaceSettings.getOrCreateWorkspaceSettings(
+      db,
+      scope.workspaceId
+    )
   const explicitModel =
-    typeof config.model === "string" ? config.model : undefined
+    typeof config.model === "string" ? config.model : judgeModel
   const candidates = explicitModel
     ? [explicitModel]
     : DEFAULT_JUDGE_MODEL_CANDIDATES

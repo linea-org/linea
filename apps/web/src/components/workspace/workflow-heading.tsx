@@ -48,15 +48,15 @@ export function WorkflowHeading({
     <div className="flex min-w-0 items-center gap-2">
       <WorkflowStatusBadge
         workflow={workflow}
-        className="h-4 px-2 text-[10px] leading-none"
+        className="h-4 px-2 text-xs leading-none"
       />
       <div className="flex min-w-0 items-center gap-1">
-        <h1 className="max-w-48 truncate text-sm font-medium text-foreground">
+        <h1 className="max-w-48 truncate text-base font-medium text-foreground">
           {workflow.name}
         </h1>
         <button
           type="button"
-          className="min-w-0 truncate rounded-sm font-mono text-[0.75rem] leading-none text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="min-w-0 truncate rounded-sm font-mono text-xs leading-none text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
           title={workflow.slug}
           aria-label={slugNotice ?? "Copy slug"}
           onClick={() => {
@@ -77,7 +77,7 @@ export function WorkflowHeading({
                 ? `${workflow.description} ${updated}`
                 : updated
             }
-            render={<Button type="button" variant="ghost" size="icon-xs" />}
+            render={<Button type="button" variant="ghost" size="icon-sm" />}
           >
             <InfoIcon />
           </TooltipTrigger>

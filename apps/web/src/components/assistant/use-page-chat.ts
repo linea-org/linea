@@ -12,7 +12,7 @@ import { toChatMessages, useAssistantChat } from "./use-assistant-chat"
 import type { useComposerOptions } from "./use-composer-options"
 
 /** The general chat: kept in step with the chat named in the address and the saved list. */
-export function useWeaverChat({
+export function usePageChat({
   slug,
   conversationId,
   options,
@@ -33,7 +33,7 @@ export function useWeaverChat({
       data: {
         applicationId: application.id,
         ...input,
-        model: options.model?.value,
+        model: input.model ?? options.model?.value,
         tools: { web: options.web },
       },
     })

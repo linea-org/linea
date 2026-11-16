@@ -11,9 +11,9 @@ import {
   UseGuards,
 } from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
+import { providers } from '@linea/ai'
 import { db, repositories } from '@linea/db'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
-import { RecentAuthenticationGuard } from '../auth/recent-authentication.guard'
 import { RequireRole } from '../auth/require-role.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
@@ -30,7 +30,6 @@ import {
 export class ApplicationsController {
   @Post()
   @RequireRole('admin')
-  @UseGuards(RecentAuthenticationGuard)
   create(
     @CurrentWorkspaceId() workspaceId: string,
     @Body(new ZodValidationPipe(createApplicationSchema))
@@ -74,6 +73,16 @@ export class ApplicationsController {
   @RequireWorkspaceKeyScopes('applications:read')
   list(@CurrentWorkspaceId() workspaceId: string) {
     return repositories.application.listApplications(db, workspaceId)
+  }
+  // Declared before ':id' so "overview" is not parsed as an application id.
+  @Get('overview')
+  @RequireWorkspaceKeyScopes('applications:read')
+  overview(@CurrentWorkspaceId() workspaceId: string) {
+    return repositories.applicationOverview.listApplicationOverviews(
+      db,
+      workspaceId,
+      providers.map((provider) => provider.keyName),
+    )
   }
   @Get(':id')
   @RequireWorkspaceKeyScopes('applications:read')

@@ -24,6 +24,7 @@ import {
   authErrorMessage,
   requireGuest,
   resolvePostAuthPath,
+  safeRedirectSchema,
 } from "../lib/auth-redirect"
 
 const signInSchema = z.object({
@@ -39,6 +40,7 @@ export const Route = createFileRoute("/sign-in")({
     // Set only on the magic-link flow's own errorCallbackURL — distinguishes its error codes from
     // an OAuth failure that lands on this same page via a different errorCallbackURL.
     magicLink: z.string().optional(),
+    redirect: safeRedirectSchema,
   }),
   beforeLoad: async () => {
     await requireGuest()
@@ -53,6 +55,7 @@ function SignInPage() {
     email: emailFromInvite,
     error: errorFromLink,
     magicLink,
+    redirect,
   } = Route.useSearch()
   const [email, setEmail] = useState(emailFromInvite ?? "")
   const [password, setPassword] = useState("")
@@ -90,7 +93,7 @@ function SignInPage() {
     const callbackURL = invitationId
       ? `${window.location.origin}/accept-invitation/${invitationId}`
       : `${window.location.origin}/onboarding/workspace`
-    const { error: signInError } = await authClient.signIn.email({
+    const { data, error: signInError } = await authClient.signIn.email({
       email: parsed.data.email,
       password: parsed.data.password,
       callbackURL,
@@ -102,6 +105,11 @@ function SignInPage() {
       return
     }
 
+    if ("twoFactorRedirect" in data && data.twoFactorRedirect) {
+      await navigate({ to: "/two-factor", search: { invitationId, redirect } })
+      return
+    }
+
     if (invitationId) {
       await navigate({
         to: "/accept-invitation/$invitationId",
@@ -110,7 +118,7 @@ function SignInPage() {
       return
     }
 
-    await navigate({ to: await resolvePostAuthPath() })
+    await navigate({ to: redirect ?? (await resolvePostAuthPath()) })
   }
 
   return (
@@ -134,7 +142,7 @@ function SignInPage() {
         </>
       }
     >
-      <div className="space-y-5">
+      <div className="flex flex-col gap-6">
         {error ? (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
@@ -142,13 +150,14 @@ function SignInPage() {
         ) : null}
         <OAuthButtons
           invitationId={invitationId}
+          redirect={redirect}
           onError={(message) => setError(message)}
         />
         <form
           onSubmit={(event) => {
             void onSubmit(event)
           }}
-          className="space-y-5"
+          className="flex flex-col gap-6"
         >
           <FieldGroup>
             <Field data-invalid={!!fieldErrors.email || undefined}>
@@ -169,7 +178,7 @@ function SignInPage() {
                 <FieldLabel htmlFor="password">Password</FieldLabel>
                 <Link
                   to="/forgot-password"
-                  className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                 >
                   Forgot password?
                 </Link>
@@ -185,7 +194,7 @@ function SignInPage() {
               <FieldError>{fieldErrors.password}</FieldError>
             </Field>
           </FieldGroup>
-          <Button type="submit" className="w-full" disabled={pending} size="lg">
+          <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Signing in…" : "Sign in"}
           </Button>
         </form>

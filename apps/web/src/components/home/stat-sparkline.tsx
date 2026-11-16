@@ -1,12 +1,7 @@
 import { useId } from "react"
-import { Area, AreaChart, XAxis } from "recharts"
+import { Area, AreaChart } from "recharts"
 
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@linea/ui/components/chart"
+import { ChartContainer, type ChartConfig } from "@linea/ui/components/chart"
 
 const chartConfig = {
   count: { label: "Count", color: "var(--primary)" },
@@ -39,21 +34,6 @@ export function StatSparkline({
             />
           </linearGradient>
         </defs>
-        <XAxis dataKey="date" hide />
-        <ChartTooltip
-          cursor={false}
-          content={
-            <ChartTooltipContent
-              labelFormatter={(value) => {
-                if (typeof value !== "string") return String(value ?? "")
-                return new Date(`${value}T00:00:00`).toLocaleDateString(
-                  undefined,
-                  { month: "short", day: "numeric" }
-                )
-              }}
-            />
-          }
-        />
         <Area
           type="monotone"
           dataKey="count"
@@ -61,7 +41,7 @@ export function StatSparkline({
           fill={`url(#${gradientId})`}
           strokeWidth={1.75}
           dot={false}
-          activeDot={{ r: 3 }}
+          activeDot={false}
         />
       </AreaChart>
     </ChartContainer>

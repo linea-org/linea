@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 
 import { applicationsQueryOptions } from "@/lib/applications-api"
+import { ASSISTANT_NAME } from "@/lib/assistant-api"
 import { createWorkflowWithDraft } from "@/lib/create-workflow-with-draft"
 import { findOrCreateDefaultApplication } from "@/lib/default-application"
 import { workflowsQueryOptions } from "@/lib/workflows-api"
@@ -16,7 +17,7 @@ export function useCreateFromProposal(slug: string) {
       const application = await findOrCreateDefaultApplication()
       return createWorkflowWithDraft({
         applicationId: application.id,
-        name: proposal.title ?? "Weaver draft",
+        name: proposal.title ?? `${ASSISTANT_NAME} draft`,
         graph: proposal.raw,
       })
     },

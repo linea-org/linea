@@ -45,8 +45,8 @@ export function RecentExecutionsWidget({
       title="Recent executions"
       action={
         <Button
-          variant="secondary"
-          size="xs"
+          variant="ghost"
+          size="sm"
           nativeButton={false}
           render={<Link to="/w/$slug/executions" params={{ slug }} />}
         >
@@ -55,7 +55,7 @@ export function RecentExecutionsWidget({
       }
     >
       {executions.length === 0 ? (
-        <Empty className="flex-1 rounded-none border-0 bg-transparent">
+        <Empty className="min-h-40 flex-1 gap-3 rounded-none border-0 bg-transparent p-6 sm:p-6">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <HistoryIcon />
@@ -92,8 +92,8 @@ export function RecentExecutionsWidget({
           </TableHeader>
           <TableBody>
             {executions.map((execution) => (
-              <TableRow key={execution.id} className="hover:bg-muted/40">
-                <TableCell className="px-4 py-3">
+              <TableRow key={execution.id}>
+                <TableCell className="px-4">
                   <Link
                     to="/w/$slug/executions/$executionId"
                     params={{ slug, executionId: execution.id }}
@@ -102,31 +102,26 @@ export function RecentExecutionsWidget({
                     <PlayfulAvatar
                       name={execution.workflowName}
                       shape="rounded"
-                      className="size-8"
+                      className="size-6"
                     />
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-medium">
-                        {execution.workflowName}
-                      </span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {execution.workflowSlug}
-                      </span>
+                    <span className="truncate text-sm font-medium">
+                      {execution.workflowName}
                     </span>
                   </Link>
                 </TableCell>
-                <TableCell className="px-4 py-3">
+                <TableCell className="px-4">
                   <ExecutionStatusBadge status={execution.status} />
                 </TableCell>
-                <TableCell className="px-4 py-3 text-muted-foreground">
+                <TableCell className="px-4 text-muted-foreground">
                   {triggerLabel[execution.trigger]}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-muted-foreground">
+                <TableCell className="px-4 text-muted-foreground">
                   {formatDuration(execution.startedAt, execution.completedAt)}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-muted-foreground">
+                <TableCell className="px-4 text-muted-foreground">
                   {formatCost(execution.costMicros, execution.costUnpriced)}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-muted-foreground tabular-nums">
+                <TableCell className="px-4 text-muted-foreground tabular-nums">
                   {new Date(execution.createdAt).toLocaleString()}
                 </TableCell>
               </TableRow>

@@ -7,7 +7,7 @@ import { apiFetch, parseErrorMessage } from "./api-fetch"
 import type { Attachment } from "./attachments"
 import type { ExecutionSummary, JsonValue } from "./executions-api"
 
-export const ASSISTANT_NAME = "Weaver"
+export const ASSISTANT_NAME = "Inky"
 
 const assistantActionSchema = z.object({
   kind: z.literal("fetch"),

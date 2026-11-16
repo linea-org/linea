@@ -34,15 +34,12 @@ export function AgentOnboardingAdvanced({
       onValueChange={(value) => onOpenChange(value.length > 0)}
     >
       <AccordionItem value="advanced">
-        <AccordionTrigger>Advanced settings</AccordionTrigger>
+        <AccordionTrigger className="py-1">Advanced settings</AccordionTrigger>
         <AccordionContent keepMounted className="flex flex-col gap-4">
           <Field>
             <FieldLabel htmlFor="agent-identifier">Agent identifier</FieldLabel>
             <Input id="agent-identifier" {...register("slug")} />
-            <FieldDescription>
-              Generated from the name. You can change it before creating the
-              Agent.
-            </FieldDescription>
+            <FieldDescription>Generated from the name.</FieldDescription>
             <FieldError>{errors.slug?.message}</FieldError>
           </Field>
           {watch("application.kind") === "new" && (

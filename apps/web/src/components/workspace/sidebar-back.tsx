@@ -13,10 +13,10 @@ export function SidebarBack({ onBack }: Readonly<{ onBack: () => void }>) {
           size="sm"
           tooltip="Back in sidebar"
           aria-label="Back"
-          className="relative justify-center"
+          className="relative justify-center text-muted-foreground"
           onClick={onBack}
         >
-          <ArrowLeftIcon className="absolute left-2 group-data-[collapsible=icon]:static" />
+          <ArrowLeftIcon className="absolute left-2 group-hover/menu-button:-translate-x-0.5 group-data-[collapsible=icon]:static" />
           <span>Back</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
