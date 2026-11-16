@@ -1,6 +1,6 @@
 import { useRef, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { PencilIcon } from "lucide-react"
+import { CheckIcon, PencilIcon, XIcon } from "lucide-react"
 import { Button } from "@linea/ui/components/button"
 import { Input } from "@linea/ui/components/input"
 import {
@@ -63,7 +63,7 @@ export function WorkflowTitle({
   if (editing) {
     return (
       <form
-        className="hidden items-center gap-2 lg:flex"
+        className="hidden items-center gap-1 lg:flex"
         onSubmit={(event) => {
           event.preventDefault()
           commit()
@@ -90,6 +90,25 @@ export function WorkflowTitle({
           }}
           className="h-8 w-48"
         />
+        <Button
+          type="submit"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Save name"
+          disabled={rename.isPending}
+        >
+          <CheckIcon />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Cancel rename"
+          disabled={rename.isPending}
+          onClick={cancel}
+        >
+          <XIcon />
+        </Button>
         {rename.error ? (
           <span className="max-w-48 truncate text-sm text-destructive">
             {rename.error.message}
