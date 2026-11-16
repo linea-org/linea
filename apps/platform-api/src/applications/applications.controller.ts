@@ -76,7 +76,6 @@ export class ApplicationsController {
   }
   // Declared before ':id' so "overview" is not parsed as an application id.
   @Get('overview')
-  @RequireWorkspaceKeyScopes('applications:read')
   overview(@CurrentWorkspaceId() workspaceId: string) {
     return repositories.applicationOverview.listApplicationOverviews(
       db,
