@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { ActivityIcon, LayoutDashboardIcon, WorkflowIcon } from "lucide-react"
+import { ActivityIcon, LayoutDashboardIcon } from "lucide-react"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -34,23 +34,6 @@ export function WorkflowSectionNav({
     <SidebarGroup className="px-1 pt-1 pb-2 group-data-[collapsible=icon]:p-1">
       <SidebarGroupContent>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="sm"
-              tooltip="All workflows"
-              render={
-                <Link
-                  to="/w/$slug/workflows"
-                  params={{ slug }}
-                  search={{ status: undefined }}
-                  activeOptions={{ exact: true }}
-                />
-              }
-            >
-              <WorkflowIcon />
-              <span>All workflows</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="sm"
