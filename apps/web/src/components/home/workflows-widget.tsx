@@ -26,6 +26,9 @@ import {
 } from "@/lib/workflows-api"
 import { WorkflowFormDialog, WorkflowStatusBadge } from "../workflows"
 import { HomePanel } from "./home-panel"
+import { ViewMoreFooter } from "./view-more-footer"
+
+const HOME_LIMIT = 5
 
 export function WorkflowsWidget({
   slug,
@@ -34,7 +37,7 @@ export function WorkflowsWidget({
   slug: string
   workflows: WorkflowSummary[]
 }) {
-  const recent = workflows.slice(0, 6)
+  const recent = workflows.slice(0, HOME_LIMIT)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const createDialog = (
@@ -134,6 +137,10 @@ export function WorkflowsWidget({
           </TableBody>
         </Table>
       )}
+      <ViewMoreFooter
+        hidden={workflows.length - recent.length}
+        link={<Link to="/w/$slug/workflows" params={{ slug }} />}
+      />
     </HomePanel>
   )
 }

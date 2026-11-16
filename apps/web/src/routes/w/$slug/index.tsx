@@ -73,13 +73,14 @@ function WorkspaceHomePage() {
           executionTotal={executionsPage.total}
         />
       </div>
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <WorkflowsWidget slug={slug} workflows={workflows} />
         <OpenSignalsWidget slug={slug} signals={signals} />
         <div className="lg:col-span-2">
           <RecentExecutionsWidget
             slug={slug}
-            executions={executionsPage.executions.slice(0, 8)}
+            executions={executionsPage.executions}
+            total={executionsPage.total}
           />
         </div>
       </div>

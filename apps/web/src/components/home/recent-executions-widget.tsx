@@ -24,6 +24,7 @@ import type {
 } from "@/lib/executions-api"
 import { ExecutionStatusBadge, formatCost } from "../executions"
 import { HomePanel } from "./home-panel"
+import { ViewMoreFooter } from "./view-more-footer"
 import { formatDuration } from "@/lib/format"
 
 const triggerLabel: Record<ExecutionTrigger, string> = {
@@ -33,13 +34,18 @@ const triggerLabel: Record<ExecutionTrigger, string> = {
   api: "API",
 }
 
+const HOME_LIMIT = 5
+
 export function RecentExecutionsWidget({
   slug,
   executions,
+  total,
 }: {
   slug: string
   executions: WorkspaceExecutionSummary[]
+  total: number
 }) {
+  const shown = executions.slice(0, HOME_LIMIT)
   return (
     <HomePanel
       title="Recent executions"
@@ -54,7 +60,7 @@ export function RecentExecutionsWidget({
         </Button>
       }
     >
-      {executions.length === 0 ? (
+      {shown.length === 0 ? (
         <Empty className="min-h-40 flex-1 gap-3 rounded-none border-0 bg-transparent p-6 sm:p-6">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -91,7 +97,7 @@ export function RecentExecutionsWidget({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {executions.map((execution) => (
+            {shown.map((execution) => (
               <TableRow key={execution.id}>
                 <TableCell className="px-4">
                   <Link
@@ -129,6 +135,10 @@ export function RecentExecutionsWidget({
           </TableBody>
         </Table>
       )}
+      <ViewMoreFooter
+        hidden={total - shown.length}
+        link={<Link to="/w/$slug/executions" params={{ slug }} />}
+      />
     </HomePanel>
   )
 }
