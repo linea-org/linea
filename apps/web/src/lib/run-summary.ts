@@ -19,7 +19,7 @@ export function previewJson(value: JsonValue): string {
   return text.length > PREVIEW_LIMIT ? `${text.slice(0, PREVIEW_LIMIT)}…` : text
 }
 
-function isUnknownOutcome(message: string) {
+export function isUnknownOutcome(message: string) {
   return /outcome[ _]unknown|unknown outcome|outcome could not be reconciled/i.test(
     message
   )
@@ -92,7 +92,10 @@ export function summarizeRun(detail: ExecutionDetailResponse): RunSummary {
     case "failed": {
       const advice = failureAdvice(execution.error?.message)
       const completed = steps.filter(
-        (step) => step.status === "succeeded" && !step.isSystemEvent
+        (step) =>
+          step.status === "succeeded" &&
+          !step.isSystemEvent &&
+          step.name !== "start"
       ).length
       return {
         ...base,

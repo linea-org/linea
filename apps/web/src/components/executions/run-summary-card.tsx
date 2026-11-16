@@ -1,5 +1,13 @@
-import { summarizeRun, previewJson } from "@/lib/run-summary"
+import { useQuery } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
+
+import { buttonVariants } from "@linea/ui/components/button"
+
+import { chatMessagesQueryOptions } from "@/lib/chat-preview-api"
 import type { ExecutionDetailResponse } from "@/lib/execution-detail-schema"
+import { runFailureFix } from "@/lib/run-failure"
+import { isUnknownOutcome, previewJson, summarizeRun } from "@/lib/run-summary"
+import { ErrorCallout } from "./error-callout"
 
 function Field({
   label,
@@ -13,39 +21,106 @@ function Field({
   )
 }
 
-export function RunSummaryCard({
+function Sent({
+  slug,
   detail,
-}: Readonly<{ detail: ExecutionDetailResponse }>) {
+}: Readonly<{ slug: string; detail: ExecutionDetailResponse }>) {
+  const { execution } = detail
+  const payload = execution.triggerPayload ?? null
+  const chatMessageId =
+    typeof payload?.chatMessageId === "string" ? payload.chatMessageId : null
+  const conversationId =
+    typeof payload?.conversationId === "string" ? payload.conversationId : null
+  const { data: messages } = useQuery({
+    ...chatMessagesQueryOptions(
+      slug,
+      execution.workflowId ?? "",
+      execution.workflowId ? conversationId : null
+    ),
+  })
+  const sent = messages?.find((message) => message.id === chatMessageId)
+  if (sent)
+    return <p className="break-words whitespace-pre-wrap">{sent.content}</p>
+  if (!payload)
+    return <span className="text-muted-foreground">Nothing sent.</span>
+  return (
+    <details>
+      <summary className="cursor-pointer text-muted-foreground">
+        Show raw request
+      </summary>
+      <pre className="mt-1 max-h-32 overflow-auto font-mono break-words whitespace-pre-wrap">
+        {previewJson(payload)}
+      </pre>
+    </details>
+  )
+}
+
+function FailureCard({
+  slug,
+  detail,
+}: Readonly<{ slug: string; detail: ExecutionDetailResponse }>) {
   const summary = summarizeRun(detail)
+  const message = detail.execution.error?.message
+  const fix = message ? runFailureFix(message) : null
+  return (
+    <ErrorCallout
+      title={summary.outcome}
+      message={message ?? "The run stopped with an error."}
+      action={
+        fix ? (
+          <Link
+            to="/w/$slug/settings/models"
+            params={{ slug }}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            {fix.label}
+          </Link>
+        ) : null
+      }
+    />
+  )
+}
+
+export function RunSummaryCard({
+  slug,
+  detail,
+}: Readonly<{ slug: string; detail: ExecutionDetailResponse }>) {
+  const summary = summarizeRun(detail)
+  const failed = detail.execution.status === "failed"
+  const failureMessage = detail.execution.error?.message
   return (
     <section
       aria-label="Run summary"
       className="grid gap-4 border-b px-4 py-3 md:grid-cols-2"
     >
-      <dl className="contents">
-        <Field label="Requested">
-          {summary.request ? (
-            <pre className="max-h-32 overflow-auto font-mono break-words whitespace-pre-wrap">
-              {previewJson(summary.request)}
-            </pre>
-          ) : (
-            <span className="text-muted-foreground">No request recorded.</span>
-          )}
-        </Field>
-        <Field label="What happened">
-          <p className="font-medium">{summary.outcome}</p>
-          {summary.result !== null ? (
-            <pre className="mt-1 max-h-32 overflow-auto font-mono break-words whitespace-pre-wrap">
-              {previewJson(summary.result)}
-            </pre>
+      {failed ? (
+        <div className="md:col-span-2">
+          <FailureCard slug={slug} detail={detail} />
+          {failureMessage && isUnknownOutcome(failureMessage) ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {summary.nextAction}
+            </p>
           ) : null}
+        </div>
+      ) : null}
+      <dl className="contents">
+        <Field label="Sent">
+          <Sent slug={slug} detail={detail} />
         </Field>
-        <Field label="Needs attention">
-          {summary.attention ?? (
-            <span className="text-muted-foreground">Nothing right now.</span>
-          )}
-        </Field>
-        <Field label="Next">{summary.nextAction}</Field>
+        {failed ? null : (
+          <Field label="What happened">
+            <p className="font-medium">{summary.outcome}</p>
+            {summary.result !== null ? (
+              <pre className="mt-1 max-h-32 overflow-auto font-mono break-words whitespace-pre-wrap">
+                {previewJson(summary.result)}
+              </pre>
+            ) : null}
+          </Field>
+        )}
+        {summary.attention && !failed ? (
+          <Field label="Needs attention">{summary.attention}</Field>
+        ) : null}
+        {failed ? null : <Field label="Next">{summary.nextAction}</Field>}
       </dl>
     </section>
   )

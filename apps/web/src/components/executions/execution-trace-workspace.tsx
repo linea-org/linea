@@ -123,6 +123,11 @@ export function ExecutionTraceWorkspace({
           </SelectContent>
         </Select>
       </div>
+      {execution.status === "succeeded" || recorded.length > 2 ? (
+        <p className="border-b px-4 py-2 text-sm text-muted-foreground">
+          Each step shows what it received and what it returned.
+        </p>
+      ) : null}
       {pausedAtNode && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
           <p className="text-sm">
@@ -208,6 +213,7 @@ export function ExecutionTraceWorkspace({
                 replayable={detail.replayable}
                 contentRestricted={detail.traceContentRestricted}
                 resumedAt={resumedAtByStepId.get(selected.id)}
+                runErrorMessage={execution.error?.message}
                 onReplayTriggered={(stepId) => {
                   setStatus("all")
                   setSearch("")

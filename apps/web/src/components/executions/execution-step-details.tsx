@@ -96,6 +96,7 @@ export function ExecutionStepDetails({
   replayable,
   contentRestricted,
   resumedAt,
+  runErrorMessage,
   onReplayTriggered,
 }: Readonly<{
   executionId: string
@@ -105,6 +106,7 @@ export function ExecutionStepDetails({
   replayable: boolean
   contentRestricted: boolean
   resumedAt: string | undefined
+  runErrorMessage: string | undefined
   onReplayTriggered: (stepId: string) => void
 }>) {
   const hydrated = useHydrated()
@@ -157,9 +159,9 @@ export function ExecutionStepDetails({
           Resumed {hydrated ? new Date(resumedAt).toLocaleString() : resumedAt}
         </p>
       )}
-      {step.error && (
+      {step.error && step.error.message !== runErrorMessage ? (
         <ErrorCallout title="This step failed" message={step.error.message} />
-      )}
+      ) : null}
       <Tabs defaultValue="overview" className="min-w-0 gap-4">
         <TabsList className="h-8!">
           <TabsTrigger value="overview">Details</TabsTrigger>

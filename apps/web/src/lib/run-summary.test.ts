@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import type { ExecutionDetailResponse } from "./execution-detail-schema"
+import type {
+  ExecutionDetailResponse,
+  ExecutionStepSummary,
+} from "./execution-detail-schema"
 import { summarizeRun } from "./run-summary"
 
 function detail(
@@ -28,6 +31,36 @@ function detail(
     replayable: false,
     nestedAgents: [],
     traceContentRestricted: false,
+  }
+}
+
+function step(
+  name: string,
+  status: ExecutionStepSummary["status"]
+): ExecutionStepSummary {
+  return {
+    id: crypto.randomUUID(),
+    traceId: "t",
+    spanId: name,
+    parentSpanId: null,
+    name,
+    nodeId: name,
+    status,
+    startedAt: "2026-01-01T00:00:00Z",
+    endedAt: "2026-01-01T00:00:01Z",
+    sequence: 1,
+    attempt: 1,
+    input: null,
+    output: null,
+    error: null,
+    costMicros: "0",
+    attributes: null,
+    tokensInput: 0,
+    tokensOutput: 0,
+    model: null,
+    provider: null,
+    isSystemEvent: false,
+    replayedFromStepId: null,
   }
 }
 
@@ -99,5 +132,25 @@ describe("summarizeRun", () => {
     )
     expect(summary.outcome).toBe("The external result is unknown.")
     expect(summary.nextAction).toMatch(/will not repeat/)
+  })
+
+  it("does not claim work was done when only the Start step succeeded", () => {
+    const summary = summarizeRun({
+      ...detail({ status: "failed", error: { message: "boom" } }),
+      steps: [step("start", "succeeded"), step("llm", "failed")],
+    })
+    expect(summary.outcome).toBe("The run failed.")
+  })
+
+  it("says the run failed after completing some work when a real step finished", () => {
+    const summary = summarizeRun({
+      ...detail({ status: "failed", error: { message: "boom" } }),
+      steps: [
+        step("start", "succeeded"),
+        step("transform", "succeeded"),
+        step("llm", "failed"),
+      ],
+    })
+    expect(summary.outcome).toBe("The run failed after completing some work.")
   })
 })

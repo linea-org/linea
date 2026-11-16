@@ -9,6 +9,7 @@ import { isNodeTypeId, stepTitle } from "./execution-step-presentation"
 import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
 
 const MIN_BAR_WIDTH_PCT = 1.5
+const COMPACT_BELOW_MS = 100
 const TICK_COUNT = 4
 
 const CATEGORY_BAR: Record<NodeUICategory, string> = {
@@ -105,27 +106,30 @@ export function ExecutionGanttChart({
       : recordedEndMs,
     hasOpenStep ? now : recordedEndMs
   )
-  const rangeMs = Math.max(rangeEndMs - rangeStartMs, 1000)
+  const rangeMs = Math.max(rangeEndMs - rangeStartMs, 1)
+  const compact = rangeMs < COMPACT_BELOW_MS
   const ticks = Array.from({ length: TICK_COUNT + 1 }, (_, i) => {
     const fraction = i / TICK_COUNT
     return { fraction, label: formatElapsed(fraction * rangeMs) }
   })
   return (
     <div className="flex flex-col text-sm">
-      <div className="sticky top-0 z-10 flex bg-inherit pb-2">
-        <div className="w-40 shrink-0" />
-        <div className="relative h-4 min-w-0 flex-1">
-          {ticks.map((tick) => (
-            <span
-              key={tick.fraction}
-              className="absolute -translate-x-1/2 font-mono text-xs text-muted-foreground first:translate-x-0 last:-translate-x-full"
-              style={{ left: `${tick.fraction * 100}%` }}
-            >
-              {tick.label}
-            </span>
-          ))}
+      {compact ? null : (
+        <div className="sticky top-0 z-10 flex bg-inherit pb-2">
+          <div className="w-40 shrink-0" />
+          <div className="relative h-4 min-w-0 flex-1">
+            {ticks.map((tick) => (
+              <span
+                key={tick.fraction}
+                className="absolute -translate-x-1/2 font-mono text-xs text-muted-foreground first:translate-x-0 last:-translate-x-full"
+                style={{ left: `${tick.fraction * 100}%` }}
+              >
+                {tick.label}
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       <div className="flex flex-col gap-0.5">
         {rows.map((step) => {
           const startMs = new Date(step.startedAt).getTime()
@@ -175,24 +179,26 @@ export function ExecutionGanttChart({
                   {formatElapsed(endMs - startMs)}
                 </span>
               </div>
-              <div className="relative min-w-0 flex-1 py-1.5">
-                {ticks.map((tick) => (
-                  <span
-                    key={tick.fraction}
-                    className="absolute inset-y-0 w-px bg-border/70 first:hidden last:hidden"
-                    style={{ left: `${tick.fraction * 100}%` }}
+              {compact ? null : (
+                <div className="relative min-w-0 flex-1 py-1.5">
+                  {ticks.map((tick) => (
+                    <span
+                      key={tick.fraction}
+                      className="absolute inset-y-0 w-px bg-border/70 first:hidden last:hidden"
+                      style={{ left: `${tick.fraction * 100}%` }}
+                    />
+                  ))}
+                  <div className="h-2 w-full rounded-full bg-muted/60" />
+                  <div
+                    className={cn(
+                      "absolute top-1/2 h-2 -translate-y-1/2 rounded-full",
+                      barClass(step.status, step.name),
+                      step.status === "running" && "animate-pulse"
+                    )}
+                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                   />
-                ))}
-                <div className="h-2 w-full rounded-full bg-muted/60" />
-                <div
-                  className={cn(
-                    "absolute top-1/2 h-2 -translate-y-1/2 rounded-full",
-                    barClass(step.status, step.name),
-                    step.status === "running" && "animate-pulse"
-                  )}
-                  style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                />
-              </div>
+                </div>
+              )}
             </button>
           )
         })}

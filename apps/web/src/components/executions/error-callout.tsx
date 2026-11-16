@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { ChevronDownIcon, CircleAlertIcon } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@linea/ui/components/alert"
@@ -7,6 +7,7 @@ import { cn } from "@linea/ui/lib/utils"
 type ErrorCalloutProps = {
   title: string
   message: string
+  action?: ReactNode
 }
 
 function splitErrorMessage(message: string): {
@@ -42,7 +43,7 @@ function splitErrorMessage(message: string): {
   return { summary: trimmed }
 }
 
-export function ErrorCallout({ title, message }: ErrorCalloutProps) {
+export function ErrorCallout({ title, message, action }: ErrorCalloutProps) {
   const { summary, rest } = splitErrorMessage(message)
   const details = rest ?? ""
   const [open, setOpen] = useState(false)
@@ -57,6 +58,7 @@ export function ErrorCallout({ title, message }: ErrorCalloutProps) {
         <p className="break-words whitespace-pre-wrap text-foreground">
           {summary}
         </p>
+        {action ? <div className="mt-2">{action}</div> : null}
         {details ? (
           <div className="mt-2">
             <button
