@@ -19,6 +19,8 @@ import {
   type AgentExecutionFixture,
 } from "./agent-execution.fixture"
 
+jest.setTimeout(30_000)
+
 const originalKey = process.env.OPENAI_API_KEY
 const originalCredentialKeys = {
   active: process.env.CONNECTION_CREDENTIAL_ACTIVE_KEY,

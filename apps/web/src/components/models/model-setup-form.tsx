@@ -1,8 +1,6 @@
 import { useMemo } from "react"
-import { Controller, useForm } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { z } from "zod"
 
 import { Button } from "@linea/ui/components/button"
 import {
@@ -12,26 +10,17 @@ import {
   FieldLabel,
 } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@linea/ui/components/select"
 import { Spinner } from "@linea/ui/components/spinner"
 
-import { findOrCreateDevelopmentEnvironment } from "@/lib/default-application"
-import {
-  modelSetupKey,
-  updateModelSettingsFn,
-  type ModelSetup,
-} from "@/lib/model-settings-api"
-import { upsertSecretFn } from "@/lib/secrets-api"
+import type { ModelSetup } from "@/lib/model-settings-api"
 
-type FormValues = { model: string; apiKey: string }
+import { ModelPickerField } from "./model-picker-field"
+import {
+  buildModelSetupSchema,
+  modelHasKey,
+  type ModelSetupValues,
+} from "./model-setup-schema"
+import { useSaveModelSetup } from "./use-save-model-setup"
 
 export function ModelSetupForm({
   slug,
@@ -42,31 +31,8 @@ export function ModelSetupForm({
   setup: ModelSetup
   onSaved?: () => void
 }>) {
-  const queryClient = useQueryClient()
   const { models } = setup.settings
-  const schema = useMemo(
-    () =>
-      z
-        .object({
-          model: z.string().min(1, "Choose a model"),
-          apiKey: z.string().trim(),
-        })
-        .superRefine((values, context) => {
-          const model = models.find((item) => item.value === values.model)
-          const hasKey = setup.providers.some(
-            (provider) =>
-              provider.keyName === model?.keyName && provider.configured
-          )
-          if (model && !hasKey && !values.apiKey) {
-            context.addIssue({
-              code: "custom",
-              path: ["apiKey"],
-              message: `Add your ${model.providerLabel} API key`,
-            })
-          }
-        }),
-    [models, setup.providers]
-  )
+  const schema = useMemo(() => buildModelSetupSchema(setup), [setup])
   const {
     control,
     register,
@@ -74,41 +40,15 @@ export function ModelSetupForm({
     watch,
     reset,
     formState: { errors },
-  } = useForm<FormValues>({
+  } = useForm<ModelSetupValues>({
     resolver: zodResolver(schema),
     defaultValues: { model: setup.settings.defaultModel ?? "", apiKey: "" },
   })
   const selected = models.find((item) => item.value === watch("model"))
-  const selectedHasKey = setup.providers.some(
-    (provider) => provider.keyName === selected?.keyName && provider.configured
-  )
-  const save = useMutation({
-    mutationFn: async (values: FormValues) => {
-      const model = models.find((item) => item.value === values.model)
-      if (!model) throw new Error("Choose a model")
-      if (values.apiKey) {
-        const development = await findOrCreateDevelopmentEnvironment()
-        await upsertSecretFn({
-          data: {
-            environmentId: development.id,
-            key: model.keyName,
-            value: values.apiKey,
-          },
-        })
-      }
-      await updateModelSettingsFn({ data: { defaultModel: values.model } })
-    },
-    onSuccess: async (_result, values) => {
-      reset({ model: values.model, apiKey: "" })
-      await queryClient.invalidateQueries({
-        queryKey: modelSetupKey(slug),
-      })
-      onSaved?.()
-    },
+  const save = useSaveModelSetup(slug, setup, (values) => {
+    reset({ model: values.model, apiKey: "" })
+    onSaved?.()
   })
-  const providerGroups = [
-    ...new Map(models.map((item) => [item.providerId, item.providerLabel])),
-  ]
   return (
     <form
       onSubmit={(event) => {
@@ -116,40 +56,11 @@ export function ModelSetupForm({
       }}
     >
       <FieldGroup>
-        <Field data-invalid={!!errors.model || undefined}>
-          <FieldLabel htmlFor="model-setup-model">Model</FieldLabel>
-          <Controller
-            control={control}
-            name="model"
-            render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger id="model-setup-model">
-                  <SelectValue placeholder="Choose a model">
-                    {(value: string) =>
-                      models.find((item) => item.value === value)?.label ??
-                      "Choose a model"
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {providerGroups.map(([providerId, providerLabel]) => (
-                    <SelectGroup key={providerId}>
-                      <SelectLabel>{providerLabel}</SelectLabel>
-                      {models
-                        .filter((item) => item.providerId === providerId)
-                        .map((item) => (
-                          <SelectItem key={item.value} value={item.value}>
-                            {item.label}
-                          </SelectItem>
-                        ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          <FieldError>{errors.model?.message}</FieldError>
-        </Field>
+        <ModelPickerField
+          control={control}
+          models={models}
+          error={errors.model?.message}
+        />
         {selected ? (
           <Field data-invalid={!!errors.apiKey || undefined}>
             <FieldLabel htmlFor="model-setup-key">
@@ -160,7 +71,9 @@ export function ModelSetupForm({
               type="password"
               autoComplete="off"
               placeholder={
-                selectedHasKey ? "Key saved. Paste a new one to replace it" : ""
+                modelHasKey(setup, selected)
+                  ? "Key saved. Paste a new one to replace it"
+                  : ""
               }
               {...register("apiKey")}
             />
