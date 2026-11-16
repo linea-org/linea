@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 
 import { buttonVariants } from "@linea/ui/components/button"
+import { cn } from "@linea/ui/lib/utils"
 
 import { chatMessagesQueryOptions } from "@/lib/chat-preview-api"
 import type { ExecutionDetailResponse } from "@/lib/execution-detail-schema"
@@ -54,7 +55,10 @@ function FailureCard({
           <Link
             to="/w/$slug/settings/models"
             params={{ slug }}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "bg-background hover:bg-muted"
+            )}
           >
             {fix.label}
           </Link>
