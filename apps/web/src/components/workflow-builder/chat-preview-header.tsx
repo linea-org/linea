@@ -98,7 +98,7 @@ function HistoryMenu({
         <HistoryIcon />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
-        <Command>
+        <Command className="rounded-md bg-transparent">
           <CommandInput placeholder="Search conversations" />
           <CommandList>
             <CommandEmpty>No matching conversations.</CommandEmpty>
