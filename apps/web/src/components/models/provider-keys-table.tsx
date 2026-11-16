@@ -38,7 +38,7 @@ import {
 import { SecretFormDialog } from "@/components/secrets/secret-form-dialog"
 import { findOrCreateDevelopmentEnvironment } from "@/lib/default-application"
 import {
-  modelSetupQueryOptions,
+  modelSetupKey,
   type CatalogModel,
   type ModelSetup,
 } from "@/lib/model-settings-api"
@@ -154,7 +154,7 @@ export function ProviderKeysTable({
   const [removing, setRemoving] = useState<AiProviderKeyStatus | null>(null)
   const refresh = () =>
     queryClient.invalidateQueries({
-      queryKey: modelSetupQueryOptions(slug).queryKey,
+      queryKey: modelSetupKey(slug),
     })
   const remove = useMutation({
     mutationFn: async (provider: AiProviderKeyStatus) => {

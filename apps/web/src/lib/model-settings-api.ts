@@ -84,13 +84,18 @@ export function modelSettingsQueryOptions(workspaceSlug: string) {
   })
 }
 
+/** Prefix shared by every application's setup, so one invalidation reaches them all. */
+export function modelSetupKey(workspaceSlug: string) {
+  return ["model-setup", workspaceSlug] as const
+}
+
 /** Without an application id the setup reads the workspace's default Application. */
 export function modelSetupQueryOptions(
   workspaceSlug: string,
   applicationId?: string
 ) {
   return queryOptions({
-    queryKey: ["model-setup", workspaceSlug, applicationId ?? null],
+    queryKey: [...modelSetupKey(workspaceSlug), applicationId ?? null],
     queryFn: () => getModelSetupFn({ data: { applicationId } }),
   })
 }

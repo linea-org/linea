@@ -15,7 +15,7 @@ import {
 import { Spinner } from "@linea/ui/components/spinner"
 
 import {
-  modelSetupQueryOptions,
+  modelSetupKey,
   updateModelSettingsFn,
   type ModelSetup,
   type TaskModelKey,
@@ -69,7 +69,7 @@ export function TaskModelSelect({
       }),
     onSuccess: () =>
       queryClient.invalidateQueries({
-        queryKey: modelSetupQueryOptions(slug).queryKey,
+        queryKey: modelSetupKey(slug),
       }),
   })
   const { isSuccess, reset } = save

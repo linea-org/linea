@@ -25,7 +25,7 @@ import { Spinner } from "@linea/ui/components/spinner"
 
 import { findOrCreateDevelopmentEnvironment } from "@/lib/default-application"
 import {
-  modelSetupQueryOptions,
+  modelSetupKey,
   updateModelSettingsFn,
   type ModelSetup,
 } from "@/lib/model-settings-api"
@@ -99,7 +99,7 @@ export function ModelSetupForm({
     onSuccess: async (_result, values) => {
       reset({ model: values.model, apiKey: "" })
       await queryClient.invalidateQueries({
-        queryKey: modelSetupQueryOptions(slug).queryKey,
+        queryKey: modelSetupKey(slug),
       })
     },
   })
