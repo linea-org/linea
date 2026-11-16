@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Checkbox } from "@linea/ui/components/checkbox"
 import { Button } from "@linea/ui/components/button"
 import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
+import { Label } from "@linea/ui/components/label"
 import {
   Select,
   SelectContent,
@@ -107,7 +108,7 @@ export function EnvironmentDeploymentForm({
           published={published}
         />
         {deploymentFlags.map((flag) => (
-          <label key={flag.name} className="flex items-center gap-2 text-xs">
+          <Label key={flag.name} className="font-normal">
             <Controller
               name={flag.name}
               control={control}
@@ -119,7 +120,7 @@ export function EnvironmentDeploymentForm({
               )}
             />
             {flag.label}
-          </label>
+          </Label>
         ))}
         <Button type="submit" size="xs" disabled={!enabled || deploy.isPending}>
           Save deployment

@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import { Link } from "@tanstack/react-router"
 import { FlaskConicalIcon } from "lucide-react"
 import {
@@ -50,7 +51,7 @@ export function RegressionRunList({
     )
   }
   return (
-    <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+    <Card className="mt-4 gap-0 py-0">
       <Table>
         <TableHeader className="bg-muted/40">
           <TableRow className="hover:bg-transparent">
@@ -106,6 +107,6 @@ export function RegressionRunList({
           ))}
         </TableBody>
       </Table>
-    </div>
+    </Card>
   )
 }

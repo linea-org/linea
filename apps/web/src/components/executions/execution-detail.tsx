@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { Button } from "@linea/ui/components/button"
 import { Separator } from "@linea/ui/components/separator"
+import { Card } from "@linea/ui/components/card"
 
 import { PlayfulAvatar } from "@/components/avatar"
 import {
@@ -140,7 +141,7 @@ export function ExecutionDetailView({
   const workflowName = initialData.definitionName
   return (
     <main className="flex min-w-0 flex-1 flex-col px-4 py-2">
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <Card className="gap-0 py-0">
         <header className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
           <PlayfulAvatar
             name={workflowName}
@@ -218,7 +219,7 @@ export function ExecutionDetailView({
             onReplayTriggered={setPendingReplayStepId}
           />
         </div>
-      </div>
+      </Card>
     </main>
   )
 }

@@ -279,10 +279,9 @@ where Linea already built.
 ### The lesson
 
 Every expansion justified by what the architecture makes possible has
-failed on contact with evidence. The one that suddenly looks well-founded,
-per-user Gmail connections, got there because a prospective client said
-they wanted it. Let clients pull capability out of the roadmap rather than
-pushing capability at a market.
+failed on contact with evidence. Per-user Gmail connections are the latest
+example: no outside prospect asked for them. Let clients pull capability out
+of the roadmap rather than pushing capability at a market.
 
 ## Where we are
 

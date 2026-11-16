@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import type { ReactNode } from "react"
 
 export function HomePanel({
@@ -15,9 +16,9 @@ export function HomePanel({
         <p className="text-sm font-medium text-foreground">{title}</p>
         {action}
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
+      <Card className="flex min-h-0 flex-1 flex-col gap-0 py-0">
         {children}
-      </div>
+      </Card>
     </section>
   )
 }

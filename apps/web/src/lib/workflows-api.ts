@@ -3,7 +3,7 @@ import { jsonValueSchema } from "@linea/protocol/shared"
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 
-import { apiFetch } from "./api-fetch"
+import { apiFetch, parseErrorMessage } from "./api-fetch"
 import type { JsonValue } from "./executions-api"
 
 export type WorkflowSummary = {
@@ -29,16 +29,6 @@ export type WorkflowVersionSummary = {
   message: string | null
   publishedAt: string | null
   createdAt: string
-}
-
-async function parseErrorMessage(
-  res: Response,
-  fallback: string
-): Promise<string> {
-  const body = (await res.json().catch(() => null)) as {
-    message?: string
-  } | null
-  return body?.message ?? fallback
 }
 
 export const listWorkflowsFn = createServerFn({ method: "GET" }).handler(

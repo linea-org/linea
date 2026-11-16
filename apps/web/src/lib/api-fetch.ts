@@ -16,3 +16,13 @@ export async function apiFetch(path: string, init?: RequestInit) {
   })
   return res
 }
+
+export async function parseErrorMessage(
+  res: Response,
+  fallback: string
+): Promise<string> {
+  const body = (await res.json().catch(() => null)) as {
+    message?: string
+  } | null
+  return body?.message ?? fallback
+}

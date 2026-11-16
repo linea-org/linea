@@ -192,6 +192,7 @@ type WorkflowBuilderCanvasProps = {
   workflowId: string
   slug: string
   initialGraph: WorkflowBuilderGraph
+  openChat: boolean
 }
 
 export function WorkflowBuilderCanvas(props: WorkflowBuilderCanvasProps) {
@@ -206,6 +207,7 @@ function WorkflowBuilderCanvasInner({
   workflowId,
   slug,
   initialGraph,
+  openChat,
 }: WorkflowBuilderCanvasProps) {
   const { data: workflow } = useQuery(workflowQueryOptions(slug, workflowId))
   const seeded = ensureStartNode(initialGraph)
@@ -217,7 +219,9 @@ function WorkflowBuilderCanvasInner({
   // Which of the two right-hand panels is visible — kept as one variable, not two
   // independent booleans, so a node selection and the chat toggle can never both
   // decide to show a panel at the same time.
-  const [rightPanel, setRightPanel] = useState<"config" | "chat" | null>(null)
+  const [rightPanel, setRightPanel] = useState<"config" | "chat" | null>(
+    openChat ? "chat" : null
+  )
   const { resolvedTheme } = useTheme()
   const { screenToFlowPosition } = useReactFlow<Node<WorkflowBuilderNodeData>>()
   const history = useUndoHistory({ nodes: initial.nodes, edges: initial.edges })

@@ -2,6 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router"
 import { EllipsisVerticalIcon, EyeIcon, HistoryIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
+import { Card } from "@linea/ui/components/card"
 import {
   Table,
   TableBody,
@@ -90,7 +91,7 @@ export function ExecutionList({
     )
   }
   return (
-    <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+    <Card className="mt-4 gap-0 py-0">
       <Table>
         <TableHeader className="bg-muted/40">
           <TableRow className="hover:bg-transparent">
@@ -187,6 +188,6 @@ export function ExecutionList({
           ))}
         </TableBody>
       </Table>
-    </div>
+    </Card>
   )
 }

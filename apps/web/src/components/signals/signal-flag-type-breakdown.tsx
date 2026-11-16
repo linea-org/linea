@@ -1,3 +1,5 @@
+import { Progress } from "@linea/ui/components/progress"
+
 import type { SignalSummary } from "@/lib/signals-api"
 import { flagTypeLabel } from "./flag-type-label"
 
@@ -32,12 +34,7 @@ export function SignalFlagTypeBreakdown({
               {count.toLocaleString()}
             </span>
           </div>
-          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary"
-              style={{ width: `${max > 0 ? (count / max) * 100 : 0}%` }}
-            />
-          </div>
+          <Progress value={count} max={Math.max(max, 1)} className="mt-1" />
         </li>
       ))}
     </ul>

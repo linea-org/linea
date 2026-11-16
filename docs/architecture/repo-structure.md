@@ -13,7 +13,6 @@ apps/
   execution-worker/
   background-worker/
   docs/
-  run-gateway/
 
 packages/
   protocol/
@@ -27,8 +26,6 @@ packages/
   auth/
   ui/
   config/
-  types/
-  sandbox-provider/
 ```
 
 Apps are independently deployable entry points. An app must not import from
@@ -70,12 +67,6 @@ in `packages/runtime`. Connector nodes enter external providers only through
 Owns work that is asynchronous but is not graph interpretation: due schedules,
 transactional-outbox dispatch, signed webhook delivery, push notifications,
 provider-revocation delivery, and conversation analysis.
-
-### `apps/run-gateway`
-
-A reserved package scaffold for the future sandbox execution gateway. It is
-not a shipped runtime dependency today. Do not route connectors, Connections,
-or Action Consent through it; those belong to the Connector Gateway.
 
 ### Documentation site
 
@@ -180,15 +171,9 @@ workspace and Platform API.
 Shared React primitives and design tokens. App-specific workflow behavior does
 not belong here.
 
-### `packages/config` and `packages/types`
+### `packages/config`
 
-Shared lint and TypeScript configuration, plus narrow internal types that do
-not belong to the public protocol or a more specific feature package.
-
-### `packages/sandbox-provider`
-
-A reserved scaffold for future sandbox adapters. No sandbox or arbitrary code
-execution capability is currently shipped.
+Shared lint and TypeScript configuration.
 
 ## Important execution paths
 

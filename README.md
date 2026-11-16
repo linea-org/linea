@@ -151,7 +151,8 @@ Credentialed Google and GitHub smoke tests are intentionally separate from
 required CI:
 
 ```bash
-pnpm test:connections-smoke
+pnpm --filter @linea/connectors test:google-live
+pnpm --filter @linea/connectors test:github:live
 ```
 
 ## Monorepo layout
@@ -162,7 +163,6 @@ apps/
   platform-api/       workspace and public /v1 HTTP interfaces
   execution-worker/   graph execution, checkpoints, replay, and connectors
   background-worker/  schedules, outbox delivery, notifications, and analysis
-  run-gateway/        reserved scaffold for future sandbox execution
 
 packages/
   protocol/           public resources, operations, events, and errors
@@ -176,8 +176,6 @@ packages/
   auth/               better-auth configuration and email delivery
   ui/                 shared React primitives and design tokens
   config/             shared lint and TypeScript configuration
-  types/              shared internal TypeScript types
-  sandbox-provider/   reserved scaffold for future sandbox implementations
 ```
 
 The documentation site lives in its own repository, [linea-org/docs](https://github.com/linea-org/docs).
@@ -186,7 +184,7 @@ The Expo mobile client for monitoring and approvals lives in
 [linea-org/mobile](https://github.com/linea-org/mobile) and talks to the
 Platform API over HTTP.
 
-See [docs/repo-structure.md](docs/repo-structure.md) for ownership and dependency rules, [docs/product-vision.md](docs/product-vision.md) for product direction, and [docs/roadmap.md](docs/roadmap.md) for strategic sequencing.
+See [docs/architecture/repo-structure.md](docs/architecture/repo-structure.md) for ownership and dependency rules, [docs/product/product-vision.md](docs/product/product-vision.md) for product direction, and [docs/product/roadmap.md](docs/product/roadmap.md) for strategic sequencing.
 
 ## SDKs
 

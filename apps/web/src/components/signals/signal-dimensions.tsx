@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import {
   Select,
   SelectContent,
@@ -92,7 +93,7 @@ export function SignalDimensions({
           </SelectContent>
         </Select>
       </div>
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <Card className="gap-0 py-0">
         {signal.dimensions.length === 0 ? (
           <p className="px-4 py-6 text-xs text-muted-foreground">
             {emptyMessage(signal)}
@@ -144,7 +145,7 @@ export function SignalDimensions({
             {signal.totalRuns} eligible runs.
           </p>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

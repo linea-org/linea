@@ -1,6 +1,6 @@
 # packages/runtime
 
-Defines the workflow JSON format, the four Phase 0 node types, and the graph
+Defines the workflow JSON format, the node type registry, and the graph
 walker — the part of the system that decides what runs next, never the part
 that actually runs it.
 
@@ -18,8 +18,9 @@ that actually runs it.
   sandbox client, or `@linea/db`.
 - **A node's input is always its single predecessor's output**, except the
   entry node, whose input is the trigger payload. Every non-entry node must
-  have exactly one incoming edge — `validate-graph.ts` enforces this, and
-  the walker assumes it without re-checking.
+  have exactly one incoming edge, except a merge node, which has exactly two
+  from distinct sources — `validate-graph.ts` enforces this, and the walker
+  assumes it without re-checking.
 - **`validateGraphStructure` is a separate, mandatory pass**, not folded
   into the zod schema, because it checks things zod can't express: id
   uniqueness, edge references, reachability from the entry node, no cycles
@@ -36,7 +37,6 @@ that actually runs it.
 
 ## Deliberately not here
 
-The code node, the KB and memory nodes, and anything `needsSandbox: true` —
-those arrive with the sandbox in Phase 2. Authoring (the visual builder) is
-Phase 1; this package only defines the format the builder will eventually
-produce and the execution-worker will consume.
+The code node and anything `needsSandbox: true` — those wait for a sandbox.
+This package only defines the format the builder produces and the
+execution-worker consumes.

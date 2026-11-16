@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
 } from "@linea/ui/components/alert-dialog"
 import { Button, buttonVariants } from "@linea/ui/components/button"
+import { Card } from "@linea/ui/components/card"
 import {
   Popover,
   PopoverContent,
@@ -252,7 +253,7 @@ function MembersPage() {
         </Empty>
       ) : (
         <div className="px-4 py-2">
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Card className="gap-0 py-0">
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow className="hover:bg-transparent">
@@ -359,7 +360,7 @@ function MembersPage() {
                 })}
               </TableBody>
             </Table>
-          </div>
+          </Card>
         </div>
       )}
       {filteredInvites.length > 0 ? (
@@ -368,7 +369,7 @@ function MembersPage() {
             Pending invitations
           </p>
           <div className="px-4 pb-2">
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <Card className="gap-0 py-0">
               <Table>
                 <TableHeader className="bg-muted/40">
                   <TableRow className="hover:bg-transparent">
@@ -426,7 +427,7 @@ function MembersPage() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+            </Card>
           </div>
         </>
       ) : null}

@@ -1,9 +1,10 @@
 import { useState } from "react"
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { ArrowRightIcon, LoaderCircleIcon, PlusIcon } from "lucide-react"
+import { ArrowRightIcon, PlusIcon } from "lucide-react"
 
 import { Alert, AlertDescription } from "@linea/ui/components/alert"
 import { Button } from "@linea/ui/components/button"
+import { Spinner } from "@linea/ui/components/spinner"
 import {
   Dialog,
   DialogContent,
@@ -140,7 +141,7 @@ function WorkspacesPage() {
                       }
                     >
                       {opening ? (
-                        <LoaderCircleIcon className="size-3 animate-spin" />
+                        <Spinner className="size-3" />
                       ) : (
                         <ArrowRightIcon className="size-3" />
                       )}

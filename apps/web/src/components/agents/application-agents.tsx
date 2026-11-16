@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import { BotIcon } from "lucide-react"
 import {
   Empty,
@@ -78,7 +79,7 @@ export function ApplicationAgents({
       )}
       {visible.length > 0 && (
         <div className="px-4 py-2">
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Card className="gap-0 py-0">
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow className="hover:bg-transparent">
@@ -127,7 +128,7 @@ export function ApplicationAgents({
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </Card>
         </div>
       )}
     </section>

@@ -12,6 +12,7 @@ import {
   EmptyTitle,
 } from "@linea/ui/components/empty"
 import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
+import { Card } from "@linea/ui/components/card"
 
 import { NotificationRow } from "@/components/notifications"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
@@ -130,7 +131,7 @@ function NotificationsPage() {
         </Empty>
       ) : (
         <div className="px-4 py-2">
-          <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border bg-card">
+          <Card className="gap-0 divide-y divide-border/70 py-0">
             {notifications.map((notification) => (
               <NotificationRow
                 key={notification.id}
@@ -143,7 +144,7 @@ function NotificationsPage() {
                 onDelete={(id) => remove.mutate(id)}
               />
             ))}
-          </div>
+          </Card>
         </div>
       )}
     </main>

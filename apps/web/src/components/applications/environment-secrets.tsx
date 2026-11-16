@@ -20,6 +20,7 @@ import {
 } from "@linea/ui/components/alert-dialog"
 import { Badge } from "@linea/ui/components/badge"
 import { Button } from "@linea/ui/components/button"
+import { Card } from "@linea/ui/components/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -246,7 +247,7 @@ function ProviderSecretsSection({
       {providersPending ? (
         <p className="mt-4 text-xs text-muted-foreground">Loading…</p>
       ) : providers ? (
-        <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+        <Card className="mt-4 gap-0 py-0">
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow className="hover:bg-transparent">
@@ -280,7 +281,7 @@ function ProviderSecretsSection({
               ))}
             </TableBody>
           </Table>
-        </div>
+        </Card>
       ) : null}
     </>
   )
@@ -342,7 +343,7 @@ function CustomSecretsSection({
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <Card className="gap-0 py-0">
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow className="hover:bg-transparent">
@@ -365,7 +366,7 @@ function CustomSecretsSection({
               ))}
             </TableBody>
           </Table>
-        </div>
+        </Card>
       )}
     </>
   )

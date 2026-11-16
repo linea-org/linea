@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
@@ -73,9 +74,11 @@ function ApprovalsPage() {
       ) : (
         <ul className="flex flex-col gap-4">
           {approvals.map((approval) => (
-            <li
+            <Card
+              render={<li />}
+              size="sm"
+              className="gap-0 px-(--card-spacing)"
               key={approval.id}
-              className="rounded-xl border border-border bg-card p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -131,7 +134,7 @@ function ApprovalsPage() {
                   Reject
                 </Button>
               </div>
-            </li>
+            </Card>
           ))}
         </ul>
       )}

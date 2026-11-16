@@ -20,7 +20,7 @@ That workstream is not roadmap Phase 2, which is the Code escape hatch and OTel 
 **Why:** real-provider validation and a complete product surface establish that the capability works and
 is usable. They do not establish demand. Linea has no customers yet, and the broader strategy review
 found that architecture-derived wedge candidates repeatedly lacked demand evidence. The current pitch
-therefore remains the hosted execution and checkpoint-backed fix loop described in `docs/strategy.md`.
+therefore remains the hosted execution and checkpoint-backed fix loop described in `docs/product/strategy.md`.
 
 A human-authored static graph is comparatively predictable. Behavior analysis becomes more valuable
 when a graph chooses tools, loops, branches, or delegates at runtime, because those decisions create
@@ -40,7 +40,7 @@ market it before users demonstrate the need.
 - **Remove behavior analysis because it is not the wedge.** Rejected: it is a shipped part of the
   operations layer and becomes more useful as execution grows more agentic.
 - **Bind the agentic-graph work to Phase 2.** Rejected: Phase 2 already means the Code escape hatch and
-  OTel ingest in `docs/roadmap.md`. The agentic-graph workstream needs its own roadmap placement when it
+  OTel ingest in `docs/product/roadmap.md`. The agentic-graph workstream needs its own roadmap placement when it
   is scheduled.
 
 ## Consequences

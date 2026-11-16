@@ -1,9 +1,10 @@
 # packages/queue
 
-Thin BullMQ wrapper: one Redis connection helper and one queue —
-`workflow-execution` — with the producer/consumer helpers `platform-api`,
+Thin BullMQ wrapper: one Redis connection helper and the queues in
+`src/queues/` (workflow execution, step replay, regression run, webhook
+delivery), with the producer/consumer helpers `platform-api`,
 `background-worker`, and `execution-worker` need. No abstraction beyond
-those call sites; a second queue gets a sibling file in `src/queues/`, not a
+those call sites; a new queue gets a sibling file in `src/queues/`, not a
 generic queue factory.
 
 ## Non-obvious invariants
@@ -22,13 +23,8 @@ false` in `vitest.config.ts`) — they share one connection and one queue
 
 ## Public surface
 
-`createConnection()`, `WORKFLOW_EXECUTION_QUEUE`,
-`createWorkflowExecutionQueue()`, `enqueueWorkflowExecution()`,
-`createWorkflowExecutionWorker()`.
+See `src/index.ts`.
 
 ## Deliberately not here
 
-Retry/backoff policy, dead-letter handling, and job priority — Phase 0 has
-no error-policy configuration yet (that's a Phase 1 item per
-`roadmap.md`), so this wraps BullMQ's defaults rather than a policy that
-doesn't exist yet.
+Dead-letter handling and job priority — this wraps BullMQ's defaults.

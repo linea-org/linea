@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import {
   ActivityIcon,
   CircleCheckIcon,
@@ -27,7 +28,7 @@ function StatCard({
   data: { date: string; count: number }[]
 }) {
   return (
-    <section className="flex min-h-48 flex-col overflow-hidden rounded-xl border border-border bg-card">
+    <Card render={<section />} className="flex min-h-48 flex-col gap-0 py-0">
       <div className="flex items-start justify-between gap-3 px-4 pt-4">
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">{label}</p>
@@ -42,7 +43,7 @@ function StatCard({
       <div className="min-h-24 flex-1">
         <StatSparkline data={data} />
       </div>
-    </section>
+    </Card>
   )
 }
 

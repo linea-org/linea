@@ -6,8 +6,6 @@ import { AuthModule } from '@thallesp/nestjs-better-auth'
 import { auth } from '@linea/auth'
 import { ApiKeysModule } from './api-keys/api-keys.module'
 import { EnvironmentsModule } from './environments/environments.module'
-import { AppController } from './app.controller'
-import { AppService } from './app.service'
 import { ApprovalsModule } from './approvals/approvals.module'
 import { ConversationAnalysesModule } from './conversation-analyses/conversation-analyses.module'
 import { ConnectionsModule } from './connections/connections.module'
@@ -54,10 +52,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     ConversationAnalysesModule,
     RegressionsModule,
   ],
-  controllers: [AppController, HealthController, MeController],
-  providers: [
-    AppService,
-    { provide: APP_FILTER, useClass: PublicRuntimeRateLimitFilter },
-  ],
+  controllers: [HealthController, MeController],
+  providers: [{ provide: APP_FILTER, useClass: PublicRuntimeRateLimitFilter }],
 })
 export class AppModule {}

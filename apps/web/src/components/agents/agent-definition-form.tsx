@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import { useEffect } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -74,10 +75,18 @@ export function AgentDefinitionForm({
       >
         <fieldset disabled={save.isPending} className="flex flex-col gap-6">
           <AgentDefinitionFields catalog={catalog} contracts={contracts} />
-          <section className="rounded-lg border border-border bg-card p-4">
+          <Card
+            render={<section />}
+            size="sm"
+            className="gap-0 px-(--card-spacing)"
+          >
             <AgentToolFields operations={catalog.operations} />
-          </section>
-          <section className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
+          </Card>
+          <Card
+            render={<section />}
+            size="sm"
+            className="flex flex-col gap-0 gap-4 px-(--card-spacing)"
+          >
             <h3 className="text-xs font-medium">Execution limits</h3>
             <Field>
               <FieldLabel htmlFor="agent-iterations">
@@ -101,7 +110,7 @@ export function AgentDefinitionForm({
                 {errors.definition?.maxIterations?.message}
               </FieldError>
             </Field>
-          </section>
+          </Card>
           {save.error && (
             <p role="alert" className="text-xs text-destructive">
               {save.error.message}

@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 
-import { apiFetch } from "./api-fetch"
+import { apiFetch, parseErrorMessage } from "./api-fetch"
 import type { JsonValue } from "./executions-api"
 
 export type RegressionCaseType = "node" | "conversation"
@@ -48,11 +48,11 @@ export const createRegressionCaseFromStepFn = createServerFn({ method: "POST" })
       }
     )
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as {
-        message?: string
-      } | null
       throw new Error(
-        body?.message ?? "Could not create regression case from this step"
+        await parseErrorMessage(
+          res,
+          "Could not create regression case from this step"
+        )
       )
     }
     return (await res.json()) as RegressionCase
@@ -70,11 +70,11 @@ export const createRegressionCaseFromFlagFn = createServerFn({ method: "POST" })
       }
     )
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as {
-        message?: string
-      } | null
       throw new Error(
-        body?.message ?? "Could not create regression case from this occurrence"
+        await parseErrorMessage(
+          res,
+          "Could not create regression case from this occurrence"
+        )
       )
     }
     return (await res.json()) as RegressionCase

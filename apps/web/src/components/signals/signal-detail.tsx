@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { Button } from "@linea/ui/components/button"
+import { Card } from "@linea/ui/components/card"
 
 import { createRegressionCaseFromFlagFn } from "@/lib/regression-cases-api"
 import {
@@ -148,7 +149,7 @@ export function SignalDetailView({
 
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <Card className="gap-0 py-0">
         <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
             <p className="truncate text-xs font-medium text-foreground">
@@ -188,7 +189,7 @@ export function SignalDetailView({
             value={new Date(signal.lastFlaggedAt).toLocaleString()}
           />
         </div>
-      </div>
+      </Card>
 
       {resolve.isError && (
         <p className="mt-2 text-xs text-destructive">{resolve.error.message}</p>
@@ -196,11 +197,11 @@ export function SignalDetailView({
 
       <div className="mt-4 flex flex-col gap-2">
         <p className="pl-1 text-sm font-medium text-foreground">Trend</p>
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <Card className="gap-0 py-0">
           <div className="px-4 py-4">
             <SignalTrendChart trend={signal.trend} />
           </div>
-        </div>
+        </Card>
       </div>
 
       <SignalDimensions
@@ -219,7 +220,7 @@ export function SignalDetailView({
             </span>
           )}
         </p>
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <Card className="gap-0 py-0">
           {occurrences.length === 0 ? (
             <p className="px-4 py-6 text-xs text-muted-foreground">
               No occurrences recorded.
@@ -270,7 +271,7 @@ export function SignalDetailView({
               ))}
             </ul>
           )}
-        </div>
+        </Card>
       </div>
     </main>
   )

@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import type { ReactNode } from "react"
 import { RocketIcon } from "lucide-react"
 import { Badge } from "@linea/ui/components/badge"
@@ -107,7 +108,7 @@ export function AgentDeploymentDetails({
   const status = deploymentStatus(environment, binding)
   const details = deploymentFacts(environment, version, contract)
   return (
-    <article className="overflow-hidden rounded-xl border border-border bg-card">
+    <Card render={<article />} className="gap-0 py-0">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
         <h3 className="text-sm font-medium">Deployment details</h3>
         <Badge
@@ -177,6 +178,6 @@ export function AgentDeploymentDetails({
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-    </article>
+    </Card>
   )
 }

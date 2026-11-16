@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -86,8 +87,10 @@ function WorkspaceSettingsPage() {
       <div className="flex w-full flex-col gap-6 p-4">
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-medium">General</h2>
-          <form
-            className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4"
+          <Card
+            render={<form />}
+            size="sm"
+            className="flex flex-col gap-0 gap-4 px-(--card-spacing)"
             onSubmit={(event) => {
               void handleSubmit((values) => save.mutate(values))(event)
             }}
@@ -120,7 +123,7 @@ function WorkspaceSettingsPage() {
                 {save.isPending ? "Saving…" : "Save"}
               </Button>
             </div>
-          </form>
+          </Card>
         </section>
         {isOwner ? (
           <section className="flex flex-col gap-3">

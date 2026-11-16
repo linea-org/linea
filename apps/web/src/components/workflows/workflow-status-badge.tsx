@@ -9,7 +9,7 @@ export function workflowStatus(workflow: WorkflowSummary) {
 }
 
 const variantByStatus = {
-  Published: "secondary",
+  Published: "success",
   Draft: "outline",
   Archived: "destructive",
 } as const

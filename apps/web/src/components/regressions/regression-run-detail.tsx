@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 
 import { Badge } from "@linea/ui/components/badge"
+import { Card } from "@linea/ui/components/card"
 
 import { formatCost } from "@/components/executions/execution-list"
 import {
@@ -55,7 +56,7 @@ export function RegressionRunDetailView({
 
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <Card className="gap-0 py-0">
         <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
           <div className="min-w-0">
             <p className="truncate text-xs font-medium text-foreground">
@@ -77,18 +78,18 @@ export function RegressionRunDetailView({
             value={new Date(run.startedAt).toLocaleString()}
           />
         </div>
-      </div>
+      </Card>
 
       <div className="mt-4 flex flex-col gap-2">
         <p className="pl-1 text-sm font-medium text-foreground">Results</p>
         {run.results.length === 0 ? (
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Card className="gap-0 py-0">
             <p className="px-4 py-6 text-xs text-muted-foreground">
               No results recorded.
             </p>
-          </div>
+          </Card>
         ) : (
-          <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+          <Card className="gap-0 divide-y divide-border py-0">
             {run.results.map((result) => (
               <div key={result.id} className="px-4 py-4">
                 <div className="flex flex-wrap items-center gap-2">
@@ -107,7 +108,7 @@ export function RegressionRunDetailView({
                 </pre>
               </div>
             ))}
-          </div>
+          </Card>
         )}
       </div>
     </main>

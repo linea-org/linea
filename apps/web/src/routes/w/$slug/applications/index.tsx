@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@linea/ui/components/table"
 import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
+import { Card } from "@linea/ui/components/card"
 import { PlayfulAvatar } from "@/components/avatar"
 import { CreateApplicationDialog } from "@/components/applications/create-application-dialog"
 import { ApplicationCardMenu } from "@/components/applications/application-rename-popover"
@@ -141,7 +142,7 @@ function ApplicationsPage() {
     }
     return (
       <div className="px-4 py-2">
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <Card className="gap-0 py-0">
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow className="hover:bg-transparent">
@@ -205,7 +206,7 @@ function ApplicationsPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </Card>
       </div>
     )
   }
@@ -303,7 +304,7 @@ function ApplicationCard({
   application: ApplicationSummary
 }>) {
   return (
-    <div className="group relative rounded-lg border border-border bg-card transition-colors hover:border-foreground/20 hover:bg-muted/40">
+    <Card className="group relative gap-0 py-0 transition-colors hover:bg-muted/40 hover:ring-foreground/20">
       <Link
         to="/w/$slug/applications/$applicationId"
         params={{ slug, applicationId: application.id }}
@@ -341,6 +342,6 @@ function ApplicationCard({
       <div className="absolute top-[15px] right-3">
         <ApplicationCardMenu workspaceSlug={slug} application={application} />
       </div>
-    </div>
+    </Card>
   )
 }

@@ -9,6 +9,7 @@ import {
   EmptyTitle,
 } from "@linea/ui/components/empty"
 import { Button } from "@linea/ui/components/button"
+import { Card } from "@linea/ui/components/card"
 import {
   Table,
   TableBody,
@@ -91,7 +92,7 @@ export function ApplicationWorkflows({
       )}
       {workflows.length > 0 && (
         <div className="px-4 py-2">
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Card className="gap-0 py-0">
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow className="hover:bg-transparent">
@@ -143,7 +144,7 @@ export function ApplicationWorkflows({
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </Card>
         </div>
       )}
     </section>

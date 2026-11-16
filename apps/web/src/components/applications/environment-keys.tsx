@@ -11,6 +11,7 @@ import { Checkbox } from "@linea/ui/components/checkbox"
 import { Button } from "@linea/ui/components/button"
 import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
 import { Input } from "@linea/ui/components/input"
+import { Label } from "@linea/ui/components/label"
 import {
   createEnvironmentKeyFn,
   listEnvironmentKeysFn,
@@ -99,7 +100,7 @@ export function EnvironmentKeys({
         <fieldset className="grid gap-2 text-xs sm:grid-cols-2">
           <legend className="mb-2 font-medium">Permissions</legend>
           {environmentKeyScopes.map((scope) => (
-            <label key={scope} className="flex items-center gap-2">
+            <Label key={scope} className="font-normal">
               <Controller
                 name="scopes"
                 control={control}
@@ -117,7 +118,7 @@ export function EnvironmentKeys({
                 )}
               />
               {scope.replace(":", " · ")}
-            </label>
+            </Label>
           ))}
         </fieldset>
         <FieldError>{errors.scopes?.message}</FieldError>

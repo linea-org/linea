@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import { Badge } from "@linea/ui/components/badge"
 import type {
   ConversationAnalysisResponse,
@@ -19,7 +20,7 @@ function ConversationTranscript({
   return (
     <section>
       <h2 className="px-1 text-sm font-medium text-foreground">Conversation</h2>
-      <ol className="mt-2 overflow-hidden rounded-xl border border-border bg-card">
+      <Card render={<ol />} className="mt-2 gap-0 py-0">
         {messages.map((message) => (
           <li
             key={message.id}
@@ -31,7 +32,7 @@ function ConversationTranscript({
             <p className="mt-1 text-sm text-foreground">{message.content}</p>
           </li>
         ))}
-      </ol>
+      </Card>
     </section>
   )
 }
@@ -48,11 +49,11 @@ function AnalysisState({
   destructive: boolean
 }) {
   return (
-    <section className="rounded-xl border border-border bg-card px-4 py-6">
+    <Card render={<section />} className="gap-0 px-4 py-6">
       <Badge variant={destructive ? "destructive" : "outline"}>{label}</Badge>
       <h1 className="mt-3 text-sm font-medium text-foreground">{title}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-    </section>
+    </Card>
   )
 }
 
@@ -84,9 +85,11 @@ function FindingCard({
   evidence: ConversationMessage | undefined
 }) {
   return (
-    <li
+    <Card
+      render={<li />}
+      size="sm"
+      className="scroll-mt-4 gap-0 px-(--card-spacing)"
       id={`finding-${finding.id}`}
-      className="scroll-mt-4 rounded-lg border border-border bg-card p-4"
     >
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline">{displayName(finding.axis)}</Badge>
@@ -108,7 +111,7 @@ function FindingCard({
           <p className="mt-1 text-sm text-foreground">{evidence.content}</p>
         </div>
       ) : null}
-    </li>
+    </Card>
   )
 }
 
@@ -175,7 +178,7 @@ export function ConversationAnalysisView({
   const metadata = analysis.analysis
   return (
     <div className="flex flex-col gap-4">
-      <section className="overflow-hidden rounded-xl border border-border bg-card">
+      <Card render={<section />} className="gap-0 py-0">
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div>
             <h1 className="text-sm font-medium text-foreground">
@@ -186,7 +189,7 @@ export function ConversationAnalysisView({
                 "Unattributed subject"}
             </p>
           </div>
-          <Badge variant="secondary">Analysis complete</Badge>
+          <Badge variant="success">Analysis complete</Badge>
         </div>
         <dl className="grid gap-px bg-border sm:grid-cols-3">
           <div className="bg-card px-4 py-3">
@@ -232,13 +235,16 @@ export function ConversationAnalysisView({
             </dd>
           </div>
         </dl>
-      </section>
+      </Card>
       <section>
         <h2 className="px-1 text-sm font-medium text-foreground">Findings</h2>
         {analysis.findings.length === 0 ? (
-          <p className="mt-2 rounded-xl border border-border bg-card px-4 py-6 text-sm text-muted-foreground">
+          <Card
+            render={<p />}
+            className="mt-2 gap-0 px-4 py-6 text-sm text-muted-foreground"
+          >
             No notable behavior findings
-          </p>
+          </Card>
         ) : (
           <ul className="mt-2 flex flex-col gap-2">
             {analysis.findings.map((finding) => (

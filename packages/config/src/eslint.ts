@@ -5,7 +5,13 @@ import globals from "globals"
 import tseslint from "typescript-eslint"
 
 const sharedRules = {
-  "@typescript-eslint/no-explicit-any": "off",
+  "@typescript-eslint/no-explicit-any": "error",
+  "no-console": ["error", { allow: ["warn", "error"] }],
+  "max-params": ["warn", 5],
+  "max-lines-per-function": [
+    "warn",
+    { max: 150, skipBlankLines: true, skipComments: true },
+  ],
   "@typescript-eslint/no-floating-promises": "warn",
   "@typescript-eslint/no-unsafe-argument": "warn",
   "prettier/prettier": ["error", { endOfLine: "auto" }],
@@ -52,6 +58,10 @@ export function createSharedEslintConfig({
         ...sharedRules,
         ...rules,
       },
+    },
+    {
+      files: ["**/*.{spec,test,e2e-spec}.{ts,tsx}"],
+      rules: { "max-lines-per-function": "off", "max-params": "off" },
     }
   )
 }

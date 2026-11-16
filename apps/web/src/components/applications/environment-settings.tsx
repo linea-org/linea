@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
 import { InfoTip } from "./info-tip"
@@ -106,9 +107,12 @@ export function EnvironmentSettings(props: Readonly<EnvironmentSettingsProps>) {
             <h3 className="text-sm font-medium">{section.label}</h3>
             <InfoTip label={section.label} text={section.description} />
           </div>
-          <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
+          <Card
+            size="sm"
+            className="flex flex-col gap-0 gap-4 px-(--card-spacing)"
+          >
             {section.content(props)}
-          </div>
+          </Card>
         </section>
       ))}
     </section>

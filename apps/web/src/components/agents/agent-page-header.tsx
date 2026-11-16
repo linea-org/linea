@@ -1,3 +1,4 @@
+import { Card } from "@linea/ui/components/card"
 import { Link, useSearch } from "@tanstack/react-router"
 import { Button } from "@linea/ui/components/button"
 import { Badge } from "@linea/ui/components/badge"
@@ -73,10 +74,7 @@ export function AgentPageHeader({
         </div>
       </header>
       {archived && section !== "deployments" && (
-        <div
-          role="note"
-          className="m-4 mb-0 rounded-lg border border-border bg-card px-4 py-3 text-xs"
-        >
+        <Card className="m-4 mb-0 gap-0 px-4 py-3 text-xs" role="note">
           <p className="font-medium">
             This Agent is archived. Configuration is read-only.
           </p>
@@ -84,7 +82,7 @@ export function AgentPageHeader({
             You can review its Contracts, versions, and deployments. Existing
             deployments can still be disabled.
           </p>
-        </div>
+        </Card>
       )}
     </>
   )

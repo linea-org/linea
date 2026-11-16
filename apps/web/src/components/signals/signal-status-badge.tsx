@@ -4,11 +4,11 @@ import type { SignalStatus } from "@/lib/signals-api"
 
 const statusVariant: Record<
   SignalStatus,
-  "destructive" | "secondary" | "outline"
+  "destructive" | "warning" | "success"
 > = {
   open: "destructive",
-  regressed: "destructive",
-  resolved: "secondary",
+  regressed: "warning",
+  resolved: "success",
 }
 
 const statusLabel: Record<SignalStatus, string> = {

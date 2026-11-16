@@ -8,6 +8,7 @@ import {
   HomeStats,
   OpenSignalsWidget,
   RecentExecutionsWidget,
+  StartStarterWorkflowButton,
   WorkflowsWidget,
 } from "@/components/home"
 import {
@@ -54,15 +55,18 @@ function WorkspaceHomePage() {
             Start with a task, then configure and deploy your Agent.
           </p>
         </div>
-        <AddAgentDialog
-          workspaceSlug={slug}
-          trigger={
-            <Button size="xs">
-              <PlusIcon />
-              Add Agent
-            </Button>
-          }
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <StartStarterWorkflowButton slug={slug} />
+          <AddAgentDialog
+            workspaceSlug={slug}
+            trigger={
+              <Button size="xs">
+                <PlusIcon />
+                Add Agent
+              </Button>
+            }
+          />
+        </div>
       </header>
       <HomeStats
         workflows={workflows}

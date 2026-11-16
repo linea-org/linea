@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
+import { Card } from "@linea/ui/components/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -370,7 +371,7 @@ function WorkflowsListPage() {
         </Empty>
       ) : (
         <div className="px-4 py-2">
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Card className="gap-0 py-0">
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow className="hover:bg-transparent">
@@ -489,7 +490,7 @@ function WorkflowsListPage() {
                 })}
               </TableBody>
             </Table>
-          </div>
+          </Card>
         </div>
       )}
       {editingWorkflow && (

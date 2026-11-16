@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 
-import { apiFetch } from "./api-fetch"
+import { apiFetch, parseErrorMessage } from "./api-fetch"
 import type { JsonValue } from "./executions-api"
 
 export type RegressionRunTrigger = "publish" | "manual"
@@ -69,10 +69,9 @@ export const triggerRegressionRunFn = createServerFn({ method: "POST" })
       }
     )
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as {
-        message?: string
-      } | null
-      throw new Error(body?.message ?? "Could not run the regression suite")
+      throw new Error(
+        await parseErrorMessage(res, "Could not run the regression suite")
+      )
     }
     return (await res.json()) as { queued: true }
   })

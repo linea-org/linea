@@ -9,6 +9,7 @@ import { Link, createFileRoute } from "@tanstack/react-router"
 import { FlaskConicalIcon, PencilIcon, PencilRulerIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
+import { Card } from "@linea/ui/components/card"
 import { z } from "zod"
 import {
   workflowViewSchema,
@@ -202,21 +203,21 @@ function WorkflowDetailPage() {
                     <p className="pl-1 text-sm font-medium text-foreground">
                       Trend
                     </p>
-                    <div className="overflow-hidden rounded-xl border border-border bg-card">
+                    <Card className="gap-0 py-0">
                       <div className="px-4 py-4">
                         <SignalTrendChart trend={signalsTrend ?? []} />
                       </div>
-                    </div>
+                    </Card>
                   </div>
                   <div className="flex flex-col gap-2">
                     <p className="pl-1 text-sm font-medium text-foreground">
                       By type
                     </p>
-                    <div className="overflow-hidden rounded-xl border border-border bg-card">
+                    <Card className="gap-0 py-0">
                       <div className="px-4 py-4">
                         <SignalFlagTypeBreakdown signals={signals} />
                       </div>
-                    </div>
+                    </Card>
                   </div>
                 </div>
                 <SignalList

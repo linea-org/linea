@@ -4,7 +4,7 @@
 
 Planning document only. This document does not authorize implementation, package moves, route changes, schema migrations, issue creation, or publishing.
 
-The accepted security and domain decisions in `docs/end-user-approval-protocol.md`, `GLOSSARY.md`, and the accepted ADRs remain authoritative. This plan explains how to turn those decisions into maintainable package interfaces, a complete developer interface, generated route documentation, and SDKs when implementation begins.
+The accepted security and domain decisions in `docs/architecture/end-user-approval-protocol.md`, `GLOSSARY.md`, and the accepted ADRs remain authoritative. This plan explains how to turn those decisions into maintainable package interfaces, a complete developer interface, generated route documentation, and SDKs when implementation begins.
 
 The GitHub repository `linea-org/linea` is currently private. It already uses Apache-2.0 and contains `SECURITY.md` and `CONTRIBUTING.md`. The accepted open-source target is to make this monorepo public after the launch audit and repository-access controls in this plan are complete.
 
@@ -1213,7 +1213,7 @@ Exit: dependency violations fail CI, with no app-to-app or public-to-internal im
 
 ### Phase 5: implement the client-pulled end-user slice
 
-Use the accepted delivery order from `docs/end-user-approval-protocol.md`, but begin only with the smallest complete slice required by the first integration. The eventual order remains:
+Use the accepted delivery order from `docs/architecture/end-user-approval-protocol.md`, but begin only with the smallest complete slice required by the first integration. The eventual order remains:
 
 1. shared protocol, errors, events, and idempotency;
 2. Applications, Workflow Contracts, bindings, and Application keys;
@@ -1247,11 +1247,11 @@ The accepted architecture is retained so these capabilities can be built coheren
 
 Use this file as the single Notion-ready implementation blueprint, but do not collapse every repository document into one permanent source. They answer different questions and change at different rates:
 
-- `docs/product-vision.md` owns stable product identity and positioning;
-- `docs/strategy.md` owns current market evidence, wedge, risks, and sequencing logic;
+- `docs/product/product-vision.md` owns stable product identity and positioning;
+- `docs/product/strategy.md` owns current market evidence, wedge, risks, and sequencing logic;
 - `GLOSSARY.md` owns canonical domain vocabulary only;
 - `docs/adr/*` records hard-to-reverse accepted decisions and their trade-offs;
-- `docs/end-user-approval-protocol.md` owns the detailed accepted security and protocol design;
+- `docs/architecture/end-user-approval-protocol.md` owns the detailed accepted security and protocol design;
 - this file owns the package, developer-interface, documentation, and implementation plan.
 
 `docs/sdk.md` contains the earlier Approval and conversation-token proposal. Its useful user stories should be retained, but its bearer-token, resolve-token, and confirmation-key security model is superseded by OIDC with PKCE, DPoP-bound End-User Sessions, and Decisions submitted only by the end-user plane. After this plan is approved, either replace `docs/sdk.md` with a short superseded notice linking to the accepted protocol or archive it in the same documentation-only PR. Do not leave both designs appearing current.
