@@ -94,23 +94,21 @@ function PayloadBody({
 }: Readonly<{ label: string; value: JsonValue | null; asJson: boolean }>) {
   if (value === null) {
     return (
-      <p className="px-4 pb-4 text-sm text-muted-foreground">
+      <p className="p-4 text-sm text-muted-foreground">
         No {label.toLowerCase()} recorded.
       </p>
     )
   }
   if (asJson || !isJsonObject(value)) {
     return (
-      <pre className="max-h-72 overflow-auto px-4 pb-4 font-mono text-sm break-words whitespace-pre-wrap">
+      <pre className="max-h-72 overflow-auto p-4 font-mono text-sm break-words whitespace-pre-wrap">
         {formatJson(value)}
       </pre>
     )
   }
   const entries = Object.entries(value)
   if (entries.length === 0) {
-    return (
-      <p className="px-4 pb-4 text-sm text-muted-foreground">Empty object.</p>
-    )
+    return <p className="p-4 text-sm text-muted-foreground">Empty object.</p>
   }
   return <PayloadTable entries={entries} />
 }
