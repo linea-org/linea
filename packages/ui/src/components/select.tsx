@@ -18,13 +18,29 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+function capitalizedValue(value: unknown, placeholder: React.ReactNode) {
+  if (typeof value === "string") {
+    return value.charAt(0).toUpperCase() + value.slice(1)
+  }
+  if (typeof value === "number") return String(value)
+  return placeholder
+}
+
+function SelectValue({
+  className,
+  children,
+  placeholder,
+  ...props
+}: SelectPrimitive.Value.Props) {
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
       className={cn("flex flex-1 text-left", className)}
+      placeholder={placeholder}
       {...props}
-    />
+    >
+      {children ?? ((value: unknown) => capitalizedValue(value, placeholder))}
+    </SelectPrimitive.Value>
   )
 }
 
