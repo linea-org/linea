@@ -19,6 +19,18 @@ import {
   markOutboxMessagePublished,
   recordOutboxMessageFailure,
 } from "./outbox-message.repository.js"
+import type { DbClient } from "./types.js"
+
+// Other packages' tests commit eligible messages, so claiming tests park theirs at the epoch and
+// claim on a clock one millisecond later: only their own message is eligible.
+const TEST_NOW = new Date(1)
+
+async function parkAtEpoch(client: DbClient, messageId: string) {
+  await client
+    .update(outboxMessages)
+    .set({ availableAt: new Date(0) })
+    .where(eq(outboxMessages.id, messageId))
+}
 
 describe("outbox message repository", () => {
   it("stores workflow dispatch and public events in the caller transaction", async () => {
@@ -92,7 +104,8 @@ describe("outbox message repository", () => {
         workspaceId: fixture.organization.id,
         executionId: "00000000-0000-4000-8000-000000000001",
       })
-      const now = new Date()
+      await parkAtEpoch(db, message.id)
+      const now = TEST_NOW
       const claims = await Promise.all([
         claimWorkflowExecutionMessage(db, {
           claimedBy: "dispatcher-a",
@@ -126,7 +139,8 @@ describe("outbox message repository", () => {
         workspaceId: fixture.organization.id,
         executionId: "00000000-0000-4000-8000-000000000001",
       })
-      const now = new Date()
+      await parkAtEpoch(tx, message.id)
+      const now = TEST_NOW
       const firstClaim = await claimWorkflowExecutionMessage(tx, {
         claimedBy: "dispatcher-a",
         now,
@@ -186,7 +200,8 @@ describe("outbox message repository", () => {
         workspaceId: fixture.organization.id,
         executionId: "00000000-0000-4000-8000-000000000001",
       })
-      const now = new Date()
+      await parkAtEpoch(tx, message.id)
+      const now = TEST_NOW
       await tx
         .update(outboxMessages)
         .set({
@@ -231,7 +246,8 @@ describe("outbox message repository", () => {
         workspaceId: fixture.organization.id,
         executionId: execution.id,
       })
-      const now = new Date()
+      await parkAtEpoch(tx, message.id)
+      const now = TEST_NOW
       await tx
         .update(outboxMessages)
         .set({
