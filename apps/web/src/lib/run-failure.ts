@@ -1,6 +1,6 @@
 export type RunFailureFix = { label: string; to: "models" | "workflow" }
 
-/** An unknown model lives in the workflow node, so its fix is the builder, not workspace settings. */
+/** An unknown model lives in the workflow node, so its fix is the builder, not settings. */
 export function runFailureFix(message: string): RunFailureFix | null {
   if (/^No [A-Z0-9_]+ is set\./.test(message)) {
     return { label: "Add your key", to: "models" }
