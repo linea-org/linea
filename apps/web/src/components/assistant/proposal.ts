@@ -1,4 +1,4 @@
-import type { WorkflowGraph } from "@linea/runtime/browser"
+import type { WorkflowGraph } from "@linealabs/runtime/browser"
 
 import type { JsonValue } from "@/lib/executions-api"
 

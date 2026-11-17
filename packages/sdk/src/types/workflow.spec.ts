@@ -1,4 +1,4 @@
-import type { workflowGraphSchema } from "@linea/runtime"
+import type { workflowGraphSchema } from "@linealabs/runtime"
 import { expectTypeOf, it } from "vitest"
 import type { WorkflowGraph } from "./workflow.js"
 

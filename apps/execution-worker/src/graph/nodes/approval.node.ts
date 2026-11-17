@@ -1,11 +1,11 @@
-import { sendEmail } from "@linea/auth/email"
+import { sendEmail } from "@linealabs/auth/email"
 import {
   db,
   repositories,
   type ApprovalRequest,
   type ApprovalRequestDisplay,
-} from "@linea/db"
-import { approvalInputSchema, nodeRegistry } from "@linea/runtime"
+} from "@linealabs/db"
+import { approvalInputSchema, nodeRegistry } from "@linealabs/runtime"
 import { Injectable, Logger } from "@nestjs/common"
 import { consumeApprovalEmailQuota } from "./approval-email-quota"
 import { PauseExecutionError } from "../../checkpoints/checkpoints.service"

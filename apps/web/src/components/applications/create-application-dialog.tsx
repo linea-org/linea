@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
@@ -12,9 +12,9 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-} from "@linea/ui/components/dialog"
-import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
+} from "@linealabs/ui/components/dialog"
+import { Field, FieldError, FieldLabel } from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
 import {
   applicationsQueryOptions,
   createApplicationFn,

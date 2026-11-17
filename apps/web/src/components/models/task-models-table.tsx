@@ -1,4 +1,4 @@
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import {
   Table,
   TableBody,
@@ -6,7 +6,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@linea/ui/components/table"
+} from "@linealabs/ui/components/table"
 
 import type { ModelSetup, TaskModelKey } from "@/lib/model-settings-api"
 

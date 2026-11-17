@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import { Link } from "@tanstack/react-router"
 import { FlaskConicalIcon } from "lucide-react"
 import {
@@ -9,7 +9,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@linea/ui/components/table"
+} from "@linealabs/ui/components/table"
 
 import { formatCost } from "@/components/executions/execution-list"
 import { EmptyCard } from "@/components/empty-card"

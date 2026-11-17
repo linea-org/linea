@@ -4,13 +4,13 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@linea/ui/components/collapsible"
+} from "@linealabs/ui/components/collapsible"
 import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
   useSidebar,
-} from "@linea/ui/components/sidebar"
+} from "@linealabs/ui/components/sidebar"
 
 import { useSidebarBranchState } from "./sidebar-branch-state"
 

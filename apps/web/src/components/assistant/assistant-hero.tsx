@@ -7,8 +7,8 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
-import { Card, CardContent } from "@linea/ui/components/card"
+import { Button } from "@linealabs/ui/components/button"
+import { Card, CardContent } from "@linealabs/ui/components/card"
 
 import { ModelSetupForm } from "@/components/models/model-setup-form"
 import { StarterTemplateGrid } from "@/components/templates/starter-template-grid"

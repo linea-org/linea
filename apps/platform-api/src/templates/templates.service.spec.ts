@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common'
-import { db, pool, repositories, schema } from '@linea/db'
+import { db, pool, repositories, schema } from '@linealabs/db'
 import type { TemplateModerationNotifier } from './moderation/template-moderation-notifier'
 import { TemplatesService } from './templates.service'
 

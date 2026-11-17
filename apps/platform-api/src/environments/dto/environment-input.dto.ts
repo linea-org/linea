@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { connectorAccessPolicySchema as replaceConnectorAccessPolicySchema } from '@linea/protocol/resources'
+import { connectorAccessPolicySchema as replaceConnectorAccessPolicySchema } from '@linealabs/protocol/resources'
 
 function isOriginOnly(value: string): boolean {
   const url = new URL(value)
@@ -101,7 +101,7 @@ export const updateEnvironmentProfileSchema = z
 
 export const replaceEnvironmentTrustSchema = environmentTrustConfigurationSchema
 
-export { connectorAccessPolicySchema as replaceConnectorAccessPolicySchema } from '@linea/protocol/resources'
+export { connectorAccessPolicySchema as replaceConnectorAccessPolicySchema } from '@linealabs/protocol/resources'
 
 export function validateProductionEnvironmentTrust(
   trust: ReplaceEnvironmentTrustDto,

@@ -1,4 +1,4 @@
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import {
   ActivityIcon,
   CircleCheckIcon,

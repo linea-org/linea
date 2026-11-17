@@ -1,6 +1,6 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react"
-import { nodeRegistry } from "@linea/runtime/browser"
-import { cn } from "@linea/ui/lib/utils"
+import { nodeRegistry } from "@linealabs/runtime/browser"
+import { cn } from "@linealabs/ui/lib/utils"
 import { NodeIcon } from "./node-icon"
 import { branchOutputs } from "./branch-outputs"
 import { NODE_CATEGORY_COLORS } from "./node-category-colors"

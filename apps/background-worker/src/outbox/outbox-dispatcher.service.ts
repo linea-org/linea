@@ -5,7 +5,7 @@ import {
   type OnModuleDestroy,
   type OnModuleInit,
 } from "@nestjs/common"
-import { db, repositories, type OutboxMessage } from "@linea/db"
+import { db, repositories, type OutboxMessage } from "@linealabs/db"
 import { WorkflowQueueService } from "../queue/workflow-queue.service"
 import { WebhookQueueService } from "../queue/webhook-queue.service"
 

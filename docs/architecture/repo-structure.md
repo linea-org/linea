@@ -106,11 +106,11 @@ Typed TypeScript clients over the public protocol:
 - webhook signature verification.
 
 The root and server entry points may handle trusted credentials. The
-`@linea/sdk/user` entry point never accepts workspace or Application secrets.
+`@linealabs/sdk/user` entry point never accepts workspace or Application secrets.
 
 ### `packages/sdk-react`
 
-Headless React providers and hooks over `@linea/sdk/user`, optional approval
+Headless React providers and hooks over `@linealabs/sdk/user`, optional approval
 presentation, and the CopilotKit adapter. It does not redefine identity,
 session, transport, Approval Request, Decision, Connection, or consent
 semantics.

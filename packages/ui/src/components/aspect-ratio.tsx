@@ -1,4 +1,4 @@
-import { cn } from "@linea/ui/lib/utils"
+import { cn } from "@linealabs/ui/lib/utils"
 
 function AspectRatio({
   ratio,

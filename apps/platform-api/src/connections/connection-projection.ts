@@ -1,8 +1,8 @@
-import type { Connection } from '@linea/db'
+import type { Connection } from '@linealabs/db'
 import {
   connectionStatusSchema,
   type Connection as PublicConnection,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 
 export function publicConnection(connection: Connection): PublicConnection {
   return {

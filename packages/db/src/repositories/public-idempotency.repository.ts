@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import type { JsonValue } from "@linea/protocol/shared"
+import type { JsonValue } from "@linealabs/protocol/shared"
 import { and, eq, isNull } from "drizzle-orm"
 import { publicIdempotencyRecords } from "../schema/index.js"
 import type { DbClient } from "./types.js"

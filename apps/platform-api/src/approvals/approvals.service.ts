@@ -8,7 +8,7 @@ import {
   repositories,
   type ApprovalDecision,
   type ApprovalRequest,
-} from '@linea/db'
+} from '@linealabs/db'
 import type { RespondToApprovalDto } from './dto/respond-to-approval.dto'
 
 @Injectable()

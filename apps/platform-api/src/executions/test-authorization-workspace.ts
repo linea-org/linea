@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { db, pool, schema } from '@linea/db'
+import { db, pool, schema } from '@linealabs/db'
 import type { GeneratedApiKey } from '../auth/api-key.util'
 import type { AuthenticatedRequest } from '../auth/workspace-auth.guard'
 

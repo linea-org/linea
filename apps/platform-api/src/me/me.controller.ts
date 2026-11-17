@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common'
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth'
-import type { auth } from '@linea/auth'
-import { db, repositories } from '@linea/db'
+import type { auth } from '@linealabs/auth'
+import { db, repositories } from '@linealabs/db'
 
 @Controller('me')
 export class MeController {

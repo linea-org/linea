@@ -1,4 +1,4 @@
-import type { ExternalSubjectMetadata } from "@linea/protocol/resources"
+import type { ExternalSubjectMetadata } from "@linealabs/protocol/resources"
 import { randomUUID } from "node:crypto"
 import {
   and,

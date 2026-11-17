@@ -1,6 +1,6 @@
 import { FlaskConicalIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 
 export function RunRegressionButton({
   published,

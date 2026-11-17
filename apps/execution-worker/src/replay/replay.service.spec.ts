@@ -1,14 +1,14 @@
-jest.mock("@linea/http", () => ({
-  ...jest.requireActual<typeof import("@linea/http")>("@linea/http"),
+jest.mock("@linealabs/http", () => ({
+  ...jest.requireActual<typeof import("@linealabs/http")>("@linealabs/http"),
   requestPublic: jest.fn(),
 }))
-import { createTestExecution } from "@linea/db/testing"
-import { getTestApplicationId } from "@linea/db/testing"
+import { createTestExecution } from "@linealabs/db/testing"
+import { getTestApplicationId } from "@linealabs/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
-import { db, pool, repositories, schema } from "@linea/db"
-import { requestPublic } from "@linea/http"
-import type { WorkflowGraph } from "@linea/runtime"
+import { db, pool, repositories, schema } from "@linealabs/db"
+import { requestPublic } from "@linealabs/http"
+import type { WorkflowGraph } from "@linealabs/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
 import { AiNode } from "../graph/nodes/ai.node"
 import { ApprovalNode } from "../graph/nodes/approval.node"

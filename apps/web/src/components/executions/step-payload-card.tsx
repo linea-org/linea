@@ -1,13 +1,13 @@
 import { useState } from "react"
 import { ChevronDownIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
-import { Card } from "@linea/ui/components/card"
+import { Button } from "@linealabs/ui/components/button"
+import { Card } from "@linealabs/ui/components/card"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@linea/ui/components/collapsible"
+} from "@linealabs/ui/components/collapsible"
 import {
   Table,
   TableBody,
@@ -15,8 +15,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@linea/ui/components/table"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/table"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { CopyButton } from "@/components/copy-button"
 import type { JsonValue } from "@/lib/executions-api"

@@ -3,7 +3,7 @@ import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import {
   paginationQuerySchema,
   type PaginationQuery,
-} from '@linea/protocol/shared'
+} from '@linealabs/protocol/shared'
 import type { EnvironmentPrincipal } from '../auth/environment-key.guard'
 import { EnvironmentKeyGuard } from '../auth/environment-key.guard'
 import { EnvironmentScopeGuard } from '../auth/environment-scope.guard'

@@ -6,8 +6,8 @@ import {
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
-import { Button } from "@linea/ui/components/button"
-import { Card } from "@linea/ui/components/card"
+import { Button } from "@linealabs/ui/components/button"
+import { Card } from "@linealabs/ui/components/card"
 
 import { createRegressionCaseFromFlagFn } from "@/lib/regression-cases-api"
 import {

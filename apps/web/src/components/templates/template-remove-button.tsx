@@ -11,8 +11,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@linea/ui/components/alert-dialog"
-import { Button } from "@linea/ui/components/button"
+} from "@linealabs/ui/components/alert-dialog"
+import { Button } from "@linealabs/ui/components/button"
 
 import {
   deleteTemplateFn,

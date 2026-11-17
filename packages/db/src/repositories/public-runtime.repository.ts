@@ -1,5 +1,5 @@
 import { and, desc, eq, isNotNull, isNull, lt, or } from "drizzle-orm"
-import { compileContractSchema } from "@linea/protocol/json-schema"
+import { compileContractSchema } from "@linealabs/protocol/json-schema"
 import {
   environments,
   environmentWorkflowBindings,

@@ -1,4 +1,4 @@
-import { nodeRegistry } from '@linea/runtime'
+import { nodeRegistry } from '@linealabs/runtime'
 import { ASSISTANT_NODE_TYPES, type AssistantNodeType } from './assistant-nodes'
 
 export const ASSISTANT_NAME = 'Inky'

@@ -1,6 +1,6 @@
 import { Separator as SeparatorPrimitive } from "@base-ui/react/separator"
 
-import { cn } from "@linea/ui/lib/utils"
+import { cn } from "@linealabs/ui/lib/utils"
 
 function Separator({
   className,

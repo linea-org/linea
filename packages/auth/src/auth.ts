@@ -5,7 +5,7 @@ import { expo } from "@better-auth/expo"
 import { magicLink, organization, twoFactor } from "better-auth/plugins"
 import { eq } from "drizzle-orm"
 import { Redis } from "ioredis"
-import { db, repositories, schema } from "@linea/db"
+import { db, repositories, schema } from "@linealabs/db"
 import { createAuthRateLimiter } from "./auth-rate-limit.js"
 import { sendEmail } from "./email.js"
 import { createMagicLinkEmailUrl } from "./magic-link-email-url.js"
@@ -31,15 +31,17 @@ const secret = process.env.BETTER_AUTH_SECRET
 const redisUrl = process.env.REDIS_URL
 
 if (!baseUrl) {
-  throw new Error("BETTER_AUTH_URL is required to initialize @linea/auth")
+  throw new Error("BETTER_AUTH_URL is required to initialize @linealabs/auth")
 }
 
 if (!secret) {
-  throw new Error("BETTER_AUTH_SECRET is required to initialize @linea/auth")
+  throw new Error(
+    "BETTER_AUTH_SECRET is required to initialize @linealabs/auth"
+  )
 }
 
 if (!redisUrl) {
-  throw new Error("REDIS_URL is required to initialize @linea/auth")
+  throw new Error("REDIS_URL is required to initialize @linealabs/auth")
 }
 
 // Lazy so importing the package (e.g. for types or enabledSocialProviders) opens no socket.

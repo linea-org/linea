@@ -3,7 +3,7 @@ import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import {
   paginationQuerySchema,
   type PaginationQuery,
-} from '@linea/protocol/shared'
+} from '@linealabs/protocol/shared'
 import { CurrentEndUser } from '../end-user-sessions/current-end-user.decorator'
 import {
   EndUserSessionGuard,

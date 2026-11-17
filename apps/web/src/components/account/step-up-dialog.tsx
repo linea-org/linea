@@ -2,8 +2,8 @@ import { useState } from "react"
 import { Link, useParams } from "@tanstack/react-router"
 import { ShieldAlertIcon } from "lucide-react"
 
-import { Alert, AlertDescription } from "@linea/ui/components/alert"
-import { Button } from "@linea/ui/components/button"
+import { Alert, AlertDescription } from "@linealabs/ui/components/alert"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
@@ -11,12 +11,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@linea/ui/components/dialog"
+} from "@linealabs/ui/components/dialog"
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
-} from "@linea/ui/components/input-otp"
+} from "@linealabs/ui/components/input-otp"
 
 import { authClient } from "@/lib/auth-client"
 import { getAppOrigin } from "@/lib/workspace-host"

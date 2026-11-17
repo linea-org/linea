@@ -1,6 +1,6 @@
 {
-  "name": "@linea/protocol",
-  "version": "0.0.0",
+  "name": "@linealabs/protocol",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -17,7 +17,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@linea/config": "workspace:*",
+    "@linealabs/config": "workspace:*",
     "esbuild": "0.28.1",
     "eslint": "^9",
     "tsup": "^8.5.0",

@@ -3,7 +3,7 @@ import {
   createParamDecorator,
   type ExecutionContext,
 } from '@nestjs/common'
-import { idempotencyKeySchema } from '@linea/protocol/shared'
+import { idempotencyKeySchema } from '@linealabs/protocol/shared'
 import type { Request } from 'express'
 import { publicError } from '../auth/public-error'
 

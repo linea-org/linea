@@ -1,5 +1,5 @@
-import { Card } from "@linea/ui/components/card"
-import { Badge } from "@linea/ui/components/badge"
+import { Card } from "@linealabs/ui/components/card"
+import { Badge } from "@linealabs/ui/components/badge"
 import type {
   ConversationAnalysisResponse,
   ConversationFinding,

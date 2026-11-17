@@ -1,6 +1,6 @@
-import { fixtureIssuer } from '@linea/db/testing'
-import { configureTestEnvironment } from '@linea/db/testing'
-import { getTestApplicationId } from '@linea/db/testing'
+import { fixtureIssuer } from '@linealabs/db/testing'
+import { configureTestEnvironment } from '@linealabs/db/testing'
+import { getTestApplicationId } from '@linealabs/db/testing'
 import 'dotenv/config'
 import { createHash, randomUUID } from 'node:crypto'
 import { Logger, type INestApplication } from '@nestjs/common'
@@ -8,7 +8,7 @@ import { Test } from '@nestjs/testing'
 import {
   GOOGLE_ACTION_SCOPES,
   googleAuthorizationScopes,
-} from '@linea/connectors'
+} from '@linealabs/connectors'
 import {
   db,
   decryptCredential,
@@ -16,7 +16,7 @@ import {
   pool,
   repositories,
   schema,
-} from '@linea/db'
+} from '@linealabs/db'
 import {
   calculateJwkThumbprint,
   exportJWK,
@@ -27,14 +27,14 @@ import {
 } from 'jose-v5'
 import request from 'supertest'
 import type { App } from 'supertest/types'
-import { publicErrorResponseSchema } from '@linea/protocol/errors'
+import { publicErrorResponseSchema } from '@linealabs/protocol/errors'
 import {
   connectionBrowserMessageSchema,
   connectionAuthorizationResponseSchema,
   connectionAuthorizationSchema,
   connectionSchema,
   connectionsResponseSchema,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import {
   CONNECTION_OAUTH_PROVIDERS,
   type ConnectionOAuthProvider,

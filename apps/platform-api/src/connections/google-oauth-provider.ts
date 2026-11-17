@@ -2,7 +2,7 @@ import {
   googleAuthorizationScopes,
   normalizeGoogleGrantedScopes,
   readBoundedJsonResponse,
-} from '@linea/connectors'
+} from '@linealabs/connectors'
 import { z } from 'zod'
 import {
   ConnectionProviderInvalidGrantError,

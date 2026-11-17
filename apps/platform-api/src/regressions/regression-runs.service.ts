@@ -8,7 +8,7 @@ import {
   repositories,
   type RegressionResult,
   type RegressionRun,
-} from '@linea/db'
+} from '@linealabs/db'
 import { RegressionRunQueueService } from '../queue/regression-run-queue.service'
 import type { ListRegressionRunsDto } from './dto/list-regression-runs.dto'
 import type { TriggerRegressionRunDto } from './dto/trigger-regression-run.dto'

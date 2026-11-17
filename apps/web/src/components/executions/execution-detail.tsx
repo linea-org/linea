@@ -1,8 +1,8 @@
 import { useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Button } from "@linea/ui/components/button"
-import { Separator } from "@linea/ui/components/separator"
-import { Card } from "@linea/ui/components/card"
+import { Button } from "@linealabs/ui/components/button"
+import { Separator } from "@linealabs/ui/components/separator"
+import { Card } from "@linealabs/ui/components/card"
 
 import { PlayfulAvatar } from "@/components/avatar"
 import {

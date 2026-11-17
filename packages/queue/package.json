@@ -1,6 +1,6 @@
 {
-  "name": "@linea/queue",
-  "version": "0.0.0",
+  "name": "@linealabs/queue",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -18,7 +18,7 @@
     "ioredis": "^5"
   },
   "devDependencies": {
-    "@linea/config": "workspace:*",
+    "@linealabs/config": "workspace:*",
     "@types/node": "22",
     "dotenv": "17.4.2",
     "eslint": "^9",

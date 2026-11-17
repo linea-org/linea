@@ -1,8 +1,10 @@
-import { configureTestEnvironment } from '@linea/db/testing'
-import { getTestApplicationId } from '@linea/db/testing'
+import {
+  configureTestEnvironment,
+  getTestApplicationId,
+} from '@linealabs/db/testing'
 import { createHash, randomUUID } from 'node:crypto'
-import { googleAuthorizationScopes } from '@linea/connectors'
-import { db, repositories, schema } from '@linea/db'
+import { googleAuthorizationScopes } from '@linealabs/connectors'
+import { db, repositories, schema } from '@linealabs/db'
 import {
   calculateJwkThumbprint,
   exportJWK,

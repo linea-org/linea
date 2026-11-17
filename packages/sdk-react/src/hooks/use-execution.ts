@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { PublicExecution } from "@linea/sdk/user"
+import type { PublicExecution } from "@linealabs/sdk/user"
 import { useLineaUserClient } from "../provider/linea-user-provider.js"
 
 export type ExecutionState = {

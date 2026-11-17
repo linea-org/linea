@@ -21,7 +21,7 @@ import {
   type ListConnectionUsesQuery,
   type StartConnectionAuthorization,
   type StartConnectionScopeUpgrade,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import { CurrentEndUser } from '../end-user-sessions/current-end-user.decorator'
 import {
   EndUserSessionGuard,

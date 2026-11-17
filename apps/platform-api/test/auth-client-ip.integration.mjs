@@ -13,7 +13,7 @@ process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:1/ip_test'
 process.env.BETTER_AUTH_URL = 'http://localhost:3000'
 process.env.BETTER_AUTH_SECRET = 'auth-client-ip-regression-test-secret'
 
-const { auth, createAuthRateLimiter } = await import('@linea/auth')
+const { auth, createAuthRateLimiter } = await import('@linealabs/auth')
 const redis = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: 1 })
 after(() => redis.quit())
 

@@ -6,8 +6,8 @@ import {
   CommandEmpty,
   CommandInput,
   CommandList,
-} from "@linea/ui/components/command"
-import { Kbd } from "@linea/ui/components/kbd"
+} from "@linealabs/ui/components/command"
+import { Kbd } from "@linealabs/ui/components/kbd"
 
 import { CommandPaletteContext } from "./command-palette-context"
 import {

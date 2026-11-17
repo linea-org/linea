@@ -9,7 +9,7 @@ import {
   connectionOAuthCallbackSchema,
   connectionProviderSchema,
   type ConnectionOAuthCallback,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import type { Request, Response } from 'express'
 import { PublicValidationPipe } from '../public-runtime/public-validation.pipe'
 import { ConnectionsService } from './connections.service'

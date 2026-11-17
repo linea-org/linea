@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { db, repositories, type RegressionCase } from '@linea/db'
+import { db, repositories, type RegressionCase } from '@linealabs/db'
 import type { CreateRegressionCaseFromFlagDto } from './dto/create-regression-case-from-flag.dto'
 import type { CreateRegressionCaseFromStepDto } from './dto/create-regression-case-from-step.dto'
 import type { ListRegressionCasesDto } from './dto/list-regression-cases.dto'

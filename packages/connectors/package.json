@@ -1,6 +1,6 @@
 {
-  "name": "@linea/connectors",
-  "version": "0.0.0",
+  "name": "@linealabs/connectors",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,12 +13,12 @@
     "test:github:live": "vitest run src/github-live.smoke.spec.ts"
   },
   "dependencies": {
-    "@linea/db": "workspace:*",
-    "@linea/protocol": "workspace:*",
+    "@linealabs/db": "workspace:*",
+    "@linealabs/protocol": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@linea/config": "workspace:*",
+    "@linealabs/config": "workspace:*",
     "@types/node": "22",
     "eslint": "^9",
     "tsup": "^8.5.0",

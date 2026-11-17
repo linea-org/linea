@@ -88,7 +88,7 @@ workflow branches.
 
 ## Stack
 
-- React 19, TanStack Start, Tailwind CSS, and `@linea/ui`
+- React 19, TanStack Start, Tailwind CSS, and `@linealabs/ui`
 - NestJS APIs and workers
 - PostgreSQL with Drizzle ORM and pgvector available for future knowledge work
 - Redis and BullMQ
@@ -151,8 +151,8 @@ Credentialed Google and GitHub smoke tests are intentionally separate from
 required CI:
 
 ```bash
-pnpm --filter @linea/connectors test:google-live
-pnpm --filter @linea/connectors test:github:live
+pnpm --filter @linealabs/connectors test:google-live
+pnpm --filter @linealabs/connectors test:github:live
 ```
 
 ## Monorepo layout
@@ -188,11 +188,11 @@ See [docs/architecture/repo-structure.md](docs/architecture/repo-structure.md) f
 
 ## SDKs
 
-- [`@linea/sdk`](packages/sdk/README.md) provides trusted server clients,
+- [`@linealabs/sdk`](packages/sdk/README.md) provides trusted server clients,
   browser/native End-User sessions, and webhook verification.
-- [`@linea/sdk-react`](packages/sdk-react/README.md) provides headless React
+- [`@linealabs/sdk-react`](packages/sdk-react/README.md) provides headless React
   hooks, optional approval presentation, and the CopilotKit adapter.
-- `@linea/protocol` is the canonical public wire contract consumed by the API
+- `@linealabs/protocol` is the canonical public wire contract consumed by the API
   and both SDK packages.
 
 These packages are currently workspace-internal and are not published to npm.

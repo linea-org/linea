@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing'
 import { z } from 'zod'
-import { workspaceKeyScopes } from '@linea/protocol/resources'
+import { workspaceKeyScopes } from '@linealabs/protocol/resources'
 import type { INestApplication } from '@nestjs/common'
 import type { Request, Response, NextFunction } from 'express'
 import request from 'supertest'
@@ -28,7 +28,7 @@ const mockApiKey = jest.fn<
   unknown[]
 >()
 
-jest.mock('@linea/db', () => ({
+jest.mock('@linealabs/db', () => ({
   db: {},
   repositories: {
     organization: { getMemberRole: (...args: unknown[]) => mockRole(...args) },

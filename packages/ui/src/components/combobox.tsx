@@ -3,14 +3,14 @@
 import * as React from "react"
 import { Combobox as ComboboxPrimitive } from "@base-ui/react"
 
-import { cn } from "@linea/ui/lib/utils"
-import { Button } from "@linea/ui/components/button"
+import { cn } from "@linealabs/ui/lib/utils"
+import { Button } from "@linealabs/ui/components/button"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@linea/ui/components/input-group"
+} from "@linealabs/ui/components/input-group"
 import { ChevronDownIcon, XIcon, CheckIcon } from "lucide-react"
 
 const Combobox = ComboboxPrimitive.Root

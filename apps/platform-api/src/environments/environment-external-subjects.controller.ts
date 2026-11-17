@@ -10,7 +10,7 @@ import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import {
   provisionExternalSubjectSchema,
   type ProvisionExternalSubject,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import type { EnvironmentPrincipal } from '../auth/environment-key.guard'
 import { EnvironmentKeyGuard } from '../auth/environment-key.guard'
 import { EnvironmentScopeGuard } from '../auth/environment-scope.guard'

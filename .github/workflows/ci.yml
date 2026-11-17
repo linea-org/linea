@@ -129,16 +129,16 @@ jobs:
         run: pnpm check:contracts
 
       - name: Build SDK
-        run: pnpm --filter @linea/sdk build
+        run: pnpm --filter @linealabs/sdk build
 
       - name: Verify packed examples
-        run: pnpm --filter @linea/sdk test:pack
+        run: pnpm --filter @linealabs/sdk test:pack
 
       - name: Build React SDK
-        run: pnpm --filter @linea/sdk-react build
+        run: pnpm --filter @linealabs/sdk-react build
 
       - name: Verify packed React example
-        run: pnpm --filter @linea/sdk-react test:pack
+        run: pnpm --filter @linealabs/sdk-react test:pack
 
   test:
     name: Test

@@ -1,8 +1,8 @@
-import { Progress } from "@linea/ui/components/progress"
+import { Progress } from "@linealabs/ui/components/progress"
 
 import type { SignalSummary } from "@/lib/signals-api"
 import { flagTypeLabel } from "./flag-type-label"
-import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
+import { Empty, EmptyHeader, EmptyTitle } from "@linealabs/ui/components/empty"
 
 export function SignalFlagTypeBreakdown({
   signals,

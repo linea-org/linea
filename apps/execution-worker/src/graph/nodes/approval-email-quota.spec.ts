@@ -1,7 +1,7 @@
 import "dotenv/config"
 import { createServer } from "node:net"
 import { randomUUID } from "node:crypto"
-import { createConnection } from "@linea/queue"
+import { createConnection } from "@linealabs/queue"
 import { consumeApprovalEmailQuota } from "./approval-email-quota"
 
 it("atomically caps concurrent sends per workspace and isolates other workspaces", async () => {

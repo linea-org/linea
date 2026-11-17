@@ -1,14 +1,14 @@
 import 'dotenv/config'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { db, pool, repositories } from '@linea/db'
+import { db, pool, repositories } from '@linealabs/db'
 import {
   assertNoReservedNodeIds,
   hashWorkflowGraph,
   validateGraphStructure,
   workflowGraphSchema,
   type WorkflowGraph,
-} from '@linea/runtime'
+} from '@linealabs/runtime'
 
 const DEMO_ORG_SLUG = 'linea-demo'
 const DEMO_ORG_NAME = 'Linea Demo'

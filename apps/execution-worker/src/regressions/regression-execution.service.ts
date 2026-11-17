@@ -1,13 +1,13 @@
 import { Injectable, Logger } from "@nestjs/common"
-import { calculateCostMicros } from "@linea/ai"
+import { calculateCostMicros } from "@linealabs/ai"
 import {
   db,
   repositories,
   type RegressionCase,
   type RegressionRun,
-} from "@linea/db"
-import { jsonValueSchema, type JsonValue } from "@linea/protocol/shared"
-import { workflowGraphSchema, type WorkflowGraph } from "@linea/runtime"
+} from "@linealabs/db"
+import { jsonValueSchema, type JsonValue } from "@linealabs/protocol/shared"
+import { workflowGraphSchema, type WorkflowGraph } from "@linealabs/runtime"
 import { InterpreterService } from "../graph/interpreter.service"
 import { resolveNodeModel } from "../graph/resolve-node-model"
 import { AiNode } from "../graph/nodes/ai.node"

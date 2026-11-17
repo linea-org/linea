@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { PlayIcon } from "lucide-react"
 import { z } from "zod"
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
@@ -12,9 +12,9 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogDescription,
-} from "@linea/ui/components/dialog"
-import { Field, FieldLabel, FieldError } from "@linea/ui/components/field"
-import { Textarea } from "@linea/ui/components/textarea"
+} from "@linealabs/ui/components/dialog"
+import { Field, FieldLabel, FieldError } from "@linealabs/ui/components/field"
+import { Textarea } from "@linealabs/ui/components/textarea"
 import {
   executionsQueryOptions,
   triggerExecutionFn,

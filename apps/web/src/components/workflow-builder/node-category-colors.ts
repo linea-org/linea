@@ -1,5 +1,8 @@
-import type { NodeUICategory } from "@linea/runtime/browser"
-import { nodeRegistry, type NodeTypeId } from "@linea/runtime/browser"
+import {
+  nodeRegistry,
+  type NodeTypeId,
+  type NodeUICategory,
+} from "@linealabs/runtime/browser"
 
 // "ai" reuses the existing --primary token instead of adding a new one.
 export const NODE_CATEGORY_COLORS: Record<

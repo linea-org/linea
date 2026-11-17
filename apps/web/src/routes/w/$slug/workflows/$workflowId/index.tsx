@@ -8,8 +8,8 @@ import {
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { PencilIcon, PencilRulerIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
-import { Card } from "@linea/ui/components/card"
+import { Button } from "@linealabs/ui/components/button"
+import { Card } from "@linealabs/ui/components/card"
 import { z } from "zod"
 import {
   DEFAULT_WORKFLOW_VIEW,

@@ -1,3 +1,4 @@
+import { resolveBaseUrl } from "./http/base-url.js"
 import { workspaceKey } from "./server/credentials.js"
 import { ServerTransport } from "./server/transport.js"
 import { AuditEvents } from "./workspace/audit-events.js"
@@ -10,7 +11,7 @@ import { workspaceRequest } from "./workspace/workspace-request.js"
 export type LineaOptions = {
   /** A workspace API key (`lin_...`) from Settings → API keys. */
   apiKey: string
-  /** API origin without `/v1`. Defaults to `http://localhost:3000`. */
+  /** API origin without `/v1`. Defaults to `https://api.getlinea.app`. */
   baseUrl?: string
 }
 
@@ -25,7 +26,7 @@ export class Linea {
 
   constructor(options: LineaOptions) {
     const apiKey = workspaceKey(options.apiKey).value
-    const baseUrl = options.baseUrl ?? "http://localhost:3000"
+    const baseUrl = resolveBaseUrl(options.baseUrl)
     const send = workspaceRequest(baseUrl, apiKey)
     const transport = new ServerTransport(baseUrl, apiKey)
     this.workflows = new Workflows(send)

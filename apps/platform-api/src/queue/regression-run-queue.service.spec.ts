@@ -1,7 +1,7 @@
 import { RegressionRunQueueService } from './regression-run-queue.service'
-import * as queueLib from '@linea/queue'
+import * as queueLib from '@linealabs/queue'
 
-jest.mock('@linea/queue', () => ({
+jest.mock('@linealabs/queue', () => ({
   createConnection: jest.fn(() => ({ quit: jest.fn() })),
   createWorkflowRegressionRunQueue: jest.fn(() => ({ close: jest.fn() })),
   enqueueWorkflowRegressionRun: jest.fn(),

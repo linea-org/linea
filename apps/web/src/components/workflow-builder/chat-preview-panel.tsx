@@ -3,21 +3,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { MessageCircleIcon, SendIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
-import { Bubble, BubbleContent, BubbleGroup } from "@linea/ui/components/bubble"
+import { Button } from "@linealabs/ui/components/button"
+import {
+  Bubble,
+  BubbleContent,
+  BubbleGroup,
+} from "@linealabs/ui/components/bubble"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
+} from "@linealabs/ui/components/empty"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupTextarea,
-} from "@linea/ui/components/input-group"
-import { Marker, MarkerContent } from "@linea/ui/components/marker"
+} from "@linealabs/ui/components/input-group"
+import { Marker, MarkerContent } from "@linealabs/ui/components/marker"
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -25,7 +29,7 @@ import {
   MessageScrollerItem,
   MessageScrollerProvider,
   MessageScrollerViewport,
-} from "@linea/ui/components/message-scroller"
+} from "@linealabs/ui/components/message-scroller"
 
 import {
   chatMessagesQueryOptions,

@@ -4,7 +4,7 @@ import {
   type OnModuleDestroy,
   type OnModuleInit,
 } from "@nestjs/common"
-import { db, repositories } from "@linea/db"
+import { db, repositories } from "@linealabs/db"
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000
 const ENVIRONMENT_KEY_ACTIVITY_RETENTION_MS = 90 * 24 * 60 * 60 * 1000

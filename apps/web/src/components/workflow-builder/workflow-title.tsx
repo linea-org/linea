@@ -1,8 +1,8 @@
 import { useRef, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { CheckIcon, PencilIcon, XIcon } from "lucide-react"
-import { Button } from "@linea/ui/components/button"
-import { Input } from "@linea/ui/components/input"
+import { Button } from "@linealabs/ui/components/button"
+import { Input } from "@linealabs/ui/components/input"
 import {
   updateWorkflowFn,
   workflowQueryOptions,

@@ -6,11 +6,11 @@ import {
   resolveProvider,
   type ConversationTurn,
   type ToolDefinition,
-} from "@linea/ai"
-import { db, repositories } from "@linea/db"
-import type { Memory } from "@linea/db"
-import { PermanentRequestError, requestPublic } from "@linea/http"
-import { nodeRegistry } from "@linea/runtime"
+} from "@linealabs/ai"
+import { db, repositories } from "@linealabs/db"
+import type { Memory } from "@linealabs/db"
+import { PermanentRequestError, requestPublic } from "@linealabs/http"
+import { nodeRegistry } from "@linealabs/runtime"
 import { NonRetryableError } from "./non-retryable-error"
 import { assertWithinExecutionBudget, UsageError } from "./usage-error"
 import { resolveNamespace, resolveSubjectId } from "./memory-scope"

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
-import { LineaUserClient } from "@linea/sdk/user"
+import { LineaUserClient } from "@linealabs/sdk/user"
 import {
   ApprovalRequest,
   LineaUserProvider,
   useApprovalRequests,
   useDecision,
-} from "@linea/sdk-react"
+} from "@linealabs/sdk-react"
 
 type Task = {
   id: string

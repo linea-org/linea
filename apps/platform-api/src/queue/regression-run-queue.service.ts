@@ -5,7 +5,7 @@ import {
   createWorkflowRegressionRunQueue,
   enqueueWorkflowRegressionRun,
   type WorkflowRegressionRunJob,
-} from '@linea/queue'
+} from '@linealabs/queue'
 import type { Queue } from 'bullmq'
 import type { Redis } from 'ioredis'
 

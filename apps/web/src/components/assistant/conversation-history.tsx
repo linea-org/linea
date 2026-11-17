@@ -4,7 +4,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@linea/ui/components/popover"
+} from "@linealabs/ui/components/popover"
 
 import { ConversationList } from "./conversation-list"
 import { useConversations } from "./use-conversations"

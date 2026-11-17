@@ -2,9 +2,9 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
 import { z } from "zod"
-import { Button } from "@linea/ui/components/button"
-import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
+import { Button } from "@linealabs/ui/components/button"
+import { Field, FieldError, FieldLabel } from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
 import {
   replaceEnvironmentTrustFn,
   type EnvironmentSummary,

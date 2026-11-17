@@ -1,6 +1,6 @@
 {
-  "name": "@linea/db",
-  "version": "0.0.0",
+  "name": "@linealabs/db",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -17,14 +17,14 @@
     "db:logs": "docker compose --env-file ../../docker/.env -f ../../docker-compose.yml logs -f postgres"
   },
   "dependencies": {
-    "@linea/protocol": "workspace:*",
+    "@linealabs/protocol": "workspace:*",
     "ajv": "8.20.0",
     "cron-parser": "^5.7.0",
     "drizzle-orm": "1.0.0-rc.4",
     "pg": "8.22.0"
   },
   "devDependencies": {
-    "@linea/config": "workspace:*",
+    "@linealabs/config": "workspace:*",
     "@types/node": "22",
     "@types/pg": "8.20.3",
     "dotenv": "17.4.2",

@@ -8,15 +8,19 @@ import {
   revokeConnectionReviewerOperation,
   revokeSharedConnectionOperation,
   listWorkspaceConnectorAuditEventsOperation,
-} from "@linea/protocol/operations"
+} from "@linealabs/protocol/operations"
 import type {
   Connection,
   ConnectionAuthorities,
   ConnectionAuthorityRecord,
   CreateGithubInstallationConnection,
   OperatorConnectorAuditEvent,
-} from "@linea/protocol/resources"
-import type { PaginatedResponse, PaginationQuery } from "@linea/protocol/shared"
+} from "@linealabs/protocol/resources"
+import type {
+  PaginatedResponse,
+  PaginationQuery,
+} from "@linealabs/protocol/shared"
+import { resolveBaseUrl } from "../http/base-url.js"
 import { ServerTransport } from "./transport.js"
 export type LineaConnectionAdminClientOptions = {
   environmentId: string
@@ -28,10 +32,9 @@ export class LineaConnectionAdminClient {
   private readonly transport: ServerTransport
   constructor(options: LineaConnectionAdminClientOptions) {
     this.environmentId = options.environmentId
-    this.transport = new ServerTransport(
-      options.baseUrl ?? "http://localhost:3000",
-      { sessionCookie: options.sessionCookie }
-    )
+    this.transport = new ServerTransport(resolveBaseUrl(options.baseUrl), {
+      sessionCookie: options.sessionCookie,
+    })
   }
   listConnections(): Promise<Connection[]> {
     return this.transport.execute(listEnvironmentConnectionsOperation, {

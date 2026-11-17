@@ -1,4 +1,4 @@
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import { BotIcon } from "lucide-react"
 import {
   Empty,
@@ -6,7 +6,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
+} from "@linealabs/ui/components/empty"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
@@ -16,7 +16,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@linea/ui/components/table"
+} from "@linealabs/ui/components/table"
 import { PlayfulAvatar } from "@/components/avatar"
 import { listAgentsFn } from "@/lib/agents-api"
 import { formatDate } from "@/lib/format"

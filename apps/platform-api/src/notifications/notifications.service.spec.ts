@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
-import { db, pool, schema } from '@linea/db'
+import { db, pool, schema } from '@linealabs/db'
 import { NotificationsService } from './notifications.service'
 
 afterAll(async () => {

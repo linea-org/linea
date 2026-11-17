@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common"
-import { nodeRegistry } from "@linea/runtime"
+import { nodeRegistry } from "@linealabs/runtime"
 import type { NodeHandler } from "./node-handler.interface"
 
 const MS_PER_UNIT: Record<string, number> = {

@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
-import { db, pool, repositories, schema } from '@linea/db'
+import { db, pool, repositories, schema } from '@linealabs/db'
 import { AssistantModel } from './assistant-model'
 import { AssistantModelUnavailableError } from './assistant-model-error'
 

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { db, repositories } from '@linea/db'
+import { db, repositories } from '@linealabs/db'
 import type { TestRunDto } from '../executions/dto/test-run.dto'
 import { ExecutionsService } from '../executions/executions.service'
 

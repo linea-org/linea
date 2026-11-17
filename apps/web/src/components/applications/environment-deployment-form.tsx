@@ -6,17 +6,17 @@ import {
   type FieldErrors,
 } from "react-hook-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Checkbox } from "@linea/ui/components/checkbox"
-import { Button } from "@linea/ui/components/button"
-import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
-import { Label } from "@linea/ui/components/label"
+import { Checkbox } from "@linealabs/ui/components/checkbox"
+import { Button } from "@linealabs/ui/components/button"
+import { Field, FieldError, FieldLabel } from "@linealabs/ui/components/field"
+import { Label } from "@linealabs/ui/components/label"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 import {
   deployWorkflowFn,
   listDeploymentVersionsFn,

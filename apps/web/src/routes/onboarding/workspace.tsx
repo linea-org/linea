@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 
-import { Alert, AlertDescription } from "@linea/ui/components/alert"
+import { Alert, AlertDescription } from "@linealabs/ui/components/alert"
 
 import { AuthShell } from "@/components/auth"
 import { CreateWorkspaceForm } from "@/components/workspace"

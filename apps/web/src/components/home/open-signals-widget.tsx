@@ -7,7 +7,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
+} from "@linealabs/ui/components/empty"
 import {
   Table,
   TableBody,
@@ -15,7 +15,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@linea/ui/components/table"
+} from "@linealabs/ui/components/table"
 import type { SignalSummary } from "@/lib/signals-api"
 import { flagTypeLabel, SignalStatusBadge } from "../signals"
 import { HomePanel } from "./home-panel"

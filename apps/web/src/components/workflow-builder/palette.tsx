@@ -3,25 +3,25 @@ import {
   nodeRegistry,
   type NodeTypeId,
   type NodeUICategory,
-} from "@linea/runtime/browser"
+} from "@linealabs/runtime/browser"
 import {
   ChevronDownIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   SearchIcon,
 } from "lucide-react"
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@linea/ui/components/collapsible"
+} from "@linealabs/ui/components/collapsible"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "@linea/ui/components/input-group"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/input-group"
+import { cn } from "@linealabs/ui/lib/utils"
 import { NodeIcon } from "./node-icon"
 import {
   NODE_CATEGORY_COLORS,

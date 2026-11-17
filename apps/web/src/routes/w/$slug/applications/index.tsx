@@ -11,20 +11,20 @@ import {
   PlusIcon,
   WorkflowIcon,
 } from "lucide-react"
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@linea/ui/components/dropdown-menu"
+} from "@linealabs/ui/components/dropdown-menu"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
+} from "@linealabs/ui/components/empty"
 import {
   Table,
   TableBody,
@@ -32,10 +32,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@linea/ui/components/table"
-import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
-import { Badge } from "@linea/ui/components/badge"
-import { Card } from "@linea/ui/components/card"
+} from "@linealabs/ui/components/table"
+import { Tabs, TabsList, TabsTrigger } from "@linealabs/ui/components/tabs"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Card } from "@linealabs/ui/components/card"
 import { PlayfulAvatar } from "@/components/avatar"
 import { CreateApplicationDialog } from "@/components/applications/create-application-dialog"
 import { ApplicationCardMenu } from "@/components/applications/application-rename-popover"

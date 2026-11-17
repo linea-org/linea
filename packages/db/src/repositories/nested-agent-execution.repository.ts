@@ -1,5 +1,5 @@
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm"
-import { compileContractSchema } from "@linea/protocol/json-schema"
+import { compileContractSchema } from "@linealabs/protocol/json-schema"
 import {
   agents,
   agentVersions,

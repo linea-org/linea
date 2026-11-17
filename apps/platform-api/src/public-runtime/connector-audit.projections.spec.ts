@@ -1,4 +1,4 @@
-import type { ConnectorAuditFact } from '@linea/db'
+import type { ConnectorAuditFact } from '@linealabs/db'
 import {
   endUserConnectorAuditProjection,
   operatorConnectorAuditProjection,

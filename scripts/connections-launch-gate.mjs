@@ -17,31 +17,31 @@ const checks = [
   ["typecheck", ["exec", "turbo", "typecheck", "--force"]],
   ["build", ["exec", "turbo", "build", "--force"]],
   ["public contracts", ["check:contracts"]],
-  ["database repositories", ["--filter", "@linea/db", "test"]],
-  ["public protocol", ["--filter", "@linea/protocol", "test"]],
-  ["connector operations", ["--filter", "@linea/connectors", "test"]],
-  ["queue", ["--filter", "@linea/queue", "test"]],
-  ["runtime", ["--filter", "@linea/runtime", "test"]],
-  ["authentication", ["--filter", "@linea/auth", "test"]],
-  ["browser SDK", ["--filter", "@linea/sdk", "test"]],
-  ["React SDK", ["--filter", "@linea/sdk-react", "test"]],
+  ["database repositories", ["--filter", "@linealabs/db", "test"]],
+  ["public protocol", ["--filter", "@linealabs/protocol", "test"]],
+  ["connector operations", ["--filter", "@linealabs/connectors", "test"]],
+  ["queue", ["--filter", "@linealabs/queue", "test"]],
+  ["runtime", ["--filter", "@linealabs/runtime", "test"]],
+  ["authentication", ["--filter", "@linealabs/auth", "test"]],
+  ["browser SDK", ["--filter", "@linealabs/sdk", "test"]],
+  ["React SDK", ["--filter", "@linealabs/sdk-react", "test"]],
   [
     "Platform API",
-    ["--filter", "@linea/platform-api", "exec", "jest", "--runInBand"],
+    ["--filter", "@linealabs/platform-api", "exec", "jest", "--runInBand"],
   ],
   [
     "execution worker",
-    ["--filter", "@linea/execution-worker", "exec", "jest", "--runInBand"],
+    ["--filter", "@linealabs/execution-worker", "exec", "jest", "--runInBand"],
   ],
   [
     "background worker",
-    ["--filter", "@linea/background-worker", "exec", "jest", "--runInBand"],
+    ["--filter", "@linealabs/background-worker", "exec", "jest", "--runInBand"],
   ],
   [
     "queued Google and GitHub public-boundary tracer",
     [
       "--filter",
-      "@linea/platform-api",
+      "@linealabs/platform-api",
       "exec",
       "jest",
       "--config",
@@ -51,8 +51,11 @@ const checks = [
     ],
   ],
   ["first-launch public boundary", ["test:launch"]],
-  ["packed browser and server SDK", ["--filter", "@linea/sdk", "test:pack"]],
-  ["packed React SDK", ["--filter", "@linea/sdk-react", "test:pack"]],
+  [
+    "packed browser and server SDK",
+    ["--filter", "@linealabs/sdk", "test:pack"],
+  ],
+  ["packed React SDK", ["--filter", "@linealabs/sdk-react", "test:pack"]],
 ]
 
 const missing = [

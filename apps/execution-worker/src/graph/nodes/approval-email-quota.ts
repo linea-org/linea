@@ -1,4 +1,4 @@
-import { createConnection } from "@linea/queue"
+import { createConnection } from "@linealabs/queue"
 
 export async function consumeApprovalEmailQuota(
   workspaceId: string,

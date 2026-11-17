@@ -2,8 +2,8 @@ import { useState } from "react"
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
 
-import { Alert, AlertDescription } from "@linea/ui/components/alert"
-import { Button } from "@linea/ui/components/button"
+import { Alert, AlertDescription } from "@linealabs/ui/components/alert"
+import { Button } from "@linealabs/ui/components/button"
 
 import { AuthShell, magicLinkVerifyErrorMessage } from "../components/auth"
 import { authClient } from "../lib/auth-client"

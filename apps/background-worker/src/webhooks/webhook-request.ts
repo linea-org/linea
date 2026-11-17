@@ -1,4 +1,4 @@
-import { requestPublic } from "@linea/http"
+import { requestPublic } from "@linealabs/http"
 
 export type WebhookResponse = {
   status: number

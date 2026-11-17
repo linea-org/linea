@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@linea/ui/components/dialog"
+} from "@linealabs/ui/components/dialog"
 
 import { applicationsQueryOptions } from "@/lib/applications-api"
 import { AgentOnboardingForm } from "./agent-onboarding-form"

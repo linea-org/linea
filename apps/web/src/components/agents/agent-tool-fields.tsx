@@ -6,8 +6,8 @@ import {
 } from "react-hook-form"
 import { z } from "zod"
 import { PlusIcon, Trash2Icon } from "lucide-react"
-import { Button } from "@linea/ui/components/button"
-import { Field, FieldError } from "@linea/ui/components/field"
+import { Button } from "@linealabs/ui/components/button"
+import { Field, FieldError } from "@linealabs/ui/components/field"
 import {
   Select,
   SelectContent,
@@ -16,13 +16,13 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 import {
   createAgentVersionInputSchema,
   type AgentCatalog,
 } from "@/lib/agent-schemas"
-import { Card } from "@linea/ui/components/card"
-import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
+import { Card } from "@linealabs/ui/components/card"
+import { Empty, EmptyHeader, EmptyTitle } from "@linealabs/ui/components/empty"
 
 const toolLabels: Record<string, { group: string; label: string }> = {
   "github.issues.list": { group: "GitHub", label: "List issues" },

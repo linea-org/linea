@@ -3,9 +3,9 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common'
-import type { ConversationTurn, ToolCall } from '@linea/ai'
-import { db, repositories } from '@linea/db'
-import type { WorkflowGraph } from '@linea/runtime'
+import type { ConversationTurn, ToolCall } from '@linealabs/ai'
+import { db, repositories } from '@linealabs/db'
+import type { WorkflowGraph } from '@linealabs/runtime'
 import { branchUpTo } from './assistant-branch'
 import { validateAssistantGraph } from './assistant-graph'
 import { AssistantModel } from './assistant-model'

@@ -7,8 +7,8 @@ import {
   resolveProvider,
   type CompletionRequest,
   type CompletionResult,
-} from '@linea/ai'
-import { db, repositories } from '@linea/db'
+} from '@linealabs/ai'
+import { db, repositories } from '@linealabs/db'
 import {
   AssistantModelUnavailableError,
   describeProviderFailure,

@@ -1,7 +1,10 @@
 import { HttpException, Injectable } from '@nestjs/common'
-import { db, repositories, type OutboxMessage } from '@linea/db'
-import { publicErrorStatuses } from '@linea/protocol/errors'
-import type { EventEnvelope, EventStreamQuery } from '@linea/protocol/events'
+import { db, repositories, type OutboxMessage } from '@linealabs/db'
+import { publicErrorStatuses } from '@linealabs/protocol/errors'
+import type {
+  EventEnvelope,
+  EventStreamQuery,
+} from '@linealabs/protocol/events'
 import type { Request, Response } from 'express'
 import { publicError } from '../auth/public-error'
 import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.guard'

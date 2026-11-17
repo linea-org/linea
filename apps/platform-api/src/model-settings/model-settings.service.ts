@@ -3,8 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { DEFAULT_ANALYSIS_MODEL, registry } from '@linea/ai'
-import { db, repositories } from '@linea/db'
+import { DEFAULT_ANALYSIS_MODEL, registry } from '@linealabs/ai'
+import { db, repositories } from '@linealabs/db'
 import { buildModelCatalog, type CatalogModel } from './model-catalog'
 import {
   aiProviderStatuses,

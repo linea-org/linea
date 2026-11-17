@@ -1,7 +1,7 @@
 import { WorkflowIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
-import { Spinner } from "@linea/ui/components/spinner"
+import { Button } from "@linealabs/ui/components/button"
+import { Spinner } from "@linealabs/ui/components/spinner"
 
 import { NeedsModelDialog } from "@/components/models/needs-model-dialog"
 import { useCreateFromTemplate } from "@/components/workflows/use-create-from-template"

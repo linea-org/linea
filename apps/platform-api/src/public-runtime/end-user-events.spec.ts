@@ -1,4 +1,4 @@
-import { configureTestEnvironment } from '@linea/db/testing'
+import { configureTestEnvironment } from '@linealabs/db/testing'
 import 'dotenv/config'
 import { createHash, randomUUID } from 'node:crypto'
 import type { INestApplication } from '@nestjs/common'
@@ -12,9 +12,9 @@ import {
   outboxMessages,
   pool,
   repositories,
-} from '@linea/db'
-import { publicErrorResponseSchema } from '@linea/protocol/errors'
-import { eventEnvelopeSchema, type EventType } from '@linea/protocol/events'
+} from '@linealabs/db'
+import { publicErrorResponseSchema } from '@linealabs/protocol/errors'
+import { eventEnvelopeSchema, type EventType } from '@linealabs/protocol/events'
 import {
   calculateJwkThumbprint,
   exportJWK,

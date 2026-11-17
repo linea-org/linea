@@ -6,7 +6,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 import { listAgentContractsFn } from "@/lib/agent-contracts-api"
 import { listAgentsFn } from "@/lib/agents-api"
 

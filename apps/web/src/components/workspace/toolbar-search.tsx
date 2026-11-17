@@ -1,9 +1,9 @@
 import type { Ref } from "react"
 import { SearchIcon } from "lucide-react"
 
-import { Input } from "@linea/ui/components/input"
-import { Kbd } from "@linea/ui/components/kbd"
-import { cn } from "@linea/ui/lib/utils"
+import { Input } from "@linealabs/ui/components/input"
+import { Kbd } from "@linealabs/ui/components/kbd"
+import { cn } from "@linealabs/ui/lib/utils"
 
 type ToolbarSearchProps = {
   value: string

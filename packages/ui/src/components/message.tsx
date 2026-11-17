@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { cn } from "@linea/ui/lib/utils"
+import { cn } from "@linealabs/ui/lib/utils"
 
 function MessageGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (

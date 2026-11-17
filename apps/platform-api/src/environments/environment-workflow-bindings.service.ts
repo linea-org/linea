@@ -1,5 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { db, repositories, type EnvironmentWorkflowBinding } from '@linea/db'
+import {
+  db,
+  repositories,
+  type EnvironmentWorkflowBinding,
+} from '@linealabs/db'
 import type { PutWorkflowBindingDto } from './dto/put-workflow-binding.dto'
 
 @Injectable()

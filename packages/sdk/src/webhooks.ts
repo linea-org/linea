@@ -1,9 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { eventIdSchema } from "@linea/protocol/shared"
+import { eventIdSchema } from "@linealabs/protocol/shared"
 import {
   webhookEnvelopeSchema,
   type WebhookEnvelope,
-} from "@linea/protocol/webhooks"
+} from "@linealabs/protocol/webhooks"
 
 export type VerifyWebhookSignatureInput = {
   body: Uint8Array

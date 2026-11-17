@@ -1,8 +1,8 @@
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { z } from "zod"
-import { Button } from "@linea/ui/components/button"
-import { Textarea } from "@linea/ui/components/textarea"
+import { Button } from "@linealabs/ui/components/button"
+import { Textarea } from "@linealabs/ui/components/textarea"
 import { createRegressionCaseFromStepFn } from "@/lib/regression-cases-api"
 import {
   replayStepFn,

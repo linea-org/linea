@@ -17,7 +17,7 @@
     "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": ["./src/*"],
-      "@linea/ui/*": ["../../packages/ui/src/*"]
+      "@linealabs/ui/*": ["../../packages/ui/src/*"]
     },
 
     /* Bundler mode */

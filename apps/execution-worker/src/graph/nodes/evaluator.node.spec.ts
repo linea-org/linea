@@ -1,4 +1,4 @@
-import type { CompletionRequest, CompletionResult } from "@linea/ai"
+import type { CompletionRequest, CompletionResult } from "@linealabs/ai"
 
 const complete = jest.fn<
   Promise<CompletionResult>,
@@ -14,9 +14,9 @@ const saveEvaluatorMetricSteps = jest.fn(
   (_db: unknown, input: { steps: string[] }) => Promise.resolve(input.steps)
 )
 
-jest.mock("@linea/ai", () => {
+jest.mock("@linealabs/ai", () => {
   const { MAX_EXECUTION_TOKENS, executionBudgetMessage } =
-    jest.requireActual<typeof import("@linea/ai")>("@linea/ai")
+    jest.requireActual<typeof import("@linealabs/ai")>("@linealabs/ai")
   return {
     resolveProvider,
     resolveKeyName,
@@ -26,7 +26,7 @@ jest.mock("@linea/ai", () => {
   }
 })
 
-jest.mock("@linea/db", () => ({
+jest.mock("@linealabs/db", () => ({
   db: {},
   repositories: {
     evaluatorNodeProgress: {

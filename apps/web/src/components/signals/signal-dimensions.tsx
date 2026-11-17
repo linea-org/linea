@@ -1,11 +1,11 @@
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 import type {
   SignalDetail,
   SignalDimension,

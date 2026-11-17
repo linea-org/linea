@@ -1,4 +1,4 @@
-import { RECENT_AUTHENTICATION_WINDOW_SECONDS } from '@linea/auth/session-policy'
+import { RECENT_AUTHENTICATION_WINDOW_SECONDS } from '@linealabs/auth/session-policy'
 import { hasRecentAuthentication } from './recent-authentication.guard'
 
 describe('hasRecentAuthentication', () => {

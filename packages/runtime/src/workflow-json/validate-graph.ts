@@ -4,7 +4,7 @@ import type { WorkflowGraph } from "./schema.js"
 
 export class WorkflowGraphError extends Error {}
 
-// Mirrors execution.repository.ts's RESUME_EVENT_NODE_ID — duplicated rather than imported so this package doesn't pick up @linea/db as a dependency just for one string constant.
+// Mirrors execution.repository.ts's RESUME_EVENT_NODE_ID — duplicated rather than imported so this package doesn't pick up @linealabs/db as a dependency just for one string constant.
 const RESERVED_NODE_IDS = new Set(["__resumed__"])
 
 /** Rejects reserved node ids. Deliberately NOT part of validateGraphStructure, which also runs on every execution of an already-published graph — a graph published before this reservation existed must keep executing, not fail retroactively. Call only where a graph is newly authored. */

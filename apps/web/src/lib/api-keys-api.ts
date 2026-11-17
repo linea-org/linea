@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { workspaceKeyScopeSchema } from "@linea/protocol/resources"
+import { workspaceKeyScopeSchema } from "@linealabs/protocol/resources"
 
 import { apiFetch, parseErrorMessage } from "./api-fetch"
 

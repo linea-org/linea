@@ -1,7 +1,7 @@
-import { seedExecution, seedRunning } from "@linea/db/testing"
+import { seedExecution, seedRunning } from "@linealabs/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
-import { db, pool, repositories, schema } from "@linea/db"
+import { db, pool, repositories, schema } from "@linealabs/db"
 import { CheckpointsService } from "./checkpoints.service"
 
 afterAll(async () => {

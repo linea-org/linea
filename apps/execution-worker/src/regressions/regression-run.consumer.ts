@@ -9,8 +9,8 @@ import {
   createConnection,
   createWorkflowRegressionRunWorker,
   type WorkflowRegressionRunJob,
-} from "@linea/queue"
-import { db, repositories, type RegressionRun } from "@linea/db"
+} from "@linealabs/queue"
+import { db, repositories, type RegressionRun } from "@linealabs/db"
 import { RegressionExecutionService } from "./regression-execution.service"
 
 @Injectable()

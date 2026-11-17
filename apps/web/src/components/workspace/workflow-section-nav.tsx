@@ -8,7 +8,7 @@ import {
   SidebarMenuItem,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
-} from "@linea/ui/components/sidebar"
+} from "@linealabs/ui/components/sidebar"
 
 import { SidebarSectionBranch } from "./sidebar-section-branch"
 import {

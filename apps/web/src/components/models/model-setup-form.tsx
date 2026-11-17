@@ -2,15 +2,15 @@ import { useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Field,
   FieldError,
   FieldGroup,
   FieldLabel,
-} from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
-import { Spinner } from "@linea/ui/components/spinner"
+} from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
+import { Spinner } from "@linealabs/ui/components/spinner"
 
 import type { ModelSetup } from "@/lib/model-settings-api"
 

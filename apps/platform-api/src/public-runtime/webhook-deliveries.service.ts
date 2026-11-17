@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
-import { db, repositories, type WebhookDelivery } from '@linea/db'
-import { webhookEnvelopeSchema } from '@linea/protocol/webhooks'
-import type { PaginationQuery } from '@linea/protocol/shared'
+import { db, repositories, type WebhookDelivery } from '@linealabs/db'
+import { webhookEnvelopeSchema } from '@linealabs/protocol/webhooks'
+import type { PaginationQuery } from '@linealabs/protocol/shared'
 import type { EnvironmentPrincipal } from '../auth/environment-key.guard'
 import {
   decodeWebhookDeliveryCursor,

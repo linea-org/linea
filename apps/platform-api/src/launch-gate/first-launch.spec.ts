@@ -1,11 +1,11 @@
-import { configureTestEnvironment } from '@linea/db/testing'
-import { getTestApplicationId } from '@linea/db/testing'
+import { configureTestEnvironment } from '@linealabs/db/testing'
+import { getTestApplicationId } from '@linealabs/db/testing'
 import 'dotenv/config'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
-import { db, pool, repositories, schema } from '@linea/db'
-import { publicErrorResponseSchema } from '@linea/protocol/errors'
+import { db, pool, repositories, schema } from '@linealabs/db'
+import { publicErrorResponseSchema } from '@linealabs/protocol/errors'
 import {
   approvalDecisionSchema,
   conversationSchema,
@@ -14,8 +14,8 @@ import {
   endUserSessionCredentialSchema,
   messageSchema,
   publicExecutionSchema,
-} from '@linea/protocol/resources'
-import { paginatedResponseSchema } from '@linea/protocol/shared'
+} from '@linealabs/protocol/resources'
+import { paginatedResponseSchema } from '@linealabs/protocol/shared'
 import {
   exportJWK,
   generateKeyPair,

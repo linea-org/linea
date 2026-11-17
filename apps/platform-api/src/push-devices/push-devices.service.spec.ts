@@ -1,8 +1,8 @@
-import { repositories } from '@linea/db'
+import { repositories } from '@linealabs/db'
 import { PushDevicesService } from './push-devices.service'
 import { registerPushDeviceSchema } from './dto/push-device.dto'
 
-jest.mock('@linea/db', () => ({
+jest.mock('@linealabs/db', () => ({
   db: {},
   repositories: {
     pushNotification: {

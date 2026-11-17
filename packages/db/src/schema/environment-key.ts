@@ -8,7 +8,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-import type { environmentKeyScopes } from "@linea/protocol/resources"
+import type { environmentKeyScopes } from "@linealabs/protocol/resources"
 import { environments } from "./environment.js"
 
 const environmentKeyScopeValues = [

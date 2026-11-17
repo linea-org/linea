@@ -1,6 +1,6 @@
 // @ts-check
 
-import { createSharedEslintConfig } from "@linea/config/eslint"
+import { createSharedEslintConfig } from "@linealabs/config/eslint"
 
 export default createSharedEslintConfig({
   ignores: ["eslint.config.js", "dist/**", "scripts/**"],
@@ -13,13 +13,14 @@ export default createSharedEslintConfig({
             group: [
               "node:*",
               "@nestjs/*",
-              "@linea/db",
-              "@linea/queue",
+              "@linealabs/db",
+              "@linealabs/queue",
               "bullmq",
               "react",
               "react-native",
             ],
-            message: "@linea/protocol runtime code must remain browser-safe.",
+            message:
+              "@linealabs/protocol runtime code must remain browser-safe.",
           },
         ],
       },

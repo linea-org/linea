@@ -1,7 +1,7 @@
 import {
   environmentKeyScopes,
   environmentKeyScopeSchema,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import { z } from 'zod'
 
 export const createEnvironmentKeySchema = z.strictObject({

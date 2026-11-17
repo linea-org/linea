@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { isPersonalWorkspace } from "@linea/auth/personal-workspace"
+import { isPersonalWorkspace } from "@linealabs/auth/personal-workspace"
 import {
   EllipsisIcon,
   LogOutIcon,
@@ -18,14 +18,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@linea/ui/components/alert-dialog"
-import { Button } from "@linea/ui/components/button"
+} from "@linealabs/ui/components/alert-dialog"
+import { Button } from "@linealabs/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@linea/ui/components/dropdown-menu"
+} from "@linealabs/ui/components/dropdown-menu"
 
 import { deleteOrganization, leaveOrganization } from "@/lib/auth-queries"
 import type { WorkspaceWithRole } from "@/lib/auth-session"

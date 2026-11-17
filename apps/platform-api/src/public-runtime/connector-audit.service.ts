@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
-import { db, repositories } from '@linea/db'
-import type { WorkspaceConnectorAuditQuery } from '@linea/protocol/resources'
-import type { PaginationQuery } from '@linea/protocol/shared'
+import { db, repositories } from '@linealabs/db'
+import type { WorkspaceConnectorAuditQuery } from '@linealabs/protocol/resources'
+import type { PaginationQuery } from '@linealabs/protocol/shared'
 import type { EnvironmentPrincipal } from '../auth/environment-key.guard'
 import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.guard'
 import {

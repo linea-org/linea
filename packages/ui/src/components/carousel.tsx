@@ -3,8 +3,8 @@ import useEmblaCarousel, {
   type UseEmblaCarouselType,
 } from "embla-carousel-react"
 
-import { cn } from "@linea/ui/lib/utils"
-import { Button } from "@linea/ui/components/button"
+import { cn } from "@linealabs/ui/lib/utils"
+import { Button } from "@linealabs/ui/components/button"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 
 type CarouselApi = UseEmblaCarouselType[1]

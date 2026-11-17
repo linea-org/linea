@@ -11,8 +11,8 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
-import { Spinner } from "@linea/ui/components/spinner"
+} from "@linealabs/ui/components/select"
+import { Spinner } from "@linealabs/ui/components/spinner"
 
 import {
   modelSetupKey,

@@ -1,15 +1,15 @@
 import { useId } from "react"
 import { Controller, type Control, type UseFormRegister } from "react-hook-form"
-import { Field, FieldLabel } from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
-import { Textarea } from "@linea/ui/components/textarea"
+import { Field, FieldLabel } from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
+import { Textarea } from "@linealabs/ui/components/textarea"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 export type InstallationForm = {
   appClientId: string
   installationId: number

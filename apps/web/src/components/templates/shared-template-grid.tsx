@@ -1,7 +1,7 @@
 import { Suspense } from "react"
 
-import { workflowGraphSchema } from "@linea/runtime/browser"
-import { Badge } from "@linea/ui/components/badge"
+import { workflowGraphSchema } from "@linealabs/runtime/browser"
+import { Badge } from "@linealabs/ui/components/badge"
 
 import { createWorkflowFromSharedTemplate } from "@/lib/create-from-shared-template"
 import type { SharedTemplate } from "@/lib/templates-api"

@@ -1,7 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { PlusIcon } from "lucide-react"
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 
 import { AddAgentDialog } from "@/components/agents/add-agent-dialog"
 import {

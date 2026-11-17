@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { environmentWorkflowBindingSchema } from "@linea/protocol/resources"
+import { environmentWorkflowBindingSchema } from "@linealabs/protocol/resources"
 import { apiFetch } from "./api-fetch"
 
 const versionSchema = z.object({

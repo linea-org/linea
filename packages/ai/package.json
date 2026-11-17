@@ -1,6 +1,6 @@
 {
-  "name": "@linea/ai",
-  "version": "0.0.0",
+  "name": "@linealabs/ai",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,11 +12,11 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
-    "@linea/db": "workspace:*",
+    "@linealabs/db": "workspace:*",
     "openai": "^5"
   },
   "devDependencies": {
-    "@linea/config": "workspace:*",
+    "@linealabs/config": "workspace:*",
     "@types/node": "22",
     "dotenv": "17.4.2",
     "eslint": "^9",

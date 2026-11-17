@@ -11,14 +11,14 @@ import {
   type ChatMessage,
   type Execution,
   type ExecutionStep,
-} from '@linea/db'
+} from '@linealabs/db'
 import {
   assertNoReservedNodeIds,
   hashWorkflowGraph,
   validateGraphStructure,
   workflowGraphSchema,
   WorkflowGraphError,
-} from '@linea/runtime'
+} from '@linealabs/runtime'
 import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 import { isTraceContentRestricted } from './end-user-trace-access'
 import type { CountNewWorkspaceExecutionsDto } from './dto/count-new-workspace-executions.dto'

@@ -6,7 +6,7 @@ import {
   UseFilters,
 } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
-import { publicRuntimeIdSchema } from '@linea/protocol/resources'
+import { publicRuntimeIdSchema } from '@linealabs/protocol/resources'
 import request from 'supertest'
 import type { App } from 'supertest/types'
 import {

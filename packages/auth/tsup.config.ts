@@ -20,6 +20,6 @@ export default defineConfig({
     "@better-auth/drizzle-adapter",
     "resend",
     "ioredis",
-    "@linea/db",
+    "@linealabs/db",
   ],
 })

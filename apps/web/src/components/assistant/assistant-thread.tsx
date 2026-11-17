@@ -9,11 +9,15 @@ import {
   WorkflowIcon,
 } from "lucide-react"
 
-import { Alert, AlertDescription } from "@linea/ui/components/alert"
-import { Badge } from "@linea/ui/components/badge"
-import { Bubble, BubbleContent, BubbleGroup } from "@linea/ui/components/bubble"
-import { Button } from "@linea/ui/components/button"
-import { Card } from "@linea/ui/components/card"
+import { Alert, AlertDescription } from "@linealabs/ui/components/alert"
+import { Badge } from "@linealabs/ui/components/badge"
+import {
+  Bubble,
+  BubbleContent,
+  BubbleGroup,
+} from "@linealabs/ui/components/bubble"
+import { Button } from "@linealabs/ui/components/button"
+import { Card } from "@linealabs/ui/components/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@linea/ui/components/dropdown-menu"
+} from "@linealabs/ui/components/dropdown-menu"
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -29,15 +33,15 @@ import {
   MessageScrollerItem,
   MessageScrollerProvider,
   MessageScrollerViewport,
-} from "@linea/ui/components/message-scroller"
-import { Skeleton } from "@linea/ui/components/skeleton"
-import { Spinner } from "@linea/ui/components/spinner"
+} from "@linealabs/ui/components/message-scroller"
+import { Skeleton } from "@linealabs/ui/components/skeleton"
+import { Spinner } from "@linealabs/ui/components/spinner"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@linea/ui/components/tooltip"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/tooltip"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { UserTurn } from "./user-turn"
 import { WorkflowPreview } from "./workflow-preview"

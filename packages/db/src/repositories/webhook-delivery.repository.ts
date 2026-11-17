@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm"
-import { webhookEnvelopeSchema } from "@linea/protocol/webhooks"
+import { webhookEnvelopeSchema } from "@linealabs/protocol/webhooks"
 import {
   outboxMessages,
   webhookDeliveries,

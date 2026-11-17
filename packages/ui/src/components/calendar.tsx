@@ -8,8 +8,8 @@ import {
   type Locale,
 } from "react-day-picker"
 
-import { cn } from "@linea/ui/lib/utils"
-import { Button, buttonVariants } from "@linea/ui/components/button"
+import { cn } from "@linealabs/ui/lib/utils"
+import { Button, buttonVariants } from "@linealabs/ui/components/button"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,

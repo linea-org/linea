@@ -7,4 +7,4 @@ export type {
   SignalStatus,
   SignalSummary,
   SignalTrendPoint,
-} from "@linea/protocol/resources"
+} from "@linealabs/protocol/resources"

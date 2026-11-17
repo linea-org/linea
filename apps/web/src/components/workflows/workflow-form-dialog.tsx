@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { z } from "zod"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
@@ -12,15 +12,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@linea/ui/components/dialog"
+} from "@linealabs/ui/components/dialog"
 import {
   Field,
   FieldError,
   FieldGroup,
   FieldLabel,
-} from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
-import { Textarea } from "@linea/ui/components/textarea"
+} from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
+import { Textarea } from "@linealabs/ui/components/textarea"
 
 import { slugify } from "@/lib/auth-redirect"
 import { type WorkflowSummary } from "@/lib/workflows-api"
@@ -32,7 +32,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 
 const schema = z.object({
   applicationId: z.uuid("Select an Application"),

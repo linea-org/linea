@@ -15,7 +15,7 @@ import { FilterNode } from "./nodes/filter.node"
 import { MergeNode } from "./nodes/merge.node"
 import { VariablesNode } from "./nodes/variables.node"
 import { InterpreterService, type RunInput } from "./interpreter.service"
-import { pool } from "@linea/db"
+import { pool } from "@linealabs/db"
 
 const input: RunInput = {
   executionId: "execution",

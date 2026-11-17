@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { cn } from "@linea/ui/lib/utils"
+import { cn } from "@linealabs/ui/lib/utils"
 
 export function PageToolbar({
   children,

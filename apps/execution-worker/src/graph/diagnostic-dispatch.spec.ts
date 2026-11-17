@@ -1,6 +1,6 @@
 import "dotenv/config"
-import { pool } from "@linea/db"
-import type { NodeType } from "@linea/runtime"
+import { pool } from "@linealabs/db"
+import type { NodeType } from "@linealabs/runtime"
 import type { CheckpointsService } from "../checkpoints/checkpoints.service"
 import { diagnosticDispatch } from "./diagnostic-dispatch"
 import { InterpreterService } from "./interpreter.service"

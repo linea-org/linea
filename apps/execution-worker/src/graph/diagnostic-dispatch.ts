@@ -1,4 +1,4 @@
-import type { NodeType } from "@linea/runtime"
+import type { NodeType } from "@linealabs/runtime"
 
 /** How a Replay or Regression run may dispatch each node type until ADR 0024's recorded-effect layer exists; exhaustive so a new node type must choose. */
 export const diagnosticDispatch: Record<

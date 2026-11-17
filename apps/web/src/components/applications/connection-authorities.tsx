@@ -2,7 +2,7 @@ import { useConnectionManagement } from "./connection-management-context"
 import { ConnectionAuthorityForm } from "./connection-authority-form"
 import { connectionAuthorityRoles as roles } from "./connection-authority-roles"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   listConnectionAuthoritiesFn,
   revokeConnectionAuthorityFn,

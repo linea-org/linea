@@ -1,4 +1,4 @@
-import type { PublicExecution } from "@linea/protocol/resources"
+import type { PublicExecution } from "@linealabs/protocol/resources"
 
 export class LineaExecutionHandle {
   readonly id: string

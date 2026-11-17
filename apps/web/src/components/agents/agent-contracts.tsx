@@ -5,13 +5,13 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
+} from "@linealabs/ui/components/empty"
 import {
   Accordion,
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
-} from "@linea/ui/components/accordion"
+} from "@linealabs/ui/components/accordion"
 import type { AgentContract } from "@/lib/agent-schemas"
 import { AgentContractForm } from "./agent-contract-form"
 

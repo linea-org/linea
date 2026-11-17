@@ -1,4 +1,4 @@
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import { Link } from "@tanstack/react-router"
 import { ActivityIcon } from "lucide-react"
 import {
@@ -8,7 +8,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@linea/ui/components/table"
+} from "@linealabs/ui/components/table"
 
 import { EmptyCard } from "@/components/empty-card"
 import type { SignalSummary } from "@/lib/signals-api"

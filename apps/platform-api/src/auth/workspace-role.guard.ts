@@ -5,7 +5,7 @@ import {
   type ExecutionContext,
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
-import { db, repositories } from '@linea/db'
+import { db, repositories } from '@linealabs/db'
 import { REQUIRE_ROLE_KEY, type WorkspaceRole } from './require-role.decorator'
 import type { AuthenticatedRequest } from './workspace-auth.guard'
 

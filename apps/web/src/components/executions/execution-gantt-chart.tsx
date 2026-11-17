@@ -1,12 +1,12 @@
-import { nodeRegistry, type NodeUICategory } from "@linea/runtime/browser"
-import { cn } from "@linea/ui/lib/utils"
+import { nodeRegistry, type NodeUICategory } from "@linealabs/runtime/browser"
+import { cn } from "@linealabs/ui/lib/utils"
 import { useHydrated } from "@tanstack/react-router"
 
 import type { ExecutionStepSummary } from "@/lib/executions-api"
 import { NODE_CATEGORY_COLORS } from "../workflow-builder/node-category-colors"
 import { NodeIcon } from "../workflow-builder/node-icon"
 import { isNodeTypeId, stepTitle } from "./execution-step-presentation"
-import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
+import { Empty, EmptyHeader, EmptyTitle } from "@linealabs/ui/components/empty"
 
 const MIN_BAR_WIDTH_PCT = 1.5
 const COMPACT_BELOW_MS = 100

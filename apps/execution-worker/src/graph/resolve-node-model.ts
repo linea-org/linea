@@ -1,4 +1,4 @@
-import type { WorkflowNode } from "@linea/runtime"
+import type { WorkflowNode } from "@linealabs/runtime"
 
 export function resolveNodeModel(node: WorkflowNode): string | undefined {
   if (

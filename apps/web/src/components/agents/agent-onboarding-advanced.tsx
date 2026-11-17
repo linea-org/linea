@@ -4,15 +4,15 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@linea/ui/components/accordion"
+} from "@linealabs/ui/components/accordion"
 import {
   Field,
   FieldDescription,
   FieldError,
   FieldLabel,
-} from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
-import { Textarea } from "@linea/ui/components/textarea"
+} from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
+import { Textarea } from "@linealabs/ui/components/textarea"
 import type { AgentOnboardingInput } from "./agent-onboarding-schema"
 
 export function AgentOnboardingAdvanced({

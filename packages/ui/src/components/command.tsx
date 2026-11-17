@@ -1,14 +1,14 @@
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
 
-import { cn } from "@linea/ui/lib/utils"
+import { cn } from "@linealabs/ui/lib/utils"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@linea/ui/components/dialog"
+} from "@linealabs/ui/components/dialog"
 import { CheckIcon, SearchIcon } from "lucide-react"
 
 function Command({

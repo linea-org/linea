@@ -22,51 +22,57 @@ const checks = [
       "turbo",
       "run",
       "build",
-      "--filter=@linea/platform-api",
-      "--filter=@linea/background-worker",
+      "--filter=@linealabs/platform-api",
+      "--filter=@linealabs/background-worker",
     ],
   ],
   [
     "real OIDC, DPoP, public runtime, isolation, and races",
-    jestTest("@linea/platform-api", "src/launch-gate/first-launch.spec.ts"),
+    jestTest("@linealabs/platform-api", "src/launch-gate/first-launch.spec.ts"),
   ],
   [
     "SSE reconnect and cursor expiry",
     jestTest(
-      "@linea/platform-api",
+      "@linealabs/platform-api",
       "src/public-runtime/end-user-events.spec.ts"
     ),
   ],
   [
     "approval timeout convergence",
     jestTest(
-      "@linea/background-worker",
+      "@linealabs/background-worker",
       "src/approvals/approval-timeout.service.spec.ts"
     ),
   ],
   [
     "Postgres outbox and BullMQ crash recovery",
     jestTest(
-      "@linea/background-worker",
+      "@linealabs/background-worker",
       "src/outbox/outbox-dispatcher.service.spec.ts"
     ),
   ],
   [
     "signed webhook retry and stable delivery identity",
     jestTest(
-      "@linea/background-worker",
+      "@linealabs/background-worker",
       "src/webhooks/webhook-delivery.service.spec.ts"
     ),
   ],
-  ["build browser SDK", ["--filter", "@linea/sdk", "build"]],
+  ["build browser SDK", ["--filter", "@linealabs/sdk", "build"]],
   [
     "webhook verification and receiver deduplication contract",
-    ["--filter", "@linea/sdk", "test", "--", "src/webhooks.spec.ts"],
+    ["--filter", "@linealabs/sdk", "test", "--", "src/webhooks.spec.ts"],
   ],
-  ["headless React reconciliation", ["--filter", "@linea/sdk-react", "test"]],
-  ["verify vanilla browser package", ["--filter", "@linea/sdk", "test:pack"]],
-  ["build React SDK", ["--filter", "@linea/sdk-react", "build"]],
-  ["verify React package", ["--filter", "@linea/sdk-react", "test:pack"]],
+  [
+    "headless React reconciliation",
+    ["--filter", "@linealabs/sdk-react", "test"],
+  ],
+  [
+    "verify vanilla browser package",
+    ["--filter", "@linealabs/sdk", "test:pack"],
+  ],
+  ["build React SDK", ["--filter", "@linealabs/sdk-react", "build"]],
+  ["verify React package", ["--filter", "@linealabs/sdk-react", "test:pack"]],
 ]
 
 if (!process.env.DATABASE_URL || !process.env.REDIS_URL) {

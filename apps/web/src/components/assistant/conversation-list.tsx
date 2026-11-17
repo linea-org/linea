@@ -11,22 +11,22 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@linea/ui/components/collapsible"
+} from "@linealabs/ui/components/collapsible"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@linea/ui/components/dropdown-menu"
+} from "@linealabs/ui/components/dropdown-menu"
 import {
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@linea/ui/components/sidebar"
+} from "@linealabs/ui/components/sidebar"
 
-import { cn } from "@linea/ui/lib/utils"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import type { ConversationListItem } from "@/lib/assistant-api"
 

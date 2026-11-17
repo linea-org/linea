@@ -1,10 +1,10 @@
 import { Link, useLocation, useMatches } from "@tanstack/react-router"
 import { WandSparklesIcon } from "lucide-react"
 
-import { buttonVariants } from "@linea/ui/components/button"
-import { Separator } from "@linea/ui/components/separator"
-import { SidebarTrigger, useSidebar } from "@linea/ui/components/sidebar"
-import { cn } from "@linea/ui/lib/utils"
+import { buttonVariants } from "@linealabs/ui/components/button"
+import { Separator } from "@linealabs/ui/components/separator"
+import { SidebarTrigger, useSidebar } from "@linealabs/ui/components/sidebar"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { ASSISTANT_NAME } from "@/lib/assistant-api"
 

@@ -1,11 +1,11 @@
-import { PermanentRequestError } from "@linea/http"
+import { PermanentRequestError } from "@linealabs/http"
 import {
   Injectable,
   Logger,
   type OnModuleDestroy,
   type OnModuleInit,
 } from "@nestjs/common"
-import { db, decryptSecret, repositories } from "@linea/db"
+import { db, decryptSecret, repositories } from "@linealabs/db"
 import {
   WEBHOOK_DELIVERY_ATTEMPTS,
   WEBHOOK_RETRY_BASE_DELAY_MS,
@@ -13,7 +13,7 @@ import {
   withWebhookAdmission,
   createWebhookDeliveryWorker,
   type WebhookDeliveryJob,
-} from "@linea/queue"
+} from "@linealabs/queue"
 import type { Worker } from "bullmq"
 import type { Redis } from "ioredis"
 import { deliverWebhook, type WebhookResponse } from "./webhook-request"

@@ -1,10 +1,10 @@
 import {
   getTestApplicationId,
   getTestDevelopmentEnvironmentId,
-} from "@linea/db/testing"
+} from "@linealabs/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
-import { resolveKeyName } from "@linea/ai"
+import { resolveKeyName } from "@linealabs/ai"
 import {
   db,
   pool,
@@ -13,7 +13,7 @@ import {
   type ChatMessage,
   type ConversationFinding,
   type Flag,
-} from "@linea/db"
+} from "@linealabs/db"
 import { ConversationAnalyzerService } from "../src/behaviour/conversation-analyzer.service.js"
 
 type ValidationTurn = {

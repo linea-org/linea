@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { db, repositories, type EnvironmentKey } from '@linea/db'
+import { db, repositories, type EnvironmentKey } from '@linealabs/db'
 import { generateEnvironmentKey } from '../auth/api-key.util'
 import type { CreateEnvironmentKeyDto } from './dto/create-environment-key.dto'
 

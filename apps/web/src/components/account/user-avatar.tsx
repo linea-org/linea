@@ -2,8 +2,8 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from "@linea/ui/components/avatar"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/avatar"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { PlayfulAvatar } from "../avatar"
 

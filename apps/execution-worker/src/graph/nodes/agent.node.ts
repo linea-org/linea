@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common"
-import { agentRequestSchema, nodeRegistry } from "@linea/runtime"
-import { db, repositories, type Execution } from "@linea/db"
+import { agentRequestSchema, nodeRegistry } from "@linealabs/runtime"
+import { db, repositories, type Execution } from "@linealabs/db"
 import { PauseExecutionError } from "../../checkpoints/checkpoints.service"
 import type {
   NodeExecutionContext,

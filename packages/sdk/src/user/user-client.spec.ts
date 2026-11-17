@@ -1,4 +1,4 @@
-import type { ApprovalRequest } from "@linea/protocol/resources"
+import type { ApprovalRequest } from "@linealabs/protocol/resources"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   LineaUserClient,

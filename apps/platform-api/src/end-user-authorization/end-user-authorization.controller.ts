@@ -13,7 +13,7 @@ import {
   startEndUserAuthorizationSchema,
   type ExchangeEndUserAuthorization,
   type StartEndUserAuthorization,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import type { Response } from 'express'
 import { PublicRuntimeRateLimitFilter } from '../public-runtime/public-runtime-rate-limit.filter'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'

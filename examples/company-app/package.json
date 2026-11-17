@@ -1,6 +1,6 @@
 {
   "name": "linea-company-app-example",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,8 +11,8 @@
     "test": "node --test src/*.test.ts"
   },
   "dependencies": {
-    "@linea/sdk": "workspace:*",
-    "@linea/sdk-react": "workspace:*",
+    "@linealabs/sdk": "workspace:*",
+    "@linealabs/sdk-react": "workspace:*",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

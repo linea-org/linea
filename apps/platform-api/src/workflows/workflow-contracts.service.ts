@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { db, repositories, type WorkflowContractRevision } from '@linea/db'
+import { db, repositories, type WorkflowContractRevision } from '@linealabs/db'
 import type { CreateWorkflowContractDto } from './dto/create-workflow-contract.dto'
 
 @Injectable()

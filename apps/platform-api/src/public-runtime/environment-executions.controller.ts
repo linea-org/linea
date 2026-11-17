@@ -14,7 +14,7 @@ import {
   startEnvironmentExecutionSchema,
   publicRuntimeIdSchema,
   type StartEnvironmentExecution,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import type { Response } from 'express'
 import type { EnvironmentPrincipal } from '../auth/environment-key.guard'
 import { EnvironmentKeyGuard } from '../auth/environment-key.guard'

@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { NotFoundException } from '@nestjs/common'
-import { db, pool, repositories, schema } from '@linea/db'
+import { db, pool, repositories, schema } from '@linealabs/db'
 import { cursorParam } from './assistant-conversation-cursor'
 import { AssistantConversationsService } from './assistant-conversations.service'
 

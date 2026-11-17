@@ -4,4 +4,4 @@ export type {
   ExecutionStatus,
   ExecutionTrigger,
   SignalEnvironment,
-} from "@linea/protocol/resources"
+} from "@linealabs/protocol/resources"

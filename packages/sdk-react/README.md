@@ -1,6 +1,6 @@
-# `@linea/sdk-react`
+# `@linealabs/sdk-react`
 
-`@linea/sdk-react` provides headless React hooks and optional presentation for Linea end-user sessions.
+`@linealabs/sdk-react` provides headless React hooks and optional presentation for Linea end-user sessions.
 
 ## CopilotKit adapter
 
@@ -8,8 +8,8 @@ Install CopilotKit and Zod alongside the React SDK, then mount the adapter insid
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core/v2"
-import { LineaUserProvider } from "@linea/sdk-react"
-import { CopilotKitApprovalAction } from "@linea/sdk-react/copilotkit"
+import { LineaUserProvider } from "@linealabs/sdk-react"
+import { CopilotKitApprovalAction } from "@linealabs/sdk-react/copilotkit"
 
 function App() {
   return (

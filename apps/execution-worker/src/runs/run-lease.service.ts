@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common"
-import { db, repositories } from "@linea/db"
+import { db, repositories } from "@linealabs/db"
 
 const LEASE_DURATION_MS = 30_000
 const HEARTBEAT_INTERVAL_MS = 10_000

@@ -4,7 +4,7 @@ import {
   isEncryptedSecret,
   repositories,
   type DbClient,
-} from "@linea/db"
+} from "@linealabs/db"
 
 export type ResolvedApiKey = {
   apiKey: string

@@ -1,4 +1,4 @@
-import type { Notification } from "@linea/db"
+import type { Notification } from "@linealabs/db"
 import type { ExpoPushPayload } from "./expo-push-client"
 
 type SafePushPayload = Omit<ExpoPushPayload, "to">

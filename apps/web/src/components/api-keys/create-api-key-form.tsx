@@ -2,24 +2,24 @@ import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 
-import { Button } from "@linea/ui/components/button"
-import { Checkbox } from "@linea/ui/components/checkbox"
-import { DialogFooter } from "@linea/ui/components/dialog"
+import { Button } from "@linealabs/ui/components/button"
+import { Checkbox } from "@linealabs/ui/components/checkbox"
+import { DialogFooter } from "@linealabs/ui/components/dialog"
 import {
   Field,
   FieldError,
   FieldGroup,
   FieldLabel,
-} from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
-import { Label } from "@linea/ui/components/label"
+} from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
+import { Label } from "@linealabs/ui/components/label"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 
 import { createApiKeyInputSchema } from "@/lib/api-keys-api"
 import {

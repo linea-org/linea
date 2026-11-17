@@ -29,4 +29,4 @@ export type {
   DecideApprovalRequest,
   MessageProjection,
   PublicExecution,
-} from "@linea/sdk/user"
+} from "@linealabs/sdk/user"

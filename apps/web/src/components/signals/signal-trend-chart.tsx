@@ -5,7 +5,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from "@linea/ui/components/chart"
+} from "@linealabs/ui/components/chart"
 
 import type { SignalTrendPoint } from "@/lib/signals-api"
 import { fillTrendGaps } from "./fill-trend-gaps"

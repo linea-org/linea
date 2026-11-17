@@ -24,19 +24,23 @@ function adapter(source: string, handler: string): OperationAdapter {
 
 function environmentSdk(method: string): OperationSdkCoverage {
   return {
-    importPath: "@linea/sdk/server",
+    importPath: "@linealabs/sdk/server",
     client: "LineaEnvironmentClient",
     method,
   }
 }
 
 function userSdk(method: string): OperationSdkCoverage {
-  return { importPath: "@linea/sdk/user", client: "LineaUserClient", method }
+  return {
+    importPath: "@linealabs/sdk/user",
+    client: "LineaUserClient",
+    method,
+  }
 }
 
 function workspaceSdk(method: string): OperationSdkCoverage {
   return {
-    importPath: "@linea/sdk/server",
+    importPath: "@linealabs/sdk/server",
     client: "Linea",
     method,
   }
@@ -55,7 +59,7 @@ export const operationMetadata = {
       "list"
     ),
     sdk: {
-      importPath: "@linea/sdk/server",
+      importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
       method: "listConnections",
     },
@@ -73,7 +77,7 @@ export const operationMetadata = {
       "createGithubInstallation"
     ),
     sdk: {
-      importPath: "@linea/sdk/server",
+      importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
       method: "createGithubInstallation",
     },
@@ -91,7 +95,7 @@ export const operationMetadata = {
       "authorities"
     ),
     sdk: {
-      importPath: "@linea/sdk/server",
+      importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
       method: "getAuthorities",
     },
@@ -109,7 +113,7 @@ export const operationMetadata = {
       "grant"
     ),
     sdk: {
-      importPath: "@linea/sdk/server",
+      importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
       method: "grantAccess",
     },
@@ -127,7 +131,7 @@ export const operationMetadata = {
       "revokeGrant"
     ),
     sdk: {
-      importPath: "@linea/sdk/server",
+      importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
       method: "revokeAccess",
     },
@@ -145,7 +149,7 @@ export const operationMetadata = {
       "assignReviewer"
     ),
     sdk: {
-      importPath: "@linea/sdk/server",
+      importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
       method: "assignReviewer",
     },
@@ -163,7 +167,7 @@ export const operationMetadata = {
       "revokeReviewer"
     ),
     sdk: {
-      importPath: "@linea/sdk/server",
+      importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
       method: "revokeReviewer",
     },
@@ -181,7 +185,7 @@ export const operationMetadata = {
       "revoke"
     ),
     sdk: {
-      importPath: "@linea/sdk/server",
+      importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
       method: "revokeConnection",
     },

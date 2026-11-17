@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
-import { db, pool, schema } from '@linea/db'
+import { db, pool, schema } from '@linealabs/db'
 import { ApiKeysService } from './api-keys.service'
 import { createApiKeySchema } from './dto/create-api-key.dto'
 import { hashApiKey } from '../auth/api-key.util'

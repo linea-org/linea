@@ -1,12 +1,12 @@
 {
   "name": "linea-sdk-react-copilotkit-example",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "dependencies": {
     "@copilotkit/react-core": "1.73.0",
-    "@linea/sdk": "0.0.0",
-    "@linea/sdk-react": "0.0.0",
+    "@linealabs/sdk": "0.1.0",
+    "@linealabs/sdk-react": "0.1.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "zod": "4.6.6"

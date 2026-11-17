@@ -1,10 +1,10 @@
 import { useConnectionManagement } from "./connection-management-context"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Button } from "@linea/ui/components/button"
-import type { Connection } from "@linea/protocol/resources"
+import { Button } from "@linealabs/ui/components/button"
+import type { Connection } from "@linealabs/protocol/resources"
 import { revokeSharedConnectionFn } from "@/lib/shared-connections-api"
 import { ConnectionAuthorities } from "./connection-authorities"
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 export function SharedConnectionCard({
   connection,
 }: {

@@ -1,5 +1,5 @@
 import { useRouter, type ErrorComponentProps } from "@tanstack/react-router"
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 
 export function WorkspaceLoadError({ reset }: ErrorComponentProps) {
   const router = useRouter()

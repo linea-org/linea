@@ -1,5 +1,5 @@
-import { configureTestEnvironment } from '@linea/db/testing'
-import { getTestApplicationId } from '@linea/db/testing'
+import { configureTestEnvironment } from '@linealabs/db/testing'
+import { getTestApplicationId } from '@linealabs/db/testing'
 import 'dotenv/config'
 import { createHash, randomUUID } from 'node:crypto'
 import type { INestApplication } from '@nestjs/common'
@@ -17,15 +17,15 @@ import {
   externalSubjectEnvironments,
   externalSubjects,
   organizations,
-} from '@linea/db'
-import { publicErrorResponseSchema } from '@linea/protocol/errors'
+} from '@linealabs/db'
+import { publicErrorResponseSchema } from '@linealabs/protocol/errors'
 import {
   approvalDecisionSchema,
   approvalRequestSchema,
   connectionUseSchema,
   pendingActionIntentSchema,
-} from '@linea/protocol/resources'
-import { paginatedResponseSchema } from '@linea/protocol/shared'
+} from '@linealabs/protocol/resources'
+import { paginatedResponseSchema } from '@linealabs/protocol/shared'
 import {
   calculateJwkThumbprint,
   exportJWK,

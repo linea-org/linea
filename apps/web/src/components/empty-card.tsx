@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import type { LucideIcon } from "lucide-react"
 
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import {
   Empty,
   EmptyContent,
@@ -9,7 +9,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
+} from "@linealabs/ui/components/empty"
 
 export function EmptyCard({
   icon: Icon,

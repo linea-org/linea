@@ -1,11 +1,11 @@
 import { useState } from "react"
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@linea/ui/components/tabs"
+} from "@linealabs/ui/components/tabs"
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
 import { InfoTip } from "./info-tip"

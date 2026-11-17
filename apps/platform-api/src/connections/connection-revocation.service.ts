@@ -6,7 +6,7 @@ import {
   type OnModuleDestroy,
   type OnModuleInit,
 } from '@nestjs/common'
-import { db, decryptCredential, repositories } from '@linea/db'
+import { db, decryptCredential, repositories } from '@linealabs/db'
 import {
   CONNECTION_OAUTH_PROVIDERS,
   type ConnectionOAuthProvider,

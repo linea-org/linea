@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import { listEnvironmentConnectionOutcomesFn } from "@/lib/shared-connections-api"
 export function EnvironmentConnectionOutcomes({
   environmentId,

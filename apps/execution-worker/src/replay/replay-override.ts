@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util"
-import type { NodeType, WorkflowNode } from "@linea/runtime"
+import type { NodeType, WorkflowNode } from "@linealabs/runtime"
 
 // Destinations, headers, tools and Memory scope are deliberately absent: a Replay may only vary how a node computes, never where it reaches.
 const overridableKeys: Record<NodeType, "any" | readonly string[]> = {

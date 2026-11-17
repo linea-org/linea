@@ -1,14 +1,14 @@
 import { Controller, useForm } from "react-hook-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Button } from "@linea/ui/components/button"
-import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
+import { Button } from "@linealabs/ui/components/button"
+import { Field, FieldError, FieldLabel } from "@linealabs/ui/components/field"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 import { deployAgentFn } from "@/lib/agent-deployments-api"
 import type {
   AgentBinding,

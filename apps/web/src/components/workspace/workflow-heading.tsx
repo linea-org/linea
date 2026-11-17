@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { InfoIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@linea/ui/components/tooltip"
+} from "@linealabs/ui/components/tooltip"
 
 import { WorkflowStatusBadge } from "@/components/workflows"
 import { workflowQueryOptions, type WorkflowSummary } from "@/lib/workflows-api"

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { sendEmail } from '@linea/auth/email'
-import { noticeEmailHtml } from '@linea/auth/emails'
-import { db, repositories, type WorkflowTemplate } from '@linea/db'
+import { sendEmail } from '@linealabs/auth/email'
+import { noticeEmailHtml } from '@linealabs/auth/emails'
+import { db, repositories, type WorkflowTemplate } from '@linealabs/db'
 
 type TemplateRef = Pick<
   WorkflowTemplate,

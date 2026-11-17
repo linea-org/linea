@@ -3,7 +3,12 @@ import { defineConfig } from "tsup"
 export default defineConfig({
   entry: { index: "src/index.ts", copilotkit: "src/copilotkit.ts" },
   format: ["esm", "cjs"],
-  dts: true,
+  dts: {
+    resolve: [/^@linealabs\/protocol/],
+    compilerOptions: {
+      paths: { "@linealabs/protocol/*": ["../protocol/src/*.ts"] },
+    },
+  },
   clean: true,
   sourcemap: true,
   target: "es2022",
@@ -11,8 +16,7 @@ export default defineConfig({
   external: [
     "react",
     "react/jsx-runtime",
-    "@linea/protocol",
-    "@linea/sdk/user",
+    "@linealabs/sdk/user",
     "@copilotkit/react-core/v2",
     "zod",
   ],

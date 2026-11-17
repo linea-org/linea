@@ -7,7 +7,7 @@ export type OperationAdapter = {
 
 export type OperationSdkCoverage =
   | {
-      readonly importPath: "@linea/sdk/server" | "@linea/sdk/user"
+      readonly importPath: "@linealabs/sdk/server" | "@linealabs/sdk/user"
       readonly client:
         | "LineaEnvironmentClient"
         | "LineaUserClient"

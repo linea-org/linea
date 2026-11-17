@@ -5,7 +5,7 @@ import {
   METHOD_METADATA,
   PATH_METADATA,
 } from '@nestjs/common/constants'
-import { operationRegistry } from '@linea/protocol'
+import { operationRegistry } from '@linealabs/protocol'
 import { AgentContractsController } from '../agents/agent-contracts.controller'
 import { AgentsController } from '../agents/agents.controller'
 import { ApplicationsController } from '../applications/applications.controller'

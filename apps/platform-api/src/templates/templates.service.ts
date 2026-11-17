@@ -4,12 +4,12 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common'
-import { db, repositories, type WorkflowTemplate } from '@linea/db'
+import { db, repositories, type WorkflowTemplate } from '@linealabs/db'
 import {
   validateGraphStructure,
   workflowGraphSchema,
   WorkflowGraphError,
-} from '@linea/runtime'
+} from '@linealabs/runtime'
 import type { ListTemplatesDto, PublishTemplateDto } from './dto/template.dto'
 import type { ReportTemplateDto } from './moderation/dto/moderation.dto'
 import { TemplateModerationNotifier } from './moderation/template-moderation-notifier'

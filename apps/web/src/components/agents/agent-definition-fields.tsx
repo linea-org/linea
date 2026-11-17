@@ -1,4 +1,4 @@
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import { Controller, useFormContext } from "react-hook-form"
 import { z } from "zod"
 import {
@@ -6,15 +6,15 @@ import {
   FieldDescription,
   FieldError,
   FieldLabel,
-} from "@linea/ui/components/field"
+} from "@linealabs/ui/components/field"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
-import { Textarea } from "@linea/ui/components/textarea"
+} from "@linealabs/ui/components/select"
+import { Textarea } from "@linealabs/ui/components/textarea"
 import {
   createAgentVersionInputSchema,
   type AgentCatalog,

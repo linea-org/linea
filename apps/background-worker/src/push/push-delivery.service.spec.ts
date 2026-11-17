@@ -1,4 +1,4 @@
-import type { Notification, PushDelivery } from "@linea/db"
+import type { Notification, PushDelivery } from "@linealabs/db"
 import {
   ExpoTransportError,
   getExpoPushReceipt,
@@ -15,7 +15,7 @@ const mockRecordTicket = jest.fn<Promise<unknown>, unknown[]>()
 const mockRetryDelivery = jest.fn<Promise<unknown>, unknown[]>()
 const mockRetryReceipt = jest.fn<Promise<unknown>, unknown[]>()
 
-jest.mock("@linea/db", () => ({
+jest.mock("@linealabs/db", () => ({
   db: {},
   repositories: {
     pushNotification: {

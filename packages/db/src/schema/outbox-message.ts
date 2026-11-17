@@ -12,8 +12,8 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core"
-import { eventTypes } from "@linea/protocol/events"
-import type { JsonValue } from "@linea/protocol/shared"
+import { eventTypes } from "@linealabs/protocol/events"
+import type { JsonValue } from "@linealabs/protocol/shared"
 import { environments } from "./environment.js"
 import {
   externalSubjectEnvironments,

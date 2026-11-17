@@ -1,6 +1,6 @@
 {
-  "name": "@linea/runtime",
-  "version": "0.0.0",
+  "name": "@linealabs/runtime",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,7 +15,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@linea/config": "workspace:*",
+    "@linealabs/config": "workspace:*",
     "@types/node": "22",
     "eslint": "^9",
     "tsup": "^8.5.0",

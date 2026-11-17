@@ -1,16 +1,16 @@
-import { Input } from "@linea/ui/components/input"
-import { githubRepositoryTargetSchema } from "@linea/protocol/resources"
+import { Input } from "@linealabs/ui/components/input"
+import { githubRepositoryTargetSchema } from "@linealabs/protocol/resources"
 import { Controller, useForm } from "react-hook-form"
 import { useMutation } from "@tanstack/react-query"
-import { Button } from "@linea/ui/components/button"
-import { Field, FieldLabel } from "@linea/ui/components/field"
+import { Button } from "@linealabs/ui/components/button"
+import { Field, FieldLabel } from "@linealabs/ui/components/field"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 import type { EnvironmentSummary } from "@/lib/environments-api"
 import { replaceConnectorPolicyFn } from "@/lib/shared-connections-api"
 type PolicyForm = {

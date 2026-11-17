@@ -7,7 +7,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@linea/ui/components/alert-dialog"
+} from "@linealabs/ui/components/alert-dialog"
 import type { AgentVersion } from "@/lib/agent-schemas"
 
 export function AgentVersionReplacement({

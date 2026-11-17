@@ -1,5 +1,5 @@
 import type { Edge, Node } from "@xyflow/react"
-import type { NodeTypeId } from "@linea/runtime/browser"
+import type { NodeTypeId } from "@linealabs/runtime/browser"
 
 export type WorkflowBuilderNodeData = {
   nodeType: NodeTypeId

@@ -1,7 +1,10 @@
 import { useId } from "react"
 import { Area, AreaChart } from "recharts"
 
-import { ChartContainer, type ChartConfig } from "@linea/ui/components/chart"
+import {
+  ChartContainer,
+  type ChartConfig,
+} from "@linealabs/ui/components/chart"
 
 const chartConfig = {
   count: { label: "Count", color: "var(--primary)" },

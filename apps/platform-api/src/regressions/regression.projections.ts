@@ -2,7 +2,7 @@ import type {
   RegressionCase as DatabaseRegressionCase,
   RegressionResult as DatabaseRegressionResult,
   RegressionRun as DatabaseRegressionRun,
-} from '@linea/db'
+} from '@linealabs/db'
 import {
   regressionCaseSchema,
   regressionResultSchema,
@@ -12,7 +12,7 @@ import {
   type RegressionResult,
   type RegressionRun,
   type RegressionRunDetail,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 
 export function regressionCaseProjection(
   regressionCase: DatabaseRegressionCase,

@@ -1,8 +1,8 @@
 import { CopilotKit } from "@copilotkit/react-core/v2"
 import { createRoot } from "react-dom/client"
-import { LineaUserClient } from "@linea/sdk/user"
-import { LineaUserProvider } from "@linea/sdk-react"
-import { CopilotKitApprovalAction } from "@linea/sdk-react/copilotkit"
+import { LineaUserClient } from "@linealabs/sdk/user"
+import { LineaUserProvider } from "@linealabs/sdk-react"
+import { CopilotKitApprovalAction } from "@linealabs/sdk-react/copilotkit"
 
 const client = new LineaUserClient({
   environmentId: "80000000-0000-4000-8000-000000000008",

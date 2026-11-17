@@ -19,22 +19,22 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@linea/ui/components/alert-dialog"
-import { Button, buttonVariants } from "@linea/ui/components/button"
-import { Card } from "@linea/ui/components/card"
+} from "@linealabs/ui/components/alert-dialog"
+import { Button, buttonVariants } from "@linealabs/ui/components/button"
+import { Card } from "@linealabs/ui/components/card"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@linea/ui/components/popover"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/popover"
+import { cn } from "@linealabs/ui/lib/utils"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
+} from "@linealabs/ui/components/empty"
 import {
   Table,
   TableBody,
@@ -42,20 +42,20 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@linea/ui/components/table"
+} from "@linealabs/ui/components/table"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 
 import { UserAvatar } from "@/components/account/user-avatar"
 import { InviteMemberDialog } from "@/components/members"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
-import { isPersonalWorkspace } from "@linea/auth/personal-workspace"
+import { isPersonalWorkspace } from "@linealabs/auth/personal-workspace"
 import { authClient } from "@/lib/auth-client"
 import {
   cancelInvitation,

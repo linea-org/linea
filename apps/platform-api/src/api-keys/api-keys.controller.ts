@@ -13,7 +13,7 @@ import {
   Session,
   type UserSession,
 } from '@thallesp/nestjs-better-auth'
-import type { auth } from '@linea/auth'
+import type { auth } from '@linealabs/auth'
 import { RequireRole } from '../auth/require-role.decorator'
 import { WorkspaceRoleGuard } from '../auth/workspace-role.guard'
 import { RecentAuthenticationGuard } from '../auth/recent-authentication.guard'

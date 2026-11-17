@@ -7,5 +7,5 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   target: "es2022",
-  external: ["@linea/db", "zod"],
+  external: ["@linealabs/db", "zod"],
 })

@@ -2,14 +2,14 @@ import {
   getRegressionRunOperation,
   listRegressionCasesOperation,
   listRegressionRunsOperation,
-} from "@linea/protocol/operations"
+} from "@linealabs/protocol/operations"
 import type {
   ListRegressionCases,
   ListRegressionRuns,
   RegressionCase,
   RegressionRun,
   RegressionRunDetail,
-} from "@linea/protocol/resources"
+} from "@linealabs/protocol/resources"
 import type { ServerTransport } from "../server/transport.js"
 
 export class Regressions {

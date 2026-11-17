@@ -9,7 +9,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core"
-import type { JsonValue } from "@linea/protocol/shared"
+import type { JsonValue } from "@linealabs/protocol/shared"
 import { regressionRuns } from "./regression-run.js"
 
 export const regressionResultStatus = pgEnum("regression_result_status", [

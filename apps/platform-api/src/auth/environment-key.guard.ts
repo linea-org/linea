@@ -4,8 +4,8 @@ import {
   type CanActivate,
   type ExecutionContext,
 } from '@nestjs/common'
-import { db, repositories } from '@linea/db'
-import type { EnvironmentKeyScope } from '@linea/protocol/resources'
+import { db, repositories } from '@linealabs/db'
+import type { EnvironmentKeyScope } from '@linealabs/protocol/resources'
 import type { Request } from 'express'
 import { enforceRequestRateLimits } from '../common/request-rate-limit'
 import { hashApiKey } from './api-key.util'

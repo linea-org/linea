@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router"
 
-import { Badge } from "@linea/ui/components/badge"
-import { Spinner } from "@linea/ui/components/spinner"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Spinner } from "@linealabs/ui/components/spinner"
 
 import { executionStatusDefinition } from "@/lib/execution-status"
 import type { ExecutionDetailResponse } from "@/lib/executions-api"

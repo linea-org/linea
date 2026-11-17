@@ -7,7 +7,7 @@ import {
   SidebarMenuItem,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
-} from "@linea/ui/components/sidebar"
+} from "@linealabs/ui/components/sidebar"
 import {
   agentSectionSchema,
   agentSections,

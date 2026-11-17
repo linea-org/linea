@@ -1,6 +1,9 @@
 import { openConnectionAuthorization } from "./open-connection-authorization.js"
-import type { PublicErrorCode } from "@linea/protocol/errors"
-import type { EventEnvelope, EventStreamQuery } from "@linea/protocol/events"
+import type { PublicErrorCode } from "@linealabs/protocol/errors"
+import type {
+  EventEnvelope,
+  EventStreamQuery,
+} from "@linealabs/protocol/events"
 import {
   createEndUserConversationOperation,
   createEndUserMessageOperation,
@@ -27,7 +30,7 @@ import {
   startEndUserAuthorizationOperation,
   startEndUserExecutionOperation,
   streamEndUserEventsOperation,
-} from "@linea/protocol/operations"
+} from "@linealabs/protocol/operations"
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -53,8 +56,11 @@ import type {
   StartEndUserExecution,
   StartConnectionAuthorization,
   StartConnectionScopeUpgrade,
-} from "@linea/protocol/resources"
-import type { PaginatedResponse, PaginationQuery } from "@linea/protocol/shared"
+} from "@linealabs/protocol/resources"
+import type {
+  PaginatedResponse,
+  PaginationQuery,
+} from "@linealabs/protocol/shared"
 import { LineaExecutionHandle } from "./execution-handle.js"
 import { readEventStream, waitForReconnect } from "./event-stream.js"
 import {
@@ -63,6 +69,7 @@ import {
   LineaUserProtocolError,
   LineaUserSessionError,
 } from "./errors.js"
+import { resolveBaseUrl } from "../http/base-url.js"
 import { createDpopProof, createPkce, randomId } from "./proof.js"
 import {
   createProofKeyStore,
@@ -82,7 +89,6 @@ import {
   parseJsonResponse,
 } from "./transport.js"
 
-const DEFAULT_BASE_URL = "http://localhost:3000"
 const DEFAULT_RECONNECT_DELAY_MS = 1_000
 
 type QueryValue = string | number | readonly string[] | undefined
@@ -152,7 +158,7 @@ export class LineaUserClient {
 
   constructor(options: LineaUserClientOptions) {
     this.environmentId = options.environmentId
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, "")
+    this.baseUrl = resolveBaseUrl(options.baseUrl)
     this.fetchImplementation = options.fetch ?? globalThis.fetch
     this.cryptoImplementation = options.crypto ?? globalThis.crypto
     if (!this.fetchImplementation) {

@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from "class-variance-authority"
 
-import { cn } from "@linea/ui/lib/utils"
+import { cn } from "@linealabs/ui/lib/utils"
 
 function Empty({ className, ...props }: React.ComponentProps<"div">) {
   return (

@@ -1,4 +1,4 @@
-import type { CompletionRequest, CompletionResult } from "@linea/ai"
+import type { CompletionRequest, CompletionResult } from "@linealabs/ai"
 
 const complete = jest.fn<
   Promise<CompletionResult>,
@@ -8,13 +8,13 @@ const resolveProvider = jest.fn(() => ({ complete }))
 const resolveKeyName = jest.fn(() => "anthropic")
 const resolveApiKey = jest.fn(() => Promise.resolve({ apiKey: "secret" }))
 
-jest.mock("@linea/ai", () => ({
+jest.mock("@linealabs/ai", () => ({
   resolveProvider,
   resolveKeyName,
   resolveApiKey,
 }))
 
-jest.mock("@linea/db", () => ({ db: {} }))
+jest.mock("@linealabs/db", () => ({ db: {} }))
 
 import { ExtractNode } from "./extract.node"
 import { NonRetryableError } from "./non-retryable-error"

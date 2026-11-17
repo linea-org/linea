@@ -1,6 +1,6 @@
-jest.mock("@linea/http", () => ({
+jest.mock("@linealabs/http", () => ({
   PermanentRequestError:
-    jest.requireActual<typeof import("@linea/http")>("@linea/http")
+    jest.requireActual<typeof import("@linealabs/http")>("@linealabs/http")
       .PermanentRequestError,
   requestPublic: (
     url: string | URL,
@@ -18,9 +18,9 @@ const resolveProvider = jest.fn(() => ({ complete }))
 const resolveKeyName = jest.fn(() => "anthropic")
 const resolveApiKey = jest.fn(() => Promise.resolve({ apiKey: "secret" }))
 
-jest.mock("@linea/ai", () => {
+jest.mock("@linealabs/ai", () => {
   const { MAX_EXECUTION_TOKENS, executionBudgetMessage } =
-    jest.requireActual<typeof import("@linea/ai")>("@linea/ai")
+    jest.requireActual<typeof import("@linealabs/ai")>("@linealabs/ai")
   return {
     resolveProvider,
     resolveKeyName,
@@ -89,7 +89,7 @@ const listMemories = jest.fn<
     },
   ]
 >(() => Promise.resolve([]))
-jest.mock("@linea/db", () => ({
+jest.mock("@linealabs/db", () => ({
   db: {},
   repositories: {
     chatMessage: { listChatMessages },
@@ -103,7 +103,7 @@ jest.mock("@linea/db", () => ({
   },
 }))
 
-import { PermanentRequestError } from "@linea/http"
+import { PermanentRequestError } from "@linealabs/http"
 import { NonRetryableError } from "./non-retryable-error"
 import { UsageError } from "./usage-error"
 import { AiNode } from "./ai.node"

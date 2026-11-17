@@ -4,7 +4,7 @@ import {
   WorkflowGraphError,
   workflowGraphSchema,
   type WorkflowGraph,
-} from '@linea/runtime'
+} from '@linealabs/runtime'
 import { ASSISTANT_NODE_TYPES } from './assistant-nodes'
 import { AssistantOutputError } from './assistant-output-error'
 

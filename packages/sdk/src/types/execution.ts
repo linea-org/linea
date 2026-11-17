@@ -1,4 +1,4 @@
-import type { WorkspaceExecutionWithWorkflow } from "@linea/protocol/resources"
+import type { WorkspaceExecutionWithWorkflow } from "@linealabs/protocol/resources"
 
 export type {
   CountNewWorkspaceExecutions as CountNewExecutionsParams,
@@ -9,7 +9,7 @@ export type {
   WorkspaceExecutionStepStatus as ExecutionStepStatus,
   WorkspaceExecutionStep as ExecutionStep,
   WorkspaceExecutionWithWorkflow as ExecutionWithWorkflow,
-} from "@linea/protocol/resources"
+} from "@linealabs/protocol/resources"
 
 export function nextExecutionsCursor(
   row: Pick<WorkspaceExecutionWithWorkflow, "createdAt" | "id">

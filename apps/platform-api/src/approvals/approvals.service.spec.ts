@@ -1,9 +1,9 @@
-import { createTestExecution } from '@linea/db/testing'
-import { getTestApplicationId } from '@linea/db/testing'
+import { createTestExecution } from '@linealabs/db/testing'
+import { getTestApplicationId } from '@linealabs/db/testing'
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
-import { db, pool, repositories, schema } from '@linea/db'
+import { db, pool, repositories, schema } from '@linealabs/db'
 import { ApprovalsService } from './approvals.service'
 
 afterAll(async () => {

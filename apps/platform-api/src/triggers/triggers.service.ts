@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { db, repositories, type Execution } from '@linea/db'
+import { db, repositories, type Execution } from '@linealabs/db'
 
 @Injectable()
 export class TriggersService {

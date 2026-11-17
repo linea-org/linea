@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 
 const repository = resolve(import.meta.dirname, "../../..")
-const temporary = mkdtempSync(join(tmpdir(), "linea-sdk-server-"))
+const temporary = mkdtempSync(join(tmpdir(), "linealabs-sdk-server-"))
 const pnpmCli = process.env.npm_execpath
 if (!pnpmCli) throw new Error("pnpm executable path is unavailable")
 const pnpmIsJavaScript = /\.(?:c|m)?js$/.test(pnpmCli)
@@ -12,7 +12,7 @@ const pnpmCommand = pnpmIsJavaScript ? process.execPath : pnpmCli
 const pnpmArguments = (arguments_) =>
   pnpmIsJavaScript ? [pnpmCli, ...arguments_] : arguments_
 try {
-  for (const packageName of ["@linea/protocol", "@linea/sdk"]) {
+  for (const packageName of ["@linealabs/sdk"]) {
     execFileSync(
       pnpmCommand,
       pnpmArguments([
@@ -28,25 +28,15 @@ try {
   const archives = readdirSync(temporary).filter((file) =>
     file.endsWith(".tgz")
   )
-  const protocolArchive = archives.find((file) =>
-    file.startsWith("linea-protocol-")
-  )
-  const sdkArchive = archives.find((file) => file.startsWith("linea-sdk-"))
-  if (!protocolArchive || !sdkArchive)
-    throw new Error("Packed archives are missing")
+  const sdkArchive = archives.find((file) => file.startsWith("linealabs-sdk-"))
+  if (!sdkArchive) throw new Error("Packed archives are missing")
   writeFileSync(
     join(temporary, "package.json"),
     JSON.stringify({
       private: true,
       type: "module",
       dependencies: {
-        "@linea/protocol": `file:${join(temporary, protocolArchive)}`,
-        "@linea/sdk": `file:${join(temporary, sdkArchive)}`,
-      },
-      pnpm: {
-        overrides: {
-          "@linea/protocol": `file:${join(temporary, protocolArchive)}`,
-        },
+        "@linealabs/sdk": `file:${join(temporary, sdkArchive)}`,
       },
     })
   )
@@ -66,10 +56,10 @@ try {
   )
   writeFileSync(
     join(temporary, "index.ts"),
-    `import { Linea } from "@linea/sdk"
-import { LineaUserClient } from "@linea/sdk/user"
-import { verifyWebhook, verifyWebhookSignature } from "@linea/sdk/webhooks"
-import { LineaEnvironmentClient, Linea as ServerLinea, environmentKey } from "@linea/sdk/server"
+    `import { Linea } from "@linealabs/sdk"
+import { LineaUserClient } from "@linealabs/sdk/user"
+import { verifyWebhook, verifyWebhookSignature } from "@linealabs/sdk/webhooks"
+import { LineaEnvironmentClient, Linea as ServerLinea, environmentKey } from "@linealabs/sdk/server"
 const environment = new LineaEnvironmentClient({ environmentId: "app", environmentKey: environmentKey("lin_env_secret") })
 const linea = new Linea({ apiKey: "lin_secret" })
 const runs: Promise<unknown>[] = [linea.workflows.run("workflow-id", { input: {} }), linea.executions.wait("execution-id")]
@@ -81,7 +71,7 @@ export { environment, linea, runs, ServerLinea, LineaUserClient, verifyWebhook, 
   writeFileSync(
     join(temporary, "webhook.mjs"),
     `import { createHmac } from "node:crypto"
-import { verifyWebhook } from "@linea/sdk/webhooks"
+import { verifyWebhook } from "@linealabs/sdk/webhooks"
 const secret = "webhook-secret"
 const eventId = "event-1"
 const now = new Date("2026-09-18T12:00:00.000Z")

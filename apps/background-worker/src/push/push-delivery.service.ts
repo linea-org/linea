@@ -4,7 +4,7 @@ import {
   type OnModuleDestroy,
   type OnModuleInit,
 } from "@nestjs/common"
-import { db, repositories, type PushDelivery } from "@linea/db"
+import { db, repositories, type PushDelivery } from "@linealabs/db"
 import {
   ExpoTransportError,
   getExpoPushReceipt,
