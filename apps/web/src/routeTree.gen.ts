@@ -37,6 +37,7 @@ import { Route as WSlugApplicationsApplicationIdRouteImport } from './routes/w/$
 import { Route as WSlugExecutionsIndexRouteImport } from './routes/w/$slug/executions/index'
 import { Route as WSlugExecutionsExecutionIdRouteImport } from './routes/w/$slug/executions/$executionId'
 import { Route as WSlugSettingsIndexRouteImport } from './routes/w/$slug/settings/index'
+import { Route as WSlugSettingsApiKeysRouteImport } from './routes/w/$slug/settings/api-keys'
 import { Route as WSlugSettingsMembersRouteImport } from './routes/w/$slug/settings/members'
 import { Route as WSlugSettingsModelsRouteImport } from './routes/w/$slug/settings/models'
 import { Route as WSlugSettingsSecretsRouteImport } from './routes/w/$slug/settings/secrets'
@@ -192,6 +193,11 @@ const WSlugSettingsIndexRoute = WSlugSettingsIndexRouteImport.update({
   path: '/settings/',
   getParentRoute: () => WSlugRoute,
 } as any)
+const WSlugSettingsApiKeysRoute = WSlugSettingsApiKeysRouteImport.update({
+  id: '/settings/api-keys',
+  path: '/settings/api-keys',
+  getParentRoute: () => WSlugRoute,
+} as any)
 const WSlugSettingsMembersRoute = WSlugSettingsMembersRouteImport.update({
   id: '/settings/members',
   path: '/settings/members',
@@ -281,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug/agents/new': typeof WSlugAgentsNewRoute
   '/w/$slug/applications/$applicationId': typeof WSlugApplicationsApplicationIdRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
+  '/w/$slug/settings/api-keys': typeof WSlugSettingsApiKeysRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
   '/w/$slug/settings/models': typeof WSlugSettingsModelsRoute
   '/w/$slug/settings/secrets': typeof WSlugSettingsSecretsRoute
@@ -321,6 +328,7 @@ export interface FileRoutesByTo {
   '/w/$slug/agents/new': typeof WSlugAgentsNewRoute
   '/w/$slug/applications/$applicationId': typeof WSlugApplicationsApplicationIdRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
+  '/w/$slug/settings/api-keys': typeof WSlugSettingsApiKeysRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
   '/w/$slug/settings/models': typeof WSlugSettingsModelsRoute
   '/w/$slug/settings/secrets': typeof WSlugSettingsSecretsRoute
@@ -362,6 +370,7 @@ export interface FileRoutesById {
   '/w/$slug/agents/new': typeof WSlugAgentsNewRoute
   '/w/$slug/applications/$applicationId': typeof WSlugApplicationsApplicationIdRoute
   '/w/$slug/executions/$executionId': typeof WSlugExecutionsExecutionIdRoute
+  '/w/$slug/settings/api-keys': typeof WSlugSettingsApiKeysRoute
   '/w/$slug/settings/members': typeof WSlugSettingsMembersRoute
   '/w/$slug/settings/models': typeof WSlugSettingsModelsRoute
   '/w/$slug/settings/secrets': typeof WSlugSettingsSecretsRoute
@@ -405,6 +414,7 @@ export interface FileRouteTypes {
     | '/w/$slug/agents/new'
     | '/w/$slug/applications/$applicationId'
     | '/w/$slug/executions/$executionId'
+    | '/w/$slug/settings/api-keys'
     | '/w/$slug/settings/members'
     | '/w/$slug/settings/models'
     | '/w/$slug/settings/secrets'
@@ -445,6 +455,7 @@ export interface FileRouteTypes {
     | '/w/$slug/agents/new'
     | '/w/$slug/applications/$applicationId'
     | '/w/$slug/executions/$executionId'
+    | '/w/$slug/settings/api-keys'
     | '/w/$slug/settings/members'
     | '/w/$slug/settings/models'
     | '/w/$slug/settings/secrets'
@@ -485,6 +496,7 @@ export interface FileRouteTypes {
     | '/w/$slug/agents/new'
     | '/w/$slug/applications/$applicationId'
     | '/w/$slug/executions/$executionId'
+    | '/w/$slug/settings/api-keys'
     | '/w/$slug/settings/members'
     | '/w/$slug/settings/models'
     | '/w/$slug/settings/secrets'
@@ -717,6 +729,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugSettingsIndexRouteImport
       parentRoute: typeof WSlugRoute
     }
+    '/w/$slug/settings/api-keys': {
+      id: '/w/$slug/settings/api-keys'
+      path: '/settings/api-keys'
+      fullPath: '/w/$slug/settings/api-keys'
+      preLoaderRoute: typeof WSlugSettingsApiKeysRouteImport
+      parentRoute: typeof WSlugRoute
+    }
     '/w/$slug/settings/members': {
       id: '/w/$slug/settings/members'
       path: '/settings/members'
@@ -836,6 +855,7 @@ interface WSlugRouteChildren {
   WSlugAgentsNewRoute: typeof WSlugAgentsNewRoute
   WSlugApplicationsApplicationIdRoute: typeof WSlugApplicationsApplicationIdRoute
   WSlugExecutionsExecutionIdRoute: typeof WSlugExecutionsExecutionIdRoute
+  WSlugSettingsApiKeysRoute: typeof WSlugSettingsApiKeysRoute
   WSlugSettingsMembersRoute: typeof WSlugSettingsMembersRoute
   WSlugSettingsModelsRoute: typeof WSlugSettingsModelsRoute
   WSlugSettingsSecretsRoute: typeof WSlugSettingsSecretsRoute
@@ -857,6 +877,7 @@ const WSlugRouteChildren: WSlugRouteChildren = {
   WSlugAgentsNewRoute: WSlugAgentsNewRoute,
   WSlugApplicationsApplicationIdRoute: WSlugApplicationsApplicationIdRoute,
   WSlugExecutionsExecutionIdRoute: WSlugExecutionsExecutionIdRoute,
+  WSlugSettingsApiKeysRoute: WSlugSettingsApiKeysRoute,
   WSlugSettingsMembersRoute: WSlugSettingsMembersRoute,
   WSlugSettingsModelsRoute: WSlugSettingsModelsRoute,
   WSlugSettingsSecretsRoute: WSlugSettingsSecretsRoute,

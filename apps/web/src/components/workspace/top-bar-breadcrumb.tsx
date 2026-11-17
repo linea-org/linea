@@ -152,6 +152,8 @@ function crumbsForMatch(match: RouteMatch, slug: string): Crumb[] {
       return [{ label: "Members" }]
     case "/w/$slug/settings/secrets":
       return [{ label: "Secrets" }]
+    case "/w/$slug/settings/api-keys":
+      return [{ label: "API keys" }]
     case "/w/$slug/settings/models":
       return [{ label: "Models" }]
     case "/w/$slug/workflows/$workflowId/builder":

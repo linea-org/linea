@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { CheckIcon, ChevronDownIcon, CopyIcon } from "lucide-react"
+import { ChevronDownIcon } from "lucide-react"
 
 import { Button } from "@linea/ui/components/button"
 import { Card } from "@linea/ui/components/card"
@@ -18,6 +18,7 @@ import {
 } from "@linea/ui/components/table"
 import { cn } from "@linea/ui/lib/utils"
 
+import { CopyButton } from "@/components/copy-button"
 import type { JsonValue } from "@/lib/executions-api"
 import { formatJson } from "./execution-step-presentation"
 
@@ -25,29 +26,6 @@ function isJsonObject(
   value: JsonValue | null
 ): value is Record<string, JsonValue> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function CopyButton({
-  text,
-  label,
-}: Readonly<{ text: string; label: string }>) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-xs"
-      aria-label={`Copy ${label}`}
-      onClick={() => {
-        void navigator.clipboard.writeText(text).then(() => {
-          setCopied(true)
-          setTimeout(() => setCopied(false), 1500)
-        })
-      }}
-    >
-      {copied ? <CheckIcon /> : <CopyIcon />}
-    </Button>
-  )
 }
 
 function PayloadTable({
@@ -144,7 +122,11 @@ export function StepPayloadCard({
             </div>
           ) : null}
           {value === null ? null : (
-            <CopyButton text={formatJson(value)} label={label.toLowerCase()} />
+            <CopyButton
+              text={formatJson(value)}
+              label={label.toLowerCase()}
+              size="icon-xs"
+            />
           )}
           <CollapsibleTrigger
             render={
