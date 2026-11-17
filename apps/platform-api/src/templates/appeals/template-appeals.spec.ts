@@ -12,7 +12,7 @@ import {
   repositories,
   schema,
   templateAppealTypeIds,
-} from '@linea/db'
+} from '@linealabs/db'
 import type { TemplateModerationNotifier } from '../moderation/template-moderation-notifier'
 import { TemplateModerationService } from '../moderation/template-moderation.service'
 import { TemplatesService } from '../templates.service'

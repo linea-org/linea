@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Post } from '@nestjs/common'
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth'
-import type { auth } from '@linea/auth'
+import type { auth } from '@linealabs/auth'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
 import {
   registerPushDeviceSchema,

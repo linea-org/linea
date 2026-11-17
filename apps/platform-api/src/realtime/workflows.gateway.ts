@@ -1,5 +1,5 @@
 import { Logger, type OnModuleInit, type OnModuleDestroy } from '@nestjs/common'
-import { db, repositories } from '@linea/db'
+import { db, repositories } from '@linealabs/db'
 import {
   WebSocketGateway,
   type OnGatewayConnection,

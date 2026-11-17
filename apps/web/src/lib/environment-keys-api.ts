@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { environmentKeyScopeSchema } from "@linea/protocol/resources"
+import { environmentKeyScopeSchema } from "@linealabs/protocol/resources"
 import { apiFetch } from "./api-fetch"
 
 const keySchema = z.object({

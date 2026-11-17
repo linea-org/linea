@@ -2,9 +2,9 @@ import { useState } from "react"
 import { Link } from "@tanstack/react-router"
 import { CircleCheckIcon, CircleIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
-import { Card } from "@linea/ui/components/card"
-import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
+import { Button } from "@linealabs/ui/components/button"
+import { Card } from "@linealabs/ui/components/card"
+import { Tabs, TabsList, TabsTrigger } from "@linealabs/ui/components/tabs"
 
 import { CreateApiKeyDialog } from "@/components/api-keys"
 import { CopyButton } from "@/components/copy-button"

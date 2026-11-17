@@ -1,4 +1,4 @@
-import { Badge } from "@linea/ui/components/badge"
+import { Badge } from "@linealabs/ui/components/badge"
 
 import type { SignalStatus } from "@/lib/signals-api"
 

@@ -1,8 +1,8 @@
 import type { ReactNode } from "react"
 
-import type { WorkflowGraph } from "@linea/runtime/browser"
-import { Card } from "@linea/ui/components/card"
-import { Spinner } from "@linea/ui/components/spinner"
+import type { WorkflowGraph } from "@linealabs/runtime/browser"
+import { Card } from "@linealabs/ui/components/card"
+import { Spinner } from "@linealabs/ui/components/spinner"
 
 import { WorkflowPreview } from "@/components/assistant/workflow-preview"
 import { NeedsModelDialog } from "@/components/models/needs-model-dialog"

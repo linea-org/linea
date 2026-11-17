@@ -1,5 +1,5 @@
-import type { ActionIntent, ApprovalRequest } from '@linea/db'
-import { pendingActionIntentSchema } from '@linea/protocol/resources'
+import type { ActionIntent, ApprovalRequest } from '@linealabs/db'
+import { pendingActionIntentSchema } from '@linealabs/protocol/resources'
 
 export function pendingActionIntentProjection(
   intent: ActionIntent,

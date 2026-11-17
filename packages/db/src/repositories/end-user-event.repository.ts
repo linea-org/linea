@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, gte, inArray, lte, sql } from "drizzle-orm"
-import type { EventType } from "@linea/protocol/events"
+import type { EventType } from "@linealabs/protocol/events"
 import {
   environments,
   endUserEventStreams,

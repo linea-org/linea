@@ -4,15 +4,15 @@ import {
   FieldDescription,
   FieldError,
   FieldLabel,
-} from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
+} from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 import { slugify } from "@/lib/auth-redirect"
 import type { ApplicationSummary } from "@/lib/applications-api"
 import type { AgentOnboardingInput } from "./agent-onboarding-schema"

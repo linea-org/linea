@@ -1,8 +1,8 @@
 import {
   getTestApplicationId,
   getTestDevelopmentEnvironmentId,
-} from "@linea/db/testing"
-import type { CompletionRequest, CompletionResult } from "@linea/ai"
+} from "@linealabs/db/testing"
+import type { CompletionRequest, CompletionResult } from "@linealabs/ai"
 
 const complete = jest.fn<
   Promise<CompletionResult>,
@@ -11,15 +11,15 @@ const complete = jest.fn<
 const resolveProvider = jest.fn(() => ({ complete }))
 const resolveKeyName = jest.fn(() => "ANTHROPIC_API_KEY")
 const resolveApiKey = jest.fn<
-  ReturnType<typeof import("@linea/ai").resolveApiKey>,
-  Parameters<typeof import("@linea/ai").resolveApiKey>
+  ReturnType<typeof import("@linealabs/ai").resolveApiKey>,
+  Parameters<typeof import("@linealabs/ai").resolveApiKey>
 >(() => Promise.resolve({ apiKey: "secret", source: "platform" }))
 const calculateCostMicros = jest.fn(() => 42n)
 const providers = [
   { id: "anthropic", label: "Anthropic", keyName: "ANTHROPIC_API_KEY" },
 ]
 
-jest.mock("@linea/ai", () => ({
+jest.mock("@linealabs/ai", () => ({
   DEFAULT_ANALYSIS_MODEL: "claude-haiku-4-5-20251001",
   resolveProvider,
   resolveKeyName,
@@ -30,14 +30,14 @@ jest.mock("@linea/ai", () => ({
 
 import "dotenv/config"
 import { randomBytes, randomUUID } from "node:crypto"
-import { db, encryptSecret, pool, repositories, schema } from "@linea/db"
+import { db, encryptSecret, pool, repositories, schema } from "@linealabs/db"
 import {
   ConversationAnalyzerService,
   parseFindings,
 } from "./conversation-analyzer.service"
 
 const { resolveApiKey: resolveEnvironmentApiKey } =
-  jest.requireActual<typeof import("@linea/ai")>("@linea/ai")
+  jest.requireActual<typeof import("@linealabs/ai")>("@linealabs/ai")
 
 afterAll(async () => {
   await pool.end()

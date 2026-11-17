@@ -5,7 +5,7 @@ import {
   encryptCredential,
   repositories,
   type Connection,
-} from '@linea/db'
+} from '@linealabs/db'
 import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.guard'
 import {
   CONNECTION_OAUTH_PROVIDERS,

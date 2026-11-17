@@ -42,10 +42,13 @@ export type {
   StartConnectionAuthorization,
   StartConnectionScopeUpgrade,
   StartEndUserExecution,
-} from "@linea/protocol/resources"
+} from "@linealabs/protocol/resources"
 export type {
   EventEnvelope,
   EventStreamQuery,
   EventType,
-} from "@linea/protocol/events"
-export type { PaginatedResponse, PaginationQuery } from "@linea/protocol/shared"
+} from "@linealabs/protocol/events"
+export type {
+  PaginatedResponse,
+  PaginationQuery,
+} from "@linealabs/protocol/shared"

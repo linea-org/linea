@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common"
-import { connectorRequestSchema, nodeRegistry } from "@linea/runtime"
+import { connectorRequestSchema, nodeRegistry } from "@linealabs/runtime"
 import { PauseExecutionError } from "../../checkpoints/checkpoints.service"
 import { ConnectorGatewayService } from "../../connectors/connector-gateway.service"
 import type {

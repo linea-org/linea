@@ -2,9 +2,12 @@ import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import type { NestExpressApplication } from '@nestjs/platform-express'
-import { db, pool, repositories, schema } from '@linea/db'
-import { createTestExecution, getTestApplicationId } from '@linea/db/testing'
-import type { WorkflowStepReplayJob } from '@linea/queue'
+import { db, pool, repositories, schema } from '@linealabs/db'
+import {
+  createTestExecution,
+  getTestApplicationId,
+} from '@linealabs/db/testing'
+import type { WorkflowStepReplayJob } from '@linealabs/queue'
 import request from 'supertest'
 import type { Server } from 'node:http'
 import { z } from 'zod'

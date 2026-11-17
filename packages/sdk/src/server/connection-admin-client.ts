@@ -8,15 +8,18 @@ import {
   revokeConnectionReviewerOperation,
   revokeSharedConnectionOperation,
   listWorkspaceConnectorAuditEventsOperation,
-} from "@linea/protocol/operations"
+} from "@linealabs/protocol/operations"
 import type {
   Connection,
   ConnectionAuthorities,
   ConnectionAuthorityRecord,
   CreateGithubInstallationConnection,
   OperatorConnectorAuditEvent,
-} from "@linea/protocol/resources"
-import type { PaginatedResponse, PaginationQuery } from "@linea/protocol/shared"
+} from "@linealabs/protocol/resources"
+import type {
+  PaginatedResponse,
+  PaginationQuery,
+} from "@linealabs/protocol/shared"
 import { ServerTransport } from "./transport.js"
 export type LineaConnectionAdminClientOptions = {
   environmentId: string

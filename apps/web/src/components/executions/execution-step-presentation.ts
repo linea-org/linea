@@ -1,4 +1,4 @@
-import { nodeRegistry, type NodeTypeId } from "@linea/runtime/browser"
+import { nodeRegistry, type NodeTypeId } from "@linealabs/runtime/browser"
 import type { ExecutionStepSummary } from "@/lib/executions-api"
 
 export const stepStatusLabel: Record<ExecutionStepSummary["status"], string> = {

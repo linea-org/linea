@@ -3,16 +3,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { ArchiveIcon, BellIcon, MailOpenIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
-import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
-import { Card } from "@linea/ui/components/card"
+} from "@linealabs/ui/components/empty"
+import { Tabs, TabsList, TabsTrigger } from "@linealabs/ui/components/tabs"
+import { Card } from "@linealabs/ui/components/card"
 
 import { NotificationRow } from "@/components/notifications"
 import { PageToolbar } from "@/components/workspace/page-toolbar"

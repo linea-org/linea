@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { StarIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
-import { cn } from "@linea/ui/lib/utils"
+import { Button } from "@linealabs/ui/components/button"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import {
   setTemplateStarFn,

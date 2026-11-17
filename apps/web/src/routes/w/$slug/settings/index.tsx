@@ -1,4 +1,4 @@
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -15,12 +15,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@linea/ui/components/alert-dialog"
-import { Button } from "@linea/ui/components/button"
-import { FieldError, FieldLabel } from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
+} from "@linealabs/ui/components/alert-dialog"
+import { Button } from "@linealabs/ui/components/button"
+import { FieldError, FieldLabel } from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
 
-import { isPersonalWorkspace } from "@linea/auth/personal-workspace"
+import { isPersonalWorkspace } from "@linealabs/auth/personal-workspace"
 import { authClient } from "@/lib/auth-client"
 import { deleteOrganization, updateOrganization } from "@/lib/auth-queries"
 

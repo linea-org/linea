@@ -3,11 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { db, repositories } from '@linea/db'
+import { db, repositories } from '@linealabs/db'
 import type {
   ExternalSubjectProjection,
   ProvisionExternalSubject,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import type { EnvironmentPrincipal } from '../auth/environment-key.guard'
 import { publicError } from '../auth/public-error'
 

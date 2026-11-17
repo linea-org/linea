@@ -1,7 +1,7 @@
 import {
   publicErrorResponseSchema,
   type PublicErrorCode,
-} from "@linea/protocol/errors"
+} from "@linealabs/protocol/errors"
 import {
   LineaUserApiError,
   LineaUserNetworkError,

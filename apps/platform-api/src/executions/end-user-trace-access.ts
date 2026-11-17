@@ -1,4 +1,9 @@
-import { db, repositories, type Execution, type ExecutionStep } from '@linea/db'
+import {
+  db,
+  repositories,
+  type Execution,
+  type ExecutionStep,
+} from '@linealabs/db'
 
 /** True for an End-User Execution (ADR 0026) unless the caller is a signed-in workspace admin or owner; workspace API keys never qualify. */
 export async function isTraceContentRestricted(

@@ -1,10 +1,13 @@
-import { getTestDevelopmentEnvironmentId } from '@linea/db/testing'
-import { getTestApplicationId, publishTestWorkflow } from '@linea/db/testing'
+import { getTestDevelopmentEnvironmentId } from '@linealabs/db/testing'
+import {
+  getTestApplicationId,
+  publishTestWorkflow,
+} from '@linealabs/db/testing'
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
-import { db, pool, repositories, schema } from '@linea/db'
-import type { WorkflowGraph } from '@linea/runtime'
+import { db, pool, repositories, schema } from '@linealabs/db'
+import type { WorkflowGraph } from '@linealabs/runtime'
 import { TriggersService } from './triggers.service'
 
 afterAll(async () => {

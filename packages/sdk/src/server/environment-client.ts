@@ -8,7 +8,7 @@ import {
   listWebhookDeliveriesOperation,
   provisionEnvironmentSubjectOperation,
   startEnvironmentExecutionOperation,
-} from "@linea/protocol/operations"
+} from "@linealabs/protocol/operations"
 import type {
   ConversationProjection,
   CreateEnvironmentConversation,
@@ -17,9 +17,12 @@ import type {
   ProvisionExternalSubject,
   PublicExecution,
   StartEnvironmentExecution,
-} from "@linea/protocol/resources"
-import type { PaginatedResponse, PaginationQuery } from "@linea/protocol/shared"
-import type { WebhookDelivery } from "@linea/protocol/webhooks"
+} from "@linealabs/protocol/resources"
+import type {
+  PaginatedResponse,
+  PaginationQuery,
+} from "@linealabs/protocol/shared"
+import type { WebhookDelivery } from "@linealabs/protocol/webhooks"
 import { waitUntilFinished, type WaitOptions } from "../wait-until-finished.js"
 import type { EnvironmentKey } from "./credentials.js"
 import { ServerTransport } from "./transport.js"

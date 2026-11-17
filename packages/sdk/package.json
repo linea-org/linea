@@ -1,5 +1,5 @@
 {
-  "name": "@linea/sdk",
+  "name": "@linealabs/sdk",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,8 +12,8 @@
     "test:pack": "node test/packed-browser.mjs && node test/packed-server.mjs"
   },
   "devDependencies": {
-    "@linea/config": "workspace:*",
-    "@linea/runtime": "workspace:*",
+    "@linealabs/config": "workspace:*",
+    "@linealabs/runtime": "workspace:*",
     "@types/node": "22",
     "esbuild": "0.28.1",
     "eslint": "^9",
@@ -22,7 +22,7 @@
     "vitest": "^4.1.12"
   },
   "dependencies": {
-    "@linea/protocol": "workspace:*"
+    "@linealabs/protocol": "workspace:*"
   },
   "exports": {
     ".": {

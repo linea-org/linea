@@ -1,7 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 
-import { Badge } from "@linea/ui/components/badge"
-import { Card } from "@linea/ui/components/card"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Card } from "@linealabs/ui/components/card"
 
 import { formatCost } from "@/components/executions/execution-list"
 import {
@@ -10,7 +10,7 @@ import {
   type RegressionRunDetail as RegressionRunDetailResponse,
 } from "@/lib/regression-runs-api"
 import { RegressionResultStatusBadge } from "./regression-result-status-badge"
-import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
+import { Empty, EmptyHeader, EmptyTitle } from "@linealabs/ui/components/empty"
 
 export async function loadRegressionRunDetail(
   workflowId: string,

@@ -1,14 +1,14 @@
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { KeyIcon } from "lucide-react"
 
-import { buttonVariants } from "@linea/ui/components/button"
+import { buttonVariants } from "@linealabs/ui/components/button"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
+} from "@linealabs/ui/components/empty"
 
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 

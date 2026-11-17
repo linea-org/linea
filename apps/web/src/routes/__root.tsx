@@ -2,7 +2,7 @@ import { useState } from "react"
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 import { QueryClientProvider } from "@tanstack/react-query"
 
-import appCss from "@linea/ui/globals.css?url"
+import appCss from "@linealabs/ui/globals.css?url"
 
 import { ThemeProvider } from "../components/theme"
 import { createQueryClient } from "../lib/query-client"

@@ -2,15 +2,15 @@ import { useState } from "react"
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
 
-import { Alert, AlertDescription } from "@linea/ui/components/alert"
-import { Button } from "@linea/ui/components/button"
-import { Field, FieldLabel } from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
+import { Alert, AlertDescription } from "@linealabs/ui/components/alert"
+import { Button } from "@linealabs/ui/components/button"
+import { Field, FieldLabel } from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
-} from "@linea/ui/components/input-otp"
+} from "@linealabs/ui/components/input-otp"
 
 import { AuthShell } from "../components/auth"
 import { authClient } from "../lib/auth-client"

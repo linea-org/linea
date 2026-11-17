@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { CheckIcon, CopyIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 
 /** The id is for support and debugging, so it stays small and one click from the clipboard. */
 export function CopyableId({ id }: Readonly<{ id: string }>) {

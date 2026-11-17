@@ -86,8 +86,8 @@ This document replaces the external-subject approval architecture in issue #84. 
 - Conversations are inferred from grouped `chat_messages`; there is no first-class conversation record that pins application, subject, environment, or lifecycle.
 - Chat Preview is a builder-only draft flow, not a production end-user interface.
 - `executionEnvironment` belongs to each execution and already distinguishes `draft`, `dev`, and `production`.
-- `@linea/sdk` is a server-only client authenticated by a scoped, expiring Workspace Key.
-- `@linea/sdk-react` is currently a stub.
+- `@linealabs/sdk` is a server-only client authenticated by a scoped, expiring Workspace Key.
+- `@linealabs/sdk-react` is currently a stub.
 - Approval creation, execution pausing, timeout resolution, and queue publication already contain useful race-handling machinery, but there is no external-subject protocol or durable public event channel.
 
 ## Language
@@ -760,7 +760,7 @@ Rate-limited responses include standard limit headers, `Retry-After`, HTTP 429, 
 
 The REST protocol is canonical. SDKs improve ergonomics but do not own semantics.
 
-### `@linea/sdk/server`
+### `@linealabs/sdk/server`
 
 - Exports `LineaApplicationClient` for one Application-bound key.
 - `LineaApplicationClient` provisions subjects, manages Conversations, starts/reads/cancels Executions, and observes events and webhook delivery for its Application.
@@ -768,22 +768,22 @@ The REST protocol is canonical. SDKs improve ergonomics but do not own semantics
 - Neither client changes Application trust configuration or resolves external-subject approvals.
 - The credential kind and resource boundary are explicit at construction; a workspace key cannot initialize `LineaApplicationClient`, and an Environment key cannot initialize `Linea`.
 
-### `@linea/sdk/user`
+### `@linealabs/sdk/user`
 
 - Browser, edge, and native-safe end-user client.
 - Exchanges identity, manages End-User Sessions, messages, events, Approval Requests, Decisions, Connections, and consent policy.
 - Never accepts a workspace API key.
 - Exposes asynchronous start handles and SSE/poll reconciliation but no Execution cancellation in the first release.
 
-### `@linea/sdk-react`
+### `@linealabs/sdk-react`
 
-- Provider and hooks built on `@linea/sdk/user`.
+- Provider and hooks built on `@linealabs/sdk/user`.
 - Headless hooks are primary; prebuilt UI is optional.
 - Supports custom rendering for every state.
 
 ### CopilotKit
 
-CopilotKit should be an adapter over `@linea/sdk-react`, not the foundation of the protocol or the only render path. Otherwise Linea excludes Vue, native, non-chat, and custom React applications from the primary design.
+CopilotKit should be an adapter over `@linealabs/sdk-react`, not the foundation of the protocol or the only render path. Otherwise Linea excludes Vue, native, non-chat, and custom React applications from the primary design.
 
 Proposed usage:
 

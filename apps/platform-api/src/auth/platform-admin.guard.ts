@@ -5,7 +5,7 @@ import {
   type CanActivate,
   type ExecutionContext,
 } from '@nestjs/common'
-import { db, repositories } from '@linea/db'
+import { db, repositories } from '@linealabs/db'
 import type { AuthenticatedRequest } from './workspace-auth.guard'
 
 /** Company staff only, whatever workspace they are in: a signed-in session whose user is in platform_admins. API keys never qualify. */

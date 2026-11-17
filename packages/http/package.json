@@ -1,5 +1,5 @@
 {
-  "name": "@linea/http",
+  "name": "@linealabs/http",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "undici": "^7.30.1"
   },
   "devDependencies": {
-    "@linea/config": "workspace:*",
+    "@linealabs/config": "workspace:*",
     "@types/node": "22",
     "eslint": "^9",
     "tsup": "^8.5.0",

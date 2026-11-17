@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { connectorAccessPolicySchema } from "@linea/protocol/resources"
+import { connectorAccessPolicySchema } from "@linealabs/protocol/resources"
 import { apiFetch } from "./api-fetch"
 
 export const environmentNameSchema = z.enum(["dev", "production"])

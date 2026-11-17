@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common"
-import { db, repositories } from "@linea/db"
-import { nodeRegistry } from "@linea/runtime"
+import { db, repositories } from "@linealabs/db"
+import { nodeRegistry } from "@linealabs/runtime"
 import { PauseExecutionError } from "../../checkpoints/checkpoints.service"
 import type {
   NodeExecutionContext,

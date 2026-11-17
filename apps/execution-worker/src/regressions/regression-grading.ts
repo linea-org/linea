@@ -5,8 +5,8 @@ import {
   resolveProvider,
   DEFAULT_JUDGE_MODEL_CANDIDATES,
   type ToolDefinition,
-} from "@linea/ai"
-import { db, repositories } from "@linea/db"
+} from "@linealabs/ai"
+import { db, repositories } from "@linealabs/db"
 import {
   evaluateRuleMetric,
   type EvaluationSample,

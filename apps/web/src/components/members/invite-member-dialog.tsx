@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
 import { z } from "zod"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
@@ -12,21 +12,21 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@linea/ui/components/dialog"
+} from "@linealabs/ui/components/dialog"
 import {
   Field,
   FieldError,
   FieldGroup,
   FieldLabel,
-} from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
+} from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 
 const ROLE_OPTIONS = [
   { label: "Member", value: "member" },

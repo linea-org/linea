@@ -1,19 +1,19 @@
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { CircleCheckIcon, XIcon } from "lucide-react"
 import { z } from "zod"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
-import { Textarea } from "@linea/ui/components/textarea"
+} from "@linealabs/ui/components/empty"
+import { Textarea } from "@linealabs/ui/components/textarea"
 
 import {
   pendingApprovalsQueryOptions,

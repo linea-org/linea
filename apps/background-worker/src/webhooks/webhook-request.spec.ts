@@ -1,7 +1,7 @@
-import { requestPublic } from "@linea/http"
+import { requestPublic } from "@linealabs/http"
 import { deliverWebhook } from "./webhook-request"
 
-jest.mock("@linea/http", () => ({ requestPublic: jest.fn() }))
+jest.mock("@linealabs/http", () => ({ requestPublic: jest.fn() }))
 
 it("delivers signed payloads with HTTPS, pinned redirects, and bounded resource use", async () => {
   jest

@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { compileContractSchema } from '@linea/protocol/json-schema'
-import { jsonSchemaDocumentSchema } from '@linea/protocol/resources'
+import { compileContractSchema } from '@linealabs/protocol/json-schema'
+import { jsonSchemaDocumentSchema } from '@linealabs/protocol/resources'
 
 const contractSchema = jsonSchemaDocumentSchema.superRefine(
   (schema, context) => {

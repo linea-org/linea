@@ -2,17 +2,17 @@ import { useState } from "react"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { ArrowRightIcon, PlusIcon } from "lucide-react"
 
-import { Alert, AlertDescription } from "@linea/ui/components/alert"
-import { Button } from "@linea/ui/components/button"
-import { Spinner } from "@linea/ui/components/spinner"
+import { Alert, AlertDescription } from "@linealabs/ui/components/alert"
+import { Button } from "@linealabs/ui/components/button"
+import { Spinner } from "@linealabs/ui/components/spinner"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@linea/ui/components/dialog"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/dialog"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { UserMenu } from "../components/account"
 import { PlayfulAvatar } from "../components/avatar"
@@ -24,9 +24,9 @@ import { setActiveOrganization } from "../lib/auth-queries"
 import { authErrorMessage, requireVerifiedUser } from "../lib/auth-redirect"
 import { listMyWorkspacesFn, type WorkspaceWithRole } from "../lib/auth-session"
 import { WorkspaceRowActions } from "../components/workspace/workspace-row-actions"
-import { Badge } from "@linea/ui/components/badge"
-import { Card } from "@linea/ui/components/card"
-import { isPersonalWorkspace } from "@linea/auth/personal-workspace"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Card } from "@linealabs/ui/components/card"
+import { isPersonalWorkspace } from "@linealabs/auth/personal-workspace"
 
 export const Route = createFileRoute("/workspaces")({
   beforeLoad: async () => {

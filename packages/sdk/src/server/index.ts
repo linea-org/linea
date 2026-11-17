@@ -9,7 +9,7 @@ export type { WaitOptions } from "../wait-until-finished.js"
 export type {
   OperatorConnectorAuditEvent,
   WorkspaceConnectorAuditQuery,
-} from "@linea/protocol/resources"
+} from "@linealabs/protocol/resources"
 
 export {
   LineaConnectionAdminClient,

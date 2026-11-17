@@ -4,8 +4,8 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@linea/ui/components/tooltip"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/tooltip"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { formatRelativeTime } from "@/components/notifications/format-relative-time"
 import type {

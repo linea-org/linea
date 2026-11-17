@@ -7,7 +7,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common'
-import { queuedRegressionRunSchema } from '@linea/protocol/resources'
+import { queuedRegressionRunSchema } from '@linealabs/protocol/resources'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { RequireRole } from '../auth/require-role.decorator'

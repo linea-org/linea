@@ -1,4 +1,4 @@
-import type { Notification } from "@linea/db"
+import type { Notification } from "@linealabs/db"
 import { buildPushPayload } from "./push-payload"
 
 function notification(

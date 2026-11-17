@@ -1,6 +1,9 @@
 import { Injectable } from "@nestjs/common"
-import { ConnectorGateway, connectorOperationRegistry } from "@linea/connectors"
-import { db } from "@linea/db"
+import {
+  ConnectorGateway,
+  connectorOperationRegistry,
+} from "@linealabs/connectors"
+import { db } from "@linealabs/db"
 
 @Injectable()
 export class ConnectorGatewayService {

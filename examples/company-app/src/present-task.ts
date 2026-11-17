@@ -1,4 +1,4 @@
-import type { PublicExecution } from "@linea/sdk/user"
+import type { PublicExecution } from "@linealabs/sdk/user"
 
 export type TaskView = {
   headline: string

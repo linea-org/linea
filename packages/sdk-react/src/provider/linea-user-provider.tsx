@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react"
-import type { LineaUserClient } from "@linea/sdk/user"
+import type { LineaUserClient } from "@linealabs/sdk/user"
 
 const LineaUserContext = createContext<LineaUserClient | undefined>(undefined)
 

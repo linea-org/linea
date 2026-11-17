@@ -8,8 +8,8 @@ import {
   connectionAuthorityRecordSchema,
   connectorAccessPolicySchema,
   operatorConnectorAuditEventSchema,
-} from "@linea/protocol/resources"
-import { paginatedResponseSchema } from "@linea/protocol/shared"
+} from "@linealabs/protocol/resources"
+import { paginatedResponseSchema } from "@linealabs/protocol/shared"
 import { apiFetch } from "./api-fetch"
 const environmentInput = z.object({ environmentId: z.uuid() })
 const connectionInput = environmentInput.extend({ connectionId: z.uuid() })

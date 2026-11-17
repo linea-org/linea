@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { db, repositories, type AgentContractRevision } from '@linea/db'
+import { db, repositories, type AgentContractRevision } from '@linealabs/db'
 import type { CreateAgentContractDto } from './dto/create-agent-contract.dto'
 
 @Injectable()

@@ -1,9 +1,9 @@
-import type { ConnectorAuditFact } from '@linea/db'
+import type { ConnectorAuditFact } from '@linealabs/db'
 import {
   endUserConnectorAuditEventSchema,
   endUserConnectorAuditFactTypeSchema,
   operatorConnectorAuditEventSchema,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 
 export function operatorConnectorAuditProjection(fact: ConnectorAuditFact) {
   return operatorConnectorAuditEventSchema.parse({

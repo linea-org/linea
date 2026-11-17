@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
-import type { ToolCall, ToolDefinition } from '@linea/ai'
-import { PermanentRequestError, requestPublic } from '@linea/http'
+import type { ToolCall, ToolDefinition } from '@linealabs/ai'
+import { PermanentRequestError, requestPublic } from '@linealabs/http'
 
 export const WEB_TOOL: ToolDefinition = {
   name: 'fetch_url',

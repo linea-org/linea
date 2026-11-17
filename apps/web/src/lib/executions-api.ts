@@ -109,7 +109,7 @@ export const replayStepFn = createServerFn({ method: "POST" })
 export type WorkspaceExecutionFilters = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
-  /** Opaque `(createdAt, id)` keyset cursor — the last execution of the previous page, encoded via encodeExecutionCursor. Omit for the first page; not an offset, see listWorkspaceExecutions in @linea/db for why. */
+  /** Opaque `(createdAt, id)` keyset cursor — the last execution of the previous page, encoded via encodeExecutionCursor. Omit for the first page; not an offset, see listWorkspaceExecutions in @linealabs/db for why. */
   cursor?: string
 }
 
@@ -172,7 +172,7 @@ export const countNewWorkspaceExecutionsFn = createServerFn({ method: "GET" })
     return (await res.json()) as { count: number }
   })
 
-/** Polls so the executions page can offer a "N new" banner instead of silently splicing new rows into a page the user already paged past — see countNewWorkspaceExecutions in @linea/db for why that splice isn't safe. */
+/** Polls so the executions page can offer a "N new" banner instead of silently splicing new rows into a page the user already paged past — see countNewWorkspaceExecutions in @linealabs/db for why that splice isn't safe. */
 export function newWorkspaceExecutionsQueryOptions(
   workspaceSlug: string,
   filters: NewWorkspaceExecutionsFilters

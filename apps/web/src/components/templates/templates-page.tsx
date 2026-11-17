@@ -3,27 +3,27 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { SearchIcon } from "lucide-react"
 
-import { Card, CardContent } from "@linea/ui/components/card"
+import { Card, CardContent } from "@linealabs/ui/components/card"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "@linea/ui/components/input-group"
+} from "@linealabs/ui/components/input-group"
 import {
   Pagination,
   PaginationContent,
   PaginationItem,
   PaginationNext,
   PaginationPrevious,
-} from "@linea/ui/components/pagination"
+} from "@linealabs/ui/components/pagination"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
-import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
+} from "@linealabs/ui/components/select"
+import { Tabs, TabsList, TabsTrigger } from "@linealabs/ui/components/tabs"
 
 import { useComposerOptions } from "@/components/assistant/use-composer-options"
 import { ModelSetupForm } from "@/components/models/model-setup-form"
@@ -44,7 +44,7 @@ import {
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
-} from "@linea/ui/components/empty"
+} from "@linealabs/ui/components/empty"
 import { ListSkeleton } from "@/components/workspace/list-skeleton"
 
 export type TemplateTab = "starter" | "workspace" | "public"

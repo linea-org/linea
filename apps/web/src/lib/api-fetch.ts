@@ -1,4 +1,4 @@
-import { RECENT_AUTHENTICATION_REQUIRED } from "@linea/auth/session-policy"
+import { RECENT_AUTHENTICATION_REQUIRED } from "@linealabs/auth/session-policy"
 import { getRequestHeaders } from "@tanstack/react-start/server"
 
 import { STEP_UP_REQUIRED_MESSAGE } from "./step-up-message"

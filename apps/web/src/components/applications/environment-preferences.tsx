@@ -1,8 +1,8 @@
 import { useForm } from "react-hook-form"
 import { useMutation } from "@tanstack/react-query"
-import { Button } from "@linea/ui/components/button"
-import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
+import { Button } from "@linealabs/ui/components/button"
+import { Field, FieldError, FieldLabel } from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@linea/ui/components/alert-dialog"
+} from "@linealabs/ui/components/alert-dialog"
 import {
   disableEnvironmentFn,
   updateEnvironmentRetentionFn,

@@ -3,8 +3,8 @@ import {
   registry,
   resolveKeyName,
   resolveProviderId,
-} from '@linea/ai'
-import { nodeRegistry } from '@linea/runtime'
+} from '@linealabs/ai'
+import { nodeRegistry } from '@linealabs/runtime'
 
 export type CatalogModel = {
   value: string

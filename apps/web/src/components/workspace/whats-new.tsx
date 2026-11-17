@@ -7,19 +7,19 @@ import {
   KeyRoundIcon,
   MegaphoneIcon,
 } from "lucide-react"
-import { Badge } from "@linea/ui/components/badge"
-import { Button, buttonVariants } from "@linea/ui/components/button"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Button, buttonVariants } from "@linealabs/ui/components/button"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@linea/ui/components/popover"
+} from "@linealabs/ui/components/popover"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@linea/ui/components/tooltip"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/tooltip"
+import { cn } from "@linealabs/ui/lib/utils"
 
 const WHATS_NEW_URL = "https://getlinea.app/whats-new"
 const storageKey = "linea.whats-new.read"

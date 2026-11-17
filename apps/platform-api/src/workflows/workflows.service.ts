@@ -11,16 +11,16 @@ import {
   repositories,
   type Workflow,
   type WorkflowVersion,
-} from '@linea/db'
+} from '@linealabs/db'
 import {
   assertNoReservedNodeIds,
   hashWorkflowGraph,
   validateGraphStructure,
   WorkflowGraphError,
-} from '@linea/runtime'
+} from '@linealabs/runtime'
 import { z } from 'zod'
 import type { UserSession } from '@thallesp/nestjs-better-auth'
-import type { auth } from '@linea/auth'
+import type { auth } from '@linealabs/auth'
 import { RegressionRunQueueService } from '../queue/regression-run-queue.service'
 import { RealtimeTokenService } from '../realtime/realtime-token.service'
 import { WorkflowsGateway } from '../realtime/workflows.gateway'

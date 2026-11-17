@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common"
-import { nodeRegistry } from "@linea/runtime"
+import { nodeRegistry } from "@linealabs/runtime"
 import type { NodeHandler } from "./node-handler.interface"
 
 // Order-independent for object keys (unlike JSON.stringify), order-dependent for arrays, since array order is semantically meaningful.

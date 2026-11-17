@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { createHash, randomUUID } from 'node:crypto'
-import { pool } from '@linea/db'
+import { pool } from '@linealabs/db'
 import { PublicRuntimeRateLimitException } from './public-runtime-rate-limit.filter'
 import { PublicRuntimeService } from './public-runtime.service'
 

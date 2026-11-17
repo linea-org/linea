@@ -1,8 +1,11 @@
 import 'dotenv/config'
 import { Test } from '@nestjs/testing'
 import type { NestExpressApplication } from '@nestjs/platform-express'
-import { db, pool, repositories } from '@linea/db'
-import { getTestApplicationId, publishTestWorkflow } from '@linea/db/testing'
+import { db, pool, repositories } from '@linealabs/db'
+import {
+  getTestApplicationId,
+  publishTestWorkflow,
+} from '@linealabs/db/testing'
 import request from 'supertest'
 import type { Server } from 'node:http'
 import { bigIntJsonReplacer } from '../common/bigint-json-replacer'

@@ -6,8 +6,8 @@ import {
   type ExecutionContext,
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
-import { db, repositories, type ApiKey } from '@linea/db'
-import type { WorkspaceKeyScope } from '@linea/protocol/resources'
+import { db, repositories, type ApiKey } from '@linealabs/db'
+import type { WorkspaceKeyScope } from '@linealabs/protocol/resources'
 import type { Request } from 'express'
 import { hashApiKey } from './api-key.util'
 import { publicError } from './public-error'

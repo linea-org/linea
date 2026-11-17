@@ -1,11 +1,11 @@
 import { z } from 'zod'
-import { registry } from '@linea/ai'
-import { agentDefinitionSchema } from '@linea/runtime'
+import { registry } from '@linealabs/ai'
+import { agentDefinitionSchema } from '@linealabs/runtime'
 import {
   connectorOperationRegistry,
   registeredReadOperation,
   registeredSideEffectOperation,
-} from '@linea/connectors'
+} from '@linealabs/connectors'
 
 export const createAgentSchema = z.strictObject({
   applicationId: z.uuid(),

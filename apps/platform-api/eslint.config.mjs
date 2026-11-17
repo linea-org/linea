@@ -1,5 +1,5 @@
 // @ts-check
-import { createSharedEslintConfig, globals } from '@linea/config/eslint'
+import { createSharedEslintConfig, globals } from '@linealabs/config/eslint'
 
 export default [
   ...createSharedEslintConfig({

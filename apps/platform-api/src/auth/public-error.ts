@@ -1,7 +1,7 @@
 import type {
   PublicErrorCode,
   PublicErrorResponse,
-} from '@linea/protocol/errors'
+} from '@linealabs/protocol/errors'
 
 export function publicError(
   code: PublicErrorCode,

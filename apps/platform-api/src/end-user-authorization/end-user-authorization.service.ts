@@ -5,13 +5,13 @@ import {
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common'
-import { db, repositories } from '@linea/db'
+import { db, repositories } from '@linealabs/db'
 import type {
   EndUserAuthorizationResponse,
   EndUserIdentityExchange,
   ExchangeEndUserAuthorization,
   StartEndUserAuthorization,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import { PublicRuntimeRateLimitException } from '../public-runtime/public-runtime-rate-limit.filter'
 import { publicError } from '../auth/public-error'
 import {

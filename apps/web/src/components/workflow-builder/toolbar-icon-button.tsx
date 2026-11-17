@@ -1,11 +1,11 @@
 import type { ComponentProps } from "react"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@linea/ui/components/tooltip"
+} from "@linealabs/ui/components/tooltip"
 
 /** An icon-only builder action; the label shows as a tooltip and names the button for screen readers. */
 export function ToolbarIconButton({

@@ -1,4 +1,4 @@
-import type { PublicErrorCode } from "@linea/protocol/errors"
+import type { PublicErrorCode } from "@linealabs/protocol/errors"
 
 export class LineaUserApiError extends Error {
   readonly code: PublicErrorCode

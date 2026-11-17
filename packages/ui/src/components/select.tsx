@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 
-import { cn } from "@linea/ui/lib/utils"
+import { cn } from "@linealabs/ui/lib/utils"
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 
 const SelectItemsContext = React.createContext<unknown>(undefined)

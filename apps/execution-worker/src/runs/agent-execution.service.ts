@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common"
-import { db, repositories, type Execution } from "@linea/db"
-import { agentDefinitionSchema } from "@linea/runtime"
+import { db, repositories, type Execution } from "@linealabs/db"
+import { agentDefinitionSchema } from "@linealabs/runtime"
 import {
   calculateCostMicros,
   executionBudgetMessage,
@@ -10,13 +10,13 @@ import {
   resolveProvider,
   resolveProviderId,
   type ConversationTurn,
-} from "@linea/ai"
+} from "@linealabs/ai"
 import {
   connectorOperationRegistry,
   registeredReadOperation,
   registeredSideEffectOperation,
-} from "@linea/connectors"
-import { compileContractSchema } from "@linea/protocol/json-schema"
+} from "@linealabs/connectors"
+import { compileContractSchema } from "@linealabs/protocol/json-schema"
 import { z } from "zod"
 import {
   CheckpointsService,

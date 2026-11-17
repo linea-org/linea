@@ -1,9 +1,9 @@
-import { listWorkspaceConnectorAuditEventsOperation } from "@linea/protocol/operations"
+import { listWorkspaceConnectorAuditEventsOperation } from "@linealabs/protocol/operations"
 import type {
   OperatorConnectorAuditEvent,
   WorkspaceConnectorAuditQuery,
-} from "@linea/protocol/resources"
-import type { PaginatedResponse } from "@linea/protocol/shared"
+} from "@linealabs/protocol/resources"
+import type { PaginatedResponse } from "@linealabs/protocol/shared"
 import type { ServerTransport } from "../server/transport.js"
 
 export class AuditEvents {

@@ -10,7 +10,7 @@
     "ignoreDeprecations": "6.0",
     "noEmit": true,
     "paths": {
-      "@linea/ui/*": ["./src/*"]
+      "@linealabs/ui/*": ["./src/*"]
     }
   },
   "include": ["."],

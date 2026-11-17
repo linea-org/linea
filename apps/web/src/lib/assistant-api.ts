@@ -1,6 +1,6 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
-import { jsonValueSchema } from "@linea/protocol/shared"
+import { jsonValueSchema } from "@linealabs/protocol/shared"
 import { z } from "zod"
 
 import { apiFetch, parseErrorMessage } from "./api-fetch"

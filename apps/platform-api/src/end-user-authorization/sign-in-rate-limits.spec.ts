@@ -7,7 +7,7 @@ import { EndUserSessionsController } from '../end-user-sessions/end-user-session
 import { EndUserSessionGuard } from '../end-user-sessions/end-user-session.guard'
 import { HttpException } from '@nestjs/common'
 import type { NestExpressApplication } from '@nestjs/platform-express'
-import { db, pool, schema } from '@linea/db'
+import { db, pool, schema } from '@linealabs/db'
 import { exportJWK, generateKeyPair, SignJWT } from 'jose-v5'
 import { EndUserSessionService } from '../end-user-sessions/end-user-session.service'
 import { EndUserAuthorizationService } from './end-user-authorization.service'

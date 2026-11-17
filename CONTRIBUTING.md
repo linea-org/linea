@@ -126,7 +126,7 @@ The Expo mobile client is maintained separately in
 [linea-org/mobile](https://github.com/linea-org/mobile).
 
 Apps never import from one another. Shared contracts and behavior belong in
-`packages/*`. The browser imports `@linea/runtime/browser`; server-only graph
+`packages/*`. The browser imports `@linealabs/runtime/browser`; server-only graph
 execution remains in the full runtime package and workers.
 
 See [docs/architecture/repo-structure.md](docs/architecture/repo-structure.md) for current ownership and
@@ -151,8 +151,8 @@ pnpm test                 # test suites across all packages
 pnpm check:contracts      # verify generated public contracts are current
 pnpm test:launch          # first external-subject approval launch gate
 pnpm test:connections-launch # Connections and Action Consent launch gate
-pnpm --filter @linea/connectors test:google-live   # optional, needs credentials
-pnpm --filter @linea/connectors test:github:live   # optional, needs credentials
+pnpm --filter @linealabs/connectors test:google-live   # optional, needs credentials
+pnpm --filter @linealabs/connectors test:github:live   # optional, needs credentials
 
 # Database
 pnpm db:up                # start Postgres via Docker

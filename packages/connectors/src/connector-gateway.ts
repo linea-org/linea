@@ -1,4 +1,4 @@
-import { githubRepositoryAllowed } from "@linea/protocol/resources"
+import { githubRepositoryAllowed } from "@linealabs/protocol/resources"
 import { requiredConnectionScopes } from "./connection-operation-scopes.js"
 import {
   githubInstallationCredentialSchema,
@@ -10,7 +10,7 @@ import {
   repositories,
   type ActionIntent,
   type Database,
-} from "@linea/db"
+} from "@linealabs/db"
 import { z } from "zod"
 import {
   ACTION_INTENT_DIGEST_VERSION,

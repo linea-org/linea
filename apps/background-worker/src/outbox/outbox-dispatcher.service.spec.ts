@@ -1,15 +1,15 @@
-import { configureTestEnvironment } from "@linea/db/testing"
-import { getTestApplicationId } from "@linea/db/testing"
+import { configureTestEnvironment } from "@linealabs/db/testing"
+import { getTestApplicationId } from "@linealabs/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
-import { db, pool, repositories, schema } from "@linea/db"
+import { db, pool, repositories, schema } from "@linealabs/db"
 import {
   closeQueueConnection,
   createConnection,
   createWebhookDeliveryQueue,
   createWorkflowExecutionQueue,
   enqueueWorkflowExecution,
-} from "@linea/queue"
+} from "@linealabs/queue"
 import { OutboxDispatcherService } from "./outbox-dispatcher.service"
 import { WorkflowQueueService } from "../queue/workflow-queue.service"
 import { WebhookQueueService } from "../queue/webhook-queue.service"

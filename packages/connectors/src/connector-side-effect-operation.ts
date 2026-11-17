@@ -1,4 +1,4 @@
-import type { ApprovalRequestDisplay } from "@linea/db"
+import type { ApprovalRequestDisplay } from "@linealabs/db"
 import type { z } from "zod"
 import type { IJsonValue } from "./action-intent-canonicalization.js"
 import type {

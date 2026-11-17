@@ -1,13 +1,13 @@
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import type { ReactNode } from "react"
 import { RocketIcon } from "lucide-react"
-import { Badge } from "@linea/ui/components/badge"
+import { Badge } from "@linealabs/ui/components/badge"
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@linea/ui/components/accordion"
+} from "@linealabs/ui/components/accordion"
 import type {
   AgentBinding,
   AgentContract,

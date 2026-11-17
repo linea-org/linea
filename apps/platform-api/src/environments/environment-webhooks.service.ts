@@ -9,7 +9,7 @@ import {
   encryptSecret,
   repositories,
   type WebhookEndpoint,
-} from '@linea/db'
+} from '@linealabs/db'
 import type {
   CreateWebhookDto,
   UpdateWebhookDto,

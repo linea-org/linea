@@ -1,7 +1,7 @@
 import {
   workspaceExecutionStatusSchema,
   type ExecutionStatus,
-} from "@linea/protocol/resources"
+} from "@linealabs/protocol/resources"
 
 export const EXECUTION_STATUSES = workspaceExecutionStatusSchema.options
 

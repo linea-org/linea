@@ -1,7 +1,7 @@
-import { createTestExecution } from "@linea/db/testing"
-import { fixtureIssuer } from "@linea/db/testing"
-import { configureTestEnvironment } from "@linea/db/testing"
-import { getTestApplicationId } from "@linea/db/testing"
+import { createTestExecution } from "@linealabs/db/testing"
+import { fixtureIssuer } from "@linealabs/db/testing"
+import { configureTestEnvironment } from "@linealabs/db/testing"
+import { getTestApplicationId } from "@linealabs/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import {
@@ -17,9 +17,15 @@ import {
   deterministicSideEffectOperation,
   type ConnectorReadCredential,
   type ConnectorSideEffectOperation,
-} from "@linea/connectors"
-import { db, encryptCredential, pool, repositories, schema } from "@linea/db"
-import type { WorkflowGraph } from "@linea/runtime"
+} from "@linealabs/connectors"
+import {
+  db,
+  encryptCredential,
+  pool,
+  repositories,
+  schema,
+} from "@linealabs/db"
+import type { WorkflowGraph } from "@linealabs/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
 import { InterpreterService } from "../graph/interpreter.service"
 import { AiNode } from "../graph/nodes/ai.node"

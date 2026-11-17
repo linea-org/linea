@@ -1,16 +1,16 @@
 import { useConnectionManagement } from "./connection-management-context"
 import { Controller, useForm } from "react-hook-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Button } from "@linea/ui/components/button"
-import { Input } from "@linea/ui/components/input"
-import { Field, FieldLabel } from "@linea/ui/components/field"
+import { Button } from "@linealabs/ui/components/button"
+import { Input } from "@linealabs/ui/components/input"
+import { Field, FieldLabel } from "@linealabs/ui/components/field"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 import { assignConnectionAuthorityFn } from "@/lib/shared-connections-api"
 import { connectionAuthorityRoles as roles } from "./connection-authority-roles"
 type AuthorityForm = {

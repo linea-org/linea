@@ -1,12 +1,12 @@
 import { Injectable } from "@nestjs/common"
-import { parseExtractionSchema, nodeRegistry } from "@linea/runtime"
+import { parseExtractionSchema, nodeRegistry } from "@linealabs/runtime"
 import {
   resolveApiKey,
   resolveKeyName,
   resolveProvider,
   type ToolDefinition,
-} from "@linea/ai"
-import { db } from "@linea/db"
+} from "@linealabs/ai"
+import { db } from "@linealabs/db"
 import { getPath } from "./dot-path"
 import type {
   NodeExecutionContext,

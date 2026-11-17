@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 
-import { workflowGraphSchema } from "@linea/runtime/browser"
+import { workflowGraphSchema } from "@linealabs/runtime/browser"
 
 import type {
   AssistantAction,

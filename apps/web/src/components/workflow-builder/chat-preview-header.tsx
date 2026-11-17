@@ -7,20 +7,20 @@ import {
   XIcon,
 } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Command,
   CommandEmpty,
   CommandInput,
   CommandItem,
   CommandList,
-} from "@linea/ui/components/command"
-import { Input } from "@linea/ui/components/input"
+} from "@linealabs/ui/components/command"
+import { Input } from "@linealabs/ui/components/input"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@linea/ui/components/popover"
+} from "@linealabs/ui/components/popover"
 
 import type { ConversationSummary } from "@/lib/chat-preview-api"
 

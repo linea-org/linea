@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto"
 import { beforeEach, describe, expect, it } from "vitest"
-import { db, encryptSecret, repositories, schema } from "@linea/db"
+import { db, encryptSecret, repositories, schema } from "@linealabs/db"
 import { ModelKeyMissingError, resolveApiKey } from "./key-resolver.js"
 
 beforeEach(() => {

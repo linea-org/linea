@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
   type ExecutionContext,
 } from '@nestjs/common'
-import { db, pool, repositories, schema } from '@linea/db'
+import { db, pool, repositories, schema } from '@linealabs/db'
 import { PlatformAdminGuard } from '../../auth/platform-admin.guard'
 import { TemplatesService } from '../templates.service'
 import type { TemplateModerationNotifier } from './template-moderation-notifier'

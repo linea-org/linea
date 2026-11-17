@@ -4,8 +4,8 @@ import {
   type OnModuleDestroy,
   type OnModuleInit,
 } from "@nestjs/common"
-import { db, repositories } from "@linea/db"
-import { workflowGraphSchema } from "@linea/runtime"
+import { db, repositories } from "@linealabs/db"
+import { workflowGraphSchema } from "@linealabs/runtime"
 
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000
 

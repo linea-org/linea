@@ -1,4 +1,4 @@
-import { executionBudgetMessage, MAX_EXECUTION_TOKENS } from "@linea/ai"
+import { executionBudgetMessage, MAX_EXECUTION_TOKENS } from "@linealabs/ai"
 import { NonRetryableError } from "./non-retryable-error"
 
 export class UsageError extends NonRetryableError {

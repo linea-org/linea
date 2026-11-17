@@ -3,24 +3,24 @@ import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 
-import { useIsMobile } from "@linea/ui/hooks/use-mobile"
-import { cn } from "@linea/ui/lib/utils"
-import { Button } from "@linea/ui/components/button"
-import { Input } from "@linea/ui/components/input"
-import { Separator } from "@linea/ui/components/separator"
+import { useIsMobile } from "@linealabs/ui/hooks/use-mobile"
+import { cn } from "@linealabs/ui/lib/utils"
+import { Button } from "@linealabs/ui/components/button"
+import { Input } from "@linealabs/ui/components/input"
+import { Separator } from "@linealabs/ui/components/separator"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@linea/ui/components/sheet"
-import { Skeleton } from "@linea/ui/components/skeleton"
+} from "@linealabs/ui/components/sheet"
+import { Skeleton } from "@linealabs/ui/components/skeleton"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@linea/ui/components/tooltip"
+} from "@linealabs/ui/components/tooltip"
 import { PanelLeftIcon } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"

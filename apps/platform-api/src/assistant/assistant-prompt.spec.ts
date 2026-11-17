@@ -1,4 +1,4 @@
-import { nodeRegistry } from '@linea/runtime'
+import { nodeRegistry } from '@linealabs/runtime'
 import { ASSISTANT_NODE_TYPES } from './assistant-nodes'
 import {
   buildAssistantSystemPrompt,

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { db, repositories, type EnvironmentAgentBinding } from '@linea/db'
+import { db, repositories, type EnvironmentAgentBinding } from '@linealabs/db'
 import type { PutAgentBindingDto } from './dto/put-agent-binding.dto'
 
 @Injectable()

@@ -5,7 +5,7 @@ import {
   decryptCredential,
   encryptCredential,
   repositories,
-} from "@linea/db"
+} from "@linealabs/db"
 import { googleGmailListMessagesOperation } from "./google-gmail.operations.js"
 import { GOOGLE_ACTION_SCOPES } from "./google-scopes.js"
 import { ConnectorGateway } from "./connector-gateway.js"
@@ -14,7 +14,7 @@ import { githubListRepositoriesOperation } from "./github-list-repositories.oper
 import { githubCreateIssueOperation } from "./github-create-issue.operation.js"
 import { githubCreatePullRequestOperation } from "./github-create-pull-request.operation.js"
 
-vi.mock("@linea/db", () => ({
+vi.mock("@linealabs/db", () => ({
   db: {},
   encryptCredential: vi.fn(() => "rotated-encrypted"),
   decryptCredential: vi.fn(() =>

@@ -1,4 +1,7 @@
-import { eventEnvelopeSchema, type EventEnvelope } from "@linea/protocol/events"
+import {
+  eventEnvelopeSchema,
+  type EventEnvelope,
+} from "@linealabs/protocol/events"
 import { LineaUserNetworkError, LineaUserProtocolError } from "./errors.js"
 
 type EventBlock = { id: string | undefined; data: string[] }

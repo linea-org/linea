@@ -1,11 +1,11 @@
-# @linea/sdk
+# @linealabs/sdk
 
 Typed clients for Linea's public `/v1` protocol:
 
 - `Linea` builds, runs and monitors Workflows with a workspace API key.
 - `LineaEnvironmentClient` starts production runs with an Environment key.
-- `@linea/sdk/user` is the browser, edge and native End-User client.
-- `@linea/sdk/webhooks` verifies webhook deliveries.
+- `@linealabs/sdk/user` is the browser, edge and native End-User client.
+- `@linealabs/sdk/webhooks` verifies webhook deliveries.
 
 ## ⚠️ The root entry point is server-side only
 
@@ -16,13 +16,13 @@ that's embedded in client-side JavaScript. Only construct `Linea` from
 trusted server-side code (a backend service, a script, a CI job) — never
 from code that ships to an end user's device.
 
-The separate `@linea/sdk/user` entry point is safe for browsers, edge
+The separate `@linealabs/sdk/user` entry point is safe for browsers, edge
 runtimes, and React Native. It never accepts an API key.
 
 ## End-user client
 
 ```ts
-import { LineaUserClient } from "@linea/sdk/user"
+import { LineaUserClient } from "@linealabs/sdk/user"
 
 const client = new LineaUserClient({
   environmentId: "env_123",
@@ -81,7 +81,7 @@ another package in this monorepo:
 ```json
 {
   "dependencies": {
-    "@linea/sdk": "workspace:*"
+    "@linealabs/sdk": "workspace:*"
   }
 }
 ```
@@ -103,7 +103,7 @@ workspace or loses the admin role.
 ## Quickstart
 
 ```ts
-import { Linea } from "@linea/sdk"
+import { Linea } from "@linealabs/sdk"
 
 const linea = new Linea({
   apiKey: process.env.LINEA_API_KEY!,
@@ -165,7 +165,7 @@ Production starts use an Environment key from the Environment's
 **Backend keys** tab, and the Workflow binding must allow backend starts.
 
 ```ts
-import { LineaEnvironmentClient, environmentKey } from "@linea/sdk"
+import { LineaEnvironmentClient, environmentKey } from "@linealabs/sdk"
 
 const production = new LineaEnvironmentClient({
   environmentId: "env_123",
@@ -183,7 +183,7 @@ console.log(result.status, result.output)
 ### List executions with cursor pagination
 
 ```ts
-import { nextExecutionsCursor } from "@linea/sdk"
+import { nextExecutionsCursor } from "@linealabs/sdk"
 
 let page = await linea.executions.list({ status: "failed" })
 while (page.hasMore) {
@@ -205,7 +205,7 @@ await linea.signals.resolve(detail.id)
 Every request throws one of two error types — never a raw `fetch` error (`executions.wait` adds `LineaTimeoutError`):
 
 ```ts
-import { LineaApiError, LineaNetworkError } from "@linea/sdk"
+import { LineaApiError, LineaNetworkError } from "@linealabs/sdk"
 
 try {
   await linea.executions.get("does-not-exist")
@@ -246,4 +246,4 @@ const dollars = Number(BigInt(execution.costMicros)) / 1_000_000
 - `executions.list`' `total` field is informational only (e.g. for display);
   use `hasMore` to decide whether to keep paginating.
 - The root and server entry points are intentionally server-only. Browser,
-  edge, and native callers use `@linea/sdk/user`.
+  edge, and native callers use `@linealabs/sdk/user`.

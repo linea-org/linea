@@ -1,5 +1,8 @@
 import { useCallback, useRef, useState } from "react"
-import type { ApprovalDecision, DecideApprovalRequest } from "@linea/sdk/user"
+import type {
+  ApprovalDecision,
+  DecideApprovalRequest,
+} from "@linealabs/sdk/user"
 import { useLineaUserClient } from "../provider/linea-user-provider.js"
 
 export type DecisionState = {

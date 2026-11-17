@@ -1,5 +1,5 @@
 import { activeExecutionParent } from "./execution-parent-authority.js"
-import { githubRepositoryAllowed } from "@linea/protocol/resources"
+import { githubRepositoryAllowed } from "@linealabs/protocol/resources"
 import { and, desc, eq, gt, inArray, lt, or, sql } from "drizzle-orm"
 import {
   actionIntents,

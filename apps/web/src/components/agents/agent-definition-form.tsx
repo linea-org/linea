@@ -1,17 +1,17 @@
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 import { useEffect } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
 import { z } from "zod"
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Field,
   FieldDescription,
   FieldError,
   FieldLabel,
-} from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
+} from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
 import { createAgentVersionFn } from "@/lib/agents-api"
 import {
   createAgentVersionInputSchema,

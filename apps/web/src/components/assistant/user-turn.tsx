@@ -6,11 +6,15 @@ import {
   PencilIcon,
 } from "lucide-react"
 
-import { Badge } from "@linea/ui/components/badge"
-import { Bubble, BubbleContent, BubbleGroup } from "@linea/ui/components/bubble"
-import { Button } from "@linea/ui/components/button"
-import { Textarea } from "@linea/ui/components/textarea"
-import { cn } from "@linea/ui/lib/utils"
+import { Badge } from "@linealabs/ui/components/badge"
+import {
+  Bubble,
+  BubbleContent,
+  BubbleGroup,
+} from "@linealabs/ui/components/bubble"
+import { Button } from "@linealabs/ui/components/button"
+import { Textarea } from "@linealabs/ui/components/textarea"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { UserAvatar } from "@/components/account"
 import { authClient } from "@/lib/auth-client"

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'
 import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
-import { pool } from '@linea/db'
+import { pool } from '@linealabs/db'
 import {
   approvalDecisionSchema,
   connectionUseSchema,
@@ -16,8 +16,8 @@ import {
   operatorConnectorAuditEventSchema,
   pendingActionIntentSchema,
   publicExecutionSchema,
-} from '@linea/protocol/resources'
-import { paginatedResponseSchema } from '@linea/protocol/shared'
+} from '@linealabs/protocol/resources'
+import { paginatedResponseSchema } from '@linealabs/protocol/shared'
 import request from 'supertest'
 import type { App } from 'supertest/types'
 import { CONNECTION_OAUTH_PROVIDERS } from '../src/connections/connection-oauth-provider'

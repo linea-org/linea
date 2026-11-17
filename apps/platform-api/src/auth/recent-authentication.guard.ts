@@ -7,7 +7,7 @@ import {
 import {
   RECENT_AUTHENTICATION_REQUIRED,
   RECENT_AUTHENTICATION_WINDOW_SECONDS,
-} from '@linea/auth/session-policy'
+} from '@linealabs/auth/session-policy'
 import type { AuthenticatedRequest } from './workspace-auth.guard'
 
 /** A sign-in or an authenticator-code check within the window both count as recent. */

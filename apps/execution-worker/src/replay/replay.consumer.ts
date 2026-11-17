@@ -9,7 +9,7 @@ import {
   createConnection,
   createWorkflowStepReplayWorker,
   type WorkflowStepReplayJob,
-} from "@linea/queue"
+} from "@linealabs/queue"
 import { ReplayService } from "./replay.service"
 
 @Injectable()
@@ -36,7 +36,7 @@ export class ReplayConsumer implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    // Same rationale as closeQueueConnection in @linea/queue: wait for BullMQ's internal connection wrapper to finish initializing (listeners still attached) before close() strips them, or a stray late rejection throws as unhandled.
+    // Same rationale as closeQueueConnection in @linealabs/queue: wait for BullMQ's internal connection wrapper to finish initializing (listeners still attached) before close() strips them, or a stray late rejection throws as unhandled.
     await this.worker?.waitUntilReady().catch(() => {})
     await this.worker?.close()
   }

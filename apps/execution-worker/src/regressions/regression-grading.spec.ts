@@ -2,7 +2,7 @@ const complete = jest.fn()
 const resolveProvider = jest.fn(() => ({ complete }))
 // Mirrors the real registry closely enough for these tests: each candidate model maps to its
 // provider's key name, so a per-model resolveApiKey mock can simulate "this workspace only has
-// provider X configured" without needing the real @linea/ai registry.
+// provider X configured" without needing the real @linealabs/ai registry.
 const keyNameByModel: Record<string, string> = {
   "claude-haiku-4-5-20251001": "ANTHROPIC_API_KEY",
   "gpt-5-mini": "OPENAI_API_KEY",
@@ -19,7 +19,7 @@ const resolveApiKey = jest.fn() as jest.Mock<
 >
 const calculateCostMicros = jest.fn(() => 7n)
 
-jest.mock("@linea/ai", () => ({
+jest.mock("@linealabs/ai", () => ({
   DEFAULT_JUDGE_MODEL_CANDIDATES: Object.keys(keyNameByModel),
   resolveProvider,
   resolveKeyName,
@@ -27,7 +27,7 @@ jest.mock("@linea/ai", () => ({
   calculateCostMicros,
 }))
 const getOrCreateWorkspaceSettings = jest.fn()
-jest.mock("@linea/db", () => ({
+jest.mock("@linealabs/db", () => ({
   db: {},
   repositories: { workspaceSettings: { getOrCreateWorkspaceSettings } },
 }))

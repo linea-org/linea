@@ -1,18 +1,18 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@linea/ui/components/dialog"
+} from "@linealabs/ui/components/dialog"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "@linea/ui/components/input-group"
+} from "@linealabs/ui/components/input-group"
 
 import { CopyButton } from "@/components/copy-button"
 import { apiKeysQueryOptions, createApiKeyFn } from "@/lib/api-keys-api"

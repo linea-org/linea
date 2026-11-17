@@ -1,8 +1,8 @@
-import { connectionBrowserMessageSchema } from "@linea/protocol/resources"
+import { connectionBrowserMessageSchema } from "@linealabs/protocol/resources"
 import type {
   ConnectionAuthorizationResponse,
   LaunchConnectionAuthorization,
-} from "@linea/protocol/resources"
+} from "@linealabs/protocol/resources"
 
 export function openConnectionAuthorization(
   authorization: ConnectionAuthorizationResponse,

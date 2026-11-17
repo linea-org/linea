@@ -9,8 +9,8 @@ import {
   XIcon,
 } from "lucide-react"
 
-import { Badge } from "@linea/ui/components/badge"
-import { Button } from "@linea/ui/components/button"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Button } from "@linealabs/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,19 +21,19 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@linea/ui/components/dropdown-menu"
+} from "@linealabs/ui/components/dropdown-menu"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupTextarea,
-} from "@linea/ui/components/input-group"
+} from "@linealabs/ui/components/input-group"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@linea/ui/components/popover"
-import { Switch } from "@linea/ui/components/switch"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/popover"
+import { Switch } from "@linealabs/ui/components/switch"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { ASSISTANT_NAME } from "@/lib/assistant-api"
 import { readAttachments } from "@/lib/attachments"

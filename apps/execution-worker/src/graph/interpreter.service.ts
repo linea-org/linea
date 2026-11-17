@@ -5,20 +5,20 @@ import {
   executionBudgetMessage,
   MAX_EXECUTION_TOKENS,
   resolveProviderId,
-} from "@linea/ai"
+} from "@linealabs/ai"
 import {
   MAX_RETRY_DELAY_MS,
   MAX_NODE_ATTEMPT_MS,
   retryPolicySchema,
   walk,
   type RetryPolicy,
-} from "@linea/runtime"
+} from "@linealabs/runtime"
 import type {
   StepResult,
   WalkResult,
   WorkflowGraph,
   WorkflowNode,
-} from "@linea/runtime"
+} from "@linealabs/runtime"
 import {
   CheckpointsService,
   LeaseLostError,

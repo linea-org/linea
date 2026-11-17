@@ -12,9 +12,9 @@ import {
   resolveProvider,
   DEFAULT_ANALYSIS_MODEL,
   type ToolDefinition,
-} from "@linea/ai"
-import { db, repositories, type ChatMessage, type Flag } from "@linea/db"
-import { CONVERSATION_IDLE_THRESHOLD_MS } from "@linea/runtime"
+} from "@linealabs/ai"
+import { db, repositories, type ChatMessage, type Flag } from "@linealabs/db"
+import { CONVERSATION_IDLE_THRESHOLD_MS } from "@linealabs/runtime"
 
 export type ConversationDueForAnalysis =
   repositories.conversationAnalysis.ConversationDueForAnalysis

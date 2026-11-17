@@ -1,7 +1,7 @@
 import { PlayIcon, PlusIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
-import { Spinner } from "@linea/ui/components/spinner"
+import { Button } from "@linealabs/ui/components/button"
+import { Spinner } from "@linealabs/ui/components/spinner"
 
 import type { Proposal } from "./proposal"
 import { ProposalRunResult } from "./proposal-run-result"

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { Injectable } from "@nestjs/common"
-import { db, repositories, type ExecutionStep } from "@linea/db"
+import { db, repositories, type ExecutionStep } from "@linealabs/db"
 
 /** true beats null beats false. */
 function mergeCostUnpriced(

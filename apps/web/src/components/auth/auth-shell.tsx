@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 
 type AuthShellProps = {
   title: string

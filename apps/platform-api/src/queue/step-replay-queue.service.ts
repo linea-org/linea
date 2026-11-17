@@ -5,7 +5,7 @@ import {
   createWorkflowStepReplayQueue,
   enqueueWorkflowStepReplay,
   type WorkflowStepReplayJob,
-} from '@linea/queue'
+} from '@linealabs/queue'
 import type { Queue } from 'bullmq'
 import type { Redis } from 'ioredis'
 

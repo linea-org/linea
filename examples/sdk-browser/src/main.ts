@@ -1,4 +1,4 @@
-import { LineaUserClient } from "@linea/sdk/user"
+import { LineaUserClient } from "@linealabs/sdk/user"
 
 const client = new LineaUserClient({
   environmentId: "80000000-0000-4000-8000-000000000008",

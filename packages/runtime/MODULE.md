@@ -15,7 +15,7 @@ that actually runs it.
   execution logic.** Actual node behavior lives in `apps/execution-worker`.
   This is deliberate, not an oversight — see `repo-structure.md`. It's also
   the reason this package has no dependency on any AI provider SDK, any
-  sandbox client, or `@linea/db`.
+  sandbox client, or `@linealabs/db`.
 - **A node's input is always its single predecessor's output**, except the
   entry node, whose input is the trigger payload. Every non-entry node must
   have exactly one incoming edge, except a merge node, which has exactly two

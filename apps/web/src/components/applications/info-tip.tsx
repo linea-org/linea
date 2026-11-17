@@ -3,7 +3,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@linea/ui/components/tooltip"
+} from "@linealabs/ui/components/tooltip"
 
 export function InfoTip({
   label,

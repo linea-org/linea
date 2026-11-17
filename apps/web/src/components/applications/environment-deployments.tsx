@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { EnvironmentDeploymentForm } from "./environment-deployment-form"
 import { listDeploymentsFn } from "@/lib/deployments-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 
 export function EnvironmentDeployments({
   workspaceSlug,

@@ -11,11 +11,11 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@linea/ui/components",
-    "utils": "@linea/ui/lib/utils",
-    "hooks": "@linea/ui/hooks",
-    "lib": "@linea/ui/lib",
-    "ui": "@linea/ui/components"
+    "components": "@linealabs/ui/components",
+    "utils": "@linealabs/ui/lib/utils",
+    "hooks": "@linealabs/ui/hooks",
+    "lib": "@linealabs/ui/lib",
+    "ui": "@linealabs/ui/components"
   },
   "rtl": false,
   "menuColor": "default",

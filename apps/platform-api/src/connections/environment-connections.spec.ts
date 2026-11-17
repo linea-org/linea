@@ -1,4 +1,4 @@
-import { createTestExecution } from '@linea/db/testing'
+import { createTestExecution } from '@linealabs/db/testing'
 import 'dotenv/config'
 import {
   createHash,
@@ -9,9 +9,18 @@ import {
 import { createServer, type Server, type ServerResponse } from 'node:http'
 import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
-import { ConnectorGateway, connectorOperationRegistry } from '@linea/connectors'
-import { db, decryptCredential, pool, repositories, schema } from '@linea/db'
-import { connectionSchema } from '@linea/protocol/resources'
+import {
+  ConnectorGateway,
+  connectorOperationRegistry,
+} from '@linealabs/connectors'
+import {
+  db,
+  decryptCredential,
+  pool,
+  repositories,
+  schema,
+} from '@linealabs/db'
+import { connectionSchema } from '@linealabs/protocol/resources'
 import {
   generateKeyPair,
   exportJWK,

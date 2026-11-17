@@ -2,7 +2,7 @@ import {
   assertNoReservedNodeIds,
   validateGraphStructure,
   workflowGraphSchema,
-} from "@linea/runtime"
+} from "@linealabs/runtime"
 import { describe, expect, it } from "vitest"
 
 import { workflowTemplates } from "./workflow-templates"

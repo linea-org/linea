@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { db, repositories, type Environment } from '@linea/db'
+import { db, repositories, type Environment } from '@linealabs/db'
 import { ZodError } from 'zod'
 import type {
   ReplaceEnvironmentTrustDto,

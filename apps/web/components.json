@@ -14,8 +14,8 @@
     "components": "@/components",
     "hooks": "@/hooks",
     "lib": "@/lib",
-    "utils": "@linea/ui/lib/utils",
-    "ui": "@linea/ui/components"
+    "utils": "@linealabs/ui/lib/utils",
+    "ui": "@linealabs/ui/components"
   },
   "rtl": false,
   "menuColor": "default",

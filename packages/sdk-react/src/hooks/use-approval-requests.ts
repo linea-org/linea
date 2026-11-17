@@ -1,7 +1,7 @@
-import { LineaUserApiError } from "@linea/sdk/user"
+import { LineaUserApiError } from "@linealabs/sdk/user"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { ListApprovalRequestsQuery } from "@linea/protocol/resources"
-import type { ApprovalRequest } from "@linea/sdk/user"
+import type { ListApprovalRequestsQuery } from "@linealabs/protocol/resources"
+import type { ApprovalRequest } from "@linealabs/sdk/user"
 import { useLineaUserClient } from "../provider/linea-user-provider.js"
 
 export type ApprovalRequestsConnection =

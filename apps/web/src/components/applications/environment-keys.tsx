@@ -6,19 +6,19 @@ import { z } from "zod"
 import {
   environmentKeyScopes,
   environmentKeyScopeSchema,
-} from "@linea/protocol/resources"
-import { Checkbox } from "@linea/ui/components/checkbox"
-import { Button } from "@linea/ui/components/button"
-import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
-import { Label } from "@linea/ui/components/label"
+} from "@linealabs/protocol/resources"
+import { Checkbox } from "@linealabs/ui/components/checkbox"
+import { Button } from "@linealabs/ui/components/button"
+import { Field, FieldError, FieldLabel } from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
+import { Label } from "@linealabs/ui/components/label"
 import {
   createEnvironmentKeyFn,
   listEnvironmentKeysFn,
   revokeEnvironmentKeyFn,
   rotateEnvironmentKeyFn,
 } from "@/lib/environment-keys-api"
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 
 const schema = z.object({
   name: z.string().trim().min(1).max(100),

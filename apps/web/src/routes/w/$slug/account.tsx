@@ -3,15 +3,15 @@ import { LogOutIcon } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useEffect, useState, type ReactNode } from "react"
 
-import { Button } from "@linea/ui/components/button"
-import { Card } from "@linea/ui/components/card"
+import { Button } from "@linealabs/ui/components/button"
+import { Card } from "@linealabs/ui/components/card"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 
 import { UserAvatar } from "@/components/account"
 import { AccountSessions } from "@/components/account/account-sessions"

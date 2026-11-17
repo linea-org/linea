@@ -1,7 +1,7 @@
 import { useState } from "react"
 import QRCode from "react-qr-code"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
@@ -9,13 +9,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@linea/ui/components/dialog"
-import { Field, FieldLabel } from "@linea/ui/components/field"
+} from "@linealabs/ui/components/dialog"
+import { Field, FieldLabel } from "@linealabs/ui/components/field"
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
-} from "@linea/ui/components/input-otp"
+} from "@linealabs/ui/components/input-otp"
 
 import { PasswordInput } from "@/components/auth"
 import { authClient } from "@/lib/auth-client"

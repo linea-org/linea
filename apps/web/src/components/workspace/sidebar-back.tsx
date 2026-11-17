@@ -3,7 +3,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@linea/ui/components/sidebar"
+} from "@linealabs/ui/components/sidebar"
 
 export function SidebarBack({ onBack }: Readonly<{ onBack: () => void }>) {
   return (

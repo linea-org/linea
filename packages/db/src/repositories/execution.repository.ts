@@ -1,4 +1,4 @@
-import { compileContractSchema } from "@linea/protocol/json-schema"
+import { compileContractSchema } from "@linealabs/protocol/json-schema"
 import { getMemberRole } from "./organization.repository.js"
 import { activeExecutionParent } from "./execution-parent-authority.js"
 import { and, desc, eq, gt, isNull, lt, notInArray, or, sql } from "drizzle-orm"

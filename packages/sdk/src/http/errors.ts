@@ -1,4 +1,4 @@
-import type { PublicErrorCode } from "@linea/protocol/errors"
+import type { PublicErrorCode } from "@linealabs/protocol/errors"
 
 /**
  * Thrown for any non-2xx HTTP response from the platform API. `body` is the best-effort parsed

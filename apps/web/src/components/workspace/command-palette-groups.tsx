@@ -27,7 +27,7 @@ import {
   CommandGroup,
   CommandItem,
   CommandShortcut,
-} from "@linea/ui/components/command"
+} from "@linealabs/ui/components/command"
 
 import { PlayfulAvatar } from "../avatar"
 import { applicationsQueryOptions } from "@/lib/applications-api"

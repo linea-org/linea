@@ -11,10 +11,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@linea/ui/components/alert-dialog"
-import { Badge } from "@linea/ui/components/badge"
-import { Button } from "@linea/ui/components/button"
-import { Card } from "@linea/ui/components/card"
+} from "@linealabs/ui/components/alert-dialog"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Button } from "@linealabs/ui/components/button"
+import { Card } from "@linealabs/ui/components/card"
 import {
   Table,
   TableBody,
@@ -22,18 +22,18 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@linea/ui/components/table"
+} from "@linealabs/ui/components/table"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@linea/ui/components/tooltip"
+} from "@linealabs/ui/components/tooltip"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@linea/ui/components/dropdown-menu"
+} from "@linealabs/ui/components/dropdown-menu"
 
 import { SecretFormDialog } from "@/components/secrets/secret-form-dialog"
 import { findOrCreateDevelopmentEnvironment } from "@/lib/default-application"

@@ -1,5 +1,5 @@
 {
-  "name": "@linea/config",
+  "name": "@linealabs/config",
   "version": "0.0.0",
   "private": true,
   "type": "module",

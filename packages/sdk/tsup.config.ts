@@ -13,5 +13,5 @@ export default defineConfig({
   sourcemap: true,
   target: "es2022",
   platform: "neutral",
-  external: ["@linea/protocol"],
+  external: ["@linealabs/protocol"],
 })

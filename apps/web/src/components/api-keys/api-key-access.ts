@@ -1,7 +1,7 @@
 import {
   workspaceKeyScopes,
   type WorkspaceKeyScope,
-} from "@linea/protocol/resources"
+} from "@linealabs/protocol/resources"
 
 export type AccessPreset = "read" | "run" | "full" | "custom"
 

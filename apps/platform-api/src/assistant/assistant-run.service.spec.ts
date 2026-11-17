@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { NotFoundException } from '@nestjs/common'
-import { db, pool, repositories, schema } from '@linea/db'
+import { db, pool, repositories, schema } from '@linealabs/db'
 import type { ExecutionsService } from '../executions/executions.service'
 import { AssistantRunService } from './assistant-run.service'
 

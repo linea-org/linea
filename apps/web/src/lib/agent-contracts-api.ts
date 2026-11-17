@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start"
 import { z } from "zod"
-import { jsonSchemaDocumentSchema } from "@linea/protocol/resources"
+import { jsonSchemaDocumentSchema } from "@linealabs/protocol/resources"
 import { apiFetch } from "./api-fetch"
 import { agentApiResponse } from "./agent-api-response"
 import { agentContractSchema } from "./agent-schemas"

@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import type { UseMutationResult } from "@tanstack/react-query"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@linea/ui/components/dialog"
-import { Spinner } from "@linea/ui/components/spinner"
+} from "@linealabs/ui/components/dialog"
+import { Spinner } from "@linealabs/ui/components/spinner"
 
 import { ModelSetupForm } from "@/components/models/model-setup-form"
 import type { TemplateResult } from "@/lib/create-from-template"

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { workflowGraphSchema } from '@linea/runtime'
+import { workflowGraphSchema } from '@linealabs/runtime'
 
 export const createWorkflowVersionSchema = z.object({
   graph: workflowGraphSchema,

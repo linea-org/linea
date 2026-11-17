@@ -7,8 +7,8 @@ import {
   type ExecutionContext,
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
-import { db, repositories } from '@linea/db'
-import type { EnvironmentKeyScope } from '@linea/protocol/resources'
+import { db, repositories } from '@linealabs/db'
+import type { EnvironmentKeyScope } from '@linealabs/protocol/resources'
 import type { EnvironmentAuthenticatedRequest } from './environment-key.guard'
 import { publicError } from './public-error'
 import { ENVIRONMENT_SCOPES_KEY } from './require-environment-scopes.decorator'

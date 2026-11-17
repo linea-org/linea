@@ -3,25 +3,25 @@ import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 
-import { Badge } from "@linea/ui/components/badge"
-import { Button, buttonVariants } from "@linea/ui/components/button"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Button, buttonVariants } from "@linealabs/ui/components/button"
 import {
   Empty,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
+} from "@linealabs/ui/components/empty"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@linea/ui/components/popover"
+} from "@linealabs/ui/components/popover"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@linea/ui/components/tooltip"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/tooltip"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { NotificationRow } from "../notifications"
 import {

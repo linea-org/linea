@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { db, repositories, type ApiKey } from '@linea/db'
+import { db, repositories, type ApiKey } from '@linealabs/db'
 import { generateApiKey } from '../auth/api-key.util'
 import type { CreateApiKeyDto } from './dto/create-api-key.dto'
 

@@ -491,7 +491,7 @@
     }
   },
   "info": {
-    "description": "Generated from @linea/protocol's public operation registry.",
+    "description": "Generated from @linealabs/protocol's public operation registry.",
     "title": "Linea Public API",
     "version": "1.0.0"
   },
@@ -849,7 +849,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "Linea",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "auditEvents.list"
         }
       }
@@ -1264,7 +1264,7 @@
         "x-linea-rate-limit": "Environment-key reads share 600 requests per key and 3,000 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "listAuditEvents"
         }
       }
@@ -1521,7 +1521,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaConnectionAdminClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "listConnections"
         }
       }
@@ -1781,7 +1781,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaConnectionAdminClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "revokeConnection"
         }
       }
@@ -2006,7 +2006,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaConnectionAdminClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "grantAccess"
         }
       }
@@ -2222,7 +2222,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaConnectionAdminClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "revokeAccess"
         }
       }
@@ -2480,7 +2480,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaConnectionAdminClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "getAuthorities"
         }
       }
@@ -2705,7 +2705,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaConnectionAdminClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "assignReviewer"
         }
       }
@@ -2921,7 +2921,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaConnectionAdminClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "revokeReviewer"
         }
       }
@@ -3225,7 +3225,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaConnectionAdminClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "createGithubInstallation"
         }
       }
@@ -3507,7 +3507,7 @@
         "x-linea-rate-limit": "Environment-key reads share 600 requests per key and 3,000 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "listConversations"
         }
       },
@@ -3831,7 +3831,7 @@
         "x-linea-rate-limit": "Environment-key writes share 120 requests per key and 600 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "createConversation"
         }
       }
@@ -4078,7 +4078,7 @@
         "x-linea-rate-limit": "Environment-key reads share 600 requests per key and 3,000 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "getConversation"
         }
       }
@@ -4646,7 +4646,7 @@
         "x-linea-rate-limit": "Environment-key writes share 120 requests per key and 600 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "startExecution"
         }
       }
@@ -4969,7 +4969,7 @@
         "x-linea-rate-limit": "Environment-key writes share 120 requests per key and 600 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "provisionSubject"
         }
       }
@@ -5800,7 +5800,7 @@
         "x-linea-rate-limit": "Environment-key reads share 600 requests per key and 3,000 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "listWebhookDeliveries"
         }
       }
@@ -6211,7 +6211,7 @@
         "x-linea-rate-limit": "Environment-key reads share 600 requests per key and 3,000 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "getExecution"
         }
       }
@@ -6665,7 +6665,7 @@
         "x-linea-rate-limit": "Environment-key writes share 120 requests per key and 600 per workspace each minute.",
         "x-linea-sdk": {
           "client": "LineaEnvironmentClient",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "cancelExecution"
         }
       }
@@ -6849,7 +6849,7 @@
         "x-linea-rate-limit": "10 requests per client IP and 10 sessions per External Subject within an Environment each minute.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "completeAuthorization"
         }
       }
@@ -7043,7 +7043,7 @@
         "x-linea-rate-limit": "30 requests per client IP each minute.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "startAuthorization"
         }
       }
@@ -7152,7 +7152,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "revoke"
         }
       }
@@ -7392,7 +7392,7 @@
         "x-linea-rate-limit": "60 requests per client IP each minute.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "completeAuthorization"
         }
       }
@@ -7660,7 +7660,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "listPendingActionIntents"
         }
       }
@@ -8039,7 +8039,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "listApprovalRequests"
         }
       }
@@ -8363,7 +8363,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "getApprovalRequest"
         }
       }
@@ -8673,7 +8673,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "decide"
         }
       }
@@ -8980,7 +8980,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "listAuditEvents"
         }
       }
@@ -9266,7 +9266,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "listConnections"
         }
       }
@@ -9540,7 +9540,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "revokeConnection"
         }
       },
@@ -9783,7 +9783,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "getConnection"
         }
       }
@@ -10043,7 +10043,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "startConnectionScopeUpgrade"
         }
       }
@@ -10341,7 +10341,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "listConnectionUses"
         }
       }
@@ -10594,7 +10594,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "startConnectionAuthorization"
         }
       }
@@ -10823,7 +10823,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "getConnectionAuthorization"
         }
       }
@@ -11044,7 +11044,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "launchConnectionAuthorization"
         }
       }
@@ -11340,7 +11340,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "listConversations"
         }
       },
@@ -11673,7 +11673,7 @@
         "x-linea-rate-limit": "20 Conversations per External Subject each minute.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "createConversation"
         }
       }
@@ -11934,7 +11934,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "getConversation"
         }
       }
@@ -12231,7 +12231,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "listMessages"
         }
       },
@@ -12539,7 +12539,7 @@
         "x-linea-rate-limit": "60 messages per End-User Session each minute.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "sendMessage"
         }
       }
@@ -12812,7 +12812,7 @@
         "x-linea-rate-limit": "At most 3 concurrent streams per End-User Session.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "streamEvents"
         }
       }
@@ -13367,7 +13367,7 @@
         "x-linea-rate-limit": "10 Executions per External Subject each minute.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "startExecution"
         }
       }
@@ -13802,7 +13802,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "LineaUserClient",
-          "importPath": "@linea/sdk/user",
+          "importPath": "@linealabs/sdk/user",
           "method": "getExecution"
         }
       }
@@ -14072,7 +14072,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "Linea",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "regressions.listCases"
         }
       }
@@ -15132,7 +15132,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "Linea",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "regressions.listRuns"
         }
       },
@@ -15637,7 +15637,7 @@
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
           "client": "Linea",
-          "importPath": "@linea/sdk/server",
+          "importPath": "@linealabs/sdk/server",
           "method": "regressions.getRun"
         }
       }

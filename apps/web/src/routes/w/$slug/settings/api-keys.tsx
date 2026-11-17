@@ -3,13 +3,13 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { KeySquareIcon, PlusIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Empty,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
+} from "@linealabs/ui/components/empty"
 
 import { ApiKeysTable, CreateApiKeyDialog } from "@/components/api-keys"
 import { ListSkeleton } from "@/components/workspace/list-skeleton"

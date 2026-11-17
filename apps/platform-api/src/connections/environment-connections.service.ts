@@ -8,9 +8,9 @@ import {
   authorizeGithubInstallation,
   githubInstallationScopes,
   type GithubInstallationCredential,
-} from '@linea/connectors'
-import { db, encryptCredential, repositories } from '@linea/db'
-import type { CreateGithubInstallationConnection } from '@linea/protocol/resources'
+} from '@linealabs/connectors'
+import { db, encryptCredential, repositories } from '@linealabs/db'
+import type { CreateGithubInstallationConnection } from '@linealabs/protocol/resources'
 import { publicConnection } from './connection-projection'
 
 type Owner = { workspaceId: string; environmentId: string }

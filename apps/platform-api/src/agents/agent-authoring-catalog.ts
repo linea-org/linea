@@ -1,5 +1,5 @@
-import { registry } from '@linea/ai'
-import { connectorOperationRegistry } from '@linea/connectors'
+import { registry } from '@linealabs/ai'
+import { connectorOperationRegistry } from '@linealabs/connectors'
 
 export function agentAuthoringCatalog() {
   return {

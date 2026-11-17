@@ -1,8 +1,11 @@
-import { getTestDevelopmentEnvironmentId } from "@linea/db/testing"
-import { getTestApplicationId, publishTestWorkflow } from "@linea/db/testing"
+import { getTestDevelopmentEnvironmentId } from "@linealabs/db/testing"
+import {
+  getTestApplicationId,
+  publishTestWorkflow,
+} from "@linealabs/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
-import { db, pool, repositories, schema } from "@linea/db"
+import { db, pool, repositories, schema } from "@linealabs/db"
 import { ScheduleFiringService } from "./schedule-firing.service"
 import { WorkflowQueueService } from "../queue/workflow-queue.service"
 

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { db, repositories, type Signal } from '@linea/db'
+import { db, repositories, type Signal } from '@linealabs/db'
 
 @Injectable()
 export class SignalsService {

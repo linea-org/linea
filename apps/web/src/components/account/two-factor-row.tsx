@@ -10,9 +10,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@linea/ui/components/alert-dialog"
-import { Badge } from "@linea/ui/components/badge"
-import { Button } from "@linea/ui/components/button"
+} from "@linealabs/ui/components/alert-dialog"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Button } from "@linealabs/ui/components/button"
 
 import { PasswordInput } from "@/components/auth"
 import { authClient } from "@/lib/auth-client"

@@ -1,11 +1,11 @@
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
-import { db, pool, repositories, schema } from '@linea/db'
-import { sendEmail } from '@linea/auth/email'
+import { db, pool, repositories, schema } from '@linealabs/db'
+import { sendEmail } from '@linealabs/auth/email'
 import { TemplateModerationNotifier } from './template-moderation-notifier'
 
-jest.mock('@linea/auth/email', () => ({ sendEmail: jest.fn() }))
-jest.mock('@linea/auth/emails', () => ({
+jest.mock('@linealabs/auth/email', () => ({ sendEmail: jest.fn() }))
+jest.mock('@linealabs/auth/emails', () => ({
   noticeEmailHtml: jest.fn(() => '<p>notice</p>'),
 }))
 

@@ -33,7 +33,7 @@ AI coding agent. Follow them strictly.
 ## Icons
 
 - Use `lucide-react` for icons — it's the standard icon set already wired
-  into `@linea/ui` and `apps/web`. Don't introduce a second icon library.
+  into `@linealabs/ui` and `apps/web`. Don't introduce a second icon library.
 
 ## File structure
 
@@ -119,12 +119,12 @@ AI coding agent. Follow them strictly.
   sheet, or modal — the topmost floating layer). A new floating surface reuses
   `--popover`; a new base surface reuses `--surface-canvas`. Don't invent a
   one-off background color for a new panel.
-- Use only `@linea/ui` components in the app (`Button`, `Card`, `Badge`,
+- Use only `@linealabs/ui` components in the app (`Button`, `Card`, `Badge`,
   `Sidebar`, `Sheet`, `Field`, `Select`, ...). Never hand-roll a card, badge,
   button, or other element that has a component in
   `packages/ui/src/components/`, and don't add a one-off component to
-  `apps/web` when a `@linea/ui` one exists. Check that directory first; if
-  nothing fits, extend the `@linea/ui` component rather than forking it.
+  `apps/web` when a `@linealabs/ui` one exists. Check that directory first; if
+  nothing fits, extend the `@linealabs/ui` component rather than forking it.
 - A feature with several variants (node types, flag types, ...) gets one
   generic, data/schema-driven component plus a registry of metadata — never a
   separate component per variant, and never the variant's presentation

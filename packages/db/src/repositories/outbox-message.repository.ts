@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, lte, or, sql } from "drizzle-orm"
-import type { EventType } from "@linea/protocol/events"
-import type { JsonValue } from "@linea/protocol/shared"
+import type { EventType } from "@linealabs/protocol/events"
+import type { JsonValue } from "@linealabs/protocol/shared"
 import {
   externalSubjectEnvironments,
   outboxMessages,

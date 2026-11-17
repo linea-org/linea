@@ -1,4 +1,4 @@
-import type { TemplateAppealTypeId } from '@linea/db'
+import type { TemplateAppealTypeId } from '@linealabs/db'
 
 type AppealTypeDefinition = {
   /** What the author picks. */

@@ -1,5 +1,5 @@
 import type { ComponentProps, KeyboardEvent } from "react"
-import { Textarea } from "@linea/ui/components/textarea"
+import { Textarea } from "@linealabs/ui/components/textarea"
 import { jsonStringContext } from "./json-string-context"
 
 const pairs: Record<string, string> = {

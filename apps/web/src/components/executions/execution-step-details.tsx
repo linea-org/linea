@@ -1,14 +1,14 @@
-import { nodeRegistry } from "@linea/runtime/browser"
-import { Badge } from "@linea/ui/components/badge"
-import { Card } from "@linea/ui/components/card"
-import { cn } from "@linea/ui/lib/utils"
+import { nodeRegistry } from "@linealabs/runtime/browser"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Card } from "@linealabs/ui/components/card"
+import { cn } from "@linealabs/ui/lib/utils"
 import { useHydrated } from "@tanstack/react-router"
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@linea/ui/components/tabs"
+} from "@linealabs/ui/components/tabs"
 import type { ExecutionStepSummary, JsonValue } from "@/lib/executions-api"
 import { NODE_CATEGORY_COLORS } from "../workflow-builder/node-category-colors"
 import { NodeIcon } from "../workflow-builder/node-icon"

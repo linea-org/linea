@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react"
-import type { ApprovalRequest as ApprovalRequestResource } from "@linea/sdk/user"
+import type { ApprovalRequest as ApprovalRequestResource } from "@linealabs/sdk/user"
 
 export type ApprovalRequestPresentationState =
   | "pending"

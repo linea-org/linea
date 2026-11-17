@@ -13,7 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
-} from "@linea/ui/components/sidebar"
+} from "@linealabs/ui/components/sidebar"
 
 export function WorkspaceSettingsNav({ slug }: Readonly<{ slug: string }>) {
   const matchRoute = useMatchRoute()

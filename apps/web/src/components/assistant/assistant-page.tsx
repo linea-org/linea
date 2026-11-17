@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 
-import { ScrollArea } from "@linea/ui/components/scroll-area"
+import { ScrollArea } from "@linealabs/ui/components/scroll-area"
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from "@linea/ui/components/resizable"
-import { Sheet, SheetContent, SheetTitle } from "@linea/ui/components/sheet"
+} from "@linealabs/ui/components/resizable"
+import { Sheet, SheetContent, SheetTitle } from "@linealabs/ui/components/sheet"
 
 import {
   isModelReady,

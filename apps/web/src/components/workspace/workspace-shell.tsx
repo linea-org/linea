@@ -18,8 +18,8 @@ import {
   SidebarProvider,
   SidebarSeparator,
   useSidebar,
-} from "@linea/ui/components/sidebar"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/sidebar"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { UserMenu } from "../account"
 import { TopBarNotifications } from "./top-bar-notifications"

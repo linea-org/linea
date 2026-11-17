@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { templateAppealTypeIds } from '@linea/db'
+import { templateAppealTypeIds } from '@linealabs/db'
 
 const note = z.string().trim().max(500).optional()
 

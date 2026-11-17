@@ -1,10 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { Injectable, UnauthorizedException } from '@nestjs/common'
-import { db, repositories } from '@linea/db'
+import { db, repositories } from '@linealabs/db'
 import type {
   CreateEndUserSession,
   EndUserSessionCredential,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import { PublicRuntimeRateLimitException } from '../public-runtime/public-runtime-rate-limit.filter'
 import { publicError } from '../auth/public-error'
 import { DpopProofError, verifyDpopProof } from './dpop-proof'

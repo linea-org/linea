@@ -10,10 +10,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@linea/ui/components/alert-dialog"
-import { Badge } from "@linea/ui/components/badge"
-import { Button } from "@linea/ui/components/button"
-import { Card } from "@linea/ui/components/card"
+} from "@linealabs/ui/components/alert-dialog"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Button } from "@linealabs/ui/components/button"
+import { Card } from "@linealabs/ui/components/card"
 import {
   Table,
   TableBody,
@@ -21,7 +21,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@linea/ui/components/table"
+} from "@linealabs/ui/components/table"
 
 import {
   apiKeysQueryOptions,

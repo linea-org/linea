@@ -5,7 +5,7 @@ import {
   type CanActivate,
   type ExecutionContext,
 } from '@nestjs/common'
-import { db, repositories } from '@linea/db'
+import { db, repositories } from '@linealabs/db'
 import type { Request } from 'express'
 import { publicError } from '../auth/public-error'
 import {

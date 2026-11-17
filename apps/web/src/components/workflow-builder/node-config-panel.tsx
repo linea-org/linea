@@ -3,31 +3,31 @@ import {
   nodeRegistry,
   retryPolicySchema,
   type NodeTypeId,
-} from "@linea/runtime/browser"
-import type { NodeUIField } from "@linea/runtime/browser"
+} from "@linealabs/runtime/browser"
+import type { NodeUIField } from "@linealabs/runtime/browser"
 import { InfoIcon, XIcon } from "lucide-react"
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Field,
   FieldError,
   FieldGroup,
   FieldLabel,
-} from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
-import { Textarea } from "@linea/ui/components/textarea"
+} from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
+import { Textarea } from "@linealabs/ui/components/textarea"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@linea/ui/components/tooltip"
+} from "@linealabs/ui/components/tooltip"
 import { AgentStepField } from "./agent-step-field"
 import { KeyValueEditor } from "./key-value-editor"
 

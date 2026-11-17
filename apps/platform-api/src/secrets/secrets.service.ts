@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { isPlatformModelKeyAvailable, providers } from '@linea/ai'
-import { db, encryptSecret, repositories } from '@linea/db'
+import { isPlatformModelKeyAvailable, providers } from '@linealabs/ai'
+import { db, encryptSecret, repositories } from '@linealabs/db'
 import type { UpsertSecretDto } from './dto/upsert-secret.dto'
 
 export type SecretSummary = {

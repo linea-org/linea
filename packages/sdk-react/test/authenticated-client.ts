@@ -1,4 +1,4 @@
-import { LineaUserClient } from "@linea/sdk/user"
+import { LineaUserClient } from "@linealabs/sdk/user"
 import { apiBaseUrl, environmentId, authorizationState } from "./server.js"
 
 export async function authenticatedClient(): Promise<LineaUserClient> {

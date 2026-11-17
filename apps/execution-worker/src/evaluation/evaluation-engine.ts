@@ -4,8 +4,8 @@ import {
   type EvaluationMetricResult,
   type EvaluationParameter,
   type EvaluationSampleBindings,
-} from "@linea/runtime"
-import type { AiProvider, ToolDefinition } from "@linea/ai"
+} from "@linealabs/runtime"
+import type { AiProvider, ToolDefinition } from "@linealabs/ai"
 import { getPath } from "../graph/nodes/dot-path"
 
 export type EvaluationSample = {

@@ -8,8 +8,8 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
-import { Card } from "@linea/ui/components/card"
+import { Button } from "@linealabs/ui/components/button"
+import { Card } from "@linealabs/ui/components/card"
 
 import { ExecutionList } from "@/components/executions"
 import type { ExecutionSummary } from "@/lib/executions-api"

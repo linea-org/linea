@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@linea/sdk": "0.0.0",
-    "@linea/sdk-react": "0.0.0",
+    "@linealabs/sdk": "0.0.0",
+    "@linealabs/sdk-react": "0.0.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

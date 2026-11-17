@@ -3,8 +3,8 @@ import { createIsolatedAuth } from "./isolated-auth.js"
 
 const revokeApiKeysCreatedBy = vi.fn()
 
-vi.mock("@linea/db", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@linea/db")>()
+vi.mock("@linealabs/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@linealabs/db")>()
   return {
     ...actual,
     repositories: {

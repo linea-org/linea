@@ -1,10 +1,10 @@
-import type { ChatMessage, Conversation, Execution } from '@linea/db'
+import type { ChatMessage, Conversation, Execution } from '@linealabs/db'
 import {
   conversationSchema,
   messageSchema,
   publicExecutionSchema,
-} from '@linea/protocol/resources'
-import type { JsonValue } from '@linea/protocol/shared'
+} from '@linealabs/protocol/resources'
+import type { JsonValue } from '@linealabs/protocol/shared'
 
 export function conversationProjection(conversation: Conversation) {
   return conversationSchema.parse({

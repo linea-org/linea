@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto"
-import { db, encryptCredential, repositories, schema } from "@linea/db"
+import { db, encryptCredential, repositories, schema } from "@linealabs/db"
 import {
   configureTestEnvironment,
   getTestApplicationId,
-} from "@linea/db/testing"
+} from "@linealabs/db/testing"
 
 export async function createAgentExecutionFixture() {
   const suffix = randomUUID()

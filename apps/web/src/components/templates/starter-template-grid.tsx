@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 
-import { workflowGraphSchema } from "@linea/runtime/browser"
+import { workflowGraphSchema } from "@linealabs/runtime/browser"
 
 import { createWorkflowFromTemplate } from "@/lib/create-from-template"
 import type { WorkflowTemplate } from "@/lib/workflow-templates"

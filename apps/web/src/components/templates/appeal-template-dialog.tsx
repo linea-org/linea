@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-query"
 import { z } from "zod"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
@@ -16,15 +16,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@linea/ui/components/dialog"
+} from "@linealabs/ui/components/dialog"
 import {
   Field,
   FieldError,
   FieldGroup,
   FieldLabel,
-} from "@linea/ui/components/field"
-import { RadioGroup, RadioGroupItem } from "@linea/ui/components/radio-group"
-import { Textarea } from "@linea/ui/components/textarea"
+} from "@linealabs/ui/components/field"
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@linealabs/ui/components/radio-group"
+import { Textarea } from "@linealabs/ui/components/textarea"
 
 import {
   appealTemplateFn,

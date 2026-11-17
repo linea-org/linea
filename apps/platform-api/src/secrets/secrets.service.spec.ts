@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { randomBytes, randomUUID } from 'node:crypto'
-import { db, decryptSecret, pool, repositories, schema } from '@linea/db'
+import { db, decryptSecret, pool, repositories, schema } from '@linealabs/db'
 import { SecretsService } from './secrets.service'
 
 afterAll(async () => {

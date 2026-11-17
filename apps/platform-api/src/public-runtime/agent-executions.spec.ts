@@ -2,12 +2,12 @@ import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
-import { db, pool, repositories, schema } from '@linea/db'
+import { db, pool, repositories, schema } from '@linealabs/db'
 import {
   configureTestEnvironment,
   getTestApplicationId,
-} from '@linea/db/testing'
-import { publicExecutionSchema } from '@linea/protocol/resources'
+} from '@linealabs/db/testing'
+import { publicExecutionSchema } from '@linealabs/protocol/resources'
 import request from 'supertest'
 import type { App } from 'supertest/types'
 import { generateEnvironmentKey } from '../auth/api-key.util'

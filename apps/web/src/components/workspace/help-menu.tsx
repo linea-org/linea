@@ -1,12 +1,12 @@
 import { BookOpenIcon, ChevronDownIcon, CircleHelpIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@linea/ui/components/dropdown-menu"
+} from "@linealabs/ui/components/dropdown-menu"
 
 const DOCS_URL = "https://docs.getlinea.app"
 const COMMUNITY_URL = "https://discord.gg/7FWR97VkBD"

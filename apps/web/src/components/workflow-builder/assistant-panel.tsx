@@ -11,10 +11,14 @@ import {
   XIcon,
 } from "lucide-react"
 
-import type { WorkflowGraph } from "@linea/runtime/browser"
-import { Badge } from "@linea/ui/components/badge"
-import { Button } from "@linea/ui/components/button"
-import { Dialog, DialogContent, DialogTitle } from "@linea/ui/components/dialog"
+import type { WorkflowGraph } from "@linealabs/runtime/browser"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Button } from "@linealabs/ui/components/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@linealabs/ui/components/dialog"
 
 import { AssistantComposer } from "@/components/assistant/assistant-composer"
 import { AssistantThread } from "@/components/assistant/assistant-thread"

@@ -1,6 +1,9 @@
 import { openConnectionAuthorization } from "./open-connection-authorization.js"
-import type { PublicErrorCode } from "@linea/protocol/errors"
-import type { EventEnvelope, EventStreamQuery } from "@linea/protocol/events"
+import type { PublicErrorCode } from "@linealabs/protocol/errors"
+import type {
+  EventEnvelope,
+  EventStreamQuery,
+} from "@linealabs/protocol/events"
 import {
   createEndUserConversationOperation,
   createEndUserMessageOperation,
@@ -27,7 +30,7 @@ import {
   startEndUserAuthorizationOperation,
   startEndUserExecutionOperation,
   streamEndUserEventsOperation,
-} from "@linea/protocol/operations"
+} from "@linealabs/protocol/operations"
 import type {
   ApprovalDecision,
   ApprovalRequest,
@@ -53,8 +56,11 @@ import type {
   StartEndUserExecution,
   StartConnectionAuthorization,
   StartConnectionScopeUpgrade,
-} from "@linea/protocol/resources"
-import type { PaginatedResponse, PaginationQuery } from "@linea/protocol/shared"
+} from "@linealabs/protocol/resources"
+import type {
+  PaginatedResponse,
+  PaginationQuery,
+} from "@linealabs/protocol/shared"
 import { LineaExecutionHandle } from "./execution-handle.js"
 import { readEventStream, waitForReconnect } from "./event-stream.js"
 import {

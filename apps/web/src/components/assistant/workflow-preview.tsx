@@ -10,7 +10,7 @@ import {
 import "@xyflow/react/dist/style.css"
 import { useTheme } from "next-themes"
 
-import type { WorkflowGraph } from "@linea/runtime/browser"
+import type { WorkflowGraph } from "@linealabs/runtime/browser"
 
 import {
   ensureStartNode,

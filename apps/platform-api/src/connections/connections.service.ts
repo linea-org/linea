@@ -14,11 +14,11 @@ import {
   encryptCredential,
   repositories,
   type ConnectionAuthorizationRequest as StoredConnectionAuthorizationRequest,
-} from '@linea/db'
+} from '@linealabs/db'
 import {
   connectionAuthorizationStatusSchema,
   connectionUseSchema,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import type {
   Connection as PublicConnection,
   ConnectionAuthorization,
@@ -31,7 +31,7 @@ import type {
   ListConnectionsQuery,
   StartConnectionAuthorization,
   StartConnectionScopeUpgrade,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import { publicError } from '../auth/public-error'
 import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.guard'
 import {

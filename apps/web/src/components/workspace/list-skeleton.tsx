@@ -1,5 +1,5 @@
-import { Skeleton } from "@linea/ui/components/skeleton"
-import { cn } from "@linea/ui/lib/utils"
+import { Skeleton } from "@linealabs/ui/components/skeleton"
+import { cn } from "@linealabs/ui/lib/utils"
 
 export function ListSkeleton({ className }: Readonly<{ className?: string }>) {
   return (

@@ -9,14 +9,14 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
-import { Button } from "@linea/ui/components/button"
+} from "@linealabs/ui/components/empty"
+import { Button } from "@linealabs/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@linea/ui/components/dropdown-menu"
+} from "@linealabs/ui/components/dropdown-menu"
 import { EnvironmentSettings } from "@/components/applications/environment-settings"
 import {
   ApplicationWorkflowCreateButton,
@@ -24,7 +24,7 @@ import {
 } from "@/components/applications/application-workflows"
 import { AddAgentDialog } from "@/components/agents/add-agent-dialog"
 import { ApplicationAgents } from "@/components/agents/application-agents"
-import { cn } from "@linea/ui/lib/utils"
+import { cn } from "@linealabs/ui/lib/utils"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import {

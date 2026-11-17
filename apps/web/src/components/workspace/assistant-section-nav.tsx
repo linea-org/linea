@@ -1,7 +1,7 @@
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { MessagesSquareIcon, PinIcon, SquarePenIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
-} from "@linea/ui/components/sidebar"
+} from "@linealabs/ui/components/sidebar"
 
 import { ConversationHistory } from "../assistant/conversation-history"
 import { ConversationList } from "../assistant/conversation-list"

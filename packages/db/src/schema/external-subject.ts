@@ -1,7 +1,7 @@
 import {
   externalSubjectStatuses,
   type ExternalSubjectMetadata,
-} from "@linea/protocol/resources"
+} from "@linealabs/protocol/resources"
 import {
   check,
   foreignKey,

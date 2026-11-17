@@ -1,7 +1,7 @@
 import { useState } from "react"
 
-import { Button } from "@linea/ui/components/button"
-import { Separator } from "@linea/ui/components/separator"
+import { Button } from "@linealabs/ui/components/button"
+import { Separator } from "@linealabs/ui/components/separator"
 
 import { authClient } from "@/lib/auth-client"
 import { authErrorMessage } from "@/lib/auth-redirect"

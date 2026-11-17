@@ -1,4 +1,4 @@
-import { Separator } from "@linea/ui/components/separator"
+import { Separator } from "@linealabs/ui/components/separator"
 import { ConnectionManagementContext } from "./connection-management-context"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { EnvironmentSummary } from "@/lib/environments-api"

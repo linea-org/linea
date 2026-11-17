@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common'
-import type { WorkspaceKeyScope } from '@linea/protocol/resources'
+import type { WorkspaceKeyScope } from '@linealabs/protocol/resources'
 
 export const WORKSPACE_KEY_SCOPES_KEY = 'workspace_key_scopes'
 

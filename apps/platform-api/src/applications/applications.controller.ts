@@ -11,8 +11,8 @@ import {
   UseGuards,
 } from '@nestjs/common'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
-import { providers } from '@linea/ai'
-import { db, repositories } from '@linea/db'
+import { providers } from '@linealabs/ai'
+import { db, repositories } from '@linealabs/db'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { RequireRole } from '../auth/require-role.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'

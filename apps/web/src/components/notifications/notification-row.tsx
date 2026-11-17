@@ -13,14 +13,14 @@ import {
 } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@linea/ui/components/dropdown-menu"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/dropdown-menu"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import type {
   NotificationSeverity,

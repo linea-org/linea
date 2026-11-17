@@ -27,15 +27,15 @@ import {
   type ListApprovalRequestsQuery,
   type ListPendingActionIntentsQuery,
   type StartEndUserExecution,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import {
   paginationQuerySchema,
   type PaginationQuery,
-} from '@linea/protocol/shared'
+} from '@linealabs/protocol/shared'
 import {
   eventStreamQuerySchema,
   type EventStreamQuery,
-} from '@linea/protocol/events'
+} from '@linealabs/protocol/events'
 import type { Request, Response } from 'express'
 import { CurrentEndUser } from '../end-user-sessions/current-end-user.decorator'
 import {

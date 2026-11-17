@@ -1,7 +1,7 @@
 import { createServer } from "node:http"
 import type { IncomingMessage, ServerResponse } from "node:http"
 import { readFile } from "node:fs/promises"
-import { LineaEnvironmentClient, environmentKey } from "@linea/sdk/server"
+import { LineaEnvironmentClient, environmentKey } from "@linealabs/sdk/server"
 import { createAccessGate, sessionLifetimeMs } from "./access-gate.ts"
 import {
   allowedRepository,

@@ -12,7 +12,7 @@ import { join, resolve } from "node:path"
 import { buildSync } from "esbuild"
 
 const repository = resolve(import.meta.dirname, "../../..")
-const temporary = mkdtempSync(join(tmpdir(), "linea-sdk-react-"))
+const temporary = mkdtempSync(join(tmpdir(), "linealabs-sdk-react-"))
 const pnpmCli = process.env.npm_execpath
 if (!pnpmCli) throw new Error("pnpm executable path is unavailable")
 const pnpmIsJavaScript = /\.(?:c|m)?js$/.test(pnpmCli)
@@ -33,9 +33,9 @@ const consumers = [
 ]
 try {
   for (const packageName of [
-    "@linea/protocol",
-    "@linea/sdk",
-    "@linea/sdk-react",
+    "@linealabs/protocol",
+    "@linealabs/sdk",
+    "@linealabs/sdk-react",
   ]) {
     execFileSync(
       pnpmCommand,
@@ -53,14 +53,15 @@ try {
     file.endsWith(".tgz")
   )
   const protocolArchive = archives.find((file) =>
-    file.startsWith("linea-protocol-")
+    file.startsWith("linealabs-protocol-")
   )
   const sdkArchive = archives.find(
     (file) =>
-      file.startsWith("linea-sdk-") && !file.startsWith("linea-sdk-react-")
+      file.startsWith("linealabs-sdk-") &&
+      !file.startsWith("linealabs-sdk-react-")
   )
   const reactArchive = archives.find((file) =>
-    file.startsWith("linea-sdk-react-")
+    file.startsWith("linealabs-sdk-react-")
   )
   if (!protocolArchive || !sdkArchive || !reactArchive) {
     throw new Error("Packed archives are missing")
@@ -73,14 +74,14 @@ try {
     const packageJson = JSON.parse(
       readFileSync(join(consumerDirectory, "package.json"), "utf8")
     )
-    packageJson.dependencies["@linea/sdk"] =
+    packageJson.dependencies["@linealabs/sdk"] =
       `file:${join(temporary, sdkArchive)}`
-    packageJson.dependencies["@linea/sdk-react"] =
+    packageJson.dependencies["@linealabs/sdk-react"] =
       `file:${join(temporary, reactArchive)}`
     packageJson.pnpm = {
       overrides: {
-        "@linea/protocol": `file:${join(temporary, protocolArchive)}`,
-        "@linea/sdk": `file:${join(temporary, sdkArchive)}`,
+        "@linealabs/protocol": `file:${join(temporary, protocolArchive)}`,
+        "@linealabs/sdk": `file:${join(temporary, sdkArchive)}`,
       },
     }
     writeFileSync(

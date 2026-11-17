@@ -11,7 +11,7 @@ process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:1/body_limit_test'
 process.env.BETTER_AUTH_URL = 'http://localhost:3000'
 process.env.BETTER_AUTH_SECRET = 'request-body-limit-regression-test-secret'
 
-const { auth } = await import('@linea/auth')
+const { auth } = await import('@linealabs/auth')
 
 class EchoController {
   echo(body) {

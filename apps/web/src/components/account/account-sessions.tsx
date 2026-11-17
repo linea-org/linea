@@ -1,10 +1,10 @@
 import { useNavigate } from "@tanstack/react-router"
 import { MonitorIcon, SmartphoneIcon } from "lucide-react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import { authClient } from "../../lib/auth-client"
-import { Badge } from "@linea/ui/components/badge"
-import { Card } from "@linea/ui/components/card"
+import { Badge } from "@linealabs/ui/components/badge"
+import { Card } from "@linealabs/ui/components/card"
 import { ListSkeleton } from "@/components/workspace/list-skeleton"
 
 import { deviceLabel } from "./device-label"

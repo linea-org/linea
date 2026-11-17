@@ -3,7 +3,7 @@ import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import {
   workspaceConnectorAuditQuerySchema,
   type WorkspaceConnectorAuditQuery,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'

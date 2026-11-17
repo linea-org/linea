@@ -13,7 +13,7 @@ import {
   createGithubInstallationConnectionSchema,
   connectionSubjectAuthorizationSchema,
   type CreateGithubInstallationConnection,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
 import { CurrentUserId } from '../auth/current-user-id.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'

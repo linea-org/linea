@@ -1,6 +1,6 @@
 import { createElement, useEffect, useState } from "react"
 
-import { cn } from "@linea/ui/lib/utils"
+import { cn } from "@linealabs/ui/lib/utils"
 
 export const PLAYFUL_AVATAR_COLORS = "#0a0310,#49007e,#ff005b,#ff7d10,#ffb238"
 

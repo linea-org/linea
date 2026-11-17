@@ -1,4 +1,4 @@
-import { db, repositories } from '@linea/db'
+import { db, repositories } from '@linealabs/db'
 import { PublicRuntimeRateLimitException } from '../public-runtime/public-runtime-rate-limit.filter'
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000

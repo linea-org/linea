@@ -1,4 +1,4 @@
-import { environmentKeyScopes } from '@linea/protocol/resources'
+import { environmentKeyScopes } from '@linealabs/protocol/resources'
 import { createEnvironmentKeySchema } from './create-environment-key.dto'
 
 describe('createEnvironmentKeySchema', () => {

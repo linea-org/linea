@@ -5,19 +5,19 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@linea/ui/components/empty"
+} from "@linealabs/ui/components/empty"
 import { useMutation } from "@tanstack/react-query"
 import {
   Accordion,
   AccordionItem,
   AccordionTrigger,
   AccordionContent,
-} from "@linea/ui/components/accordion"
-import { Button } from "@linea/ui/components/button"
-import { Badge } from "@linea/ui/components/badge"
+} from "@linealabs/ui/components/accordion"
+import { Button } from "@linealabs/ui/components/button"
+import { Badge } from "@linealabs/ui/components/badge"
 import { publishAgentVersionFn } from "@/lib/agents-api"
 import type { AgentContract, AgentVersion } from "@/lib/agent-schemas"
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 
 export function AgentVersions({
   agentId,

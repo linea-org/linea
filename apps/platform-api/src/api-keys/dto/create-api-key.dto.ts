@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { workspaceKeyScopeSchema } from '@linea/protocol/resources'
+import { workspaceKeyScopeSchema } from '@linealabs/protocol/resources'
 
 export const createApiKeySchema = z.strictObject({
   name: z.string().min(1).max(200),

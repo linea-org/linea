@@ -15,7 +15,7 @@ import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import {
   createEndUserSessionSchema,
   type CreateEndUserSession,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 import type { Request, Response } from 'express'
 import { PublicRuntimeRateLimitFilter } from '../public-runtime/public-runtime-rate-limit.filter'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'

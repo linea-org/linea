@@ -6,8 +6,8 @@ import {
   AlertAction,
   AlertDescription,
   AlertTitle,
-} from "@linea/ui/components/alert"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/alert"
+import { cn } from "@linealabs/ui/lib/utils"
 
 type ErrorCalloutProps = {
   title: string

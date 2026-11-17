@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto"
 import { Injectable, Logger } from "@nestjs/common"
-import { db, repositories, type Execution } from "@linea/db"
+import { db, repositories, type Execution } from "@linealabs/db"
 import {
   validateGraphStructure,
   workflowGraphSchema,
   type WorkflowGraph,
-} from "@linea/runtime"
+} from "@linealabs/runtime"
 import {
   CheckpointsService,
   LeaseLostError,

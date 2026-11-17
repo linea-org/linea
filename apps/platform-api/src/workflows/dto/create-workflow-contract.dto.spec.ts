@@ -68,7 +68,7 @@ it('bounds hostile matching and strict overlap checks in a killable process', ()
       '-e',
       `
     import { strict as assert } from 'node:assert';
-    const { compileContractSchema: compile } = await import('@linea/protocol/json-schema');
+    const { compileContractSchema: compile } = await import('@linealabs/protocol/json-schema');
     const hostile = 'a'.repeat(100_000) + '!';
     for (const pattern of ['^(a+)+$', '^(a|aa)+$']) {
       assert.equal(compile({ type: 'string', pattern })(hostile), false);

@@ -3,7 +3,7 @@ import type {
   ConversationProjection,
   CreateMessage,
   MessageProjection,
-} from "@linea/sdk/user"
+} from "@linealabs/sdk/user"
 import { useLineaUserClient } from "../provider/linea-user-provider.js"
 
 export type ConversationState = {

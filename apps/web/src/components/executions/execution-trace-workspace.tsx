@@ -6,22 +6,22 @@ import {
   useNavigate,
 } from "@tanstack/react-router"
 import { z } from "zod"
-import { Button, buttonVariants } from "@linea/ui/components/button"
-import { Input } from "@linea/ui/components/input"
+import { Button, buttonVariants } from "@linealabs/ui/components/button"
+import { Input } from "@linealabs/ui/components/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 import type { ExecutionDetailResponse } from "@/lib/executions-api"
 import { ExecutionGanttChart } from "./execution-gantt-chart"
 import { ExecutionStepDetails } from "./execution-step-details"
 import { attachResumeMarkers } from "./execution-step-order"
 import { stepTitle } from "./execution-step-presentation"
 import { filterTraceSteps, pickSelectedStep } from "./filter-trace-steps"
-import { Empty, EmptyHeader, EmptyTitle } from "@linea/ui/components/empty"
+import { Empty, EmptyHeader, EmptyTitle } from "@linealabs/ui/components/empty"
 
 const statusFilterSchema = z.enum([
   "all",

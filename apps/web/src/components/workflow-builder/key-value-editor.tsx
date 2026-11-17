@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import { PlusIcon, XIcon } from "lucide-react"
-import { Button } from "@linea/ui/components/button"
-import { Input } from "@linea/ui/components/input"
+import { Button } from "@linealabs/ui/components/button"
+import { Input } from "@linealabs/ui/components/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
-import { Textarea } from "@linea/ui/components/textarea"
+} from "@linealabs/ui/components/select"
+import { Textarea } from "@linealabs/ui/components/textarea"
 
 type ValueKind = "text" | "number" | "boolean" | "json"
 

@@ -3,14 +3,14 @@ import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { ChevronsDownIcon, ChevronsUpIcon } from "lucide-react"
 
-import { Button, buttonVariants } from "@linea/ui/components/button"
+import { Button, buttonVariants } from "@linealabs/ui/components/button"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@linea/ui/components/sheet"
+} from "@linealabs/ui/components/sheet"
 import { ExecutionStepDetails } from "../executions/execution-step-details"
 import { attachResumeMarkers } from "../executions/execution-step-order"
 import {
@@ -19,8 +19,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/select"
+import { cn } from "@linealabs/ui/lib/utils"
 import {
   ExecutionGanttChart,
   ExecutionStatusBadge,

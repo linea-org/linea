@@ -1,11 +1,11 @@
 import type {
   ApprovalDecision as DbApprovalDecision,
   ApprovalRequest as DbApprovalRequest,
-} from '@linea/db'
+} from '@linealabs/db'
 import {
   approvalDecisionSchema,
   approvalRequestSchema,
-} from '@linea/protocol/resources'
+} from '@linealabs/protocol/resources'
 
 export function approvalDecisionProjection(decision: DbApprovalDecision) {
   return approvalDecisionSchema.parse({

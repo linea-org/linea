@@ -6,7 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { db, repositories, type Execution } from '@linea/db'
+import { db, repositories, type Execution } from '@linealabs/db'
 import type {
   CreateEnvironmentConversation,
   CreateEndUserConversation,
@@ -16,11 +16,14 @@ import type {
   ListPendingActionIntentsQuery,
   StartEnvironmentExecution,
   StartEndUserExecution,
-} from '@linea/protocol/resources'
-import { publicErrorStatuses } from '@linea/protocol/errors'
-import { jsonValueSchema, type PaginationQuery } from '@linea/protocol/shared'
-import { workflowGraphSchema } from '@linea/runtime'
-import { compileContractSchema } from '@linea/protocol/json-schema'
+} from '@linealabs/protocol/resources'
+import { publicErrorStatuses } from '@linealabs/protocol/errors'
+import {
+  jsonValueSchema,
+  type PaginationQuery,
+} from '@linealabs/protocol/shared'
+import { workflowGraphSchema } from '@linealabs/runtime'
+import { compileContractSchema } from '@linealabs/protocol/json-schema'
 import type { EnvironmentPrincipal } from '../auth/environment-key.guard'
 import { publicError } from '../auth/public-error'
 import type { EndUserPrincipal } from '../end-user-sessions/end-user-session.guard'

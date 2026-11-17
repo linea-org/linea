@@ -9,15 +9,15 @@ import {
 import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@linea/ui/components/dropdown-menu"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/dropdown-menu"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { authClient } from "@/lib/auth-client"
 import { getAppOrigin } from "@/lib/workspace-host"

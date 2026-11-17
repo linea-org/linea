@@ -4,21 +4,21 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { MoreHorizontalIcon, PencilIcon } from "lucide-react"
 import { z } from "zod"
-import { Button, buttonVariants } from "@linea/ui/components/button"
+import { Button, buttonVariants } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@linea/ui/components/dialog"
-import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
+} from "@linealabs/ui/components/dialog"
+import { Field, FieldError, FieldLabel } from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@linea/ui/components/popover"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/popover"
+import { cn } from "@linealabs/ui/lib/utils"
 import {
   applicationsQueryOptions,
   createApplicationInputSchema,

@@ -1,6 +1,6 @@
 import { Controller, type Control } from "react-hook-form"
 
-import { Field, FieldError, FieldLabel } from "@linea/ui/components/field"
+import { Field, FieldError, FieldLabel } from "@linealabs/ui/components/field"
 import {
   Select,
   SelectContent,
@@ -9,7 +9,7 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
+} from "@linealabs/ui/components/select"
 
 import type { ModelSetup } from "@/lib/model-settings-api"
 

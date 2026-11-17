@@ -1,9 +1,9 @@
 import 'dotenv/config'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { BadRequestException, NotFoundException } from '@nestjs/common'
-import { registry } from '@linea/ai'
-import { db, encryptSecret, pool, repositories, schema } from '@linea/db'
-import { getTestApplicationId } from '@linea/db/testing'
+import { registry } from '@linealabs/ai'
+import { db, encryptSecret, pool, repositories, schema } from '@linealabs/db'
+import { getTestApplicationId } from '@linealabs/db/testing'
 import { buildModelCatalog } from './model-catalog'
 import { ModelSettingsService } from './model-settings.service'
 

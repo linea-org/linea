@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common"
-import { nodeRegistry } from "@linea/runtime"
+import { nodeRegistry } from "@linealabs/runtime"
 import type { NodeHandler } from "./node-handler.interface"
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

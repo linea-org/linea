@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { db, repositories } from '@linea/db'
+import { db, repositories } from '@linealabs/db'
 import type { ListNotificationsDto } from './dto/list-notifications.dto'
 
 @Injectable()

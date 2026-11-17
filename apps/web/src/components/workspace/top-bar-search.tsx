@@ -1,7 +1,7 @@
 import { CommandIcon, SearchIcon } from "lucide-react"
 
-import { Button } from "@linea/ui/components/button"
-import { Kbd, KbdGroup } from "@linea/ui/components/kbd"
+import { Button } from "@linealabs/ui/components/button"
+import { Kbd, KbdGroup } from "@linealabs/ui/components/kbd"
 
 import { useOpenCommandPalette } from "./command-palette-context"
 

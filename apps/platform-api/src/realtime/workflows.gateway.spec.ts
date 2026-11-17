@@ -1,7 +1,7 @@
 import { type INestApplication, Logger, Module } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { IoAdapter } from '@nestjs/platform-socket.io'
-import { repositories } from '@linea/db'
+import { repositories } from '@linealabs/db'
 import { io, type Socket } from 'socket.io-client'
 import {
   RealtimeTokenService,
@@ -9,7 +9,7 @@ import {
 } from './realtime-token.service'
 import { WorkflowsGateway } from './workflows.gateway'
 
-jest.mock('@linea/db', () => ({
+jest.mock('@linealabs/db', () => ({
   db: {},
   repositories: {
     builderSocketAccess: { getBuilderSocketSessionExpiry: jest.fn() },

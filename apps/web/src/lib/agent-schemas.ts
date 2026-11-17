@@ -1,6 +1,6 @@
 import { z } from "zod"
-import { agentDefinitionSchema } from "@linea/runtime/browser"
-import { jsonSchemaDocumentSchema } from "@linea/protocol/resources"
+import { agentDefinitionSchema } from "@linealabs/runtime/browser"
+import { jsonSchemaDocumentSchema } from "@linealabs/protocol/resources"
 
 export const agentSchema = z.object({
   id: z.uuid(),

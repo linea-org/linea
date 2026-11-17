@@ -1,5 +1,5 @@
-import { configureTestEnvironment } from "@linea/db/testing"
-import { getTestApplicationId } from "@linea/db/testing"
+import { configureTestEnvironment } from "@linealabs/db/testing"
+import { getTestApplicationId } from "@linealabs/db/testing"
 import "dotenv/config"
 import { randomBytes, randomUUID } from "node:crypto"
 import {
@@ -7,7 +7,7 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http"
-import { db, encryptSecret, pool, repositories, schema } from "@linea/db"
+import { db, encryptSecret, pool, repositories, schema } from "@linealabs/db"
 import { WebhookDeliveryService } from "./webhook-delivery.service"
 import { signWebhook } from "./webhook-signature"
 import {
@@ -15,10 +15,11 @@ import {
   createWebhookDeliveryQueue,
   enqueueWebhookDelivery,
   withWebhookAdmission,
-} from "@linea/queue"
+} from "@linealabs/queue"
 
-jest.mock("@linea/db", () => {
-  const actual = jest.requireActual<typeof import("@linea/db")>("@linea/db")
+jest.mock("@linealabs/db", () => {
+  const actual =
+    jest.requireActual<typeof import("@linealabs/db")>("@linealabs/db")
   return {
     ...actual,
     repositories: {
@@ -164,7 +165,7 @@ describe("WebhookDeliveryService", () => {
       })
       if (phase === "delayed claim") {
         const begin =
-          jest.requireActual<typeof import("@linea/db")>("@linea/db")
+          jest.requireActual<typeof import("@linealabs/db")>("@linealabs/db")
             .repositories.webhookDelivery.beginWebhookDelivery
         jest
           .spyOn(repositories.webhookDelivery, "beginWebhookDelivery")

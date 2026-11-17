@@ -12,7 +12,7 @@ import { join, resolve } from "node:path"
 import { buildSync } from "esbuild"
 
 const repository = resolve(import.meta.dirname, "../../..")
-const temporary = mkdtempSync(join(tmpdir(), "linea-sdk-browser-"))
+const temporary = mkdtempSync(join(tmpdir(), "linealabs-sdk-browser-"))
 const pnpmCli = process.env.npm_execpath
 if (!pnpmCli) throw new Error("pnpm executable path is unavailable")
 const pnpmIsJavaScript = /\.(?:c|m)?js$/.test(pnpmCli)
@@ -24,7 +24,7 @@ try {
     pnpmCommand,
     pnpmArguments([
       "--filter",
-      "@linea/protocol",
+      "@linealabs/protocol",
       "pack",
       "--pack-destination",
       temporary,
@@ -35,7 +35,7 @@ try {
     pnpmCommand,
     pnpmArguments([
       "--filter",
-      "@linea/sdk",
+      "@linealabs/sdk",
       "pack",
       "--pack-destination",
       temporary,
@@ -46,9 +46,9 @@ try {
     file.endsWith(".tgz")
   )
   const protocolArchive = archives.find((file) =>
-    file.startsWith("linea-protocol-")
+    file.startsWith("linealabs-protocol-")
   )
-  const sdkArchive = archives.find((file) => file.startsWith("linea-sdk-"))
+  const sdkArchive = archives.find((file) => file.startsWith("linealabs-sdk-"))
   if (!protocolArchive || !sdkArchive)
     throw new Error("Packed archives are missing")
   cpSync(resolve(repository, "examples/sdk-browser"), temporary, {
@@ -57,10 +57,11 @@ try {
   const packageJson = JSON.parse(
     readFileSync(join(temporary, "package.json"), "utf8")
   )
-  packageJson.dependencies["@linea/sdk"] = `file:${join(temporary, sdkArchive)}`
+  packageJson.dependencies["@linealabs/sdk"] =
+    `file:${join(temporary, sdkArchive)}`
   packageJson.pnpm = {
     overrides: {
-      "@linea/protocol": `file:${join(temporary, protocolArchive)}`,
+      "@linealabs/protocol": `file:${join(temporary, protocolArchive)}`,
     },
   }
   writeFileSync(

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import type { ApprovalRequestDisplay } from "@linea/db"
+import type { ApprovalRequestDisplay } from "@linealabs/db"
 
 const safeDisplaySchema = z.strictObject({
   title: z.string().min(1).max(200),

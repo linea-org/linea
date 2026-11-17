@@ -1,8 +1,8 @@
-import { PermanentRequestError, requestPublic } from "@linea/http"
+import { PermanentRequestError, requestPublic } from "@linealabs/http"
 import { HttpNode } from "./http.node"
 import { NonRetryableError } from "./non-retryable-error"
 
-jest.mock("@linea/http", () => ({
+jest.mock("@linealabs/http", () => ({
   requestPublic: jest.fn(),
   PermanentRequestError: class extends Error {},
 }))

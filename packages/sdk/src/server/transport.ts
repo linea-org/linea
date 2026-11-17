@@ -1,5 +1,5 @@
-import { publicErrorResponseSchema } from "@linea/protocol/errors"
-import type { OperationDefinition } from "@linea/protocol/operations"
+import { publicErrorResponseSchema } from "@linealabs/protocol/errors"
+import type { OperationDefinition } from "@linealabs/protocol/operations"
 import {
   LineaApiError,
   LineaNetworkError,

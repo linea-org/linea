@@ -2,16 +2,16 @@ import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { z } from "zod"
 
-import { Alert, AlertDescription } from "@linea/ui/components/alert"
-import { Button } from "@linea/ui/components/button"
+import { Alert, AlertDescription } from "@linealabs/ui/components/alert"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Field,
   FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
-} from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
+} from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
 
 import { createOrganization, setActiveOrganization } from "@/lib/auth-queries"
 import { authErrorMessage, slugify } from "@/lib/auth-redirect"

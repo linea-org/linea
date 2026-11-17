@@ -6,8 +6,8 @@ import {
   type ExecutionContext,
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
-import { db, pool, repositories, schema } from '@linea/db'
-import type { WorkspaceKeyScope } from '@linea/protocol/resources'
+import { db, pool, repositories, schema } from '@linealabs/db'
+import type { WorkspaceKeyScope } from '@linealabs/protocol/resources'
 import { generateApiKey } from './api-key.util'
 import { RequireWorkspaceKeyScopes } from './require-workspace-key-scopes.decorator'
 import {

@@ -1,5 +1,5 @@
 import { PublishTemplateDialog } from "@/components/templates/publish-template-dialog"
-import { Spinner } from "@linea/ui/components/spinner"
+import { Spinner } from "@linealabs/ui/components/spinner"
 import { ToolbarIconButton } from "./toolbar-icon-button"
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react"
 import {
@@ -28,21 +28,21 @@ import {
   nodeRegistry,
   type NodeTypeId,
   type WorkflowGraph,
-} from "@linea/runtime/browser"
-import { Button } from "@linea/ui/components/button"
+} from "@linealabs/runtime/browser"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@linea/ui/components/dialog"
-import { Textarea } from "@linea/ui/components/textarea"
+} from "@linealabs/ui/components/dialog"
+import { Textarea } from "@linealabs/ui/components/textarea"
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from "@linea/ui/components/resizable"
+} from "@linealabs/ui/components/resizable"
 import { useCanGoBack, useNavigate, useRouter } from "@tanstack/react-router"
 import {
   ArrowLeftIcon,
@@ -55,14 +55,14 @@ import {
   WandSparklesIcon,
   Undo2Icon,
 } from "lucide-react"
-import { cn } from "@linea/ui/lib/utils"
+import { cn } from "@linealabs/ui/lib/utils"
 import { UserAvatar } from "../account"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@linea/ui/components/tooltip"
+} from "@linealabs/ui/components/tooltip"
 import { ASSISTANT_NAME } from "@/lib/assistant-api"
 import { authClient } from "@/lib/auth-client"
 import { modelSettingsQueryOptions } from "@/lib/model-settings-api"

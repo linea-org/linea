@@ -8,10 +8,10 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@linea/ui/components/tooltip"
+} from "@linealabs/ui/components/tooltip"
 import { z } from "zod"
 
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
@@ -19,22 +19,22 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@linea/ui/components/dialog"
+} from "@linealabs/ui/components/dialog"
 import {
   Field,
   FieldError,
   FieldGroup,
   FieldLabel,
-} from "@linea/ui/components/field"
-import { Input } from "@linea/ui/components/input"
+} from "@linealabs/ui/components/field"
+import { Input } from "@linealabs/ui/components/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@linea/ui/components/select"
-import { Textarea } from "@linea/ui/components/textarea"
+} from "@linealabs/ui/components/select"
+import { Textarea } from "@linealabs/ui/components/textarea"
 
 import { publishTemplateFn, sharedTemplatesKey } from "@/lib/templates-api"
 

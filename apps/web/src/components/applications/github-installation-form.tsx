@@ -4,7 +4,7 @@ import {
 } from "./github-installation-fields"
 import { useForm } from "react-hook-form"
 import { useState } from "react"
-import { Button } from "@linea/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import { createGithubInstallationFn } from "@/lib/shared-connections-api"
 export function GithubInstallationForm({
   environmentId,

@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common'
-import { db, repositories } from '@linea/db'
+import { db, repositories } from '@linealabs/db'
 import type { AppealTemplateDto } from '../moderation/dto/moderation.dto'
 import { appealTypeDefinition } from './template-appeal-types'
 

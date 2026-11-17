@@ -2,22 +2,22 @@ import { useNavigate } from "@tanstack/react-router"
 import { CheckIcon, ChevronsUpDownIcon, PlusIcon } from "lucide-react"
 import { useState } from "react"
 
-import { isPersonalWorkspace } from "@linea/auth/personal-workspace"
-import { Badge } from "@linea/ui/components/badge"
-import { buttonVariants } from "@linea/ui/components/button"
+import { isPersonalWorkspace } from "@linealabs/auth/personal-workspace"
+import { Badge } from "@linealabs/ui/components/badge"
+import { buttonVariants } from "@linealabs/ui/components/button"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@linea/ui/components/dialog"
+} from "@linealabs/ui/components/dialog"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@linea/ui/components/popover"
-import { useSidebar } from "@linea/ui/components/sidebar"
-import { cn } from "@linea/ui/lib/utils"
+} from "@linealabs/ui/components/popover"
+import { useSidebar } from "@linealabs/ui/components/sidebar"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import { setActiveOrganization } from "@/lib/auth-queries"

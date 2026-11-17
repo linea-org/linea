@@ -1,5 +1,5 @@
 import type { SignalSummary } from "@/lib/signals-api"
-import { Card } from "@linea/ui/components/card"
+import { Card } from "@linealabs/ui/components/card"
 
 function StatCell({
   label,

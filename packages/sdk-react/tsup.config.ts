@@ -11,8 +11,8 @@ export default defineConfig({
   external: [
     "react",
     "react/jsx-runtime",
-    "@linea/protocol",
-    "@linea/sdk/user",
+    "@linealabs/protocol",
+    "@linealabs/sdk/user",
     "@copilotkit/react-core/v2",
     "zod",
   ],

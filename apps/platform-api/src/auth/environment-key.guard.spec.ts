@@ -1,10 +1,10 @@
-import { configureTestEnvironment } from '@linea/db/testing'
-import { getTestApplicationId } from '@linea/db/testing'
+import { configureTestEnvironment } from '@linealabs/db/testing'
+import { getTestApplicationId } from '@linealabs/db/testing'
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { HttpException, type ExecutionContext } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
-import { db, pool, repositories, schema } from '@linea/db'
+import { db, pool, repositories, schema } from '@linealabs/db'
 import { generateApiKey, generateEnvironmentKey } from './api-key.util'
 import {
   EnvironmentKeyGuard,

@@ -7,7 +7,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
-import type { workspaceKeyScopes } from "@linea/protocol/resources"
+import type { workspaceKeyScopes } from "@linealabs/protocol/resources"
 import { organizations } from "./organisation.js"
 import { users } from "./user.js"
 

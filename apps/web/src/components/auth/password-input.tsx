@@ -1,8 +1,8 @@
 import { useState, type ComponentProps } from "react"
 import { EyeIcon, EyeOffIcon } from "lucide-react"
-import { Button } from "@linea/ui/components/button"
-import { Input } from "@linea/ui/components/input"
-import { cn } from "@linea/ui/lib/utils"
+import { Button } from "@linealabs/ui/components/button"
+import { Input } from "@linealabs/ui/components/input"
+import { cn } from "@linealabs/ui/lib/utils"
 
 export function PasswordInput({
   className,
