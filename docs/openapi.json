@@ -848,9 +848,9 @@
         "x-linea-idempotency": "None.",
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
-          "client": "LineaWorkspaceClient",
+          "client": "Linea",
           "importPath": "@linea/sdk/server",
-          "method": "listAuditEvents"
+          "method": "auditEvents.list"
         }
       }
     },
@@ -14071,9 +14071,9 @@
         "x-linea-idempotency": "None.",
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
-          "client": "LineaWorkspaceClient",
+          "client": "Linea",
           "importPath": "@linea/sdk/server",
-          "method": "listRegressionCases"
+          "method": "regressions.listCases"
         }
       }
     },
@@ -15131,9 +15131,9 @@
         "x-linea-idempotency": "None.",
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
-          "client": "LineaWorkspaceClient",
+          "client": "Linea",
           "importPath": "@linea/sdk/server",
-          "method": "listRegressionRuns"
+          "method": "regressions.listRuns"
         }
       },
       "post": {
@@ -15636,9 +15636,9 @@
         "x-linea-idempotency": "None.",
         "x-linea-rate-limit": "No operation-specific limit; platform protections apply.",
         "x-linea-sdk": {
-          "client": "LineaWorkspaceClient",
+          "client": "Linea",
           "importPath": "@linea/sdk/server",
-          "method": "getRegressionRun"
+          "method": "regressions.getRun"
         }
       }
     }

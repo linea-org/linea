@@ -3,7 +3,7 @@ import { LineaApiError, LineaNetworkError } from "./errors.js"
 export type RequestConfig = {
   baseUrl: string
   apiKey: string
-  method: "GET" | "POST"
+  method: "GET" | "POST" | "PATCH" | "PUT"
   path: string
   query?: Record<string, string | undefined>
   body?: unknown
@@ -51,7 +51,7 @@ function extractErrorMessage(body: unknown, statusText: string): string {
 }
 
 /**
- * The one place every `LineaClient` method routes through. Deliberately has no retry/backoff —
+ * The one place every `Linea` resource method routes through. Deliberately has no retry/backoff —
  * the platform API has no server-side rate limiting to protect against, but retrying a
  * non-idempotent call like `POST /v1/triggers/:slug` on a transient 5xx risks a duplicate execution,
  * which is a bigger decision than a v0 client should make silently. Callers who want retries

@@ -3,16 +3,9 @@ export {
   type IdempotencyOptions,
   type LineaEnvironmentClientOptions,
 } from "./environment-client.js"
-export {
-  environmentKey,
-  workspaceKey,
-  type EnvironmentKey,
-  type WorkspaceKey,
-} from "./credentials.js"
-export {
-  LineaWorkspaceClient,
-  type LineaWorkspaceClientOptions,
-} from "./workspace-client.js"
+export { environmentKey, type EnvironmentKey } from "./credentials.js"
+export { Linea, type LineaOptions } from "../linea.js"
+export type { WaitOptions } from "../wait-until-finished.js"
 export type {
   OperatorConnectorAuditEvent,
   WorkspaceConnectorAuditQuery,

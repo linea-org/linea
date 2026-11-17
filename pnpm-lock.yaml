@@ -849,6 +849,9 @@ importers:
       '@linea/config':
         specifier: workspace:*
         version: link:../config
+      '@linea/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@types/node':
         specifier: '22'
         version: 22.19.19
@@ -13866,9 +13869,7 @@ snapshots:
       metro-runtime: 0.84.6
     transitivePeerDependencies:
       - '@babel/core'
-      - bufferutil
       - supports-color
-      - utf-8-validate
     optional: true
 
   '@react-native/normalize-colors@0.74.89':

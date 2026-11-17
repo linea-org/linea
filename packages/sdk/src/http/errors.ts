@@ -63,3 +63,18 @@ export class LineaProtocolError extends Error {
     this.cause = params.cause
   }
 }
+
+/** Thrown by `executions.wait` when the execution is still unfinished at the deadline. */
+export class LineaTimeoutError extends Error {
+  readonly executionId: string
+  readonly status: string
+
+  constructor(params: { executionId: string; status: string }) {
+    super(
+      `Execution ${params.executionId} was still ${params.status} when the wait timed out`
+    )
+    this.name = "LineaTimeoutError"
+    this.executionId = params.executionId
+    this.status = params.status
+  }
+}

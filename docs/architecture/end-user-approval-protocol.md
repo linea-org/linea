@@ -764,9 +764,9 @@ The REST protocol is canonical. SDKs improve ergonomics but do not own semantics
 
 - Exports `LineaApplicationClient` for one Application-bound key.
 - `LineaApplicationClient` provisions subjects, manages Conversations, starts/reads/cancels Executions, and observes events and webhook delivery for its Application.
-- Exports `LineaWorkspaceClient` for workspace-bound Workflow, Signal, and cross-Application monitoring operations.
+- Exports `Linea` for workspace-bound Workflow, Execution, Signal, and cross-Application monitoring operations.
 - Neither client changes Application trust configuration or resolves external-subject approvals.
-- The credential kind and resource boundary are explicit at construction; a workspace key cannot initialize `LineaApplicationClient`, and an Application key cannot initialize `LineaWorkspaceClient`.
+- The credential kind and resource boundary are explicit at construction; a workspace key cannot initialize `LineaApplicationClient`, and an Environment key cannot initialize `Linea`.
 
 ### `@linea/sdk/user`
 
