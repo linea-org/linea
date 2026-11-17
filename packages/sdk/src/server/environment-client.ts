@@ -23,11 +23,10 @@ import type {
   PaginationQuery,
 } from "@linealabs/protocol/shared"
 import type { WebhookDelivery } from "@linealabs/protocol/webhooks"
+import { resolveBaseUrl } from "../http/base-url.js"
 import { waitUntilFinished, type WaitOptions } from "../wait-until-finished.js"
 import type { EnvironmentKey } from "./credentials.js"
 import { ServerTransport } from "./transport.js"
-
-const defaultBaseUrl = "http://localhost:3000"
 
 export type LineaEnvironmentClientOptions = {
   environmentId: string
@@ -50,7 +49,7 @@ export class LineaEnvironmentClient {
   constructor(options: LineaEnvironmentClientOptions) {
     this.environmentId = options.environmentId
     this.transport = new ServerTransport(
-      options.baseUrl ?? defaultBaseUrl,
+      resolveBaseUrl(options.baseUrl),
       options.environmentKey.value
     )
   }

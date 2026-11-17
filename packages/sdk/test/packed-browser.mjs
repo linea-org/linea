@@ -24,17 +24,6 @@ try {
     pnpmCommand,
     pnpmArguments([
       "--filter",
-      "@linealabs/protocol",
-      "pack",
-      "--pack-destination",
-      temporary,
-    ]),
-    { cwd: repository, stdio: "inherit" }
-  )
-  execFileSync(
-    pnpmCommand,
-    pnpmArguments([
-      "--filter",
       "@linealabs/sdk",
       "pack",
       "--pack-destination",
@@ -45,12 +34,8 @@ try {
   const archives = readdirSync(temporary).filter((file) =>
     file.endsWith(".tgz")
   )
-  const protocolArchive = archives.find((file) =>
-    file.startsWith("linealabs-protocol-")
-  )
   const sdkArchive = archives.find((file) => file.startsWith("linealabs-sdk-"))
-  if (!protocolArchive || !sdkArchive)
-    throw new Error("Packed archives are missing")
+  if (!sdkArchive) throw new Error("Packed archives are missing")
   cpSync(resolve(repository, "examples/sdk-browser"), temporary, {
     recursive: true,
   })
@@ -59,11 +44,6 @@ try {
   )
   packageJson.dependencies["@linealabs/sdk"] =
     `file:${join(temporary, sdkArchive)}`
-  packageJson.pnpm = {
-    overrides: {
-      "@linealabs/protocol": `file:${join(temporary, protocolArchive)}`,
-    },
-  }
   writeFileSync(
     join(temporary, "package.json"),
     JSON.stringify(packageJson, null, 2)
