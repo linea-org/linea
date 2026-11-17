@@ -32,11 +32,7 @@ const consumers = [
   },
 ]
 try {
-  for (const packageName of [
-    "@linealabs/protocol",
-    "@linealabs/sdk",
-    "@linealabs/sdk-react",
-  ]) {
+  for (const packageName of ["@linealabs/sdk", "@linealabs/sdk-react"]) {
     execFileSync(
       pnpmCommand,
       pnpmArguments([
@@ -52,9 +48,6 @@ try {
   const archives = readdirSync(temporary).filter((file) =>
     file.endsWith(".tgz")
   )
-  const protocolArchive = archives.find((file) =>
-    file.startsWith("linealabs-protocol-")
-  )
   const sdkArchive = archives.find(
     (file) =>
       file.startsWith("linealabs-sdk-") &&
@@ -63,7 +56,7 @@ try {
   const reactArchive = archives.find((file) =>
     file.startsWith("linealabs-sdk-react-")
   )
-  if (!protocolArchive || !sdkArchive || !reactArchive) {
+  if (!sdkArchive || !reactArchive) {
     throw new Error("Packed archives are missing")
   }
   for (const consumer of consumers) {
@@ -80,7 +73,6 @@ try {
       `file:${join(temporary, reactArchive)}`
     packageJson.pnpm = {
       overrides: {
-        "@linealabs/protocol": `file:${join(temporary, protocolArchive)}`,
         "@linealabs/sdk": `file:${join(temporary, sdkArchive)}`,
       },
     }

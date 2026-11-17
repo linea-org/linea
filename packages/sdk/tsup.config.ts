@@ -8,10 +8,17 @@ export default defineConfig({
     server: "src/server.ts",
   },
   format: ["esm", "cjs"],
-  dts: true,
+  dts: {
+    resolve: [/^@linealabs\/protocol/],
+    compilerOptions: {
+      paths: { "@linealabs/protocol/*": ["../protocol/src/*.ts"] },
+    },
+  },
   clean: true,
   sourcemap: true,
   target: "es2022",
   platform: "neutral",
-  external: ["@linealabs/protocol"],
+  // @linealabs/protocol stays private; bundling it keeps its native re2 dependency
+  // off users' machines.
+  noExternal: ["@linealabs/protocol"],
 })

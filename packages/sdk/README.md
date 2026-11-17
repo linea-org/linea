@@ -7,6 +7,15 @@ Typed clients for Linea's public `/v1` protocol:
 - `@linealabs/sdk/user` is the browser, edge and native End-User client.
 - `@linealabs/sdk/webhooks` verifies webhook deliveries.
 
+```sh
+npm install @linealabs/sdk
+```
+
+Every client talks to `https://api.getlinea.app` unless you pass `baseUrl`.
+Set it to reach a local or self-hosted API. It must use `https`; plain `http`
+is accepted only for `localhost`, so keys and session proofs never travel
+unencrypted.
+
 ## ⚠️ The root entry point is server-side only
 
 An API key is a bearer credential scoped to your **entire workspace**, with
@@ -24,10 +33,7 @@ runtimes, and React Native. It never accepts an API key.
 ```ts
 import { LineaUserClient } from "@linealabs/sdk/user"
 
-const client = new LineaUserClient({
-  environmentId: "env_123",
-  baseUrl: "https://api.linea.example",
-})
+const client = new LineaUserClient({ environmentId: "env_123" })
 
 const authorization = await client.startAuthorization({
   redirectUri: `${location.origin}/oidc/callback`,
@@ -105,10 +111,10 @@ workspace or loses the admin role.
 ```ts
 import { Linea } from "@linealabs/sdk"
 
-const linea = new Linea({
-  apiKey: process.env.LINEA_API_KEY!,
-  baseUrl: "http://localhost:3000", // API origin; the SDK adds /v1
-})
+const linea = new Linea({ apiKey: process.env.LINEA_API_KEY! })
+
+// Against a local API instead:
+// new Linea({ apiKey, baseUrl: "http://localhost:3000" })
 ```
 
 Methods are grouped by resource: `linea.workflows`, `linea.executions`,

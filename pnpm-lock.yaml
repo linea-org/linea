@@ -854,13 +854,16 @@ importers:
 
   packages/sdk:
     dependencies:
-      '@linealabs/protocol':
-        specifier: workspace:*
-        version: link:../protocol
+      zod:
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@linealabs/config':
         specifier: workspace:*
         version: link:../config
+      '@linealabs/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@linealabs/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -885,11 +888,8 @@ importers:
 
   packages/sdk-react:
     dependencies:
-      '@linealabs/protocol':
-        specifier: workspace:*
-        version: link:../protocol
       '@linealabs/sdk':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../sdk
     devDependencies:
       '@copilotkit/react-core':
@@ -898,6 +898,9 @@ importers:
       '@linealabs/config':
         specifier: workspace:*
         version: link:../config
+      '@linealabs/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@testing-library/dom':
         specifier: ^10.4.1
         version: 10.4.2

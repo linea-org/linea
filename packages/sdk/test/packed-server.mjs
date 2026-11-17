@@ -12,7 +12,7 @@ const pnpmCommand = pnpmIsJavaScript ? process.execPath : pnpmCli
 const pnpmArguments = (arguments_) =>
   pnpmIsJavaScript ? [pnpmCli, ...arguments_] : arguments_
 try {
-  for (const packageName of ["@linealabs/protocol", "@linealabs/sdk"]) {
+  for (const packageName of ["@linealabs/sdk"]) {
     execFileSync(
       pnpmCommand,
       pnpmArguments([
@@ -28,25 +28,15 @@ try {
   const archives = readdirSync(temporary).filter((file) =>
     file.endsWith(".tgz")
   )
-  const protocolArchive = archives.find((file) =>
-    file.startsWith("linealabs-protocol-")
-  )
   const sdkArchive = archives.find((file) => file.startsWith("linealabs-sdk-"))
-  if (!protocolArchive || !sdkArchive)
-    throw new Error("Packed archives are missing")
+  if (!sdkArchive) throw new Error("Packed archives are missing")
   writeFileSync(
     join(temporary, "package.json"),
     JSON.stringify({
       private: true,
       type: "module",
       dependencies: {
-        "@linealabs/protocol": `file:${join(temporary, protocolArchive)}`,
         "@linealabs/sdk": `file:${join(temporary, sdkArchive)}`,
-      },
-      pnpm: {
-        overrides: {
-          "@linealabs/protocol": `file:${join(temporary, protocolArchive)}`,
-        },
       },
     })
   )
