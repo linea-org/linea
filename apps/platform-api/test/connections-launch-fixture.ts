@@ -1,5 +1,7 @@
-import { configureTestEnvironment } from '@linealabs/db/testing'
-import { getTestApplicationId } from '@linealabs/db/testing'
+import {
+  configureTestEnvironment,
+  getTestApplicationId,
+} from '@linealabs/db/testing'
 import { createHash, randomUUID } from 'node:crypto'
 import { googleAuthorizationScopes } from '@linealabs/connectors'
 import { db, repositories, schema } from '@linealabs/db'

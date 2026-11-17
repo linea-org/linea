@@ -3,8 +3,8 @@ import {
   nodeRegistry,
   retryPolicySchema,
   type NodeTypeId,
+  type NodeUIField,
 } from "@linealabs/runtime/browser"
-import type { NodeUIField } from "@linealabs/runtime/browser"
 import { InfoIcon, XIcon } from "lucide-react"
 import { Button } from "@linealabs/ui/components/button"
 import {

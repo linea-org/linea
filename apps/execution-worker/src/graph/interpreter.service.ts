@@ -12,12 +12,10 @@ import {
   retryPolicySchema,
   walk,
   type RetryPolicy,
-} from "@linealabs/runtime"
-import type {
-  StepResult,
-  WalkResult,
-  WorkflowGraph,
-  WorkflowNode,
+  type StepResult,
+  type WalkResult,
+  type WorkflowGraph,
+  type WorkflowNode,
 } from "@linealabs/runtime"
 import {
   CheckpointsService,
