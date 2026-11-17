@@ -15,6 +15,7 @@ import { ExecutionList } from "@/components/executions"
 import type { ExecutionSummary } from "@/lib/executions-api"
 import type { SignalSummary } from "@/lib/signals-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
+import { CallFromCode } from "./call-from-code"
 import { workflowStatus } from "./workflow-status-badge"
 
 const RECENT_LIMIT = 5
@@ -118,6 +119,7 @@ export function WorkflowOverview({
           />
         )}
       </div>
+      <CallFromCode slug={slug} workflow={workflow} />
     </section>
   )
 }
