@@ -8,8 +8,6 @@ import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
 
 import { CreateApiKeyDialog } from "@/components/api-keys"
 import { CopyButton } from "@/components/copy-button"
-import { authClient } from "@/lib/auth-client"
-import { isWorkspaceAdmin } from "@/lib/workspace-role"
 import type { WorkflowSummary } from "@/lib/workflows-api"
 import {
   callSnippet,
@@ -42,17 +40,9 @@ export function CallFromCode({
 }: Readonly<{ slug: string; workflow: WorkflowSummary }>) {
   const [language, setLanguage] = useState<SnippetLanguage>("curl")
   const [keyOpen, setKeyOpen] = useState(false)
-  const { pending, published, deployed, devEnabled, error } = useCallReadiness(
-    slug,
-    workflow
-  )
-  const { data: session } = authClient.useSession()
-  const { data: activeOrganization } = authClient.useActiveOrganization()
-  const canCreateKey = isWorkspaceAdmin(
-    activeOrganization?.members ?? [],
-    session?.user.id
-  )
-  const ready = !error && published && deployed
+  const { pending, admin, published, deployed, devEnabled, error } =
+    useCallReadiness(slug, workflow)
+  const ready = !error && published && deployed !== false
   const snippet = callSnippet(language, workflow.id)
   let content: React.ReactNode = null
   if (error) {
@@ -87,7 +77,7 @@ export function CallFromCode({
             }
           />
           <Step
-            done={deployed}
+            done={deployed !== false}
             label={
               devEnabled
                 ? "Deploy to Dev with backend starts"
@@ -119,7 +109,7 @@ export function CallFromCode({
       <div className="flex h-8 items-center justify-between gap-2 pl-1">
         <p className="text-base font-medium text-foreground">Call from code</p>
         <div className="flex items-center gap-2">
-          {canCreateKey ? (
+          {admin ? (
             <Button variant="ghost" size="sm" onClick={() => setKeyOpen(true)}>
               Create API key
             </Button>
