@@ -105,7 +105,8 @@ export function ApiKeysTable({
       <AlertDialog
         open={target !== null}
         onOpenChange={(open) => {
-          if (!open) {
+          // A pending revoke clears the target on success, which would close a newer confirmation.
+          if (!open && !revoke.isPending) {
             setTarget(null)
             revoke.reset()
           }
@@ -122,7 +123,9 @@ export function ApiKeysTable({
             <p className="text-sm text-destructive">{revoke.error.message}</p>
           ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={revoke.isPending}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={revoke.isPending}

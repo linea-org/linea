@@ -48,8 +48,9 @@ export function CreateApiKeyDialog({
     <Dialog
       open={open}
       onOpenChange={(next) => {
+        // Closing mid-request would create a key whose one-time value is never shown.
         if (next) onOpenChange(true)
-        else close()
+        else if (!create.isPending) close()
       }}
     >
       <DialogContent>
