@@ -5,7 +5,7 @@ import { listEnvironmentsFn } from "@/lib/environments-api"
 import type { WorkflowSummary } from "@/lib/workflows-api"
 
 /** Whether a workspace key can start this Workflow: the API runs the version deployed to Dev,
- * and only when that deployment allows backend starts. */
+ * and only when Dev is enabled and that deployment allows backend starts. */
 export function useCallReadiness(slug: string, workflow: WorkflowSummary) {
   const environments = useQuery({
     queryKey: ["environments", slug, workflow.applicationId],
@@ -21,7 +21,9 @@ export function useCallReadiness(slug: string, workflow: WorkflowSummary) {
       listDeploymentsFn({ data: { environmentId: dev?.id ?? "" } }),
     enabled: Boolean(dev),
   })
+  const devEnabled = dev?.enabled ?? true
   const deployed = Boolean(
+    devEnabled &&
     deployments.data?.some(
       (binding) =>
         binding.workflowId === workflow.id &&
@@ -33,5 +35,7 @@ export function useCallReadiness(slug: string, workflow: WorkflowSummary) {
     pending: environments.isPending || (Boolean(dev) && deployments.isPending),
     published: Boolean(workflow.publishedVersionId),
     deployed,
+    devEnabled,
+    error: environments.error ?? deployments.error,
   }
 }

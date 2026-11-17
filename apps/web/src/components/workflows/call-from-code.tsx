@@ -8,6 +8,8 @@ import { Tabs, TabsList, TabsTrigger } from "@linea/ui/components/tabs"
 
 import { CreateApiKeyDialog } from "@/components/api-keys"
 import { CopyButton } from "@/components/copy-button"
+import { authClient } from "@/lib/auth-client"
+import { isWorkspaceAdmin } from "@/lib/workspace-role"
 import type { WorkflowSummary } from "@/lib/workflows-api"
 import {
   callSnippet,
@@ -40,11 +42,22 @@ export function CallFromCode({
 }: Readonly<{ slug: string; workflow: WorkflowSummary }>) {
   const [language, setLanguage] = useState<SnippetLanguage>("curl")
   const [keyOpen, setKeyOpen] = useState(false)
-  const { pending, published, deployed } = useCallReadiness(slug, workflow)
-  const ready = published && deployed
+  const { pending, published, deployed, devEnabled, error } = useCallReadiness(
+    slug,
+    workflow
+  )
+  const { data: session } = authClient.useSession()
+  const { data: activeOrganization } = authClient.useActiveOrganization()
+  const canCreateKey = isWorkspaceAdmin(
+    activeOrganization?.members ?? [],
+    session?.user.id
+  )
+  const ready = !error && published && deployed
   const snippet = callSnippet(language, workflow.id)
   let content: React.ReactNode = null
-  if (!pending && ready) {
+  if (error) {
+    content = <p className="text-sm text-destructive">{error.message}</p>
+  } else if (!pending && ready) {
     content = (
       <Card size="sm" className="py-0">
         <pre className="overflow-x-auto p-3 font-mono text-sm">{snippet}</pre>
@@ -75,7 +88,11 @@ export function CallFromCode({
           />
           <Step
             done={deployed}
-            label="Deploy to Dev with backend starts"
+            label={
+              devEnabled
+                ? "Deploy to Dev with backend starts"
+                : "Enable Dev and deploy with backend starts"
+            }
             action={
               <Button
                 variant="outline"
@@ -102,9 +119,11 @@ export function CallFromCode({
       <div className="flex h-8 items-center justify-between gap-2 pl-1">
         <p className="text-base font-medium text-foreground">Call from code</p>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setKeyOpen(true)}>
-            Create API key
-          </Button>
+          {canCreateKey ? (
+            <Button variant="ghost" size="sm" onClick={() => setKeyOpen(true)}>
+              Create API key
+            </Button>
+          ) : null}
           {ready ? <CopyButton text={snippet} label="snippet" /> : null}
           {ready ? (
             <Tabs

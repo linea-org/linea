@@ -15,6 +15,7 @@ export function callSnippet(
   const url = `${apiUrl}/v1/workflows/${workflowId}/executions`
   if (language === "curl") {
     return [
+      `# Replace {} with your workflow's input`,
       `curl -X POST ${url} \\`,
       `  -H "Authorization: Bearer $LINEA_API_KEY" \\`,
       `  -H "Content-Type: application/json" \\`,
@@ -22,13 +23,15 @@ export function callSnippet(
     ].join("\n")
   }
   return [
+    `const input = {} // Your workflow's input`,
+    ``,
     `const response = await fetch("${url}", {`,
     `  method: "POST",`,
     `  headers: {`,
     "    Authorization: `Bearer ${process.env.LINEA_API_KEY}`,",
     `    "Content-Type": "application/json",`,
     `  },`,
-    `  body: JSON.stringify({ triggerPayload: {} }),`,
+    `  body: JSON.stringify({ triggerPayload: input }),`,
     `})`,
     `const execution = await response.json()`,
   ].join("\n")
