@@ -1631,7 +1631,7 @@ List redacted connector audit events for one workspace.
 - Rate limits: No operation-specific limit; platform protections apply.
 - Pagination or event resumption: Cursor pagination through limit and cursor query parameters.
 - Emitted events/webhooks: None.
-- SDK method: `LineaWorkspaceClient.listAuditEvents` from `@linea/sdk/server`
+- SDK method: `Linea.auditEvents.list` from `@linea/sdk/server`
 
 ### Request
 
@@ -1912,9 +1912,9 @@ Status: `200`
 ### TypeScript
 
 ```ts
-import { LineaWorkspaceClient } from "@linea/sdk/server"
+import { Linea } from "@linea/sdk/server"
 
-await client.listAuditEvents(/* typed arguments */)
+await client.auditEvents.list(/* typed arguments */)
 ```
 
 ### cURL
@@ -10215,7 +10215,7 @@ List saved Regression Cases for a Workflow.
 - Rate limits: No operation-specific limit; platform protections apply.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
-- SDK method: `LineaWorkspaceClient.listRegressionCases` from `@linea/sdk/server`
+- SDK method: `Linea.regressions.listCases` from `@linea/sdk/server`
 
 ### Request
 
@@ -10367,9 +10367,9 @@ Status: `200`
 ### TypeScript
 
 ```ts
-import { LineaWorkspaceClient } from "@linea/sdk/server"
+import { Linea } from "@linea/sdk/server"
 
-await client.listRegressionCases(/* typed arguments */)
+await client.regressions.listCases(/* typed arguments */)
 ```
 
 ### cURL
@@ -10884,7 +10884,7 @@ List recent Regression Runs for a Workflow.
 - Rate limits: No operation-specific limit; platform protections apply.
 - Pagination or event resumption: Bounded by the limit query parameter; no continuation cursor.
 - Emitted events/webhooks: None.
-- SDK method: `LineaWorkspaceClient.listRegressionRuns` from `@linea/sdk/server`
+- SDK method: `Linea.regressions.listRuns` from `@linea/sdk/server`
 
 ### Request
 
@@ -11018,9 +11018,9 @@ Status: `200`
 ### TypeScript
 
 ```ts
-import { LineaWorkspaceClient } from "@linea/sdk/server"
+import { Linea } from "@linea/sdk/server"
 
-await client.listRegressionRuns(/* typed arguments */)
+await client.regressions.listRuns(/* typed arguments */)
 ```
 
 ### cURL
@@ -11146,7 +11146,7 @@ Get a Regression Run and its results.
 - Rate limits: No operation-specific limit; platform protections apply.
 - Pagination or event resumption: None.
 - Emitted events/webhooks: None.
-- SDK method: `LineaWorkspaceClient.getRegressionRun` from `@linea/sdk/server`
+- SDK method: `Linea.regressions.getRun` from `@linea/sdk/server`
 
 ### Request
 
@@ -11359,9 +11359,9 @@ Status: `200`
 ### TypeScript
 
 ```ts
-import { LineaWorkspaceClient } from "@linea/sdk/server"
+import { Linea } from "@linea/sdk/server"
 
-await client.getRegressionRun(/* typed arguments */)
+await client.regressions.getRun(/* typed arguments */)
 ```
 
 ### cURL

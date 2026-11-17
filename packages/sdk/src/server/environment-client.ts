@@ -20,6 +20,7 @@ import type {
 } from "@linea/protocol/resources"
 import type { PaginatedResponse, PaginationQuery } from "@linea/protocol/shared"
 import type { WebhookDelivery } from "@linea/protocol/webhooks"
+import { waitUntilFinished, type WaitOptions } from "../wait-until-finished.js"
 import type { EnvironmentKey } from "./credentials.js"
 import { ServerTransport } from "./transport.js"
 
@@ -101,6 +102,18 @@ export class LineaEnvironmentClient {
     return this.transport.execute(getEnvironmentExecutionOperation, {
       path: { executionId },
     })
+  }
+
+  waitForExecution(
+    executionId: string,
+    options: WaitOptions = {}
+  ): Promise<PublicExecution> {
+    return waitUntilFinished(
+      executionId,
+      () => this.getExecution(executionId),
+      (execution) => execution.status,
+      options
+    )
   }
 
   cancelExecution(

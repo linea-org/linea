@@ -37,7 +37,7 @@ function userSdk(method: string): OperationSdkCoverage {
 function workspaceSdk(method: string): OperationSdkCoverage {
   return {
     importPath: "@linea/sdk/server",
-    client: "LineaWorkspaceClient",
+    client: "Linea",
     method,
   }
 }
@@ -210,7 +210,7 @@ export const operationMetadata = {
       "apps/platform-api/src/public-runtime/workspace-connector-audit.controller.ts",
       "list"
     ),
-    sdk: workspaceSdk("listAuditEvents"),
+    sdk: workspaceSdk("auditEvents.list"),
   },
   listEndUserConnectorAuditEvents: {
     purpose: "List connector audit events owned by the authenticated End User.",
@@ -668,7 +668,7 @@ export const operationMetadata = {
       "apps/platform-api/src/regressions/regression-cases.controller.ts",
       "list"
     ),
-    sdk: workspaceSdk("listRegressionCases"),
+    sdk: workspaceSdk("regressions.listCases"),
   },
   createRegressionCaseFromStep: {
     purpose: "Create a Regression Case from an Execution step.",
@@ -729,7 +729,7 @@ export const operationMetadata = {
       "apps/platform-api/src/regressions/regression-runs.controller.ts",
       "list"
     ),
-    sdk: workspaceSdk("listRegressionRuns"),
+    sdk: workspaceSdk("regressions.listRuns"),
   },
   triggerRegressionRun: {
     purpose: "Queue a Regression Run for a Workflow.",
@@ -758,6 +758,6 @@ export const operationMetadata = {
       "apps/platform-api/src/regressions/regression-runs.controller.ts",
       "get"
     ),
-    sdk: workspaceSdk("getRegressionRun"),
+    sdk: workspaceSdk("regressions.getRun"),
   },
 } as const satisfies Record<string, OperationMetadata>

@@ -1,16 +1,18 @@
 # @linea/sdk
 
-Typed clients for Linea's public `/v1` protocol. The package contains separate
-entry points for trusted servers, browser/native End Users, legacy
-workspace-level operations, and webhook verification. Each entry point keeps
-its credential and runtime assumptions explicit.
+Typed clients for Linea's public `/v1` protocol:
+
+- `Linea` builds, runs and monitors Workflows with a workspace API key.
+- `LineaEnvironmentClient` starts production runs with an Environment key.
+- `@linea/sdk/user` is the browser, edge and native End-User client.
+- `@linea/sdk/webhooks` verifies webhook deliveries.
 
 ## ⚠️ The root entry point is server-side only
 
 An API key is a bearer credential scoped to your **entire workspace**, with
 no finer-grained permissions. The platform's CORS policy only blocks browser
 requests that carry an `Origin` header — it does nothing to protect a key
-that's embedded in client-side JavaScript. Only construct `LineaClient` from
+that's embedded in client-side JavaScript. Only construct `Linea` from
 trusted server-side code (a backend service, a script, a CI job) — never
 from code that ships to an end user's device.
 
@@ -93,44 +95,89 @@ once, at creation time — store it somewhere safe.
 
 Every key is minted with an explicit list of scopes and a lifetime of 1–365
 days (`POST /v1/api-keys` with `{ name, scopes, expiresInDays }`). Grant only
-what the integration calls: `executions:start` for `triggerWorkflow`,
-`executions:read` for the execution reads, `signals:read`/`signals:write` for
-signals. A key also stops working when the admin who minted it leaves the
+what the integration calls: `workflows:read`/`workflows:write` for
+`linea.workflows`, `executions:start` for `workflows.run`, `executions:read`
+for `linea.executions`, `signals:read`/`signals:write` for signals. A key also stops working when the admin who minted it leaves the
 workspace or loses the admin role.
 
 ## Quickstart
 
 ```ts
-import { LineaClient } from "@linea/sdk"
+import { Linea } from "@linea/sdk"
 
-const client = new LineaClient({
+const linea = new Linea({
   apiKey: process.env.LINEA_API_KEY!,
   baseUrl: "http://localhost:3000", // API origin; the SDK adds /v1
 })
 ```
 
-### Trigger a workflow and read its execution
+Methods are grouped by resource: `linea.workflows`, `linea.executions`,
+`linea.signals`, `linea.regressions` and `linea.auditEvents`.
+
+### Create a Workflow
 
 ```ts
-const execution = await client.triggerWorkflow("env_123", "my-workflow-slug", {
-  customerId: "cus_123",
+const workflow = await linea.workflows.create({
+  applicationId: "app_123",
+  name: "Support triage",
+  slug: "support-triage",
+  graph: {
+    version: 1,
+    trigger: { type: "api" },
+    entryNodeId: "start",
+    nodes: [
+      { id: "start", type: "start" },
+      { id: "end", type: "end" },
+    ],
+    edges: [{ from: "start", to: "end" }],
+  },
 })
 
-const detail = await client.getExecution(execution.id)
-console.log(detail.execution.status, detail.steps.length)
+await linea.workflows.update(workflow.id, { description: "Routes tickets" })
+await linea.workflows.saveDraft(workflow.id, nextGraph)
+const version = await linea.workflows.createVersion(workflow.id, {
+  graph: nextGraph,
+  message: "Add the triage agent",
+})
 ```
 
-### Poll an execution until it finishes
+Publishing a version and binding it to an Environment need a signed-in
+workspace admin, so they happen in the dashboard, not through an API key.
+
+### Run a Workflow and wait for the result
 
 ```ts
-async function waitForExecution(executionId: string) {
-  const terminal = new Set(["succeeded", "failed", "cancelled"])
-  for (;;) {
-    const { execution } = await client.getExecution(executionId)
-    if (terminal.has(execution.status)) return execution
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-  }
-}
+const execution = await linea.workflows.run(workflow.id, {
+  input: { ticketId: "T-123" },
+})
+const { execution: finished, steps } = await linea.executions.wait(execution.id)
+console.log(finished.status, steps.length)
+```
+
+`run` starts the version bound to the dev Environment. `wait` polls every
+second until the execution succeeds, fails or is cancelled, and throws
+`LineaTimeoutError` after five minutes; both are set with
+`{ intervalMs, timeoutMs }`.
+
+### Run in production
+
+Production starts use an Environment key from the Environment's
+**Backend keys** tab, and the Workflow binding must allow backend starts.
+
+```ts
+import { LineaEnvironmentClient, environmentKey } from "@linea/sdk"
+
+const production = new LineaEnvironmentClient({
+  environmentId: "env_123",
+  environmentKey: environmentKey(process.env.LINEA_ENVIRONMENT_KEY!),
+})
+const started = await production.startExecution({
+  workflowId: "wf_123",
+  externalSubjectId: "user_123",
+  input: { ticketId: "T-123" },
+})
+const result = await production.waitForExecution(started.id)
+console.log(result.status, result.output)
 ```
 
 ### List executions with cursor pagination
@@ -138,44 +185,30 @@ async function waitForExecution(executionId: string) {
 ```ts
 import { nextExecutionsCursor } from "@linea/sdk"
 
-let page = await client.listExecutions({ status: "failed" })
-console.log(page.executions)
-
+let page = await linea.executions.list({ status: "failed" })
 while (page.hasMore) {
   const cursor = nextExecutionsCursor(page.executions.at(-1)!)
-  page = await client.listExecutions({ status: "failed", cursor })
-  console.log(page.executions)
+  page = await linea.executions.list({ status: "failed", cursor })
 }
 ```
 
 ### List and resolve signals
 
 ```ts
-const signals = await client.listSignals({ workflowId: "wf_123" })
-
-const detail = await client.getSignal(signals[0]!.id, {
-  environment: "production",
-})
-if (detail.dimensionsApplicable) {
-  for (const dim of detail.dimensions) {
-    console.log(
-      `${dim.model}: ${(dim.rate * 100).toFixed(1)}% of ${dim.totalRuns} runs`
-    )
-  }
-}
-
-await client.resolveSignal(signals[0]!.id)
+const signals = await linea.signals.list({ workflowId: "wf_123" })
+const detail = await linea.signals.get(signals[0]!.id)
+await linea.signals.resolve(detail.id)
 ```
 
 ## Error handling
 
-Every method throws one of two error types — never a raw `fetch` error:
+Every request throws one of two error types — never a raw `fetch` error (`executions.wait` adds `LineaTimeoutError`):
 
 ```ts
 import { LineaApiError, LineaNetworkError } from "@linea/sdk"
 
 try {
-  await client.getExecution("does-not-exist")
+  await linea.executions.get("does-not-exist")
 } catch (error) {
   if (error instanceof LineaApiError) {
     // The server responded, but with an error status.
@@ -205,12 +238,12 @@ const dollars = Number(BigInt(execution.costMicros)) / 1_000_000
 ## Current limitations
 
 - No retry/backoff — a failed request is never automatically retried.
-  Retrying a non-idempotent call like `triggerWorkflow` risks a duplicate
+  Retrying a non-idempotent call like `workflows.run` risks a duplicate
   execution, so this is left to the caller.
-- `listWorkflowExecutions` is capped at 50 rows server-side with no
+- `executions.listForWorkflow` is capped at 50 rows server-side with no
   pagination — there's currently no way to read more than that for a single
   workflow.
-- `listExecutions`' `total` field is informational only (e.g. for display);
+- `executions.list`' `total` field is informational only (e.g. for display);
   use `hasMore` to decide whether to keep paginating.
 - The root and server entry points are intentionally server-only. Browser,
   edge, and native callers use `@linea/sdk/user`.

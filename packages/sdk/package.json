@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@linea/config": "workspace:*",
+    "@linea/runtime": "workspace:*",
     "@types/node": "22",
     "esbuild": "0.28.1",
     "eslint": "^9",

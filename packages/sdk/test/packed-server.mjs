@@ -66,17 +66,16 @@ try {
   )
   writeFileSync(
     join(temporary, "index.ts"),
-    `import { LineaClient } from "@linea/sdk"
+    `import { Linea } from "@linea/sdk"
 import { LineaUserClient } from "@linea/sdk/user"
 import { verifyWebhook, verifyWebhookSignature } from "@linea/sdk/webhooks"
-import { LineaEnvironmentClient, LineaWorkspaceClient, environmentKey, workspaceKey } from "@linea/sdk/server"
+import { LineaEnvironmentClient, Linea as ServerLinea, environmentKey } from "@linea/sdk/server"
 const environment = new LineaEnvironmentClient({ environmentId: "app", environmentKey: environmentKey("lin_env_secret") })
-const workspace = new LineaWorkspaceClient({ workspaceKey: workspaceKey("lin_secret") })
-// @ts-expect-error workspace credentials cannot cross the Environment boundary
-new LineaEnvironmentClient({ environmentId: "app", environmentKey: workspaceKey("lin_secret") })
-// @ts-expect-error Environment credentials cannot cross the workspace boundary
-new LineaWorkspaceClient({ workspaceKey: environmentKey("lin_env_secret") })
-export { environment, workspace, LineaClient, LineaUserClient, verifyWebhook, verifyWebhookSignature }
+const linea = new Linea({ apiKey: "lin_secret" })
+const runs: Promise<unknown>[] = [linea.workflows.run("workflow-id", { input: {} }), linea.executions.wait("execution-id")]
+// @ts-expect-error a plain string cannot stand in for a typed Environment credential
+new LineaEnvironmentClient({ environmentId: "app", environmentKey: "lin_env_secret" })
+export { environment, linea, runs, ServerLinea, LineaUserClient, verifyWebhook, verifyWebhookSignature }
 `
   )
   writeFileSync(

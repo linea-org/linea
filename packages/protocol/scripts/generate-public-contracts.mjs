@@ -443,7 +443,18 @@ const sdkSources = {
     "packages/sdk/src/server/connection-admin-client.ts",
   LineaEnvironmentClient: "packages/sdk/src/server/environment-client.ts",
   LineaUserClient: "packages/sdk/src/user/user-client.ts",
-  LineaWorkspaceClient: "packages/sdk/src/server/workspace-client.ts",
+}
+
+// `Linea` groups its methods by resource: "regressions.listCases" lives in workspace/regressions.ts.
+function sdkSource(sdk) {
+  if (sdk.client !== "Linea")
+    return { file: sdkSources[sdk.client], method: sdk.method }
+  const [resource, method] = sdk.method.split(".")
+  const file = resource.replace(
+    /[A-Z]/g,
+    (letter) => `-${letter.toLowerCase()}`
+  )
+  return { file: `packages/sdk/src/workspace/${file}.ts`, method }
 }
 
 function assertSdk(operation) {
@@ -453,17 +464,9 @@ function assertSdk(operation) {
     }
     return
   }
-  const source = readFileSync(
-    resolve(repository, sdkSources[operation.sdk.client]),
-    "utf8"
-  )
-  if (
-    !hasMethodDeclaration(
-      source,
-      sdkSources[operation.sdk.client],
-      operation.sdk.method
-    )
-  ) {
+  const { file, method } = sdkSource(operation.sdk)
+  const source = readFileSync(resolve(repository, file), "utf8")
+  if (!hasMethodDeclaration(source, file, method)) {
     throw new Error(`${operation.operationId} lacks its registered SDK method`)
   }
 }

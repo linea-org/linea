@@ -7,8 +7,8 @@ import {
 import { afterEach, describe, expect, it } from "vitest"
 import { LineaApiError } from "../http/errors.js"
 import { LineaEnvironmentClient } from "./environment-client.js"
-import { environmentKey, workspaceKey } from "./credentials.js"
-import { LineaWorkspaceClient } from "./workspace-client.js"
+import { environmentKey } from "./credentials.js"
+import { Linea } from "../linea.js"
 
 type RecordedRequest = {
   method: string | undefined
@@ -211,17 +211,17 @@ describe("server SDK public HTTP contract", () => {
     expect(error).toMatchObject({ status: 409, code: "idempotency_conflict" })
     expect(attempts).toBe(1)
   })
-  it("uses a typed workspace credential for inherited and Regression operations", async () => {
+  it("uses the workspace key for Signal and Regression operations", async () => {
     const server = await testServer((request, response) => {
       if (request.url === "/v1/signals") json(response, [])
       else json(response, [])
     })
-    const client = new LineaWorkspaceClient({
-      workspaceKey: workspaceKey("lin_workspace_secret"),
+    const client = new Linea({
+      apiKey: "lin_workspace_secret",
       baseUrl: server.baseUrl,
     })
-    await expect(client.listSignals()).resolves.toEqual([])
-    await expect(client.listRegressionRuns("workflow-1")).resolves.toEqual([])
+    await expect(client.signals.list()).resolves.toEqual([])
+    await expect(client.regressions.listRuns("workflow-1")).resolves.toEqual([])
     expect(server.requests.map(({ url }) => url)).toEqual([
       "/v1/signals",
       "/v1/workflows/workflow-1/regression-runs",
@@ -253,8 +253,8 @@ describe("server SDK public HTTP contract", () => {
       environmentKey: environmentKey("lin_env_secret"),
       baseUrl: server.baseUrl,
     })
-    const workspace = new LineaWorkspaceClient({
-      workspaceKey: workspaceKey("lin_workspace_secret"),
+    const workspace = new Linea({
+      apiKey: "lin_workspace_secret",
       baseUrl: server.baseUrl,
     })
     await expect(environment.listAuditEvents({ limit: 10 })).resolves.toEqual({
@@ -262,7 +262,7 @@ describe("server SDK public HTTP contract", () => {
       nextCursor: null,
     })
     await expect(
-      workspace.listAuditEvents({ environmentId, limit: 20 })
+      workspace.auditEvents.list({ environmentId, limit: 20 })
     ).resolves.toEqual({ data: [auditEvent], nextCursor: null })
     expect(server.requests.map(({ url }) => url)).toEqual([
       `/v1/environments/${environmentId}/audit-events?limit=10`,
@@ -271,7 +271,10 @@ describe("server SDK public HTTP contract", () => {
   })
   it("rejects credential kinds at construction boundaries", () => {
     expect(() => environmentKey("lin_workspace_secret")).toThrow(/lin_env_/)
-    expect(() => workspaceKey("workspace_secret")).toThrow(/lin_/)
-    expect(() => workspaceKey("lin_")).toThrow(/lin_/)
+    expect(() => new Linea({ apiKey: "workspace_secret" })).toThrow(/lin_/)
+    expect(() => new Linea({ apiKey: "lin_" })).toThrow(/lin_/)
+    expect(() => new Linea({ apiKey: "lin_env_secret" })).toThrow(
+      /Environment keys/
+    )
   })
 })
