@@ -208,6 +208,27 @@ describe("Linea", () => {
         client().executions.wait("exec-1", { intervalMs: 5, timeoutMs: 12 })
       ).rejects.toBeInstanceOf(LineaTimeoutError)
     })
+    it("waits out the timeout when the interval is longer", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+        Promise.resolve(jsonResponse(detail("running")))
+      )
+      const started = Date.now()
+      await expect(
+        client().executions.wait("exec-1", {
+          intervalMs: 60_000,
+          timeoutMs: 30,
+        })
+      ).rejects.toBeInstanceOf(LineaTimeoutError)
+      expect(Date.now() - started).toBeGreaterThanOrEqual(25)
+    })
+    it("times out while a read is still pending", async () => {
+      vi.spyOn(globalThis, "fetch").mockImplementation(
+        () => new Promise<Response>(() => {})
+      )
+      await expect(
+        client().executions.wait("exec-1", { timeoutMs: 20 })
+      ).rejects.toMatchObject({ name: "LineaTimeoutError", status: undefined })
+    })
   })
   describe("executions.get", () => {
     it("GETs /v1/workspace/executions/:id and returns the full detail", async () => {

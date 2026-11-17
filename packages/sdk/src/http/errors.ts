@@ -67,11 +67,12 @@ export class LineaProtocolError extends Error {
 /** Thrown by `executions.wait` when the execution is still unfinished at the deadline. */
 export class LineaTimeoutError extends Error {
   readonly executionId: string
-  readonly status: string
+  /** The last status read, or undefined when no read finished before the deadline. */
+  readonly status: string | undefined
 
-  constructor(params: { executionId: string; status: string }) {
+  constructor(params: { executionId: string; status: string | undefined }) {
     super(
-      `Execution ${params.executionId} was still ${params.status} when the wait timed out`
+      `Execution ${params.executionId} was still ${params.status ?? "unread"} when the wait timed out`
     )
     this.name = "LineaTimeoutError"
     this.executionId = params.executionId

@@ -5,7 +5,6 @@ import type {
   RunWorkflowInput,
   UpdateWorkflowInput,
   Workflow,
-  WorkflowGraph,
   WorkflowVersion,
 } from "../types/workflow.js"
 import { path, type WorkspaceRequest } from "./workspace-request.js"
@@ -41,8 +40,12 @@ export class Workflows {
     })
   }
 
-  /** Saves the unpublished working copy the builder opens; runs keep using the published version. */
-  saveDraft(workflowId: string, graph: WorkflowGraph): Promise<Workflow> {
+  /** Saves the unpublished working copy the builder opens, which may be incomplete; runs keep
+   * using the published version. */
+  saveDraft(
+    workflowId: string,
+    graph: Record<string, unknown>
+  ): Promise<Workflow> {
     return this.send({
       method: "PUT",
       path: path`/workflows/${workflowId}/draft`,
