@@ -9,6 +9,7 @@ import {
   HistoryIcon,
   HouseIcon,
   KeyRoundIcon,
+  KeySquareIcon,
   LayoutTemplateIcon,
   MessageSquareIcon,
   MoonIcon,
@@ -65,6 +66,7 @@ const pages: Array<{
     | "/w/$slug/notifications"
     | "/w/$slug/settings/members"
     | "/w/$slug/settings/secrets"
+    | "/w/$slug/settings/api-keys"
     | "/w/$slug/settings"
   keywords: string[]
 }> = [
@@ -123,6 +125,12 @@ const pages: Array<{
     icon: KeyRoundIcon,
     to: "/w/$slug/settings/secrets",
     keywords: ["keys", "env"],
+  },
+  {
+    label: "API keys",
+    icon: KeySquareIcon,
+    to: "/w/$slug/settings/api-keys",
+    keywords: ["token", "sdk", "access"],
   },
   {
     label: "Settings",
