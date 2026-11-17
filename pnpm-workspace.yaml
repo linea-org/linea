@@ -15,5 +15,6 @@ auditConfig:
   ignoreGhsas:
     # zod 3 inside CopilotKit/AG-UI and the shadcn CLI (no 3.x fix); runtime zod@4 is held >=4.6.6.
     - GHSA-mrhx-c7xc-m3w5
-    # picomatch ReDoS with no fixed release; only build and test tooling (Jest, Vitest, Nest CLI) matches globs.
+    # picomatch ReDoS with no fixed release; only build and test tooling
+    # (Jest, Vitest, Nest CLI) matches globs.
     - GHSA-fc5q-39xc-vjpf
