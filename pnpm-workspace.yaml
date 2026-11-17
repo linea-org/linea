@@ -10,7 +10,8 @@ allowBuilds:
   unrs-resolver: true
   msw: false
 
-# Unreachable advisories the CI audit gate skips; each GHSA applies to every version, so keep this short.
+# Unreachable advisories the CI audit gate skips; each GHSA applies to every version,
+# so keep this short.
 auditConfig:
   ignoreGhsas:
     # zod 3 inside CopilotKit/AG-UI and the shadcn CLI (no 3.x fix); runtime zod@4 is held >=4.6.6.
