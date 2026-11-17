@@ -9,7 +9,7 @@
     "@linea/sdk-react": "0.0.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "zod": "4.4.3"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@types/react": "^19",
