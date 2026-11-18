@@ -7,6 +7,41 @@ import {
 } from "../schema/index.js"
 import type { DbClient } from "./types.js"
 
+export type StepTotals = {
+  tokensInput: number
+  tokensOutput: number
+  costMicros: bigint
+  // true beats null beats false: null means some AI step predates cost-unpriced tracking.
+  costUnpriced: boolean | null
+}
+
+function stepCostUnpriced(step: ExecutionStep): boolean | null {
+  if (step.name !== "ai" || step.status !== "succeeded") return false
+  if (step.attributes?.costUnpriced === true) return true
+  if (step.attributes?.costUnpriced === false) return false
+  return null
+}
+
+export function sumStepTotals(steps: ExecutionStep[]): StepTotals {
+  return steps.reduce<StepTotals>(
+    (totals, step) => {
+      const unpriced = stepCostUnpriced(step)
+      return {
+        tokensInput: totals.tokensInput + step.tokensInput,
+        tokensOutput: totals.tokensOutput + step.tokensOutput,
+        costMicros: totals.costMicros + step.costMicros,
+        costUnpriced:
+          totals.costUnpriced === true || unpriced === true
+            ? true
+            : totals.costUnpriced === null || unpriced === null
+              ? null
+              : false,
+      }
+    },
+    { tokensInput: 0, tokensOutput: 0, costMicros: 0n, costUnpriced: false }
+  )
+}
+
 // A live replay renews its claim (see renewReplayClaim) well inside this window — older is presumed abandoned by a dead/redeployed worker, not just a slow HTTP/AI call still legitimately in flight.
 // Tightening this only narrows, never closes, a reclaim's overlap with a still-live call, and risks reclaiming merely-slow workers if pushed too far.
 export const REPLAY_CLAIM_STALE_MS = 10 * 60 * 1000
