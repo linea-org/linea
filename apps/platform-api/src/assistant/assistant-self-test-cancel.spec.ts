@@ -59,6 +59,55 @@ describe('cancelDraftExecution', () => {
     expect(cancelled?.completedAt).toBeInstanceOf(Date)
   })
 
+  it('keeps the cost and tokens of steps that finished before the cancel', async () => {
+    const run = await queuedRun('draft')
+    await pool.query(
+      `UPDATE executions SET status = 'running', leased_by = 'worker-1',
+        lease_expires_at = now() + interval '1 minute' WHERE id = $1`,
+      [run.executionId],
+    )
+    const step = (nodeId: string) => ({
+      leasedBy: 'worker-1',
+      step: {
+        executionId: run.executionId,
+        workspaceId: run.workspaceId,
+        traceId: run.executionId,
+        spanId: randomUUID(),
+        name: 'ai',
+        nodeId,
+        status: 'succeeded' as const,
+        startedAt: new Date(),
+        endedAt: new Date(),
+        sequence: 0,
+        idempotencyKey: `${run.executionId}:${nodeId}`,
+        costMicros: 1500n,
+        tokensInput: 40,
+        tokensOutput: 12,
+        attributes: { costUnpriced: false },
+      },
+      checkpoint: { sequence: 0, completedStepIds: [nodeId], context: {} },
+    })
+    await repositories.checkpoint.writeStepAndCheckpoint(db, step('answer'))
+
+    const cancelled = await repositories.execution.cancelDraftExecution(
+      db,
+      run.workspaceId,
+      run.executionId,
+    )
+
+    expect(cancelled).toMatchObject({
+      status: 'cancelled',
+      costMicros: 1500n,
+      costUnpriced: false,
+      tokensInput: 40,
+      tokensOutput: 12,
+    })
+    // The worker can't add a step after the cancel, so the saved totals stay complete.
+    await expect(
+      repositories.checkpoint.writeStepAndCheckpoint(db, step('later')),
+    ).resolves.toBeUndefined()
+  })
+
   it('leaves runs that are not drafts, or in another workspace, alone', async () => {
     const live = await queuedRun('dev')
     const draft = await queuedRun('draft')

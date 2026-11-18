@@ -27,6 +27,7 @@ import {
   type ExecutionStep,
 } from "../schema/index.js"
 import { wakeParentOfFinishedChild } from "./nested-parent-wake.js"
+import { sumStepTotals } from "./execution-step.repository.js"
 import { revokedExecutionAuthority } from "./execution-claim-authority.js"
 import { getWorkflowEnvironment } from "./environment.repository.js"
 import { upsertEndSubject } from "./end-subject.repository.js"
@@ -525,26 +526,44 @@ export async function getExecutionWithSteps(
   return { execution, steps }
 }
 
-/** Stops an unfinished builder draft run: the worker can no longer renew its lease, and a queued run is never claimed. */
-export async function cancelDraftExecution(
+/** Stops an unfinished builder draft run: the worker can no longer renew its lease, and a queued run is never claimed. Saves the finished steps' totals, which the worker can no longer write. */
+export function cancelDraftExecution(
   db: DbClient,
   workspaceId: string,
   executionId: string
 ): Promise<Execution | undefined> {
-  const now = new Date()
-  const [execution] = await db
-    .update(executions)
-    .set({ status: "cancelled", completedAt: now, leaseExpiresAt: now })
-    .where(
-      and(
-        eq(executions.workspaceId, workspaceId),
-        eq(executions.id, executionId),
-        eq(executions.environment, "draft"),
-        inArray(executions.status, ["queued", "running"])
-      )
+  return db.transaction(async (tx) => {
+    const unfinished = and(
+      eq(executions.workspaceId, workspaceId),
+      eq(executions.id, executionId),
+      eq(executions.environment, "draft"),
+      inArray(executions.status, ["queued", "running"])
     )
-    .returning()
-  return execution
+    // Step writes take this row lock and check the lease, so the sum below sees every step that
+    // will ever be written for this run.
+    const [locked] = await tx
+      .select({ id: executions.id })
+      .from(executions)
+      .where(unfinished)
+      .for("update")
+    if (!locked) return undefined
+    const steps = await tx
+      .select()
+      .from(executionSteps)
+      .where(eq(executionSteps.executionId, executionId))
+    const now = new Date()
+    const [execution] = await tx
+      .update(executions)
+      .set({
+        ...sumStepTotals(steps),
+        status: "cancelled",
+        completedAt: now,
+        leaseExpiresAt: now,
+      })
+      .where(unfinished)
+      .returning()
+    return execution
+  })
 }
 
 export async function listExecutions(
