@@ -13,7 +13,7 @@ const aiToolSchema = z.object({
 })
 
 // OpenAI's tool-name limit is 64 [a-zA-Z0-9_-] characters; "{server}__{tool}" must fit it.
-const mcpServerSchema = z.object({
+export const mcpServerSchema = z.object({
   name: z.string().regex(/^[a-zA-Z0-9-]{1,20}$/),
   // HTTPS is enforced when the step runs, where local development may allow a loopback server.
   url: z.url({ protocol: /^https?$/ }),
@@ -21,6 +21,8 @@ const mcpServerSchema = z.object({
   headers: z.record(z.string(), z.string()).default({}),
   tools: z.array(z.string()).optional(),
 })
+
+export type McpServerConfig = z.infer<typeof mcpServerSchema>
 
 const aiInputSchema = z.object({
   prompt: z.string(),
@@ -108,9 +110,9 @@ export const aiNode: NodeDefinition<
       {
         key: "mcpServers",
         label: "MCP servers",
-        widget: "code",
+        widget: "mcp-servers",
         description:
-          'Up to 5 MCP servers whose tools the model can call. These tools run with this Environment\'s credentials and without per-action approval. JSON: [{"name": "docs", "url": "https://…/mcp", "headers": {"Authorization": "SECRET_NAME"}, "tools": ["search"]}].',
+          "Up to 5 MCP servers whose tools the model can call. These tools run with this Environment's credentials and without per-action approval.",
       },
       {
         key: "memorySubjectPath",

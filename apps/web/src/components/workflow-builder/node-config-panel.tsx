@@ -30,6 +30,7 @@ import {
 } from "@linealabs/ui/components/tooltip"
 import { AgentStepField } from "./agent-step-field"
 import { KeyValueEditor } from "./key-value-editor"
+import { McpServersField } from "./mcp-servers-field"
 
 type NodeConfigPanelProps = {
   nodeType: NodeTypeId
@@ -157,6 +158,20 @@ export function NodeConfigPanel({
               : ""
           }
           onChange={onAgentSelection}
+        />
+      )
+    }
+    if (field.widget === "mcp-servers") {
+      return (
+        <McpServersField
+          id={id}
+          applicationId={applicationId}
+          value={config[field.key]}
+          onChange={(servers) => {
+            const rest = { ...config }
+            delete rest[field.key]
+            onChange(servers ? { ...rest, [field.key]: servers } : rest)
+          }}
         />
       )
     }

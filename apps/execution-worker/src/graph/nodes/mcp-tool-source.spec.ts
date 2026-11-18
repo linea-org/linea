@@ -1,14 +1,19 @@
 const complete = jest.fn()
+const resolveApiKey = jest.fn<
+  Promise<{ apiKey: string; source: "environment" | "platform" }>,
+  [db: unknown, input: { environmentId?: string; keyName: string }]
+>(() => Promise.resolve({ apiKey: "byok-key", source: "environment" }))
 
 jest.mock("@linealabs/ai", () => {
-  const { MAX_EXECUTION_TOKENS, executionBudgetMessage } =
+  const { MAX_EXECUTION_TOKENS, executionBudgetMessage, providers } =
     jest.requireActual<typeof import("@linealabs/ai")>("@linealabs/ai")
   return {
     resolveProvider: () => ({ complete }),
-    resolveKeyName: () => "anthropic",
-    resolveApiKey: () => Promise.resolve({ apiKey: "model-key" }),
+    resolveKeyName: () => "ANTHROPIC_API_KEY",
+    resolveApiKey,
     MAX_EXECUTION_TOKENS,
     executionBudgetMessage,
+    providers,
   }
 })
 
@@ -57,6 +62,7 @@ beforeEach(async () => {
     NODE_ENV: "development",
     EXECUTION_HTTP_ALLOW_LOCAL: "true",
   })
+  getSecret.mockReset()
   getSecret.mockResolvedValue({ encryptedValue: "enc:Bearer token-1" })
   fixture = await startMcpServerFixture()
 })
@@ -136,6 +142,18 @@ describe("openMcpTools", () => {
     expect(fixture.requests).toEqual([])
   })
 
+  it("never sends a model provider key to an MCP server", async () => {
+    await expect(
+      openMcpTools(
+        [{ ...server(), headers: { Authorization: "OPENAI_API_KEY" } }],
+        "env1",
+        undefined
+      )
+    ).rejects.toThrow('can\'t be sent the model key "OPENAI_API_KEY"')
+    expect(getSecret).not.toHaveBeenCalled()
+    expect(fixture.requests).toEqual([])
+  })
+
   it("refuses plain http outside local development", async () => {
     jest.replaceProperty(process, "env", {
       ...process.env,
@@ -203,6 +221,29 @@ describe("AiNode with MCP servers", () => {
       expect.objectContaining({ status: 200, body: { content: "echo: hi" } })
     )
     expect(fixture.closedSessions).toHaveLength(1)
+  })
+
+  it("runs on the Environment's own model key", async () => {
+    complete.mockResolvedValueOnce({
+      text: "ok",
+      tokensInput: 1,
+      tokensOutput: 1,
+    })
+
+    await new AiNode().execute(
+      { prompt: "go", model: "claude-sonnet-5", mcpServers: [server()] },
+      undefined,
+      context
+    )
+
+    expect(resolveApiKey).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        environmentId: "env1",
+        keyName: "ANTHROPIC_API_KEY",
+      })
+    )
+    expect(complete).toHaveBeenCalledWith("byok-key", expect.anything())
   })
 
   it("does not repeat a call the ledger already holds", async () => {

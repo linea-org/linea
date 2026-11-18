@@ -7,6 +7,7 @@ export type NodeUIFieldWidget =
   | "code"
   | "key-value"
   | "agent"
+  | "mcp-servers"
 
 export type NodeUIField = {
   key: string

@@ -1,4 +1,4 @@
-import type { ToolDefinition } from "@linealabs/ai"
+import { providers, type ToolDefinition } from "@linealabs/ai"
 import {
   db,
   decryptSecret,
@@ -6,7 +6,7 @@ import {
   repositories,
 } from "@linealabs/db"
 import { PermanentRequestError, requestPublic } from "@linealabs/http"
-import type { nodeRegistry } from "@linealabs/runtime"
+import type { McpServerConfig } from "@linealabs/runtime"
 import {
   Client,
   StreamableHTTPClientTransport,
@@ -15,10 +15,6 @@ import {
   type Tool,
 } from "@modelcontextprotocol/client"
 import { NonRetryableError } from "./non-retryable-error"
-
-type McpServerConfig = NonNullable<
-  ReturnType<typeof nodeRegistry.ai.inputSchema.parse>["mcpServers"]
->[number]
 
 export type McpToolResult = { content: string } | { error: string }
 
@@ -79,6 +75,11 @@ async function resolveHeaders(
 ): Promise<Record<string, string>> {
   const headers: Record<string, string> = {}
   for (const [header, secretName] of Object.entries(server.headers)) {
+    if (providers.some((provider) => provider.keyName === secretName)) {
+      throw new NonRetryableError(
+        `MCP server "${server.name}" can't be sent the model key "${secretName}"`
+      )
+    }
     const secret = await repositories.secret.getSecret(
       db,
       environmentId,
