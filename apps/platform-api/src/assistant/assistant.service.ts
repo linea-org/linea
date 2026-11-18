@@ -9,6 +9,7 @@ import type { WorkflowGraph } from '@linealabs/runtime'
 import { branchUpTo } from './assistant-branch'
 import { assertAgentsDeployed } from './assistant-agents'
 import { validateAssistantGraph } from './assistant-graph'
+import { GraphDraft } from './assistant-graph-draft'
 import { AssistantModel } from './assistant-model'
 import { AssistantModelUnavailableError } from './assistant-model-error'
 import { AssistantOutputError } from './assistant-output-error'
@@ -26,7 +27,7 @@ import { parseAssistantReply } from './assistant-reply'
 import type { AssistantMessageDto } from './dto/assistant-message.dto'
 
 const MAX_ATTEMPTS = 2
-const MAX_TOOL_ROUNDS = 5
+const MAX_TOOL_ROUNDS = 8
 const MAX_OUTPUT_TOKENS = 6000
 
 export type AssistantAnswer = {
@@ -45,6 +46,8 @@ type Reply = Omit<
   AssistantAnswer,
   'conversationId' | 'userMessageId' | 'messageId'
 >
+
+type ReplyContext = { scope: AssistantToolScope; draft: GraphDraft }
 
 const MAX_HISTORY_MESSAGES = 20
 const MAX_TITLE_LENGTH = 60
@@ -221,6 +224,7 @@ export class AssistantService {
     history: ConversationTurn[],
   ): Promise<Reply> {
     const actions: AssistantAction[] = []
+    const draft = GraphDraft.from(input.graph)
     let prompt: string | undefined = buildAssistantUserTurn(
       input.message,
       input.graph,
@@ -241,11 +245,19 @@ export class AssistantService {
           )
         }
         history.push({ role: 'assistant', toolCalls: result.toolCalls })
-        await this.runToolCalls(result.toolCalls, scope, history, actions)
+        await this.runToolCalls(
+          result.toolCalls,
+          { scope, draft },
+          history,
+          actions,
+        )
         continue
       }
       try {
-        return await buildReply(result.text, result.model, actions, scope)
+        return await buildReply(result.text, result.model, actions, {
+          scope,
+          draft,
+        })
       } catch (error) {
         if (!(error instanceof AssistantOutputError)) throw error
         rejections += 1
@@ -295,12 +307,12 @@ export class AssistantService {
   /** Sequential on purpose: each tool result is appended to the history in call order. */
   private async runToolCalls(
     calls: ToolCall[],
-    scope: AssistantToolScope,
+    { scope, draft }: ReplyContext,
     history: ConversationTurn[],
     actions: AssistantAction[],
   ) {
     for (const call of calls) {
-      const outcome = await this.tools.run(call, scope)
+      const outcome = await this.tools.run(call, scope, draft)
       if (outcome.action) actions.push(outcome.action)
       history.push({
         role: 'tool',
@@ -315,10 +327,16 @@ async function buildReply(
   text: string,
   model: string,
   actions: AssistantAction[],
-  scope: AssistantToolScope,
+  { scope, draft }: ReplyContext,
 ): Promise<Reply> {
   const parsed = parseAssistantReply(text)
-  const graph = parsed.graph ? validateAssistantGraph(parsed.graph) : null
+  const proposed = parsed.graph === 'draft' ? draft.current : parsed.graph
+  if (parsed.graph === 'draft' && !proposed) {
+    throw new AssistantOutputError(
+      'There is no draft to propose. Answer with a complete graph.',
+    )
+  }
+  const graph = proposed ? validateAssistantGraph(proposed) : null
   if (graph) await assertAgentsDeployed(graph, scope)
   return {
     reply: parsed.reply,
