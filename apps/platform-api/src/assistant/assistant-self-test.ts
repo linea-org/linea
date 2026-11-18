@@ -49,10 +49,24 @@ const MAX_STEP_CHARS = 1_500
 function untestableReason(graph: WorkflowGraph): string | null {
   for (const node of graph.nodes) {
     if (node.type === 'wait') return `"${node.id}" is a wait node`
+    if (node.type === 'ai' && !onlyReadTools(node.config.tools)) {
+      return `"${node.id}" gives its model a tool that is not GET`
+    }
     const method = node.type === 'http' ? (node.config.method ?? 'GET') : 'GET'
     if (method !== 'GET') return `"${node.id}" sends a request that is not GET`
   }
   return null
+}
+
+function onlyReadTools(tools: unknown): boolean {
+  if (tools === undefined) return true
+  if (!Array.isArray(tools)) return false
+  return tools.every(
+    (tool: unknown) =>
+      typeof tool === 'object' &&
+      tool !== null &&
+      (!('method' in tool) || tool.method === 'GET'),
+  )
 }
 
 function readInput(value: unknown): Record<string, unknown> | undefined | null {
@@ -99,12 +113,20 @@ export class AssistantSelfTest {
     }
 
     const execution = await this.start(scope, graph, input)
-    const settled = await waitToSettle(execution.id)
+    let settled = await waitToSettle(execution.id)
+    const unfinished = !SETTLED.includes(settled.execution.status)
+    if (unfinished) {
+      await repositories.execution.cancelDraftExecution(
+        db,
+        scope.workspaceId,
+        execution.id,
+      )
+      settled = await readRun(execution.id)
+    }
     const steps = settled.steps.filter((step) => !step.isSystemEvent)
     const summary =
-      settled.execution.status === 'running' ||
-      settled.execution.status === 'queued'
-        ? `The run had not finished after ${MAX_WAIT_MS / 1000}s (status ${settled.execution.status}).`
+      unfinished && settled.execution.status === 'cancelled'
+        ? `The run had not finished after ${MAX_WAIT_MS / 1000}s, so it was stopped.`
         : `The run ${settled.execution.status}.`
     return {
       content: [summary, ...steps.map(describeStep)].join('\n'),
@@ -154,14 +176,19 @@ export class AssistantSelfTest {
   }
 }
 
+async function readRun(executionId: string) {
+  const found = await repositories.execution.getExecutionWithSteps(
+    db,
+    executionId,
+  )
+  if (!found) throw new Error(`Execution ${executionId} disappeared`)
+  return found
+}
+
 async function waitToSettle(executionId: string) {
   const deadline = Date.now() + MAX_WAIT_MS
   for (;;) {
-    const found = await repositories.execution.getExecutionWithSteps(
-      db,
-      executionId,
-    )
-    if (!found) throw new Error(`Execution ${executionId} disappeared`)
+    const found = await readRun(executionId)
     if (SETTLED.includes(found.execution.status) || Date.now() >= deadline) {
       return found
     }

@@ -40,6 +40,15 @@ describe('AssistantSelfTest', () => {
       },
       'wait',
     ],
+    [
+      {
+        type: 'ai',
+        config: {
+          tools: [{ name: 'save', url: 'https://x.dev', method: 'POST' }],
+        },
+      },
+      'not GET',
+    ],
   ])('refuses a draft whose run could have side effects', async (node, why) => {
     const outcome = await selfTest.run(scope, { graph: graphWith(node) })
     expect(outcome.action).toBeNull()

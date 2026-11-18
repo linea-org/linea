@@ -1,7 +1,18 @@
 import { compileContractSchema } from "@linealabs/protocol/json-schema"
 import { getMemberRole } from "./organization.repository.js"
 import { activeExecutionParent } from "./execution-parent-authority.js"
-import { and, desc, eq, gt, isNull, lt, notInArray, or, sql } from "drizzle-orm"
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  lt,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm"
 import {
   actionIntents,
   workflowContractRevisions,
@@ -512,6 +523,28 @@ export async function getExecutionWithSteps(
     .where(eq(executionSteps.executionId, executionId))
     .orderBy(executionSteps.startedAt, executionSteps.createdAt)
   return { execution, steps }
+}
+
+/** Stops an unfinished builder draft run: the worker can no longer renew its lease, and a queued run is never claimed. */
+export async function cancelDraftExecution(
+  db: DbClient,
+  workspaceId: string,
+  executionId: string
+): Promise<Execution | undefined> {
+  const now = new Date()
+  const [execution] = await db
+    .update(executions)
+    .set({ status: "cancelled", completedAt: now, leaseExpiresAt: now })
+    .where(
+      and(
+        eq(executions.workspaceId, workspaceId),
+        eq(executions.id, executionId),
+        eq(executions.environment, "draft"),
+        inArray(executions.status, ["queued", "running"])
+      )
+    )
+    .returning()
+  return execution
 }
 
 export async function listExecutions(
