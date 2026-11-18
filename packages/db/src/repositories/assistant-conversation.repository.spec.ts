@@ -105,7 +105,7 @@ describe("assistant conversations", () => {
         title: "Router",
         graph: { version: 1 },
       })
-      expect(message.actions[0].url).toBe("https://example.com")
+      expect(message.actions[0]).toMatchObject({ url: "https://example.com" })
       expect(message.model).toBe("gpt-5")
     })
   })

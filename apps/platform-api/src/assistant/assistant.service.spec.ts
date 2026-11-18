@@ -5,7 +5,8 @@ import type { ToolCall } from '@linealabs/ai'
 import { db, pool, repositories, schema } from '@linealabs/db'
 import type { AssistantModel } from './assistant-model'
 import { AssistantModelUnavailableError } from './assistant-model-error'
-import { AssistantTools, type ToolOutcome } from './assistant-tools'
+import type { ToolOutcome } from './assistant-tool-outcome'
+import type { AssistantTools } from './assistant-tools'
 import { AssistantService } from './assistant.service'
 
 afterAll(async () => {
@@ -79,7 +80,7 @@ function modelReturning(...steps: Step[]) {
 
 function toolsReturning(outcome: ToolOutcome) {
   const run = jest
-    .fn<Promise<ToolOutcome>, [ToolCall]>()
+    .fn<Promise<ToolOutcome>, [ToolCall, unknown]>()
     .mockResolvedValue(outcome)
   return { run } as unknown as AssistantTools & { run: typeof run }
 }
@@ -189,7 +190,12 @@ describe('AssistantService', () => {
       f.workflow.id,
       { ...request, tools: { web: true } },
     )
-    expect(tools.run).toHaveBeenCalledWith(fetchCall)
+    expect(tools.run).toHaveBeenCalledWith(fetchCall, {
+      workspaceId: f.workspace.id,
+      applicationId: f.application.id,
+      userId: f.user.id,
+      web: true,
+    })
     expect(answer.reply).toBe('The page says hello.')
     expect(answer.actions).toEqual([fetched.action])
     const second = model.complete.mock.calls[1][2]
@@ -201,7 +207,7 @@ describe('AssistantService', () => {
     })
   })
 
-  it('offers no tools unless they were switched on', async () => {
+  it('offers the web tool only when it was switched on', async () => {
     const f = await fixture()
     const off = modelReturning('hi')
     await new AssistantService(off, noTools).replyForWorkflow(
@@ -210,7 +216,7 @@ describe('AssistantService', () => {
       f.workflow.id,
       request,
     )
-    expect(off.complete.mock.calls[0][2].tools).toBeUndefined()
+    expect(off.complete.mock.calls[0][2].tools).toHaveLength(1)
     const on = modelReturning('hi')
     await new AssistantService(on, noTools).replyForWorkflow(
       f.workspace.id,
@@ -218,7 +224,7 @@ describe('AssistantService', () => {
       f.workflow.id,
       { ...request, tools: { web: true } },
     )
-    expect(on.complete.mock.calls[0][2].tools).toHaveLength(1)
+    expect(on.complete.mock.calls[0][2].tools).toHaveLength(2)
   })
 
   it('stops after too many tool rounds', async () => {

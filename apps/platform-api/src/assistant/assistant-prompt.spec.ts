@@ -29,6 +29,10 @@ describe('assistant prompt', () => {
     expect(prompt).toContain('do the task yourself')
   })
 
+  it('asks the model to test drafts before proposing them', () => {
+    expect(prompt).toContain('test_run_draft')
+  })
+
   it('mentions the web tool only when it is switched on', () => {
     expect(prompt).not.toContain('fetch_url')
     expect(buildAssistantSystemPrompt({ web: true })).toContain('fetch_url')
