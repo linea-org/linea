@@ -10,7 +10,10 @@ import {
 import { hashWorkflowGraph, type WorkflowGraph } from '@linealabs/runtime'
 import { validateAssistantGraph } from './assistant-graph'
 import { AssistantOutputError } from './assistant-output-error'
-import type { ToolOutcome } from './assistant-tool-outcome'
+import type {
+  AssistantToolScope,
+  ToolOutcome,
+} from './assistant-tool-contract'
 
 export const TEST_TOOL: ToolDefinition = {
   name: 'test_run_draft',
@@ -29,11 +32,10 @@ export const TEST_TOOL: ToolDefinition = {
   },
 }
 
-export type SelfTestScope = {
-  workspaceId: string
-  applicationId: string
-  userId: string
-}
+export type SelfTestScope = Pick<
+  AssistantToolScope,
+  'workspaceId' | 'applicationId' | 'userId'
+>
 
 const SETTLED: readonly Execution['status'][] = [
   'succeeded',

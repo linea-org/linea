@@ -5,7 +5,7 @@ import type { ToolCall } from '@linealabs/ai'
 import { db, pool, repositories, schema } from '@linealabs/db'
 import type { AssistantModel } from './assistant-model'
 import { AssistantModelUnavailableError } from './assistant-model-error'
-import type { ToolOutcome } from './assistant-tool-outcome'
+import type { ToolOutcome } from './assistant-tool-contract'
 import type { AssistantTools } from './assistant-tools'
 import { AssistantService } from './assistant.service'
 
@@ -194,6 +194,7 @@ describe('AssistantService', () => {
       workspaceId: f.workspace.id,
       applicationId: f.application.id,
       userId: f.user.id,
+      workflowId: f.workflow.id,
       web: true,
     })
     expect(answer.reply).toBe('The page says hello.')
@@ -216,7 +217,7 @@ describe('AssistantService', () => {
       f.workflow.id,
       request,
     )
-    expect(off.complete.mock.calls[0][2].tools).toHaveLength(1)
+    expect(off.complete.mock.calls[0][2].tools).toHaveLength(3)
     const on = modelReturning('hi')
     await new AssistantService(on, noTools).replyForWorkflow(
       f.workspace.id,
@@ -224,7 +225,7 @@ describe('AssistantService', () => {
       f.workflow.id,
       { ...request, tools: { web: true } },
     )
-    expect(on.complete.mock.calls[0][2].tools).toHaveLength(2)
+    expect(on.complete.mock.calls[0][2].tools).toHaveLength(4)
   })
 
   it('stops after too many tool rounds', async () => {
