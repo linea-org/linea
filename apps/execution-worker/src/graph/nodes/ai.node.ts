@@ -12,6 +12,7 @@ import type { Memory } from "@linealabs/db"
 import { PermanentRequestError, requestPublic } from "@linealabs/http"
 import { nodeRegistry } from "@linealabs/runtime"
 import { NonRetryableError } from "./non-retryable-error"
+import { openMcpTools, type McpToolSource } from "./mcp-tool-source"
 import { assertWithinExecutionBudget, UsageError } from "./usage-error"
 import { resolveNamespace, resolveSubjectId } from "./memory-scope"
 import type {
@@ -114,14 +115,20 @@ function rebuildOccurrenceCounts(
   return counts
 }
 
+type AiInput = ReturnType<typeof nodeRegistry.ai.inputSchema.parse>
+
+type ToolCallOutcome = { status: number; body: unknown }
+
+type ToolSources = {
+  http: Map<string, AiTool>
+  mcp: McpToolSource | undefined
+}
+
 // record is checked before and written after, so a whole-node replay can recognize an already-made call from durable state.
-async function callTool(
-  tool: AiTool,
-  args: Record<string, unknown>,
+async function recordedCall(
   record: ToolCallRecordKey | undefined,
-  idempotencyKey: string | undefined,
-  signal?: AbortSignal
-): Promise<unknown> {
+  invoke: () => Promise<ToolCallOutcome>
+): Promise<ToolCallOutcome> {
   if (record) {
     const existing = await repositories.toolCallRecord.getToolCallRecord(
       db,
@@ -145,6 +152,22 @@ async function callTool(
       )
     }
   }
+  const outcome = await invoke()
+  if (record) {
+    await repositories.toolCallRecord.recordToolCall(db, {
+      ...record,
+      ...outcome,
+    })
+  }
+  return outcome
+}
+
+async function callHttpTool(
+  tool: AiTool,
+  args: Record<string, unknown>,
+  idempotencyKey: string | undefined,
+  signal: AbortSignal | undefined
+): Promise<ToolCallOutcome> {
   const url = new URL(tool.url)
   // GET can't carry a body — the only way to pass arguments is the query string.
   if (tool.method === "GET") {
@@ -179,23 +202,40 @@ async function callTool(
   const body: unknown = contentType.includes("application/json")
     ? await response.json()
     : await response.text()
-  if (record) {
-    await repositories.toolCallRecord.recordToolCall(db, {
-      ...record,
-      status: response.status,
-      body,
-    })
-  }
   return { status: response.status, body }
+}
+
+async function invokeTool(
+  call: { name: string; arguments: Record<string, unknown> },
+  sources: ToolSources,
+  record: ToolCallRecordKey | undefined,
+  idempotencyKey: string | undefined,
+  signal: AbortSignal | undefined
+): Promise<unknown> {
+  const httpTool = sources.http.get(call.name)
+  if (httpTool) {
+    return recordedCall(record, () =>
+      callHttpTool(httpTool, call.arguments, idempotencyKey, signal)
+    )
+  }
+  const mcp = sources.mcp
+  if (mcp?.has(call.name)) {
+    // MCP has no HTTP status; 200 only marks the call as completed in the ledger.
+    const outcome = await recordedCall(record, async () => ({
+      status: 200,
+      body: await mcp.call(call.name, call.arguments, signal),
+    }))
+    return outcome.body
+  }
+  return { error: `Unknown tool "${call.name}"` }
 }
 
 async function resolveToolCallTurn(
   call: { id: string; name: string; arguments: Record<string, unknown> },
-  toolsByName: Map<string, AiTool>,
+  sources: ToolSources,
   toolCallOccurrences: Map<string, number>,
   context: NodeExecutionContext
 ): Promise<ConversationTurn> {
-  const tool = toolsByName.get(call.name)
   const contentHash = toolCallContentHash(call.name, call.arguments)
   const occurrence = (toolCallOccurrences.get(contentHash) ?? 0) + 1
   toolCallOccurrences.set(contentHash, occurrence)
@@ -212,15 +252,13 @@ async function resolveToolCallTurn(
           occurrence,
         }
       : undefined
-  const output = tool
-    ? await callTool(
-        tool,
-        call.arguments,
-        record,
-        idempotencyKey,
-        context.signal
-      )
-    : { error: `Unknown tool "${call.name}"` }
+  const output = await invokeTool(
+    call,
+    sources,
+    record,
+    idempotencyKey,
+    context.signal
+  )
   return { role: "tool", toolCallId: call.id, content: JSON.stringify(output) }
 }
 
@@ -242,7 +280,28 @@ export class AiNode implements NodeHandler {
       maxIterations: config.maxIterations,
       memorySubjectPath: config.memorySubjectPath,
       memoryNamespace: config.memoryNamespace,
+      mcpServers: config.mcpServers,
     })
+    const mcp = parsed.mcpServers?.length
+      ? await openMcpTools(
+          parsed.mcpServers,
+          context.environmentId,
+          context.signal
+        )
+      : undefined
+    try {
+      return await this.respond(parsed, input, context, mcp)
+    } finally {
+      await mcp?.close()
+    }
+  }
+
+  private async respond(
+    parsed: AiInput,
+    input: unknown,
+    context: NodeExecutionContext,
+    mcp: McpToolSource | undefined
+  ): Promise<unknown> {
     const provider = resolveProvider(parsed.model)
     const keyName = resolveKeyName(parsed.model)
     const { apiKey } = await resolveApiKey(db, {
@@ -267,14 +326,23 @@ export class AiNode implements NodeHandler {
           nodeKey.nodeId
         )
       : undefined
-    const tools: ToolDefinition[] | undefined = parsed.tools?.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters,
-    }))
-    const toolsByName = new Map(
-      (parsed.tools ?? []).map((tool) => [tool.name, tool])
-    )
+    const toolDefinitions: ToolDefinition[] = [
+      ...(parsed.tools ?? []).map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+      })),
+      ...(mcp?.tools ?? []),
+    ]
+    const names = new Set(toolDefinitions.map((tool) => tool.name))
+    if (names.size !== toolDefinitions.length) {
+      throw new NonRetryableError("Every tool on this step needs its own name")
+    }
+    const tools = parsed.tools || mcp ? toolDefinitions : undefined
+    const sources: ToolSources = {
+      http: new Map((parsed.tools ?? []).map((tool) => [tool.name, tool])),
+      mcp,
+    }
     const maxIterations = parsed.maxIterations ?? DEFAULT_MAX_ITERATIONS
     let conversation: ConversationTurn[]
     let nextPrompt: string | undefined
@@ -356,12 +424,7 @@ export class AiNode implements NodeHandler {
     if (lastTurn && "toolCalls" in lastTurn) {
       for (const call of lastTurn.toolCalls) {
         conversation.push(
-          await resolveToolCallTurn(
-            call,
-            toolsByName,
-            toolCallOccurrences,
-            context
-          )
+          await resolveToolCallTurn(call, sources, toolCallOccurrences, context)
         )
       }
     }
@@ -467,10 +530,19 @@ export class AiNode implements NodeHandler {
         // returns, and deleting here would leave a crash in that gap with neither a checkpoint
         // nor a saved conversation to resume from. A stray row for a node that did complete is
         // harmless — it's never read again once the node's checkpoint exists.
+        const toolCalls = conversation.flatMap((turn) =>
+          "toolCalls" in turn
+            ? turn.toolCalls.map(({ name, arguments: args }) => ({
+                name,
+                arguments: args,
+              }))
+            : []
+        )
         return nodeRegistry.ai.outputSchema.parse({
           text: result.text,
           tokensInput,
           tokensOutput,
+          toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         })
       }
       // Tool results only feed the next model call, so skip them when that call can't happen.
@@ -494,7 +566,9 @@ export class AiNode implements NodeHandler {
         })
       }
       for (const call of result.toolCalls) {
-        const method = toolsByName.get(call.name)?.method
+        const method = mcp?.has(call.name)
+          ? "MCP"
+          : sources.http.get(call.name)?.method
         if (context.diagnostic && method !== undefined && method !== "GET") {
           throw new UsageError(
             `Tool "${call.name}" (${method}) isn't called in Replay or Regression runs: it would repeat the original write`,
@@ -503,12 +577,7 @@ export class AiNode implements NodeHandler {
           )
         }
         conversation.push(
-          await resolveToolCallTurn(
-            call,
-            toolsByName,
-            toolCallOccurrences,
-            context
-          )
+          await resolveToolCallTurn(call, sources, toolCallOccurrences, context)
         )
       }
     }

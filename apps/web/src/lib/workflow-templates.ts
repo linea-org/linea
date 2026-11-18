@@ -363,6 +363,41 @@ export const workflowTemplates: WorkflowTemplate[] = [
       edges: [edge("start", "answer"), edge("answer", "end")],
     }),
   },
+  {
+    id: "repo-explainer",
+    name: "Repo explainer",
+    description:
+      "Answer questions about a GitHub repo with DeepWiki's MCP tools.",
+    build: (model) => ({
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "start",
+      nodes: [
+        startNode({ triggerType: "manual" }),
+        node(
+          "answer",
+          "ai",
+          {
+            model,
+            systemPrompt:
+              "You explain codebases briefly. Look things up with your tools before answering.",
+            prompt:
+              "In three sentences, what is the GitHub repo modelcontextprotocol/typescript-sdk for?",
+            mcpServers: [
+              {
+                name: "deepwiki",
+                url: "https://mcp.deepwiki.com/mcp",
+                tools: ["read_wiki_structure", "ask_wiki_question"],
+              },
+            ],
+          },
+          360
+        ),
+        endNode("end", 640),
+      ],
+      edges: [edge("start", "answer"), edge("answer", "end")],
+    }),
+  },
 ]
 
 export function findTemplate(id: string): WorkflowTemplate {

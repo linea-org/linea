@@ -12,6 +12,16 @@ const aiToolSchema = z.object({
   method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).default("GET"),
 })
 
+// OpenAI's tool-name limit is 64 [a-zA-Z0-9_-] characters; "{server}__{tool}" must fit it.
+const mcpServerSchema = z.object({
+  name: z.string().regex(/^[a-zA-Z0-9-]{1,20}$/),
+  // HTTPS is enforced when the step runs, where local development may allow a loopback server.
+  url: z.url({ protocol: /^https?$/ }),
+  // Header name to Environment Secret name; values are read only when the step runs.
+  headers: z.record(z.string(), z.string()).default({}),
+  tools: z.array(z.string()).optional(),
+})
+
 const aiInputSchema = z.object({
   prompt: z.string(),
   model: z.string(),
@@ -20,6 +30,15 @@ const aiInputSchema = z.object({
   conversationId: z.string().optional(),
   // Empty/omitted keeps today's exact one-shot completion behavior — no tool-calling loop.
   tools: z.array(aiToolSchema).optional(),
+  mcpServers: z
+    .array(mcpServerSchema)
+    .max(5)
+    .refine(
+      (servers) =>
+        new Set(servers.map((server) => server.name)).size === servers.length,
+      "MCP server names must be unique"
+    )
+    .optional(),
   // Not yet UI-exposed — caps the tool-calling loop; defaulted by the execution-worker handler.
   maxIterations: z.number().int().positive().max(25).optional(),
   // Empty/omitted keeps today's exact behavior — no memory lookup at all.
@@ -33,6 +52,15 @@ const aiOutputSchema = z.object({
   text: z.string(),
   tokensInput: z.number(),
   tokensOutput: z.number(),
+  // Present only when the model called a tool, so the trace shows what it called.
+  toolCalls: z
+    .array(
+      z.object({
+        name: z.string(),
+        arguments: z.record(z.string(), z.unknown()),
+      })
+    )
+    .optional(),
 })
 
 export const aiNode: NodeDefinition<
@@ -76,6 +104,13 @@ export const aiNode: NodeDefinition<
         widget: "code",
         description:
           "Optional HTTP tools the model can call: JSON array of {name, description, parameters (JSON Schema), url, method}. Leave empty for a single-shot completion.",
+      },
+      {
+        key: "mcpServers",
+        label: "MCP servers",
+        widget: "code",
+        description:
+          'Up to 5 MCP servers whose tools the model can call. These tools run with this Environment\'s credentials and without per-action approval. JSON: [{"name": "docs", "url": "https://…/mcp", "headers": {"Authorization": "SECRET_NAME"}, "tools": ["search"]}].',
       },
       {
         key: "memorySubjectPath",
