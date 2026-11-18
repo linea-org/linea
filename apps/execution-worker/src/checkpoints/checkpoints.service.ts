@@ -1,24 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { Injectable } from "@nestjs/common"
-import { db, repositories, type ExecutionStep } from "@linealabs/db"
-
-/** true beats null beats false. */
-function mergeCostUnpriced(
-  a: boolean | null,
-  b: boolean | null
-): boolean | null {
-  if (a === true || b === true) return true
-  if (a === null || b === null) return null
-  return false
-}
-
-/** No attribute on a succeeded "ai" step means it predates this feature. */
-function stepCostUnpricedState(step: ExecutionStep): boolean | null {
-  if (step.name !== "ai" || step.status !== "succeeded") return false
-  if (step.attributes?.costUnpriced === true) return true
-  if (step.attributes?.costUnpriced === false) return false
-  return null
-}
+import { db, repositories } from "@linealabs/db"
 
 export type RecordStepInput = {
   executionId: string
@@ -211,28 +193,6 @@ export class CheckpointsService {
       db,
       executionId
     )
-    const initialTotals: {
-      tokensInput: number
-      tokensOutput: number
-      costMicros: bigint
-      costUnpriced: boolean | null
-    } = {
-      tokensInput: 0,
-      tokensOutput: 0,
-      costMicros: 0n,
-      costUnpriced: false,
-    }
-    return steps.reduce(
-      (totals, step) => ({
-        tokensInput: totals.tokensInput + step.tokensInput,
-        tokensOutput: totals.tokensOutput + step.tokensOutput,
-        costMicros: totals.costMicros + step.costMicros,
-        costUnpriced: mergeCostUnpriced(
-          totals.costUnpriced,
-          stepCostUnpricedState(step)
-        ),
-      }),
-      initialTotals
-    )
+    return repositories.executionStep.sumStepTotals(steps)
   }
 }
