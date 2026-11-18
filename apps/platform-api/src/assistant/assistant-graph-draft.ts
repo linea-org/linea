@@ -175,9 +175,22 @@ export class GraphDraft {
         return `Nothing applied: operation ${index + 1} (${operation.op}) failed because ${error.message}.`
       }
     }
-    this.graph = next
+    // The builder lays out only unpositioned nodes, so a node added among kept positions overlaps.
+    const reshaped = parsed.data.some(
+      ({ op }) => op !== 'update_node' && op !== 'set_trigger',
+    )
+    this.graph = reshaped
+      ? {
+          ...next,
+          nodes: next.nodes.map(({ id, type, config }) => ({
+            id,
+            type,
+            config,
+          })),
+        }
+      : next
     try {
-      validateAssistantGraph(next)
+      validateAssistantGraph(this.graph)
       return `Applied ${parsed.data.length} operations. The draft is valid.`
     } catch (error) {
       if (!(error instanceof AssistantOutputError)) throw error

@@ -12,6 +12,12 @@ const canvas = {
 }
 
 describe('GraphDraft', () => {
+  it('keeps the canvas layout when only config changes', () => {
+    const draft = GraphDraft.from(canvas)
+    draft.edit({ operations: [{ op: 'update_node', id: 'end', config: {} }] })
+    expect(draft.current?.nodes[1].position).toEqual({ x: 1, y: 2 })
+  })
+
   it('starts from the canvas and keeps what it does not touch', () => {
     const draft = GraphDraft.from(canvas)
     const result = draft.edit({
@@ -28,7 +34,12 @@ describe('GraphDraft', () => {
       ],
     })
     expect(result).toBe('Applied 4 operations. The draft is valid.')
-    expect(draft.current?.nodes[1]).toEqual(canvas.nodes[1])
+    // Re-laid out by the builder, so no node keeps a position that the new one could overlap.
+    expect(draft.current?.nodes[1]).toEqual({
+      id: 'end',
+      type: 'end',
+      config: {},
+    })
     expect(draft.current?.edges).toEqual([
       { from: 'start', to: 'pick' },
       { from: 'pick', to: 'end' },
