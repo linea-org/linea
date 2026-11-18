@@ -93,6 +93,28 @@ describe('run inspector', () => {
     expect(outcome.content).not.toContain('end-user text')
   })
 
+  it('caps a long run so it cannot flood the model', async () => {
+    const f = await workflowFixture()
+    const id = await runWithStep(f)
+    for (let index = 2; index <= 14; index += 1) {
+      await db.insert(schema.executionSteps).values({
+        executionId: id,
+        workspaceId: f.workspaceId,
+        traceId: 't',
+        spanId: randomUUID(),
+        name: 'transform',
+        nodeId: `step-${index}`,
+        sequence: index,
+        startedAt: new Date(),
+        status: 'succeeded',
+        output: { text: 'x'.repeat(1_400) },
+      })
+    }
+    const outcome = await inspectRun(f.workspaceId, f.workflowId, id)
+    expect(outcome.content).toMatch(/\[cut at 12000 characters\]$/)
+    expect(outcome.content.length).toBeLessThan(12_100)
+  })
+
   it('refuses a run of another workflow, another workspace or a bad id', async () => {
     const f = await workflowFixture()
     const other = await workflowFixture()

@@ -1,7 +1,11 @@
 import { z } from 'zod'
 import type { ToolDefinition } from '@linealabs/ai'
-import { db, repositories, type Execution } from '@linealabs/db'
-import { describeSteps } from './assistant-run-summary'
+import {
+  db,
+  repositories,
+  type Execution,
+  type ExecutionStep,
+} from '@linealabs/db'
 import type { ToolOutcome } from './assistant-tool-contract'
 
 export const RECENT_RUNS_TOOL: ToolDefinition = {
@@ -25,6 +29,25 @@ export const RUN_TOOL: ToolDefinition = {
 }
 
 const RECENT_LIMIT = 10
+const MAX_DETAIL_CHARS = 1_500
+const MAX_RESULT_CHARS = 12_000
+
+function capped(lines: string[]): string {
+  const text = lines.join('\n')
+  return text.length > MAX_RESULT_CHARS
+    ? `${text.slice(0, MAX_RESULT_CHARS)}\n[cut at ${MAX_RESULT_CHARS} characters]`
+    : text
+}
+
+/** With hideContent, only statuses and errors are shown, never what an End-User sent or got back. */
+function describeStep(step: ExecutionStep, hideContent: boolean): string {
+  const detail = step.error
+    ? `error: ${step.error.message}`
+    : hideContent
+      ? 'output hidden (End-User run)'
+      : `output: ${JSON.stringify(step.output ?? null)}`
+  return `- ${step.nodeId} (${step.status}) ${detail.slice(0, MAX_DETAIL_CHARS)}`
+}
 
 function isEndUserRun(execution: Execution): boolean {
   return (
@@ -42,13 +65,13 @@ export async function listRecentRuns(workflowId: string): Promise<ToolOutcome> {
       `- ${run.id} ${run.status}`,
       `${run.trigger} in ${run.environment}`,
       run.createdAt.toISOString(),
-      run.error ? `error: ${run.error.message}` : '',
+      run.error ? `error: ${run.error.message.slice(0, MAX_DETAIL_CHARS)}` : '',
     ]
       .filter(Boolean)
       .join(', '),
   )
   return {
-    content: lines.length ? lines.join('\n') : 'This workflow has no runs yet.',
+    content: lines.length ? capped(lines) : 'This workflow has no runs yet.',
     action: { kind: 'inspect_runs', executionId: null },
   }
 }
@@ -73,12 +96,16 @@ export async function inspectRun(
       action: null,
     }
   }
-  const summary = `The run ${execution.status}${execution.error ? `: ${execution.error.message}` : '.'}`
+  const error = execution.error?.message.slice(0, MAX_DETAIL_CHARS)
+  const hideContent = isEndUserRun(execution)
+  const lines = (steps ?? [])
+    .filter((step) => !step.isSystemEvent)
+    .map((step) => describeStep(step, hideContent))
   return {
-    content: [
-      summary,
-      ...describeSteps(steps ?? [], isEndUserRun(execution)),
-    ].join('\n'),
+    content: capped([
+      `The run ${execution.status}${error ? `: ${error}` : '.'}`,
+      ...lines,
+    ]),
     action: { kind: 'inspect_runs', executionId: execution.id },
   }
 }

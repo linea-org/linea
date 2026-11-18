@@ -10,10 +10,7 @@ import {
 import { hashWorkflowGraph, type WorkflowGraph } from '@linealabs/runtime'
 import { validateAssistantGraph } from './assistant-graph'
 import { AssistantOutputError } from './assistant-output-error'
-import type {
-  AssistantToolScope,
-  ToolOutcome,
-} from './assistant-tool-contract'
+import type { AssistantToolScope, ToolOutcome } from './assistant-tool-contract'
 
 export const TEST_TOOL: ToolDefinition = {
   name: 'test_run_draft',
@@ -46,6 +43,7 @@ const SETTLED: readonly Execution['status'][] = [
 const POLL_INTERVAL_MS = 500
 const MAX_WAIT_MS = 30_000
 const MAX_STEP_CHARS = 1_500
+const MAX_RESULT_CHARS = 12_000
 
 /** Refuses drafts whose run could change something outside Linea or outlive the chat turn. */
 function untestableReason(graph: WorkflowGraph): string | null {
@@ -131,7 +129,9 @@ export class AssistantSelfTest {
         ? `The run had not finished after ${MAX_WAIT_MS / 1000}s, so it was stopped.`
         : `The run ${settled.execution.status}.`
     return {
-      content: [summary, ...steps.map(describeStep)].join('\n'),
+      content: [summary, ...steps.map(describeStep)]
+        .join('\n')
+        .slice(0, MAX_RESULT_CHARS),
       action: {
         kind: 'test_run',
         executionId: execution.id,
