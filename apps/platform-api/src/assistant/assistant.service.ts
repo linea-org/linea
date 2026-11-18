@@ -7,6 +7,7 @@ import type { ConversationTurn, ToolCall } from '@linealabs/ai'
 import { db, repositories } from '@linealabs/db'
 import type { WorkflowGraph } from '@linealabs/runtime'
 import { branchUpTo } from './assistant-branch'
+import { assertAgentsDeployed } from './assistant-agents'
 import { validateAssistantGraph } from './assistant-graph'
 import { AssistantModel } from './assistant-model'
 import { AssistantModelUnavailableError } from './assistant-model-error'
@@ -83,9 +84,9 @@ export class AssistantService {
         userId,
         applicationId: workflow.applicationId,
         workflowId,
+        environmentId: environment.id,
         web: input.tools.web,
       },
-      environment.id,
       input,
     )
   }
@@ -117,9 +118,9 @@ export class AssistantService {
         userId,
         applicationId,
         workflowId: null,
+        environmentId: environment.id,
         web: input.tools.web,
       },
-      environment.id,
       input,
     )
   }
@@ -127,7 +128,6 @@ export class AssistantService {
   /** Saves the chat as it goes, and takes the model's context from what was saved, not from the browser. */
   private async converse(
     scope: AssistantToolScope,
-    environmentId: string,
     input: AssistantMessageDto,
   ): Promise<AssistantAnswer> {
     const { workspaceId, userId, workflowId } = scope
@@ -159,7 +159,7 @@ export class AssistantService {
         content: input.message,
         attachments: input.attachments,
       })
-    const reply = await this.think(scope, environmentId, input, history)
+    const reply = await this.think(scope, input, history)
     const replyMessage =
       await repositories.assistantConversation.appendAssistantMessage(db, {
         workspaceId,
@@ -217,7 +217,6 @@ export class AssistantService {
 
   private async think(
     scope: AssistantToolScope,
-    environmentId: string,
     input: AssistantMessageDto,
     history: ConversationTurn[],
   ): Promise<Reply> {
@@ -230,13 +229,7 @@ export class AssistantService {
     let rejections = 0
     let toolRounds = 0
     for (;;) {
-      const result = await this.completeTurn(
-        scope,
-        environmentId,
-        input,
-        history,
-        prompt,
-      )
+      const result = await this.completeTurn(scope, input, history, prompt)
       prompt = undefined
       if (result.toolCalls?.length) {
         toolRounds += 1
@@ -252,7 +245,7 @@ export class AssistantService {
         continue
       }
       try {
-        return buildReply(result.text, result.model, actions)
+        return await buildReply(result.text, result.model, actions, scope)
       } catch (error) {
         if (!(error instanceof AssistantOutputError)) throw error
         rejections += 1
@@ -271,7 +264,6 @@ export class AssistantService {
 
   private async completeTurn(
     scope: AssistantToolScope,
-    environmentId: string,
     input: AssistantMessageDto,
     history: ConversationTurn[],
     prompt: string | undefined,
@@ -279,7 +271,7 @@ export class AssistantService {
     const result = await this.model
       .complete(
         scope.workspaceId,
-        environmentId,
+        scope.environmentId,
         {
           systemPrompt: buildAssistantSystemPrompt(scope),
           history: [...history],
@@ -319,13 +311,15 @@ export class AssistantService {
   }
 }
 
-function buildReply(
+async function buildReply(
   text: string,
   model: string,
   actions: AssistantAction[],
-): Reply {
+  scope: AssistantToolScope,
+): Promise<Reply> {
   const parsed = parseAssistantReply(text)
   const graph = parsed.graph ? validateAssistantGraph(parsed.graph) : null
+  if (graph) await assertAgentsDeployed(graph, scope)
   return {
     reply: parsed.reply,
     title: graph ? (parsed.title ?? null) : null,

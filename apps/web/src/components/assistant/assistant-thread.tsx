@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react"
 import {
+  BotIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -166,6 +167,14 @@ function ActionChip({
       <Badge variant={action.status === "succeeded" ? "outline" : "warning"}>
         <FlaskConicalIcon />
         {`Test run ${action.status}`}
+      </Badge>
+    )
+  }
+  if (action.kind === "list_agents") {
+    return (
+      <Badge variant="outline">
+        <BotIcon />
+        {action.count === 1 ? "Read 1 Agent" : `Read ${action.count} Agents`}
       </Badge>
     )
   }

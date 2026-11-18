@@ -39,6 +39,7 @@ export type AssistantMessageAction =
         | "cancelled"
     }
   | { kind: "inspect_runs"; executionId: string | null }
+  | { kind: "list_agents"; count: number }
 
 /** A text file the user attached to a message; its content is data for the model, never instructions. */
 export type AssistantAttachment = {

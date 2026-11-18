@@ -15,7 +15,7 @@ describe('assistant prompt', () => {
   })
 
   it('does not offer node types that need set-up the assistant cannot do', () => {
-    for (const type of ['agent', 'connector', 'approval', 'memory']) {
+    for (const type of ['connector', 'approval', 'memory']) {
       expect(prompt).not.toContain(`- "${type}" (`)
     }
   })
@@ -27,6 +27,10 @@ describe('assistant prompt', () => {
   it('makes the assistant a general helper that builds workflows only when wanted', () => {
     expect(prompt).toContain('Build a workflow only when')
     expect(prompt).toContain('do the task yourself')
+  })
+
+  it('makes the model take Agent ids from list_agents, never guess them', () => {
+    expect(prompt).toContain('Call list_agents first')
   })
 
   it('asks the model to test drafts before proposing them', () => {

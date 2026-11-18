@@ -49,6 +49,7 @@ describe('AssistantSelfTest', () => {
       },
       'not GET',
     ],
+    [{ type: 'agent', config: {} }, 'runs an Agent'],
   ])('refuses a draft whose run could have side effects', async (node, why) => {
     const outcome = await selfTest.run(scope, { graph: graphWith(node) })
     expect(outcome.action).toBeNull()

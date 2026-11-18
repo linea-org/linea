@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import type { ToolCall, ToolDefinition } from '@linealabs/ai'
+import { AGENTS_TOOL, listAgents } from './assistant-agents'
 import {
   inspectRun,
   listRecentRuns,
@@ -15,6 +16,7 @@ export function assistantTools(
 ): ToolDefinition[] {
   return [
     TEST_TOOL,
+    AGENTS_TOOL,
     ...(scope.workflowId ? [RECENT_RUNS_TOOL, RUN_TOOL] : []),
     ...(scope.web ? [WEB_TOOL] : []),
   ]
@@ -37,6 +39,7 @@ export class AssistantTools {
     const { url, executionId } = args
     const { workflowId } = scope
     if (name === TEST_TOOL.name) return this.selfTest.run(scope, args)
+    if (name === AGENTS_TOOL.name) return listAgents(scope)
     if (name === WEB_TOOL.name && typeof url === 'string') return fetchPage(url)
     if (name === RECENT_RUNS_TOOL.name && workflowId) {
       return listRecentRuns(workflowId)
