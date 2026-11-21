@@ -4,6 +4,7 @@ import {
   calculateCostMicros,
   executionBudgetMessage,
   MAX_EXECUTION_TOKENS,
+  PlatformKeyBudgetError,
   resolveProviderId,
 } from "@linealabs/ai"
 import {
@@ -338,7 +339,11 @@ export class InterpreterService {
           } catch (attemptError) {
             // Don't spend retry budget on a call that was never ours.
             if (runSignal.aborted) throw attemptError
-            if (attemptError instanceof NonRetryableError) throw attemptError
+            if (
+              attemptError instanceof NonRetryableError ||
+              attemptError instanceof PlatformKeyBudgetError
+            )
+              throw attemptError
             if (attemptsMade >= maxAttempts) throw attemptError
             attemptsMade += 1
             // Recheck before sleep — a retry can outlive the lease that covered attempt 1.

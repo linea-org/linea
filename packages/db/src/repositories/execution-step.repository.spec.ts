@@ -8,6 +8,7 @@ import {
   getExecutionStepById,
   getNextStepSequence,
   renewReplayClaim,
+  sumWorkspaceTokensSince,
   type ClaimReplayStepResult,
   type ReplayClaim,
 } from "./execution-step.repository.js"
@@ -45,6 +46,50 @@ async function createOriginalStep(
     .returning()
   return step
 }
+
+describe("sumWorkspaceTokensSince", () => {
+  it("adds the tokens of steps started inside the window only", async () => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const [execution] = await tx
+        .insert(executions)
+        .values({
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: "manual",
+          status: "succeeded",
+        })
+        .returning()
+      const now = Date.now()
+      const step = (sequence: number, startedAt: Date) => ({
+        executionId: execution.id,
+        workspaceId: organization.id,
+        traceId: execution.id,
+        spanId: `span-${sequence}`,
+        name: "ai",
+        startedAt,
+        nodeId: `node-${sequence}`,
+        sequence,
+        tokensInput: 100,
+        tokensOutput: 50,
+      })
+      await tx
+        .insert(executionSteps)
+        .values([
+          step(1, new Date(now - 60_000)),
+          step(2, new Date(now - 2 * 86_400_000)),
+        ])
+      expect(
+        await sumWorkspaceTokensSince(
+          tx,
+          organization.id,
+          new Date(now - 86_400_000)
+        )
+      ).toBe(150)
+    })
+  })
+})
 
 describe("getExecutionStepById", () => {
   it("returns the step, or undefined if it doesn't exist", async () => {

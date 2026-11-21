@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import {
   ModelKeyMissingError,
+  PlatformKeyBudgetError,
   registry,
   resolveApiKey,
   resolveKeyName,
@@ -40,7 +41,7 @@ export class AssistantModel {
       throw new AssistantModelUnavailableError(`Unknown model: ${model}`)
     }
     try {
-      const { apiKey } = await resolveApiKey(db, {
+      const { apiKey, source } = await resolveApiKey(db, {
         workspaceId,
         environmentId,
         keyName: resolveKeyName(model),
@@ -49,8 +50,18 @@ export class AssistantModel {
         ...request,
         model,
       })
+      if (source === 'platform') {
+        await repositories.assistantUsage.recordAssistantUsage(
+          db,
+          workspaceId,
+          result.tokensInput + result.tokensOutput,
+        )
+      }
       return { ...result, model }
     } catch (error) {
+      if (error instanceof PlatformKeyBudgetError) {
+        throw new AssistantModelUnavailableError(error.message)
+      }
       const entry = buildModelCatalog().find((item) => item.value === model)
       if (error instanceof ModelKeyMissingError) {
         throw new AssistantModelUnavailableError(

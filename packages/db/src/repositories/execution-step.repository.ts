@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { and, eq, isNotNull, lt, sql } from "drizzle-orm"
+import { and, eq, gte, isNotNull, lt, sql } from "drizzle-orm"
 import {
   executions,
   executionSteps,
@@ -26,6 +26,26 @@ function mergeCostUnpriced(a: boolean | null, b: boolean | null) {
   if (a === true || b === true) return true
   if (a === null || b === null) return null
   return false
+}
+
+/** Tokens the workspace's steps have used since `since`, counted when each step starts. */
+export async function sumWorkspaceTokensSince(
+  db: DbClient,
+  workspaceId: string,
+  since: Date
+): Promise<number> {
+  const [row] = await db
+    .select({
+      total: sql<number>`coalesce(sum(${executionSteps.tokensInput} + ${executionSteps.tokensOutput}), 0)::float8`,
+    })
+    .from(executionSteps)
+    .where(
+      and(
+        eq(executionSteps.workspaceId, workspaceId),
+        gte(executionSteps.startedAt, since)
+      )
+    )
+  return row.total
 }
 
 export function sumStepTotals(steps: ExecutionStep[]): StepTotals {

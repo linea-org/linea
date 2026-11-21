@@ -5,6 +5,9 @@ import {
   repositories,
   type DbClient,
 } from "@linealabs/db"
+import { assertPlatformKeyBudget } from "../usage-budget.js"
+
+const DAY_MS = 24 * 60 * 60 * 1000
 
 export type ResolvedApiKey = {
   apiKey: string
@@ -69,5 +72,11 @@ export async function resolveApiKey(
   ) {
     throw new ModelKeyMissingError(keyName)
   }
+  const since = new Date(Date.now() - DAY_MS)
+  const [steps, assistant] = await Promise.all([
+    repositories.executionStep.sumWorkspaceTokensSince(db, workspaceId, since),
+    repositories.assistantUsage.sumAssistantTokensSince(db, workspaceId, since),
+  ])
+  assertPlatformKeyBudget(steps + assistant)
   return { apiKey: platformKey, source: "platform" }
 }

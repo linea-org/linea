@@ -11,6 +11,7 @@ import {
   lockExternalSubject,
   resolveSubject,
   getPublicExecution,
+  workspaceHasRoomToStart,
   type StartPublicExecutionResult,
 } from "./public-runtime.repository.js"
 import {
@@ -110,6 +111,10 @@ export function startAgentExecution(
     ) {
       await releasePublicRequest(tx, reservation.recordId)
       return { outcome: "validation_failed" }
+    }
+    if (!(await workspaceHasRoomToStart(tx, input.workspaceId))) {
+      await releasePublicRequest(tx, reservation.recordId)
+      return { outcome: "workspace_busy" }
     }
     const [execution] = await tx
       .insert(executions)

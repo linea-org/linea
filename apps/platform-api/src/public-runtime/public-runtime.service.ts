@@ -251,9 +251,11 @@ export class PublicRuntimeService {
       if (result.outcome === 'created' || result.outcome === 'replay') {
         return this.projectExecution(result.execution)
       }
+      const code =
+        result.outcome === 'workspace_busy' ? 'rate_limited' : result.outcome
       throw new HttpException(
-        publicError(result.outcome, 'Execution start rejected'),
-        publicErrorStatuses[result.outcome],
+        publicError(code, 'Execution start rejected'),
+        publicErrorStatuses[code],
       )
     }
     return this.startExecution(
@@ -316,6 +318,12 @@ export class PublicRuntimeService {
       },
     })
     if (result.outcome === 'resource_not_found') this.notFound()
+    if (result.outcome === 'workspace_busy') {
+      throw new HttpException(
+        publicError('rate_limited', 'Too many Executions are queued'),
+        publicErrorStatuses.rate_limited,
+      )
+    }
     if (
       result.outcome === 'workflow_start_not_allowed' ||
       result.outcome === 'workflow_binding_incompatible' ||

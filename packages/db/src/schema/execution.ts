@@ -171,6 +171,9 @@ export const executions = snakeCase.table(
       table.externalSubjectId,
       table.createdAt
     ),
+    index("executions_workspace_active_idx")
+      .on(table.workspaceId)
+      .where(sql`${table.status} in ('queued', 'running')`),
     index("executions_lease_claim_idx")
       .on(table.status, table.leaseExpiresAt)
       .where(sql`${table.status} = 'running'`),

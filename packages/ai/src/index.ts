@@ -21,7 +21,12 @@ export type {
   ToolDefinition,
 } from "./providers/provider.interface.js"
 export { calculateCostMicros } from "./pricing/pricing-table.js"
-export { executionBudgetMessage, MAX_EXECUTION_TOKENS } from "./usage-budget.js"
+export {
+  executionBudgetMessage,
+  MAX_EXECUTION_TOKENS,
+  PLATFORM_KEY_DAILY_TOKENS,
+  PlatformKeyBudgetError,
+} from "./usage-budget.js"
 export type { ModelPrice } from "./pricing/pricing-table.js"
 export {
   DEFAULT_ANALYSIS_MODEL,
