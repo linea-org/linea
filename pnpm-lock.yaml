@@ -11,6 +11,7 @@ overrides:
   '@better-auth/expo>expo-secure-store': '-'
   '@better-auth/expo>expo-web-browser': '-'
   '@hono/node-server@2': ^2.1.6
+  zod@3: ^4.6.7
   baseline-browser-mapping: 2.11.25
   body-parser@2: ^2.4.0
   brace-expansion@1: ^1.1.21
@@ -9818,9 +9819,6 @@ packages:
     peerDependencies:
       zod: ^4.6.7
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
-
   zod@4.6.7:
     resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
@@ -9855,8 +9853,8 @@ snapshots:
       lit: 3.3.3
       redos-detector: 6.1.4
       validate-color: 2.2.4
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
+      zod: 4.6.7
+      zod-to-json-schema: 3.25.2(zod@4.6.7)
 
   '@ag-ui/a2ui-middleware@0.0.16(@ag-ui/client@1.0.5(zod@4.6.7))(rxjs@7.8.1)':
     dependencies:
@@ -9866,19 +9864,6 @@ snapshots:
       rxjs: 7.8.1
 
   '@ag-ui/a2ui-toolkit@0.0.5': {}
-
-  '@ag-ui/client@1.0.5(zod@3.25.76)':
-    dependencies:
-      '@ag-ui/core': 1.0.5(zod@3.25.76)
-      '@ag-ui/encoder': 1.0.5(zod@3.25.76)
-      '@ag-ui/proto': 1.0.5(zod@3.25.76)
-      '@types/uuid': 10.0.0
-      compare-versions: 6.1.1
-      fast-json-patch: 3.1.1
-      rxjs: 7.8.1
-      untruncate-json: 0.0.1
-      uuid: 11.1.1
-      zod: 3.25.76
 
   '@ag-ui/client@1.0.5(zod@4.6.7)':
     dependencies:
@@ -9893,32 +9878,15 @@ snapshots:
       uuid: 11.1.1
       zod: 4.6.7
 
-  '@ag-ui/core@1.0.5(zod@3.25.76)':
-    optionalDependencies:
-      zod: 3.25.76
-
   '@ag-ui/core@1.0.5(zod@4.6.7)':
     optionalDependencies:
       zod: 4.6.7
-
-  '@ag-ui/encoder@1.0.5(zod@3.25.76)':
-    dependencies:
-      '@ag-ui/core': 1.0.5(zod@3.25.76)
-      '@ag-ui/proto': 1.0.5(zod@3.25.76)
-      zod: 3.25.76
 
   '@ag-ui/encoder@1.0.5(zod@4.6.7)':
     dependencies:
       '@ag-ui/core': 1.0.5(zod@4.6.7)
       '@ag-ui/proto': 1.0.5(zod@4.6.7)
       zod: 4.6.7
-
-  '@ag-ui/proto@1.0.5(zod@3.25.76)':
-    dependencies:
-      '@ag-ui/core': 1.0.5(zod@3.25.76)
-      '@bufbuild/protobuf': 2.15.0
-      '@protobuf-ts/protoc': 2.11.1
-      zod: 3.25.76
 
   '@ag-ui/proto@1.0.5(zod@4.6.7)':
     dependencies:
@@ -10404,8 +10372,8 @@ snapshots:
       '@copilotkit/shared': 1.90.0(@ag-ui/core@1.0.5(zod@4.6.7))
       clsx: 2.1.1
       marked: 12.0.2
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
+      zod: 4.6.7
+      zod-to-json-schema: 3.25.2(zod@4.6.7)
     optionalDependencies:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
@@ -10416,15 +10384,15 @@ snapshots:
   '@copilotkit/core@1.90.0(@ag-ui/core@1.0.5(zod@4.6.7))':
     dependencies:
       '@a2ui/web_core': 0.15.0
-      '@ag-ui/client': 1.0.5(zod@3.25.76)
+      '@ag-ui/client': 1.0.5(zod@4.6.7)
       '@copilotkit/learning': 1.90.0
       '@copilotkit/shared': 1.90.0(@ag-ui/core@1.0.5(zod@4.6.7))
       '@tanstack/pacer': 0.20.1
       jsonrepair: 3.15.0
       phoenix: 1.8.14
       rxjs: 7.8.1
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
+      zod: 4.6.7
+      zod-to-json-schema: 3.25.2(zod@4.6.7)
     transitivePeerDependencies:
       - '@ag-ui/core'
       - encoding
@@ -10512,7 +10480,7 @@ snapshots:
   '@copilotkit/shared@1.90.0(@ag-ui/core@1.0.5(zod@4.6.7))':
     dependencies:
       '@ag-ui/a2ui-middleware': 0.0.16(@ag-ui/client@1.0.5(zod@4.6.7))(rxjs@7.8.1)
-      '@ag-ui/client': 1.0.5(zod@3.25.76)
+      '@ag-ui/client': 1.0.5(zod@4.6.7)
       '@ag-ui/core': 1.0.5(zod@4.6.7)
       '@copilotkit/license-verifier': 0.5.0
       '@segment/analytics-node': 2.3.0
@@ -10522,8 +10490,8 @@ snapshots:
       partial-json: 0.1.7
       rxjs: 7.8.1
       uuid: 11.1.1
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
+      zod: 4.6.7
+      zod-to-json-schema: 3.25.2(zod@4.6.7)
     transitivePeerDependencies:
       - encoding
 
@@ -19748,15 +19716,9 @@ snapshots:
 
   yoctocolors@2.2.0: {}
 
-  zod-to-json-schema@3.25.2(zod@3.25.76):
-    dependencies:
-      zod: 3.25.76
-
   zod-to-json-schema@3.25.2(zod@4.6.7):
     dependencies:
       zod: 4.6.7
-
-  zod@3.25.76: {}
 
   zod@4.6.7: {}
 
