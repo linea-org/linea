@@ -1,14 +1,17 @@
 import { nodeRegistry, type NodeUICategory } from "@linealabs/runtime/browser"
 import { cn } from "@linealabs/ui/lib/utils"
+import { Fragment, useRef } from "react"
+import { TimerIcon } from "lucide-react"
 import { useHydrated } from "@tanstack/react-router"
 
 import type { ExecutionStepSummary } from "@/lib/executions-api"
 import { NODE_CATEGORY_COLORS } from "../workflow-builder/node-category-colors"
 import { NodeIcon } from "../workflow-builder/node-icon"
 import { isNodeTypeId, stepTitle } from "./execution-step-presentation"
+import { GanttTimeAxis } from "./gantt-time-axis"
+import { useTimelineZoom } from "./use-timeline-zoom"
 import { Empty, EmptyHeader, EmptyTitle } from "@linealabs/ui/components/empty"
 
-const MIN_BAR_WIDTH_PCT = 1.5
 const COMPACT_BELOW_MS = 100
 
 const CATEGORY_BAR: Record<NodeUICategory, string> = {
@@ -55,21 +58,18 @@ function barClass(
   }
 }
 
-export function ExecutionGanttChart({
-  steps,
-  executionStartedAt,
-  executionCompletedAt,
-  selectedStepId,
-  onStepSelect,
-}: {
+type ChartProps = {
   steps: ExecutionStepSummary[]
   executionStartedAt: string | null
   executionCompletedAt: string | null
   selectedStepId?: string | null
   onStepSelect?: (stepId: string) => void
-}) {
-  const hydrated = useHydrated()
-  const rows = steps
+  // Opens inline under the selected row, so the run reads top to bottom.
+  selectedDetail?: React.ReactNode
+}
+
+export function ExecutionGanttChart(props: ChartProps) {
+  const rows = props.steps
     .filter((step) => !step.isSystemEvent)
     .slice()
     .sort(
@@ -85,13 +85,55 @@ export function ExecutionGanttChart({
       </Empty>
     )
   }
-  const now = hydrated
-    ? Date.now()
-    : Math.max(
-        ...rows.map((step) =>
-          new Date(step.endedAt ?? step.startedAt).getTime()
-        )
-      )
+  return <GanttTimeline {...props} rows={rows} />
+}
+
+function StartupRow({
+  startupMs,
+  leftPct,
+  widthPct,
+  showBar,
+}: Readonly<{
+  startupMs: number
+  leftPct: number
+  widthPct: number
+  showBar: boolean
+}>) {
+  return (
+    <div
+      title="Time between the run being claimed by a worker and its first step starting"
+      className="flex w-full flex-col gap-1.5 px-2 py-1.5 text-muted-foreground"
+    >
+      <div className="flex w-full items-center gap-2">
+        <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-muted">
+          <TimerIcon className="size-2.5" />
+        </span>
+        <span className="min-w-0 flex-1 truncate">Startup</span>
+        <span className="shrink-0 font-mono text-xs tabular-nums">
+          {formatElapsed(startupMs)}
+        </span>
+      </div>
+      {showBar ? (
+        <div className="relative h-1 w-full overflow-hidden rounded-full bg-muted/60">
+          <div
+            className="absolute h-1 min-w-0.5 rounded-full bg-muted-foreground/40"
+            style={{
+              left: `${leftPct}%`,
+              width: `${Math.min(widthPct, 100)}%`,
+            }}
+          />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function timelineRange(
+  rows: ExecutionStepSummary[],
+  executionStartedAt: string | null,
+  executionCompletedAt: string | null,
+  now: number
+) {
   const rangeStartMs = executionStartedAt
     ? new Date(executionStartedAt).getTime()
     : Math.min(...rows.map((s) => new Date(s.startedAt).getTime()))
@@ -105,19 +147,123 @@ export function ExecutionGanttChart({
       : recordedEndMs,
     hasOpenStep ? now : recordedEndMs
   )
+  return { rangeStartMs, rangeEndMs }
+}
+
+/** For each row, the latest end time of the rows before it, so gaps show worker overhead. */
+function previousEnds(rows: ExecutionStepSummary[], now: number): number[] {
+  let latest = -Infinity
+  return rows.map((step) => {
+    const before = latest
+    const end = step.endedAt ? new Date(step.endedAt).getTime() : now
+    latest = Math.max(latest, end)
+    return before
+  })
+}
+
+function StepTrack({
+  leftPct,
+  widthPct,
+  waitPct,
+  barClassName,
+}: Readonly<{
+  leftPct: number
+  widthPct: number
+  waitPct: number
+  barClassName: string
+}>) {
+  return (
+    <div className="relative h-1 w-full overflow-hidden rounded-full bg-muted/60">
+      {waitPct > 0 ? (
+        <div
+          className="absolute top-1/2 h-px -translate-y-1/2 border-t border-dashed border-muted-foreground/50"
+          style={{ left: `${leftPct - waitPct}%`, width: `${waitPct}%` }}
+        />
+      ) : null}
+      {leftPct < 100 && leftPct + widthPct > 0 ? (
+        <div
+          className={cn("absolute h-1 min-w-0.5 rounded-full", barClassName)}
+          style={{
+            left: `min(${leftPct}%, calc(100% - 2px))`,
+            width: `${widthPct}%`,
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function GanttTimeline({
+  rows,
+  executionStartedAt,
+  executionCompletedAt,
+  selectedStepId,
+  onStepSelect,
+  selectedDetail,
+}: ChartProps & { rows: ExecutionStepSummary[] }) {
+  const hydrated = useHydrated()
+  const surface = useRef<HTMLDivElement>(null)
+  const now = hydrated
+    ? Date.now()
+    : Math.max(
+        ...rows.map((step) =>
+          new Date(step.endedAt ?? step.startedAt).getTime()
+        )
+      )
+  const { rangeStartMs, rangeEndMs } = timelineRange(
+    rows,
+    executionStartedAt,
+    executionCompletedAt,
+    now
+  )
   const rangeMs = Math.max(rangeEndMs - rangeStartMs, 1)
   const compact = rangeMs < COMPACT_BELOW_MS
+  const { window, zoomed, selection, reset, handlers, gutterPx } =
+    useTimelineZoom(surface, rangeMs)
+  const windowMs = window.endMs - window.startMs
+  const endsBefore = previousEnds(rows, now)
+  const startupMs = executionStartedAt
+    ? new Date(rows[0].startedAt).getTime() - rangeStartMs
+    : 0
   return (
-    <div className="flex flex-col text-sm">
+    <div
+      ref={surface}
+      className={cn(
+        "relative flex flex-col text-sm",
+        selection && "select-none"
+      )}
+      {...handlers}
+    >
+      {compact ? null : (
+        <GanttTimeAxis window={window} zoomed={zoomed} onReset={reset} />
+      )}
+      {selection ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 z-10 bg-primary/15 ring-1 ring-primary/40"
+          style={{
+            left: `calc(${gutterPx}px + (100% - ${gutterPx * 2}px) * ${Math.min(selection.from, selection.to) / 100})`,
+            width: `calc((100% - ${gutterPx * 2}px) * ${Math.abs(selection.to - selection.from) / 100})`,
+          }}
+        />
+      ) : null}
       <div className="flex flex-col gap-0.5">
-        {rows.map((step) => {
+        {startupMs >= 1 ? (
+          <StartupRow
+            startupMs={startupMs}
+            leftPct={(-window.startMs / windowMs) * 100}
+            widthPct={(startupMs / windowMs) * 100}
+            showBar={!compact}
+          />
+        ) : null}
+        {rows.map((step, index) => {
           const startMs = new Date(step.startedAt).getTime()
+          const waitMs =
+            index === 0 ? 0 : Math.max(startMs - endsBefore[index], 0)
           const endMs = step.endedAt ? new Date(step.endedAt).getTime() : now
-          const leftPct = ((startMs - rangeStartMs) / rangeMs) * 100
-          const widthPct = Math.max(
-            ((endMs - startMs) / rangeMs) * 100,
-            MIN_BAR_WIDTH_PCT
-          )
+          const leftPct =
+            ((startMs - rangeStartMs - window.startMs) / windowMs) * 100
+          const widthPct = ((endMs - startMs) / windowMs) * 100
           const label = step.replayedFromStepId
             ? `Replay of ${stepTitle(step.name)}`
             : stepTitle(step.name)
@@ -125,58 +271,63 @@ export function ExecutionGanttChart({
             ? NODE_CATEGORY_COLORS[nodeRegistry[step.name].ui.category]
             : null
           return (
-            <button
-              key={step.id}
-              type="button"
-              onClick={() => onStepSelect?.(step.id)}
-              title={`${label} · ${formatElapsed(endMs - startMs)}`}
-              aria-label={`${label} · ${step.status} · attempt ${step.attempt}`}
-              aria-pressed={selectedStepId === step.id}
-              className={cn(
-                "flex w-full flex-col gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-muted/50",
-                selectedStepId === step.id && "bg-muted"
-              )}
-            >
-              <div className="flex w-full items-center gap-2">
-                <span
-                  className={cn(
-                    "inline-flex size-5 shrink-0 items-center justify-center rounded-md",
-                    colors?.bg ?? "bg-muted"
-                  )}
-                >
-                  {isNodeTypeId(step.name) ? (
-                    <NodeIcon
-                      icon={nodeRegistry[step.name].ui.icon}
-                      className={cn("size-2.5", colors?.icon)}
+            <Fragment key={step.id}>
+              <button
+                type="button"
+                onClick={() => onStepSelect?.(step.id)}
+                title={`${label} · ${formatElapsed(endMs - startMs)}${waitMs >= 1 ? ` · waited ${formatElapsed(waitMs)} after the previous step` : ""}`}
+                aria-label={`${label} · ${step.status} · attempt ${step.attempt}`}
+                aria-pressed={selectedStepId === step.id}
+                className={cn(
+                  "flex w-full flex-col gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-muted/50",
+                  selectedStepId === step.id && "bg-muted"
+                )}
+              >
+                <div className="flex w-full items-center gap-2">
+                  <span
+                    className={cn(
+                      "inline-flex size-5 shrink-0 items-center justify-center rounded-md",
+                      colors?.bg ?? "bg-muted"
+                    )}
+                  >
+                    {isNodeTypeId(step.name) ? (
+                      <NodeIcon
+                        icon={nodeRegistry[step.name].ui.icon}
+                        className={cn("size-2.5", colors?.icon)}
+                      />
+                    ) : null}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-foreground">
+                    {label}
+                  </span>
+                  {step.status === "failed" ? (
+                    <span
+                      aria-hidden
+                      className="size-1.5 shrink-0 rounded-full bg-destructive"
                     />
                   ) : null}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-foreground">
-                  {label}
-                </span>
-                {step.status === "failed" ? (
-                  <span
-                    aria-hidden
-                    className="size-1.5 shrink-0 rounded-full bg-destructive"
-                  />
-                ) : null}
-                <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
-                  {formatElapsed(endMs - startMs)}
-                </span>
-              </div>
-              {compact ? null : (
-                <div className="relative h-1 w-full rounded-full bg-muted/60">
-                  <div
-                    className={cn(
-                      "absolute h-1 rounded-full",
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+                    {formatElapsed(endMs - startMs)}
+                  </span>
+                </div>
+                {compact ? null : (
+                  <StepTrack
+                    leftPct={leftPct}
+                    widthPct={widthPct}
+                    waitPct={(waitMs / windowMs) * 100}
+                    barClassName={cn(
                       barClass(step.status, step.name),
                       step.status === "running" && "animate-pulse"
                     )}
-                    style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                   />
+                )}
+              </button>
+              {selectedStepId === step.id && selectedDetail ? (
+                <div data-no-zoom className="mt-1 mb-3 ml-3.5 border-l pl-5">
+                  {selectedDetail}
                 </div>
-              )}
-            </button>
+              ) : null}
+            </Fragment>
           )
         })}
       </div>

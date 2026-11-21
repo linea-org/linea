@@ -46,6 +46,7 @@ import {
 } from "@linealabs/ui/components/tooltip"
 import { cn } from "@linealabs/ui/lib/utils"
 
+import { ModelMarkdown } from "@/components/markdown/model-markdown"
 import { UserTurn } from "./user-turn"
 import { WorkflowPreview } from "./workflow-preview"
 import type { ChatMessage, VisibleMessage } from "./use-assistant-chat"
@@ -370,8 +371,8 @@ export function AssistantThread({
                       <div className="min-w-0 flex-1 space-y-3">
                         <BubbleGroup>
                           <Bubble variant="ghost">
-                            <BubbleContent className="whitespace-pre-wrap">
-                              {message.content}
+                            <BubbleContent>
+                              <ModelMarkdown content={message.content} />
                             </BubbleContent>
                           </Bubble>
                         </BubbleGroup>

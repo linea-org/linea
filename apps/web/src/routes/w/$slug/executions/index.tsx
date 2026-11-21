@@ -38,13 +38,6 @@ import {
   PaginationPrevious,
 } from "@linealabs/ui/components/pagination"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@linealabs/ui/components/select"
-import {
   Table,
   TableBody,
   TableCell,
@@ -69,21 +62,12 @@ import { SortDirectionIcon } from "@/components/workspace/sort-direction-icon"
 import { ariaSortValue, type SortDirection } from "@/lib/sort"
 
 import {
-  EXECUTION_STATUSES,
   executionStatusDefinition,
   isExecutionStatus,
 } from "@/lib/execution-status"
-
-const EXECUTION_TRIGGERS: ExecutionTrigger[] = [
-  "manual",
-  "schedule",
-  "webhook",
-  "api",
-]
-
-function isExecutionTrigger(value: unknown): value is ExecutionTrigger {
-  return EXECUTION_TRIGGERS.includes(value as ExecutionTrigger)
-}
+import { isExecutionTrigger, triggerLabel } from "@/lib/execution-trigger"
+import { ExecutionFilters } from "@/components/executions/execution-filters"
+import { PageToolbar } from "@/components/workspace/page-toolbar"
 
 function parseOpaqueParam(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined
@@ -112,13 +96,6 @@ export const Route = createFileRoute("/w/$slug/executions/")({
   loader: ({ deps }) => listWorkspaceExecutionsFn({ data: deps }),
   component: ExecutionsPage,
 })
-
-const triggerLabel: Record<ExecutionTrigger, string> = {
-  manual: "Manual",
-  schedule: "Schedule",
-  webhook: "Webhook",
-  api: "API",
-}
 
 function formatDuration(
   startedAt: string | null,
@@ -355,74 +332,22 @@ function ExecutionsPage() {
 
   return (
     <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={search.status ?? "all"}
-          onValueChange={(value) => {
+      <PageToolbar>
+        <ExecutionFilters
+          values={{ status: search.status, trigger: search.trigger }}
+          onChange={(values) =>
             void navigate({
               search: (prev) => ({
                 ...prev,
-                status: isExecutionStatus(value) ? value : undefined,
+                ...values,
                 cursor: undefined,
                 trail: undefined,
                 anchor: undefined,
               }),
             })
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Status">
-              {(value: string) =>
-                isExecutionStatus(value)
-                  ? executionStatusDefinition[value].label
-                  : "All statuses"
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {EXECUTION_STATUSES.map((status) => (
-              <SelectItem key={status} value={status}>
-                {executionStatusDefinition[status].label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={search.trigger ?? "all"}
-          onValueChange={(value) => {
-            void navigate({
-              search: (prev) => ({
-                ...prev,
-                trigger:
-                  value === "all" ? undefined : (value as ExecutionTrigger),
-                cursor: undefined,
-                trail: undefined,
-                anchor: undefined,
-              }),
-            })
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Trigger">
-              {(value: string) =>
-                value === "all"
-                  ? "All triggers"
-                  : triggerLabel[value as ExecutionTrigger]
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All triggers</SelectItem>
-            {EXECUTION_TRIGGERS.map((trigger) => (
-              <SelectItem key={trigger} value={trigger}>
-                {triggerLabel[trigger]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+          }
+        />
+      </PageToolbar>
       {newCount > 0 ? (
         <div>
           <button

@@ -20,7 +20,7 @@ export function CopyableId({ id }: Readonly<{ id: string }>) {
         })
       }}
     >
-      <span className="truncate">{id}</span>
+      <span title={id}>{id.slice(0, 8)}</span>
       {copied ? <CheckIcon /> : <CopyIcon />}
     </Button>
   )

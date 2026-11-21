@@ -75,24 +75,103 @@ export function ExecutionTraceWorkspace({
       hashScrollIntoView: false,
     })
   }
+  const selectedDetail = selected ? (
+    <div className="flex flex-col gap-4 px-4 py-3">
+      {parent && (
+        <Button
+          variant="ghost"
+          className="self-start"
+          onClick={() => {
+            setStatus("all")
+            setSearch("")
+            selectStep(parent.id)
+          }}
+        >
+          View parent step: {stepTitle(parent.name)}
+        </Button>
+      )}
+      {selected.replayedFromStepId && (
+        <Button
+          variant="ghost"
+          className="self-start"
+          onClick={() => {
+            setStatus("all")
+            setSearch("")
+            selectStep(selected.replayedFromStepId ?? selected.id)
+          }}
+        >
+          View original step
+        </Button>
+      )}
+      <ExecutionStepDetails
+        key={selected.id}
+        executionId={execution.id}
+        workflowId={execution.workflowId}
+        step={selected}
+        nodeConfig={nodeConfigs[selected.nodeId]}
+        replayable={detail.replayable}
+        contentRestricted={detail.traceContentRestricted}
+        resumedAt={resumedAtByStepId.get(selected.id)}
+        runErrorMessage={execution.error?.message}
+        onReplayTriggered={(stepId) => {
+          setStatus("all")
+          setSearch("")
+          selectStep(stepId)
+          onReplayTriggered(stepId)
+        }}
+      />
+    </div>
+  ) : null
   return (
-    <section aria-label="Execution trace" className="flex min-w-0 flex-col">
-      <div className="flex h-12 flex-wrap items-center gap-2 border-b bg-muted/40 px-4">
+    <section
+      aria-label="Execution trace"
+      className="flex min-w-0 flex-col gap-3"
+    >
+      <div className="flex flex-wrap items-center gap-2">
         <h2 className="mr-auto text-sm font-medium">
           Trace
           <span className="ml-1 font-normal text-muted-foreground">
             · {recorded.length} steps
           </span>
         </h2>
+        {recorded.length > 0 ? (
+          <>
+            <Input
+              className="w-56"
+              aria-label="Search trace steps"
+              placeholder="Search steps or errors"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value)
+                clearSelection()
+              }}
+            />
+            <Select
+              value={status}
+              onValueChange={(value) => {
+                const parsed = statusFilterSchema.safeParse(value)
+                if (!parsed.success) return
+                setStatus(parsed.data)
+                clearSelection()
+              }}
+            >
+              <SelectTrigger aria-label="Filter trace status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="running">Running</SelectItem>
+                <SelectItem value="succeeded">Succeeded</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="skipped">Skipped</SelectItem>
+              </SelectContent>
+            </Select>
+          </>
+        ) : null}
       </div>
-      {execution.status === "succeeded" || recorded.length > 2 ? (
-        <p className="border-b px-4 py-2 text-sm text-muted-foreground">
-          Each step shows what it received and what it returned.
-        </p>
-      ) : null}
       {pausedAtNode && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <p className="text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <p>
             Paused at {stepTitle(pausedAtNode.type)} ·{" "}
             <span className="font-mono">{pausedAtNode.nodeId}</span>
           </p>
@@ -109,10 +188,7 @@ export function ExecutionTraceWorkspace({
         </div>
       )}
       {orphanedResumeEvents.map((event) => (
-        <p
-          key={event.id}
-          className="border-b px-4 py-3 text-sm text-muted-foreground"
-        >
+        <p key={event.id} className="text-sm text-muted-foreground">
           Resumed{" "}
           {hydrated
             ? new Date(event.startedAt).toLocaleString()
@@ -125,122 +201,32 @@ export function ExecutionTraceWorkspace({
             <EmptyTitle>No steps recorded yet</EmptyTitle>
           </EmptyHeader>
         </Empty>
+      ) : filtered.length === 0 ? (
+        <p className="py-4 text-sm text-muted-foreground">No matching steps</p>
       ) : (
-        <div className="grid md:grid-cols-[20rem_minmax(0,1fr)]">
-          <aside className="flex min-w-0 flex-col gap-2 border-b p-3 md:border-r md:border-b-0">
-            <div className="flex gap-2">
-              <Input
-                className="w-full"
-                aria-label="Search trace steps"
-                placeholder="Search steps or errors"
-                value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value)
-                  clearSelection()
-                }}
-              />
-              <Select
-                value={status}
-                onValueChange={(value) => {
-                  const parsed = statusFilterSchema.safeParse(value)
-                  if (!parsed.success) return
-                  setStatus(parsed.data)
-                  clearSelection()
-                }}
-              >
-                <SelectTrigger aria-label="Filter trace status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="running">Running</SelectItem>
-                  <SelectItem value="succeeded">Succeeded</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                  <SelectItem value="skipped">Skipped</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {filtered.length === 0 ? (
-              <p className="px-1 py-4 text-sm text-muted-foreground">
-                No matching steps
-              </p>
-            ) : (
-              <ExecutionGanttChart
-                steps={filtered}
-                executionStartedAt={execution.startedAt}
-                executionCompletedAt={execution.completedAt}
-                selectedStepId={selected?.id ?? null}
-                onStepSelect={selectStep}
-              />
-            )}
-          </aside>
-          <div className="min-w-0">
-            {selected ? (
-              <div className="flex flex-col gap-4 px-4 py-3">
-                {parent && (
-                  <Button
-                    variant="ghost"
-                    className="self-start"
-                    onClick={() => {
-                      setStatus("all")
-                      setSearch("")
-                      selectStep(parent.id)
-                    }}
-                  >
-                    View parent step: {stepTitle(parent.name)}
-                  </Button>
-                )}
-                {selected.replayedFromStepId && (
-                  <Button
-                    variant="ghost"
-                    className="self-start"
-                    onClick={() => {
-                      setStatus("all")
-                      setSearch("")
-                      selectStep(selected.replayedFromStepId ?? selected.id)
-                    }}
-                  >
-                    View original step
-                  </Button>
-                )}
-                <ExecutionStepDetails
-                  key={selected.id}
-                  executionId={execution.id}
-                  workflowId={execution.workflowId}
-                  step={selected}
-                  nodeConfig={nodeConfigs[selected.nodeId]}
-                  replayable={detail.replayable}
-                  contentRestricted={detail.traceContentRestricted}
-                  resumedAt={resumedAtByStepId.get(selected.id)}
-                  runErrorMessage={execution.error?.message}
-                  onReplayTriggered={(stepId) => {
-                    setStatus("all")
-                    setSearch("")
-                    selectStep(stepId)
-                    onReplayTriggered(stepId)
-                  }}
-                />
-              </div>
-            ) : null}
-            {selectedId && !selected ? (
-              <div className="px-4 py-4 text-sm text-muted-foreground">
-                <p>
-                  {selectedId === pendingReplayStepId
-                    ? "Waiting for the replay step to be recorded…"
-                    : "This step is not available in this execution."}
-                </p>
-                <Button
-                  variant="outline"
-                  className="mt-3"
-                  onClick={clearSelection}
-                >
-                  Clear step selection
-                </Button>
-              </div>
-            ) : null}
-          </div>
-        </div>
+        <ExecutionGanttChart
+          steps={filtered}
+          executionStartedAt={execution.startedAt}
+          executionCompletedAt={execution.completedAt}
+          selectedStepId={selected?.id ?? null}
+          onStepSelect={(stepId) =>
+            stepId === selectedId ? clearSelection() : selectStep(stepId)
+          }
+          selectedDetail={selectedDetail}
+        />
       )}
+      {selectedId && !selected ? (
+        <div className="px-4 py-4 text-sm text-muted-foreground">
+          <p>
+            {selectedId === pendingReplayStepId
+              ? "Waiting for the replay step to be recorded…"
+              : "This step is not available in this execution."}
+          </p>
+          <Button variant="outline" className="mt-3" onClick={clearSelection}>
+            Clear step selection
+          </Button>
+        </div>
+      ) : null}
     </section>
   )
 }

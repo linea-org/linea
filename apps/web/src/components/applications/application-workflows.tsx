@@ -25,6 +25,8 @@ import {
   workflowsQueryOptions,
   type WorkflowSummary,
 } from "@/lib/workflows-api"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { formatDate } from "@/lib/format"
 
 export function ApplicationWorkflowCreateButton({
@@ -40,9 +42,10 @@ export function ApplicationWorkflowCreateButton({
     <WorkflowFormDialog
       workspaceSlug={workspaceSlug}
       trigger={
-        <Button>
+        <Button {...shortcutTarget("create")}>
           <PlusIcon />
           Create Workflow
+          <ShortcutKeys id="create" onPrimary />
         </Button>
       }
       title="Create Workflow"

@@ -27,13 +27,6 @@ import {
   EmptyTitle,
 } from "@linealabs/ui/components/empty"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@linealabs/ui/components/select"
-import {
   Table,
   TableBody,
   TableCell,
@@ -48,6 +41,9 @@ import {
   WorkflowStatusBadge,
   workflowStatus,
 } from "@/components/workflows"
+import { WorkflowFilters } from "@/components/workflows/workflow-filters"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import {
@@ -62,10 +58,7 @@ import {
   listApplicationsFn,
 } from "@/lib/applications-api"
 import { formatDate } from "@/lib/format"
-import {
-  WORKFLOW_STATUS_FILTERS,
-  isWorkflowStatusFilter,
-} from "@/lib/workflow-status-filter"
+import { WORKFLOW_STATUS_FILTERS } from "@/lib/workflow-status-filter"
 import { SortDirectionIcon } from "@/components/workspace/sort-direction-icon"
 import { ariaSortValue, type SortDirection } from "@/lib/sort"
 
@@ -248,9 +241,10 @@ function WorkflowsListPage() {
       key={applicationId ?? "all"}
       workspaceSlug={slug}
       trigger={
-        <Button size="sm">
+        <Button size="sm" {...shortcutTarget("create")}>
           <PlusIcon />
           Create workflow
+          <ShortcutKeys id="create" onPrimary />
         </Button>
       }
       title="Create workflow"
@@ -275,71 +269,12 @@ function WorkflowsListPage() {
           onChange={setSearch}
           placeholder="Search workflows"
         />
-        <Select
-          value={applicationId ?? "all"}
-          onValueChange={(value) => {
-            if (typeof value !== "string") return
-            void navigate({
-              search: {
-                applicationId: value === "all" ? undefined : value,
-                status: status === "all" ? undefined : status,
-              },
-            })
-          }}
-        >
-          <SelectTrigger
-            aria-label="Filter by Application"
-            className="bg-background"
-          >
-            <SelectValue>
-              {(value: string) =>
-                value === "all"
-                  ? "All Applications"
-                  : (applications.find(
-                      (application) => application.id === value
-                    )?.name ?? "All Applications")
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent className="w-max! min-w-(--anchor-width)!">
-            <SelectItem value="all">All Applications</SelectItem>
-            {applications.map((application) => (
-              <SelectItem key={application.id} value={application.id}>
-                {application.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={status}
-          onValueChange={(value) => {
-            if (typeof value !== "string") return
-            void navigate({
-              search: {
-                applicationId,
-                status:
-                  value !== "all" && isWorkflowStatusFilter(value)
-                    ? value
-                    : undefined,
-              },
-            })
-          }}
-        >
-          <SelectTrigger className="bg-background">
-            <SelectValue placeholder="Status">
-              {(value: string) => (value === "all" ? "All statuses" : value)}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {WORKFLOW_STATUS_FILTERS.map((filter) => (
-              <SelectItem key={filter} value={filter}>
-                {filter}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="ml-auto">{createDialog}</div>
+        <WorkflowFilters
+          applications={applications}
+          values={{ applicationId, status: statusSearch }}
+          onChange={(values) => void navigate({ search: values })}
+        />
+        {createDialog}
       </PageToolbar>
       {workflows.length === 0 ? (
         <Empty className="w-auto">

@@ -144,6 +144,8 @@ function crumbsForMatch(match: RouteMatch, slug: string): Crumb[] {
         { label: "Approvals" },
       ]
     }
+    case "/w/$slug/account":
+      return [{ label: "Account" }]
     case "/w/$slug/notifications":
       return [{ label: "Notifications" }]
     case "/w/$slug/settings/":
@@ -238,10 +240,6 @@ function HiddenCrumbs({ crumbs }: { crumbs: Crumb[] }) {
 
 export function TopBarBreadcrumb({ slug }: { slug: string }) {
   const crumbs = useWorkspaceCrumbs(slug)
-  // A lone page title repeats the sidebar's active item; only a trail with a parent is shown.
-  if (crumbs.length < 2) {
-    return null
-  }
   const first = crumbs[0]
   const last = crumbs.at(-1)
   if (!first || !last) {

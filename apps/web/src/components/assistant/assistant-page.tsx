@@ -10,7 +10,6 @@ import {
 import { Sheet, SheetContent, SheetTitle } from "@linealabs/ui/components/sheet"
 
 import {
-  isModelReady,
   modelSetupQueryOptions,
   type ModelSetup,
 } from "@/lib/model-settings-api"
@@ -27,18 +26,24 @@ export function AssistantPage({
   slug,
   initialSetup,
   conversationId,
+  initialDraft,
+  runId,
 }: Readonly<{
   slug: string
   initialSetup: ModelSetup
   // The saved chat named in the address, if any.
   conversationId: string | undefined
+  // A question another page prepared, such as "Ask Inky about this run"; the user still sends it.
+  initialDraft: string | undefined
+  // The run that question is about, shown above the prompt so the context is visible.
+  runId: string | undefined
 }>) {
   const wide = useWideLayout()
   const { data: setup } = useSuspenseQuery({
     ...modelSetupQueryOptions(slug),
     initialData: initialSetup,
   })
-  const [draft, setDraft] = useState("")
+  const [draft, setDraft] = useState(initialDraft ?? "")
   const [detailsOpen, setDetailsOpen] = useState(true)
   // The prompt card glides down from the middle only when a chat starts here, not when one is opened.
   const [composerGlides, setComposerGlides] = useState(false)
@@ -89,13 +94,12 @@ export function AssistantPage({
               <ScrollArea className="min-h-0 flex-1">
                 <AssistantHero
                   slug={slug}
-                  setup={setup}
-                  ready={isModelReady(setup)}
                   options={options}
                   draft={draft}
                   onDraftChange={setDraft}
                   onSend={sendWithFiles}
                   disabled={chat.isPending}
+                  runId={runId}
                 />
               </ScrollArea>
             ) : (

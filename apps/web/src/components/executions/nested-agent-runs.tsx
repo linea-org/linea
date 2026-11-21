@@ -10,10 +10,10 @@ export function NestedAgentRuns({
   return (
     <section
       aria-label="Agent runs in this Workflow run"
-      className="border-b px-4 py-3"
+      className="flex flex-col gap-2"
     >
       <h2 className="text-sm font-medium">Agent runs in this Workflow run</h2>
-      <ul className="mt-2 flex flex-col gap-2">
+      <ul className="flex flex-col gap-2">
         {nested.map((item) => (
           <li
             key={item.executionId}

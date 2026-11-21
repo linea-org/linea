@@ -1,6 +1,8 @@
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { MessagesSquareIcon, PinIcon, SquarePenIcon } from "lucide-react"
 
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { Button } from "@linealabs/ui/components/button"
 import {
   SidebarGroup,
@@ -36,6 +38,7 @@ export function AssistantSectionNav({ slug }: Readonly<{ slug: string }>) {
                 className="w-full group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0"
                 nativeButton={false}
                 title="New chat"
+                {...shortcutTarget("create")}
                 render={
                   <Link to="/w/$slug/assistant" params={{ slug }} search={{}} />
                 }
@@ -43,6 +46,9 @@ export function AssistantSectionNav({ slug }: Readonly<{ slug: string }>) {
                 <SquarePenIcon />
                 <span className="group-data-[collapsible=icon]:hidden">
                   New chat
+                </span>
+                <span className="ml-auto group-data-[collapsible=icon]:hidden">
+                  <ShortcutKeys id="create" onPrimary />
                 </span>
               </Button>
             </SidebarMenuItem>

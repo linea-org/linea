@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import {
@@ -45,6 +45,10 @@ import {
   SetupProgress,
   setupChecks,
 } from "@/components/applications/application-health"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
+import { ShortcutTooltip } from "@/components/shortcuts/shortcut-tooltip"
+import { useOpenShortcut } from "@/components/shortcuts/use-open-shortcut"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import {
@@ -71,29 +75,10 @@ function ApplicationsPage() {
     initialData: Route.useLoaderData(),
   })
   const overviews = useQuery(applicationOverviewsQueryOptions(slug))
-  const searchRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState("")
+  const [filterOpen, setFilterOpen] = useOpenShortcut("filter")
   const [sort, setSort] = useState<ApplicationSort>("updated")
   const [view, setView] = useState<ApplicationView>("grid")
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
-        return
-      }
-      const target = event.target
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          target.closest("input, textarea, select, [contenteditable='true']"))
-      ) {
-        return
-      }
-      event.preventDefault()
-      searchRef.current?.focus()
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [])
   const normalizedQuery = query.trim().toLowerCase()
   const visible = applications
     .filter((application) =>
@@ -221,26 +206,25 @@ function ApplicationsPage() {
     <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
       <PageToolbar>
         <ToolbarSearch
-          inputRef={searchRef}
           value={query}
           onChange={setQuery}
           placeholder="Search Applications"
-          shortcut="/"
         />
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-label="Filter applications"
-              />
-            }
-          >
-            <ListFilterIcon />
-            Filter
-          </DropdownMenuTrigger>
+        <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
+          <ShortcutTooltip id="filter" label="Filter" disabled={filterOpen}>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Filter applications"
+                />
+              }
+            >
+              <ListFilterIcon />
+            </DropdownMenuTrigger>
+          </ShortcutTooltip>
           <DropdownMenuContent
             align="start"
             className="w-max max-w-64 min-w-(--anchor-width)"
@@ -275,19 +259,24 @@ function ApplicationsPage() {
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <CreateApplicationDialog
             workspaceSlug={slug}
             trigger={
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" {...shortcutTarget("create")}>
                 <PlusIcon />
                 Create Application
+                <ShortcutKeys id="create" />
               </Button>
             }
           />
-          <Button render={<Link to="/w/$slug/agents/new" params={{ slug }} />}>
+          <Button
+            render={<Link to="/w/$slug/agents/new" params={{ slug }} />}
+            {...shortcutTarget("add-agent")}
+          >
             <PlusIcon />
             Add Agent
+            <ShortcutKeys id="add-agent" onPrimary />
           </Button>
         </div>
       </PageToolbar>

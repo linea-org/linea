@@ -1,9 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
+import { WandSparklesIcon } from "lucide-react"
 
 import { buttonVariants } from "@linealabs/ui/components/button"
 import { cn } from "@linealabs/ui/lib/utils"
 
+import { ModelMarkdown } from "@/components/markdown/model-markdown"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
+import { ASSISTANT_NAME } from "@/lib/assistant-api"
 import { chatMessagesQueryOptions } from "@/lib/chat-preview-api"
 import type {
   ExecutionDetailResponse,
@@ -19,28 +24,16 @@ import {
 } from "@/lib/run-summary"
 import { ErrorCallout } from "./error-callout"
 
-function Field({
-  label,
-  children,
-}: Readonly<{ label: string; children: React.ReactNode }>) {
-  return (
-    <div className="min-w-0 space-y-1">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-sm">{children}</dd>
-    </div>
-  )
-}
-
 function ResultPreview({ value }: Readonly<{ value: JsonValue }>) {
   const text = readableText(value)
   return text === null ? (
-    <pre className="mt-1 max-h-32 overflow-auto font-mono break-words whitespace-pre-wrap">
+    <pre className="max-h-64 overflow-auto font-mono text-xs break-words whitespace-pre-wrap">
       {previewJson(value)}
     </pre>
   ) : (
-    <p className="mt-1 max-h-48 overflow-auto break-words whitespace-pre-wrap">
-      {text}
-    </p>
+    <div className="max-h-64 overflow-auto leading-relaxed break-words">
+      <ModelMarkdown content={text} />
+    </div>
   )
 }
 
@@ -81,8 +74,10 @@ function FixLink({
         to="/w/$slug/settings/models"
         params={{ slug }}
         className={fixLinkClass}
+        {...shortcutTarget("fix")}
       >
         {fix.label}
+        <ShortcutKeys id="fix" />
       </Link>
     )
   }
@@ -92,8 +87,10 @@ function FixLink({
       to="/w/$slug/workflows/$workflowId/builder"
       params={{ slug, workflowId }}
       className={fixLinkClass}
+      {...shortcutTarget("fix")}
     >
       {fix.label}
+      <ShortcutKeys id="fix" />
     </Link>
   )
 }
@@ -124,21 +121,64 @@ function FailureCard({
   )
 }
 
+function Labeled({
+  label,
+  children,
+}: Readonly<{ label: string; children: React.ReactNode }>) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1 text-sm">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      {children}
+    </div>
+  )
+}
+
+export function AskInkyLink({
+  slug,
+  executionId,
+  failed,
+}: Readonly<{ slug: string; executionId: string; failed: boolean }>) {
+  const ask = failed
+    ? `Why did run ${executionId} fail, and how do I fix it?`
+    : `Explain what run ${executionId} did.`
+  return (
+    <Link
+      to="/w/$slug/assistant"
+      params={{ slug }}
+      search={{ ask, run: executionId }}
+      className={buttonVariants()}
+      {...shortcutTarget("ask-inky")}
+    >
+      <WandSparklesIcon />
+      Ask {ASSISTANT_NAME} about this run
+      <ShortcutKeys id="ask-inky" onPrimary />
+    </Link>
+  )
+}
+
 export function RunSummaryCard({
   slug,
   detail,
 }: Readonly<{ slug: string; detail: ExecutionDetailResponse }>) {
   const summary = summarizeRun(detail)
-  const failed = detail.execution.status === "failed"
-  const failureMessage = detail.execution.error?.message
+  const { execution } = detail
+  const failed = execution.status === "failed"
+  const succeeded = execution.status === "succeeded"
+  const failureMessage = execution.error?.message
   const sent = useSentMessage(slug, detail)
+  const showResult = succeeded && summary.result !== null
   return (
-    <section
-      aria-label="Run summary"
-      className="grid gap-4 border-b px-4 py-3 md:grid-cols-2"
-    >
+    <section aria-label="Run summary" className="flex flex-col gap-4">
+      {sent ? (
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-xs text-muted-foreground">Request</span>
+          <p className="max-w-4/5 rounded-xl bg-muted px-3 py-2 text-sm break-words whitespace-pre-wrap">
+            {sent}
+          </p>
+        </div>
+      ) : null}
       {failed ? (
-        <div className="md:col-span-2">
+        <div>
           <FailureCard slug={slug} detail={detail} />
           {failureMessage && isUnknownOutcome(failureMessage) ? (
             <p className="mt-2 text-sm text-muted-foreground">
@@ -147,25 +187,22 @@ export function RunSummaryCard({
           ) : null}
         </div>
       ) : null}
-      <dl className="contents">
-        {sent ? (
-          <Field label="Sent">
-            <p className="break-words whitespace-pre-wrap">{sent}</p>
-          </Field>
-        ) : null}
-        {failed ? null : (
-          <Field label="What happened">
-            <p className="font-medium">{summary.outcome}</p>
-            {summary.result !== null ? (
-              <ResultPreview value={summary.result} />
-            ) : null}
-          </Field>
-        )}
-        {summary.attention && !failed ? (
-          <Field label="Needs attention">{summary.attention}</Field>
-        ) : null}
-        {failed ? null : <Field label="Next">{summary.nextAction}</Field>}
-      </dl>
+      {showResult && summary.result !== null ? (
+        <Labeled label="Result">
+          <ResultPreview value={summary.result} />
+        </Labeled>
+      ) : null}
+      {failed || showResult ? null : (
+        <div className="text-sm">
+          <p className="font-medium">{summary.outcome}</p>
+          {summary.attention ? (
+            <p className="text-muted-foreground">{summary.attention}</p>
+          ) : null}
+          {succeeded ? null : (
+            <p className="text-muted-foreground">{summary.nextAction}</p>
+          )}
+        </div>
+      )}
     </section>
   )
 }

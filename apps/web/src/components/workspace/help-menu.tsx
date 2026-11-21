@@ -1,4 +1,4 @@
-import { BookOpenIcon, ChevronDownIcon, CircleHelpIcon } from "lucide-react"
+import { BookOpenIcon, CircleHelpIcon } from "lucide-react"
 
 import { Button } from "@linealabs/ui/components/button"
 import {
@@ -24,14 +24,17 @@ export function HelpMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button type="button" variant="ghost" size="sm" aria-label="Help" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Help"
+          />
         }
       >
         <CircleHelpIcon />
-        <span className="hidden sm:inline">Help</span>
-        <ChevronDownIcon className="size-3.5 transition-transform group-data-popup-open/button:rotate-180" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-40">
+      <DropdownMenuContent align="end" side="top" className="min-w-40">
         <DropdownMenuItem
           render={
             <a

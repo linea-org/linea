@@ -1,3 +1,5 @@
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { z } from "zod"
@@ -38,8 +40,14 @@ export function ReplayAction({
   })
   if (!open) {
     return (
-      <Button type="button" variant="outline" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setOpen(true)}
+        {...shortcutTarget("run")}
+      >
         Replay
+        <ShortcutKeys id="run" />
       </Button>
     )
   }
@@ -116,8 +124,10 @@ export function AddToRegressionAction({
         variant="outline"
         disabled={mutation.isPending}
         onClick={() => mutation.mutate()}
+        {...shortcutTarget("add-to-suite")}
       >
         {mutation.isPending ? "Adding…" : "Add to regression suite"}
+        <ShortcutKeys id="add-to-suite" />
       </Button>
       {mutation.isError ? (
         <p className="mt-1.5 text-sm text-destructive">

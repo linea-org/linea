@@ -4,6 +4,7 @@ import type { Attachment } from "@/lib/attachments"
 import type { CatalogModel, ModelSetup } from "@/lib/model-settings-api"
 
 export type ComposerOptions = {
+  setup: ModelSetup | undefined
   /** Every model, so the picker can show what is missing a key. */
   models: CatalogModel[]
   /** Key names that have a key; only their models can run. */
@@ -30,6 +31,7 @@ export function useComposerOptions(
   const models = setup?.settings.models ?? []
   const value = chosen ?? setup?.settings.defaultModel
   return {
+    setup,
     models,
     keyed,
     model:

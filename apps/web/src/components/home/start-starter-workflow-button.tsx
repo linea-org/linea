@@ -1,3 +1,5 @@
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { WorkflowIcon } from "lucide-react"
 
 import { Button } from "@linealabs/ui/components/button"
@@ -21,9 +23,11 @@ export function StartStarterWorkflowButton({
         variant="outline"
         disabled={create.isPending}
         onClick={() => create.mutate("chat-assistant")}
+        {...shortcutTarget("starter-workflow")}
       >
         {create.isPending ? <Spinner /> : <WorkflowIcon />}
         Starter workflow
+        <ShortcutKeys id="starter-workflow" />
       </Button>
     </div>
   )

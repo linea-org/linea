@@ -15,7 +15,8 @@ export function pickSelectedStep(
   selectedId: string | null
 ): ExecutionStepSummary | undefined {
   if (selectedId) return recorded.find((step) => step.id === selectedId)
-  return filtered.find((step) => step.status === "failed") ?? filtered[0]
+  // Only a failure opens by itself; anything else waits to be chosen, so the run reads at a glance.
+  return filtered.find((step) => step.status === "failed")
 }
 
 export function filterTraceSteps(

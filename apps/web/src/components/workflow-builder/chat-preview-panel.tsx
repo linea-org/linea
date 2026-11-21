@@ -40,7 +40,7 @@ import {
 import { executionQueryOptions, type JsonValue } from "@/lib/executions-api"
 import { runFailureFix } from "@/lib/run-failure"
 
-import { ChatMarkdown } from "./chat-markdown"
+import { ModelMarkdown } from "@/components/markdown/model-markdown"
 import { ChatPreviewHeader } from "./chat-preview-header"
 
 export function ChatPreviewPanel({
@@ -203,7 +203,7 @@ export function ChatPreviewPanel({
                         }
                       >
                         <BubbleContent>
-                          <ChatMarkdown content={message.content} />
+                          <ModelMarkdown content={message.content} />
                         </BubbleContent>
                       </Bubble>
                     </BubbleGroup>

@@ -1,7 +1,4 @@
-import { nodeRegistry } from "@linealabs/runtime/browser"
 import { Badge } from "@linealabs/ui/components/badge"
-import { Card } from "@linealabs/ui/components/card"
-import { cn } from "@linealabs/ui/lib/utils"
 import { useHydrated } from "@tanstack/react-router"
 import {
   Tabs,
@@ -10,8 +7,6 @@ import {
   TabsTrigger,
 } from "@linealabs/ui/components/tabs"
 import type { ExecutionStepSummary, JsonValue } from "@/lib/executions-api"
-import { NODE_CATEGORY_COLORS } from "../workflow-builder/node-category-colors"
-import { NodeIcon } from "../workflow-builder/node-icon"
 import { formatCost, stepCostUnpricedState } from "./execution-list"
 import {
   ReplayAction,
@@ -21,25 +16,10 @@ import {
   stepTitle,
   stepStatusLabel,
   stepStatusVariant,
-  isNodeTypeId,
 } from "./execution-step-presentation"
 import { ErrorCallout } from "./error-callout"
 import { StepPayloadCard } from "./step-payload-card"
 import { formatDuration } from "@/lib/format"
-
-function StatTile({
-  label,
-  value,
-}: Readonly<{ label: string; value: React.ReactNode }>) {
-  return (
-    <Card size="sm" className="gap-1 py-3">
-      <div className="px-4">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <p className="text-base font-medium tabular-nums">{value}</p>
-      </div>
-    </Card>
-  )
-}
 
 export function ExecutionStepDetails({
   executionId,
@@ -64,26 +44,10 @@ export function ExecutionStepDetails({
 }>) {
   const hydrated = useHydrated()
   const title = `${step.replayedFromStepId ? "Replay of " : ""}${stepTitle(step.name)}`
-  const colors = isNodeTypeId(step.name)
-    ? NODE_CATEGORY_COLORS[nodeRegistry[step.name].ui.category]
-    : null
   const model = [step.provider, step.model].filter(Boolean).join(" · ")
   return (
     <section aria-label="Selected step" className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <span
-          className={cn(
-            "inline-flex size-8 shrink-0 items-center justify-center rounded-md",
-            colors?.bg ?? "bg-muted"
-          )}
-        >
-          {isNodeTypeId(step.name) ? (
-            <NodeIcon
-              icon={nodeRegistry[step.name].ui.icon}
-              className={cn("size-3.5", colors?.icon)}
-            />
-          ) : null}
-        </span>
         <div className="min-w-0">
           <h2 className="truncate text-sm font-medium">{title}</h2>
           <p className="truncate text-sm text-muted-foreground">
@@ -107,21 +71,14 @@ export function ExecutionStepDetails({
           <AddToRegressionAction workflowId={workflowId} stepId={step.id} />
         )}
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile
-          label="Latency"
-          value={formatDuration(step.startedAt, step.endedAt)}
-        />
-        <StatTile
-          label="Cost"
-          value={formatCost(step.costMicros, stepCostUnpricedState(step))}
-        />
-        <StatTile
-          label="Tokens"
-          value={`${step.tokensInput} in / ${step.tokensOutput} out`}
-        />
-        <StatTile label="Attempt" value={step.attempt} />
-      </div>
+      <p className="text-sm text-muted-foreground tabular-nums">
+        {[
+          formatDuration(step.startedAt, step.endedAt),
+          formatCost(step.costMicros, stepCostUnpricedState(step)),
+          `${step.tokensInput} in / ${step.tokensOutput} out tokens`,
+          `attempt ${step.attempt}`,
+        ].join(" · ")}
+      </p>
       {step.name === "agent" ? (
         <p className="text-sm text-muted-foreground">
           Run Agent steps can&apos;t be replayed or saved as regression cases.

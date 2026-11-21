@@ -16,6 +16,9 @@ import {
   workflowViewSchema,
   workflowViews,
 } from "@/components/workflows/workflow-views"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
+import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { regressionPollInterval } from "@/lib/regression-poll-interval"
 import { WorkflowOverview } from "@/components/workflows/workflow-overview"
 
@@ -142,36 +145,37 @@ function WorkflowDetailPage() {
   return (
     <main className="flex flex-1 flex-col px-4 py-4">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-medium">{workflowViews[view]}</h2>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setEditOpen(true)}
-            >
-              <PencilIcon />
-              Edit
-            </Button>
-            <RunWorkflowDialog
-              workspaceSlug={slug}
-              workflowId={workflowId}
-              published={Boolean(workflow.publishedVersionId)}
-            />
-            <Button
-              nativeButton={false}
-              render={
-                <Link
-                  to="/w/$slug/workflows/$workflowId/builder"
-                  params={{ slug, workflowId }}
-                />
-              }
-            >
-              <PencilRulerIcon />
-              Open builder
-            </Button>
-          </div>
-        </div>
+        <PageToolbar>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setEditOpen(true)}
+            {...shortcutTarget("edit")}
+          >
+            <PencilIcon />
+            Edit
+            <ShortcutKeys id="edit" />
+          </Button>
+          <RunWorkflowDialog
+            workspaceSlug={slug}
+            workflowId={workflowId}
+            published={Boolean(workflow.publishedVersionId)}
+          />
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                to="/w/$slug/workflows/$workflowId/builder"
+                params={{ slug, workflowId }}
+              />
+            }
+            {...shortcutTarget("open-builder")}
+          >
+            <PencilRulerIcon />
+            Open builder
+            <ShortcutKeys id="open-builder" onPrimary />
+          </Button>
+        </PageToolbar>
         {view === "overview" && (
           <WorkflowOverview
             slug={slug}
