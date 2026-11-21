@@ -1,7 +1,7 @@
 import { index, integer, snakeCase, timestamp, uuid } from "drizzle-orm/pg-core"
 import { organizations } from "./organisation.js"
 
-/** Tokens the assistant spent, kept apart from Execution steps so the platform-key allowance sees both. */
+/** Assistant tokens, kept apart from Execution steps; the platform-key allowance sums both. */
 export const assistantUsage = snakeCase.table(
   "assistant_usage",
   {

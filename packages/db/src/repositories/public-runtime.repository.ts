@@ -160,8 +160,9 @@ export async function workspaceHasRoomToStart(
   tx: DbClient,
   workspaceId: string
 ): Promise<boolean> {
+  const lockKey = `executions:${workspaceId}`
   await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${`executions:${workspaceId}`}, 0))`
+    sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
   )
   const [active] = await tx
     .select({ total: count() })
