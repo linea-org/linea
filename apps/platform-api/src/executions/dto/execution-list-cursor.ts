@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 type ExecutionListCursor = { value: string; id: string; asOf?: Date }
 
-/** `${sortKey}_${id}_${asOfMs}`: only the sort key can hold an underscore, so split from the end. */
+/** `${sortKey}_${id}_${asOfMs}`: only the sort key can hold an underscore; split from the end. */
 export function encodeExecutionListCursor(cursor: ExecutionListCursor) {
   const position = `${cursor.value}_${cursor.id}`
   return cursor.asOf ? `${position}_${cursor.asOf.getTime()}` : position
