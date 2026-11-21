@@ -21,6 +21,12 @@ import {
 } from '@linealabs/runtime'
 import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 import { isTraceContentRestricted } from './end-user-trace-access'
+import {
+  environmentSecrets,
+  redactExecution,
+  redactStep,
+} from './redact-execution-trace'
+import { redactRecord } from './trace-redaction'
 import type { CountNewWorkspaceExecutionsDto } from './dto/count-new-workspace-executions.dto'
 import type { ListWorkspaceExecutionsDto } from './dto/list-workspace-executions.dto'
 import type { SendChatMessageDto } from './dto/chat-preview.dto'
@@ -253,16 +259,33 @@ export class ExecutionsService {
     if (!workflow) {
       throw new NotFoundException('Workflow not found')
     }
-    return repositories.execution.listExecutions(db, workflowId)
+    const executions = await repositories.execution.listExecutions(
+      db,
+      workflowId,
+    )
+    return executions.map((execution) => redactExecution(execution))
   }
 
-  listWorkspace(workspaceId: string, filters: ListWorkspaceExecutionsDto) {
-    return repositories.execution.listWorkspaceExecutions(db, workspaceId, {
-      status: filters.status,
-      trigger: filters.trigger,
-      cursor: filters.cursor,
-      limit: filters.limit,
-    })
+  async listWorkspace(
+    workspaceId: string,
+    filters: ListWorkspaceExecutionsDto,
+  ) {
+    const page = await repositories.execution.listWorkspaceExecutions(
+      db,
+      workspaceId,
+      {
+        status: filters.status,
+        trigger: filters.trigger,
+        cursor: filters.cursor,
+        limit: filters.limit,
+      },
+    )
+    return {
+      ...page,
+      executions: page.executions.map((execution) =>
+        redactExecution(execution),
+      ),
+    }
   }
 
   countNew(workspaceId: string, filters: CountNewWorkspaceExecutionsDto) {
@@ -343,14 +366,23 @@ export class ExecutionsService {
         pausedAtNode = { nodeId: waitingOn.nodeId, type: 'agent' }
       }
     }
+    const secrets = await environmentSecrets(result.execution.environmentId)
     // Rows written before stacks moved to server logs may still carry one.
     const steps = result.steps.map((step) =>
-      step.error ? { ...step, error: { message: step.error.message } } : step,
+      redactStep(
+        step.error ? { ...step, error: { message: step.error.message } } : step,
+        secrets,
+      ),
     )
     return {
-      ...result,
+      execution: redactExecution(result.execution, secrets),
       steps,
-      nodeConfigs,
+      nodeConfigs: Object.fromEntries(
+        Object.entries(nodeConfigs).map(([nodeId, config]) => [
+          nodeId,
+          redactRecord(config, secrets),
+        ]),
+      ),
       replayable,
       pausedAtNode,
       nestedAgents,

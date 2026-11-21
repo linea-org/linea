@@ -22,6 +22,7 @@ import {
   summarizeRun,
 } from "@/lib/run-summary"
 import { ErrorCallout } from "./error-callout"
+import { stepTitle } from "./execution-step-presentation"
 
 function ResultPreview({ value }: Readonly<{ value: JsonValue }>) {
   const text = readableText(value)
@@ -165,6 +166,7 @@ export function RunSummaryCard({
   const failureMessage = execution.error?.message
   const sent = useSentMessage(slug, detail)
   const showResult = succeeded && summary.result !== null
+  const partial = summary.finishedBeforeFailure.length > 0
   return (
     <section aria-label="Run summary" className="flex flex-col gap-4">
       {sent ? (
@@ -178,7 +180,18 @@ export function RunSummaryCard({
       {failed ? (
         <div>
           <FailureCard slug={slug} detail={detail} />
-          {failureMessage && isUnknownOutcome(failureMessage) ? (
+          {partial ? (
+            <div className="mt-3">
+              <Labeled label="Finished before the failure">
+                <ul className="list-inside list-disc">
+                  {summary.finishedBeforeFailure.map((step) => (
+                    <li key={step.id}>{stepTitle(step.name)}</li>
+                  ))}
+                </ul>
+              </Labeled>
+            </div>
+          ) : null}
+          {partial || (failureMessage && isUnknownOutcome(failureMessage)) ? (
             <p className="mt-2 text-sm text-muted-foreground">
               {summary.nextAction}
             </p>

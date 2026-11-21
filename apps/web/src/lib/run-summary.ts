@@ -1,11 +1,14 @@
 import type {
   ExecutionDetailResponse,
+  ExecutionStepSummary,
   JsonValue,
 } from "@/lib/execution-detail-schema"
 
 export type RunSummary = {
   request: JsonValue | null
   result: JsonValue | null
+  /** Steps that finished before a run failed part-way; empty for every other outcome. */
+  finishedBeforeFailure: ExecutionStepSummary[]
   outcome: string
   attention: string | null
   nextAction: string
@@ -71,7 +74,7 @@ export function summarizeRun(detail: ExecutionDetailResponse): RunSummary {
   const request = execution.triggerPayload ?? null
   const hasResult = execution.output !== undefined && execution.output !== null
   const result = hasResult ? (execution.output ?? null) : null
-  const base = { request, result }
+  const base = { request, result, finishedBeforeFailure: [] }
   switch (execution.status) {
     case "queued":
     case "running":
@@ -113,20 +116,25 @@ export function summarizeRun(detail: ExecutionDetailResponse): RunSummary {
           "Actions completed before cancelling are kept in the history below.",
       }
     case "failed": {
-      const advice = failureAdvice(execution.error?.message)
-      const completed = steps.filter(
+      const message = execution.error?.message
+      const advice = failureAdvice(message)
+      const finished = steps.filter(
         (step) =>
           step.status === "succeeded" &&
           !step.isSystemEvent &&
+          step.replayedFromStepId === null &&
           step.name !== "start"
-      ).length
+      )
+      // An unknown outcome stays its own state: it must never read as a safe partial result.
+      if (finished.length === 0 || (message && isUnknownOutcome(message)))
+        return { ...base, ...advice }
       return {
         ...base,
-        ...advice,
-        outcome:
-          completed > 0 && advice.outcome === "The run failed."
-            ? "The run failed after completing some work."
-            : advice.outcome,
+        finishedBeforeFailure: finished,
+        outcome: "Partially completed.",
+        attention: advice.attention,
+        nextAction:
+          "What finished is not undone. Check it before starting a new run, then fix the failed step.",
       }
     }
     case "succeeded":

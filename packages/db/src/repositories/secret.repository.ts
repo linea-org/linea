@@ -51,6 +51,17 @@ export async function listSecrets(
     .orderBy(secrets.key)
 }
 
+/** For server-side use only, such as redacting secret values out of a trace; never send these to a client. */
+export async function listEncryptedSecrets(
+  db: DbClient,
+  environmentId: string
+): Promise<Pick<Secret, "key" | "encryptedValue">[]> {
+  return db
+    .select({ key: secrets.key, encryptedValue: secrets.encryptedValue })
+    .from(secrets)
+    .where(eq(secrets.environmentId, environmentId))
+}
+
 export async function deleteSecret(
   db: DbClient,
   environmentId: string,

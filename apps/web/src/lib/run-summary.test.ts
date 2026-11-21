@@ -142,16 +142,34 @@ describe("summarizeRun", () => {
     expect(summary.outcome).toBe("The run failed.")
   })
 
-  it("says the run failed after completing some work when a real step finished", () => {
+  it("reports partial completion with the steps that finished before the failure", () => {
     const summary = summarizeRun({
       ...detail({ status: "failed", error: { message: "boom" } }),
       steps: [
         step("start", "succeeded"),
         step("transform", "succeeded"),
+        { ...step("http", "succeeded"), isSystemEvent: true },
         step("llm", "failed"),
       ],
     })
-    expect(summary.outcome).toBe("The run failed after completing some work.")
+    expect(summary.outcome).toBe("Partially completed.")
+    expect(summary.attention).toBe("boom")
+    expect(summary.finishedBeforeFailure.map(({ name }) => name)).toEqual([
+      "transform",
+    ])
+    expect(summary.nextAction).toMatch(/not undone/)
+  })
+
+  it("keeps an unknown outcome distinct even when earlier steps finished", () => {
+    const summary = summarizeRun({
+      ...detail({
+        status: "failed",
+        error: { message: "Provider outcome unknown for create issue" },
+      }),
+      steps: [step("transform", "succeeded"), step("connector", "failed")],
+    })
+    expect(summary.outcome).toBe("The external result is unknown.")
+    expect(summary.finishedBeforeFailure).toEqual([])
   })
 })
 
