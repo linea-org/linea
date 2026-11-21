@@ -6,18 +6,10 @@ import {
   BotIcon,
   BoxesIcon,
   LayoutGridIcon,
-  ListFilterIcon,
   ListIcon,
   WorkflowIcon,
 } from "lucide-react"
 import { Button } from "@linealabs/ui/components/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@linealabs/ui/components/dropdown-menu"
 import {
   Empty,
   EmptyDescription,
@@ -37,6 +29,7 @@ import { Tabs, TabsList, TabsTrigger } from "@linealabs/ui/components/tabs"
 import { Badge } from "@linealabs/ui/components/badge"
 import { Card } from "@linealabs/ui/components/card"
 import { PlayfulAvatar } from "@/components/avatar"
+import { ApplicationFilters } from "@/components/applications/application-filters"
 import { CreateApplicationDialog } from "@/components/applications/create-application-dialog"
 import { ApplicationCardMenu } from "@/components/applications/application-rename-popover"
 import {
@@ -47,8 +40,6 @@ import {
 } from "@/components/applications/application-health"
 import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
 import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
-import { ShortcutTooltip } from "@/components/shortcuts/shortcut-tooltip"
-import { useOpenShortcut } from "@/components/shortcuts/use-open-shortcut"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { SortableTableHead } from "@/components/workspace/sortable-table-head"
 import { useTableSort } from "@/components/workspace/use-table-sort"
@@ -79,7 +70,6 @@ function ApplicationsPage() {
   })
   const overviews = useQuery(applicationOverviewsQueryOptions(slug))
   const [query, setQuery] = useState("")
-  const [filterOpen, setFilterOpen] = useOpenShortcut("filter")
   const [view, setView] = useState<ApplicationView>("grid")
   const normalizedQuery = query.trim().toLowerCase()
   const {
@@ -98,7 +88,6 @@ function ApplicationsPage() {
     applicationSortValue,
     byRecentlyUpdated
   )
-  const quickSort = quickSortOf(sorts)
   function renderApplications() {
     if (applications.length === 0) {
       return (
@@ -229,41 +218,14 @@ function ApplicationsPage() {
           onChange={setQuery}
           placeholder="Search Applications"
         />
-        <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
-          <ShortcutTooltip id="filter" label="Filter" disabled={filterOpen}>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label="Filter applications"
-                />
-              }
-            >
-              <ListFilterIcon />
-            </DropdownMenuTrigger>
-          </ShortcutTooltip>
-          <DropdownMenuContent
-            align="start"
-            className="w-max max-w-64 min-w-(--anchor-width)"
-          >
-            <DropdownMenuRadioGroup
-              value={quickSort}
-              onValueChange={(value) => {
-                setSorts(
-                  value === "name" ? [{ column: "name", direction: "asc" }] : []
-                )
-                setFilterOpen(false)
-              }}
-            >
-              <DropdownMenuRadioItem value="updated">
-                Recently updated
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="name">Name</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ApplicationFilters
+          sort={quickSortOf(sorts)}
+          onSortChange={(sort) =>
+            setSorts(
+              sort === "name" ? [{ column: "name", direction: "asc" }] : []
+            )
+          }
+        />
         <Tabs
           value={view}
           onValueChange={(value: unknown) => {
@@ -310,7 +272,7 @@ function quickSortOf(sorts: Sort<ApplicationSortColumn>[]) {
   const [only] = sorts
   if (sorts.length === 1 && only.column === "name" && only.direction === "asc")
     return "name"
-  return ""
+  return undefined
 }
 
 function byRecentlyUpdated(
