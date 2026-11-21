@@ -8,6 +8,10 @@ import { Redis } from "ioredis"
 import { db, repositories, schema } from "@linealabs/db"
 import { createAuthRateLimiter } from "./auth-rate-limit.js"
 import { sendEmail } from "./email.js"
+import {
+  bindMagicLinkToDevice,
+  magicLinkDeviceBinding,
+} from "./magic-link-device-binding.js"
 import { createMagicLinkEmailUrl } from "./magic-link-email-url.js"
 import { isPersonalWorkspace } from "./personal-workspace.js"
 import { RECENT_AUTHENTICATION_WINDOW_SECONDS } from "./session-policy.js"
@@ -268,9 +272,11 @@ export const auth = betterAuth({
     // Social and magic-link users have no password, so they confirm setup with a code alone.
     twoFactor({ issuer: "Linea", allowPasswordless: true }),
     stepUp(),
+    magicLinkDeviceBinding(),
     magicLink({
       storeToken: "hashed",
-      sendMagicLink: async ({ email, url }) => {
+      sendMagicLink: async ({ email, url, token, metadata }, ctx) => {
+        await bindMagicLinkToDevice(ctx, token, metadata)
         const link = createMagicLinkEmailUrl(url, appUrl)
         await sendEmail({
           to: email,
