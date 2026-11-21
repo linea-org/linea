@@ -14,6 +14,9 @@ const environment = z
   })
   .parse(process.env)
 
+// Differs from the server's locale and zone, so a date rendered before hydration fails the run.
+test.use({ locale: "en-IN", timezoneId: "Asia/Kolkata" })
+
 test("inspects recorded steps, replay lineage, and scoped approvals in a shared trace workspace", async ({
   page,
 }, testInfo) => {
