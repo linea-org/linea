@@ -11,6 +11,7 @@ const pnpmIsJavaScript = /\.(?:c|m)?js$/.test(pnpmCli ?? "")
 const pnpmCommand = pnpmIsJavaScript ? process.execPath : pnpmCli
 const pnpmArguments = (arguments_) =>
   pnpmIsJavaScript ? [pnpmCli, ...arguments_] : arguments_
+
 const tracer = [
   "queued Google and GitHub public-boundary tracer",
   [
@@ -24,7 +25,9 @@ const tracer = [
     "connections-launch.e2e-spec.ts",
   ],
 ]
+
 const firstLaunch = ["first-launch public boundary", ["test:launch"]]
+
 const fullChecks = [
   ["format", ["format:check"]],
   ["lint", ["exec", "turbo", "lint", "--force"]],
