@@ -159,15 +159,17 @@ export function* walk(
   return completedResult(graph, completed)
 }
 
-/** The run's result is what its End node produced; with several End nodes reached, the last in the graph wins. */
+/** The run's result is what its End node produced; with several reached, the last to finish wins.
+ * `completed` keeps insertion order, which is completion order, resumed checkpoints included. */
 function completedResult(
   graph: WorkflowGraph,
   completed: Map<string, unknown>
 ): WalkResult {
-  const end = graph.nodes
-    .filter((node) => node.type === "end" && completed.has(node.id))
-    .at(-1)
-  return end
-    ? { status: "completed", output: completed.get(end.id) }
-    : { status: "completed" }
+  const endIds = new Set(
+    graph.nodes.filter((node) => node.type === "end").map((node) => node.id)
+  )
+  const lastEnd = [...completed.keys()].filter((id) => endIds.has(id)).at(-1)
+  return lastEnd === undefined
+    ? { status: "completed" }
+    : { status: "completed", output: completed.get(lastEnd) }
 }

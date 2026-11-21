@@ -22,6 +22,7 @@ import type { AuthenticatedRequest } from '../auth/workspace-auth.guard'
 
 const traceSchema = z.object({
   traceContentRestricted: z.boolean(),
+  execution: z.object({ output: z.unknown() }),
   steps: z.array(
     z.object({ status: z.string(), input: z.unknown(), output: z.unknown() }),
   ),
@@ -146,8 +147,11 @@ describe('End-User execution trace access', () => {
     operatorExecutionId = operatorExecution.id
     operatorStepId = (await insertStep(operatorExecutionId)).id
     await pool.query(
-      "UPDATE executions SET status = 'succeeded' WHERE id = ANY($1)",
-      [[endUserExecutionId, operatorExecutionId]],
+      "UPDATE executions SET status = 'succeeded', output = $2 WHERE id = ANY($1)",
+      [
+        [endUserExecutionId, operatorExecutionId],
+        JSON.stringify(providerOutput),
+      ],
     )
     const moduleRef = await Test.createTestingModule({
       controllers: [ExecutionsController, RegressionCasesController],
@@ -168,7 +172,7 @@ describe('End-User execution trace access', () => {
     await pool.query('DELETE FROM users WHERE id = ANY($1)', [userIds])
     await pool.end()
   })
-  it('hides End-User step input and output from members and workspace keys but not from admins or owners', async () => {
+  it('hides End-User run output and step input and output from members and workspace keys but not from admins or owners', async () => {
     const server = app.getHttpServer()
     const [ownerId, adminId] = userIds
     for (const auth of memberAndKey()) {
@@ -178,6 +182,7 @@ describe('End-User execution trace access', () => {
         .expect(200)
       const trace = traceSchema.parse(response.body)
       expect(trace.traceContentRestricted).toBe(true)
+      expect(trace.execution.output).toBeNull()
       expect(trace.steps).toEqual([
         { status: 'succeeded', input: null, output: null },
       ])
@@ -190,6 +195,7 @@ describe('End-User execution trace access', () => {
         .expect(200)
       const trace = traceSchema.parse(response.body)
       expect(trace.traceContentRestricted).toBe(false)
+      expect(trace.execution.output).toEqual(providerOutput)
       expect(trace.steps[0].output).toEqual(providerOutput)
     }
   })
