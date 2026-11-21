@@ -42,7 +42,7 @@ function savedTaskId(): string | undefined {
 
 function saveTaskId(id: string | undefined) {
   try {
-    if (id) sessionStorage.setItem(taskKey, id)
+    if (id && taskIdPattern.test(id)) sessionStorage.setItem(taskKey, id)
     else sessionStorage.removeItem(taskKey)
   } catch {
     // Storage can be unavailable; the task simply is not restored after sign-in.

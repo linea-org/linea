@@ -4,8 +4,9 @@ import type { WorkflowGraph } from "./schema.js"
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize)
   if (value !== null && typeof value === "object") {
+    // Code-unit order, not locale order, so the hash never depends on the host locale.
     return Object.keys(value)
-      .sort()
+      .sort((a, b) => Number(a > b) - Number(a < b))
       .reduce<Record<string, unknown>>((acc, key) => {
         acc[key] = canonicalize((value as Record<string, unknown>)[key])
         return acc
