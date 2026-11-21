@@ -11,7 +11,7 @@ function canonicalJson(value: JsonValue): string {
   }
   return `{${Object.keys(value)
     // Code-unit order, not locale order, so the hash never depends on the host locale.
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+    .sort((a, b) => Number(a > b) - Number(a < b))
     .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
     .join(",")}}`
 }
