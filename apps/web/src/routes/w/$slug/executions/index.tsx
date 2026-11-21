@@ -236,7 +236,7 @@ function ExecutionsPage() {
   }
 
   return (
-    <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 p-4">
       <PageToolbar>
         <ExecutionFilters
           values={{ status: search.status, trigger: search.trigger }}
@@ -291,149 +291,147 @@ function ExecutionsPage() {
         </Empty>
       ) : (
         <Card className="min-h-0 flex-1 gap-0 overflow-hidden py-0">
-          <div className="min-h-0 flex-1 overflow-auto">
-            <Table>
-              <TableHeader className="bg-muted/40">
-                <TableRow className="hover:bg-transparent">
-                  <SortableTableHead
-                    column="workflow"
-                    label="Workflow"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <SortableTableHead
-                    column="status"
-                    label="Status"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <SortableTableHead
-                    column="trigger"
-                    label="Trigger"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <SortableTableHead
-                    column="duration"
-                    label="Duration"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <SortableTableHead
-                    column="cost"
-                    label="Cost"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <SortableTableHead
-                    column="when"
-                    label="When"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <TableHead className="w-12 px-2">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {executions.map((execution) => (
-                  <TableRow key={execution.id}>
-                    <TableCell className="px-4">
-                      <Link
-                        to="/w/$slug/executions/$executionId"
-                        params={{ slug, executionId: execution.id }}
-                        className="flex min-w-0 items-center gap-3"
+          <Table stickyHeader>
+            <TableHeader className="bg-muted/40">
+              <TableRow className="hover:bg-transparent">
+                <SortableTableHead
+                  column="workflow"
+                  label="Workflow"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="status"
+                  label="Status"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="trigger"
+                  label="Trigger"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="duration"
+                  label="Duration"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="cost"
+                  label="Cost"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="when"
+                  label="When"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <TableHead className="w-12 px-2">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {executions.map((execution) => (
+                <TableRow key={execution.id}>
+                  <TableCell className="px-4">
+                    <Link
+                      to="/w/$slug/executions/$executionId"
+                      params={{ slug, executionId: execution.id }}
+                      className="flex min-w-0 items-center gap-3"
+                    >
+                      <PlayfulAvatar
+                        name={execution.workflowName}
+                        shape="rounded"
+                        className="size-6"
+                      />
+                      <span className="truncate text-sm font-medium">
+                        {execution.workflowName}
+                      </span>
+                    </Link>
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <ExecutionStatusBadge status={execution.status} />
+                  </TableCell>
+                  <TableCell className="px-4 text-muted-foreground">
+                    {triggerLabel[execution.trigger]}
+                  </TableCell>
+                  <TableCell className="px-4 text-muted-foreground">
+                    {formatDuration(
+                      execution.startedAt,
+                      execution.completedAt,
+                      execution.status
+                    )}
+                  </TableCell>
+                  <TableCell className="px-4 text-muted-foreground">
+                    {formatCost(execution.costMicros, execution.costUnpriced)}
+                  </TableCell>
+                  <TableCell className="px-4 text-muted-foreground tabular-nums">
+                    {new Date(execution.createdAt).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="px-2 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`More options for ${execution.workflowName}`}
+                          />
+                        }
                       >
-                        <PlayfulAvatar
-                          name={execution.workflowName}
-                          shape="rounded"
-                          className="size-6"
-                        />
-                        <span className="truncate text-sm font-medium">
-                          {execution.workflowName}
-                        </span>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-4">
-                      <ExecutionStatusBadge status={execution.status} />
-                    </TableCell>
-                    <TableCell className="px-4 text-muted-foreground">
-                      {triggerLabel[execution.trigger]}
-                    </TableCell>
-                    <TableCell className="px-4 text-muted-foreground">
-                      {formatDuration(
-                        execution.startedAt,
-                        execution.completedAt,
-                        execution.status
-                      )}
-                    </TableCell>
-                    <TableCell className="px-4 text-muted-foreground">
-                      {formatCost(execution.costMicros, execution.costUnpriced)}
-                    </TableCell>
-                    <TableCell className="px-4 text-muted-foreground tabular-nums">
-                      {new Date(execution.createdAt).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="px-2 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              aria-label={`More options for ${execution.workflowName}`}
-                            />
+                        <EllipsisVerticalIcon />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-48 min-w-48"
+                      >
+                        <DropdownMenuItem
+                          onClick={() =>
+                            void navigate({
+                              to: "/w/$slug/executions/$executionId",
+                              params: { slug, executionId: execution.id },
+                            })
                           }
                         >
-                          <EllipsisVerticalIcon />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-48 min-w-48"
-                        >
-                          <DropdownMenuItem
-                            onClick={() =>
+                          <EyeIcon />
+                          View execution
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            if (execution.workflowId)
                               void navigate({
-                                to: "/w/$slug/executions/$executionId",
-                                params: { slug, executionId: execution.id },
+                                to: "/w/$slug/workflows/$workflowId",
+                                params: {
+                                  slug,
+                                  workflowId: execution.workflowId,
+                                },
                               })
-                            }
-                          >
-                            <EyeIcon />
-                            View execution
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              if (execution.workflowId)
-                                void navigate({
-                                  to: "/w/$slug/workflows/$workflowId",
-                                  params: {
-                                    slug,
-                                    workflowId: execution.workflowId,
-                                  },
-                                })
-                              else if (execution.agentId)
-                                void navigate({
-                                  to: "/w/$slug/agents/$agentId",
-                                  params: {
-                                    slug,
-                                    agentId: execution.agentId,
-                                  },
-                                })
-                            }}
-                          >
-                            <WorkflowIcon />
-                            {execution.agentId ? "Open Agent" : "Open workflow"}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                            else if (execution.agentId)
+                              void navigate({
+                                to: "/w/$slug/agents/$agentId",
+                                params: {
+                                  slug,
+                                  agentId: execution.agentId,
+                                },
+                              })
+                          }}
+                        >
+                          <WorkflowIcon />
+                          {execution.agentId ? "Open Agent" : "Open workflow"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
           <ExecutionsPagination
             page={currentPageNumber}
             pageSize={search.size ?? DEFAULT_PAGE_SIZE}

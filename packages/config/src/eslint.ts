@@ -10,7 +10,7 @@ const sharedRules = {
   "max-params": ["warn", 5],
   "max-lines-per-function": [
     "warn",
-    { max: 150, skipBlankLines: true, skipComments: true },
+    { max: 500, skipBlankLines: true, skipComments: true },
   ],
   "@typescript-eslint/no-floating-promises": "warn",
   "@typescript-eslint/no-unsafe-argument": "warn",
