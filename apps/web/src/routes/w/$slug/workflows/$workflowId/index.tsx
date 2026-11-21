@@ -6,7 +6,6 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query"
 import { Link, createFileRoute } from "@tanstack/react-router"
-import { PencilIcon, PencilRulerIcon } from "lucide-react"
 
 import { Button } from "@linealabs/ui/components/button"
 import { Card } from "@linealabs/ui/components/card"
@@ -152,7 +151,6 @@ function WorkflowDetailPage() {
             onClick={() => setEditOpen(true)}
             {...shortcutTarget("edit")}
           >
-            <PencilIcon />
             Edit
             <ShortcutKeys id="edit" />
           </Button>
@@ -171,7 +169,6 @@ function WorkflowDetailPage() {
             }
             {...shortcutTarget("open-builder")}
           >
-            <PencilRulerIcon />
             Open builder
             <ShortcutKeys id="open-builder" onPrimary />
           </Button>

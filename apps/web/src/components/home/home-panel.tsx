@@ -1,5 +1,8 @@
 import { Card } from "@linealabs/ui/components/card"
+import { cn } from "@linealabs/ui/lib/utils"
 import type { ReactNode } from "react"
+
+import { COMPACT_CONTROLS } from "@/components/workspace/page-toolbar"
 
 export function HomePanel({
   title,
@@ -12,7 +15,12 @@ export function HomePanel({
 }) {
   return (
     <section className="flex h-full flex-col gap-2">
-      <div className="flex h-8 items-center justify-between gap-3 pl-1">
+      <div
+        className={cn(
+          "flex h-7 items-center justify-between gap-3 pl-1",
+          COMPACT_CONTROLS
+        )}
+      >
         <p className="text-sm font-medium text-foreground">{title}</p>
         {action}
       </div>

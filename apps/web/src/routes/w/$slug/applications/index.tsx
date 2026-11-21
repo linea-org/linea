@@ -8,14 +8,14 @@ import {
   LayoutGridIcon,
   ListFilterIcon,
   ListIcon,
-  PlusIcon,
   WorkflowIcon,
 } from "lucide-react"
 import { Button } from "@linealabs/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@linealabs/ui/components/dropdown-menu"
 import {
@@ -50,6 +50,8 @@ import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { ShortcutTooltip } from "@/components/shortcuts/shortcut-tooltip"
 import { useOpenShortcut } from "@/components/shortcuts/use-open-shortcut"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
+import { SortableTableHead } from "@/components/workspace/sortable-table-head"
+import { useTableSort } from "@/components/workspace/use-table-sort"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import {
   applicationOverviewsQueryOptions,
@@ -65,7 +67,7 @@ export const Route = createFileRoute("/w/$slug/applications/")({
   component: ApplicationsPage,
 })
 
-type ApplicationSort = "updated" | "name"
+type ApplicationSortColumn = "name" | "agents" | "workflows" | "updated"
 type ApplicationView = "grid" | "list"
 
 function ApplicationsPage() {
@@ -77,21 +79,32 @@ function ApplicationsPage() {
   const overviews = useQuery(applicationOverviewsQueryOptions(slug))
   const [query, setQuery] = useState("")
   const [filterOpen, setFilterOpen] = useOpenShortcut("filter")
-  const [sort, setSort] = useState<ApplicationSort>("updated")
   const [view, setView] = useState<ApplicationView>("grid")
   const normalizedQuery = query.trim().toLowerCase()
-  const visible = applications
-    .filter((application) =>
-      `${application.name} ${application.slug}`
-        .toLowerCase()
-        .includes(normalizedQuery)
-    )
-    .sort((left, right) =>
-      sort === "name"
-        ? left.name.localeCompare(right.name)
-        : new Date(right.updatedAt).getTime() -
-          new Date(left.updatedAt).getTime()
-    )
+  const {
+    sorted: visible,
+    sorts,
+    setSorts,
+    onSort,
+  } = useTableSort<ApplicationSummary, ApplicationSortColumn>(
+    applications
+      .filter((application) =>
+        `${application.name} ${application.slug}`
+          .toLowerCase()
+          .includes(normalizedQuery)
+      )
+      .sort(byRecentlyUpdated),
+    applicationSortValue,
+    byRecentlyUpdated
+  )
+  const quickSort =
+    sorts.length === 0
+      ? "updated"
+      : sorts.length === 1 &&
+          sorts[0].column === "name" &&
+          sorts[0].direction === "asc"
+        ? "name"
+        : ""
   function renderApplications() {
     if (applications.length === 0) {
       return (
@@ -143,18 +156,30 @@ function ApplicationsPage() {
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="px-4 font-normal text-muted-foreground">
-                  Application
-                </TableHead>
-                <TableHead className="px-4 font-normal text-muted-foreground">
-                  Agents
-                </TableHead>
-                <TableHead className="px-4 font-normal text-muted-foreground">
-                  Workflows
-                </TableHead>
-                <TableHead className="px-4 font-normal text-muted-foreground">
-                  Updated
-                </TableHead>
+                <SortableTableHead
+                  column="name"
+                  label="Application"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="agents"
+                  label="Agents"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="workflows"
+                  label="Workflows"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="updated"
+                  label="Updated"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
                 <TableHead className="w-12 px-2">
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -229,18 +254,20 @@ function ApplicationsPage() {
             align="start"
             className="w-max max-w-64 min-w-(--anchor-width)"
           >
-            <DropdownMenuItem
-              className="truncate"
-              onClick={() => setSort("updated")}
+            <DropdownMenuRadioGroup
+              value={quickSort}
+              onValueChange={(value) => {
+                setSorts(
+                  value === "name" ? [{ column: "name", direction: "asc" }] : []
+                )
+                setFilterOpen(false)
+              }}
             >
-              Recently updated
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="truncate"
-              onClick={() => setSort("name")}
-            >
-              Name
-            </DropdownMenuItem>
+              <DropdownMenuRadioItem value="updated">
+                Recently updated
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="name">Name</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
         <Tabs
@@ -264,7 +291,6 @@ function ApplicationsPage() {
             workspaceSlug={slug}
             trigger={
               <Button variant="outline" size="sm" {...shortcutTarget("create")}>
-                <PlusIcon />
                 Create Application
                 <ShortcutKeys id="create" />
               </Button>
@@ -274,7 +300,6 @@ function ApplicationsPage() {
             render={<Link to="/w/$slug/agents/new" params={{ slug }} />}
             {...shortcutTarget("add-agent")}
           >
-            <PlusIcon />
             Add Agent
             <ShortcutKeys id="add-agent" onPrimary />
           </Button>
@@ -283,6 +308,33 @@ function ApplicationsPage() {
       {renderApplications()}
     </main>
   )
+}
+
+function byRecentlyUpdated(
+  left: ApplicationSummary,
+  right: ApplicationSummary
+) {
+  return right.updatedAt.localeCompare(left.updatedAt)
+}
+
+function applicationSortValue(
+  application: ApplicationSummary,
+  column: ApplicationSortColumn
+): string | number {
+  switch (column) {
+    case "name":
+      return application.name.toLowerCase()
+    case "agents":
+      return application.agentCount
+    case "workflows":
+      return application.workflowCount
+    case "updated":
+      return new Date(application.updatedAt).getTime()
+    default: {
+      const unreachable: never = column
+      return unreachable
+    }
+  }
 }
 
 function countLabel(count: number, singular: string, plural: string) {

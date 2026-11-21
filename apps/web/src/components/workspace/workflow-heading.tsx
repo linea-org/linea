@@ -88,7 +88,7 @@ export function WorkflowHeading({
             {workflow.description ? <p>{workflow.description}</p> : null}
             <p
               className={
-                workflow.description ? "text-background/70" : undefined
+                workflow.description ? "text-tooltip-foreground/70" : undefined
               }
             >
               {updated}

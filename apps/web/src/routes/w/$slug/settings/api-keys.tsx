@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { KeySquareIcon, PlusIcon } from "lucide-react"
+import { KeySquareIcon } from "lucide-react"
 
 import { Button } from "@linealabs/ui/components/button"
 import {
@@ -50,7 +50,6 @@ function ApiKeysPage() {
             onClick={() => setCreateOpen(true)}
             {...shortcutTarget("create")}
           >
-            <PlusIcon />
             Create key
             <ShortcutKeys id="create" onPrimary />
           </Button>

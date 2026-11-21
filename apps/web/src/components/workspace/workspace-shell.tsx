@@ -301,7 +301,9 @@ export function WorkspaceShell({
             {!isBuilder && <InsetCollapseEdge />}
             <div
               className={cn(
-                "relative flex min-h-0 flex-1 flex-col overflow-auto",
+                // Under a title row the page drops its top padding: content starts at 48px,
+                // level with the sidebar's Console/Inky tabs.
+                "relative flex min-h-0 flex-1 flex-col overflow-auto [&:has(>[data-page-title])>main]:pt-0",
                 isBuilder ? "bg-card" : "bg-sidebar"
               )}
             >

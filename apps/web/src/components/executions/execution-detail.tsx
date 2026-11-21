@@ -167,7 +167,7 @@ export function ExecutionDetailView({
   })
   const { execution } = detail
   return (
-    <main className="flex min-w-0 flex-1 flex-col">
+    <main className="flex min-w-0 flex-1 flex-col p-4">
       <PageToolbar>
         <AskInkyLink
           slug={slug}
@@ -175,7 +175,7 @@ export function ExecutionDetailView({
           failed={execution.status === "failed"}
         />
       </PageToolbar>
-      <div className="flex w-full flex-col gap-8 p-4">
+      <div className="flex w-full flex-col gap-8">
         {error && (
           <div
             role="alert"

@@ -6,7 +6,6 @@ import {
   MoreHorizontalIcon,
   SearchIcon,
   Trash2Icon,
-  UserPlusIcon,
   UsersIcon,
 } from "lucide-react"
 
@@ -235,7 +234,6 @@ function MembersPage() {
             onClick={() => setInviteOpen(true)}
             {...shortcutTarget("create")}
           >
-            <UserPlusIcon />
             Invite
             <ShortcutKeys id="create" onPrimary />
           </Button>

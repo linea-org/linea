@@ -1,4 +1,3 @@
-import { useMemo, useState } from "react"
 import {
   useQuery,
   useQueryClient,
@@ -31,13 +30,6 @@ import {
   EmptyTitle,
 } from "@linealabs/ui/components/empty"
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from "@linealabs/ui/components/pagination"
-import {
   Table,
   TableBody,
   TableCell,
@@ -58,8 +50,8 @@ import {
   type WorkspaceExecutionSummary,
 } from "@/lib/executions-api"
 import { formatElapsed } from "@/lib/format"
-import { SortDirectionIcon } from "@/components/workspace/sort-direction-icon"
-import { ariaSortValue, type SortDirection } from "@/lib/sort"
+import { SortableTableHead } from "@/components/workspace/sortable-table-head"
+import { useTableSort } from "@/components/workspace/use-table-sort"
 
 import {
   executionStatusDefinition,
@@ -67,6 +59,12 @@ import {
 } from "@/lib/execution-status"
 import { isExecutionTrigger, triggerLabel } from "@/lib/execution-trigger"
 import { ExecutionFilters } from "@/components/executions/execution-filters"
+import {
+  DEFAULT_PAGE_SIZE,
+  ExecutionsPagination,
+  parsePageSize,
+  type PageSize,
+} from "@/components/executions/executions-pagination"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 
 function parseOpaqueParam(value: unknown): string | undefined {
@@ -82,6 +80,7 @@ type ExecutionsSearch = {
   trail?: string
   /** Cursor of the newest row visible when this browsing session started, fixed the moment pagination is first used — the reference point for "N new executions" polling, so it stays relative to where the user started rather than the current page. */
   anchor?: string
+  size?: PageSize
 }
 
 export const Route = createFileRoute("/w/$slug/executions/")({
@@ -91,9 +90,13 @@ export const Route = createFileRoute("/w/$slug/executions/")({
     cursor: parseOpaqueParam(search.cursor),
     trail: parseOpaqueParam(search.trail),
     anchor: parseOpaqueParam(search.anchor),
+    size: parsePageSize(search.size),
   }),
   loaderDeps: ({ search }) => search,
-  loader: ({ deps }) => listWorkspaceExecutionsFn({ data: deps }),
+  loader: ({ deps }) =>
+    listWorkspaceExecutionsFn({
+      data: { ...deps, limit: deps.size ?? DEFAULT_PAGE_SIZE },
+    }),
   component: ExecutionsPage,
 })
 
@@ -124,7 +127,6 @@ function formatDuration(
 
 type ExecutionSortColumn =
   "workflow" | "status" | "trigger" | "duration" | "cost" | "when"
-type ExecutionSort = { column: ExecutionSortColumn; direction: SortDirection }
 
 function durationMs(execution: WorkspaceExecutionSummary) {
   if (!execution.startedAt) return null
@@ -161,71 +163,6 @@ function sortValue(
   }
 }
 
-function compareSortValues(
-  left: string | number | null,
-  right: string | number | null,
-  direction: SortDirection
-) {
-  if (left === null && right === null) return 0
-  if (left === null) return 1
-  if (right === null) return -1
-  if (left === right) return 0
-  const order = left < right ? -1 : 1
-  return direction === "asc" ? order : -order
-}
-
-function sortExecutions(
-  executions: WorkspaceExecutionSummary[],
-  sorts: ExecutionSort[]
-) {
-  if (sorts.length === 0) return executions
-  return executions.slice().sort((left, right) => {
-    for (const sort of sorts) {
-      const compared = compareSortValues(
-        sortValue(left, sort.column),
-        sortValue(right, sort.column),
-        sort.direction
-      )
-      if (compared !== 0) return compared
-    }
-    return right.createdAt.localeCompare(left.createdAt)
-  })
-}
-
-function ExecutionSortHeader({
-  column,
-  label,
-  sorts,
-  onSort,
-}: Readonly<{
-  column: ExecutionSortColumn
-  label: string
-  sorts: ExecutionSort[]
-  onSort: (column: ExecutionSortColumn) => void
-}>) {
-  const index = sorts.findIndex((item) => item.column === column)
-  const active = sorts[index]
-  return (
-    <TableHead
-      aria-sort={ariaSortValue(active?.direction)}
-      className="px-4 font-normal text-muted-foreground"
-    >
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 hover:text-foreground"
-        title={`Sort this page by ${label.toLowerCase()}`}
-        onClick={() => onSort(column)}
-      >
-        {label}
-        {<SortDirectionIcon direction={active?.direction} />}
-        {active && sorts.length > 1 ? (
-          <span className="text-xs leading-none tabular-nums">{index + 1}</span>
-        ) : null}
-      </button>
-    </TableHead>
-  )
-}
-
 function ExecutionsPage() {
   const { slug } = Route.useParams()
   const search = Route.useSearch()
@@ -233,28 +170,22 @@ function ExecutionsPage() {
   const queryClient = useQueryClient()
   const initialData = Route.useLoaderData()
   const { data } = useSuspenseQuery({
-    ...workspaceExecutionsQueryOptions(slug, search),
+    ...workspaceExecutionsQueryOptions(slug, {
+      ...search,
+      limit: search.size ?? DEFAULT_PAGE_SIZE,
+    }),
     initialData,
   })
   const { executions, hasMore, total } = data
-  const [sorts, setSorts] = useState<ExecutionSort[]>([])
-  const sortedExecutions = useMemo(
-    () => sortExecutions(executions, sorts),
-    [executions, sorts]
+  const {
+    sorted: sortedExecutions,
+    sorts,
+    onSort,
+  } = useTableSort<WorkspaceExecutionSummary, ExecutionSortColumn>(
+    executions,
+    sortValue,
+    (left, right) => right.createdAt.localeCompare(left.createdAt)
   )
-  function onSort(column: ExecutionSortColumn) {
-    setSorts((current) => {
-      const index = current.findIndex((item) => item.column === column)
-      if (index === -1) return [...current, { column, direction: "asc" }]
-      const item = current[index]
-      if (!item || item.direction === "desc") {
-        return current.filter((entry) => entry.column !== column)
-      }
-      return current.map((entry) =>
-        entry.column === column ? { column, direction: "desc" } : entry
-      )
-    })
-  }
 
   const trail = search.trail ? search.trail.split(";") : []
   const isFirstPage = trail.length === 0 && !search.cursor
@@ -288,6 +219,7 @@ function ExecutionsPage() {
     if (merged.cursor) params.set("cursor", merged.cursor)
     if (merged.trail) params.set("trail", merged.trail)
     if (merged.anchor) params.set("anchor", merged.anchor)
+    if (merged.size) params.set("size", String(merged.size))
     const query = params.toString()
     return `/w/${slug}/executions${query ? `?${query}` : ""}`
   }
@@ -386,192 +318,192 @@ function ExecutionsPage() {
         </Empty>
       ) : (
         <>
-          <Card className="gap-0 py-0">
-            <Table>
-              <TableHeader className="bg-muted/40">
-                <TableRow className="hover:bg-transparent">
-                  <ExecutionSortHeader
-                    column="workflow"
-                    label="Workflow"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <ExecutionSortHeader
-                    column="status"
-                    label="Status"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <ExecutionSortHeader
-                    column="trigger"
-                    label="Trigger"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <ExecutionSortHeader
-                    column="duration"
-                    label="Duration"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <ExecutionSortHeader
-                    column="cost"
-                    label="Cost"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <ExecutionSortHeader
-                    column="when"
-                    label="When"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <TableHead className="w-12 px-2">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedExecutions.map((execution) => (
-                  <TableRow key={execution.id}>
-                    <TableCell className="px-4">
-                      <Link
-                        to="/w/$slug/executions/$executionId"
-                        params={{ slug, executionId: execution.id }}
-                        className="flex min-w-0 items-center gap-3"
-                      >
-                        <PlayfulAvatar
-                          name={execution.workflowName}
-                          shape="rounded"
-                          className="size-6"
-                        />
-                        <span className="truncate text-sm font-medium">
-                          {execution.workflowName}
-                        </span>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-4">
-                      <ExecutionStatusBadge status={execution.status} />
-                    </TableCell>
-                    <TableCell className="px-4 text-muted-foreground">
-                      {triggerLabel[execution.trigger]}
-                    </TableCell>
-                    <TableCell className="px-4 text-muted-foreground">
-                      {formatDuration(
-                        execution.startedAt,
-                        execution.completedAt,
-                        execution.status
-                      )}
-                    </TableCell>
-                    <TableCell className="px-4 text-muted-foreground">
-                      {formatCost(execution.costMicros, execution.costUnpriced)}
-                    </TableCell>
-                    <TableCell className="px-4 text-muted-foreground tabular-nums">
-                      {new Date(execution.createdAt).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="px-2 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              aria-label={`More options for ${execution.workflowName}`}
-                            />
-                          }
+          <Card className="min-h-0 flex-1 gap-0 overflow-hidden py-0">
+            <div className="min-h-0 flex-1 overflow-auto">
+              <Table>
+                <TableHeader className="bg-muted/40">
+                  <TableRow className="hover:bg-transparent">
+                    <SortableTableHead
+                      column="workflow"
+                      label="Workflow"
+                      sorts={sorts}
+                      onSort={onSort}
+                    />
+                    <SortableTableHead
+                      column="status"
+                      label="Status"
+                      sorts={sorts}
+                      onSort={onSort}
+                    />
+                    <SortableTableHead
+                      column="trigger"
+                      label="Trigger"
+                      sorts={sorts}
+                      onSort={onSort}
+                    />
+                    <SortableTableHead
+                      column="duration"
+                      label="Duration"
+                      sorts={sorts}
+                      onSort={onSort}
+                    />
+                    <SortableTableHead
+                      column="cost"
+                      label="Cost"
+                      sorts={sorts}
+                      onSort={onSort}
+                    />
+                    <SortableTableHead
+                      column="when"
+                      label="When"
+                      sorts={sorts}
+                      onSort={onSort}
+                    />
+                    <TableHead className="w-12 px-2">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedExecutions.map((execution) => (
+                    <TableRow key={execution.id}>
+                      <TableCell className="px-4">
+                        <Link
+                          to="/w/$slug/executions/$executionId"
+                          params={{ slug, executionId: execution.id }}
+                          className="flex min-w-0 items-center gap-3"
                         >
-                          <EllipsisVerticalIcon />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-48 min-w-48"
-                        >
-                          <DropdownMenuItem
-                            onClick={() =>
-                              void navigate({
-                                to: "/w/$slug/executions/$executionId",
-                                params: { slug, executionId: execution.id },
-                              })
+                          <PlayfulAvatar
+                            name={execution.workflowName}
+                            shape="rounded"
+                            className="size-6"
+                          />
+                          <span className="truncate text-sm font-medium">
+                            {execution.workflowName}
+                          </span>
+                        </Link>
+                      </TableCell>
+                      <TableCell className="px-4">
+                        <ExecutionStatusBadge status={execution.status} />
+                      </TableCell>
+                      <TableCell className="px-4 text-muted-foreground">
+                        {triggerLabel[execution.trigger]}
+                      </TableCell>
+                      <TableCell className="px-4 text-muted-foreground">
+                        {formatDuration(
+                          execution.startedAt,
+                          execution.completedAt,
+                          execution.status
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 text-muted-foreground">
+                        {formatCost(
+                          execution.costMicros,
+                          execution.costUnpriced
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 text-muted-foreground tabular-nums">
+                        {new Date(execution.createdAt).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="px-2 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`More options for ${execution.workflowName}`}
+                              />
                             }
                           >
-                            <EyeIcon />
-                            View execution
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              if (execution.workflowId)
-                                void navigate({
-                                  to: "/w/$slug/workflows/$workflowId",
-                                  params: {
-                                    slug,
-                                    workflowId: execution.workflowId,
-                                  },
-                                })
-                              else if (execution.agentId)
-                                void navigate({
-                                  to: "/w/$slug/agents/$agentId",
-                                  params: { slug, agentId: execution.agentId },
-                                })
-                            }}
+                            <EllipsisVerticalIcon />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-48 min-w-48"
                           >
-                            <WorkflowIcon />
-                            {execution.agentId ? "Open Agent" : "Open workflow"}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-          {isFirstPage && !hasMore ? null : (
-            <div className="mt-4 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Page {currentPageNumber} · {total} total
-              </p>
-              <Pagination className="mx-0 w-auto">
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      href={hrefFor({
-                        cursor: previousCursor || undefined,
-                        trail:
-                          previousTrail.length > 0
-                            ? previousTrail.join(";")
-                            : undefined,
-                      })}
-                      aria-disabled={isFirstPage}
-                      className={
-                        isFirstPage ? "pointer-events-none opacity-50" : ""
-                      }
-                      onClick={(event) => {
-                        event.preventDefault()
-                        goPrevious()
-                      }}
-                    />
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationNext
-                      href={hrefFor({
-                        cursor: nextCursor,
-                        trail: [...trail, search.cursor ?? ""].join(";"),
-                      })}
-                      aria-disabled={!hasMore}
-                      className={
-                        !hasMore ? "pointer-events-none opacity-50" : ""
-                      }
-                      onClick={(event) => {
-                        event.preventDefault()
-                        goNext()
-                      }}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                void navigate({
+                                  to: "/w/$slug/executions/$executionId",
+                                  params: { slug, executionId: execution.id },
+                                })
+                              }
+                            >
+                              <EyeIcon />
+                              View execution
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (execution.workflowId)
+                                  void navigate({
+                                    to: "/w/$slug/workflows/$workflowId",
+                                    params: {
+                                      slug,
+                                      workflowId: execution.workflowId,
+                                    },
+                                  })
+                                else if (execution.agentId)
+                                  void navigate({
+                                    to: "/w/$slug/agents/$agentId",
+                                    params: {
+                                      slug,
+                                      agentId: execution.agentId,
+                                    },
+                                  })
+                              }}
+                            >
+                              <WorkflowIcon />
+                              {execution.agentId
+                                ? "Open Agent"
+                                : "Open workflow"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          )}
+            <ExecutionsPagination
+              page={currentPageNumber}
+              pageSize={search.size ?? DEFAULT_PAGE_SIZE}
+              rowCount={executions.length}
+              total={total}
+              previous={{
+                href: hrefFor({
+                  cursor: previousCursor || undefined,
+                  trail:
+                    previousTrail.length > 0
+                      ? previousTrail.join(";")
+                      : undefined,
+                }),
+                enabled: !isFirstPage,
+                onGo: goPrevious,
+              }}
+              next={{
+                href: hrefFor({
+                  cursor: nextCursor,
+                  trail: [...trail, search.cursor ?? ""].join(";"),
+                }),
+                enabled: hasMore,
+                onGo: goNext,
+              }}
+              onPageSizeChange={(size) =>
+                void navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    size: size === DEFAULT_PAGE_SIZE ? undefined : size,
+                    cursor: undefined,
+                    trail: undefined,
+                    anchor: undefined,
+                  }),
+                })
+              }
+            />
+          </Card>
         </>
       )}
     </main>

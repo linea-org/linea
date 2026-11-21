@@ -6,7 +6,6 @@ import {
   EllipsisVerticalIcon,
   PencilIcon,
   PencilRulerIcon,
-  PlusIcon,
   SearchIcon,
   WorkflowIcon,
 } from "lucide-react"
@@ -59,8 +58,8 @@ import {
 } from "@/lib/applications-api"
 import { formatDate } from "@/lib/format"
 import { WORKFLOW_STATUS_FILTERS } from "@/lib/workflow-status-filter"
-import { SortDirectionIcon } from "@/components/workspace/sort-direction-icon"
-import { ariaSortValue, type SortDirection } from "@/lib/sort"
+import { SortableTableHead } from "@/components/workspace/sortable-table-head"
+import { useTableSort } from "@/components/workspace/use-table-sort"
 
 const workflowsSearchSchema = z.object({
   applicationId: z.uuid().optional(),
@@ -68,7 +67,6 @@ const workflowsSearchSchema = z.object({
 })
 
 type WorkflowSortColumn = "workflow" | "application" | "status" | "updated"
-type WorkflowSort = { column: WorkflowSortColumn; direction: SortDirection }
 
 function workflowSortValue(
   workflow: WorkflowSummary,
@@ -89,49 +87,6 @@ function workflowSortValue(
       return unreachable
     }
   }
-}
-
-function compareSortValues(
-  left: string | number,
-  right: string | number,
-  direction: SortDirection
-) {
-  if (left === right) return 0
-  const order = left < right ? -1 : 1
-  return direction === "asc" ? order : -order
-}
-
-function WorkflowSortHeader({
-  column,
-  label,
-  sorts,
-  onSort,
-}: Readonly<{
-  column: WorkflowSortColumn
-  label: string
-  sorts: WorkflowSort[]
-  onSort: (column: WorkflowSortColumn) => void
-}>) {
-  const index = sorts.findIndex((item) => item.column === column)
-  const active = sorts[index]
-  return (
-    <TableHead
-      aria-sort={ariaSortValue(active?.direction)}
-      className="px-4 font-normal text-muted-foreground"
-    >
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 hover:text-foreground"
-        onClick={() => onSort(column)}
-      >
-        {label}
-        {<SortDirectionIcon direction={active?.direction} showIdle />}
-        {active && sorts.length > 1 ? (
-          <span className="text-xs leading-none tabular-nums">{index + 1}</span>
-        ) : null}
-      </button>
-    </TableHead>
-  )
 }
 
 export const Route = createFileRoute("/w/$slug/workflows/")({
@@ -164,7 +119,6 @@ function WorkflowsListPage() {
   const [editingWorkflow, setEditingWorkflow] =
     useState<WorkflowSummary | null>(null)
   const [search, setSearch] = useState("")
-  const [sorts, setSorts] = useState<WorkflowSort[]>([])
   const applicationNameById = useMemo(
     () =>
       new Map(
@@ -185,41 +139,20 @@ function WorkflowsListPage() {
       )
     })
   }, [workflows, search, status, applicationId])
-  const rows = useMemo(() => {
-    if (sorts.length === 0) return filtered
-    return filtered.slice().sort((left, right) => {
-      for (const sort of sorts) {
-        const compared = compareSortValues(
-          workflowSortValue(
-            left,
-            sort.column,
-            applicationNameById.get(left.applicationId) ?? ""
-          ),
-          workflowSortValue(
-            right,
-            sort.column,
-            applicationNameById.get(right.applicationId) ?? ""
-          ),
-          sort.direction
-        )
-        if (compared !== 0) return compared
-      }
-      return right.updatedAt.localeCompare(left.updatedAt)
-    })
-  }, [filtered, sorts, applicationNameById])
-  function onSort(column: WorkflowSortColumn) {
-    setSorts((current) => {
-      const index = current.findIndex((item) => item.column === column)
-      if (index === -1) return [...current, { column, direction: "asc" }]
-      const item = current[index]
-      if (!item || item.direction === "desc") {
-        return current.filter((entry) => entry.column !== column)
-      }
-      return current.map((entry) =>
-        entry.column === column ? { column, direction: "desc" } : entry
-      )
-    })
-  }
+  const {
+    sorted: rows,
+    sorts,
+    onSort,
+  } = useTableSort<WorkflowSummary, WorkflowSortColumn>(
+    filtered,
+    (workflow, column) =>
+      workflowSortValue(
+        workflow,
+        column,
+        applicationNameById.get(workflow.applicationId) ?? ""
+      ),
+    (left, right) => right.updatedAt.localeCompare(left.updatedAt)
+  )
   function goToBuilder(workflow: { id: string }) {
     return navigate({
       to: "/w/$slug/workflows/$workflowId/builder",
@@ -242,7 +175,6 @@ function WorkflowsListPage() {
       workspaceSlug={slug}
       trigger={
         <Button size="sm" {...shortcutTarget("create")}>
-          <PlusIcon />
           Create workflow
           <ShortcutKeys id="create" onPrimary />
         </Button>
@@ -306,25 +238,25 @@ function WorkflowsListPage() {
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow className="hover:bg-transparent">
-                  <WorkflowSortHeader
+                  <SortableTableHead
                     column="workflow"
                     label="Workflow"
                     sorts={sorts}
                     onSort={onSort}
                   />
-                  <WorkflowSortHeader
+                  <SortableTableHead
                     column="application"
                     label="Application"
                     sorts={sorts}
                     onSort={onSort}
                   />
-                  <WorkflowSortHeader
+                  <SortableTableHead
                     column="status"
                     label="Status"
                     sorts={sorts}
                     onSort={onSort}
                   />
-                  <WorkflowSortHeader
+                  <SortableTableHead
                     column="updated"
                     label="Updated"
                     sorts={sorts}

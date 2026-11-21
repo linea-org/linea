@@ -261,6 +261,7 @@ export class ExecutionsService {
       status: filters.status,
       trigger: filters.trigger,
       cursor: filters.cursor,
+      limit: filters.limit,
     })
   }
 

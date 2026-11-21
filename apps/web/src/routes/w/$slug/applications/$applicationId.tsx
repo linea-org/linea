@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { LayersIcon, ListFilterIcon, PlusIcon } from "lucide-react"
+import { LayersIcon, ListFilterIcon } from "lucide-react"
 import { z } from "zod"
 import {
   Empty,
@@ -162,7 +162,6 @@ function ApplicationPage() {
                   applicationId={applicationId}
                   trigger={
                     <Button {...shortcutTarget("create", "add-agent")}>
-                      <PlusIcon />
                       Add Agent
                       <ShortcutKeys id="add-agent" onPrimary />
                     </Button>

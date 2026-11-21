@@ -35,8 +35,8 @@ export function ToolbarSearch({
       label="Search"
       disabled={!inToolbar || focused || value !== ""}
     >
-      <div className="group/search relative w-full max-w-md min-w-48 flex-1 in-data-[slot=page-toolbar]:w-8 in-data-[slot=page-toolbar]:min-w-8 in-data-[slot=page-toolbar]:flex-none in-data-[slot=page-toolbar]:transition-[width] focus-within:in-data-[slot=page-toolbar]:w-56 has-[input:not(:placeholder-shown)]:in-data-[slot=page-toolbar]:w-56">
-        <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+      <div className="group/search relative w-full max-w-md min-w-48 flex-1 in-data-[slot=page-toolbar]:w-7 in-data-[slot=page-toolbar]:min-w-7 in-data-[slot=page-toolbar]:flex-none in-data-[slot=page-toolbar]:transition-[width] focus-within:in-data-[slot=page-toolbar]:w-56 has-[input:not(:placeholder-shown)]:in-data-[slot=page-toolbar]:w-56">
+        <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground in-data-[slot=page-toolbar]:left-1.75" />
         <Input
           ref={input}
           onFocus={() => setFocused(true)}

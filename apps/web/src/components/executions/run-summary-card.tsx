@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { WandSparklesIcon } from "lucide-react"
 
 import { buttonVariants } from "@linealabs/ui/components/button"
 import { cn } from "@linealabs/ui/lib/utils"
@@ -149,7 +148,6 @@ export function AskInkyLink({
       className={buttonVariants()}
       {...shortcutTarget("ask-inky")}
     >
-      <WandSparklesIcon />
       Ask {ASSISTANT_NAME} about this run
       <ShortcutKeys id="ask-inky" onPrimary />
     </Link>

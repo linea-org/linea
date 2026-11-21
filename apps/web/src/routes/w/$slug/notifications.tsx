@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { ArchiveIcon, BellIcon, MailOpenIcon } from "lucide-react"
+import { ArchiveIcon, BellIcon } from "lucide-react"
 
 import { Button } from "@linealabs/ui/components/button"
 import {
@@ -104,7 +104,6 @@ function NotificationsPage() {
               disabled={unreadCount === 0 || markAllRead.isPending}
               {...shortcutTarget("mark-all-read")}
             >
-              <MailOpenIcon />
               Mark all read
               <ShortcutKeys id="mark-all-read" />
             </Button>
