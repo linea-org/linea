@@ -96,8 +96,7 @@ export function ApprovalRequest({
   if (render) return render(presentation)
   async function submit(
     action:
-      | ((comment: string | undefined) => void | Promise<unknown>)
-      | undefined
+      ((comment: string | undefined) => void | Promise<unknown>) | undefined
   ): Promise<void> {
     if (!action) return
     setIsSubmitting(true)

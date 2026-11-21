@@ -126,8 +126,7 @@ export async function bindConnectionAuthorizationBrowser(
 }
 
 export type CompleteConnectionAuthorizationResult =
-  | { outcome: "completed"; connection: Connection }
-  | { outcome: "invalid" }
+  { outcome: "completed"; connection: Connection } | { outcome: "invalid" }
 
 async function lockGoogleGrant(
   db: DbClient,

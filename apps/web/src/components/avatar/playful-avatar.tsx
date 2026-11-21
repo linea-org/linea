@@ -5,12 +5,7 @@ import { cn } from "@linealabs/ui/lib/utils"
 export const PLAYFUL_AVATAR_COLORS = "#0a0310,#49007e,#ff005b,#ff7d10,#ffb238"
 
 export type PlayfulAvatarVariant =
-  | "beam"
-  | "marble"
-  | "pixel"
-  | "sunset"
-  | "ring"
-  | "bauhaus"
+  "beam" | "marble" | "pixel" | "sunset" | "ring" | "bauhaus"
 
 type PlayfulAvatarProps = {
   name: string

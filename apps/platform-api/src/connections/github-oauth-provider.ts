@@ -239,8 +239,7 @@ export function createGithubOAuthProvider(
 }
 
 export function githubOAuthProviderFromEnvironment():
-  | ConnectionOAuthProvider
-  | undefined {
+  ConnectionOAuthProvider | undefined {
   const clientId = process.env.CONNECTION_GITHUB_CLIENT_ID
   const clientSecret = process.env.CONNECTION_GITHUB_CLIENT_SECRET
   if (!clientId && !clientSecret) return undefined

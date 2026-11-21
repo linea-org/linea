@@ -19,8 +19,7 @@ export const githubRepositoryTargetSchema = z.object({
 
 export function githubRepositoryAllowed(
   allowedRepositories:
-    | readonly z.infer<typeof githubRepositoryTargetSchema>[]
-    | undefined,
+    readonly z.infer<typeof githubRepositoryTargetSchema>[] | undefined,
   target: unknown
 ): boolean {
   const parsed = githubRepositoryTargetSchema.safeParse(target)

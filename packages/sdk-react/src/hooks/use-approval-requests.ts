@@ -5,10 +5,7 @@ import type { ApprovalRequest } from "@linealabs/sdk/user"
 import { useLineaUserClient } from "../provider/linea-user-provider.js"
 
 export type ApprovalRequestsConnection =
-  | "loading"
-  | "ready"
-  | "reconnecting"
-  | "error"
+  "loading" | "ready" | "reconnecting" | "error"
 
 export type ApprovalRequestsOptions = {
   conversationId?: string

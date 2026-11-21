@@ -12,9 +12,7 @@ type Notice = {
   userId: string
   template: TemplateRef
   type:
-    | 'template.hidden'
-    | 'template.appeal_upheld'
-    | 'template.appeal_rejected'
+    'template.hidden' | 'template.appeal_upheld' | 'template.appeal_rejected'
   severity: 'success' | 'warning'
   title: string
   paragraphs: string[]

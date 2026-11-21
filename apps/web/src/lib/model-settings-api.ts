@@ -32,10 +32,7 @@ const modelSettingsSchema = z.object({
 
 export type ModelSettings = z.infer<typeof modelSettingsSchema>
 export type TaskModelKey =
-  | "defaultModel"
-  | "behaviourModel"
-  | "judgeModel"
-  | "stepModel"
+  "defaultModel" | "behaviourModel" | "judgeModel" | "stepModel"
 export type CatalogModel = ModelSettings["models"][number]
 
 export const getModelSettingsFn = createServerFn({ method: "GET" })

@@ -31,12 +31,7 @@ export type AssistantMessageAction =
       kind: "test_run"
       executionId: string
       status:
-        | "queued"
-        | "running"
-        | "paused"
-        | "succeeded"
-        | "failed"
-        | "cancelled"
+        "queued" | "running" | "paused" | "succeeded" | "failed" | "cancelled"
     }
   | { kind: "inspect_runs"; executionId: string | null }
   | { kind: "list_agents"; count: number }

@@ -13,16 +13,16 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "@linealabs/db": "workspace:*",
-    "openai": "^5"
+    "openai": "^7"
   },
   "devDependencies": {
     "@linealabs/config": "workspace:*",
     "@types/node": "26",
-    "dotenv": "17.4.2",
-    "eslint": "^9",
+    "dotenv": "18.0.10",
+    "eslint": "^10",
     "tsup": "^8.5.0",
     "typescript": "^6",
-    "vitest": "^4.1.12"
+    "vitest": "^5.1.1"
   },
   "exports": {
     ".": {

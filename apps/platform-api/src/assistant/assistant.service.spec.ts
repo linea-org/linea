@@ -121,7 +121,7 @@ describe('AssistantService', () => {
     )
     expect(answer.reply).toBe('Built it')
     expect(answer.graph?.nodes).toHaveLength(2)
-    expect(model.complete).toHaveBeenCalledTimes(1)
+    expect(model.complete.mock.calls).toHaveLength(1)
   })
 
   it('answers a plain-text reply directly, without a retry', async () => {
@@ -139,7 +139,7 @@ describe('AssistantService', () => {
       graph: null,
       actions: [],
     })
-    expect(model.complete).toHaveBeenCalledTimes(1)
+    expect(model.complete.mock.calls).toHaveLength(1)
   })
 
   it('retries once with the validation error, then returns the fixed graph', async () => {
@@ -158,7 +158,7 @@ describe('AssistantService', () => {
       request,
     )
     expect(answer.reply).toBe('Fixed')
-    expect(model.complete).toHaveBeenCalledTimes(2)
+    expect(model.complete.mock.calls).toHaveLength(2)
     expect(model.complete.mock.calls[1][2].prompt).toContain(
       'Your last answer was rejected',
     )
@@ -175,7 +175,7 @@ describe('AssistantService', () => {
     )
     expect(answer.graph).toBeNull()
     expect(answer.reply).toMatch(/couldn't produce a valid workflow/)
-    expect(model.complete).toHaveBeenCalledTimes(2)
+    expect(model.complete.mock.calls).toHaveLength(2)
   })
 
   it('runs a tool the model asks for and answers with the result', async () => {

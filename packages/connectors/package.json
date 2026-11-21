@@ -20,10 +20,10 @@
   "devDependencies": {
     "@linealabs/config": "workspace:*",
     "@types/node": "26",
-    "eslint": "^9",
+    "eslint": "^10",
     "tsup": "^8.5.0",
     "typescript": "^6",
-    "vitest": "^4.1.12"
+    "vitest": "^5.1.1"
   },
   "exports": {
     ".": {
