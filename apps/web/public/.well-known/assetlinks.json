@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.getlinea.mobile",
+      "sha256_cert_fingerprints": [
+        "F0:E8:89:79:01:97:97:0D:33:E2:6B:AD:A5:8A:F8:52:CF:39:79:8D:BA:9A:EC:E8:D6:F4:7D:7C:E2:20:A1:21"
+      ]
+    }
+  }
+]
