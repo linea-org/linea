@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@linealabs/config": "workspace:*",
-    "@types/node": "22",
+    "@types/node": "26",
     "dotenv": "17.4.2",
     "eslint": "9",
     "tsup": "^8.5.0",
