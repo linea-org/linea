@@ -7,11 +7,31 @@ loadEnv({
 })
 
 const pnpmCli = process.env.npm_execpath
+
 const pnpmIsJavaScript = /\.(?:c|m)?js$/.test(pnpmCli ?? "")
+
 const pnpmCommand = pnpmIsJavaScript ? process.execPath : pnpmCli
+
 const pnpmArguments = (arguments_) =>
   pnpmIsJavaScript ? [pnpmCli, ...arguments_] : arguments_
-const checks = [
+
+const tracer = [
+  "queued Google and GitHub public-boundary tracer",
+  [
+    "--filter",
+    "@linealabs/platform-api",
+    "exec",
+    "jest",
+    "--config",
+    "./test/jest-e2e.json",
+    "--runInBand",
+    "connections-launch.e2e-spec.ts",
+  ],
+]
+
+const firstLaunch = ["first-launch public boundary", ["test:launch"]]
+
+const fullChecks = [
   ["format", ["format:check"]],
   ["lint", ["exec", "turbo", "lint", "--force"]],
   ["typecheck", ["exec", "turbo", "typecheck", "--force"]],
@@ -37,26 +57,35 @@ const checks = [
     "background worker",
     ["--filter", "@linealabs/background-worker", "exec", "jest", "--runInBand"],
   ],
-  [
-    "queued Google and GitHub public-boundary tracer",
-    [
-      "--filter",
-      "@linealabs/platform-api",
-      "exec",
-      "jest",
-      "--config",
-      "./test/jest-e2e.json",
-      "--runInBand",
-      "connections-launch.e2e-spec.ts",
-    ],
-  ],
-  ["first-launch public boundary", ["test:launch"]],
+  tracer,
+  firstLaunch,
   [
     "packed browser and server SDK",
     ["--filter", "@linealabs/sdk", "test:pack"],
   ],
   ["packed React SDK", ["--filter", "@linealabs/sdk-react", "test:pack"]],
 ]
+
+// CI's other required jobs already run format, lint, types, build, contracts, packed SDKs and every
+// unit suite on the same commit, so --ci keeps only the end-to-end checks no other job covers.
+const ciChecks = [
+  [
+    "build the API and workers the tracer starts",
+    [
+      "exec",
+      "turbo",
+      "run",
+      "build",
+      "--filter=@linealabs/platform-api",
+      "--filter=@linealabs/background-worker",
+      "--filter=@linealabs/execution-worker",
+    ],
+  ],
+  tracer,
+  firstLaunch,
+]
+
+const checks = process.argv.includes("--ci") ? ciChecks : fullChecks
 
 const missing = [
   ...(pnpmCli ? [] : ["pnpm"]),
