@@ -1,6 +1,15 @@
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@linealabs/ui/components/table"
+
 const components: Components = {
   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
   ul: ({ children }) => (
@@ -48,6 +57,22 @@ const components: Components = {
       </code>
     )
   },
+  hr: () => <hr className="my-3 border-border" />,
+  h4: ({ children }) => (
+    <h4 className="mb-2 font-semibold last:mb-0">{children}</h4>
+  ),
+  table: ({ children }) => (
+    <div className="mb-2 overflow-hidden rounded-md border last:mb-0">
+      <Table>{children}</Table>
+    </div>
+  ),
+  thead: ({ children }) => <TableHeader>{children}</TableHeader>,
+  tbody: ({ children }) => <TableBody>{children}</TableBody>,
+  tr: ({ children }) => <TableRow>{children}</TableRow>,
+  th: ({ children }) => <TableHead className="px-3">{children}</TableHead>,
+  td: ({ children }) => (
+    <TableCell className="px-3 whitespace-normal">{children}</TableCell>
+  ),
   pre: ({ children }) => (
     <pre className="mb-2 overflow-x-auto rounded-md bg-muted p-2 font-mono text-xs last:mb-0">
       {children}
@@ -55,7 +80,7 @@ const components: Components = {
   ),
 }
 
-export function ChatMarkdown({ content }: { content: string }) {
+export function ModelMarkdown({ content }: Readonly<{ content: string }>) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}

@@ -44,6 +44,7 @@ describe('assistant prompt', () => {
 
   it('points the model at run history only inside a workflow', () => {
     expect(prompt).not.toContain('get_recent_runs')
+    expect(prompt).toContain('get_run')
     expect(
       buildAssistantSystemPrompt({ web: false, workflowId: 'wf' }),
     ).toContain('get_recent_runs')

@@ -46,14 +46,14 @@ export function WorkflowHeading({
   const updated = `Updated ${new Date(workflow.updatedAt).toLocaleString()}`
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <WorkflowStatusBadge
-        workflow={workflow}
-        className="h-4 px-2 text-xs leading-none"
-      />
       <div className="flex min-w-0 items-center gap-1">
         <h1 className="max-w-48 truncate text-base font-medium text-foreground">
           {workflow.name}
         </h1>
+        <WorkflowStatusBadge
+          workflow={workflow}
+          className="h-4 px-2 text-xs leading-none"
+        />
         <button
           type="button"
           className="min-w-0 truncate rounded-sm font-mono text-xs leading-none text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -88,7 +88,7 @@ export function WorkflowHeading({
             {workflow.description ? <p>{workflow.description}</p> : null}
             <p
               className={
-                workflow.description ? "text-background/70" : undefined
+                workflow.description ? "text-tooltip-foreground/70" : undefined
               }
             >
               {updated}

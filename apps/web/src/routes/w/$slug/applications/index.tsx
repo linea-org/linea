@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import {
@@ -8,14 +8,14 @@ import {
   LayoutGridIcon,
   ListFilterIcon,
   ListIcon,
-  PlusIcon,
   WorkflowIcon,
 } from "lucide-react"
 import { Button } from "@linealabs/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@linealabs/ui/components/dropdown-menu"
 import {
@@ -45,7 +45,14 @@ import {
   SetupProgress,
   setupChecks,
 } from "@/components/applications/application-health"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
+import { ShortcutTooltip } from "@/components/shortcuts/shortcut-tooltip"
+import { useOpenShortcut } from "@/components/shortcuts/use-open-shortcut"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
+import { SortableTableHead } from "@/components/workspace/sortable-table-head"
+import { useTableSort } from "@/components/workspace/use-table-sort"
+import type { Sort } from "@/lib/sort"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import {
   applicationOverviewsQueryOptions,
@@ -61,7 +68,7 @@ export const Route = createFileRoute("/w/$slug/applications/")({
   component: ApplicationsPage,
 })
 
-type ApplicationSort = "updated" | "name"
+type ApplicationSortColumn = "name" | "agents" | "workflows" | "updated"
 type ApplicationView = "grid" | "list"
 
 function ApplicationsPage() {
@@ -71,42 +78,27 @@ function ApplicationsPage() {
     initialData: Route.useLoaderData(),
   })
   const overviews = useQuery(applicationOverviewsQueryOptions(slug))
-  const searchRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState("")
-  const [sort, setSort] = useState<ApplicationSort>("updated")
+  const [filterOpen, setFilterOpen] = useOpenShortcut("filter")
   const [view, setView] = useState<ApplicationView>("grid")
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
-        return
-      }
-      const target = event.target
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          target.closest("input, textarea, select, [contenteditable='true']"))
-      ) {
-        return
-      }
-      event.preventDefault()
-      searchRef.current?.focus()
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [])
   const normalizedQuery = query.trim().toLowerCase()
-  const visible = applications
-    .filter((application) =>
-      `${application.name} ${application.slug}`
-        .toLowerCase()
-        .includes(normalizedQuery)
-    )
-    .sort((left, right) =>
-      sort === "name"
-        ? left.name.localeCompare(right.name)
-        : new Date(right.updatedAt).getTime() -
-          new Date(left.updatedAt).getTime()
-    )
+  const {
+    sorted: visible,
+    sorts,
+    setSorts,
+    onSort,
+  } = useTableSort<ApplicationSummary, ApplicationSortColumn>(
+    applications
+      .filter((application) =>
+        `${application.name} ${application.slug}`
+          .toLowerCase()
+          .includes(normalizedQuery)
+      )
+      .sort(byRecentlyUpdated),
+    applicationSortValue,
+    byRecentlyUpdated
+  )
+  const quickSort = quickSortOf(sorts)
   function renderApplications() {
     if (applications.length === 0) {
       return (
@@ -158,18 +150,30 @@ function ApplicationsPage() {
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="px-4 font-normal text-muted-foreground">
-                  Application
-                </TableHead>
-                <TableHead className="px-4 font-normal text-muted-foreground">
-                  Agents
-                </TableHead>
-                <TableHead className="px-4 font-normal text-muted-foreground">
-                  Workflows
-                </TableHead>
-                <TableHead className="px-4 font-normal text-muted-foreground">
-                  Updated
-                </TableHead>
+                <SortableTableHead
+                  column="name"
+                  label="Application"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="agents"
+                  label="Agents"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="workflows"
+                  label="Workflows"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="updated"
+                  label="Updated"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
                 <TableHead className="w-12 px-2">
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -221,42 +225,43 @@ function ApplicationsPage() {
     <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
       <PageToolbar>
         <ToolbarSearch
-          inputRef={searchRef}
           value={query}
           onChange={setQuery}
           placeholder="Search Applications"
-          shortcut="/"
         />
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-label="Filter applications"
-              />
-            }
-          >
-            <ListFilterIcon />
-            Filter
-          </DropdownMenuTrigger>
+        <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
+          <ShortcutTooltip id="filter" label="Filter" disabled={filterOpen}>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Filter applications"
+                />
+              }
+            >
+              <ListFilterIcon />
+            </DropdownMenuTrigger>
+          </ShortcutTooltip>
           <DropdownMenuContent
             align="start"
             className="w-max max-w-64 min-w-(--anchor-width)"
           >
-            <DropdownMenuItem
-              className="truncate"
-              onClick={() => setSort("updated")}
+            <DropdownMenuRadioGroup
+              value={quickSort}
+              onValueChange={(value) => {
+                setSorts(
+                  value === "name" ? [{ column: "name", direction: "asc" }] : []
+                )
+                setFilterOpen(false)
+              }}
             >
-              Recently updated
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="truncate"
-              onClick={() => setSort("name")}
-            >
-              Name
-            </DropdownMenuItem>
+              <DropdownMenuRadioItem value="updated">
+                Recently updated
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="name">Name</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
         <Tabs
@@ -275,25 +280,64 @@ function ApplicationsPage() {
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <CreateApplicationDialog
             workspaceSlug={slug}
             trigger={
-              <Button variant="outline" size="sm">
-                <PlusIcon />
+              <Button variant="outline" size="sm" {...shortcutTarget("create")}>
                 Create Application
+                <ShortcutKeys id="create" />
               </Button>
             }
           />
-          <Button render={<Link to="/w/$slug/agents/new" params={{ slug }} />}>
-            <PlusIcon />
+          <Button
+            render={<Link to="/w/$slug/agents/new" params={{ slug }} />}
+            {...shortcutTarget("add-agent")}
+          >
             Add Agent
+            <ShortcutKeys id="add-agent" onPrimary />
           </Button>
         </div>
       </PageToolbar>
       {renderApplications()}
     </main>
   )
+}
+
+/** The sort menu's choice that matches the column sort, or none when columns were mixed. */
+function quickSortOf(sorts: Sort<ApplicationSortColumn>[]) {
+  if (sorts.length === 0) return "updated"
+  const [only] = sorts
+  if (sorts.length === 1 && only.column === "name" && only.direction === "asc")
+    return "name"
+  return ""
+}
+
+function byRecentlyUpdated(
+  left: ApplicationSummary,
+  right: ApplicationSummary
+) {
+  return right.updatedAt.localeCompare(left.updatedAt)
+}
+
+function applicationSortValue(
+  application: ApplicationSummary,
+  column: ApplicationSortColumn
+): string | number {
+  switch (column) {
+    case "name":
+      return application.name.toLowerCase()
+    case "agents":
+      return application.agentCount
+    case "workflows":
+      return application.workflowCount
+    case "updated":
+      return new Date(application.updatedAt).getTime()
+    default: {
+      const unreachable: never = column
+      return unreachable
+    }
+  }
 }
 
 function countLabel(count: number, singular: string, plural: string) {

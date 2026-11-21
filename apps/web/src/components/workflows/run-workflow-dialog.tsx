@@ -2,8 +2,9 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { PlayIcon } from "lucide-react"
 import { z } from "zod"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { Button } from "@linealabs/ui/components/button"
 import {
   Dialog,
@@ -73,9 +74,10 @@ export function RunWorkflowDialog({
             disabled={!published}
             title={published ? undefined : "Publish a version before running"}
             onClick={() => run.reset()}
+            {...shortcutTarget("run")}
           >
-            <PlayIcon />
             Run
+            <ShortcutKeys id="run" />
           </Button>
         }
       />

@@ -29,7 +29,7 @@ export function ModelSetupForm({
 }: Readonly<{
   slug: string
   setup: ModelSetup
-  onSaved?: () => void
+  onSaved?: (values: ModelSetupValues) => void
 }>) {
   const { models } = setup.settings
   const schema = useMemo(() => buildModelSetupSchema(setup), [setup])
@@ -47,7 +47,7 @@ export function ModelSetupForm({
   const selected = models.find((item) => item.value === watch("model"))
   const save = useSaveModelSetup(slug, setup, (values) => {
     reset({ model: values.model, apiKey: "" })
-    onSaved?.()
+    onSaved?.(values)
   })
   return (
     <form

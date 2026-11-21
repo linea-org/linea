@@ -104,6 +104,7 @@ export function WorkflowFormDialog({
       await onSuccess(workflow)
     },
   })
+  const applicationPrefilled = Boolean(defaultValues?.applicationId)
   return (
     <Dialog
       open={open}
@@ -140,7 +141,10 @@ export function WorkflowFormDialog({
                     onValueChange={field.onChange}
                     disabled={!!defaultValues}
                   >
-                    <SelectTrigger id="workflow-application">
+                    <SelectTrigger
+                      id="workflow-application"
+                      autoFocus={!applicationPrefilled}
+                    >
                       <SelectValue placeholder="Select an Application">
                         {(value: string) =>
                           applications.find(
@@ -173,7 +177,7 @@ export function WorkflowFormDialog({
               <Input
                 id="workflow-name"
                 placeholder="Order fulfillment"
-                autoFocus
+                autoFocus={applicationPrefilled}
                 {...register("name", {
                   onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
                     setValue("slug", slugify(e.target.value)),

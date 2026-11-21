@@ -115,6 +115,17 @@ describe('run inspector', () => {
     expect(outcome.content.length).toBeLessThan(12_100)
   })
 
+  it('reads any run in the workspace from a chat outside a workflow', async () => {
+    const f = await workflowFixture()
+    const id = await runWithStep(f)
+    expect((await inspectRun(f.workspaceId, null, id)).action).toEqual({
+      kind: 'inspect_runs',
+      executionId: id,
+    })
+    const other = await workflowFixture()
+    expect((await inspectRun(other.workspaceId, null, id)).action).toBeNull()
+  })
+
   it('refuses a run of another workflow, another workspace or a bad id', async () => {
     const f = await workflowFixture()
     const other = await workflowFixture()

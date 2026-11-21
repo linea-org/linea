@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react"
 import { ChevronDownIcon, CircleAlertIcon } from "lucide-react"
 
+import { Button } from "@linealabs/ui/components/button"
 import {
   Alert,
   AlertAction,
@@ -62,36 +63,50 @@ export function ErrorCallout({
   return (
     <Alert
       variant="destructive"
-      className="border-destructive/30 bg-destructive/10 has-data-[slot=alert-action]:pr-40"
+      className={cn(
+        "border-destructive/30",
+        details
+          ? "has-data-[slot=alert-action]:pr-64"
+          : "has-data-[slot=alert-action]:pr-40"
+      )}
     >
       <CircleAlertIcon />
-      {action ? <AlertAction>{action}</AlertAction> : null}
-      <AlertTitle>{title}</AlertTitle>
-      <AlertDescription>
-        <p className="break-words whitespace-pre-wrap text-foreground">
-          {summary}
-        </p>
-        {details ? (
-          <div className="mt-2">
-            <button
+      {action || details ? (
+        <AlertAction
+          className={cn(
+            "right-4 flex items-center gap-2",
+            open ? "top-3" : "top-1/2 -translate-y-1/2"
+          )}
+        >
+          {details ? (
+            <Button
               type="button"
-              className="inline-flex items-center gap-1 text-sm font-medium text-destructive hover:underline"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
               onClick={() => setOpen((current) => !current)}
             >
+              {open ? "Hide details" : "Show details"}
               <ChevronDownIcon
                 className={cn(
                   "size-3.5 transition-transform",
                   open && "rotate-180"
                 )}
               />
-              {open ? "Hide details" : "Show details"}
-            </button>
-            {open ? (
-              <pre className="mt-2 max-h-56 overflow-auto rounded-md bg-background/70 p-2.5 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground">
-                {details}
-              </pre>
-            ) : null}
-          </div>
+            </Button>
+          ) : null}
+          {action}
+        </AlertAction>
+      ) : null}
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription>
+        <p className="mb-0! break-words whitespace-pre-wrap text-foreground">
+          {summary}
+        </p>
+        {details && open ? (
+          <pre className="mt-2 -mr-60 max-h-56 overflow-auto rounded-md bg-background/70 p-2.5 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground">
+            {details}
+          </pre>
         ) : null}
       </AlertDescription>
     </Alert>

@@ -1,7 +1,11 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { PlusIcon } from "lucide-react"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { Button } from "@linealabs/ui/components/button"
+import { cn } from "@linealabs/ui/lib/utils"
+import { PAGE_HEADER_ROW } from "@/components/workspace/page-heading"
+import { COMPACT_CONTROLS } from "@/components/workspace/page-toolbar"
 
 import { AddAgentDialog } from "@/components/agents/add-agent-dialog"
 import {
@@ -47,20 +51,20 @@ function WorkspaceHomePage() {
     initialData: initialData.workflows,
   })
   return (
-    <main className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex flex-col gap-2">
-        <header className="flex flex-wrap items-center justify-between gap-3">
+    <main className="flex flex-1 flex-col gap-4 px-4 pb-4">
+      <div className="flex flex-col">
+        <header className={cn(PAGE_HEADER_ROW, "justify-between")}>
           <h1 className="text-base font-semibold">
             Add an Agent to your product
           </h1>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className={cn("flex items-center gap-2", COMPACT_CONTROLS)}>
             <StartStarterWorkflowButton slug={slug} />
             <AddAgentDialog
               workspaceSlug={slug}
               trigger={
-                <Button>
-                  <PlusIcon />
+                <Button {...shortcutTarget("add-agent")}>
                   Add Agent
+                  <ShortcutKeys id="add-agent" onPrimary />
                 </Button>
               }
             />

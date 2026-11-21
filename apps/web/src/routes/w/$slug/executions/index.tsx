@@ -1,4 +1,3 @@
-import { useMemo, useState } from "react"
 import {
   useQuery,
   useQueryClient,
@@ -31,20 +30,6 @@ import {
   EmptyTitle,
 } from "@linealabs/ui/components/empty"
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from "@linealabs/ui/components/pagination"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@linealabs/ui/components/select"
-import {
   Table,
   TableBody,
   TableCell,
@@ -65,25 +50,22 @@ import {
   type WorkspaceExecutionSummary,
 } from "@/lib/executions-api"
 import { formatElapsed } from "@/lib/format"
-import { SortDirectionIcon } from "@/components/workspace/sort-direction-icon"
-import { ariaSortValue, type SortDirection } from "@/lib/sort"
+import { SortableTableHead } from "@/components/workspace/sortable-table-head"
+import { useTableSort } from "@/components/workspace/use-table-sort"
 
 import {
-  EXECUTION_STATUSES,
   executionStatusDefinition,
   isExecutionStatus,
 } from "@/lib/execution-status"
-
-const EXECUTION_TRIGGERS: ExecutionTrigger[] = [
-  "manual",
-  "schedule",
-  "webhook",
-  "api",
-]
-
-function isExecutionTrigger(value: unknown): value is ExecutionTrigger {
-  return EXECUTION_TRIGGERS.includes(value as ExecutionTrigger)
-}
+import { isExecutionTrigger, triggerLabel } from "@/lib/execution-trigger"
+import { ExecutionFilters } from "@/components/executions/execution-filters"
+import {
+  DEFAULT_PAGE_SIZE,
+  ExecutionsPagination,
+  parsePageSize,
+  type PageSize,
+} from "@/components/executions/executions-pagination"
+import { PageToolbar } from "@/components/workspace/page-toolbar"
 
 function parseOpaqueParam(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined
@@ -98,6 +80,7 @@ type ExecutionsSearch = {
   trail?: string
   /** Cursor of the newest row visible when this browsing session started, fixed the moment pagination is first used — the reference point for "N new executions" polling, so it stays relative to where the user started rather than the current page. */
   anchor?: string
+  size?: PageSize
 }
 
 export const Route = createFileRoute("/w/$slug/executions/")({
@@ -107,18 +90,15 @@ export const Route = createFileRoute("/w/$slug/executions/")({
     cursor: parseOpaqueParam(search.cursor),
     trail: parseOpaqueParam(search.trail),
     anchor: parseOpaqueParam(search.anchor),
+    size: parsePageSize(search.size),
   }),
   loaderDeps: ({ search }) => search,
-  loader: ({ deps }) => listWorkspaceExecutionsFn({ data: deps }),
+  loader: ({ deps }) =>
+    listWorkspaceExecutionsFn({
+      data: { ...deps, limit: deps.size ?? DEFAULT_PAGE_SIZE },
+    }),
   component: ExecutionsPage,
 })
-
-const triggerLabel: Record<ExecutionTrigger, string> = {
-  manual: "Manual",
-  schedule: "Schedule",
-  webhook: "Webhook",
-  api: "API",
-}
 
 function formatDuration(
   startedAt: string | null,
@@ -147,7 +127,6 @@ function formatDuration(
 
 type ExecutionSortColumn =
   "workflow" | "status" | "trigger" | "duration" | "cost" | "when"
-type ExecutionSort = { column: ExecutionSortColumn; direction: SortDirection }
 
 function durationMs(execution: WorkspaceExecutionSummary) {
   if (!execution.startedAt) return null
@@ -184,71 +163,6 @@ function sortValue(
   }
 }
 
-function compareSortValues(
-  left: string | number | null,
-  right: string | number | null,
-  direction: SortDirection
-) {
-  if (left === null && right === null) return 0
-  if (left === null) return 1
-  if (right === null) return -1
-  if (left === right) return 0
-  const order = left < right ? -1 : 1
-  return direction === "asc" ? order : -order
-}
-
-function sortExecutions(
-  executions: WorkspaceExecutionSummary[],
-  sorts: ExecutionSort[]
-) {
-  if (sorts.length === 0) return executions
-  return executions.slice().sort((left, right) => {
-    for (const sort of sorts) {
-      const compared = compareSortValues(
-        sortValue(left, sort.column),
-        sortValue(right, sort.column),
-        sort.direction
-      )
-      if (compared !== 0) return compared
-    }
-    return right.createdAt.localeCompare(left.createdAt)
-  })
-}
-
-function ExecutionSortHeader({
-  column,
-  label,
-  sorts,
-  onSort,
-}: Readonly<{
-  column: ExecutionSortColumn
-  label: string
-  sorts: ExecutionSort[]
-  onSort: (column: ExecutionSortColumn) => void
-}>) {
-  const index = sorts.findIndex((item) => item.column === column)
-  const active = sorts[index]
-  return (
-    <TableHead
-      aria-sort={ariaSortValue(active?.direction)}
-      className="px-4 font-normal text-muted-foreground"
-    >
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 hover:text-foreground"
-        title={`Sort this page by ${label.toLowerCase()}`}
-        onClick={() => onSort(column)}
-      >
-        {label}
-        {<SortDirectionIcon direction={active?.direction} />}
-        {active && sorts.length > 1 ? (
-          <span className="text-xs leading-none tabular-nums">{index + 1}</span>
-        ) : null}
-      </button>
-    </TableHead>
-  )
-}
-
 function ExecutionsPage() {
   const { slug } = Route.useParams()
   const search = Route.useSearch()
@@ -256,28 +170,22 @@ function ExecutionsPage() {
   const queryClient = useQueryClient()
   const initialData = Route.useLoaderData()
   const { data } = useSuspenseQuery({
-    ...workspaceExecutionsQueryOptions(slug, search),
+    ...workspaceExecutionsQueryOptions(slug, {
+      ...search,
+      limit: search.size ?? DEFAULT_PAGE_SIZE,
+    }),
     initialData,
   })
   const { executions, hasMore, total } = data
-  const [sorts, setSorts] = useState<ExecutionSort[]>([])
-  const sortedExecutions = useMemo(
-    () => sortExecutions(executions, sorts),
-    [executions, sorts]
+  const {
+    sorted: sortedExecutions,
+    sorts,
+    onSort,
+  } = useTableSort<WorkspaceExecutionSummary, ExecutionSortColumn>(
+    executions,
+    sortValue,
+    (left, right) => right.createdAt.localeCompare(left.createdAt)
   )
-  function onSort(column: ExecutionSortColumn) {
-    setSorts((current) => {
-      const index = current.findIndex((item) => item.column === column)
-      if (index === -1) return [...current, { column, direction: "asc" }]
-      const item = current[index]
-      if (!item || item.direction === "desc") {
-        return current.filter((entry) => entry.column !== column)
-      }
-      return current.map((entry) =>
-        entry.column === column ? { column, direction: "desc" } : entry
-      )
-    })
-  }
 
   const trail = search.trail ? search.trail.split(";") : []
   const isFirstPage = trail.length === 0 && !search.cursor
@@ -311,6 +219,7 @@ function ExecutionsPage() {
     if (merged.cursor) params.set("cursor", merged.cursor)
     if (merged.trail) params.set("trail", merged.trail)
     if (merged.anchor) params.set("anchor", merged.anchor)
+    if (merged.size) params.set("size", String(merged.size))
     const query = params.toString()
     return `/w/${slug}/executions${query ? `?${query}` : ""}`
   }
@@ -355,74 +264,22 @@ function ExecutionsPage() {
 
   return (
     <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={search.status ?? "all"}
-          onValueChange={(value) => {
+      <PageToolbar>
+        <ExecutionFilters
+          values={{ status: search.status, trigger: search.trigger }}
+          onChange={(values) =>
             void navigate({
               search: (prev) => ({
                 ...prev,
-                status: isExecutionStatus(value) ? value : undefined,
+                ...values,
                 cursor: undefined,
                 trail: undefined,
                 anchor: undefined,
               }),
             })
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Status">
-              {(value: string) =>
-                isExecutionStatus(value)
-                  ? executionStatusDefinition[value].label
-                  : "All statuses"
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {EXECUTION_STATUSES.map((status) => (
-              <SelectItem key={status} value={status}>
-                {executionStatusDefinition[status].label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={search.trigger ?? "all"}
-          onValueChange={(value) => {
-            void navigate({
-              search: (prev) => ({
-                ...prev,
-                trigger:
-                  value === "all" ? undefined : (value as ExecutionTrigger),
-                cursor: undefined,
-                trail: undefined,
-                anchor: undefined,
-              }),
-            })
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Trigger">
-              {(value: string) =>
-                value === "all"
-                  ? "All triggers"
-                  : triggerLabel[value as ExecutionTrigger]
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All triggers</SelectItem>
-            {EXECUTION_TRIGGERS.map((trigger) => (
-              <SelectItem key={trigger} value={trigger}>
-                {triggerLabel[trigger]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+          }
+        />
+      </PageToolbar>
       {newCount > 0 ? (
         <div>
           <button
@@ -460,42 +317,42 @@ function ExecutionsPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <>
-          <Card className="gap-0 py-0">
+        <Card className="min-h-0 flex-1 gap-0 overflow-hidden py-0">
+          <div className="min-h-0 flex-1 overflow-auto">
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow className="hover:bg-transparent">
-                  <ExecutionSortHeader
+                  <SortableTableHead
                     column="workflow"
                     label="Workflow"
                     sorts={sorts}
                     onSort={onSort}
                   />
-                  <ExecutionSortHeader
+                  <SortableTableHead
                     column="status"
                     label="Status"
                     sorts={sorts}
                     onSort={onSort}
                   />
-                  <ExecutionSortHeader
+                  <SortableTableHead
                     column="trigger"
                     label="Trigger"
                     sorts={sorts}
                     onSort={onSort}
                   />
-                  <ExecutionSortHeader
+                  <SortableTableHead
                     column="duration"
                     label="Duration"
                     sorts={sorts}
                     onSort={onSort}
                   />
-                  <ExecutionSortHeader
+                  <SortableTableHead
                     column="cost"
                     label="Cost"
                     sorts={sorts}
                     onSort={onSort}
                   />
-                  <ExecutionSortHeader
+                  <SortableTableHead
                     column="when"
                     label="When"
                     sorts={sorts}
@@ -586,7 +443,10 @@ function ExecutionsPage() {
                               else if (execution.agentId)
                                 void navigate({
                                   to: "/w/$slug/agents/$agentId",
-                                  params: { slug, agentId: execution.agentId },
+                                  params: {
+                                    slug,
+                                    agentId: execution.agentId,
+                                  },
                                 })
                             }}
                           >
@@ -600,54 +460,44 @@ function ExecutionsPage() {
                 ))}
               </TableBody>
             </Table>
-          </Card>
-          {isFirstPage && !hasMore ? null : (
-            <div className="mt-4 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Page {currentPageNumber} · {total} total
-              </p>
-              <Pagination className="mx-0 w-auto">
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      href={hrefFor({
-                        cursor: previousCursor || undefined,
-                        trail:
-                          previousTrail.length > 0
-                            ? previousTrail.join(";")
-                            : undefined,
-                      })}
-                      aria-disabled={isFirstPage}
-                      className={
-                        isFirstPage ? "pointer-events-none opacity-50" : ""
-                      }
-                      onClick={(event) => {
-                        event.preventDefault()
-                        goPrevious()
-                      }}
-                    />
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationNext
-                      href={hrefFor({
-                        cursor: nextCursor,
-                        trail: [...trail, search.cursor ?? ""].join(";"),
-                      })}
-                      aria-disabled={!hasMore}
-                      className={
-                        !hasMore ? "pointer-events-none opacity-50" : ""
-                      }
-                      onClick={(event) => {
-                        event.preventDefault()
-                        goNext()
-                      }}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          )}
-        </>
+          </div>
+          <ExecutionsPagination
+            page={currentPageNumber}
+            pageSize={search.size ?? DEFAULT_PAGE_SIZE}
+            rowCount={executions.length}
+            total={total}
+            previous={{
+              href: hrefFor({
+                cursor: previousCursor || undefined,
+                trail:
+                  previousTrail.length > 0
+                    ? previousTrail.join(";")
+                    : undefined,
+              }),
+              enabled: !isFirstPage,
+              onGo: goPrevious,
+            }}
+            next={{
+              href: hrefFor({
+                cursor: nextCursor,
+                trail: [...trail, search.cursor ?? ""].join(";"),
+              }),
+              enabled: hasMore,
+              onGo: goNext,
+            }}
+            onPageSizeChange={(size) =>
+              void navigate({
+                search: (prev) => ({
+                  ...prev,
+                  size: size === DEFAULT_PAGE_SIZE ? undefined : size,
+                  cursor: undefined,
+                  trail: undefined,
+                  anchor: undefined,
+                }),
+              })
+            }
+          />
+        </Card>
       )}
     </main>
   )

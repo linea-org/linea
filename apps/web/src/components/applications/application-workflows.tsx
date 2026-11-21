@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { PlusIcon, WorkflowIcon } from "lucide-react"
+import { WorkflowIcon } from "lucide-react"
 import {
   Empty,
   EmptyDescription,
@@ -25,6 +25,8 @@ import {
   workflowsQueryOptions,
   type WorkflowSummary,
 } from "@/lib/workflows-api"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { formatDate } from "@/lib/format"
 
 export function ApplicationWorkflowCreateButton({
@@ -40,9 +42,9 @@ export function ApplicationWorkflowCreateButton({
     <WorkflowFormDialog
       workspaceSlug={workspaceSlug}
       trigger={
-        <Button>
-          <PlusIcon />
+        <Button {...shortcutTarget("create")}>
           Create Workflow
+          <ShortcutKeys id="create" onPrimary />
         </Button>
       }
       title="Create Workflow"

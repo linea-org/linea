@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react"
+import { useCallback, useState, type ReactNode } from "react"
 import { ArrowDownIcon, ArrowUpIcon, CornerDownLeftIcon } from "lucide-react"
 
 import {
@@ -9,6 +9,7 @@ import {
 } from "@linealabs/ui/components/command"
 import { Kbd } from "@linealabs/ui/components/kbd"
 
+import { useShortcut } from "@/components/shortcuts/use-shortcut"
 import { CommandPaletteContext } from "./command-palette-context"
 import {
   ActionsGroup,
@@ -58,17 +59,10 @@ export function CommandPaletteProvider({
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
   const openPalette = useCallback(() => setOpen(true), [])
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key.toLowerCase() !== "k") return
-      if (!event.metaKey && !event.ctrlKey) return
-      event.preventDefault()
-      setOpen((prev) => !prev)
-      setSearch("")
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [])
+  useShortcut("search", () => {
+    setOpen((prev) => !prev)
+    setSearch("")
+  })
   const setOpenAndReset = useCallback((next: boolean) => {
     setOpen(next)
     if (!next) setSearch("")

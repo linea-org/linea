@@ -6,7 +6,6 @@ import {
   MoreHorizontalIcon,
   SearchIcon,
   Trash2Icon,
-  UserPlusIcon,
   UsersIcon,
 } from "lucide-react"
 
@@ -53,6 +52,8 @@ import {
 
 import { UserAvatar } from "@/components/account/user-avatar"
 import { InviteMemberDialog } from "@/components/members"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import { isPersonalWorkspace } from "@linealabs/auth/personal-workspace"
@@ -229,12 +230,13 @@ function MembersPage() {
           placeholder="Search members"
         />
         {isPersonalWorkspace(activeOrg?.metadata) ? null : (
-          <div className="ml-auto">
-            <Button onClick={() => setInviteOpen(true)}>
-              <UserPlusIcon />
-              Invite
-            </Button>
-          </div>
+          <Button
+            onClick={() => setInviteOpen(true)}
+            {...shortcutTarget("create")}
+          >
+            Invite
+            <ShortcutKeys id="create" onPrimary />
+          </Button>
         )}
       </PageToolbar>
       {isPending ? (

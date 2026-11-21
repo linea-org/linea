@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { LayersIcon, ListFilterIcon, PlusIcon } from "lucide-react"
+import { LayersIcon, ListFilterIcon } from "lucide-react"
 import { z } from "zod"
 import {
   Empty,
@@ -24,7 +24,10 @@ import {
 } from "@/components/applications/application-workflows"
 import { AddAgentDialog } from "@/components/agents/add-agent-dialog"
 import { ApplicationAgents } from "@/components/agents/application-agents"
-import { cn } from "@linealabs/ui/lib/utils"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
+import { ShortcutTooltip } from "@/components/shortcuts/shortcut-tooltip"
+import { useShortcut } from "@/components/shortcuts/use-shortcut"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import {
@@ -78,6 +81,8 @@ function ApplicationPage() {
     initialData: initial.workflows,
   })
   const [agentQuery, setAgentQuery] = useState("")
+  const [filterOpen, setFilterOpen] = useState(false)
+  useShortcut("filter", view === "agents" ? () => setFilterOpen(true) : null)
   const [agentStatus, setAgentStatus] = useState<"all" | "active" | "archived">(
     "all"
   )
@@ -98,12 +103,7 @@ function ApplicationPage() {
     })
   }
   return (
-    <main
-      className={cn(
-        "flex min-w-0 flex-1 flex-col p-4",
-        view === "environments" && "pt-3"
-      )}
-    >
+    <main className="flex min-w-0 flex-1 flex-col p-4">
       <div className="flex min-w-0 flex-col gap-4">
         {view !== "environments" ? (
           <PageToolbar>
@@ -114,19 +114,25 @@ function ApplicationPage() {
                   onChange={setAgentQuery}
                   placeholder="Search Agents"
                 />
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="outline"
-                        aria-label="Filter agents"
-                      />
-                    }
+                <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
+                  <ShortcutTooltip
+                    id="filter"
+                    label="Filter"
+                    disabled={filterOpen}
                   >
-                    <ListFilterIcon />
-                    Filter
-                  </DropdownMenuTrigger>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          aria-label="Filter agents"
+                        />
+                      }
+                    >
+                      <ListFilterIcon />
+                    </DropdownMenuTrigger>
+                  </ShortcutTooltip>
                   <DropdownMenuContent
                     align="start"
                     className="w-max max-w-64 min-w-(--anchor-width)"
@@ -151,27 +157,23 @@ function ApplicationPage() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <div className="ml-auto">
-                  <AddAgentDialog
-                    workspaceSlug={slug}
-                    applicationId={applicationId}
-                    trigger={
-                      <Button>
-                        <PlusIcon />
-                        Add Agent
-                      </Button>
-                    }
-                  />
-                </div>
+                <AddAgentDialog
+                  workspaceSlug={slug}
+                  applicationId={applicationId}
+                  trigger={
+                    <Button {...shortcutTarget("create", "add-agent")}>
+                      Add Agent
+                      <ShortcutKeys id="add-agent" onPrimary />
+                    </Button>
+                  }
+                />
               </>
             ) : null}
             {view === "workflows" ? (
-              <div className="ml-auto">
-                <ApplicationWorkflowCreateButton
-                  workspaceSlug={slug}
-                  applicationId={applicationId}
-                />
-              </div>
+              <ApplicationWorkflowCreateButton
+                workspaceSlug={slug}
+                applicationId={applicationId}
+              />
             ) : null}
           </PageToolbar>
         ) : null}

@@ -20,6 +20,7 @@ describe('AssistantTools', () => {
       'edit_draft',
       'test_run_draft',
       'list_agents',
+      'get_run',
     ])
     expect(names({ web: true, workflowId: 'wf' })).toEqual([
       'edit_draft',
@@ -39,11 +40,11 @@ describe('AssistantTools', () => {
     )
     expect(outcome.action).toBeNull()
     expect(outcome.content).toContain(
-      'Available tools: edit_draft, test_run_draft, list_agents, fetch_url',
+      'Available tools: edit_draft, test_run_draft, list_agents, get_run, fetch_url',
     )
   })
 
-  it.each(['fetch_url', 'get_run'])(
+  it.each(['fetch_url', 'get_recent_runs'])(
     'refuses %s when it was not offered',
     async (name) => {
       const outcome = await new AssistantTools(selfTest).run(

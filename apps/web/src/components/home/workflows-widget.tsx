@@ -1,6 +1,8 @@
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { PlusIcon, WorkflowIcon } from "lucide-react"
+import { WorkflowIcon } from "lucide-react"
 
 import { Button } from "@linealabs/ui/components/button"
 import {
@@ -43,9 +45,9 @@ export function WorkflowsWidget({
     <WorkflowFormDialog
       workspaceSlug={slug}
       trigger={
-        <Button size="sm">
-          <PlusIcon />
+        <Button size="sm" {...shortcutTarget("create")}>
           Create
+          <ShortcutKeys id="create" onPrimary />
         </Button>
       }
       title="Create workflow"

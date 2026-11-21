@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { ArchiveIcon, BellIcon, MailOpenIcon } from "lucide-react"
+import { ArchiveIcon, BellIcon } from "lucide-react"
 
 import { Button } from "@linealabs/ui/components/button"
 import {
@@ -15,6 +15,8 @@ import { Tabs, TabsList, TabsTrigger } from "@linealabs/ui/components/tabs"
 import { Card } from "@linealabs/ui/components/card"
 
 import { NotificationRow } from "@/components/notifications"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import {
   archiveNotificationFn,
@@ -100,9 +102,10 @@ function NotificationsPage() {
               variant="outline"
               onClick={() => markAllRead.mutate()}
               disabled={unreadCount === 0 || markAllRead.isPending}
+              {...shortcutTarget("mark-all-read")}
             >
-              <MailOpenIcon />
               Mark all read
+              <ShortcutKeys id="mark-all-read" />
             </Button>
           </div>
         ) : null}

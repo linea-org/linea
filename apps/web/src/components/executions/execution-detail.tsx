@@ -2,9 +2,7 @@ import { useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { Button } from "@linealabs/ui/components/button"
 import { Separator } from "@linealabs/ui/components/separator"
-import { Card } from "@linealabs/ui/components/card"
 
-import { PlayfulAvatar } from "@/components/avatar"
 import {
   executionQueryOptions,
   getExecutionFn,
@@ -16,11 +14,12 @@ import { getAgentFn } from "@/lib/agents-api"
 import { getWorkflowFn } from "@/lib/workflows-api"
 import { CopyableId } from "./copyable-id"
 import { NestedAgentRuns } from "./nested-agent-runs"
-import { RunSummaryCard } from "./run-summary-card"
+import { AskInkyLink, RunSummaryCard } from "./run-summary-card"
 import { ExecutionStatusBadge } from "./execution-status-badge"
 import { ExecutionTraceWorkspace } from "./execution-trace-workspace"
 import { formatCost } from "./execution-list"
 import { formatElapsed } from "@/lib/format"
+import { PageToolbar } from "@/components/workspace/page-toolbar"
 
 const triggerLabel: Record<ExecutionTrigger, string> = {
   manual: "Triggered manually",
@@ -108,6 +107,35 @@ function executionDuration(
   }
 }
 
+function RunFacts({ detail }: Readonly<{ detail: ExecutionDetailResponse }>) {
+  const { execution } = detail
+  const facts = [
+    triggerLabel[execution.trigger],
+    environmentLabel[execution.environment],
+    executionDuration(execution, detail.steps),
+    formatCost(execution.costMicros, execution.costUnpriced),
+    execution.startedAt ? new Date(execution.startedAt).toLocaleString() : "—",
+    ...(execution.startedAt
+      ? [`Queued ${formatElapsed(execution.createdAt, execution.startedAt)}`]
+      : []),
+  ]
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+      <ExecutionStatusBadge status={execution.status} />
+      <CopyableId id={execution.id} />
+      {facts.map((value, index) => (
+        <span key={`${index}-${value}`} className="flex items-center gap-3">
+          <Separator
+            orientation="vertical"
+            className="h-3 data-vertical:h-3 data-vertical:self-center"
+          />
+          <span className="tabular-nums">{value}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export function ExecutionDetailView({
   slug,
   executionId,
@@ -138,70 +166,41 @@ export function ExecutionDetailView({
     },
   })
   const { execution } = detail
-  const workflowName = initialData.definitionName
   return (
     <main className="flex min-w-0 flex-1 flex-col p-4">
-      <Card className="gap-0 py-0">
-        <header className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
-          <PlayfulAvatar
-            name={workflowName}
-            shape="rounded"
-            className="size-8"
-          />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="truncate text-sm font-medium">{workflowName}</p>
-              <ExecutionStatusBadge status={execution.status} />
-            </div>
-            <CopyableId id={execution.id} />
+      <PageToolbar>
+        <AskInkyLink
+          slug={slug}
+          executionId={execution.id}
+          failed={execution.status === "failed"}
+        />
+      </PageToolbar>
+      <div className="flex w-full flex-col gap-8">
+        {error && (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-2 text-sm text-destructive"
+          >
+            <p>
+              Could not refresh this execution. Showing the last recorded state.
+            </p>
+            <Button variant="outline" onClick={() => void refetch()}>
+              Retry refresh
+            </Button>
           </div>
-          <div className="ml-auto flex flex-wrap items-center text-sm text-muted-foreground">
-            {[
-              triggerLabel[execution.trigger],
-              environmentLabel[execution.environment],
-              executionDuration(execution, detail.steps),
-              formatCost(execution.costMicros, execution.costUnpriced),
-              execution.startedAt
-                ? new Date(execution.startedAt).toLocaleString()
-                : "—",
-            ].map((value, index) => (
-              <span key={`${index}-${value}`} className="flex items-center">
-                {index > 0 ? (
-                  <Separator
-                    orientation="vertical"
-                    className="mx-3 h-3 data-vertical:h-3 data-vertical:self-center"
-                  />
-                ) : null}
-                <span className="tabular-nums">{value}</span>
-              </span>
-            ))}
-          </div>
-        </header>
-        <NestedAgentRuns nested={detail.nestedAgents} />
-        <RunSummaryCard slug={slug} detail={detail} />
-        <div className="flex min-h-0 flex-1 flex-col">
-          {error && (
-            <div
-              role="alert"
-              className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 text-sm text-destructive"
-            >
-              <p>
-                Could not refresh this execution. Showing the last recorded
-                state.
-              </p>
-              <Button variant="outline" onClick={() => void refetch()}>
-                Retry refresh
-              </Button>
-            </div>
-          )}
-          <ExecutionTraceWorkspace
-            slug={slug}
-            detail={detail}
-            pendingReplayStepId={pendingReplayStepId}
-            onReplayTriggered={setPendingReplayStepId}
-          />
+        )}
+        <div className="flex flex-col gap-4">
+          <RunFacts detail={detail} />
+          <RunSummaryCard slug={slug} detail={detail} />
         </div>
-      </Card>
+        <NestedAgentRuns nested={detail.nestedAgents} />
+        <ExecutionTraceWorkspace
+          slug={slug}
+          detail={detail}
+          pendingReplayStepId={pendingReplayStepId}
+          onReplayTriggered={setPendingReplayStepId}
+        />
+      </div>
     </main>
   )
 }

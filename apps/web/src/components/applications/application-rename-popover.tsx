@@ -105,7 +105,7 @@ export function ApplicationCardMenu({
             onSubmit={(event) => {
               void handleSubmit((data) => update.mutate(data))(event)
             }}
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-3"
           >
             <Field>
               <FieldLabel htmlFor={nameId}>Name</FieldLabel>

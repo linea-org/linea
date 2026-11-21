@@ -26,6 +26,7 @@ import type {
   NotificationSeverity,
   NotificationSummary,
 } from "@/lib/notifications-api"
+import { readableProviderError } from "@/lib/provider-error"
 import { formatRelativeTime } from "./format-relative-time"
 import { NotificationTargetLink } from "./notification-target-link"
 import { resolveNotificationTarget } from "./resolve-notification-target"
@@ -67,6 +68,8 @@ export function NotificationRow({
 }) {
   const target = resolveNotificationTarget(notification)
   const Icon = severityIcon[notification.severity]
+  const body =
+    readableProviderError(notification.body)?.summary ?? notification.body
   function followLink() {
     if (!notification.read) onToggleRead(notification.id, true)
     onActivate?.()
@@ -88,7 +91,7 @@ export function NotificationRow({
           compact ? "truncate" : "mt-0.5 line-clamp-2"
         )}
       >
-        {notification.body}
+        {body}
       </span>
       <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
         {target ? (

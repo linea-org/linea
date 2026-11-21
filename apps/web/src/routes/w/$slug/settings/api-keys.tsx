@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { KeySquareIcon, PlusIcon } from "lucide-react"
+import { KeySquareIcon } from "lucide-react"
 
 import { Button } from "@linealabs/ui/components/button"
 import {
@@ -13,6 +13,8 @@ import {
 
 import { ApiKeysTable, CreateApiKeyDialog } from "@/components/api-keys"
 import { ListSkeleton } from "@/components/workspace/list-skeleton"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { apiKeysQueryOptions } from "@/lib/api-keys-api"
 
@@ -44,9 +46,12 @@ function ApiKeysPage() {
     <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
       <PageToolbar>
         <div className="ml-auto">
-          <Button onClick={() => setCreateOpen(true)}>
-            <PlusIcon />
+          <Button
+            onClick={() => setCreateOpen(true)}
+            {...shortcutTarget("create")}
+          >
             Create key
+            <ShortcutKeys id="create" onPrimary />
           </Button>
         </div>
       </PageToolbar>

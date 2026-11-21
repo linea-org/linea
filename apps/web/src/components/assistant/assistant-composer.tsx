@@ -4,6 +4,7 @@ import {
   ArrowUpIcon,
   ChevronDownIcon,
   FileTextIcon,
+  GlobeIcon,
   PaperclipIcon,
   WrenchIcon,
   XIcon,
@@ -12,7 +13,14 @@ import {
 import { Badge } from "@linealabs/ui/components/badge"
 import { Button } from "@linealabs/ui/components/button"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@linealabs/ui/components/dialog"
+import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -27,58 +35,15 @@ import {
   InputGroupAddon,
   InputGroupTextarea,
 } from "@linealabs/ui/components/input-group"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@linealabs/ui/components/popover"
-import { Switch } from "@linealabs/ui/components/switch"
 import { cn } from "@linealabs/ui/lib/utils"
 
+import { ModelSetupForm } from "@/components/models/model-setup-form"
 import { ASSISTANT_NAME } from "@/lib/assistant-api"
 import { readAttachments } from "@/lib/attachments"
+import type { CatalogModel } from "@/lib/model-settings-api"
 import type { ComposerOptions } from "./use-composer-options"
 
 function ToolsMenu({ options }: Readonly<{ options: ComposerOptions }>) {
-  return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Tools"
-            className="relative"
-          />
-        }
-      >
-        <WrenchIcon />
-        {options.web ? (
-          <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-primary" />
-        ) : null}
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-56">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-medium">Browse the web</p>
-          <Switch
-            checked={options.web}
-            onCheckedChange={options.onWebChange}
-            aria-label="Browse the web"
-          />
-        </div>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-function ModelMenu({ options }: Readonly<{ options: ComposerOptions }>) {
-  const { slug } = useParams({ strict: false })
-  const providers = [
-    ...new Map(
-      options.models.map((model) => [model.providerId, model.providerLabel])
-    ),
-  ]
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -86,58 +51,137 @@ function ModelMenu({ options }: Readonly<{ options: ComposerOptions }>) {
           <Button
             type="button"
             variant="ghost"
-            disabled={options.models.length === 0}
-            aria-label="Model"
-            className="min-w-0 justify-start"
+            size="icon"
+            disabled={options.model === null}
+            aria-label="Tools"
           />
         }
       >
-        <span className="truncate">
-          {options.model?.label ?? "Choose a model"}
-        </span>
-        <ChevronDownIcon />
+        {options.web ? <GlobeIcon className="text-primary" /> : <WrenchIcon />}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-60">
-        <DropdownMenuRadioGroup
-          value={options.model?.value ?? ""}
-          onValueChange={options.onModelChange}
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuCheckboxItem
+          checked={options.web}
+          onCheckedChange={options.onWebChange}
         >
-          {providers.map(([providerId, providerLabel]) => {
-            const providerModels = options.models.filter(
-              (model) => model.providerId === providerId
-            )
-            const hasKey = options.keyed.has(providerModels[0].keyName)
-            return (
-              <DropdownMenuGroup key={providerId}>
-                <DropdownMenuLabel>
-                  {providerLabel}
-                  {hasKey ? "" : " · no key"}
-                </DropdownMenuLabel>
-                {providerModels.map((model) => (
-                  <DropdownMenuRadioItem
-                    key={model.value}
-                    value={model.value}
-                    disabled={!hasKey}
-                  >
-                    {model.label}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuGroup>
-            )
-          })}
-        </DropdownMenuRadioGroup>
-        {slug ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              render={<Link to="/w/$slug/settings/models" params={{ slug }} />}
-            >
-              Manage keys
-            </DropdownMenuItem>
-          </>
-        ) : null}
+          <GlobeIcon />
+          Browse the web
+        </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+function ModelMenu({
+  options,
+  open,
+  onOpenChange,
+}: Readonly<{
+  options: ComposerOptions
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}>) {
+  const { slug } = useParams({ strict: false })
+  const [needsKey, setNeedsKey] = useState<CatalogModel | null>(null)
+  const providers = [
+    ...new Map(
+      options.models.map((model) => [model.providerId, model.providerLabel])
+    ),
+  ]
+  return (
+    <>
+      <DropdownMenu open={open} onOpenChange={onOpenChange}>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={options.models.length === 0}
+              aria-label="Model"
+              className={cn(
+                "min-w-0 justify-start",
+                options.model === null && "text-primary ring-1 ring-primary/50"
+              )}
+            />
+          }
+        >
+          <span className="truncate">
+            {options.model?.label ?? "Choose a model"}
+          </span>
+          <ChevronDownIcon />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-60">
+          <DropdownMenuRadioGroup
+            value={options.model?.value ?? ""}
+            onValueChange={(value) => {
+              if (typeof value !== "string") return
+              const model = options.models.find((item) => item.value === value)
+              onOpenChange(false)
+              if (model && !options.keyed.has(model.keyName)) setNeedsKey(model)
+              else options.onModelChange(value)
+            }}
+          >
+            {providers.map(([providerId, providerLabel]) => {
+              const providerModels = options.models.filter(
+                (model) => model.providerId === providerId
+              )
+              const hasKey = options.keyed.has(providerModels[0].keyName)
+              return (
+                <DropdownMenuGroup key={providerId}>
+                  <DropdownMenuLabel>
+                    {providerLabel}
+                    {hasKey ? "" : " · add key"}
+                  </DropdownMenuLabel>
+                  {providerModels.map((model) => (
+                    <DropdownMenuRadioItem
+                      key={model.value}
+                      value={model.value}
+                    >
+                      {model.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuGroup>
+              )
+            })}
+          </DropdownMenuRadioGroup>
+          {slug ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                render={
+                  <Link to="/w/$slug/settings/models" params={{ slug }} />
+                }
+              >
+                Manage keys
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {slug && options.setup && needsKey ? (
+        <Dialog open onOpenChange={() => setNeedsKey(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add your {needsKey.providerLabel} key</DialogTitle>
+            </DialogHeader>
+            <ModelSetupForm
+              slug={slug}
+              setup={{
+                ...options.setup,
+                settings: {
+                  ...options.setup.settings,
+                  defaultModel: needsKey.value,
+                },
+              }}
+              onSaved={(values) => {
+                options.onModelChange(values.model)
+                setNeedsKey(null)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      ) : null}
+    </>
   )
 }
 
@@ -166,9 +210,14 @@ export function AssistantComposer({
     options.onAttachmentsChange(result.attachments)
     setProblems(result.problems)
   }
-  const canSend = value.trim().length > 0 && !disabled && options.model !== null
+  const [modelOpen, setModelOpen] = useState(false)
+  const canSend = value.trim().length > 0 && !disabled
   function submit() {
     if (!canSend) return
+    if (options.model === null) {
+      setModelOpen(true)
+      return
+    }
     onSend(value.trim())
     onChange("")
   }
@@ -233,6 +282,7 @@ export function AssistantComposer({
             type="button"
             variant="ghost"
             size="icon"
+            disabled={options.model === null}
             aria-label="Attach files"
             onClick={() => fileInput.current?.click()}
           >
@@ -240,7 +290,11 @@ export function AssistantComposer({
           </Button>
           <ToolsMenu options={options} />
           <div className="ml-auto flex min-w-0 items-center gap-1">
-            <ModelMenu options={options} />
+            <ModelMenu
+              options={options}
+              open={modelOpen}
+              onOpenChange={setModelOpen}
+            />
             <Button
               type="button"
               size="icon"

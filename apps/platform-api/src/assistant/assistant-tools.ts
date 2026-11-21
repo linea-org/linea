@@ -19,7 +19,8 @@ export function assistantTools(
     EDIT_TOOL,
     TEST_TOOL,
     AGENTS_TOOL,
-    ...(scope.workflowId ? [RECENT_RUNS_TOOL, RUN_TOOL] : []),
+    ...(scope.workflowId ? [RECENT_RUNS_TOOL] : []),
+    RUN_TOOL,
     ...(scope.web ? [WEB_TOOL] : []),
   ]
 }
@@ -58,7 +59,7 @@ export class AssistantTools {
     if (name === RECENT_RUNS_TOOL.name && workflowId) {
       return listRecentRuns(workflowId)
     }
-    if (name === RUN_TOOL.name && workflowId) {
+    if (name === RUN_TOOL.name) {
       return inspectRun(scope.workspaceId, workflowId, executionId)
     }
     return { content: `${name} needs different arguments.`, action: null }

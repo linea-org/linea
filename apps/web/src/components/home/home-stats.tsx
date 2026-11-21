@@ -39,7 +39,7 @@ function StatCard({
         </p>
       </div>
       <div className="h-28">
-        <StatSparkline data={data} />
+        <StatSparkline label={label} data={data} />
       </div>
     </Card>
   )

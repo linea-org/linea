@@ -314,6 +314,19 @@
 
   --font-sans: var(--font-sans);
   --font-heading: var(--font-sans);
+  /* A denser scale than Tailwind's default: body copy is 13px, as in dense operator consoles. */
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.125rem;
+  --text-xl--line-height: 1.625rem;
+  --text-2xl: 1.375rem;
+  --text-2xl--line-height: 1.875rem;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -347,7 +360,7 @@
     border-radius: 999px;
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-sm text-foreground antialiased;
     font-feature-settings: "cv11", "ss01";
   }
   ::view-transition-old(root),

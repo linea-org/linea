@@ -84,7 +84,7 @@ export function TopBarNotifications({ slug }: { slug: string }) {
           <BellIcon />
         </PopoverTrigger>
         {unreadCount > 0 ? (
-          <span className="pointer-events-none absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-xs font-medium text-primary-foreground">
+          <span className="pointer-events-none absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-2xs font-medium text-primary-foreground">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         ) : null}

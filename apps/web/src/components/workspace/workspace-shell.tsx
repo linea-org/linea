@@ -8,7 +8,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarHeader,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
@@ -34,11 +33,21 @@ import { AssistantSectionNav } from "./assistant-section-nav"
 import { WorkflowSectionNav } from "./workflow-section-nav"
 import { WorkspaceSettingsNav } from "./workspace-settings-nav"
 import { SidebarBranchStateContext } from "./sidebar-branch-state"
-import { SidebarBack } from "./sidebar-back"
 import { SidebarSectionBranch } from "./sidebar-section-branch"
 import { useSidebarHistory } from "./use-sidebar-history"
 import { sidebarContextKey, type SidebarContext } from "./sidebar-history"
-import { WorkspaceTopBar } from "./workspace-top-bar"
+import { HelpMenu } from "./help-menu"
+import { PageActionsSlotContext } from "./page-actions-slot"
+import { ShortcutHelp } from "@/components/shortcuts/shortcut-help"
+import { ShortcutListener } from "@/components/shortcuts/shortcut-listener"
+import { useWorkspaceShortcuts } from "@/components/shortcuts/use-workspace-shortcuts"
+import { PageHeading } from "./page-heading"
+import { SidebarBack } from "./sidebar-back"
+import { SmallScreenNotice } from "./small-screen-notice"
+import {
+  SidebarSearch,
+  WorkspaceSidebarHeader,
+} from "./workspace-sidebar-header"
 
 function InsetCollapseEdge() {
   const { toggleSidebar, open } = useSidebar()
@@ -49,7 +58,7 @@ function InsetCollapseEdge() {
       title={open ? "Collapse sidebar" : "Expand sidebar"}
       onClick={toggleSidebar}
       className={cn(
-        "absolute -top-12 bottom-0 left-0 z-40 hidden w-2 md:block",
+        "absolute top-0 bottom-0 left-0 z-40 hidden w-2 md:block",
         "after:absolute after:inset-y-0 after:-left-px after:w-px after:bg-transparent after:transition-colors hover:after:bg-border",
         open ? "cursor-w-resize" : "cursor-e-resize"
       )}
@@ -165,9 +174,11 @@ function SidebarContextPanel({
   direction,
   expanded,
   setExpanded,
+  onBack,
 }: Readonly<{
   slug: string
   context: SidebarContext
+  onBack: () => void
   direction: "forward" | "back" | null
   expanded: Record<string, boolean>
   setExpanded: (key: string, value: boolean) => void
@@ -194,6 +205,9 @@ function SidebarContextPanel({
           direction === "back" && "slide-in-from-left-4"
         )}
       >
+        {context.kind === "main" || context.kind === "assistant" ? null : (
+          <SidebarBack onBack={onBack} />
+        )}
         <WorkspaceSectionNav slug={slug} context={context} />
       </div>
     </SidebarBranchStateContext.Provider>
@@ -213,6 +227,7 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   const { pathname } = useLocation()
   const isBuilder = pathname.endsWith("/builder")
+  useWorkspaceShortcuts(slug)
   const { history, back, setExpanded } = useSidebarHistory(slug)
   const currentContext = history.trail[0]
   const currentKey = sidebarContextKey(currentContext)
@@ -230,14 +245,13 @@ export function WorkspaceShell({
     })
   }
   const [open, setOpen] = useState(true)
+  const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null)
   const navigation = (
     <>
-      {history.trail.length > 1 && (
-        <SidebarHeader className="p-1 group-data-[collapsible=icon]:items-center">
-          <SidebarBack onBack={back} />
-        </SidebarHeader>
-      )}
+      <WorkspaceSidebarHeader slug={slug} workspaces={workspaces} />
       <SidebarSeparator className="mx-0 -mt-px w-full data-horizontal:w-full" />
+      <SidebarSearch />
+      <SidebarSeparator className="mx-0 w-full data-horizontal:w-full" />
       <SidebarContent className="gap-0 overflow-x-hidden">
         <SidebarContextPanel
           key={currentKey}
@@ -246,6 +260,7 @@ export function WorkspaceShell({
           direction={level.direction}
           expanded={history.expanded}
           setExpanded={setExpanded}
+          onBack={back}
         />
       </SidebarContent>
       <WorkspaceSettingsNav slug={slug} />
@@ -258,26 +273,22 @@ export function WorkspaceShell({
         <div className="flex items-center gap-0.5 group-data-[collapsible=icon]:hidden">
           <TopBarNotifications slug={slug} />
           <WhatsNew />
+          <HelpMenu />
         </div>
       </SidebarFooter>
     </>
   )
   return (
     <CommandPaletteProvider slug={slug} workspaces={workspaces}>
+      <SmallScreenNotice />
       <SidebarProvider
         open={open}
         onOpenChange={setOpen}
-        className="relative h-svh max-h-svh flex-col overflow-hidden bg-sidebar has-data-[variant=inset]:bg-sidebar"
+        className="relative hidden h-svh max-h-svh flex-col overflow-hidden bg-sidebar has-data-[variant=inset]:bg-sidebar md:flex"
       >
-        {!isBuilder ? (
-          <WorkspaceTopBar slug={slug} workspaces={workspaces} />
-        ) : null}
         <div className="flex min-h-0 w-full flex-1">
           {!isBuilder && (
-            <Sidebar
-              collapsible="icon"
-              className="top-12! bottom-0! h-auto! border-sidebar-border p-0!"
-            >
+            <Sidebar collapsible="icon" className="border-sidebar-border p-0!">
               {navigation}
             </Sidebar>
           )}
@@ -292,16 +303,25 @@ export function WorkspaceShell({
             {!isBuilder && <InsetCollapseEdge />}
             <div
               className={cn(
-                "relative flex min-h-0 flex-1 flex-col overflow-auto",
+                // Under a title row the page drops its top padding: content starts at 48px,
+                // level with the sidebar's Console/Inky tabs.
+                "relative flex min-h-0 flex-1 flex-col overflow-auto [&:has(>[data-page-title])>main]:pt-0",
                 isBuilder ? "bg-card" : "bg-sidebar"
               )}
             >
-              {children}
+              <PageActionsSlotContext.Provider value={actionsSlot}>
+                {isBuilder ? null : (
+                  <PageHeading slug={slug} onActionsSlot={setActionsSlot} />
+                )}
+                {children}
+              </PageActionsSlotContext.Provider>
             </div>
           </SidebarInset>
         </div>
       </SidebarProvider>
       <StepUpDialog />
+      <ShortcutListener />
+      <ShortcutHelp />
     </CommandPaletteProvider>
   )
 }

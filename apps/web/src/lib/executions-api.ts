@@ -111,6 +111,7 @@ export type WorkspaceExecutionFilters = {
   trigger?: ExecutionTrigger
   /** Opaque `(createdAt, id)` keyset cursor — the last execution of the previous page, encoded via encodeExecutionCursor. Omit for the first page; not an offset, see listWorkspaceExecutions in @linealabs/db for why. */
   cursor?: string
+  limit?: number
 }
 
 export type WorkspaceExecutionPage = {
@@ -133,6 +134,7 @@ export const listWorkspaceExecutionsFn = createServerFn({ method: "GET" })
     if (data.status) params.set("status", data.status)
     if (data.trigger) params.set("trigger", data.trigger)
     if (data.cursor) params.set("cursor", data.cursor)
+    if (data.limit) params.set("limit", String(data.limit))
     const query = params.toString()
     const res = await apiFetch(`/executions${query ? `?${query}` : ""}`)
     if (!res.ok) {

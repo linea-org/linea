@@ -140,6 +140,7 @@ export function RunPanel({
         {data ? (
           <ExecutionGanttChart
             steps={data.steps}
+            allSteps={data.steps}
             executionStartedAt={data.execution.startedAt}
             executionCompletedAt={data.execution.completedAt}
             selectedStepId={selectedStepId}
