@@ -188,13 +188,15 @@ console.log(result.status, result.output)
 
 ### List executions with cursor pagination
 
-```ts
-import { nextExecutionsCursor } from "@linealabs/sdk"
+Executions come newest first unless you pass `sort` (`workflow`, `status`,
+`trigger`, `duration`, `cost` or `when`, each `.asc` or `.desc`). A cursor is
+only valid with the sort that issued it.
 
-let page = await linea.executions.list({ status: "failed" })
-while (page.hasMore) {
-  const cursor = nextExecutionsCursor(page.executions.at(-1)!)
-  page = await linea.executions.list({ status: "failed", cursor })
+```ts
+const query = { status: "failed", sort: "cost.desc" } as const
+let page = await linea.executions.list(query)
+while (page.nextCursor) {
+  page = await linea.executions.list({ ...query, cursor: page.nextCursor })
 }
 ```
 

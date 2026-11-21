@@ -11,6 +11,7 @@ export type {
   WorkspaceExecutionWithWorkflow as ExecutionWithWorkflow,
 } from "@linealabs/protocol/resources"
 
+/** A newest-first position: `since` for `countNew`, or a `cursor` for an unsorted `list`. Sorted lists take the page's `nextCursor`. */
 export function nextExecutionsCursor(
   row: Pick<WorkspaceExecutionWithWorkflow, "createdAt" | "id">
 ): string {

@@ -18,7 +18,7 @@ export class Executions {
     })
   }
 
-  /** Cursor-paginated, newest first. Build the next `cursor` with `nextExecutionsCursor`. */
+  /** Cursor-paginated, newest first unless `sort` is given. Pass a page's `nextCursor` as the next `cursor`, with the same `sort`. */
   list(params: ListExecutionsParams = {}): Promise<WorkspaceExecutionPage> {
     return this.send({
       method: "GET",
@@ -26,6 +26,7 @@ export class Executions {
       query: {
         status: params.status,
         trigger: params.trigger,
+        sort: params.sort,
         cursor: params.cursor,
       },
     })

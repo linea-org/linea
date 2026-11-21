@@ -22,6 +22,7 @@ import {
 import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 import { isTraceContentRestricted } from './end-user-trace-access'
 import type { CountNewWorkspaceExecutionsDto } from './dto/count-new-workspace-executions.dto'
+import { encodeExecutionListCursor } from './dto/execution-list-cursor'
 import type { ListWorkspaceExecutionsDto } from './dto/list-workspace-executions.dto'
 import type { SendChatMessageDto } from './dto/chat-preview.dto'
 import type { ReplayStepDto } from './dto/replay-step.dto'
@@ -256,13 +257,27 @@ export class ExecutionsService {
     return repositories.execution.listExecutions(db, workflowId)
   }
 
-  listWorkspace(workspaceId: string, filters: ListWorkspaceExecutionsDto) {
-    return repositories.execution.listWorkspaceExecutions(db, workspaceId, {
-      status: filters.status,
-      trigger: filters.trigger,
-      cursor: filters.cursor,
-      limit: filters.limit,
-    })
+  async listWorkspace(
+    workspaceId: string,
+    filters: ListWorkspaceExecutionsDto,
+  ) {
+    const page = await repositories.execution.listWorkspaceExecutions(
+      db,
+      workspaceId,
+      {
+        status: filters.status,
+        trigger: filters.trigger,
+        sort: filters.sort,
+        cursor: filters.cursor,
+        limit: filters.limit,
+      },
+    )
+    return {
+      ...page,
+      nextCursor: page.nextCursor
+        ? encodeExecutionListCursor(page.nextCursor)
+        : null,
+    }
   }
 
   countNew(workspaceId: string, filters: CountNewWorkspaceExecutionsDto) {
