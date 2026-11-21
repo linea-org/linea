@@ -7,8 +7,11 @@ loadEnv({
 })
 
 const pnpmCli = process.env.npm_execpath
+
 const pnpmIsJavaScript = /\.(?:c|m)?js$/.test(pnpmCli ?? "")
+
 const pnpmCommand = pnpmIsJavaScript ? process.execPath : pnpmCli
+
 const pnpmArguments = (arguments_) =>
   pnpmIsJavaScript ? [pnpmCli, ...arguments_] : arguments_
 
@@ -81,6 +84,7 @@ const ciChecks = [
   tracer,
   firstLaunch,
 ]
+
 const checks = process.argv.includes("--ci") ? ciChecks : fullChecks
 
 const missing = [
