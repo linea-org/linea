@@ -15,7 +15,7 @@ export type RecordedEffect = {
   connectionId: string
   sequence: number
   outcome: "succeeded" | "failed" | "unknown"
-  /** False for a write that was rejected or still awaited consent: it never reached the provider. */
+  /** False for a write that was rejected or awaited consent and so never reached the provider. */
   executed: boolean
   result: unknown
   /** False when the stored result was redacted or truncated. */
@@ -195,7 +195,7 @@ export function createRecordedEffectMatcher(
         sequence: recording.sequence,
       }
     },
-    /** Leftover recordings are differences, never a pass; a leftover ambiguous identity is unavailable. */
+    /** Leftover recordings are differences, never a pass; an ambiguous one is unavailable. */
     finish(): MatchingOutcome {
       if (stopped) return stopped
       const unconsumed = ordered.slice(cursor)
