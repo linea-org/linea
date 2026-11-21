@@ -754,7 +754,10 @@ describe("RunsService fencing identity", () => {
             })
           }
           return Promise.resolve({
-            result: { status: "completed" as const },
+            result: {
+              status: "completed" as const,
+              output: { text: "approved and done" },
+            },
             totalTokensInput: 0,
             totalTokensOutput: 0,
             totalCostMicros: 0n,
@@ -780,6 +783,7 @@ describe("RunsService fencing identity", () => {
         execution.id
       )
       expect(reloaded?.status).toBe("succeeded")
+      expect(reloaded?.output).toEqual({ text: "approved and done" })
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

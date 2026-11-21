@@ -3,7 +3,7 @@ import type {
   ExecutionDetailResponse,
   ExecutionStepSummary,
 } from "./execution-detail-schema"
-import { summarizeRun } from "./run-summary"
+import { readableText, summarizeRun } from "./run-summary"
 
 function detail(
   execution: Partial<ExecutionDetailResponse["execution"]>
@@ -152,5 +152,26 @@ describe("summarizeRun", () => {
       ],
     })
     expect(summary.outcome).toBe("The run failed after completing some work.")
+  })
+})
+
+describe("readableText", () => {
+  it("reads a string or an AI step's { text } result as prose", () => {
+    expect(readableText("hello")).toBe("hello")
+    expect(readableText({ text: "an answer" })).toBe("an answer")
+    expect(
+      readableText({
+        text: "an answer",
+        toolCalls: [],
+        tokensInput: 10,
+        tokensOutput: 5,
+      })
+    ).toBe("an answer")
+  })
+
+  it("keeps structured results as JSON", () => {
+    expect(readableText({ text: "a", score: 1 })).toBeNull()
+    expect(readableText(["a"])).toBeNull()
+    expect(readableText(null)).toBeNull()
   })
 })

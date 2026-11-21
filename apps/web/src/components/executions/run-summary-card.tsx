@@ -5,9 +5,18 @@ import { buttonVariants } from "@linealabs/ui/components/button"
 import { cn } from "@linealabs/ui/lib/utils"
 
 import { chatMessagesQueryOptions } from "@/lib/chat-preview-api"
-import type { ExecutionDetailResponse } from "@/lib/execution-detail-schema"
+import type {
+  ExecutionDetailResponse,
+  JsonValue,
+} from "@/lib/execution-detail-schema"
+import { readableProviderError } from "@/lib/provider-error"
 import { runFailureFix, type RunFailureFix } from "@/lib/run-failure"
-import { isUnknownOutcome, previewJson, summarizeRun } from "@/lib/run-summary"
+import {
+  isUnknownOutcome,
+  previewJson,
+  readableText,
+  summarizeRun,
+} from "@/lib/run-summary"
 import { ErrorCallout } from "./error-callout"
 
 function Field({
@@ -19,6 +28,19 @@ function Field({
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="text-sm">{children}</dd>
     </div>
+  )
+}
+
+function ResultPreview({ value }: Readonly<{ value: JsonValue }>) {
+  const text = readableText(value)
+  return text === null ? (
+    <pre className="mt-1 max-h-32 overflow-auto font-mono break-words whitespace-pre-wrap">
+      {previewJson(value)}
+    </pre>
+  ) : (
+    <p className="mt-1 max-h-48 overflow-auto break-words whitespace-pre-wrap">
+      {text}
+    </p>
   )
 }
 
@@ -83,10 +105,12 @@ function FailureCard({
   const summary = summarizeRun(detail)
   const message = detail.execution.error?.message
   const fix = message ? runFailureFix(message) : null
+  const readable = message ? readableProviderError(message) : null
   return (
     <ErrorCallout
       title={summary.outcome}
-      message={message ?? "The run stopped with an error."}
+      message={readable?.summary ?? message ?? "The run stopped with an error."}
+      details={readable?.details}
       action={
         fix ? (
           <FixLink
@@ -133,9 +157,7 @@ export function RunSummaryCard({
           <Field label="What happened">
             <p className="font-medium">{summary.outcome}</p>
             {summary.result !== null ? (
-              <pre className="mt-1 max-h-32 overflow-auto font-mono break-words whitespace-pre-wrap">
-                {previewJson(summary.result)}
-              </pre>
+              <ResultPreview value={summary.result} />
             ) : null}
           </Field>
         )}

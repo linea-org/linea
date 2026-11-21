@@ -66,6 +66,28 @@ describe("walk", () => {
     expect(result).toEqual({ status: "completed" })
   })
 
+  it("reports the output of the End node it reached as the run's result", () => {
+    const graph: WorkflowGraph = {
+      ...branchingGraph,
+      nodes: [
+        ...branchingGraph.nodes,
+        { id: "endA", type: "end", config: {} },
+        { id: "endB", type: "end", config: {} },
+      ],
+      edges: [
+        ...branchingGraph.edges,
+        { from: "pathA2", to: "endA" },
+        { from: "pathB2", to: "endB" },
+      ],
+    }
+    const { result } = driveWalk(graph, (step) =>
+      step.nodeId === "endA"
+        ? { nodeId: step.nodeId, output: { text: "final-a" } }
+        : stubExecutor(step)
+    )
+    expect(result).toEqual({ status: "completed", output: { text: "final-a" } })
+  })
+
   it("resolves the entry node's input from the trigger payload", () => {
     const { steps } = driveWalk(branchingGraph, stubExecutor, {
       triggerPayload: { hello: "world" },
