@@ -25,8 +25,9 @@ import {
   environmentSecrets,
   redactExecution,
   redactStep,
+  type RedactedStep,
 } from './redact-execution-trace'
-import { redactRecord } from './trace-redaction'
+import { containsRedactionPlaceholder, redactRecord } from './trace-redaction'
 import type { CountNewWorkspaceExecutionsDto } from './dto/count-new-workspace-executions.dto'
 import type { ListWorkspaceExecutionsDto } from './dto/list-workspace-executions.dto'
 import type { SendChatMessageDto } from './dto/chat-preview.dto'
@@ -301,7 +302,7 @@ export class ExecutionsService {
     id: string,
   ): Promise<{
     execution: Execution
-    steps: ExecutionStep[]
+    steps: RedactedStep[]
     nodeConfigs: Record<string, Record<string, unknown>>
     replayable: boolean
     // The node a paused execution is currently waiting on — undefined once resolved (it becomes a
@@ -433,6 +434,12 @@ export class ExecutionsService {
     if (step.name === 'agent') {
       throw new BadRequestException(
         'Run Agent steps cannot be replayed; start a new Workflow run',
+      )
+    }
+    // The dashboard is sent redacted configs; running a placeholder would test different data.
+    if (containsRedactionPlaceholder(input.overrideConfig)) {
+      throw new BadRequestException(
+        'An edited field still contains a redacted value. Replace the redacted part or leave that field unchanged.',
       )
     }
     const replayStepId = randomUUID()

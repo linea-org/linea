@@ -51,14 +51,20 @@ export function redactExecution<T extends Execution>(
   }
 }
 
+/** A step records whatever its node received and returned, which need not be an object. */
+export type RedactedStep = Omit<ExecutionStep, 'input' | 'output'> & {
+  input: unknown
+  output: unknown
+}
+
 export function redactStep(
   step: ExecutionStep,
   secrets: KnownSecrets,
-): ExecutionStep {
+): RedactedStep {
   return {
     ...step,
-    input: step.input && redactRecord(step.input, secrets),
-    output: step.output && redactRecord(step.output, secrets),
+    input: redactValue(step.input, secrets),
+    output: redactValue(step.output, secrets),
     attributes: step.attributes && redactRecord(step.attributes, secrets),
     error: step.error && {
       ...step.error,

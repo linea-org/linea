@@ -51,7 +51,7 @@ export async function listSecrets(
     .orderBy(secrets.key)
 }
 
-/** For server-side use only, such as redacting secret values out of a trace; never send these to a client. */
+/** Server-side use only, such as redacting secret values from a trace; never send to a client. */
 export async function listEncryptedSecrets(
   db: DbClient,
   environmentId: string

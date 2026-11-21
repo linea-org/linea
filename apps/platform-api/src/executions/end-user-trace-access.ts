@@ -1,9 +1,5 @@
-import {
-  db,
-  repositories,
-  type Execution,
-  type ExecutionStep,
-} from '@linealabs/db'
+import { db, repositories, type Execution } from '@linealabs/db'
+import type { RedactedStep } from './redact-execution-trace'
 
 /** True for an End-User Execution (ADR 0026) unless the caller is a signed-in workspace admin or owner; workspace API keys never qualify. */
 export async function isTraceContentRestricted(
@@ -30,7 +26,7 @@ export async function isTraceContentRestricted(
 /** Keeps the step timeline but nulls the run's output and its steps' input and output on End-User
  * Executions for callers below admin; the run output is usually a step's output passed through. */
 export async function restrictEndUserTrace<
-  T extends { execution: Execution; steps: ExecutionStep[] },
+  T extends { execution: Execution; steps: RedactedStep[] },
 >(
   detail: T,
   userId: string | undefined,

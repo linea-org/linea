@@ -1,4 +1,4 @@
-/** Remembers the executions list's filters, sort and page for this tab, so leaving a run returns to the same list. */
+/** Remembers the executions list's search for this tab, so leaving a run returns to that list. */
 type ListSearch = Record<string, string | number | undefined>
 
 function storageKey(slug: string) {

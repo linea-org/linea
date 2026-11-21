@@ -1094,7 +1094,23 @@ describe('ExecutionsService', () => {
           output: { body: `rejected key ${crmKey}`, status: 401 },
           error: { message: 'Upstream said: Bearer abcdef123456 is expired' },
         })
+        // An End step records its input as is, which may be a string or an array.
+        await pool.query(
+          `INSERT INTO execution_steps (execution_id, workspace_id, trace_id, span_id, name, node_id, sequence, started_at, status, input, output)
+           VALUES ($1, $2, $3, $4, 'end', 'n2', 2, now(), 'succeeded', $5::jsonb, $6::jsonb)`,
+          [
+            execution.id,
+            organization.id,
+            randomUUID(),
+            randomUUID(),
+            JSON.stringify(['first', 'second']),
+            JSON.stringify('done with Bearer abcdef987654'),
+          ],
+        )
         const detail = await service.get(organization.id, execution.id)
+        const end = detail.steps.find((step) => step.nodeId === 'n2')
+        expect(end?.input).toEqual(['first', 'second'])
+        expect(end?.output).toBe(`done with Bearer ${REDACTED}`)
         const serialized = JSON.stringify(detail, bigIntJsonReplacer)
         expect(serialized).not.toContain(crmKey)
         expect(serialized).not.toContain('config-token-123456')
@@ -1214,6 +1230,44 @@ describe('ExecutionsService', () => {
           undefined,
         )
         expect(result.replayStepId).toEqual(expect.any(String))
+      } finally {
+        await moduleRef.close()
+        await pool.query('DELETE FROM organizations WHERE id = $1', [
+          organization.id,
+        ])
+      }
+    })
+    it('refuses an override that still contains a redaction placeholder', async () => {
+      const moduleRef = await Test.createTestingModule({
+        providers: [ExecutionsService, StepReplayQueueService],
+      }).compile()
+      const service = moduleRef.get(ExecutionsService)
+      const [organization] = await db
+        .insert(schema.organizations)
+        .values({
+          name: 'Replay Placeholder Test Org',
+          slug: `replay-placeholder-${randomUUID()}`,
+          createdAt: new Date(),
+        })
+        .returning()
+      try {
+        const { execution, step } = await setUpTerminalExecutionWithStep(
+          organization.id,
+        )
+        for (const prompt of [
+          `Call the API with ${REDACTED} and summarise`,
+          'Call the API with [secret CRM_KEY] and summarise',
+        ]) {
+          await expect(
+            service.replayStep(
+              organization.id,
+              execution.id,
+              step.id,
+              { overrideConfig: { prompt } },
+              undefined,
+            ),
+          ).rejects.toThrow('still contains a redacted value')
+        }
       } finally {
         await moduleRef.close()
         await pool.query('DELETE FROM organizations WHERE id = $1', [

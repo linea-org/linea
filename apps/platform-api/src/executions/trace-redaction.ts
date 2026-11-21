@@ -50,7 +50,8 @@ function redactCredential(value: unknown): unknown {
   return value
 }
 
-/** Replaces credentials in recorded JSON: string values under credential-named keys, known secret values and recognisable tokens anywhere. */
+/** Replaces credentials in recorded JSON: strings under credential-named keys, and known secret
+ * values and recognisable tokens anywhere. Strings, arrays and scalars keep their shape. */
 export function redactValue(value: unknown, secrets: KnownSecrets): unknown {
   if (typeof value === 'string') return redactText(value, secrets)
   if (Array.isArray(value))
@@ -72,4 +73,11 @@ export function redactRecord(
         : redactValue(value, secrets),
     ]),
   )
+}
+
+const placeholder = /\[redacted\]|\[secret [^\]\s]+\]/
+
+/** True when a value sent back by a client still holds text this module substituted. */
+export function containsRedactionPlaceholder(value: unknown): boolean {
+  return placeholder.test(JSON.stringify(value))
 }

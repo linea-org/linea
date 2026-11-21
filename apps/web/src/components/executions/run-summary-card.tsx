@@ -185,7 +185,14 @@ export function RunSummaryCard({
               <Labeled label="Finished before the failure">
                 <ul className="list-inside list-disc">
                   {summary.finishedBeforeFailure.map((step) => (
-                    <li key={step.id}>{stepTitle(step.name)}</li>
+                    <li key={step.id}>
+                      <a href={`#step-${step.id}`} className="hover:underline">
+                        {stepTitle(step.name)}
+                      </a>{" "}
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {step.nodeId}
+                      </span>
+                    </li>
                   ))}
                 </ul>
               </Labeled>

@@ -1,4 +1,10 @@
-import { REDACTED, redactRecord, redactText } from './trace-redaction'
+import {
+  containsRedactionPlaceholder,
+  REDACTED,
+  redactRecord,
+  redactText,
+  redactValue,
+} from './trace-redaction'
 
 const none = new Map<string, string>()
 
@@ -75,6 +81,30 @@ describe('trace redaction', () => {
     const redacted = redactText(text, none)
     expect(redacted).toContain(REDACTED)
     expect(redacted).not.toContain(leaked)
+  })
+
+  it('keeps the shape of values that are not objects', () => {
+    expect(redactValue('Bearer abcdef123456', none)).toBe(`Bearer ${REDACTED}`)
+    expect(redactValue(['a', { token: 't-1' }, 3], none)).toEqual([
+      'a',
+      { token: REDACTED },
+      3,
+    ])
+    expect(redactValue(42, none)).toBe(42)
+    expect(redactValue(null, none)).toBeNull()
+  })
+
+  it('recognises its own placeholders in a value sent back', () => {
+    expect(
+      containsRedactionPlaceholder({ prompt: `use ${REDACTED} here` }),
+    ).toBe(true)
+    expect(containsRedactionPlaceholder({ url: 'x/[secret CRM_KEY]' })).toBe(
+      true,
+    )
+    expect(containsRedactionPlaceholder({ prompt: 'keep it secret' })).toBe(
+      false,
+    )
+    expect(containsRedactionPlaceholder({})).toBe(false)
   })
 
   it('leaves ordinary prose and URLs alone', () => {
