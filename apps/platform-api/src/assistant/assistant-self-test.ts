@@ -37,12 +37,12 @@ export type SelfTestScope = Pick<
   'workspaceId' | 'applicationId' | 'userId'
 >
 
-const SETTLED: readonly Execution['status'][] = [
+const SETTLED: ReadonlySet<Execution['status']> = new Set([
   'succeeded',
   'failed',
   'cancelled',
   'paused',
-]
+])
 const POLL_INTERVAL_MS = 500
 const MAX_WAIT_MS = 30_000
 const MAX_STEP_CHARS = 1_500
@@ -118,7 +118,7 @@ export class AssistantSelfTest {
 
     const execution = await this.start(scope, graph, input)
     let settled = await waitToSettle(execution.id)
-    const unfinished = !SETTLED.includes(settled.execution.status)
+    const unfinished = !SETTLED.has(settled.execution.status)
     if (unfinished) {
       await repositories.execution.cancelDraftExecution(
         db,
@@ -195,7 +195,7 @@ async function waitToSettle(executionId: string) {
   const deadline = Date.now() + MAX_WAIT_MS
   for (;;) {
     const found = await readRun(executionId)
-    if (SETTLED.includes(found.execution.status) || Date.now() >= deadline) {
+    if (SETTLED.has(found.execution.status) || Date.now() >= deadline) {
       return found
     }
     await sleep(POLL_INTERVAL_MS)

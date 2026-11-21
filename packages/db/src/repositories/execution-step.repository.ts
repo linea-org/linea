@@ -22,6 +22,12 @@ function stepCostUnpriced(step: ExecutionStep): boolean | null {
   return null
 }
 
+function mergeCostUnpriced(a: boolean | null, b: boolean | null) {
+  if (a === true || b === true) return true
+  if (a === null || b === null) return null
+  return false
+}
+
 export function sumStepTotals(steps: ExecutionStep[]): StepTotals {
   return steps.reduce<StepTotals>(
     (totals, step) => {
@@ -30,12 +36,7 @@ export function sumStepTotals(steps: ExecutionStep[]): StepTotals {
         tokensInput: totals.tokensInput + step.tokensInput,
         tokensOutput: totals.tokensOutput + step.tokensOutput,
         costMicros: totals.costMicros + step.costMicros,
-        costUnpriced:
-          totals.costUnpriced === true || unpriced === true
-            ? true
-            : totals.costUnpriced === null || unpriced === null
-              ? null
-              : false,
+        costUnpriced: mergeCostUnpriced(totals.costUnpriced, unpriced),
       }
     },
     { tokensInput: 0, tokensOutput: 0, costMicros: 0n, costUnpriced: false }

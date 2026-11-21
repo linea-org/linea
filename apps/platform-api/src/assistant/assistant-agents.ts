@@ -40,7 +40,8 @@ export async function listAgents(scope: AgentScope): Promise<ToolOutcome> {
   const agents = await deployedAgents(scope)
   const lines = await Promise.all(
     agents.map(async ({ agent, binding }) => {
-      const title = `- "${agent.name}"${agent.description ? `: ${agent.description}` : ''}`
+      const description = agent.description ? `: ${agent.description}` : ''
+      const title = `- "${agent.name}"${description}`
       if (!binding) {
         return `${title}\n  Not deployed in Development, so it cannot be used yet.`
       }

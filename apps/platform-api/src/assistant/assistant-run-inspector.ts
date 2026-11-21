@@ -41,11 +41,9 @@ function capped(lines: string[]): string {
 
 /** With hideContent, only statuses and errors show, never what an End-User sent or got back. */
 function describeStep(step: ExecutionStep, hideContent: boolean): string {
-  const detail = step.error
-    ? `error: ${step.error.message}`
-    : hideContent
-      ? 'output hidden (End-User run)'
-      : `output: ${JSON.stringify(step.output ?? null)}`
+  let detail = `output: ${JSON.stringify(step.output ?? null)}`
+  if (hideContent) detail = 'output hidden (End-User run)'
+  if (step.error) detail = `error: ${step.error.message}`
   return `- ${step.nodeId} (${step.status}) ${detail.slice(0, MAX_DETAIL_CHARS)}`
 }
 
@@ -87,8 +85,7 @@ export async function inspectRun(
     : undefined
   const { execution, steps } = found ?? {}
   if (
-    !execution ||
-    execution.workspaceId !== workspaceId ||
+    execution?.workspaceId !== workspaceId ||
     execution.workflowId !== workflowId
   ) {
     return {
@@ -97,15 +94,13 @@ export async function inspectRun(
     }
   }
   const error = execution.error?.message.slice(0, MAX_DETAIL_CHARS)
+  const ending = error ? `: ${error}` : '.'
   const hideContent = isEndUserRun(execution)
   const lines = (steps ?? [])
     .filter((step) => !step.isSystemEvent)
     .map((step) => describeStep(step, hideContent))
   return {
-    content: capped([
-      `The run ${execution.status}${error ? `: ${error}` : '.'}`,
-      ...lines,
-    ]),
+    content: capped([`The run ${execution.status}${ending}`, ...lines]),
     action: { kind: 'inspect_runs', executionId: execution.id },
   }
 }
