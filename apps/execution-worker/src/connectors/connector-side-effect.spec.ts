@@ -1523,7 +1523,7 @@ describe("exact Action Intent consent", () => {
         const { intent } = await consent(fixture)
         await blocker.query("BEGIN")
         transactionOpen = true
-        // The first row a claim locks after its advisory lock, so the claim stops holding only that.
+        // The first row a claim locks, so it stops holding only its advisory lock.
         await blocker.query(
           "SELECT id FROM external_subjects WHERE id = $1 FOR UPDATE",
           [fixture.externalSubjectId]
