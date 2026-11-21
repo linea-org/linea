@@ -168,7 +168,7 @@ function completedResult(
   const endIds = new Set(
     graph.nodes.filter((node) => node.type === "end").map((node) => node.id)
   )
-  const lastEnd = [...completed.keys()].filter((id) => endIds.has(id)).at(-1)
+  const lastEnd = [...completed.keys()].reverse().find((id) => endIds.has(id))
   return lastEnd === undefined
     ? { status: "completed" }
     : { status: "completed", output: completed.get(lastEnd) }
