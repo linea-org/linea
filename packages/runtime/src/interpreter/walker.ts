@@ -14,7 +14,8 @@ export type StepResult =
   | { nodeId: string; error: { message: string } }
 
 export type WalkResult =
-  { status: "completed" } | { status: "failed"; nodeId: string; error: string }
+  | { status: "completed"; output?: unknown }
+  | { status: "failed"; nodeId: string; error: string }
 
 export type WalkOptions = {
   // Populate from checkpoints to resume — there is no separate "resume mode".
@@ -155,5 +156,20 @@ export function* walk(
     }
   }
 
-  return { status: "completed" }
+  return completedResult(graph, completed)
+}
+
+/** The run's result is what its End node produced; with several reached, the last to finish wins.
+ * `completed` keeps insertion order, which is completion order, resumed checkpoints included. */
+function completedResult(
+  graph: WorkflowGraph,
+  completed: Map<string, unknown>
+): WalkResult {
+  const endIds = new Set(
+    graph.nodes.filter((node) => node.type === "end").map((node) => node.id)
+  )
+  const lastEnd = [...completed.keys()].reverse().find((id) => endIds.has(id))
+  return lastEnd === undefined
+    ? { status: "completed" }
+    : { status: "completed", output: completed.get(lastEnd) }
 }

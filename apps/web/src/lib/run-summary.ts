@@ -19,6 +19,29 @@ export function previewJson(value: JsonValue): string {
   return text.length > PREVIEW_LIMIT ? `${text.slice(0, PREVIEW_LIMIT)}…` : text
 }
 
+// The usage fields an AI step adds beside its text; anything else makes the result structured.
+const aiStepFields = new Set([
+  "text",
+  "toolCalls",
+  "tokensInput",
+  "tokensOutput",
+])
+
+/** A plain string, or the output an AI step returns, reads as prose; anything else stays JSON. */
+export function readableText(value: JsonValue): string | null {
+  if (typeof value === "string") return value
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof value.text === "string" &&
+    Object.keys(value).every((key) => aiStepFields.has(key))
+  ) {
+    return value.text
+  }
+  return null
+}
+
 export function isUnknownOutcome(message: string) {
   return /outcome[ _]unknown|unknown outcome|outcome could not be reconciled/i.test(
     message

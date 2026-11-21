@@ -12,6 +12,7 @@ import { cn } from "@linealabs/ui/lib/utils"
 type ErrorCalloutProps = {
   title: string
   message: string
+  details?: string
   action?: ReactNode
 }
 
@@ -51,10 +52,12 @@ function splitErrorMessage(message: string): {
 export function ErrorCallout({
   title,
   message,
+  details: givenDetails,
   action,
 }: Readonly<ErrorCalloutProps>) {
-  const { summary, rest } = splitErrorMessage(message)
-  const details = rest ?? ""
+  const split = splitErrorMessage(message)
+  const summary = givenDetails === undefined ? split.summary : message
+  const details = givenDetails ?? split.rest ?? ""
   const [open, setOpen] = useState(false)
   return (
     <Alert

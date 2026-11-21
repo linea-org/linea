@@ -235,6 +235,7 @@ export class RunsService {
           attemptId,
           {
             status: "succeeded",
+            output: result.output,
             costMicros: outcome.totalCostMicros,
             costUnpriced: outcome.costUnpriced,
             tokensInput: outcome.totalTokensInput,

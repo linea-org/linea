@@ -27,7 +27,8 @@ export async function isTraceContentRestricted(
   return role !== 'admin' && role !== 'owner'
 }
 
-/** Keeps the step timeline but nulls step input and output of End-User Executions for callers below admin. */
+/** Keeps the step timeline but nulls the run's output and its steps' input and output on End-User
+ * Executions for callers below admin; the run output is usually a step's output passed through. */
 export async function restrictEndUserTrace<
   T extends { execution: Execution; steps: ExecutionStep[] },
 >(
@@ -38,6 +39,7 @@ export async function restrictEndUserTrace<
     return { ...detail, traceContentRestricted: false }
   return {
     ...detail,
+    execution: { ...detail.execution, output: null },
     steps: detail.steps.map((step) => ({ ...step, input: null, output: null })),
     traceContentRestricted: true,
   }

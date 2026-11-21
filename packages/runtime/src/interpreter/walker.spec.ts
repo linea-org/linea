@@ -66,6 +66,69 @@ describe("walk", () => {
     expect(result).toEqual({ status: "completed" })
   })
 
+  it("reports the output of the End node it reached as the run's result", () => {
+    const graph: WorkflowGraph = {
+      ...branchingGraph,
+      nodes: [
+        ...branchingGraph.nodes,
+        { id: "endA", type: "end", config: {} },
+        { id: "endB", type: "end", config: {} },
+      ],
+      edges: [
+        ...branchingGraph.edges,
+        { from: "pathA2", to: "endA" },
+        { from: "pathB2", to: "endB" },
+      ],
+    }
+    const { result } = driveWalk(graph, (step) =>
+      step.nodeId === "endA"
+        ? { nodeId: step.nodeId, output: { text: "final-a" } }
+        : stubExecutor(step)
+    )
+    expect(result).toEqual({ status: "completed", output: { text: "final-a" } })
+  })
+
+  describe("with several End nodes reached", () => {
+    const fanOut: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "start",
+      nodes: [
+        { id: "start", type: "transform", config: {} },
+        { id: "endB", type: "end", config: {} },
+        { id: "endA", type: "end", config: {} },
+      ],
+      edges: [
+        { from: "start", to: "endA" },
+        { from: "start", to: "endB" },
+      ],
+    }
+    const echo = (step: StepToExecute): StepResult => ({
+      nodeId: step.nodeId,
+      output: step.nodeId,
+    })
+
+    it("reports the End that finished last, not the last one declared", () => {
+      const { steps, result } = driveWalk(fanOut, echo)
+      expect(steps.map((step) => step.nodeId)).toEqual([
+        "start",
+        "endA",
+        "endB",
+      ])
+      expect(result).toEqual({ status: "completed", output: "endB" })
+    })
+
+    it("keeps completion order across a resume", () => {
+      const { result } = driveWalk(fanOut, echo, {
+        completed: new Map([
+          ["start", "start"],
+          ["endB", "endB"],
+        ]),
+      })
+      expect(result).toEqual({ status: "completed", output: "endA" })
+    })
+  })
+
   it("resolves the entry node's input from the trigger payload", () => {
     const { steps } = driveWalk(branchingGraph, stubExecutor, {
       triggerPayload: { hello: "world" },
