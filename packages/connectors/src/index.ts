@@ -7,6 +7,16 @@ export {
   type IJsonValue,
 } from "./action-intent-canonicalization.js"
 export {
+  createRecordedEffectMatcher,
+  type DiagnosticScope,
+  type EffectCall,
+  type MatchingOutcome,
+  type RecordedEffect,
+  type RecordedResult,
+  type Unavailable,
+  type UnavailableReason,
+} from "./recorded-effect-matching.js"
+export {
   registeredReadOperation,
   type ConnectorOperationRegistry,
   type ConnectorReadCredential,

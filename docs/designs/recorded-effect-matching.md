@@ -5,7 +5,9 @@ recorded result for an external effect, as required by
 [ADR 0024](../adr/0024-use-recorded-effects-in-diagnostic-runs.md) before any
 diagnostic dispatch is enabled (#207). Access and retention policy is in
 [ADR 0026](../adr/0026-scope-agent-diagnostics-to-admins-and-source-retention.md).
-This is a target specification; nothing here is implemented yet.
+This is a target specification. The matching rules are implemented in
+`packages/connectors/src/recorded-effect-matching.ts`; recording, the runner
+and its API are not.
 
 ## Principles
 
