@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import {
   environments,
+  executions,
   environmentKeys,
   auditLogs,
   externalSubjectEnvironments,
@@ -20,6 +21,7 @@ import {
   getPublicConversation,
   getPublicExecution,
   listPublicMessages,
+  MAX_ACTIVE_WORKSPACE_EXECUTIONS,
   startPublicExecution,
 } from "./public-runtime.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
@@ -269,6 +271,45 @@ describe("public runtime repository", () => {
         conversationId: conversation.id,
         externalSubjectRecordId: fixture.subjectId,
       })
+    })
+  })
+  it("refuses new starts once a workspace holds too many queued or running Executions", async () => {
+    await withRollback(async (tx) => {
+      const fixture = await createRuntimeFixture(tx)
+      const start = (key: string) =>
+        startPublicExecution(tx, {
+          workspaceId: fixture.workspaceId,
+          environmentId: fixture.environmentId,
+          externalSubjectId: fixture.subjectId,
+          workflowId: fixture.workflowId,
+          startKind: "backend",
+          triggerPayload: { prompt: "hello" },
+          idempotency: {
+            actor: { kind: "environment_key", id: randomUUID() },
+            key,
+            requestHash: hashPublicRequest({ prompt: "hello" }),
+          },
+        })
+      const first = await start("busy-1")
+      if (first.outcome !== "created") throw new Error("Start refused early")
+      const { execution } = first
+      const copy = {
+        workspaceId: execution.workspaceId,
+        environmentId: execution.environmentId,
+        workflowId: execution.workflowId,
+        workflowVersionId: execution.workflowVersionId,
+        trigger: execution.trigger,
+        triggerPayload: execution.triggerPayload,
+      }
+      await tx
+        .insert(executions)
+        .values(
+          Array.from(
+            { length: MAX_ACTIVE_WORKSPACE_EXECUTIONS - 1 },
+            () => copy
+          )
+        )
+      expect((await start("busy-2")).outcome).toBe("workspace_busy")
     })
   })
   it("returns the original Execution for an identical retry and rejects changed input", async () => {

@@ -1,4 +1,14 @@
-import { and, desc, eq, isNotNull, isNull, lt, or } from "drizzle-orm"
+import {
+  and,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+} from "drizzle-orm"
 import { compileContractSchema } from "@linealabs/protocol/json-schema"
 import {
   environments,
@@ -140,6 +150,9 @@ async function bindingAllows(
     )
   return binding
 }
+
+/** Queued plus running Executions one workspace may hold; past it new starts are refused so one tenant can't fill the queue. */
+export const MAX_ACTIVE_WORKSPACE_EXECUTIONS = 200
 
 export type CreatePublicConversationResult =
   | { outcome: "created" | "replay"; conversation: Conversation }
@@ -297,6 +310,7 @@ export type StartPublicExecutionResult =
   | { outcome: "workflow_start_not_allowed" }
   | { outcome: "workflow_binding_incompatible" }
   | { outcome: "validation_failed" }
+  | { outcome: "workspace_busy" }
   | { outcome: "idempotency_conflict" }
 
 export async function startPublicExecution(
@@ -423,6 +437,19 @@ export async function startPublicExecution(
     if (!compileContractSchema(version.inputSchema)(input.triggerPayload)) {
       await releasePublicRequest(tx, reservation.recordId)
       return { outcome: "validation_failed" }
+    }
+    const [active] = await tx
+      .select({ total: count() })
+      .from(executions)
+      .where(
+        and(
+          eq(executions.workspaceId, input.workspaceId),
+          inArray(executions.status, ["queued", "running"])
+        )
+      )
+    if (active.total >= MAX_ACTIVE_WORKSPACE_EXECUTIONS) {
+      await releasePublicRequest(tx, reservation.recordId)
+      return { outcome: "workspace_busy" }
     }
     const [execution] = await tx
       .insert(executions)

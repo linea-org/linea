@@ -74,6 +74,10 @@ export const executionSteps = snakeCase.table(
       table.sequence
     ),
     index("execution_steps_trace_idx").on(table.traceId),
+    index("execution_steps_workspace_started_idx").on(
+      table.workspaceId,
+      table.startedAt
+    ),
     // Matches signal-dimensions' access pattern exactly (node + step name + status, then an
     // endedAt range scan) — without it, every signal-detail read was a full table scan of this,
     // the largest table in the schema.
