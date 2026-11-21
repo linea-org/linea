@@ -72,11 +72,11 @@ export async function resolveApiKey(
   ) {
     throw new ModelKeyMissingError(keyName)
   }
-  const used = await repositories.executionStep.sumWorkspaceTokensSince(
-    db,
-    workspaceId,
-    new Date(Date.now() - DAY_MS)
-  )
-  assertPlatformKeyBudget(used)
+  const since = new Date(Date.now() - DAY_MS)
+  const [steps, assistant] = await Promise.all([
+    repositories.executionStep.sumWorkspaceTokensSince(db, workspaceId, since),
+    repositories.assistantUsage.sumAssistantTokensSince(db, workspaceId, since),
+  ])
+  assertPlatformKeyBudget(steps + assistant)
   return { apiKey: platformKey, source: "platform" }
 }

@@ -8,6 +8,7 @@ import {
   isNull,
   lt,
   or,
+  sql,
 } from "drizzle-orm"
 import { compileContractSchema } from "@linealabs/protocol/json-schema"
 import {
@@ -151,8 +152,28 @@ async function bindingAllows(
   return binding
 }
 
-/** Queued plus running Executions one workspace may hold; past it new starts are refused so one tenant can't fill the queue. */
+/** Queued plus running Executions one workspace may hold. */
 export const MAX_ACTIVE_WORKSPACE_EXECUTIONS = 200
+
+/** Serializes starts per workspace, so concurrent starts can't both pass the cap. */
+export async function workspaceHasRoomToStart(
+  tx: DbClient,
+  workspaceId: string
+): Promise<boolean> {
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${`executions:${workspaceId}`}, 0))`
+  )
+  const [active] = await tx
+    .select({ total: count() })
+    .from(executions)
+    .where(
+      and(
+        eq(executions.workspaceId, workspaceId),
+        inArray(executions.status, ["queued", "running"])
+      )
+    )
+  return active.total < MAX_ACTIVE_WORKSPACE_EXECUTIONS
+}
 
 export type CreatePublicConversationResult =
   | { outcome: "created" | "replay"; conversation: Conversation }
@@ -438,16 +459,7 @@ export async function startPublicExecution(
       await releasePublicRequest(tx, reservation.recordId)
       return { outcome: "validation_failed" }
     }
-    const [active] = await tx
-      .select({ total: count() })
-      .from(executions)
-      .where(
-        and(
-          eq(executions.workspaceId, input.workspaceId),
-          inArray(executions.status, ["queued", "running"])
-        )
-      )
-    if (active.total >= MAX_ACTIVE_WORKSPACE_EXECUTIONS) {
+    if (!(await workspaceHasRoomToStart(tx, input.workspaceId))) {
       await releasePublicRequest(tx, reservation.recordId)
       return { outcome: "workspace_busy" }
     }

@@ -1,3 +1,4 @@
+import { db } from "../clients/index.js"
 import { fixtureIssuer } from "./test-utils.js"
 import { getTestApplicationId } from "./test-utils.js"
 import { randomUUID } from "node:crypto"
@@ -22,6 +23,7 @@ import {
   getPublicExecution,
   listPublicMessages,
   MAX_ACTIVE_WORKSPACE_EXECUTIONS,
+  workspaceHasRoomToStart,
   startPublicExecution,
 } from "./public-runtime.repository.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
@@ -311,6 +313,29 @@ describe("public runtime repository", () => {
         )
       expect((await start("busy-2")).outcome).toBe("workspace_busy")
     })
+  })
+  it("makes concurrent starts in one workspace wait for each other", async () => {
+    const workspaceId = randomUUID()
+    let release = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    let locked = () => {}
+    const lockTaken = new Promise<void>((resolve) => (locked = resolve))
+    const first = db.transaction(async (tx) => {
+      await workspaceHasRoomToStart(tx, workspaceId)
+      locked()
+      await held
+    })
+    await lockTaken
+    let secondDone = false
+    const second = db.transaction(async (tx) => {
+      await workspaceHasRoomToStart(tx, workspaceId)
+      secondDone = true
+    })
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(secondDone).toBe(false)
+    release()
+    await Promise.all([first, second])
+    expect(secondDone).toBe(true)
   })
   it("returns the original Execution for an identical retry and rejects changed input", async () => {
     await withRollback(async (tx) => {

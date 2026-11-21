@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "e6483e88-c766-4334-99ee-e763e1cc7cf5",
+  "id": "c6243c6d-1aba-4d24-8519-abae9d0f3219",
   "prevIds": [
     "05c902c4-8fb4-491b-8b5a-81bf7b96e6e7"
   ],
@@ -1011,6 +1011,12 @@
     {
       "isRlsEnabled": false,
       "name": "assistant_messages",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "assistant_usage",
       "entityType": "tables",
       "schema": "public"
     },
@@ -11285,6 +11291,58 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "assistant_usage"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "workspace_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "assistant_usage"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tokens",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "assistant_usage"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "assistant_usage"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "environment_agent_bindings"
     },
     {
@@ -16483,6 +16541,34 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "workspace_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "assistant_usage_workspace_created_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "assistant_usage"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "environment_id",
           "isExpression": false,
           "asc": true,
@@ -19657,6 +19743,23 @@
       "table": "assistant_messages"
     },
     {
+      "nameExplicit": false,
+      "columns": [
+        "workspace_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "organizations",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "assistant_usage_workspace_id_organizations_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "assistant_usage"
+    },
+    {
       "nameExplicit": true,
       "columns": [
         "environment_id",
@@ -20733,6 +20836,16 @@
       "name": "assistant_messages_pkey",
       "schema": "public",
       "table": "assistant_messages",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "assistant_usage_pkey",
+      "schema": "public",
+      "table": "assistant_usage",
       "entityType": "pks"
     },
     {

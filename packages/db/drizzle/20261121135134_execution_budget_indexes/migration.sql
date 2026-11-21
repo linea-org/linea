@@ -1,2 +1,0 @@
-CREATE INDEX "executions_workspace_active_idx" ON "executions" ("workspace_id") WHERE "status" in ('queued', 'running');--> statement-breakpoint
-CREATE INDEX "execution_steps_workspace_started_idx" ON "execution_steps" ("workspace_id","started_at");
