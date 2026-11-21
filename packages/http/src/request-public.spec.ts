@@ -433,8 +433,7 @@ describe("request resource limits", () => {
   })
   it("bounds DNS time and does not connect after late resolution", async () => {
     let finish:
-      | ((value: { address: string; family: number }[]) => void)
-      | undefined
+      ((value: { address: string; family: number }[]) => void) | undefined
     dns.mockImplementationOnce(
       () =>
         new Promise((resolve) => {

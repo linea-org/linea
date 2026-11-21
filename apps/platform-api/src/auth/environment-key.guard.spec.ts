@@ -24,8 +24,7 @@ afterAll(async () => {
 
 function contextWithRequest(
   request:
-    | Partial<EnvironmentAuthenticatedRequest>
-    | Partial<AuthenticatedRequest>,
+    Partial<EnvironmentAuthenticatedRequest> | Partial<AuthenticatedRequest>,
   handler: () => void,
 ): ExecutionContext {
   return {

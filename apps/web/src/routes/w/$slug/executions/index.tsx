@@ -146,12 +146,7 @@ function formatDuration(
 }
 
 type ExecutionSortColumn =
-  | "workflow"
-  | "status"
-  | "trigger"
-  | "duration"
-  | "cost"
-  | "when"
+  "workflow" | "status" | "trigger" | "duration" | "cost" | "when"
 type ExecutionSort = { column: ExecutionSortColumn; direction: SortDirection }
 
 function durationMs(execution: WorkspaceExecutionSummary) {

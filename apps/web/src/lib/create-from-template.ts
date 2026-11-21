@@ -4,8 +4,7 @@ import { getModelSetupFn, isModelReady } from "./model-settings-api"
 import { findTemplate } from "./workflow-templates"
 
 export type TemplateResult =
-  | { kind: "needs-model" }
-  | { kind: "created"; workflowId: string }
+  { kind: "needs-model" } | { kind: "created"; workflowId: string }
 
 /** Refuses to build anything until the workspace has chosen a model and added its key. */
 export async function createWorkflowFromTemplate(

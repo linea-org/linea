@@ -101,8 +101,7 @@ export async function claimPauseForPendingWait(
 }
 
 export type ClaimDueWaitTimerResult =
-  | { outcome: "empty" }
-  | { outcome: "fired"; waitTimer: WaitTimer }
+  { outcome: "empty" } | { outcome: "fired"; waitTimer: WaitTimer }
 
 /** Atomic claim-and-fire for the background-worker poller, mirroring claimAndFireDueSchedule's
  * and claimAndResolveTimedOutApproval's FOR UPDATE SKIP LOCKED shape so multiple worker instances

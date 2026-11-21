@@ -18,8 +18,7 @@ export type VerifyWebhookSignatureInput = {
 }
 
 export type WebhookVerificationResult =
-  | { valid: true; secret: "current" | "previous" }
-  | { valid: false }
+  { valid: true; secret: "current" | "previous" } | { valid: false }
 
 export type VerifiedWebhook = {
   valid: true

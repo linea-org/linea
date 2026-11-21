@@ -50,13 +50,11 @@ export function useMcpSecretNames(applicationId: string | undefined) {
   const names = [...new Set(byEnvironment.flatMap(({ keys }) => [...keys]))]
     .filter((name) => !modelKeys.has(name))
     .sort((a, b) => a.localeCompare(b))
-    .map(
-      (name): McpSecretName => ({
-        name,
-        missingIn: byEnvironment
-          .filter(({ keys }) => !keys.has(name))
-          .map(({ label }) => label),
-      })
-    )
+    .map((name): McpSecretName => ({
+      name,
+      missingIn: byEnvironment
+        .filter(({ keys }) => !keys.has(name))
+        .map(({ label }) => label),
+    }))
   return { names, error, pending: Boolean(applicationId) && pending }
 }

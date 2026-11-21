@@ -14,8 +14,7 @@ export type StepResult =
   | { nodeId: string; error: { message: string } }
 
 export type WalkResult =
-  | { status: "completed" }
-  | { status: "failed"; nodeId: string; error: string }
+  { status: "completed" } | { status: "failed"; nodeId: string; error: string }
 
 export type WalkOptions = {
   // Populate from checkpoints to resume — there is no separate "resume mode".

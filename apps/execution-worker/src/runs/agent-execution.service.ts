@@ -59,9 +59,7 @@ type Completion = z.infer<typeof completionSchema>
 type Completed = Awaited<ReturnType<CheckpointsService["getResumeState"]>>
 type ToolCall = NonNullable<Completion["toolCalls"]>[number]
 type ToolOutcome =
-  | { kind: "output"; output: unknown }
-  | { kind: "paused" }
-  | { kind: "resume" }
+  { kind: "output"; output: unknown } | { kind: "paused" } | { kind: "resume" }
 
 type RunContext = {
   execution: Execution

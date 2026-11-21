@@ -21,12 +21,12 @@ afterAll(async () => {
 
 class FakeController {
   @RequireWorkspaceKeyScopes('executions:read')
-  readExecutions() {}
+  readExecutions(this: void) {}
 
   @RequireWorkspaceKeyScopes('executions:read', 'executions:start')
-  startExecutions() {}
+  startExecutions(this: void) {}
 
-  sessionOnly() {}
+  sessionOnly(this: void) {}
 }
 
 type Handler = keyof FakeController

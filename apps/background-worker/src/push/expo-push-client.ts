@@ -8,8 +8,7 @@ export type ExpoPushPayload = {
 type ExpoErrorResult = { status: "error"; message: string; code?: string }
 
 export type ExpoPushTicketResult =
-  | { status: "ok"; id: string }
-  | ExpoErrorResult
+  { status: "ok"; id: string } | ExpoErrorResult
 
 export type ExpoPushReceiptResult = { status: "ok" } | ExpoErrorResult
 

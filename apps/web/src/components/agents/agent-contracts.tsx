@@ -52,8 +52,7 @@ export function AgentContracts({
                   <div className="mt-3 grid min-w-0 gap-4 sm:grid-cols-2">
                     {(
                       ["inputSchema", "outputSchema"] satisfies (
-                        | "inputSchema"
-                        | "outputSchema"
+                        "inputSchema" | "outputSchema"
                       )[]
                     ).map((name) => (
                       <div key={name} className="min-w-0">

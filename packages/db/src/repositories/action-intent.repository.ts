@@ -105,10 +105,7 @@ function connectionAuthorityBoundary(
   environment: typeof environments.$inferSelect | undefined,
   input: ConnectionAuthorityInput
 ):
-  | "authorized"
-  | "invalid"
-  | "reauthorization_required"
-  | "scope_insufficient" {
+  "authorized" | "invalid" | "reauthorization_required" | "scope_insufficient" {
   const providerPolicy = environment?.connectorAccessPolicy.providers.find(
     (candidate) => candidate.provider === input.provider
   )
