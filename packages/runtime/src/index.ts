@@ -8,6 +8,7 @@ export * from "./nodes/definitions/agent.node.js"
 export * from "./nodes/definitions/extract.node.js"
 export {
   mcpServerSchema,
+  mcpServersSchema,
   type McpServerConfig,
 } from "./nodes/definitions/ai.node.js"
 export * from "./nodes/definitions/evaluator.node.js"

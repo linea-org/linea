@@ -1,4 +1,5 @@
 import { Link, useParams } from "@tanstack/react-router"
+import { Controller, useFieldArray, useFormContext } from "react-hook-form"
 import { PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@linealabs/ui/components/button"
 import { Card, CardContent } from "@linealabs/ui/components/card"
@@ -11,17 +12,8 @@ import {
   SelectValue,
 } from "@linealabs/ui/components/select"
 
+import type { McpServersForm } from "./mcp-server-drafts"
 import type { McpSecretName } from "./use-mcp-secret-names"
-
-type HeaderDraft = { id: string; header: string; secret: string }
-
-export type ServerDraft = {
-  id: string
-  name: string
-  url: string
-  tools: string
-  headers: HeaderDraft[]
-}
 
 type SecretNames = {
   names: McpSecretName[]
@@ -77,44 +69,54 @@ function SecretPicker({
 }
 
 function HeaderRows({
-  draft,
+  index,
   secrets,
   applicationId,
-  onChange,
+  onEdit,
 }: Readonly<{
-  draft: ServerDraft
+  index: number
   secrets: SecretNames
   applicationId: string | undefined
-  onChange: (headers: HeaderDraft[]) => void
+  onEdit: () => void
 }>) {
   const { slug } = useParams({ strict: false })
-  const setRow = (id: string, patch: Partial<HeaderDraft>) =>
-    onChange(
-      draft.headers.map((row) => (row.id === id ? { ...row, ...patch } : row))
-    )
+  const { control, register, watch } = useFormContext<McpServersForm>()
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: `servers.${index}.headers`,
+  })
   return (
     <>
-      {draft.headers.map((row) => {
+      {fields.map((field, row) => {
+        const secret = watch(`servers.${index}.headers.${row}.secret`)
         const missingIn = secrets.names.find(
-          (secret) => secret.name === row.secret
+          (each) => each.name === secret
         )?.missingIn
         return (
-          <div key={row.id} className="flex flex-col gap-1">
+          <div key={field.id} className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <Input
                 placeholder="Header"
                 aria-label="Header"
-                value={row.header}
                 className="w-24 shrink-0"
-                onChange={(event) =>
-                  setRow(row.id, { header: event.target.value })
-                }
+                {...register(`servers.${index}.headers.${row}.header`, {
+                  onChange: onEdit,
+                })}
               />
               <div className="min-w-0 flex-1">
-                <SecretPicker
-                  value={row.secret}
-                  secrets={secrets}
-                  onChange={(secret) => setRow(row.id, { secret })}
+                <Controller
+                  control={control}
+                  name={`servers.${index}.headers.${row}.secret`}
+                  render={({ field: picker }) => (
+                    <SecretPicker
+                      value={picker.value}
+                      secrets={secrets}
+                      onChange={(next) => {
+                        picker.onChange(next)
+                        onEdit()
+                      }}
+                    />
+                  )}
                 />
               </div>
               <Button
@@ -122,9 +124,10 @@ function HeaderRows({
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Remove header"
-                onClick={() =>
-                  onChange(draft.headers.filter((each) => each.id !== row.id))
-                }
+                onClick={() => {
+                  remove(row)
+                  onEdit()
+                }}
               >
                 <XIcon />
               </Button>
@@ -156,12 +159,7 @@ function HeaderRows({
         variant="ghost"
         size="sm"
         className="self-start"
-        onClick={() =>
-          onChange([
-            ...draft.headers,
-            { id: crypto.randomUUID(), header: "Authorization", secret: "" },
-          ])
-        }
+        onClick={() => append({ header: "Authorization", secret: "" })}
       >
         <PlusIcon />
         Header
@@ -172,21 +170,22 @@ function HeaderRows({
 
 export function McpServerRow({
   id,
-  draft,
+  index,
   error,
   secrets,
   applicationId,
-  onChange,
+  onEdit,
   onRemove,
 }: Readonly<{
   id: string | undefined
-  draft: ServerDraft
+  index: number
   error: string | undefined
   secrets: SecretNames
   applicationId: string | undefined
-  onChange: (draft: ServerDraft) => void
+  onEdit: () => void
   onRemove: () => void
 }>) {
+  const { register } = useFormContext<McpServersForm>()
   return (
     <Card size="sm">
       <CardContent className="flex flex-col gap-2">
@@ -195,10 +194,7 @@ export function McpServerRow({
             id={id}
             placeholder="Name"
             aria-label="Server name"
-            value={draft.name}
-            onChange={(event) =>
-              onChange({ ...draft, name: event.target.value })
-            }
+            {...register(`servers.${index}.name`, { onChange: onEdit })}
           />
           <Button
             type="button"
@@ -213,22 +209,18 @@ export function McpServerRow({
         <Input
           placeholder="https://…/mcp"
           aria-label="Server URL"
-          value={draft.url}
-          onChange={(event) => onChange({ ...draft, url: event.target.value })}
+          {...register(`servers.${index}.url`, { onChange: onEdit })}
         />
         <Input
           placeholder="All tools"
           aria-label="Allowed tools"
-          value={draft.tools}
-          onChange={(event) =>
-            onChange({ ...draft, tools: event.target.value })
-          }
+          {...register(`servers.${index}.tools`, { onChange: onEdit })}
         />
         <HeaderRows
-          draft={draft}
+          index={index}
           secrets={secrets}
           applicationId={applicationId}
-          onChange={(headers) => onChange({ ...draft, headers })}
+          onEdit={onEdit}
         />
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </CardContent>

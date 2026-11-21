@@ -1,3 +1,4 @@
+import { Logger } from "@nestjs/common"
 import { providers, type ToolDefinition } from "@linealabs/ai"
 import {
   db,
@@ -32,6 +33,7 @@ export type McpToolSource = {
 const MAX_TOOLS = 40
 const MAX_LIST_PAGES = 5
 const toolNamePattern = /^[a-zA-Z0-9_-]{1,64}$/
+const logger = new Logger("McpToolSource")
 
 function guardedFetch(signal: AbortSignal | undefined): FetchLike {
   return async (url, init) => {
@@ -49,23 +51,25 @@ function guardedFetch(signal: AbortSignal | undefined): FetchLike {
     const signals = [init?.signal, signal].filter(
       (each): each is AbortSignal => each instanceof AbortSignal
     )
-    return requestPublic(url, {
-      method,
-      headers,
-      body: init?.body,
-      signal: signals.length > 0 ? AbortSignal.any(signals) : undefined,
-      timeoutMs: 30_000,
-      maxResponseBytes: 1_048_576,
-      allowLocalDevelopment:
-        process.env.NODE_ENV === "development" &&
-        process.env.EXECUTION_HTTP_ALLOW_LOCAL === "true",
-      requireHttps: true,
-      redirectMode: "same-origin",
-    }).catch((error: unknown) => {
+    try {
+      return await requestPublic(url, {
+        method,
+        headers,
+        body: init?.body,
+        signal: signals.length > 0 ? AbortSignal.any(signals) : undefined,
+        timeoutMs: 30_000,
+        maxResponseBytes: 1_048_576,
+        allowLocalDevelopment:
+          process.env.NODE_ENV === "development" &&
+          process.env.EXECUTION_HTTP_ALLOW_LOCAL === "true",
+        requireHttps: true,
+        redirectMode: "same-origin",
+      })
+    } catch (error) {
       if (error instanceof PermanentRequestError)
         throw new NonRetryableError(error.message, { cause: error })
       throw error
-    })
+    }
   }
 }
 
@@ -115,6 +119,11 @@ async function listServerTools(
     cursor = result.nextCursor
     if (!cursor) break
   }
+  if (cursor) {
+    throw new NonRetryableError(
+      `MCP server "${server.name}" lists its tools over more than ${MAX_LIST_PAGES} pages`
+    )
+  }
   if (!server.tools) return tools
   const listed = new Map(tools.map((tool) => [tool.name, tool]))
   return server.tools.map((name) => {
@@ -162,13 +171,21 @@ export async function openMcpTools(
     throw new NonRetryableError("MCP servers need an Environment to run in")
   }
   const sessions: Awaited<ReturnType<typeof connect>>[] = []
+  // Cleanup runs after the step's own outcome, so a failure here is logged rather than thrown.
   const close = async () => {
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       sessions.map(async ({ client, transport }) => {
-        await transport.terminateSession()
-        await client.close()
+        try {
+          await transport.terminateSession()
+        } finally {
+          await client.close()
+        }
       })
     )
+    for (const result of results) {
+      if (result.status === "rejected")
+        logger.warn(`Couldn't end an MCP session: ${String(result.reason)}`)
+    }
   }
   const byName = new Map<string, { client: Client; toolName: string }>()
   const tools: ToolDefinition[] = []

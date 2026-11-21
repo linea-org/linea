@@ -46,6 +46,10 @@ jest.mock("@linealabs/db", () => ({
 }))
 
 import {
+  Client,
+  StreamableHTTPClientTransport,
+} from "@modelcontextprotocol/client"
+import {
   startMcpServerFixture,
   type McpServerFixture,
 } from "../../../test/mcp-server.fixture"
@@ -152,6 +156,28 @@ describe("openMcpTools", () => {
     ).rejects.toThrow('can\'t be sent the model key "OPENAI_API_KEY"')
     expect(getSecret).not.toHaveBeenCalled()
     expect(fixture.requests).toEqual([])
+  })
+
+  it("fails rather than offer a partial list when tools span too many pages", async () => {
+    jest
+      .spyOn(Client.prototype, "listTools")
+      .mockResolvedValue({ tools: [], nextCursor: "more" })
+
+    await expect(openMcpTools([server()], "env1", undefined)).rejects.toThrow(
+      'MCP server "fixture" lists its tools over more than 5 pages'
+    )
+  })
+
+  it("still closes the client when ending the session fails", async () => {
+    jest
+      .spyOn(StreamableHTTPClientTransport.prototype, "terminateSession")
+      .mockRejectedValue(new Error("server gone"))
+    const close = jest.spyOn(Client.prototype, "close")
+    const mcp = await openMcpTools([server()], "env1", undefined)
+
+    await mcp.close()
+
+    expect(close).toHaveBeenCalledTimes(1)
   })
 
   it("refuses plain http outside local development", async () => {

@@ -19,10 +19,20 @@ export const mcpServerSchema = z.object({
   url: z.url({ protocol: /^https?$/ }),
   // Header name to Environment Secret name; values are read only when the step runs.
   headers: z.record(z.string(), z.string()).default({}),
-  tools: z.array(z.string()).optional(),
+  // Omitted offers every tool; an empty list is refused so it can't be read either way.
+  tools: z.array(z.string()).min(1).optional(),
 })
 
 export type McpServerConfig = z.infer<typeof mcpServerSchema>
+
+export const mcpServersSchema = z
+  .array(mcpServerSchema)
+  .max(5)
+  .refine(
+    (servers) =>
+      new Set(servers.map((server) => server.name)).size === servers.length,
+    "MCP server names must be unique"
+  )
 
 const aiInputSchema = z.object({
   prompt: z.string(),
@@ -32,15 +42,7 @@ const aiInputSchema = z.object({
   conversationId: z.string().optional(),
   // Empty/omitted keeps today's exact one-shot completion behavior — no tool-calling loop.
   tools: z.array(aiToolSchema).optional(),
-  mcpServers: z
-    .array(mcpServerSchema)
-    .max(5)
-    .refine(
-      (servers) =>
-        new Set(servers.map((server) => server.name)).size === servers.length,
-      "MCP server names must be unique"
-    )
-    .optional(),
+  mcpServers: mcpServersSchema.optional(),
   // Not yet UI-exposed — caps the tool-calling loop; defaulted by the execution-worker handler.
   maxIterations: z.number().int().positive().max(25).optional(),
   // Empty/omitted keeps today's exact behavior — no memory lookup at all.

@@ -49,7 +49,7 @@ export function useMcpSecretNames(applicationId: string | undefined) {
   }))
   const names = [...new Set(byEnvironment.flatMap(({ keys }) => [...keys]))]
     .filter((name) => !modelKeys.has(name))
-    .sort()
+    .sort((a, b) => a.localeCompare(b))
     .map(
       (name): McpSecretName => ({
         name,

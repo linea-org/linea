@@ -1,55 +1,21 @@
-import { useState } from "react"
+import { useEffect, useRef } from "react"
+import { FormProvider, useFieldArray, useForm, useWatch } from "react-hook-form"
 import { PlusIcon } from "lucide-react"
 import {
-  mcpServerSchema,
+  mcpServersSchema,
   type McpServerConfig,
 } from "@linealabs/runtime/browser"
 import { Button } from "@linealabs/ui/components/button"
 
-import { McpServerRow, type ServerDraft } from "./mcp-server-row"
+import { checkDrafts, toDrafts, type McpServersForm } from "./mcp-server-drafts"
+import { McpServerRow } from "./mcp-server-row"
 import { useMcpSecretNames } from "./use-mcp-secret-names"
 
 const MAX_SERVERS = 5
 
-function toDrafts(value: unknown): ServerDraft[] {
-  const parsed = mcpServerSchema.array().safeParse(value)
-  if (!parsed.success) return []
-  return parsed.data.map((server) => ({
-    id: crypto.randomUUID(),
-    name: server.name,
-    url: server.url,
-    tools: server.tools?.join(", ") ?? "",
-    headers: Object.entries(server.headers).map(([header, secret]) => ({
-      id: crypto.randomUUID(),
-      header,
-      secret,
-    })),
-  }))
-}
-
-function toConfig(draft: ServerDraft) {
-  const tools = draft.tools
-    .split(",")
-    .map((tool) => tool.trim())
-    .filter(Boolean)
-  return {
-    name: draft.name.trim(),
-    url: draft.url.trim(),
-    headers: Object.fromEntries(
-      draft.headers
-        .filter((row) => row.header.trim() && row.secret)
-        .map((row) => [row.header.trim(), row.secret])
-    ),
-    ...(tools.length > 0 ? { tools } : {}),
-  }
-}
-
-function draftError(draft: ServerDraft): string | undefined {
-  const result = mcpServerSchema.safeParse(toConfig(draft))
-  if (result.success) return undefined
-  return result.error.issues[0]?.path[0] === "name"
-    ? "Name: up to 20 letters, digits or -"
-    : "Enter the server's https URL"
+function readServers(value: unknown) {
+  const parsed = mcpServersSchema.safeParse(value ?? [])
+  return { servers: parsed.success ? toDrafts(parsed.data) : [], parsed }
 }
 
 export function McpServersField({
@@ -63,55 +29,76 @@ export function McpServersField({
   value: unknown
   onChange: (servers: McpServerConfig[] | undefined) => void
 }>) {
-  const [drafts, setDrafts] = useState(() => toDrafts(value))
+  const form = useForm<McpServersForm>({
+    defaultValues: { servers: readServers(value).servers },
+  })
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "servers",
+  })
+  const drafts = useWatch({ control: form.control, name: "servers" })
+  const { errors } = checkDrafts(drafts)
   const secrets = useMcpSecretNames(applicationId)
+  const saved = useRef(JSON.stringify(value ?? null))
+
+  // A change saved elsewhere (a collaborator, Inky) replaces the form; our own saves match `saved`.
+  useEffect(() => {
+    const incoming = JSON.stringify(value ?? null)
+    if (incoming === saved.current) return
+    saved.current = incoming
+    form.reset({ servers: readServers(value).servers })
+  }, [value, form])
+
   // Only a fully valid list is saved, like the JSON fields: a half-typed server never reaches a run.
-  function update(next: ServerDraft[]) {
-    setDrafts(next)
-    if (next.length === 0) return onChange(undefined)
-    if (next.some((draft) => draftError(draft))) return
-    onChange(next.map((draft) => mcpServerSchema.parse(toConfig(draft))))
+  function save() {
+    const { servers } = checkDrafts(form.getValues("servers"))
+    if (!servers) return
+    const next = servers.length > 0 ? servers : undefined
+    saved.current = JSON.stringify(next ?? null)
+    onChange(next)
   }
+
   return (
-    <div className="flex flex-col gap-3">
-      {drafts.map((draft, index) => (
-        <McpServerRow
-          key={draft.id}
-          id={index === 0 ? id : undefined}
-          draft={draft}
-          error={draft.name || draft.url ? draftError(draft) : undefined}
-          secrets={secrets}
-          applicationId={applicationId}
-          onChange={(changed) =>
-            update(
-              drafts.map((each) => (each.id === draft.id ? changed : each))
-            )
-          }
-          onRemove={() => update(drafts.filter((each) => each.id !== draft.id))}
-        />
-      ))}
-      {drafts.length < MAX_SERVERS ? (
-        <Button
-          type="button"
-          variant="outline"
-          className="self-start"
-          onClick={() =>
-            update([
-              ...drafts,
-              {
-                id: crypto.randomUUID(),
-                name: "",
-                url: "",
-                tools: "",
-                headers: [],
-              },
-            ])
-          }
-        >
-          <PlusIcon />
-          Add server
-        </Button>
-      ) : null}
-    </div>
+    <FormProvider {...form}>
+      <div className="flex flex-col gap-3">
+        {value !== undefined && !readServers(value).parsed.success ? (
+          <p className="text-xs text-destructive">
+            The saved servers aren&apos;t valid
+          </p>
+        ) : null}
+        {fields.map((field, index) => (
+          <McpServerRow
+            key={field.id}
+            id={index === 0 ? id : undefined}
+            index={index}
+            error={
+              drafts[index]?.name || drafts[index]?.url
+                ? errors[index]
+                : undefined
+            }
+            secrets={secrets}
+            applicationId={applicationId}
+            onEdit={save}
+            onRemove={() => {
+              remove(index)
+              save()
+            }}
+          />
+        ))}
+        {fields.length < MAX_SERVERS ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="self-start"
+            onClick={() =>
+              append({ name: "", url: "", tools: "", headers: [] })
+            }
+          >
+            <PlusIcon />
+            Add server
+          </Button>
+        ) : null}
+      </div>
+    </FormProvider>
   )
 }
