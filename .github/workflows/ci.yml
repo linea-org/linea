@@ -240,7 +240,7 @@ jobs:
         run: pnpm db:migrate
 
       - name: Run Connections and Action Consent launch gate
-        run: pnpm test:connections-launch
+        run: pnpm test:connections-launch:ci
 
   build:
     name: Build

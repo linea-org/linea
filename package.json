@@ -15,6 +15,7 @@
     "test": "turbo test",
     "test:launch": "node scripts/first-launch-gate.mjs",
     "test:connections-launch": "node scripts/connections-launch-gate.mjs",
+    "test:connections-launch:ci": "node scripts/connections-launch-gate.mjs --ci",
     "db:up": "pnpm --filter @linealabs/db db:up",
     "db:down": "pnpm --filter @linealabs/db db:down",
     "db:logs": "pnpm --filter @linealabs/db db:logs",
