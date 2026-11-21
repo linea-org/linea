@@ -15,7 +15,7 @@ export type RecordedEffect = {
   connectionId: string
   sequence: number
   outcome: "succeeded" | "failed" | "unknown"
-  /** False for a write that was rejected or still awaited consent, so never reached the provider. */
+  /** False for a write that was rejected or still awaited consent: it never reached the provider. */
   executed: boolean
   result: unknown
   /** False when the stored result was redacted or truncated. */
@@ -110,7 +110,8 @@ function eligibility(
   return undefined
 }
 
-/** Identities recorded more than once with differing results: an ordinal cannot say which occurrence a changed run meant. */
+/** Identities recorded more than once with differing results, where an ordinal cannot say which
+ * occurrence a changed run meant. */
 function ambiguousIdentities(recordings: RecordedEffect[]): Set<string> {
   const results = new Map<string, Set<string>>()
   for (const recording of recordings) {
@@ -125,7 +126,8 @@ function ambiguousIdentities(recordings: RecordedEffect[]): Set<string> {
   )
 }
 
-/** Answers a diagnostic run's effect calls from the source Execution's recordings, strictly in recorded order; once unavailable it stays unavailable. */
+/** Answers a diagnostic run's effect calls from the source Execution's recordings, strictly in
+ * recorded order. Once unavailable it stays unavailable. */
 export function createRecordedEffectMatcher(
   recordings: RecordedEffect[],
   scope: DiagnosticScope
@@ -193,7 +195,7 @@ export function createRecordedEffectMatcher(
         sequence: recording.sequence,
       }
     },
-    /** Leftover recordings are differences, never a pass; a leftover ambiguous identity makes the run unavailable. */
+    /** Leftover recordings are differences, never a pass; a leftover ambiguous identity is unavailable. */
     finish(): MatchingOutcome {
       if (stopped) return stopped
       const unconsumed = ordered.slice(cursor)
