@@ -13,5 +13,7 @@ export type AssistantToolScope = {
   applicationId: string
   userId: string
   workflowId: string | null
+  /** The Development Environment, whose deployed Agents and model key the assistant uses. */
+  environmentId: string
   web: boolean
 }

@@ -190,11 +190,18 @@ describe('AssistantService', () => {
       f.workflow.id,
       { ...request, tools: { web: true } },
     )
+    const dev = await repositories.environment.getWorkflowEnvironment(
+      db,
+      f.workspace.id,
+      f.workflow.id,
+      'dev',
+    )
     expect(tools.run).toHaveBeenCalledWith(fetchCall, {
       workspaceId: f.workspace.id,
       applicationId: f.application.id,
       userId: f.user.id,
       workflowId: f.workflow.id,
+      environmentId: dev?.id,
       web: true,
     })
     expect(answer.reply).toBe('The page says hello.')
@@ -217,7 +224,7 @@ describe('AssistantService', () => {
       f.workflow.id,
       request,
     )
-    expect(off.complete.mock.calls[0][2].tools).toHaveLength(3)
+    expect(off.complete.mock.calls[0][2].tools).toHaveLength(4)
     const on = modelReturning('hi')
     await new AssistantService(on, noTools).replyForWorkflow(
       f.workspace.id,
@@ -225,7 +232,7 @@ describe('AssistantService', () => {
       f.workflow.id,
       { ...request, tools: { web: true } },
     )
-    expect(on.complete.mock.calls[0][2].tools).toHaveLength(4)
+    expect(on.complete.mock.calls[0][2].tools).toHaveLength(5)
   })
 
   it('stops after too many tool rounds', async () => {

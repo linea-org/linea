@@ -6,6 +6,8 @@ import { getExecutionFn } from "@/lib/executions-api"
 import type { Proposal } from "./proposal"
 
 const POLL_MS = 1000
+// A run pauses while an Agent step's child run works, or for an approval that may take much longer.
+const PAUSED_POLL_MS = 5000
 
 /** Runs a proposal on the hidden scratch workflow and follows the run until it settles. */
 export function useProposalRun() {
@@ -24,7 +26,8 @@ export function useProposalRun() {
     enabled: executionId !== undefined,
     refetchInterval: (query) => {
       const status = query.state.data?.execution.status
-      return status === "queued" || status === "running" ? POLL_MS : false
+      if (status === "queued" || status === "running") return POLL_MS
+      return status === "paused" ? PAUSED_POLL_MS : false
     },
   })
   return { start, run, executionId }

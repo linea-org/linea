@@ -6,6 +6,7 @@ const scope = {
   applicationId: 'a',
   userId: 'u',
   workflowId: null,
+  environmentId: 'e',
   web: false,
 }
 const selfTest = { run: jest.fn() } as unknown as AssistantSelfTest
@@ -14,9 +15,13 @@ const names = (on: Parameters<typeof assistantTools>[0]) =>
 
 describe('AssistantTools', () => {
   it('offers run history inside a workflow and the web tool when switched on', () => {
-    expect(names({ web: false, workflowId: null })).toEqual(['test_run_draft'])
+    expect(names({ web: false, workflowId: null })).toEqual([
+      'test_run_draft',
+      'list_agents',
+    ])
     expect(names({ web: true, workflowId: 'wf' })).toEqual([
       'test_run_draft',
+      'list_agents',
       'get_recent_runs',
       'get_run',
       'fetch_url',
@@ -30,7 +35,7 @@ describe('AssistantTools', () => {
     )
     expect(outcome.action).toBeNull()
     expect(outcome.content).toContain(
-      'Available tools: test_run_draft, fetch_url',
+      'Available tools: test_run_draft, list_agents, fetch_url',
     )
   })
 

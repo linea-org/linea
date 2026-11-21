@@ -52,6 +52,7 @@ function untestableReason(graph: WorkflowGraph): string | null {
     if (node.type === 'ai' && !onlyReadTools(node.config.tools)) {
       return `"${node.id}" gives its model a tool that is not GET`
     }
+    if (node.type === 'agent') return `"${node.id}" runs an Agent`
     const method = node.type === 'http' ? (node.config.method ?? 'GET') : 'GET'
     if (method !== 'GET') return `"${node.id}" sends a request that is not GET`
   }
