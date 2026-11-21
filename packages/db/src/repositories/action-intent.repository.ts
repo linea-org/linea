@@ -753,6 +753,11 @@ export async function claimApprovedActionIntent(
         intent: snapshot,
       }
     }
+    // A cancel holds the Approval Request while its audit rows reference the rows locked below (#359).
+    const lockKey = `action-intent-execution:${snapshot.executionId}`
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
+    )
     const [decisionSnapshot] = await tx
       .select()
       .from(approvalDecisions)
