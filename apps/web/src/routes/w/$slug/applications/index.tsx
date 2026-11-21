@@ -28,6 +28,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@linealabs/ui/components/tabs"
 import { Badge } from "@linealabs/ui/components/badge"
 import { Card } from "@linealabs/ui/components/card"
+import { cn } from "@linealabs/ui/lib/utils"
 import { PlayfulAvatar } from "@/components/avatar"
 import { ApplicationFilters } from "@/components/applications/application-filters"
 import { CreateApplicationDialog } from "@/components/applications/create-application-dialog"
@@ -134,84 +135,88 @@ function ApplicationsPage() {
       )
     }
     return (
-      <div>
-        <Card className="gap-0 py-0">
-          <Table>
-            <TableHeader className="bg-muted/40">
-              <TableRow className="hover:bg-transparent">
-                <SortableTableHead
-                  column="name"
-                  label="Application"
-                  sorts={sorts}
-                  onSort={onSort}
-                />
-                <SortableTableHead
-                  column="agents"
-                  label="Agents"
-                  sorts={sorts}
-                  onSort={onSort}
-                />
-                <SortableTableHead
-                  column="workflows"
-                  label="Workflows"
-                  sorts={sorts}
-                  onSort={onSort}
-                />
-                <SortableTableHead
-                  column="updated"
-                  label="Updated"
-                  sorts={sorts}
-                  onSort={onSort}
-                />
-                <TableHead className="w-12 px-2">
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((application) => (
-                <TableRow key={application.id}>
-                  <TableCell className="px-4">
-                    <Link
-                      to="/w/$slug/applications/$applicationId"
-                      params={{ slug, applicationId: application.id }}
-                      className="flex min-w-0 items-center gap-3"
-                    >
-                      <PlayfulAvatar
-                        name={application.name}
-                        shape="rounded"
-                        className="size-6"
-                      />
-                      <span className="truncate text-sm font-medium">
-                        {application.name}
-                      </span>
-                    </Link>
-                  </TableCell>
-                  <TableCell className="px-4 text-muted-foreground tabular-nums">
-                    {application.agentCount}
-                  </TableCell>
-                  <TableCell className="px-4 text-muted-foreground tabular-nums">
-                    {application.workflowCount}
-                  </TableCell>
-                  <TableCell className="px-4 text-muted-foreground tabular-nums">
-                    {formatDate(application.updatedAt)}
-                  </TableCell>
-                  <TableCell className="px-2 text-right">
-                    <ApplicationCardMenu
-                      workspaceSlug={slug}
-                      application={application}
+      <Card className="min-h-0 gap-0 py-0">
+        <Table stickyHeader>
+          <TableHeader className="bg-muted/40">
+            <TableRow className="hover:bg-transparent">
+              <SortableTableHead
+                column="name"
+                label="Application"
+                sorts={sorts}
+                onSort={onSort}
+              />
+              <SortableTableHead
+                column="agents"
+                label="Agents"
+                sorts={sorts}
+                onSort={onSort}
+              />
+              <SortableTableHead
+                column="workflows"
+                label="Workflows"
+                sorts={sorts}
+                onSort={onSort}
+              />
+              <SortableTableHead
+                column="updated"
+                label="Updated"
+                sorts={sorts}
+                onSort={onSort}
+              />
+              <TableHead className="w-12 px-2">
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visible.map((application) => (
+              <TableRow key={application.id}>
+                <TableCell className="px-4">
+                  <Link
+                    to="/w/$slug/applications/$applicationId"
+                    params={{ slug, applicationId: application.id }}
+                    className="flex min-w-0 items-center gap-3"
+                  >
+                    <PlayfulAvatar
+                      name={application.name}
+                      shape="rounded"
+                      className="size-6"
                     />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-      </div>
+                    <span className="truncate text-sm font-medium">
+                      {application.name}
+                    </span>
+                  </Link>
+                </TableCell>
+                <TableCell className="px-4 text-muted-foreground tabular-nums">
+                  {application.agentCount}
+                </TableCell>
+                <TableCell className="px-4 text-muted-foreground tabular-nums">
+                  {application.workflowCount}
+                </TableCell>
+                <TableCell className="px-4 text-muted-foreground tabular-nums">
+                  {formatDate(application.updatedAt)}
+                </TableCell>
+                <TableCell className="px-2 text-right">
+                  <ApplicationCardMenu
+                    workspaceSlug={slug}
+                    application={application}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
     )
   }
   return (
-    <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
+    <main
+      className={cn(
+        "flex min-w-0 flex-1 flex-col gap-4 p-4",
+        // Bounds the list's card so the table scrolls inside it; the grid scrolls with the page.
+        view === "list" && "min-h-0"
+      )}
+    >
       <PageToolbar>
         <ToolbarSearch
           value={query}
