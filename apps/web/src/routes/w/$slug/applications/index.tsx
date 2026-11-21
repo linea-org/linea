@@ -291,6 +291,7 @@ function ApplicationsPage() {
             }
           />
           <Button
+            nativeButton={false}
             render={<Link to="/w/$slug/agents/new" params={{ slug }} />}
             {...shortcutTarget("add-agent")}
           >
