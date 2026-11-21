@@ -87,7 +87,7 @@ function describeStep(step: ExecutionStep): string {
   return `- ${step.nodeId} (${step.status}) ${detail.slice(0, MAX_STEP_CHARS)}`
 }
 
-/** Runs on the Application's hidden scratch workflow, the same place a member's proposal run goes. */
+/** Runs on the Application's hidden scratch workflow, where a member's proposal runs too. */
 @Injectable()
 export class AssistantSelfTest {
   async run(

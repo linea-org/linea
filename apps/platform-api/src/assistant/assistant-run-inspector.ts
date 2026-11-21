@@ -39,7 +39,7 @@ function capped(lines: string[]): string {
     : text
 }
 
-/** With hideContent, only statuses and errors are shown, never what an End-User sent or got back. */
+/** With hideContent, only statuses and errors show, never what an End-User sent or got back. */
 function describeStep(step: ExecutionStep, hideContent: boolean): string {
   const detail = step.error
     ? `error: ${step.error.message}`

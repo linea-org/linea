@@ -16,7 +16,7 @@ type AgentScope = Pick<
   'workspaceId' | 'applicationId' | 'environmentId'
 >
 
-/** An Agent is usable in a draft only through the Contract revision deployed and enabled in Development. */
+/** A draft uses an Agent only via its Contract revision deployed and enabled in Development. */
 async function deployedAgents(scope: AgentScope) {
   const [agents, bindings] = await Promise.all([
     repositories.agent.listAgents(db, scope.workspaceId, scope.applicationId),

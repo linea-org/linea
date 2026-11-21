@@ -526,7 +526,8 @@ export async function getExecutionWithSteps(
   return { execution, steps }
 }
 
-/** Stops an unfinished builder draft run: the worker can no longer renew its lease, and a queued run is never claimed. Saves the finished steps' totals, which the worker can no longer write. */
+/** Stops an unfinished draft run so its lease can't be renewed, and saves the finished steps'
+ * totals, which the worker can no longer write. */
 export function cancelDraftExecution(
   db: DbClient,
   workspaceId: string,

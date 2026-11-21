@@ -144,7 +144,7 @@ function apply(graph: WorkflowGraph, operation: Operation): void {
   }
 }
 
-/** The graph the model builds up with edit_draft during one reply; null when the canvas graph could not be read. */
+/** The graph the model builds with edit_draft in one reply; null when the canvas was unreadable. */
 export class GraphDraft {
   private constructor(private graph: WorkflowGraph | null) {}
 
