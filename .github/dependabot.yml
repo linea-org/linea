@@ -6,6 +6,11 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    # NestJS 12 is ESM-only and the apps are CommonJS, so it needs a planned migration.
+    ignore:
+      - dependency-name: "@nestjs/*"
+        update-types:
+          - version-update:semver-major
     groups:
       minor-and-patch:
         update-types:
