@@ -11,7 +11,10 @@ import { validateAssistantGraph } from './assistant-graph'
 import { AssistantModel } from './assistant-model'
 import { AssistantModelUnavailableError } from './assistant-model-error'
 import { AssistantOutputError } from './assistant-output-error'
-import type { AssistantAction } from './assistant-tool-outcome'
+import type {
+  AssistantAction,
+  AssistantToolScope,
+} from './assistant-tool-contract'
 import { AssistantTools, assistantTools } from './assistant-tools'
 import {
   buildAssistantSystemPrompt,
@@ -19,7 +22,6 @@ import {
   withAttachments,
 } from './assistant-prompt'
 import { parseAssistantReply } from './assistant-reply'
-import type { SelfTestScope } from './assistant-self-test'
 import type { AssistantMessageDto } from './dto/assistant-message.dto'
 
 const MAX_ATTEMPTS = 2
@@ -76,8 +78,13 @@ export class AssistantService {
       throw new NotFoundException('Development Environment not found')
     }
     return this.converse(
-      { workspaceId, userId, applicationId: workflow.applicationId },
-      workflowId,
+      {
+        workspaceId,
+        userId,
+        applicationId: workflow.applicationId,
+        workflowId,
+        web: input.tools.web,
+      },
       environment.id,
       input,
     )
@@ -105,8 +112,13 @@ export class AssistantService {
       throw new NotFoundException('Development Environment not found')
     }
     return this.converse(
-      { workspaceId, userId, applicationId },
-      null,
+      {
+        workspaceId,
+        userId,
+        applicationId,
+        workflowId: null,
+        web: input.tools.web,
+      },
       environment.id,
       input,
     )
@@ -114,12 +126,11 @@ export class AssistantService {
 
   /** Saves the chat as it goes, and takes the model's context from what was saved, not from the browser. */
   private async converse(
-    scope: SelfTestScope,
-    workflowId: string | null,
+    scope: AssistantToolScope,
     environmentId: string,
     input: AssistantMessageDto,
   ): Promise<AssistantAnswer> {
-    const { workspaceId, userId } = scope
+    const { workspaceId, userId, workflowId } = scope
     const conversation = await this.openConversation(
       workspaceId,
       userId,
@@ -205,7 +216,7 @@ export class AssistantService {
   }
 
   private async think(
-    scope: SelfTestScope,
+    scope: AssistantToolScope,
     environmentId: string,
     input: AssistantMessageDto,
     history: ConversationTurn[],
@@ -220,7 +231,7 @@ export class AssistantService {
     let toolRounds = 0
     for (;;) {
       const result = await this.completeTurn(
-        scope.workspaceId,
+        scope,
         environmentId,
         input,
         history,
@@ -237,12 +248,7 @@ export class AssistantService {
           )
         }
         history.push({ role: 'assistant', toolCalls: result.toolCalls })
-        await this.runToolCalls(
-          result.toolCalls,
-          { ...scope, web: input.tools.web },
-          history,
-          actions,
-        )
+        await this.runToolCalls(result.toolCalls, scope, history, actions)
         continue
       }
       try {
@@ -264,7 +270,7 @@ export class AssistantService {
   }
 
   private async completeTurn(
-    workspaceId: string,
+    scope: AssistantToolScope,
     environmentId: string,
     input: AssistantMessageDto,
     history: ConversationTurn[],
@@ -272,13 +278,13 @@ export class AssistantService {
   ) {
     const result = await this.model
       .complete(
-        workspaceId,
+        scope.workspaceId,
         environmentId,
         {
-          systemPrompt: buildAssistantSystemPrompt(input.tools),
+          systemPrompt: buildAssistantSystemPrompt(scope),
           history: [...history],
           prompt,
-          tools: assistantTools(input.tools),
+          tools: assistantTools(scope),
           maxTokens: MAX_OUTPUT_TOKENS,
           temperature: 0.2,
         },
@@ -297,7 +303,7 @@ export class AssistantService {
   /** Sequential on purpose: each tool result is appended to the history in call order. */
   private async runToolCalls(
     calls: ToolCall[],
-    scope: SelfTestScope & { web: boolean },
+    scope: AssistantToolScope,
     history: ConversationTurn[],
     actions: AssistantAction[],
   ) {

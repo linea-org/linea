@@ -6,6 +6,7 @@ import {
   CopyIcon,
   FlaskConicalIcon,
   GlobeIcon,
+  HistoryIcon,
   RotateCcwIcon,
   WorkflowIcon,
 } from "lucide-react"
@@ -165,6 +166,16 @@ function ActionChip({
       <Badge variant={action.status === "succeeded" ? "outline" : "warning"}>
         <FlaskConicalIcon />
         {`Test run ${action.status}`}
+      </Badge>
+    )
+  }
+  if (action.kind === "inspect_runs") {
+    return (
+      <Badge variant="outline">
+        <HistoryIcon />
+        {action.executionId
+          ? `Read run ${action.executionId.slice(0, 8)}`
+          : "Read recent runs"}
       </Badge>
     )
   }

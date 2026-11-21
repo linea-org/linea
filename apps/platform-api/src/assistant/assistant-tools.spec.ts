@@ -1,16 +1,24 @@
 import type { AssistantSelfTest } from './assistant-self-test'
 import { AssistantTools, assistantTools } from './assistant-tools'
 
-const scope = { workspaceId: 'w', applicationId: 'a', userId: 'u' }
+const scope = {
+  workspaceId: 'w',
+  applicationId: 'a',
+  userId: 'u',
+  workflowId: null,
+  web: false,
+}
 const selfTest = { run: jest.fn() } as unknown as AssistantSelfTest
+const names = (on: Parameters<typeof assistantTools>[0]) =>
+  assistantTools(on).map((tool) => tool.name)
 
 describe('AssistantTools', () => {
-  it('always offers the self-test, and the web tool only when switched on', () => {
-    expect(assistantTools({ web: false }).map((tool) => tool.name)).toEqual([
+  it('offers run history inside a workflow and the web tool when switched on', () => {
+    expect(names({ web: false, workflowId: null })).toEqual(['test_run_draft'])
+    expect(names({ web: true, workflowId: 'wf' })).toEqual([
       'test_run_draft',
-    ])
-    expect(assistantTools({ web: true }).map((tool) => tool.name)).toEqual([
-      'test_run_draft',
+      'get_recent_runs',
+      'get_run',
       'fetch_url',
     ])
   })
@@ -21,15 +29,19 @@ describe('AssistantTools', () => {
       { ...scope, web: true },
     )
     expect(outcome.action).toBeNull()
-    expect(outcome.content).toContain('test_run_draft, fetch_url')
+    expect(outcome.content).toContain(
+      'Available tools: test_run_draft, fetch_url',
+    )
   })
 
-  it('refuses to fetch while the web tool is switched off', async () => {
-    const outcome = await new AssistantTools(selfTest).run(
-      { id: '1', name: 'fetch_url', arguments: { url: 'https://example.com' } },
-      { ...scope, web: false },
-    )
-    expect(outcome.action).toBeNull()
-    expect(outcome.content).toContain('not valid')
-  })
+  it.each(['fetch_url', 'get_run'])(
+    'refuses %s when it was not offered',
+    async (name) => {
+      const outcome = await new AssistantTools(selfTest).run(
+        { id: '1', name, arguments: { url: 'https://example.com' } },
+        scope,
+      )
+      expect(outcome.content).toContain('not valid')
+    },
+  )
 })

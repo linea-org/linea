@@ -6,7 +6,7 @@ import {
 } from './assistant-prompt'
 
 describe('assistant prompt', () => {
-  const prompt = buildAssistantSystemPrompt({ web: false })
+  const prompt = buildAssistantSystemPrompt({ web: false, workflowId: null })
 
   it('describes every allowed node type from the registry', () => {
     for (const type of ASSISTANT_NODE_TYPES) {
@@ -33,9 +33,18 @@ describe('assistant prompt', () => {
     expect(prompt).toContain('test_run_draft')
   })
 
+  it('points the model at run history only inside a workflow', () => {
+    expect(prompt).not.toContain('get_recent_runs')
+    expect(
+      buildAssistantSystemPrompt({ web: false, workflowId: 'wf' }),
+    ).toContain('get_recent_runs')
+  })
+
   it('mentions the web tool only when it is switched on', () => {
     expect(prompt).not.toContain('fetch_url')
-    expect(buildAssistantSystemPrompt({ web: true })).toContain('fetch_url')
+    expect(
+      buildAssistantSystemPrompt({ web: true, workflowId: null }),
+    ).toContain('fetch_url')
   })
 
   it('shows attached files to the model as data, after the request', () => {

@@ -21,6 +21,10 @@ const assistantActionSchema = z.discriminatedUnion("kind", [
     executionId: z.string(),
     status: z.string(),
   }),
+  z.object({
+    kind: z.literal("inspect_runs"),
+    executionId: z.string().nullable(),
+  }),
 ])
 
 export type AssistantAction = z.infer<typeof assistantActionSchema>

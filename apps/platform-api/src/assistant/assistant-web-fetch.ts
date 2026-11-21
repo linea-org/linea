@@ -1,6 +1,6 @@
 import type { ToolDefinition } from '@linealabs/ai'
 import { PermanentRequestError, requestPublic } from '@linealabs/http'
-import type { ToolOutcome } from './assistant-tool-outcome'
+import type { ToolOutcome } from './assistant-tool-contract'
 
 export const WEB_TOOL: ToolDefinition = {
   name: 'fetch_url',
