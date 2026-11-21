@@ -194,7 +194,7 @@ function WorkflowsListPage() {
     />
   )
   return (
-    <main className="flex min-w-0 flex-1 flex-col gap-4 p-4">
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 p-4">
       <PageToolbar>
         <ToolbarSearch
           value={search}
@@ -233,123 +233,121 @@ function WorkflowsListPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div>
-          <Card className="gap-0 py-0">
-            <Table>
-              <TableHeader className="bg-muted/40">
-                <TableRow className="hover:bg-transparent">
-                  <SortableTableHead
-                    column="workflow"
-                    label="Workflow"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <SortableTableHead
-                    column="application"
-                    label="Application"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <SortableTableHead
-                    column="status"
-                    label="Status"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <SortableTableHead
-                    column="updated"
-                    label="Updated"
-                    sorts={sorts}
-                    onSort={onSort}
-                  />
-                  <TableHead className="w-12 px-2">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((workflow) => {
-                  const applicationName =
-                    applications.find(
-                      (application) => application.id === workflow.applicationId
-                    )?.name ?? "View Application"
-                  return (
-                    <TableRow key={workflow.id}>
-                      <TableCell className="px-4">
-                        <Link
-                          to="/w/$slug/workflows/$workflowId"
-                          params={{ slug, workflowId: workflow.id }}
-                          className="flex min-w-0 items-center gap-3"
+        <Card className="min-h-0 gap-0 py-0">
+          <Table stickyHeader>
+            <TableHeader className="bg-muted/40">
+              <TableRow className="hover:bg-transparent">
+                <SortableTableHead
+                  column="workflow"
+                  label="Workflow"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="application"
+                  label="Application"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="status"
+                  label="Status"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <SortableTableHead
+                  column="updated"
+                  label="Updated"
+                  sorts={sorts}
+                  onSort={onSort}
+                />
+                <TableHead className="w-12 px-2">
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((workflow) => {
+                const applicationName =
+                  applications.find(
+                    (application) => application.id === workflow.applicationId
+                  )?.name ?? "View Application"
+                return (
+                  <TableRow key={workflow.id}>
+                    <TableCell className="px-4">
+                      <Link
+                        to="/w/$slug/workflows/$workflowId"
+                        params={{ slug, workflowId: workflow.id }}
+                        className="flex min-w-0 items-center gap-3"
+                      >
+                        <PlayfulAvatar
+                          name={workflow.name}
+                          shape="rounded"
+                          className="size-6"
+                        />
+                        <span className="truncate text-sm font-medium">
+                          {workflow.name}
+                        </span>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="px-4">
+                      <Link
+                        to="/w/$slug/applications/$applicationId"
+                        params={{
+                          slug,
+                          applicationId: workflow.applicationId,
+                        }}
+                        search={{ view: "workflows" }}
+                        className="text-sm text-muted-foreground hover:text-foreground"
+                      >
+                        {applicationName}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="px-4">
+                      <WorkflowStatusBadge workflow={workflow} />
+                    </TableCell>
+                    <TableCell className="px-4 text-muted-foreground tabular-nums">
+                      {formatDate(workflow.updatedAt)}
+                    </TableCell>
+                    <TableCell className="px-2 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`More options for ${workflow.name}`}
+                            />
+                          }
                         >
-                          <PlayfulAvatar
-                            name={workflow.name}
-                            shape="rounded"
-                            className="size-6"
-                          />
-                          <span className="truncate text-sm font-medium">
-                            {workflow.name}
-                          </span>
-                        </Link>
-                      </TableCell>
-                      <TableCell className="px-4">
-                        <Link
-                          to="/w/$slug/applications/$applicationId"
-                          params={{
-                            slug,
-                            applicationId: workflow.applicationId,
-                          }}
-                          search={{ view: "workflows" }}
-                          className="text-sm text-muted-foreground hover:text-foreground"
+                          <EllipsisVerticalIcon />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-48 min-w-48"
                         >
-                          {applicationName}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="px-4">
-                        <WorkflowStatusBadge workflow={workflow} />
-                      </TableCell>
-                      <TableCell className="px-4 text-muted-foreground tabular-nums">
-                        {formatDate(workflow.updatedAt)}
-                      </TableCell>
-                      <TableCell className="px-2 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            render={
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                aria-label={`More options for ${workflow.name}`}
-                              />
-                            }
+                          <DropdownMenuItem
+                            onClick={() => void goToBuilder(workflow)}
                           >
-                            <EllipsisVerticalIcon />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="w-48 min-w-48"
+                            <PencilRulerIcon />
+                            Open builder
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setEditingWorkflow(workflow)}
                           >
-                            <DropdownMenuItem
-                              onClick={() => void goToBuilder(workflow)}
-                            >
-                              <PencilRulerIcon />
-                              Open builder
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setEditingWorkflow(workflow)}
-                            >
-                              <PencilIcon />
-                              Edit
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </Card>
-        </div>
+                            <PencilIcon />
+                            Edit
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </Card>
       )}
       {editingWorkflow && (
         <WorkflowFormDialog
