@@ -27,7 +27,7 @@ AI coding agent. Follow them strictly.
   `pnpm format:check`) — don't hand-format against it.
 - A single blank line between top-level declarations.
 - Inside a function, a blank line may separate distinct phases. A function
-  that needs many of them is too long: split it. ESLint warns above 150
+  that needs many of them is too long: split it. ESLint warns above 500
   lines (`max-lines-per-function`) and above 5 parameters (`max-params`).
 
 ## Icons
