@@ -6,7 +6,8 @@ import { db, pool, repositories, schema } from '@linealabs/db'
 import type { AssistantModel } from './assistant-model'
 import { AssistantModelUnavailableError } from './assistant-model-error'
 import type { ToolOutcome } from './assistant-tool-contract'
-import type { AssistantTools } from './assistant-tools'
+import { AssistantSelfTest } from './assistant-self-test'
+import { AssistantTools } from './assistant-tools'
 import { AssistantService } from './assistant.service'
 
 afterAll(async () => {
@@ -80,7 +81,7 @@ function modelReturning(...steps: Step[]) {
 
 function toolsReturning(outcome: ToolOutcome) {
   const run = jest
-    .fn<Promise<ToolOutcome>, [ToolCall, unknown]>()
+    .fn<Promise<ToolOutcome>, [ToolCall, unknown, unknown]>()
     .mockResolvedValue(outcome)
   return { run } as unknown as AssistantTools & { run: typeof run }
 }
@@ -196,7 +197,8 @@ describe('AssistantService', () => {
       f.workflow.id,
       'dev',
     )
-    expect(tools.run).toHaveBeenCalledWith(fetchCall, {
+    expect(tools.run.mock.calls[0][0]).toEqual(fetchCall)
+    expect(tools.run.mock.calls[0][1]).toEqual({
       workspaceId: f.workspace.id,
       applicationId: f.application.id,
       userId: f.user.id,
@@ -224,7 +226,7 @@ describe('AssistantService', () => {
       f.workflow.id,
       request,
     )
-    expect(off.complete.mock.calls[0][2].tools).toHaveLength(4)
+    expect(off.complete.mock.calls[0][2].tools).toHaveLength(5)
     const on = modelReturning('hi')
     await new AssistantService(on, noTools).replyForWorkflow(
       f.workspace.id,
@@ -232,12 +234,45 @@ describe('AssistantService', () => {
       f.workflow.id,
       { ...request, tools: { web: true } },
     )
-    expect(on.complete.mock.calls[0][2].tools).toHaveLength(5)
+    expect(on.complete.mock.calls[0][2].tools).toHaveLength(6)
+  })
+
+  it('proposes the draft the model built with edit_draft', async () => {
+    const f = await fixture()
+    const edit: ToolCall = {
+      id: 'call-1',
+      name: 'edit_draft',
+      arguments: {
+        operations: [
+          { op: 'add_node', id: 'done', type: 'end' },
+          { op: 'connect', from: 'start', to: 'done' },
+        ],
+      },
+    }
+    const model = modelReturning(
+      { toolCalls: [edit] },
+      JSON.stringify({ reply: 'Built it', graph: 'draft', title: 'Flow' }),
+    )
+    const tools = new AssistantTools(new AssistantSelfTest())
+    const answer = await new AssistantService(model, tools).replyForWorkflow(
+      f.workspace.id,
+      f.user.id,
+      f.workflow.id,
+      request,
+    )
+    expect(model.complete.mock.calls[1][2].history.at(-1)).toMatchObject({
+      role: 'tool',
+      content: 'Applied 2 operations. The draft is valid.',
+    })
+    expect(answer.graph?.nodes.map((node) => node.id)).toEqual([
+      'start',
+      'done',
+    ])
   })
 
   it('stops after too many tool rounds', async () => {
     const f = await fixture()
-    const model = modelReturning(...Array(6).fill({ toolCalls: [fetchCall] }))
+    const model = modelReturning(...Array(9).fill({ toolCalls: [fetchCall] }))
     const answer = await new AssistantService(
       model,
       toolsReturning(fetched),

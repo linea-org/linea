@@ -33,6 +33,11 @@ describe('assistant prompt', () => {
     expect(prompt).toContain('Call list_agents first')
   })
 
+  it('has the model edit a draft and propose it by name', () => {
+    expect(prompt).toContain('edit_draft')
+    expect(prompt).toContain('"graph": "draft"')
+  })
+
   it('asks the model to test drafts before proposing them', () => {
     expect(prompt).toContain('test_run_draft')
   })

@@ -19,13 +19,16 @@ export const TEST_TOOL: ToolDefinition = {
   parameters: {
     type: 'object',
     properties: {
-      graph: { type: 'object', description: 'The complete workflow graph' },
+      graph: {
+        type: 'object',
+        description:
+          'A complete workflow graph; omit it to test the draft built with edit_draft',
+      },
       input: {
         type: 'object',
         description: 'A realistic trigger payload for the start node',
       },
     },
-    required: ['graph'],
   },
 }
 

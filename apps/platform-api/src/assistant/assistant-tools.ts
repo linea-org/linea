@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import type { ToolCall, ToolDefinition } from '@linealabs/ai'
 import { AGENTS_TOOL, listAgents } from './assistant-agents'
+import { EDIT_TOOL, type GraphDraft } from './assistant-graph-draft'
 import {
   inspectRun,
   listRecentRuns,
@@ -15,6 +16,7 @@ export function assistantTools(
   scope: Pick<AssistantToolScope, 'web' | 'workflowId'>,
 ): ToolDefinition[] {
   return [
+    EDIT_TOOL,
     TEST_TOOL,
     AGENTS_TOOL,
     ...(scope.workflowId ? [RECENT_RUNS_TOOL, RUN_TOOL] : []),
@@ -27,7 +29,11 @@ export function assistantTools(
 export class AssistantTools {
   constructor(private readonly selfTest: AssistantSelfTest) {}
 
-  async run(call: ToolCall, scope: AssistantToolScope): Promise<ToolOutcome> {
+  async run(
+    call: ToolCall,
+    scope: AssistantToolScope,
+    draft: GraphDraft,
+  ): Promise<ToolOutcome> {
     const { name, arguments: args } = call
     const offered = assistantTools(scope).map((tool) => tool.name)
     if (!offered.includes(name)) {
@@ -38,7 +44,15 @@ export class AssistantTools {
     }
     const { url, executionId } = args
     const { workflowId } = scope
-    if (name === TEST_TOOL.name) return this.selfTest.run(scope, args)
+    if (name === EDIT_TOOL.name) {
+      return { content: draft.edit(args), action: null }
+    }
+    if (name === TEST_TOOL.name) {
+      return this.selfTest.run(scope, {
+        ...args,
+        graph: args.graph ?? draft.current,
+      })
+    }
     if (name === AGENTS_TOOL.name) return listAgents(scope)
     if (name === WEB_TOOL.name && typeof url === 'string') return fetchPage(url)
     if (name === RECENT_RUNS_TOOL.name && workflowId) {
