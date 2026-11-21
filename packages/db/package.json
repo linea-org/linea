@@ -29,7 +29,7 @@
     "@types/pg": "8.20.3",
     "dotenv": "18.0.10",
     "drizzle-kit": "1.0.0-rc.4",
-    "eslint": "9",
+    "eslint": "10",
     "tsup": "^8.5.0",
     "typescript": "6",
     "vitest": "^5.1.1"

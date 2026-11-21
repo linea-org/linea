@@ -47,7 +47,7 @@
     "@nestjs/testing": "^11.0.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.6",
-    "eslint": "^9.18.0",
+    "eslint": "^10.15.0",
     "jest": "^30.0.0",
     "jest-environment-node": "^30.0.0",
     "prettier": "^3.4.2",
