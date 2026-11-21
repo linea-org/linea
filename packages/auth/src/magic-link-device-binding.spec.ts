@@ -13,14 +13,6 @@ const verifier = "a".repeat(64)
 const challenge = createHash("sha256").update(verifier).digest("base64url")
 
 function createAuth() {
-  const values = new Map<string, string>()
-  const store = {
-    get: (key: string) => Promise.resolve(values.get(key) ?? null),
-    set: (key: string, value: string) => {
-      values.set(key, value)
-      return Promise.resolve("OK")
-    },
-  }
   const sent: string[] = []
   const auth = betterAuth({
     baseURL: "http://localhost:3000",
@@ -32,10 +24,10 @@ function createAuth() {
       verification: [],
     }),
     plugins: [
-      magicLinkDeviceBinding(store),
+      magicLinkDeviceBinding(),
       magicLink({
-        sendMagicLink: async ({ token, metadata }) => {
-          await bindMagicLinkToDevice(store, token, metadata)
+        sendMagicLink: async ({ token, metadata }, ctx) => {
+          await bindMagicLinkToDevice(ctx, token, metadata)
           sent.push(token)
         },
       }),

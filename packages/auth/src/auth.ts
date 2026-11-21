@@ -272,11 +272,11 @@ export const auth = betterAuth({
     // Social and magic-link users have no password, so they confirm setup with a code alone.
     twoFactor({ issuer: "Linea", allowPasswordless: true }),
     stepUp(),
-    magicLinkDeviceBinding(rateLimitRedis),
+    magicLinkDeviceBinding(),
     magicLink({
       storeToken: "hashed",
-      sendMagicLink: async ({ email, url, token, metadata }) => {
-        await bindMagicLinkToDevice(rateLimitRedis, token, metadata)
+      sendMagicLink: async ({ email, url, token, metadata }, ctx) => {
+        await bindMagicLinkToDevice(ctx, token, metadata)
         const link = createMagicLinkEmailUrl(url, appUrl)
         await sendEmail({
           to: email,
