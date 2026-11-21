@@ -478,6 +478,7 @@ describe("AiNode", () => {
         text: "it's sunny in Berlin",
         tokensInput: 8,
         tokensOutput: 6,
+        toolCalls: [{ name: "get_weather", arguments: { city: "Berlin" } }],
       })
     })
 
@@ -1144,6 +1145,7 @@ describe("AiNode", () => {
         text: "it's sunny in Berlin",
         tokensInput: 8,
         tokensOutput: 6,
+        toolCalls: [{ name: "get_weather", arguments: { city: "Berlin" } }],
       })
     })
 
@@ -1414,7 +1416,12 @@ describe("AiNode", () => {
           ],
         })
       )
-      expect(result).toEqual({ text: "done", tokensInput: 2, tokensOutput: 2 })
+      expect(result).toEqual({
+        text: "done",
+        tokensInput: 2,
+        tokensOutput: 2,
+        toolCalls: [{ name: "unknown_tool", arguments: {} }],
+      })
     })
 
     it("stops the tool loop once it uses the execution token budget", async () => {

@@ -12,6 +12,7 @@ import type { Memory } from "@linealabs/db"
 import { PermanentRequestError, requestPublic } from "@linealabs/http"
 import { nodeRegistry } from "@linealabs/runtime"
 import { NonRetryableError } from "./non-retryable-error"
+import { openMcpTools, type McpToolSource } from "./mcp-tool-source"
 import { assertWithinExecutionBudget, UsageError } from "./usage-error"
 import { resolveNamespace, resolveSubjectId } from "./memory-scope"
 import type {
@@ -114,14 +115,20 @@ function rebuildOccurrenceCounts(
   return counts
 }
 
+type AiInput = ReturnType<typeof nodeRegistry.ai.inputSchema.parse>
+
+type ToolCallOutcome = { status: number; body: unknown }
+
+type ToolSources = {
+  http: Map<string, AiTool>
+  mcp: McpToolSource | undefined
+}
+
 // record is checked before and written after, so a whole-node replay can recognize an already-made call from durable state.
-async function callTool(
-  tool: AiTool,
-  args: Record<string, unknown>,
+async function recordedCall(
   record: ToolCallRecordKey | undefined,
-  idempotencyKey: string | undefined,
-  signal?: AbortSignal
-): Promise<unknown> {
+  invoke: () => Promise<ToolCallOutcome>
+): Promise<ToolCallOutcome> {
   if (record) {
     const existing = await repositories.toolCallRecord.getToolCallRecord(
       db,
@@ -145,6 +152,22 @@ async function callTool(
       )
     }
   }
+  const outcome = await invoke()
+  if (record) {
+    await repositories.toolCallRecord.recordToolCall(db, {
+      ...record,
+      ...outcome,
+    })
+  }
+  return outcome
+}
+
+async function callHttpTool(
+  tool: AiTool,
+  args: Record<string, unknown>,
+  idempotencyKey: string | undefined,
+  signal: AbortSignal | undefined
+): Promise<ToolCallOutcome> {
   const url = new URL(tool.url)
   // GET can't carry a body — the only way to pass arguments is the query string.
   if (tool.method === "GET") {
@@ -179,23 +202,40 @@ async function callTool(
   const body: unknown = contentType.includes("application/json")
     ? await response.json()
     : await response.text()
-  if (record) {
-    await repositories.toolCallRecord.recordToolCall(db, {
-      ...record,
-      status: response.status,
-      body,
-    })
-  }
   return { status: response.status, body }
+}
+
+async function invokeTool(
+  call: { name: string; arguments: Record<string, unknown> },
+  sources: ToolSources,
+  record: ToolCallRecordKey | undefined,
+  idempotencyKey: string | undefined,
+  signal: AbortSignal | undefined
+): Promise<unknown> {
+  const httpTool = sources.http.get(call.name)
+  if (httpTool) {
+    return recordedCall(record, () =>
+      callHttpTool(httpTool, call.arguments, idempotencyKey, signal)
+    )
+  }
+  const mcp = sources.mcp
+  if (mcp?.has(call.name)) {
+    // MCP has no HTTP status; 200 only marks the call as completed in the ledger.
+    const outcome = await recordedCall(record, async () => ({
+      status: 200,
+      body: await mcp.call(call.name, call.arguments, signal),
+    }))
+    return outcome.body
+  }
+  return { error: `Unknown tool "${call.name}"` }
 }
 
 async function resolveToolCallTurn(
   call: { id: string; name: string; arguments: Record<string, unknown> },
-  toolsByName: Map<string, AiTool>,
+  sources: ToolSources,
   toolCallOccurrences: Map<string, number>,
   context: NodeExecutionContext
 ): Promise<ConversationTurn> {
-  const tool = toolsByName.get(call.name)
   const contentHash = toolCallContentHash(call.name, call.arguments)
   const occurrence = (toolCallOccurrences.get(contentHash) ?? 0) + 1
   toolCallOccurrences.set(contentHash, occurrence)
@@ -212,16 +252,197 @@ async function resolveToolCallTurn(
           occurrence,
         }
       : undefined
-  const output = tool
-    ? await callTool(
-        tool,
-        call.arguments,
-        record,
-        idempotencyKey,
-        context.signal
-      )
-    : { error: `Unknown tool "${call.name}"` }
+  const output = await invokeTool(
+    call,
+    sources,
+    record,
+    idempotencyKey,
+    context.signal
+  )
   return { role: "tool", toolCallId: call.id, content: JSON.stringify(output) }
+}
+
+/** The user turn this chat execution answers, and the replied-to turns before it. */
+async function chatTurns(
+  conversationId: string,
+  context: NodeExecutionContext
+): Promise<{ prompt: string; history: ConversationTurn[] }> {
+  if (!context.workflowId) {
+    throw new Error(
+      `Chat execution for conversation ${conversationId} is missing workflowId`
+    )
+  }
+  const messages = await repositories.chatMessage.listChatMessages(
+    db,
+    context.workspaceId,
+    context.workflowId,
+    conversationId
+  )
+  const ownIndex = context.chatMessageId
+    ? messages.findIndex((message) => message.id === context.chatMessageId)
+    : messages.length - 1
+  const own = ownIndex === -1 ? undefined : messages[ownIndex]
+  // A chatMessageId that doesn't resolve to a real user turn must fail the node, not silently call the provider with the authored fallback.
+  if (own?.role !== "user") {
+    throw new Error(
+      `Chat execution's chatMessageId did not resolve to a user turn in conversation ${conversationId}`
+    )
+  }
+  const prompt = own.content
+  // Sliced up to (not including) this execution's own message — a later turn queried before it lands must not be mistaken for history.
+  const priorMessages = messages.slice(0, ownIndex)
+  const repliedToIds = new Set(
+    priorMessages
+      .filter((message) => message.role === "assistant")
+      .map((message) => message.respondsToMessageId)
+  )
+  // Drops a still-unanswered earlier turn — otherwise overlapping turns could send the provider consecutive unreplied user messages.
+  const history = priorMessages
+    .filter(
+      (message) => message.role !== "user" || repliedToIds.has(message.id)
+    )
+    .slice(-MAX_HISTORY_MESSAGES)
+    .map((message) => ({ role: message.role, content: message.content }))
+  return { prompt, history }
+}
+
+async function loadProgress(context: NodeExecutionContext) {
+  // leasedBy is required here (not just executionId/nodeId) so a saved-progress write can be
+  // fenced against the execution's lease at commit time, not just checked at call time.
+  const nodeKey =
+    context.executionId && context.nodeId && context.leasedBy
+      ? {
+          executionId: context.executionId,
+          nodeId: context.nodeId,
+          leasedBy: context.leasedBy,
+        }
+      : undefined
+  const savedProgress = nodeKey
+    ? await repositories.aiNodeProgress.getAiNodeProgress(
+        db,
+        nodeKey.executionId,
+        nodeKey.nodeId
+      )
+    : undefined
+  return { nodeKey, savedProgress }
+}
+
+async function resolvePendingCalls(
+  conversation: ConversationTurn[],
+  sources: ToolSources,
+  occurrences: ReturnType<typeof rebuildOccurrenceCounts>,
+  context: NodeExecutionContext
+) {
+  // Resumed mid-iteration: progress is only saved right after the assistant's tool-calls turn
+  // is pushed, before any of those calls run — so a saved conversation ending in one always
+  // means those specific calls (each idempotent via the ledger) still need resolving.
+  // savedProgress.iteration already names the next iteration to run — no further advance here.
+  const lastTurn = conversation.at(-1)
+  if (lastTurn && "toolCalls" in lastTurn) {
+    for (const call of lastTurn.toolCalls) {
+      conversation.push(
+        await resolveToolCallTurn(call, sources, occurrences, context)
+      )
+    }
+  }
+}
+
+type ConversationStart = {
+  conversation: ConversationTurn[]
+  nextPrompt: string | undefined
+  startIteration: number
+  tokensInput: number
+  tokensOutput: number
+}
+
+async function startConversation(
+  parsed: AiInput,
+  context: NodeExecutionContext,
+  savedProgress:
+    | Awaited<ReturnType<typeof repositories.aiNodeProgress.getAiNodeProgress>>
+    | undefined
+): Promise<ConversationStart> {
+  if (savedProgress) {
+    // A crash previously interrupted this exact node execution — pick up the saved
+    // conversation instead of restarting it from the original prompt, since the provider
+    // isn't guaranteed to regenerate the same tool calls the second time.
+    return {
+      conversation: savedProgress.conversation as ConversationTurn[],
+      nextPrompt: undefined,
+      startIteration: savedProgress.iteration,
+      tokensInput: savedProgress.tokensInput,
+      tokensOutput: savedProgress.tokensOutput,
+    }
+  }
+  // Chat mode ignores the authored prompt — the turn's real content comes from chatMessageId, since there's no upstream-output templating yet.
+  let prompt = parsed.prompt
+  let history: ConversationTurn[] | undefined
+  if (context.regressionConversation) {
+    // Regression snapshots take priority because no live chat messages back the replay.
+    history = context.regressionConversation.turns.slice(-MAX_HISTORY_MESSAGES)
+    prompt = context.regressionConversation.finalPrompt
+  } else if (parsed.conversationId) {
+    ;({ prompt, history } = await chatTurns(parsed.conversationId, context))
+  }
+  // Empty/no tools resolves on the first iteration exactly like the old single-call path —
+  // history stays undefined instead of [] so this is a no-op for every non-tool-using caller.
+  return {
+    conversation: history ?? [],
+    nextPrompt: prompt,
+    startIteration: 0,
+    tokensInput: 0,
+    tokensOutput: 0,
+  }
+}
+
+function stepTools(parsed: AiInput, mcp: McpToolSource | undefined) {
+  const toolDefinitions: ToolDefinition[] = [
+    ...(parsed.tools ?? []).map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+    })),
+    ...(mcp?.tools ?? []),
+  ]
+  const names = new Set(toolDefinitions.map((tool) => tool.name))
+  if (names.size !== toolDefinitions.length) {
+    throw new NonRetryableError("Every tool on this step needs its own name")
+  }
+  const sources: ToolSources = {
+    http: new Map((parsed.tools ?? []).map((tool) => [tool.name, tool])),
+    mcp,
+  }
+  return { tools: parsed.tools || mcp ? toolDefinitions : undefined, sources }
+}
+
+function assertReplaySafe(
+  call: { name: string },
+  sources: ToolSources,
+  context: NodeExecutionContext,
+  tokens: { tokensInput: number; tokensOutput: number }
+) {
+  const method = sources.mcp?.has(call.name)
+    ? "MCP"
+    : sources.http.get(call.name)?.method
+  if (context.diagnostic && method !== undefined && method !== "GET") {
+    throw new UsageError(
+      `Tool "${call.name}" (${method}) isn't called in Replay or Regression runs: it would repeat the original write`,
+      tokens.tokensInput,
+      tokens.tokensOutput
+    )
+  }
+}
+
+function calledTools(conversation: ConversationTurn[]) {
+  const toolCalls = conversation.flatMap((turn) =>
+    "toolCalls" in turn
+      ? turn.toolCalls.map(({ name, arguments: args }) => ({
+          name,
+          arguments: args,
+        }))
+      : []
+  )
+  return toolCalls.length > 0 ? toolCalls : undefined
 }
 
 @Injectable()
@@ -242,129 +463,29 @@ export class AiNode implements NodeHandler {
       maxIterations: config.maxIterations,
       memorySubjectPath: config.memorySubjectPath,
       memoryNamespace: config.memoryNamespace,
+      mcpServers: config.mcpServers,
     })
-    const provider = resolveProvider(parsed.model)
-    const keyName = resolveKeyName(parsed.model)
-    const { apiKey } = await resolveApiKey(db, {
-      workspaceId: context.workspaceId,
-      environmentId: context.environmentId,
-      keyName,
-    })
-    // leasedBy is required here (not just executionId/nodeId) so a saved-progress write can be
-    // fenced against the execution's lease at commit time, not just checked at call time.
-    const nodeKey =
-      context.executionId && context.nodeId && context.leasedBy
-        ? {
-            executionId: context.executionId,
-            nodeId: context.nodeId,
-            leasedBy: context.leasedBy,
-          }
-        : undefined
-    const savedProgress = nodeKey
-      ? await repositories.aiNodeProgress.getAiNodeProgress(
-          db,
-          nodeKey.executionId,
-          nodeKey.nodeId
+    const mcp = parsed.mcpServers?.length
+      ? await openMcpTools(
+          parsed.mcpServers,
+          context.environmentId,
+          context.signal
         )
       : undefined
-    const tools: ToolDefinition[] | undefined = parsed.tools?.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters,
-    }))
-    const toolsByName = new Map(
-      (parsed.tools ?? []).map((tool) => [tool.name, tool])
-    )
-    const maxIterations = parsed.maxIterations ?? DEFAULT_MAX_ITERATIONS
-    let conversation: ConversationTurn[]
-    let nextPrompt: string | undefined
-    let startIteration: number
-    let tokensInput: number
-    let tokensOutput: number
-    if (savedProgress) {
-      // A crash previously interrupted this exact node execution — pick up the saved
-      // conversation instead of restarting it from the original prompt, since the provider
-      // isn't guaranteed to regenerate the same tool calls the second time.
-      conversation = savedProgress.conversation as ConversationTurn[]
-      nextPrompt = undefined
-      startIteration = savedProgress.iteration
-      tokensInput = savedProgress.tokensInput
-      tokensOutput = savedProgress.tokensOutput
-    } else {
-      // Chat mode ignores the authored prompt — the turn's real content comes from chatMessageId, since there's no upstream-output templating yet.
-      let prompt = parsed.prompt
-      let history: ConversationTurn[] | undefined
-      if (context.regressionConversation) {
-        // Regression snapshots take priority because no live chat messages back the replay.
-        history =
-          context.regressionConversation.turns.slice(-MAX_HISTORY_MESSAGES)
-        prompt = context.regressionConversation.finalPrompt
-      } else if (parsed.conversationId) {
-        if (!context.workflowId) {
-          throw new Error(
-            `Chat execution for conversation ${parsed.conversationId} is missing workflowId`
-          )
-        }
-        const messages = await repositories.chatMessage.listChatMessages(
-          db,
-          context.workspaceId,
-          context.workflowId,
-          parsed.conversationId
-        )
-        const ownIndex = context.chatMessageId
-          ? messages.findIndex(
-              (message) => message.id === context.chatMessageId
-            )
-          : messages.length - 1
-        const own = ownIndex === -1 ? undefined : messages[ownIndex]
-        // A chatMessageId that doesn't resolve to a real user turn must fail the node, not silently call the provider with the authored fallback.
-        if (own?.role !== "user") {
-          throw new Error(
-            `Chat execution's chatMessageId did not resolve to a user turn in conversation ${parsed.conversationId}`
-          )
-        }
-        prompt = own.content
-        // Sliced up to (not including) this execution's own message — a later turn queried before it lands must not be mistaken for history.
-        const priorMessages = messages.slice(0, ownIndex)
-        const repliedToIds = new Set(
-          priorMessages
-            .filter((message) => message.role === "assistant")
-            .map((message) => message.respondsToMessageId)
-        )
-        // Drops a still-unanswered earlier turn — otherwise overlapping turns could send the provider consecutive unreplied user messages.
-        history = priorMessages
-          .filter(
-            (message) => message.role !== "user" || repliedToIds.has(message.id)
-          )
-          .slice(-MAX_HISTORY_MESSAGES)
-          .map((message) => ({ role: message.role, content: message.content }))
-      }
-      // Empty/no tools resolves on the first iteration exactly like the old single-call path —
-      // history stays undefined instead of [] so this is a no-op for every non-tool-using caller.
-      conversation = history ?? []
-      nextPrompt = prompt
-      startIteration = 0
-      tokensInput = 0
-      tokensOutput = 0
+    try {
+      return await this.respond(parsed, input, context, mcp)
+    } finally {
+      await mcp?.close()
     }
-    const toolCallOccurrences = rebuildOccurrenceCounts(conversation)
-    // Resumed mid-iteration: progress is only saved right after the assistant's tool-calls turn
-    // is pushed, before any of those calls run — so a saved conversation ending in one always
-    // means those specific calls (each idempotent via the ledger) still need resolving.
-    // savedProgress.iteration already names the next iteration to run — no further advance here.
-    const lastTurn = conversation.at(-1)
-    if (lastTurn && "toolCalls" in lastTurn) {
-      for (const call of lastTurn.toolCalls) {
-        conversation.push(
-          await resolveToolCallTurn(
-            call,
-            toolsByName,
-            toolCallOccurrences,
-            context
-          )
-        )
-      }
-    }
+  }
+
+  private async withRecalledMemory(
+    parsed: AiInput,
+    input: unknown,
+    context: NodeExecutionContext,
+    prompt: string | undefined
+  ): Promise<string | undefined> {
+    let nextPrompt = prompt
     // Computed once here (not inside the loop below), and only ever folded into nextPrompt — see
     // below for why — so a multi-iteration tool-calling run sends the identical content on every
     // completion call instead of re-querying/re-concatenating it.
@@ -436,6 +557,41 @@ export class AiNode implements NodeHandler {
         this.logger.warn(`Agent node: skipping memory recall — ${message}`)
       }
     }
+    return nextPrompt
+  }
+
+  private async respond(
+    parsed: AiInput,
+    input: unknown,
+    context: NodeExecutionContext,
+    mcp: McpToolSource | undefined
+  ): Promise<unknown> {
+    const provider = resolveProvider(parsed.model)
+    const keyName = resolveKeyName(parsed.model)
+    const { apiKey } = await resolveApiKey(db, {
+      workspaceId: context.workspaceId,
+      environmentId: context.environmentId,
+      keyName,
+    })
+    const { nodeKey, savedProgress } = await loadProgress(context)
+    const { tools, sources } = stepTools(parsed, mcp)
+    const maxIterations = parsed.maxIterations ?? DEFAULT_MAX_ITERATIONS
+    const start = await startConversation(parsed, context, savedProgress)
+    const { conversation, startIteration } = start
+    let { tokensInput, tokensOutput } = start
+    const toolCallOccurrences = rebuildOccurrenceCounts(conversation)
+    await resolvePendingCalls(
+      conversation,
+      sources,
+      toolCallOccurrences,
+      context
+    )
+    let nextPrompt = await this.withRecalledMemory(
+      parsed,
+      input,
+      context,
+      start.nextPrompt
+    )
     for (
       let iteration = startIteration;
       iteration < maxIterations;
@@ -471,6 +627,7 @@ export class AiNode implements NodeHandler {
           text: result.text,
           tokensInput,
           tokensOutput,
+          toolCalls: calledTools(conversation),
         })
       }
       // Tool results only feed the next model call, so skip them when that call can't happen.
@@ -494,21 +651,9 @@ export class AiNode implements NodeHandler {
         })
       }
       for (const call of result.toolCalls) {
-        const method = toolsByName.get(call.name)?.method
-        if (context.diagnostic && method !== undefined && method !== "GET") {
-          throw new UsageError(
-            `Tool "${call.name}" (${method}) isn't called in Replay or Regression runs: it would repeat the original write`,
-            tokensInput,
-            tokensOutput
-          )
-        }
+        assertReplaySafe(call, sources, context, { tokensInput, tokensOutput })
         conversation.push(
-          await resolveToolCallTurn(
-            call,
-            toolsByName,
-            toolCallOccurrences,
-            context
-          )
+          await resolveToolCallTurn(call, sources, toolCallOccurrences, context)
         )
       }
     }

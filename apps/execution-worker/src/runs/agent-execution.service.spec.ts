@@ -483,9 +483,10 @@ it("fails a run that outlives its work budget and records the stalled model turn
   jest.spyOn(registry["gpt-5"], "complete").mockImplementation(
     (_apiKey, request) =>
       new Promise((_resolve, reject) => {
-        request.signal?.addEventListener("abort", () =>
-          reject(new Error("aborted by signal"))
-        )
+        const abort = () => reject(new Error("aborted by signal"))
+        // On a slow runner the 25 ms deadline can fire before this call starts.
+        if (request.signal?.aborted) abort()
+        request.signal?.addEventListener("abort", abort)
       })
   )
   const execution = await start()

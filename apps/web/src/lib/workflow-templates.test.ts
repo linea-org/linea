@@ -1,5 +1,6 @@
 import {
   assertNoReservedNodeIds,
+  nodeRegistry,
   validateGraphStructure,
   workflowGraphSchema,
 } from "@linealabs/runtime"
@@ -13,6 +14,12 @@ describe.each(workflowTemplates)("template $id", (template) => {
   it("is a valid workflow graph", () => {
     expect(() => assertNoReservedNodeIds(graph)).not.toThrow()
     expect(() => validateGraphStructure(graph)).not.toThrow()
+  })
+
+  it("configures every AI step the way the step itself accepts", () => {
+    for (const node of graph.nodes.filter((each) => each.type === "ai")) {
+      expect(() => nodeRegistry.ai.inputSchema.parse(node.config)).not.toThrow()
+    }
   })
 
   it("uses the model it was built with and no other", () => {
