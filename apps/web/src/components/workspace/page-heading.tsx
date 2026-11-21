@@ -37,11 +37,8 @@ export function PageHeading({
       )}
     >
       <SidebarTrigger size="icon-sm" className="md:hidden" />
-      {workflow ? (
-        <WorkflowHeading slug={slug} workflow={workflow} />
-      ) : hasTitle ? (
-        <TopBarBreadcrumb slug={slug} />
-      ) : null}
+      {workflow ? <WorkflowHeading slug={slug} workflow={workflow} /> : null}
+      {!workflow && hasTitle ? <TopBarBreadcrumb slug={slug} /> : null}
       <div ref={onActionsSlot} className="ml-auto flex min-w-0 justify-end" />
     </div>
   )

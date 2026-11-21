@@ -15,5 +15,5 @@ export const triggerLabel: Record<ExecutionTrigger, string> = {
 }
 
 export function isExecutionTrigger(value: unknown): value is ExecutionTrigger {
-  return EXECUTION_TRIGGERS.some((trigger) => trigger === value)
+  return new Set<unknown>(EXECUTION_TRIGGERS).has(value)
 }

@@ -52,6 +52,7 @@ import { useOpenShortcut } from "@/components/shortcuts/use-open-shortcut"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 import { SortableTableHead } from "@/components/workspace/sortable-table-head"
 import { useTableSort } from "@/components/workspace/use-table-sort"
+import type { Sort } from "@/lib/sort"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import {
   applicationOverviewsQueryOptions,
@@ -97,14 +98,7 @@ function ApplicationsPage() {
     applicationSortValue,
     byRecentlyUpdated
   )
-  const quickSort =
-    sorts.length === 0
-      ? "updated"
-      : sorts.length === 1 &&
-          sorts[0].column === "name" &&
-          sorts[0].direction === "asc"
-        ? "name"
-        : ""
+  const quickSort = quickSortOf(sorts)
   function renderApplications() {
     if (applications.length === 0) {
       return (
@@ -308,6 +302,15 @@ function ApplicationsPage() {
       {renderApplications()}
     </main>
   )
+}
+
+/** The sort menu's choice that matches the column sort, or none when columns were mixed. */
+function quickSortOf(sorts: Sort<ApplicationSortColumn>[]) {
+  if (sorts.length === 0) return "updated"
+  const [only] = sorts
+  if (sorts.length === 1 && only.column === "name" && only.direction === "asc")
+    return "name"
+  return ""
 }
 
 function byRecentlyUpdated(

@@ -21,7 +21,6 @@ import { ExecutionStepDetails } from "./execution-step-details"
 import { attachResumeMarkers } from "./execution-step-order"
 import { stepTitle } from "./execution-step-presentation"
 import { filterTraceSteps, pickSelectedStep } from "./filter-trace-steps"
-import { Empty, EmptyHeader, EmptyTitle } from "@linealabs/ui/components/empty"
 
 const statusFilterSchema = z.enum([
   "all",
@@ -201,13 +200,8 @@ export function ExecutionTraceWorkspace({
             : event.startedAt}
         </p>
       ))}
-      {recorded.length === 0 ? (
-        <Empty className="min-h-0 rounded-none border-0 bg-transparent py-8 sm:p-8">
-          <EmptyHeader>
-            <EmptyTitle>No steps recorded yet</EmptyTitle>
-          </EmptyHeader>
-        </Empty>
-      ) : filtered.length === 0 ? (
+      {/* With nothing recorded the chart shows its own empty state. */}
+      {recorded.length > 0 && filtered.length === 0 ? (
         <p className="py-4 text-sm text-muted-foreground">No matching steps</p>
       ) : (
         <ExecutionGanttChart

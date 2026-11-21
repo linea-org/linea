@@ -70,7 +70,7 @@ type ChartProps = {
   selectedDetail?: React.ReactNode
 }
 
-export function ExecutionGanttChart(props: ChartProps) {
+export function ExecutionGanttChart(props: Readonly<ChartProps>) {
   const rows = byStart(props.steps)
   if (rows.length === 0) {
     return (
@@ -274,6 +274,12 @@ function GanttTimeline({
           const waitMs =
             previousEnd === null ? 0 : Math.max(startMs - previousEnd, 0)
           const endMs = step.endedAt ? new Date(step.endedAt).getTime() : now
+          const waitNote =
+            waitMs >= 1
+              ? " · waited " +
+                formatElapsed(waitMs) +
+                " after the previous step"
+              : ""
           const leftPct =
             ((startMs - rangeStartMs - window.startMs) / windowMs) * 100
           const widthPct = ((endMs - startMs) / windowMs) * 100
@@ -288,7 +294,7 @@ function GanttTimeline({
               <button
                 type="button"
                 onClick={() => onStepSelect?.(step.id)}
-                title={`${label} · ${formatElapsed(endMs - startMs)}${waitMs >= 1 ? ` · waited ${formatElapsed(waitMs)} after the previous step` : ""}`}
+                title={`${label} · ${formatElapsed(endMs - startMs)}${waitNote}`}
                 aria-label={`${label} · ${step.status} · attempt ${step.attempt}`}
                 aria-pressed={selectedStepId === step.id}
                 className={cn(
