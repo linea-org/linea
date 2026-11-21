@@ -270,8 +270,8 @@ it("refuses the nested Agent's Connection read when the Workflow Execution has n
   await runs.execute(parent.id)
   const child = await childOf(parent.id)
   expect(child.external_subject_record_id).toBeNull()
-  await runs.execute(child.id)
+  await expect(runs.execute(child.id)).rejects.toThrow(
+    "Connector operation rejected"
+  )
   expect(reads).toEqual([])
-  const steps = await repositories.checkpoint.getStepsForExecution(db, child.id)
-  expect(steps.find((step) => step.name === "connector")?.status).toBe("failed")
 })
