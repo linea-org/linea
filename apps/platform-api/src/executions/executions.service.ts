@@ -10,7 +10,6 @@ import {
   repositories,
   type ChatMessage,
   type Execution,
-  type ExecutionStep,
 } from '@linealabs/db'
 import {
   assertNoReservedNodeIds,
