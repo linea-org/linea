@@ -1509,6 +1509,54 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
+  it.each(["root", "nested"])(
+    "cancels a %s Execution without deadlocking a claim that already holds the Execution's advisory lock",
+    async (kind) => {
+      const fixture = await createFixture()
+      const blocker = await pool.connect()
+      let transactionOpen = false
+      try {
+        const cancellingFixture =
+          kind === "nested" ? await attachParent(fixture) : fixture
+        await invoke(fixture)
+        await decide(fixture, "approved")
+        const { intent } = await consent(fixture)
+        await blocker.query("BEGIN")
+        transactionOpen = true
+        // The first row a claim locks after its advisory lock, so the claim stops holding only that.
+        await blocker.query(
+          "SELECT id FROM external_subjects WHERE id = $1 FOR UPDATE",
+          [fixture.externalSubjectId]
+        )
+        const { rows } = await blocker.query<{ pid: number }>(
+          "SELECT pg_backend_pid() AS pid"
+        )
+        const claiming = repositories.actionIntent.claimApprovedActionIntent(
+          db,
+          {
+            actionIntentId: intent.id,
+            executionClaimId: fixture.executionClaimId,
+            provider: deterministicSideEffectOperation.provider,
+            actionFamily: deterministicSideEffectOperation.actionFamily,
+            requiredScopes: deterministicSideEffectOperation.requiredScopes,
+            now: new Date(),
+          }
+        )
+        const claimPid = await waitForLockWait(rows[0].pid)
+        const cancelling = cancelExecution(cancellingFixture)
+        await waitForLockWait(claimPid)
+        await blocker.query("COMMIT")
+        transactionOpen = false
+        const [claim, cancellation] = await Promise.all([claiming, cancelling])
+        expect(claim?.outcome).toBe("claimed")
+        expect(cancellation.outcome).toBe("execution_not_cancellable")
+      } finally {
+        if (transactionOpen) await blocker.query("ROLLBACK")
+        blocker.release()
+        await removeWorkspace(fixture.workspaceId)
+      }
+    }
+  )
   it("resolves concurrent conflicting invocation content to one intent and one conflict", async () => {
     const fixture = await createFixture()
     try {

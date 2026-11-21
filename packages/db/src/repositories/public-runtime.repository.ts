@@ -29,7 +29,10 @@ import {
 } from "../schema/index.js"
 import { createChatMessage } from "./chat-message.repository.js"
 import { createConversation } from "./conversation.repository.js"
-import { cancelExecutionWithPendingApproval } from "./approval-request.repository.js"
+import {
+  cancelExecutionWithPendingApproval,
+  lockExecutionTree,
+} from "./approval-request.repository.js"
 import {
   finalizePublicRequest,
   releasePublicRequest,
@@ -527,6 +530,8 @@ export async function cancelPublicExecution(
   idempotency: Idempotency
 ): Promise<CancelPublicExecutionResult> {
   return db.transaction(async (tx): Promise<CancelPublicExecutionResult> => {
+    // The reservation references the Environment row, which a claim locks under these locks.
+    await lockExecutionTree(tx, workspaceId, environmentId, executionId)
     const reservation = await reservePublicRequest(tx, {
       workspaceId,
       environmentId,
