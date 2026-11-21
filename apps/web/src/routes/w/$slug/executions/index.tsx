@@ -399,7 +399,7 @@ function ExecutionsPage() {
                     {formatCost(execution.costMicros, execution.costUnpriced)}
                   </TableCell>
                   <TableCell className="px-4 text-muted-foreground tabular-nums">
-                    {new Date(execution.createdAt).toLocaleString()}
+                    <LocalDateTime value={execution.createdAt} />
                   </TableCell>
                   <TableCell className="px-2 text-right">
                     <DropdownMenu>
@@ -413,47 +413,6 @@ function ExecutionsPage() {
                           />
                         }
                       >
-<<<<<<< HEAD
-                        <PlayfulAvatar
-                          name={execution.workflowName}
-                          shape="rounded"
-                          className="size-6"
-                        />
-                        <span className="truncate text-sm font-medium">
-                          {execution.workflowName}
-                        </span>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-4">
-                      <ExecutionStatusBadge status={execution.status} />
-                    </TableCell>
-                    <TableCell className="px-4 text-muted-foreground">
-                      {triggerLabel[execution.trigger]}
-                    </TableCell>
-                    <TableCell className="px-4 text-muted-foreground">
-                      {formatDuration(
-                        execution.startedAt,
-                        execution.completedAt,
-                        execution.status
-                      )}
-                    </TableCell>
-                    <TableCell className="px-4 text-muted-foreground">
-                      {formatCost(execution.costMicros, execution.costUnpriced)}
-                    </TableCell>
-                    <TableCell className="px-4 text-muted-foreground tabular-nums">
-                      <LocalDateTime value={execution.createdAt} />
-                    </TableCell>
-                    <TableCell className="px-2 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              aria-label={`More options for ${execution.workflowName}`}
-                            />
-=======
                         <EllipsisVerticalIcon />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
@@ -466,7 +425,6 @@ function ExecutionsPage() {
                               to: "/w/$slug/executions/$executionId",
                               params: { slug, executionId: execution.id },
                             })
->>>>>>> main
                           }
                         >
                           <EyeIcon />
