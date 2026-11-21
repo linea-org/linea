@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "@linealabs/config": "workspace:*",
-    "esbuild": "0.28.1",
+    "esbuild": "0.28.2",
     "eslint": "^9",
     "tsup": "^8.5.0",
     "typescript": "^6",
