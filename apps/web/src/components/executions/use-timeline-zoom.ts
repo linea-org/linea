@@ -63,6 +63,12 @@ export function useTimelineZoom(
     return () => element.removeEventListener("wheel", onWheel)
   })
 
+  // A touch scroll can cancel the pointer mid-drag; drop the gesture without zooming.
+  function cancelDrag() {
+    dragStart.current = null
+    setSelection(null)
+  }
+
   const handlers = {
     onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
       dragged.current = false
@@ -94,6 +100,8 @@ export function useTimelineZoom(
       if (next.endMs - next.startMs >= MIN_SPAN_MS) setZoom(next)
       setSelection(null)
     },
+    onPointerCancel: cancelDrag,
+    onLostPointerCapture: cancelDrag,
     onClickCapture(event: React.MouseEvent<HTMLDivElement>) {
       if (!dragged.current) return
       dragged.current = false

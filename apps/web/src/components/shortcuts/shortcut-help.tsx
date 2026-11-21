@@ -24,7 +24,7 @@ const GROUPS = ["General", "Go to", "This page"] as const
 function isAvailable(id: ShortcutId) {
   if (SHORTCUTS[id].group !== "This page") return true
   return isClickShortcut(id)
-    ? findShortcutTarget(id) !== null
+    ? findShortcutTarget(id) !== undefined
     : shortcutHandlers.has(id)
 }
 

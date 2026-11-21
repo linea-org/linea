@@ -18,7 +18,7 @@ export const RECENT_RUNS_TOOL: ToolDefinition = {
 export const RUN_TOOL: ToolDefinition = {
   name: 'get_run',
   description:
-    "Show one run of this workflow: each step's status, output and error.",
+    "Show one run in this workspace: each step's status, output and error.",
   parameters: {
     type: 'object',
     properties: {
@@ -74,9 +74,10 @@ export async function listRecentRuns(workflowId: string): Promise<ToolOutcome> {
   }
 }
 
+/** Outside a workflow chat (workflowId null) any run in the workspace can be read. */
 export async function inspectRun(
   workspaceId: string,
-  workflowId: string,
+  workflowId: string | null,
   executionId: unknown,
 ): Promise<ToolOutcome> {
   const id = z.uuid().safeParse(executionId)
@@ -86,10 +87,12 @@ export async function inspectRun(
   const { execution, steps } = found ?? {}
   if (
     execution?.workspaceId !== workspaceId ||
-    execution.workflowId !== workflowId
+    (workflowId !== null && execution.workflowId !== workflowId)
   ) {
     return {
-      content: 'No run of this workflow has that id. Use get_recent_runs.',
+      content: workflowId
+        ? 'No run of this workflow has that id. Use get_recent_runs.'
+        : 'No run in this workspace has that id.',
       action: null,
     }
   }

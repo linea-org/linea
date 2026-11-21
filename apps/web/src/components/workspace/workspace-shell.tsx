@@ -43,6 +43,7 @@ import { ShortcutListener } from "@/components/shortcuts/shortcut-listener"
 import { useWorkspaceShortcuts } from "@/components/shortcuts/use-workspace-shortcuts"
 import { PageHeading } from "./page-heading"
 import { SidebarBack } from "./sidebar-back"
+import { SmallScreenNotice } from "./small-screen-notice"
 import {
   SidebarSearch,
   WorkspaceSidebarHeader,
@@ -279,10 +280,11 @@ export function WorkspaceShell({
   )
   return (
     <CommandPaletteProvider slug={slug} workspaces={workspaces}>
+      <SmallScreenNotice />
       <SidebarProvider
         open={open}
         onOpenChange={setOpen}
-        className="relative h-svh max-h-svh flex-col overflow-hidden bg-sidebar has-data-[variant=inset]:bg-sidebar"
+        className="relative hidden h-svh max-h-svh flex-col overflow-hidden bg-sidebar has-data-[variant=inset]:bg-sidebar md:flex"
       >
         <div className="flex min-h-0 w-full flex-1">
           {!isBuilder && (

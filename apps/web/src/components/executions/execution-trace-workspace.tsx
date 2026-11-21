@@ -53,7 +53,13 @@ export function ExecutionTraceWorkspace({
   const recorded = steps.filter((step) => !step.isSystemEvent)
   const query = search.trim().toLowerCase()
   const filtered = filterTraceSteps(recorded, status, query)
-  const selected = pickSelectedStep(recorded, filtered, selectedId)
+  const [failureClosed, setFailureClosed] = useState(false)
+  const selected = pickSelectedStep(
+    recorded,
+    filtered,
+    selectedId,
+    !failureClosed
+  )
   const { resumedAtByStepId, orphanedResumeEvents } = attachResumeMarkers(steps)
   const parent = selected?.parentSpanId
     ? recorded.find((step) => step.spanId === selected.parentSpanId)
@@ -206,12 +212,18 @@ export function ExecutionTraceWorkspace({
       ) : (
         <ExecutionGanttChart
           steps={filtered}
+          allSteps={recorded}
           executionStartedAt={execution.startedAt}
           executionCompletedAt={execution.completedAt}
           selectedStepId={selected?.id ?? null}
-          onStepSelect={(stepId) =>
-            stepId === selectedId ? clearSelection() : selectStep(stepId)
-          }
+          onStepSelect={(stepId) => {
+            if (stepId !== selected?.id) {
+              selectStep(stepId)
+              return
+            }
+            setFailureClosed(true)
+            clearSelection()
+          }}
           selectedDetail={selectedDetail}
         />
       )}

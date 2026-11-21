@@ -44,7 +44,7 @@ export function buildAssistantSystemPrompt({
     : ''
   const runs = workflowId
     ? `\n\nWhen the user asks why this workflow failed or what a run did, look with get_recent_runs and get_run before answering. Name the failing step and its error, then propose a fixed graph if one would help.`
-    : ''
+    : `\n\nWhen the user asks about a run by its id, read it with get_run before answering. Name the failing step and its error.`
   const tools = `${fetch}${runs}\n\nBuild and change graphs with the edit_draft tool, which starts from the current workflow graph: send all the operations a change needs in one call, fix anything it reports, then answer with "graph": "draft". test_run_draft tests the draft when you omit its graph.\n\nBefore proposing a graph with "ai", "http", "transform", "extract" or "filter" nodes and no "agent" node, run it with the test_run_draft tool and a realistic sample input. Read each step's output, fix the graph if a step failed or produced the wrong data, and test again. In "reply", say what you tested and whether it worked, or that the graph is untested and why.`
   return `You are ${ASSISTANT_NAME}, the assistant inside Linea. Help with whatever the user asks: answer questions, explain things, draft text, and get small tasks done right here in the chat. Build a workflow only when the user wants something reusable or automated, or agrees when you offer. For a one-off request, do the task yourself instead of building a workflow, and you may add that you can turn it into a reusable workflow.${tools}
 

@@ -60,6 +60,8 @@ function barClass(
 
 type ChartProps = {
   steps: ExecutionStepSummary[]
+  // Every recorded step, so startup and waits stay true when a filter hides rows.
+  allSteps: ExecutionStepSummary[]
   executionStartedAt: string | null
   executionCompletedAt: string | null
   selectedStepId?: string | null
@@ -69,13 +71,7 @@ type ChartProps = {
 }
 
 export function ExecutionGanttChart(props: ChartProps) {
-  const rows = props.steps
-    .filter((step) => !step.isSystemEvent)
-    .slice()
-    .sort(
-      (a, b) =>
-        new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
-    )
+  const rows = byStart(props.steps)
   if (rows.length === 0) {
     return (
       <Empty className="min-h-0 rounded-none border-0 bg-transparent py-8 sm:p-8">
@@ -150,15 +146,29 @@ function timelineRange(
   return { rangeStartMs, rangeEndMs }
 }
 
-/** For each row, the latest end time of the rows before it, so gaps show worker overhead. */
-function previousEnds(rows: ExecutionStepSummary[], now: number): number[] {
-  let latest = -Infinity
-  return rows.map((step) => {
-    const before = latest
-    const end = step.endedAt ? new Date(step.endedAt).getTime() : now
-    latest = Math.max(latest, end)
-    return before
-  })
+function byStart(steps: ExecutionStepSummary[]): ExecutionStepSummary[] {
+  return steps
+    .filter((step) => !step.isSystemEvent)
+    .sort(
+      (a, b) =>
+        new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
+    )
+}
+
+/** Each step's latest earlier end, so a gap shows worker overhead, not a filtered-out step. */
+function previousEnds(
+  steps: ExecutionStepSummary[],
+  now: number
+): Map<string, number | null> {
+  let latest: number | null = null
+  return new Map(
+    steps.map((step) => {
+      const before = latest
+      const end = step.endedAt ? new Date(step.endedAt).getTime() : now
+      latest = Math.max(latest ?? end, end)
+      return [step.id, before]
+    })
+  )
 }
 
 function StepTrack({
@@ -195,6 +205,7 @@ function StepTrack({
 
 function GanttTimeline({
   rows,
+  allSteps,
   executionStartedAt,
   executionCompletedAt,
   selectedStepId,
@@ -221,9 +232,10 @@ function GanttTimeline({
   const { window, zoomed, selection, reset, handlers, gutterPx } =
     useTimelineZoom(surface, rangeMs)
   const windowMs = window.endMs - window.startMs
-  const endsBefore = previousEnds(rows, now)
+  const timeline = byStart(allSteps)
+  const endsBefore = previousEnds(timeline, now)
   const startupMs = executionStartedAt
-    ? new Date(rows[0].startedAt).getTime() - rangeStartMs
+    ? new Date(timeline[0].startedAt).getTime() - rangeStartMs
     : 0
   return (
     <div
@@ -256,10 +268,11 @@ function GanttTimeline({
             showBar={!compact}
           />
         ) : null}
-        {rows.map((step, index) => {
+        {rows.map((step) => {
           const startMs = new Date(step.startedAt).getTime()
+          const previousEnd = endsBefore.get(step.id) ?? null
           const waitMs =
-            index === 0 ? 0 : Math.max(startMs - endsBefore[index], 0)
+            previousEnd === null ? 0 : Math.max(startMs - previousEnd, 0)
           const endMs = step.endedAt ? new Date(step.endedAt).getTime() : now
           const leftPct =
             ((startMs - rangeStartMs - window.startMs) / windowMs) * 100

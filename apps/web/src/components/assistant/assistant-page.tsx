@@ -79,7 +79,7 @@ export function AssistantPage({
   ) : null
   const inHero = chat.messages.length === 0 && !chat.isPending
   return (
-    <div className="absolute inset-0 flex">
+    <div className="relative flex min-h-0 flex-1">
       <ResizablePanelGroup orientation="horizontal" className="min-w-0 flex-1">
         <ResizablePanel id="chat" minSize="360px">
           <section className="flex h-full min-w-0 flex-col">
