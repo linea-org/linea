@@ -9,9 +9,9 @@ const sortSchema = z.object({
 type SortColumn = z.infer<typeof sortSchema>['column']
 
 const executionSortSchema = z.string().transform((sort, ctx) => {
-  const [column, direction] = sort.split('.')
+  const [column, direction, ...extra] = sort.split('.')
   const parsed = sortSchema.safeParse({ column, direction })
-  if (!parsed.success) {
+  if (!parsed.success || extra.length > 0) {
     ctx.addIssue({ code: 'custom', message: 'Invalid sort' })
     return z.NEVER
   }
@@ -27,7 +27,7 @@ const bigintKey = z
       BigInt.asIntN(64, BigInt(value)) === BigInt(value),
   )
 
-// The database casts a cursor's sort key to the sorted column's type, so reject what would not cast.
+// The database casts a cursor's sort key to the sorted column's type; reject what would not cast.
 const cursorValueSchemas: Record<SortColumn, z.ZodType<string>> = {
   workflow: textKey,
   status: textKey,

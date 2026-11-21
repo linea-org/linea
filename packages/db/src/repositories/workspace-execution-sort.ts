@@ -6,8 +6,12 @@ export type WorkspaceExecutionSort = {
   direction: "asc" | "desc"
 }
 
-/** The sort key of a page's last row plus its id, which breaks ties between equal keys. */
-export type WorkspaceExecutionCursor = { value: string; id: string }
+/** A page's last sort key and id (the tie-break), and when the first page was served. */
+export type WorkspaceExecutionCursor = {
+  value: string
+  id: string
+  asOf?: Date
+}
 
 type SortKey = {
   /** Never null: a null key would drop its row from the keyset comparison. */
@@ -54,7 +58,7 @@ const sortKeys: Record<WorkspaceExecutionSort["column"], SortKey> = {
   },
 }
 
-/** ORDER BY, cursor value and "rows after the cursor" predicate for one sort; they must agree for pages to neither skip nor repeat a row. */
+/** One sort's ORDER BY, cursor value and "rows after the cursor" predicate, which must agree. */
 export function workspaceExecutionSortQuery(sort: WorkspaceExecutionSort) {
   const key = sortKeys[sort.column]
   const [order, after] =

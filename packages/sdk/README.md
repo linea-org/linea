@@ -190,7 +190,9 @@ console.log(result.status, result.output)
 
 Executions come newest first unless you pass `sort` (`workflow`, `status`,
 `trigger`, `duration`, `cost` or `when`, each `.asc` or `.desc`). A cursor is
-only valid with the sort that issued it.
+only valid with the sort that issued it. Duration, cost and status move while
+runs are active: when a page reports `changed`, start again from the first page
+if you need every run exactly once.
 
 ```ts
 const query = { status: "failed", sort: "cost.desc" } as const

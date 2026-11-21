@@ -14,6 +14,15 @@ describe('listWorkspaceExecutionsSchema', () => {
     })
   })
 
+  it('round-trips the time the first page was served', () => {
+    const asOf = new Date('2026-11-22T10:00:00.000Z')
+    const cursor = encodeExecutionListCursor({ value: 'a_b', id, asOf })
+    expect(
+      listWorkspaceExecutionsSchema.parse({ sort: 'workflow.desc', cursor })
+        .cursor,
+    ).toEqual({ value: 'a_b', id, asOf })
+  })
+
   it('accepts a created-at cursor without a sort', () => {
     expect(
       listWorkspaceExecutionsSchema.parse({
@@ -24,6 +33,7 @@ describe('listWorkspaceExecutionsSchema', () => {
 
   it.each([
     { sort: 'cost.sideways' },
+    { sort: 'cost.asc.extra' },
     { sort: 'secret.asc' },
     { cursor: 'not-a-cursor' },
     { cursor: `2026-09-05T00:00:00.000Z_not-a-uuid` },

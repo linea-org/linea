@@ -111,7 +111,7 @@ export type WorkspaceExecutionFilters = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
   sort?: ExecutionSort
-  /** Opaque keyset cursor — the previous page's `nextCursor`, valid only with the sort that issued it. Omit for the first page; not an offset, see listWorkspaceExecutions in @linealabs/db for why. */
+  /** The previous page's `nextCursor`, valid only with the sort that issued it; not an offset. */
   cursor?: string
   limit?: number
 }
@@ -121,11 +121,13 @@ export type WorkspaceExecutionPage = {
   /** Whether a further page exists after this one. */
   hasMore: boolean
   nextCursor: string | null
+  /** Runs changed since the cursor's first page; a sorted list may now skip or repeat rows. */
+  changed: boolean
   /** Informational only — not something pagination correctness depends on. */
   total: number
 }
 
-/** `${createdAt}_${id}` — the reference point `countNewWorkspaceExecutionsFn` takes as `since`; neither an ISO timestamp nor a uuid contains an underscore, so this round-trips unambiguously. */
+/** `${createdAt}_${id}`, the reference point `countNewWorkspaceExecutionsFn` takes as `since`. */
 export function encodeExecutionCursor(row: { createdAt: string; id: string }) {
   return `${row.createdAt}_${row.id}`
 }

@@ -18,9 +18,10 @@ export function parseExecutionSort(
   value: unknown
 ): Sort<ExecutionSortColumn> | undefined {
   if (typeof value !== "string") return undefined
-  const [name, direction] = value.split(".")
+  const [name, direction, ...extra] = value.split(".")
   const column = EXECUTION_SORT_COLUMNS.find((item) => item === name)
-  if (!column || (direction !== "asc" && direction !== "desc")) return undefined
+  if (!column || extra.length > 0) return undefined
+  if (direction !== "asc" && direction !== "desc") return undefined
   return { column, direction }
 }
 
@@ -28,7 +29,7 @@ export function isExecutionSort(value: unknown): value is ExecutionSort {
   return parseExecutionSort(value) !== undefined
 }
 
-/** The server sorts by one column: a click cycles it ascending → descending → off and drops any other. */
+/** The server sorts by one column: a click cycles it asc → desc → off and drops any other. */
 export function nextExecutionSort(
   current: Sort<ExecutionSortColumn> | undefined,
   column: ExecutionSortColumn

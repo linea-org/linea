@@ -59,6 +59,7 @@ import {
   type ExecutionSort,
   type ExecutionSortColumn,
 } from "@/lib/execution-sort"
+import { decodeTrail, encodeTrail } from "@/lib/execution-trail"
 import { isExecutionTrigger, triggerLabel } from "@/lib/execution-trigger"
 import { ExecutionFilters } from "@/components/executions/execution-filters"
 import {
@@ -78,11 +79,12 @@ type ExecutionsSearch = {
   trigger?: ExecutionTrigger
   /** Applied by the server across every page; newest first when absent. */
   sort?: ExecutionSort
-  /** Opaque keyset cursor for the current page — the previous page's `nextCursor`, absent on page 1. See listWorkspaceExecutions in @linealabs/db for why this isn't a page number. */
+  /** The previous page's `nextCursor`, absent on page 1; a keyset position, not a page number. */
   cursor?: string
   /** Semicolon-joined breadcrumb of ancestor cursors used to reach the current page, so Previous can step back without recomputing history. An empty-string entry means "page 1, no cursor". */
   trail?: string
-  /** Cursor of the newest row visible when this browsing session started, fixed the moment pagination is first used — the reference point for "N new executions" polling, so it stays relative to where the user started rather than the current page. Only kept under the default sort, where the top row is the newest. */
+  /** The newest row when paging began: the fixed reference for "N new executions" polling. Only
+   * kept under the default sort, where the top row is the newest. */
   anchor?: string
   size?: PageSize
 }
@@ -93,7 +95,9 @@ export const Route = createFileRoute("/w/$slug/executions/")({
     trigger: isExecutionTrigger(search.trigger) ? search.trigger : undefined,
     sort: isExecutionSort(search.sort) ? search.sort : undefined,
     cursor: parseOpaqueParam(search.cursor),
-    trail: parseOpaqueParam(search.trail),
+    trail: decodeTrail(search.trail)
+      ? parseOpaqueParam(search.trail)
+      : undefined,
     anchor: parseOpaqueParam(search.anchor),
     size: parsePageSize(search.size),
   }),
@@ -130,6 +134,14 @@ function formatDuration(
   }
 }
 
+/** With no new runs the banner is shown because a sorted list changed under its cursor. */
+function refreshLabel(newCount: number) {
+  if (newCount === 0) return "The list changed — refresh"
+  return newCount === 1
+    ? "1 new execution — refresh"
+    : `${newCount} new executions — refresh`
+}
+
 function ExecutionsPage() {
   const { slug } = Route.useParams()
   const search = Route.useSearch()
@@ -147,7 +159,7 @@ function ExecutionsPage() {
   const sort = parseExecutionSort(search.sort)
   const sorts = sort ? [sort] : []
 
-  const trail = search.trail ? search.trail.split(";") : []
+  const trail = decodeTrail(search.trail) ?? []
   const isFirstPage = trail.length === 0 && !search.cursor
   const currentPageNumber = trail.length + 1
   const nextCursor = data.nextCursor ?? undefined
@@ -191,7 +203,7 @@ function ExecutionsPage() {
       search: (prev) => ({
         ...prev,
         cursor: nextCursor,
-        trail: [...trail, prev.cursor ?? ""].join(";"),
+        trail: encodeTrail([...trail, prev.cursor ?? ""]),
         anchor: prev.anchor ?? effectiveAnchor,
       }),
     })
@@ -215,7 +227,7 @@ function ExecutionsPage() {
       search: (prev) => ({
         ...prev,
         cursor: previousCursor || undefined,
-        trail: previousTrail.length > 0 ? previousTrail.join(";") : undefined,
+        trail: encodeTrail(previousTrail),
       }),
     })
   }
@@ -253,7 +265,7 @@ function ExecutionsPage() {
           }
         />
       </PageToolbar>
-      {newCount > 0 ? (
+      {newCount > 0 || data.changed ? (
         <div>
           <button
             type="button"
@@ -261,9 +273,7 @@ function ExecutionsPage() {
             className="flex w-fit items-center gap-2 rounded-md border border-input bg-accent px-3 py-1.5 text-sm text-accent-foreground transition-colors hover:bg-accent/80"
           >
             <SparklesIcon className="size-4" />
-            {newCount === 1
-              ? "1 new execution — refresh"
-              : `${newCount} new executions — refresh`}
+            {refreshLabel(newCount)}
           </button>
         </div>
       ) : null}
@@ -440,10 +450,7 @@ function ExecutionsPage() {
             previous={{
               href: hrefFor({
                 cursor: previousCursor || undefined,
-                trail:
-                  previousTrail.length > 0
-                    ? previousTrail.join(";")
-                    : undefined,
+                trail: encodeTrail(previousTrail),
               }),
               enabled: !isFirstPage,
               onGo: goPrevious,
@@ -451,7 +458,7 @@ function ExecutionsPage() {
             next={{
               href: hrefFor({
                 cursor: nextCursor,
-                trail: [...trail, search.cursor ?? ""].join(";"),
+                trail: encodeTrail([...trail, search.cursor ?? ""]),
               }),
               enabled: hasMore,
               onGo: goNext,

@@ -1,6 +1,6 @@
 import { publishTestWorkflow as publishWorkflowVersion } from "./test-utils.js"
 import { getTestApplicationId } from "./test-utils.js"
-import { and, eq } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
 import { endSubjects, executions } from "../schema/index.js"
@@ -942,6 +942,40 @@ describe("listWorkspaceExecutions sorting", () => {
       })
     }
   )
+  it("reports a change after the first page so a moved sort key is not paged past silently", async () => {
+    await withRollback(async (tx) => {
+      const { organization, rows } = await insertSortFixture(tx)
+      const sort = { column: "duration", direction: "asc" } as const
+      const first = await listWorkspaceExecutions(tx, organization.id, {
+        sort,
+        limit: 2,
+      })
+      expect(first.changed).toBe(false)
+      const cursor = first.nextCursor ?? undefined
+      const unchanged = await listWorkspaceExecutions(tx, organization.id, {
+        sort,
+        cursor,
+        limit: 2,
+      })
+      expect(unchanged.changed).toBe(false)
+      expect(unchanged.nextCursor?.asOf).toEqual(cursor?.asOf)
+      // The running row finishes: its duration key drops from "unfinished" to two seconds.
+      await tx
+        .update(executions)
+        .set({
+          status: "succeeded",
+          completedAt: sql`now() + interval '1 second'`,
+        })
+        .where(eq(executions.id, rows[2].id))
+      const afterFinish = await listWorkspaceExecutions(tx, organization.id, {
+        sort,
+        cursor,
+        limit: 2,
+        status: "queued",
+      })
+      expect(afterFinish.changed).toBe(true)
+    })
+  })
   it("orders the whole filtered set, not one page of it", async () => {
     await withRollback(async (tx) => {
       const { organization, rows } = await insertSortFixture(tx)

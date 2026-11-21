@@ -601,13 +601,17 @@ export type WorkspaceExecutionPage = {
   hasMore: boolean
   /** Pass back as `cursor`, with the same sort, for the next page; null on the last page. */
   nextCursor: WorkspaceExecutionCursor | null
+  /** An execution was created, started or finished since the cursor's first page, so sort keys
+   * may have moved and later pages can skip or repeat rows. Always false on a first page. */
+  changed: boolean
   /** Total rows matching the filters, ignoring the cursor — informational only (e.g. "128 total"), not something pagination correctness depends on. */
   total: number
 }
 
 const DEFAULT_WORKSPACE_EXECUTIONS_LIMIT = 50
 
-/** Unlike listExecutions, spans every workflow in the workspace (the cross-workflow trace view), paginated via a `(sort key, id)` keyset cursor rather than OFFSET/LIMIT — OFFSET assumes the filtered, sorted result set holds still between requests, which a concurrent insert or a status change crossing the filter both violate, skipping or repeating rows at the page boundary; `id` breaks ties between equal sort keys. A cursor is only valid for the sort that issued it. */
+/** Every root Execution in the workspace, paged by a `(sort key, id)` keyset cursor valid only
+ * with its sort; OFFSET would skip or repeat rows when a run is inserted or changes status. */
 export async function listWorkspaceExecutions(
   db: DbClient,
   workspaceId: string,
@@ -629,7 +633,16 @@ export async function listWorkspaceExecutions(
     options.status ? eq(executions.status, options.status) : undefined,
     options.trigger ? eq(executions.trigger, options.trigger) : undefined
   )
-  const [rows, [{ count }]] = await Promise.all([
+  const asOf = options.cursor?.asOf
+  // Ignores the status filter: a run that left the filter also moved the page boundaries.
+  const changedSince = asOf
+    ? sql<boolean>`coalesce(bool_or(${isNull(executions.parentExecutionId)} and greatest(${executions.createdAt}, ${executions.startedAt}, ${executions.completedAt}) > ${asOf.toISOString()}::timestamptz), false)`
+    : sql<boolean>`false`
+  const matches = and(
+    isNull(executions.parentExecutionId),
+    options.status ? eq(executions.status, options.status) : undefined
+  )
+  const [rows, [{ count, changed, now }]] = await Promise.all([
     db
       .select({
         execution: executions,
@@ -647,9 +660,18 @@ export async function listWorkspaceExecutions(
       // One extra row, so hasMore is known without a second query.
       .limit(limit + 1),
     db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({
+        count: sql<number>`(count(*) filter (where ${matches}))::int`,
+        changed: changedSince,
+        now: sql<string>`to_char(now() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
+      })
       .from(executions)
-      .where(baseWhere),
+      .where(
+        and(
+          eq(executions.workspaceId, workspaceId),
+          options.trigger ? eq(executions.trigger, options.trigger) : undefined
+        )
+      ),
   ])
   const hasMore = rows.length > limit
   const page = hasMore ? rows.slice(0, limit) : rows
@@ -663,8 +685,13 @@ export async function listWorkspaceExecutions(
     hasMore,
     nextCursor:
       hasMore && last
-        ? { value: last.cursorValue, id: last.execution.id }
+        ? {
+            value: last.cursorValue,
+            id: last.execution.id,
+            asOf: asOf ?? new Date(now),
+          }
         : null,
+    changed,
     total: count,
   }
 }

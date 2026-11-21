@@ -100,6 +100,8 @@ export const workspaceExecutionPageSchema = z.object({
   executions: z.array(workspaceExecutionWithWorkflowSchema),
   hasMore: z.boolean(),
   nextCursor: z.string().nullable(),
+  /** Runs changed since the cursor's first page; a sorted list may now skip or repeat rows. */
+  changed: z.boolean(),
   total: z.number().int().nonnegative(),
 })
 

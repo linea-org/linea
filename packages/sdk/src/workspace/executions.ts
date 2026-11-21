@@ -18,7 +18,8 @@ export class Executions {
     })
   }
 
-  /** Cursor-paginated, newest first unless `sort` is given. Pass a page's `nextCursor` as the next `cursor`, with the same `sort`. */
+  /** Newest first unless `sort` is given. The next `cursor` is the page's `nextCursor`, valid only
+   * with the same `sort`; restart from the first page when a page reports `changed`. */
   list(params: ListExecutionsParams = {}): Promise<WorkspaceExecutionPage> {
     return this.send({
       method: "GET",
