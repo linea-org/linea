@@ -7,15 +7,17 @@ import type { ConversationTurn, ToolCall } from '@linealabs/ai'
 import { db, repositories } from '@linealabs/db'
 import type { WorkflowGraph } from '@linealabs/runtime'
 import { branchUpTo } from './assistant-branch'
+import { assertAgentsDeployed } from './assistant-agents'
 import { validateAssistantGraph } from './assistant-graph'
+import { GraphDraft } from './assistant-graph-draft'
 import { AssistantModel } from './assistant-model'
 import { AssistantModelUnavailableError } from './assistant-model-error'
 import { AssistantOutputError } from './assistant-output-error'
-import {
-  AssistantTools,
-  WEB_TOOL,
-  type AssistantAction,
-} from './assistant-tools'
+import type {
+  AssistantAction,
+  AssistantToolScope,
+} from './assistant-tool-contract'
+import { AssistantTools, assistantTools } from './assistant-tools'
 import {
   buildAssistantSystemPrompt,
   buildAssistantUserTurn,
@@ -25,7 +27,7 @@ import { parseAssistantReply } from './assistant-reply'
 import type { AssistantMessageDto } from './dto/assistant-message.dto'
 
 const MAX_ATTEMPTS = 2
-const MAX_TOOL_ROUNDS = 5
+const MAX_TOOL_ROUNDS = 8
 const MAX_OUTPUT_TOKENS = 6000
 
 export type AssistantAnswer = {
@@ -44,6 +46,8 @@ type Reply = Omit<
   AssistantAnswer,
   'conversationId' | 'userMessageId' | 'messageId'
 >
+
+type ReplyContext = { scope: AssistantToolScope; draft: GraphDraft }
 
 const MAX_HISTORY_MESSAGES = 20
 const MAX_TITLE_LENGTH = 60
@@ -77,7 +81,17 @@ export class AssistantService {
     if (!environment) {
       throw new NotFoundException('Development Environment not found')
     }
-    return this.converse(workspaceId, userId, workflowId, environment.id, input)
+    return this.converse(
+      {
+        workspaceId,
+        userId,
+        applicationId: workflow.applicationId,
+        workflowId,
+        environmentId: environment.id,
+        web: input.tools.web,
+      },
+      input,
+    )
   }
 
   async replyForApplication(
@@ -101,17 +115,25 @@ export class AssistantService {
     if (!environment) {
       throw new NotFoundException('Development Environment not found')
     }
-    return this.converse(workspaceId, userId, null, environment.id, input)
+    return this.converse(
+      {
+        workspaceId,
+        userId,
+        applicationId,
+        workflowId: null,
+        environmentId: environment.id,
+        web: input.tools.web,
+      },
+      input,
+    )
   }
 
   /** Saves the chat as it goes, and takes the model's context from what was saved, not from the browser. */
   private async converse(
-    workspaceId: string,
-    userId: string,
-    workflowId: string | null,
-    environmentId: string,
+    scope: AssistantToolScope,
     input: AssistantMessageDto,
   ): Promise<AssistantAnswer> {
+    const { workspaceId, userId, workflowId } = scope
     const conversation = await this.openConversation(
       workspaceId,
       userId,
@@ -140,7 +162,7 @@ export class AssistantService {
         content: input.message,
         attachments: input.attachments,
       })
-    const reply = await this.think(workspaceId, environmentId, input, history)
+    const reply = await this.think(scope, input, history)
     const replyMessage =
       await repositories.assistantConversation.appendAssistantMessage(db, {
         workspaceId,
@@ -197,12 +219,12 @@ export class AssistantService {
   }
 
   private async think(
-    workspaceId: string,
-    environmentId: string,
+    scope: AssistantToolScope,
     input: AssistantMessageDto,
     history: ConversationTurn[],
   ): Promise<Reply> {
     const actions: AssistantAction[] = []
+    const draft = GraphDraft.from(input.graph)
     let prompt: string | undefined = buildAssistantUserTurn(
       input.message,
       input.graph,
@@ -211,13 +233,7 @@ export class AssistantService {
     let rejections = 0
     let toolRounds = 0
     for (;;) {
-      const result = await this.completeTurn(
-        workspaceId,
-        environmentId,
-        input,
-        history,
-        prompt,
-      )
+      const result = await this.completeTurn(scope, input, history, prompt)
       prompt = undefined
       if (result.toolCalls?.length) {
         toolRounds += 1
@@ -229,11 +245,19 @@ export class AssistantService {
           )
         }
         history.push({ role: 'assistant', toolCalls: result.toolCalls })
-        await this.runToolCalls(result.toolCalls, history, actions)
+        await this.runToolCalls(
+          result.toolCalls,
+          { scope, draft },
+          history,
+          actions,
+        )
         continue
       }
       try {
-        return buildReply(result.text, result.model, actions)
+        return await buildReply(result.text, result.model, actions, {
+          scope,
+          draft,
+        })
       } catch (error) {
         if (!(error instanceof AssistantOutputError)) throw error
         rejections += 1
@@ -251,21 +275,20 @@ export class AssistantService {
   }
 
   private async completeTurn(
-    workspaceId: string,
-    environmentId: string,
+    scope: AssistantToolScope,
     input: AssistantMessageDto,
     history: ConversationTurn[],
     prompt: string | undefined,
   ) {
     const result = await this.model
       .complete(
-        workspaceId,
-        environmentId,
+        scope.workspaceId,
+        scope.environmentId,
         {
-          systemPrompt: buildAssistantSystemPrompt(input.tools),
+          systemPrompt: buildAssistantSystemPrompt(scope),
           history: [...history],
           prompt,
-          tools: input.tools.web ? [WEB_TOOL] : undefined,
+          tools: assistantTools(scope),
           maxTokens: MAX_OUTPUT_TOKENS,
           temperature: 0.2,
         },
@@ -284,11 +307,12 @@ export class AssistantService {
   /** Sequential on purpose: each tool result is appended to the history in call order. */
   private async runToolCalls(
     calls: ToolCall[],
+    { scope, draft }: ReplyContext,
     history: ConversationTurn[],
     actions: AssistantAction[],
   ) {
     for (const call of calls) {
-      const outcome = await this.tools.run(call)
+      const outcome = await this.tools.run(call, scope, draft)
       if (outcome.action) actions.push(outcome.action)
       history.push({
         role: 'tool',
@@ -299,13 +323,21 @@ export class AssistantService {
   }
 }
 
-function buildReply(
+async function buildReply(
   text: string,
   model: string,
   actions: AssistantAction[],
-): Reply {
+  { scope, draft }: ReplyContext,
+): Promise<Reply> {
   const parsed = parseAssistantReply(text)
-  const graph = parsed.graph ? validateAssistantGraph(parsed.graph) : null
+  const proposed = parsed.graph === 'draft' ? draft.current : parsed.graph
+  if (parsed.graph === 'draft' && !proposed) {
+    throw new AssistantOutputError(
+      'There is no draft to propose. Answer with a complete graph.',
+    )
+  }
+  const graph = proposed ? validateAssistantGraph(proposed) : null
+  if (graph) await assertAgentsDeployed(graph, scope)
   return {
     reply: parsed.reply,
     title: graph ? (parsed.title ?? null) : null,

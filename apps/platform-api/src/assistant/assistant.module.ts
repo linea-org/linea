@@ -5,6 +5,7 @@ import { AssistantConversationsService } from './assistant-conversations.service
 import { AssistantController } from './assistant.controller'
 import { AssistantModel } from './assistant-model'
 import { AssistantRunService } from './assistant-run.service'
+import { AssistantSelfTest } from './assistant-self-test'
 import { AssistantService } from './assistant.service'
 import { AssistantTools } from './assistant-tools'
 
@@ -13,6 +14,7 @@ import { AssistantTools } from './assistant-tools'
   controllers: [AssistantController, AssistantConversationsController],
   providers: [
     AssistantModel,
+    AssistantSelfTest,
     AssistantTools,
     AssistantService,
     AssistantConversationsService,

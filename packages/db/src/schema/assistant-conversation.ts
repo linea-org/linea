@@ -20,12 +20,26 @@ export type AssistantProposal = {
   graph: Record<string, unknown>
 }
 
-export type AssistantMessageAction = {
-  kind: "fetch"
-  url: string
-  status: number | null
-  error: string | null
-}
+export type AssistantMessageAction =
+  | {
+      kind: "fetch"
+      url: string
+      status: number | null
+      error: string | null
+    }
+  | {
+      kind: "test_run"
+      executionId: string
+      status:
+        | "queued"
+        | "running"
+        | "paused"
+        | "succeeded"
+        | "failed"
+        | "cancelled"
+    }
+  | { kind: "inspect_runs"; executionId: string | null }
+  | { kind: "list_agents"; count: number }
 
 /** A text file the user attached to a message; its content is data for the model, never instructions. */
 export type AssistantAttachment = {

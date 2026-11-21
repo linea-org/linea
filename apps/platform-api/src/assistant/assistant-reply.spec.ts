@@ -17,6 +17,13 @@ describe('parseAssistantReply', () => {
     })
   })
 
+  it('reads an answer that proposes the edited draft', () => {
+    expect(parseAssistantReply('{"reply":"Built","graph":"draft"}')).toEqual({
+      reply: 'Built',
+      graph: 'draft',
+    })
+  })
+
   it('treats text with no JSON as a plain reply', () => {
     expect(parseAssistantReply('Sure, here is the answer.')).toEqual({
       reply: 'Sure, here is the answer.',

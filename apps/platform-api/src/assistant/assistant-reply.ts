@@ -3,7 +3,10 @@ import { AssistantOutputError } from './assistant-output-error'
 
 const replySchema = z.object({
   reply: z.string().min(1),
-  graph: z.record(z.string(), z.unknown()).nullable(),
+  /** "draft" proposes the graph built with edit_draft. */
+  graph: z
+    .union([z.record(z.string(), z.unknown()), z.literal('draft')])
+    .nullable(),
   title: z.string().trim().min(1).max(80).optional(),
 })
 
@@ -29,7 +32,7 @@ export function parseAssistantReply(text: string): AssistantReply {
   const result = replySchema.safeParse(json)
   if (!result.success) {
     throw new AssistantOutputError(
-      'The answer must be {"reply": string, "graph": object | null}.',
+      'The answer must be {"reply": string, "graph": object | "draft" | null}.',
     )
   }
   return result.data

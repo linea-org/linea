@@ -1,10 +1,13 @@
 import { useState, type ReactNode } from "react"
 import {
+  BotIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   CopyIcon,
+  FlaskConicalIcon,
   GlobeIcon,
+  HistoryIcon,
   RotateCcwIcon,
   WorkflowIcon,
 } from "lucide-react"
@@ -148,16 +151,49 @@ function ActionChips({
   return (
     <ul className="flex flex-wrap gap-1.5">
       {actions.map((action, index) => (
-        <li key={`${action.url}-${index}`} className="max-w-full">
-          <Badge variant={action.error ? "warning" : "outline"}>
-            <GlobeIcon />
-            {action.error
-              ? `Couldn't fetch ${new URL(action.url).hostname}`
-              : `Fetched ${new URL(action.url).hostname}`}
-          </Badge>
+        <li key={`${action.kind}-${index}`} className="max-w-full">
+          <ActionChip action={action} />
         </li>
       ))}
     </ul>
+  )
+}
+
+function ActionChip({
+  action,
+}: Readonly<{ action: ChatMessage["actions"][number] }>) {
+  if (action.kind === "test_run") {
+    return (
+      <Badge variant={action.status === "succeeded" ? "outline" : "warning"}>
+        <FlaskConicalIcon />
+        {`Test run ${action.status}`}
+      </Badge>
+    )
+  }
+  if (action.kind === "list_agents") {
+    return (
+      <Badge variant="outline">
+        <BotIcon />
+        {action.count === 1 ? "Read 1 Agent" : `Read ${action.count} Agents`}
+      </Badge>
+    )
+  }
+  if (action.kind === "inspect_runs") {
+    return (
+      <Badge variant="outline">
+        <HistoryIcon />
+        {action.executionId
+          ? `Read run ${action.executionId.slice(0, 8)}`
+          : "Read recent runs"}
+      </Badge>
+    )
+  }
+  const host = new URL(action.url).hostname
+  return (
+    <Badge variant={action.error ? "warning" : "outline"}>
+      <GlobeIcon />
+      {action.error ? `Couldn't fetch ${host}` : `Fetched ${host}`}
+    </Badge>
   )
 }
 

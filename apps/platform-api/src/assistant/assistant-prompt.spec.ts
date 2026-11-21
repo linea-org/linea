@@ -6,7 +6,7 @@ import {
 } from './assistant-prompt'
 
 describe('assistant prompt', () => {
-  const prompt = buildAssistantSystemPrompt({ web: false })
+  const prompt = buildAssistantSystemPrompt({ web: false, workflowId: null })
 
   it('describes every allowed node type from the registry', () => {
     for (const type of ASSISTANT_NODE_TYPES) {
@@ -15,7 +15,7 @@ describe('assistant prompt', () => {
   })
 
   it('does not offer node types that need set-up the assistant cannot do', () => {
-    for (const type of ['agent', 'connector', 'approval', 'memory']) {
+    for (const type of ['connector', 'approval', 'memory']) {
       expect(prompt).not.toContain(`- "${type}" (`)
     }
   })
@@ -29,9 +29,31 @@ describe('assistant prompt', () => {
     expect(prompt).toContain('do the task yourself')
   })
 
+  it('makes the model take Agent ids from list_agents, never guess them', () => {
+    expect(prompt).toContain('Call list_agents first')
+  })
+
+  it('has the model edit a draft and propose it by name', () => {
+    expect(prompt).toContain('edit_draft')
+    expect(prompt).toContain('"graph": "draft"')
+  })
+
+  it('asks the model to test drafts before proposing them', () => {
+    expect(prompt).toContain('test_run_draft')
+  })
+
+  it('points the model at run history only inside a workflow', () => {
+    expect(prompt).not.toContain('get_recent_runs')
+    expect(
+      buildAssistantSystemPrompt({ web: false, workflowId: 'wf' }),
+    ).toContain('get_recent_runs')
+  })
+
   it('mentions the web tool only when it is switched on', () => {
     expect(prompt).not.toContain('fetch_url')
-    expect(buildAssistantSystemPrompt({ web: true })).toContain('fetch_url')
+    expect(
+      buildAssistantSystemPrompt({ web: true, workflowId: null }),
+    ).toContain('fetch_url')
   })
 
   it('shows attached files to the model as data, after the request', () => {

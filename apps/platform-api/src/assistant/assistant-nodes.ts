@@ -1,9 +1,10 @@
 /**
- * Node types the assistant may use: the ones that run without an Application's Agents,
- * Connections, approvals or memory already set up.
+ * Node types the assistant may use: the ones that run without Connections, approvals or memory
+ * already set up, plus "agent", which it checks against the Agents deployed in Development.
  */
 export const ASSISTANT_NODE_TYPES = [
   'start',
+  'agent',
   'end',
   'ai',
   'http',

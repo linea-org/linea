@@ -9,12 +9,24 @@ import type { ExecutionSummary, JsonValue } from "./executions-api"
 
 export const ASSISTANT_NAME = "Inky"
 
-const assistantActionSchema = z.object({
-  kind: z.literal("fetch"),
-  url: z.string(),
-  status: z.number().nullable(),
-  error: z.string().nullable(),
-})
+const assistantActionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("fetch"),
+    url: z.string(),
+    status: z.number().nullable(),
+    error: z.string().nullable(),
+  }),
+  z.object({
+    kind: z.literal("test_run"),
+    executionId: z.string(),
+    status: z.string(),
+  }),
+  z.object({
+    kind: z.literal("inspect_runs"),
+    executionId: z.string().nullable(),
+  }),
+  z.object({ kind: z.literal("list_agents"), count: z.number() }),
+])
 
 export type AssistantAction = z.infer<typeof assistantActionSchema>
 

@@ -1,41 +1,57 @@
-import { toPageText } from './assistant-tools'
-import { AssistantTools, WEB_TOOL } from './assistant-tools'
+import type { AssistantSelfTest } from './assistant-self-test'
+import { GraphDraft } from './assistant-graph-draft'
+import { AssistantTools, assistantTools } from './assistant-tools'
 
-describe('toPageText', () => {
-  it('strips scripts, styles and tags from html', () => {
-    const html =
-      '<html><style>p{}</style><script>alert(1)</script><body><p>Hello&nbsp;<b>world</b></p></body></html>'
-    expect(toPageText(html, 'text/html; charset=utf-8')).toBe('Hello world')
-  })
-
-  it('keeps json and plain text as they are', () => {
-    expect(toPageText('{"a": 1}', 'application/json')).toBe('{"a": 1}')
-  })
-
-  it('caps how much a page can put in front of the model', () => {
-    expect(toPageText('x'.repeat(50_000), 'text/plain')).toHaveLength(12_000)
-  })
-})
+const scope = {
+  workspaceId: 'w',
+  applicationId: 'a',
+  userId: 'u',
+  workflowId: null,
+  environmentId: 'e',
+  web: false,
+}
+const selfTest = { run: jest.fn() } as unknown as AssistantSelfTest
+const names = (on: Parameters<typeof assistantTools>[0]) =>
+  assistantTools(on).map((tool) => tool.name)
 
 describe('AssistantTools', () => {
-  it('rejects a call that is not the web tool', async () => {
-    const outcome = await new AssistantTools().run({
-      id: '1',
-      name: 'delete_everything',
-      arguments: {},
-    })
-    expect(outcome.action).toBeNull()
-    expect(outcome.content).toContain(WEB_TOOL.name)
+  it('offers run history inside a workflow and the web tool when switched on', () => {
+    expect(names({ web: false, workflowId: null })).toEqual([
+      'edit_draft',
+      'test_run_draft',
+      'list_agents',
+    ])
+    expect(names({ web: true, workflowId: 'wf' })).toEqual([
+      'edit_draft',
+      'test_run_draft',
+      'list_agents',
+      'get_recent_runs',
+      'get_run',
+      'fetch_url',
+    ])
   })
 
-  it('refuses a url that is not public https, and says so', async () => {
-    const outcome = await new AssistantTools().run({
-      id: '1',
-      name: WEB_TOOL.name,
-      arguments: { url: 'http://169.254.169.254/latest/meta-data' },
-    })
-    expect(outcome.action?.status).toBeNull()
-    expect(outcome.action?.error).toBeTruthy()
-    expect(outcome.content).toContain('Could not fetch')
+  it('rejects a call to a tool it does not have', async () => {
+    const outcome = await new AssistantTools(selfTest).run(
+      { id: '1', name: 'delete_everything', arguments: {} },
+      { ...scope, web: true },
+      GraphDraft.from(undefined),
+    )
+    expect(outcome.action).toBeNull()
+    expect(outcome.content).toContain(
+      'Available tools: edit_draft, test_run_draft, list_agents, fetch_url',
+    )
   })
+
+  it.each(['fetch_url', 'get_run'])(
+    'refuses %s when it was not offered',
+    async (name) => {
+      const outcome = await new AssistantTools(selfTest).run(
+        { id: '1', name, arguments: { url: 'https://example.com' } },
+        scope,
+        GraphDraft.from(undefined),
+      )
+      expect(outcome.content).toContain('not valid')
+    },
+  )
 })
