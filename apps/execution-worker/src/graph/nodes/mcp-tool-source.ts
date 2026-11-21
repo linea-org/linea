@@ -77,31 +77,35 @@ async function resolveHeaders(
   server: McpServerConfig,
   environmentId: string
 ): Promise<Record<string, string>> {
-  const headers: Record<string, string> = {}
-  for (const [header, secretName] of Object.entries(server.headers)) {
+  const entries = Object.entries(server.headers)
+  for (const [, secretName] of entries) {
     if (providers.some((provider) => provider.keyName === secretName)) {
       throw new NonRetryableError(
         `MCP server "${server.name}" can't be sent the model key "${secretName}"`
       )
     }
-    const secret = await repositories.secret.getSecret(
-      db,
-      environmentId,
-      secretName
-    )
-    if (!secret) {
-      throw new NonRetryableError(
-        `MCP server "${server.name}" needs the secret "${secretName}", which isn't set in this Environment`
-      )
-    }
-    if (!isEncryptedSecret(secret.encryptedValue)) {
-      throw new NonRetryableError(
-        `Stored secret "${secretName}" is not encrypted and can't be sent to an MCP server`
-      )
-    }
-    headers[header] = decryptSecret(secret.encryptedValue)
   }
-  return headers
+  const values = await Promise.all(
+    entries.map(async ([header, secretName]): Promise<[string, string]> => {
+      const secret = await repositories.secret.getSecret(
+        db,
+        environmentId,
+        secretName
+      )
+      if (!secret) {
+        throw new NonRetryableError(
+          `MCP server "${server.name}" needs the secret "${secretName}", which isn't set in this Environment`
+        )
+      }
+      if (!isEncryptedSecret(secret.encryptedValue)) {
+        throw new NonRetryableError(
+          `Stored secret "${secretName}" is not encrypted and can't be sent to an MCP server`
+        )
+      }
+      return [header, decryptSecret(secret.encryptedValue)]
+    })
+  )
+  return Object.fromEntries(values)
 }
 
 async function listServerTools(
