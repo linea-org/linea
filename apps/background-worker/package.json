@@ -22,7 +22,7 @@
     "validate:behaviour": "tsx scripts/validate-conversation-analyzer.ts"
   },
   "dependencies": {
-    "dotenv": "17.4.2",
+    "dotenv": "18.0.10",
     "@linealabs/ai": "workspace:*",
     "@linealabs/config": "workspace:*",
     "@linealabs/db": "workspace:*",
