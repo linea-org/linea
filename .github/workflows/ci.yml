@@ -15,6 +15,10 @@ concurrency:
 
 env:
   TURBO_TELEMETRY_DISABLED: 1
+  # PRs run only the packages they change plus their dependents; pushes to main run everything.
+  # Root-level shared inputs are listed in turbo.json globalDependencies and force a full run.
+  TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+  TURBO_AFFECTED: ${{ github.event_name == 'pull_request' && '--affected' || '' }}
 
 jobs:
   format:
@@ -70,6 +74,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
@@ -82,7 +87,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: pnpm lint
+        run: pnpm lint $TURBO_AFFECTED
 
   typecheck:
     name: Type check
@@ -92,6 +97,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
@@ -104,7 +110,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Type check
-        run: pnpm typecheck
+        run: pnpm typecheck $TURBO_AFFECTED
 
   public-contracts:
     name: Public contract coverage
@@ -174,6 +180,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
@@ -189,7 +196,7 @@ jobs:
         run: pnpm db:migrate
 
       - name: Test
-        run: pnpm test
+        run: pnpm test $TURBO_AFFECTED
 
   launch-gate:
     name: Connections and Action Consent launch gate
@@ -251,6 +258,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
@@ -263,4 +271,4 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm build
+        run: pnpm build $TURBO_AFFECTED
