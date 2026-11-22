@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto"
-import { db, encryptCredential, repositories, schema } from "@linealabs/db"
+import {
+  db,
+  encryptCredential,
+  pool,
+  repositories,
+  schema,
+} from "@linealabs/db"
 import {
   configureTestEnvironment,
   getTestApplicationId,
@@ -167,3 +173,12 @@ export async function createAgentExecutionFixture() {
 export type AgentExecutionFixture = Awaited<
   ReturnType<typeof createAgentExecutionFixture>
 >
+
+export async function deleteAgentExecutionFixture(workspaceId: string) {
+  for (const statement of [
+    "DELETE FROM approval_requests WHERE workspace_id = $1",
+    "DELETE FROM connector_audit_facts WHERE workspace_id = $1",
+    "DELETE FROM organizations WHERE id = $1",
+  ])
+    await pool.query(statement, [workspaceId])
+}

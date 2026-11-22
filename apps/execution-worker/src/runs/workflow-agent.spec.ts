@@ -14,6 +14,7 @@ import { RunLeaseService } from "./run-lease.service"
 import { RunsService } from "./runs.service"
 import {
   createAgentExecutionFixture,
+  deleteAgentExecutionFixture,
   type AgentExecutionFixture,
 } from "./agent-execution.fixture"
 
@@ -149,13 +150,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   jest.restoreAllMocks()
-  await pool.query(
-    "DELETE FROM connector_audit_facts WHERE workspace_id = $1",
-    [fixture.workspaceId]
-  )
-  await pool.query("DELETE FROM organizations WHERE id = $1", [
-    fixture.workspaceId,
-  ])
+  await deleteAgentExecutionFixture(fixture.workspaceId)
 })
 
 afterAll(async () => {
@@ -168,11 +163,11 @@ afterAll(async () => {
   if (originalCredentialKeys.keys === undefined)
     delete process.env.CONNECTION_CREDENTIAL_KEYS
   else process.env.CONNECTION_CREDENTIAL_KEYS = originalCredentialKeys.keys
-  delete process.env.DETERMINISTIC_CONNECTOR_BASE_URL
   await moduleRef.close()
   await new Promise<void>((resolve, reject) =>
     provider.close((error) => (error ? reject(error) : resolve()))
   )
+  delete process.env.DETERMINISTIC_CONNECTOR_BASE_URL
   await pool.end()
 })
 
