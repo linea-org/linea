@@ -31,7 +31,6 @@ export async function aiProviderStatuses(
       keyName: provider.keyName,
       configured: configuredKeys.has(provider.keyName),
       platformFallback: await isPlatformModelKeyAvailable(
-        db,
         workspaceId,
         provider.keyName,
       ),

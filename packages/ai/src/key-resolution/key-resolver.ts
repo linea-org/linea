@@ -5,6 +5,7 @@ import {
   repositories,
   type DbClient,
 } from "@linealabs/db"
+import { isFlagEnabled } from "@linealabs/flags"
 import { assertPlatformKeyBudget } from "../usage-budget.js"
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -24,16 +25,12 @@ export class ModelKeyMissingError extends Error {
 }
 
 export async function isPlatformModelKeyAvailable(
-  db: DbClient,
   workspaceId: string,
   keyName: string
 ): Promise<boolean> {
   return (
     Boolean(process.env[keyName]) &&
-    (await repositories.workspaceSettings.isPlatformModelKeyEnabled(
-      db,
-      workspaceId
-    ))
+    (await isFlagEnabled("platformModelKey", workspaceId))
   )
 }
 
@@ -63,13 +60,7 @@ export async function resolveApiKey(
     return { apiKey: secret.encryptedValue, source: "environment" }
   }
   const platformKey = process.env[keyName]
-  if (
-    !platformKey ||
-    !(await repositories.workspaceSettings.isPlatformModelKeyEnabled(
-      db,
-      workspaceId
-    ))
-  ) {
+  if (!platformKey || !(await isFlagEnabled("platformModelKey", workspaceId))) {
     throw new ModelKeyMissingError(keyName)
   }
   const since = new Date(Date.now() - DAY_MS)

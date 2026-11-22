@@ -1,6 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "stream",
+  "globalDependencies": [
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "tsconfig.json",
+    ".prettierrc",
+    ".nvmrc",
+    ".github/workflows/ci.yml"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

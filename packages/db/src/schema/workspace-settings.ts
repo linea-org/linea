@@ -32,6 +32,7 @@ export const workspaceSettings = snakeCase.table("workspace_settings", {
   // Preselected on new AI workflow steps; existing steps keep the model they were saved with.
   stepModel: text(),
   // Linea grants this, never the workspace, because it spends the platform's own provider key.
+  // Unread since the platformModelKey flag replaced it (ADR 0027); drop once environments move.
   platformModelKeyEnabled: boolean().notNull().default(false),
 
   // Layer 4 (retention/redaction) — reserved, unused until that layer is built.

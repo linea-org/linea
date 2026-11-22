@@ -282,6 +282,9 @@ importers:
       '@linealabs/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@linealabs/flags':
+        specifier: workspace:*
+        version: link:../../packages/flags
       '@linealabs/http':
         specifier: workspace:*
         version: link:../../packages/http
@@ -454,6 +457,12 @@ importers:
       better-auth:
         specifier: ^1.7.25
         version: 1.7.25(@tanstack/react-start@1.169.5(esbuild@0.28.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.19)(rollup@4.62.4)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0))(webpack@5.106.2(esbuild@0.28.1)))(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(@sinclair/typebox@0.34.52)(@types/pg@8.23.1)(pg@8.23.1)(zod@4.6.7))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(solid-js@1.9.19)(vitest@5.1.1(@types/node@26.6.6)(jsdom@26.1.0)(msw@2.15.0(@types/node@26.6.6)(typescript@6.0.3))(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0)))
+      highlight.js:
+        specifier: 11.11.1
+        version: 11.11.1
+      lowlight:
+        specifier: 3.3.0
+        version: 3.3.0
       lucide-react:
         specifier: ^1.47.0
         version: 1.47.0(react@19.3.1)
@@ -497,6 +506,9 @@ importers:
       '@linealabs/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@linealabs/flags':
+        specifier: workspace:*
+        version: link:../../packages/flags
       '@playwright/test':
         specifier: ^1.65.1
         version: 1.65.1
@@ -518,6 +530,9 @@ importers:
       eslint:
         specifier: ^10
         version: 10.15.0(jiti@2.7.0)
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
       typescript:
         specifier: ^6
         version: 6.0.3
@@ -567,6 +582,9 @@ importers:
       '@linealabs/db':
         specifier: workspace:*
         version: link:../db
+      '@linealabs/flags':
+        specifier: workspace:*
+        version: link:../flags
       openai:
         specifier: ^7
         version: 7.59.0(undici@8.12.4)(ws@8.21.0)(zod@4.6.7)
@@ -739,6 +757,31 @@ importers:
         version: 8.5.0(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.0)
       typescript:
         specifier: '6'
+        version: 6.0.3
+      vitest:
+        specifier: ^5.1.1
+        version: 5.1.1(@types/node@26.6.6)(jsdom@26.1.0)(msw@2.15.0(@types/node@26.6.6)(typescript@6.0.3))(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.0))
+
+  packages/flags:
+    dependencies:
+      '@configcat/sdk':
+        specifier: ^1.1.0
+        version: 1.1.0
+    devDependencies:
+      '@linealabs/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: '26'
+        version: 26.6.6
+      eslint:
+        specifier: ^10
+        version: 10.15.0(jiti@2.7.0)
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.23)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.0)
+      typescript:
+        specifier: ^6
         version: 6.0.3
       vitest:
         specifier: ^5.1.1
@@ -1502,6 +1545,9 @@ packages:
   '@colors/colors@1.5.0':
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
     engines: {node: '>=0.1.90'}
+
+  '@configcat/sdk@1.1.0':
+    resolution: {integrity: sha512-oSueg7jIk6in+XreRjnV+U6lQfgu5W2w6TqtO1CjEcyR2zRrVC7fLLZoySHnRlPwExXrvbp4olDYWEbfj1zL0A==}
 
   '@copilotkit/a2ui-renderer@1.90.0':
     resolution: {integrity: sha512-F688NDpKjFtKaH7VW2CfqKnrECfxjcC2KJVjaF0Gx4RLUOlLrI5ceAuZ55ZQgAlpsfgE/xOMh9Uv795nptR3Pg==}
@@ -6510,6 +6556,10 @@ packages:
     resolution: {integrity: sha512-Qgpiaws3Sm30Av8Eah6sjMCZZwjlBu+E68rhpCWBshY1lb09HtLwj5GviX0OyQIn+ulUS0iX0AxN5n3tLZzz1w==}
     engines: {node: '>=18.0.0'}
 
+  highlight.js@11.11.1:
+    resolution: {integrity: sha512-Xwwo44whKBVCYoliBQwaPvtd/2tYFkRQtXDWj1nackaV2JPXx3L0+Jvd8/qCJ2p+ML0/XVkJ2q+Mr+UVdpJK5w==}
+    engines: {node: '>=12.0.0'}
+
   hono@4.13.18:
     resolution: {integrity: sha512-H9q/E1XizaWstJxUW881dmLxEj+t/TrGGnyxINkm4+sK0qUwsMtFdo2BWI9Vs3cIS19MU6b6iCijoUoEf4f3DA==}
     engines: {node: '>=16.9.0'}
@@ -7277,6 +7327,9 @@ packages:
   loose-envify@1.4.0:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
+
+  lowlight@3.3.0:
+    resolution: {integrity: sha512-0JNhgFoPvP6U6lE/UdVsSq99tn6DhjjpAj5MxG49ewd2mOBVtwWYIT8ClyABhq198aXXODMU6Ox8DrGy/CpTZQ==}
 
   lru-cache@10.4.3:
     resolution: {integrity: sha512-JNAzZcXrCt42VGLuYz0zfAzDfAvJWW6AfYlDBQyDV5DClI2m5sAmK+OIO7s59XfsRsWHp02jAJrRadPRGTt6SQ==}
@@ -10365,6 +10418,8 @@ snapshots:
 
   '@colors/colors@1.5.0':
     optional: true
+
+  '@configcat/sdk@1.1.0': {}
 
   '@copilotkit/a2ui-renderer@1.90.0(@ag-ui/core@1.0.5(zod@4.6.7))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
@@ -15713,6 +15768,8 @@ snapshots:
 
   helmet@8.3.0: {}
 
+  highlight.js@11.11.1: {}
+
   hono@4.13.18: {}
 
   hookified@1.15.1: {}
@@ -16573,6 +16630,12 @@ snapshots:
   loose-envify@1.4.0:
     dependencies:
       js-tokens: 4.0.0
+
+  lowlight@3.3.0:
+    dependencies:
+      '@types/hast': 3.0.5
+      devlop: 1.1.0
+      highlight.js: 11.11.1
 
   lru-cache@10.4.3: {}
 
