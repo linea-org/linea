@@ -14,7 +14,7 @@ export type MentionRef = Pick<MentionCandidate, "kind" | "id">
 
 export type MentionTrigger = { start: number; query: string }
 
-const TRIGGER = /(?:^|\s)@([\p{L}\p{N}_:-]*)$/u
+const TRIGGER = /(?:^|\s)@([\p{L}\p{M}\p{N}_:-]*)$/u
 
 /** The "@" being typed just before the caret, if it starts a word. */
 export function findMentionTrigger(

@@ -130,6 +130,19 @@ describe("copying", () => {
     expect(serializeEditor(root)).toBe("")
   })
 
+  it("gives full references for a selection that is only part of the draft", () => {
+    renderText(root, `before @run:${RUN_ID} after`)
+    const chip = chipHosts(root)[0]
+    const range = document.createRange()
+    range.setStart(root.firstChild as Text, 4)
+    range.setEndAfter(chip)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    expect(selectedMessageText(root)).toBe(`re @run:${RUN_ID}`)
+    deleteSelection(root)
+    expect(serializeEditor(root)).toBe("befo after")
+  })
+
   it("gives nothing for a bare caret", () => {
     renderText(root, "hello")
     caretAtEnd(root)

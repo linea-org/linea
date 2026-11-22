@@ -53,18 +53,20 @@ describe("findMentionTrigger", () => {
   })
 
   it("keeps the picker open for names in any script", () => {
-    expect(findMentionTrigger("ask @客户", 7)).toEqual({
-      start: 4,
-      query: "客户",
-    })
-    expect(findMentionTrigger("@équipe", 7)).toEqual({
-      start: 0,
-      query: "équipe",
-    })
-    expect(findMentionTrigger("@team_2", 7)).toEqual({
-      start: 0,
-      query: "team_2",
-    })
+    const names = [
+      "客户",
+      "équipe",
+      "e\u0301quipe",
+      "\u0930\u093E\u091C\u0928\u0940\u0924\u093F",
+      "team_2",
+    ]
+    for (const name of names) {
+      const text = `ask @${name}`
+      expect(findMentionTrigger(text, text.length)).toEqual({
+        start: 4,
+        query: name,
+      })
+    }
   })
 
   it("ignores an @ inside a word, such as an email address", () => {
