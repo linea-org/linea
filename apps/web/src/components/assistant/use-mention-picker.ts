@@ -1,44 +1,72 @@
 import {
+  useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
-  type ChangeEvent,
   type KeyboardEvent,
-  type SyntheticEvent,
+  type RefObject,
 } from "react"
 
-import { useFlag } from "@/lib/use-flag"
+import {
+  insertMentionAtTrigger,
+  mentionTriggerAtCaret,
+  type MentionTriggerAtCaret,
+} from "./mention-editor-dom"
 import {
   filterMentions,
-  findMentionTrigger,
-  insertMention,
   mentionKey,
   type MentionCandidate,
 } from "./mention-text"
 import { useMentionCandidates } from "./use-mention-candidates"
 
-type TextareaEvent =
-  SyntheticEvent<HTMLTextAreaElement> | ChangeEvent<HTMLTextAreaElement>
+const sameTrigger = (
+  a: MentionTriggerAtCaret | null,
+  b: MentionTriggerAtCaret | null
+) =>
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.node === b.node &&
+    a.start === b.start &&
+    a.end === b.end)
 
 export function useMentionPicker({
-  value,
-  onChange,
+  root,
   workflowId,
+  onInserted,
 }: {
-  value: string
-  onChange: (value: string) => void
+  root: RefObject<HTMLElement | null>
   workflowId: string | undefined
+  onInserted: () => void
 }) {
-  const enabled = useFlag("assistantMentions")
-  const textarea = useRef<HTMLTextAreaElement>(null)
-  const picker = useRef<HTMLDivElement>(null)
-  const pendingCaret = useRef<number | null>(null)
-  const [caret, setCaret] = useState(0)
-  const [dismissedAt, setDismissedAt] = useState<number | null>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const [trigger, setTrigger] = useState<MentionTriggerAtCaret | null>(null)
+  const [dismissed, setDismissed] = useState<MentionTriggerAtCaret | null>(null)
   const [active, setActive] = useState<string | null>(null)
 
-  const trigger = enabled ? findMentionTrigger(value, caret) : null
-  const open = trigger !== null && trigger.start !== dismissedAt
+  const refresh = useCallback(() => {
+    const next = root.current ? mentionTriggerAtCaret(root.current) : null
+    setTrigger((prev) => (sameTrigger(prev, next) ? prev : next))
+    setDismissed((prev) =>
+      next && prev && next.node === prev.node && next.start === prev.start
+        ? prev
+        : null
+    )
+  }, [root])
+
+  useEffect(() => {
+    document.addEventListener("selectionchange", refresh)
+    return () => document.removeEventListener("selectionchange", refresh)
+  }, [refresh])
+
+  const open =
+    trigger !== null &&
+    !(
+      dismissed &&
+      dismissed.node === trigger.node &&
+      dismissed.start === trigger.start
+    )
   const { candidates, isLoading, error } = useMentionCandidates(
     open,
     workflowId
@@ -50,42 +78,20 @@ export function useMentionPicker({
       ? mentionKey(items[0])
       : null
 
-  function track(event: TextareaEvent) {
-    const { selectionStart, value: text } = event.currentTarget
-    setCaret(selectionStart)
-    const next = findMentionTrigger(text, selectionStart)
-    setDismissedAt((at) => (next?.start === at ? at : null))
-  }
-
   function pick(candidate: MentionCandidate) {
-    const element = textarea.current
-    if (!element || !trigger) return
-    const next = insertMention(
-      value,
-      element.selectionStart,
-      trigger,
-      candidate
-    )
-    pendingCaret.current = next.caret
-    setCaret(next.caret)
-    onChange(next.text)
+    if (!root.current || !trigger) return
+    insertMentionAtTrigger(root.current, trigger, candidate, candidate.label)
+    setTrigger(null)
+    onInserted()
   }
 
+  // cmdk generates its own element ids, so the editor points at them after each render.
   useLayoutEffect(() => {
-    const element = textarea.current
-    if (!element || pendingCaret.current === null) return
-    element.setSelectionRange(pendingCaret.current, pendingCaret.current)
-    element.focus()
-    pendingCaret.current = null
-  }, [value])
-
-  // cmdk generates its own element ids, so the textarea points at them after each render.
-  useLayoutEffect(() => {
-    const element = textarea.current
+    const element = root.current
     if (!element) return
-    const list = picker.current?.querySelector("[cmdk-list]")?.id
+    const list = pickerRef.current?.querySelector("[cmdk-list]")?.id
     const option = [
-      ...(picker.current?.querySelectorAll("[cmdk-item]") ?? []),
+      ...(pickerRef.current?.querySelectorAll("[cmdk-item]") ?? []),
     ].find((node) => node.getAttribute("data-value") === activeKey)?.id
     for (const [name, id] of [
       ["aria-controls", list],
@@ -96,23 +102,22 @@ export function useMentionPicker({
     }
   })
 
-  /** Returns true when the key belonged to the open picker, so the composer must ignore it. */
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): boolean {
+  /** Returns true when the key belonged to the open picker, so the editor must ignore it. */
+  function handleKeyDown(event: KeyboardEvent<HTMLElement>): boolean {
     if (!trigger || !open || event.nativeEvent.isComposing) return false
     if (event.key === "Escape") {
-      // React listens on document, as does the page-wide Escape handler that would blur the textarea.
+      // React listens on document, as does the page-wide Escape handler that would blur the editor.
       event.nativeEvent.stopImmediatePropagation()
       event.preventDefault()
-      setDismissedAt(trigger.start)
+      setDismissed(trigger)
       return true
     }
-    if (
-      items.length === 0 ||
-      event.shiftKey ||
-      event.metaKey ||
-      event.ctrlKey
-    ) {
-      return false
+    if (event.shiftKey || event.metaKey || event.ctrlKey) return false
+    if (items.length === 0) {
+      // Matches may still be arriving, so Enter must not send a half-typed "@wor".
+      if (!(isLoading && event.key === "Enter")) return false
+      event.preventDefault()
+      return true
     }
     const index = items.findIndex((item) => mentionKey(item) === activeKey)
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -128,8 +133,7 @@ export function useMentionPicker({
   }
 
   return {
-    textarea,
-    picker,
+    pickerRef,
     open,
     items,
     activeKey,
@@ -137,15 +141,7 @@ export function useMentionPicker({
     pick,
     isLoading,
     error,
-    track,
     handleKeyDown,
-    inputAria: open
-      ? ({
-          role: "combobox",
-          "aria-expanded": true,
-          "aria-haspopup": "listbox",
-          "aria-autocomplete": "list",
-        } as const)
-      : {},
+    refresh,
   }
 }

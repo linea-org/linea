@@ -25,7 +25,7 @@ export function eventCombo(event: KeyEventLike): string {
 }
 
 const editableTargets =
-  "input, textarea, select, [contenteditable='true'], [contenteditable='']"
+  "input, textarea, select, [contenteditable='true'], [contenteditable=''], [contenteditable='plaintext-only']"
 const overlayTargets =
   "[role='dialog'], [role='menu'], [role='listbox'], [role='combobox']"
 

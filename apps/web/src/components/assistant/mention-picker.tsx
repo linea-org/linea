@@ -1,5 +1,4 @@
 import type { Ref } from "react"
-import { LayoutGridIcon, PlayIcon, WorkflowIcon } from "lucide-react"
 
 import {
   Command,
@@ -9,18 +8,12 @@ import {
   CommandList,
 } from "@linealabs/ui/components/command"
 
+import { KIND_META } from "./mention-kinds"
 import {
   MENTION_KINDS,
   mentionKey,
   type MentionCandidate,
-  type MentionKind,
 } from "./mention-text"
-
-const KIND_META = {
-  run: { heading: "Runs", Icon: PlayIcon },
-  workflow: { heading: "Workflows", Icon: WorkflowIcon },
-  application: { heading: "Applications", Icon: LayoutGridIcon },
-} satisfies Record<MentionKind, unknown>
 
 export function MentionPicker({
   ref,

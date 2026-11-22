@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest"
 import {
   filterMentions,
   findMentionTrigger,
-  insertMention,
+  mentionLabel,
+  parseMentions,
+  serializeSegments,
   mentionReference,
   type MentionCandidate,
 } from "./mention-text"
@@ -65,26 +67,65 @@ describe("findMentionTrigger", () => {
   })
 })
 
-describe("insertMention", () => {
-  it("replaces the typed query with the reference and a space", () => {
-    const text = "why did @ru"
-    const trigger = { start: 8, query: "ru" }
-    expect(insertMention(text, text.length, trigger, run)).toEqual({
-      text: `why did @run:${RUN_ID} `,
-      caret: `why did @run:${RUN_ID} `.length,
-    })
-  })
-
-  it("keeps the text after the caret and puts the caret before it", () => {
-    const text = "@wo and more"
-    const result = insertMention(text, 3, { start: 0, query: "wo" }, workflow)
-    expect(result.text).toBe(`@workflow:${workflow.id}  and more`)
-    expect(result.text.slice(result.caret)).toBe(" and more")
-  })
-
-  it("inserts the full id, which is what get_run accepts", () => {
+describe("mentionReference", () => {
+  it("uses the full id, which is what get_run accepts", () => {
     expect(mentionReference(run)).toBe(`@run:${RUN_ID}`)
     expect(mentionReference(application)).toBe(`@application:${application.id}`)
+  })
+})
+
+describe("parseMentions and serializeSegments", () => {
+  it("round-trips a message with references", () => {
+    const text = `why did @run:${RUN_ID} fail in @workflow:${workflow.id}?\nthanks`
+    expect(parseMentions(text)).toEqual([
+      { type: "text", text: "why did " },
+      { type: "mention", kind: "run", id: RUN_ID },
+      { type: "text", text: " fail in " },
+      { type: "mention", kind: "workflow", id: workflow.id },
+      { type: "text", text: "?\nthanks" },
+    ])
+    expect(serializeSegments(parseMentions(text))).toBe(text)
+  })
+
+  it("keeps text without references as one run", () => {
+    expect(parseMentions("no mention here")).toEqual([
+      { type: "text", text: "no mention here" },
+    ])
+    expect(serializeSegments([])).toBe("")
+  })
+
+  it("leaves a malformed or embedded reference as plain text", () => {
+    for (const text of [
+      "@run:045f759c",
+      `x@run:${RUN_ID}`,
+      `@other:${RUN_ID}`,
+      `@run:${RUN_ID}0`,
+    ]) {
+      expect(parseMentions(text)).toEqual([{ type: "text", text }])
+    }
+  })
+
+  it("sets a reference off with spaces so it stays one token", () => {
+    expect(
+      serializeSegments([
+        { type: "text", text: "see" },
+        { type: "mention", kind: "run", id: RUN_ID },
+        { type: "text", text: "now" },
+      ])
+    ).toBe(`see @run:${RUN_ID} now`)
+    expect(
+      serializeSegments([{ type: "mention", kind: "run", id: RUN_ID }])
+    ).toBe(`@run:${RUN_ID}`)
+  })
+})
+
+describe("mentionLabel", () => {
+  it("shows the short id for a run and the name for the rest", () => {
+    expect(mentionLabel(run, "Summarize tickets")).toBe("run 045f759c")
+    expect(mentionLabel(workflow, "Summarize tickets")).toBe(
+      "Summarize tickets"
+    )
+    expect(mentionLabel(workflow)).toBe("workflow 11111111")
   })
 })
 
