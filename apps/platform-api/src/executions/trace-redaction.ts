@@ -77,7 +77,6 @@ export function redactRecord(
 
 const placeholder = /\[redacted\]|\[secret [^\]\s]+\]/
 
-/** True when a value sent back by a client still holds text this module substituted. */
 export function containsRedactionPlaceholder(value: unknown): boolean {
   return placeholder.test(JSON.stringify(value))
 }
