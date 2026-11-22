@@ -1,7 +1,10 @@
 import { randomBytes, randomUUID } from "node:crypto"
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { db, encryptSecret, repositories, schema } from "@linealabs/db"
 import { ModelKeyMissingError, resolveApiKey } from "./key-resolver.js"
+
+const isFlagEnabled = vi.hoisted(() => vi.fn(async () => false))
+vi.mock("@linealabs/flags", () => ({ isFlagEnabled }))
 
 beforeEach(() => {
   process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString("base64")
@@ -89,16 +92,17 @@ describe("resolveApiKey", () => {
     await withRollback(async (tx) => {
       const organization = await createTestOrganization(tx)
       process.env.TEST_PROVIDER_KEY = "platform-key"
-      await tx.insert(schema.workspaceSettings).values({
-        workspaceId: organization.workspaceId,
-        platformModelKeyEnabled: true,
-      })
+      isFlagEnabled.mockResolvedValueOnce(true)
       const resolved = await resolveApiKey(tx, {
         workspaceId: organization.workspaceId,
         environmentId: organization.id,
         keyName: "TEST_PROVIDER_KEY",
       })
       expect(resolved).toEqual({ apiKey: "platform-key", source: "platform" })
+      expect(isFlagEnabled).toHaveBeenCalledWith(
+        "platformModelKey",
+        organization.workspaceId
+      )
       delete process.env.TEST_PROVIDER_KEY
     })
   })

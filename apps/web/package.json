@@ -49,6 +49,7 @@
   },
   "devDependencies": {
     "@linealabs/config": "workspace:*",
+    "@linealabs/flags": "workspace:*",
     "@playwright/test": "^1.65.1",
     "@tanstack/devtools-vite": "0.7.0",
     "@types/node": "^26",

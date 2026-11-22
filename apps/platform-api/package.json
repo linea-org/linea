@@ -31,6 +31,7 @@
     "@linealabs/config": "workspace:*",
     "@linealabs/connectors": "workspace:*",
     "@linealabs/db": "workspace:*",
+    "@linealabs/flags": "workspace:*",
     "@linealabs/http": "workspace:*",
     "@linealabs/queue": "workspace:*",
     "@linealabs/protocol": "workspace:*",

@@ -6,6 +6,7 @@ import { AuthModule } from '@thallesp/nestjs-better-auth'
 import { auth } from '@linealabs/auth'
 import { ApiKeysModule } from './api-keys/api-keys.module'
 import { EnvironmentsModule } from './environments/environments.module'
+import { FlagsModule } from './flags/flags.module'
 import { ApprovalsModule } from './approvals/approvals.module'
 import { AssistantModule } from './assistant/assistant.module'
 import { TemplatesModule } from './templates/templates.module'
@@ -40,6 +41,7 @@ import { WorkflowsModule } from './workflows/workflows.module'
     QueueModule,
     ApiKeysModule,
     EnvironmentsModule,
+    FlagsModule,
     ConnectionsModule,
     EndUserAuthorizationModule,
     EndUserSessionsModule,
