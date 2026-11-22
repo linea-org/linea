@@ -148,6 +148,7 @@ export function MentionEditor({
           contentEditable="plaintext-only"
           suppressContentEditableWarning
           role="textbox"
+          tabIndex={0}
           aria-multiline="true"
           aria-label={label}
           aria-haspopup={mentions.open ? "listbox" : undefined}

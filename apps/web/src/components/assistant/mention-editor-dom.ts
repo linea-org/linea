@@ -49,8 +49,10 @@ export function readSegments(root: Node): MessageSegment[] {
     } else if (child instanceof Text) {
       segments.push({ type: "text", text: child.data })
     } else if (child.nodeName === "BR") {
-      // A BR closing a line is only the browser's placeholder for an empty last line.
-      if (child !== child.parentNode?.lastChild) {
+      // The editor's closing BR is only the browser's placeholder for an empty last line; a BR
+      // ending a copied fragment is a real line break.
+      const parent = child.parentNode
+      if (parent instanceof DocumentFragment || child !== parent?.lastChild) {
         segments.push({ type: "text", text: "\n" })
       }
     } else {

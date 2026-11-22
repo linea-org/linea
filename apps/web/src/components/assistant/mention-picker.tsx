@@ -40,9 +40,9 @@ export function MentionPicker({
       ref={ref}
       className="absolute inset-x-0 bottom-full z-10 mb-2 overflow-hidden rounded-xl border border-border bg-popover shadow-md"
     >
-      <p role="status" className="sr-only">
+      <output className="sr-only">
         {items.length > 0 ? `${items.length} matches` : emptyMessage}
-      </p>
+      </output>
       <Command
         shouldFilter={false}
         label="Mention a run, Workflow or Application"

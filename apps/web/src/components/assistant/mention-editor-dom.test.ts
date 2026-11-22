@@ -143,6 +143,17 @@ describe("copying", () => {
     expect(serializeEditor(root)).toBe("befo after")
   })
 
+  it("keeps the line break at the end of a copied selection", () => {
+    root.append("a", document.createElement("br"), "b")
+    const range = document.createRange()
+    range.setStart(root.firstChild as Text, 0)
+    range.setStartBefore(root.firstChild as Text)
+    range.setEndAfter(root.childNodes[1])
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    expect(selectedMessageText(root)).toBe("a\n")
+  })
+
   it("gives nothing for a bare caret", () => {
     renderText(root, "hello")
     caretAtEnd(root)

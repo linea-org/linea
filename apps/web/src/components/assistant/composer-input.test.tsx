@@ -111,6 +111,7 @@ describe("ComposerInput", () => {
     expect(container.querySelector("textarea")).toBeNull()
     expect(field.getAttribute("contenteditable")).toBe("plaintext-only")
     expect(field.getAttribute("role")).toBe("textbox")
+    expect(field.tabIndex).toBe(0)
     expect(field.getAttribute("aria-label")).toBe("Message Inky")
     expect(container.textContent).toContain("Ask anything")
     expect(isEditableTarget(field)).toBe(true)
@@ -184,7 +185,6 @@ describe("ComposerInput", () => {
       document.dispatchEvent(new Event("selectionchange"))
     })
     expect(container.querySelector("[data-testid=picker]")).not.toBeNull()
-    expect(field.getAttribute("role")).toBe("textbox")
     expect(field.getAttribute("aria-haspopup")).toBe("listbox")
 
     press(field, "Enter")
