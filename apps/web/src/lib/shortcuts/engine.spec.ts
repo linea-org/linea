@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { comboKeys } from "./definitions"
+import { CLICK_SHORTCUTS, SHORTCUTS, comboKeys } from "./definitions"
 import { createShortcutEngine } from "./engine"
 
 function key(
@@ -32,6 +32,21 @@ describe("shortcut engine", () => {
     const resolve = createShortcutEngine()
     expect(resolve(key("c"), true, 0)).toBeNull()
     expect(resolve(key("k", { metaKey: true }), true, 0)).toBe("search")
+  })
+
+  it("sends with mod+enter, also while typing, but not with a bare Enter", () => {
+    const resolve = createShortcutEngine()
+    expect(resolve(key("Enter", { metaKey: true }), true, 0)).toBe("send")
+    expect(resolve(key("Enter", { ctrlKey: true }), true, 0)).toBe("send")
+    expect(resolve(key("Enter"), false, 0)).toBeNull()
+    expect(resolve(key("Enter", { shiftKey: true }), false, 0)).toBeNull()
+  })
+
+  it("keeps plain page keys from firing in a dialog or field", () => {
+    const resolve = createShortcutEngine()
+    expect(resolve(key("f"), false, 0)).toBe("filter")
+    expect(resolve(key("f"), true, 0)).toBeNull()
+    expect(resolve(key("c"), true, 0)).toBeNull()
   })
 
   it("matches a two-key sequence within the timeout only", () => {
@@ -79,5 +94,14 @@ describe("comboKeys", () => {
     expect(comboKeys("mod+k", false)).toEqual(["Ctrl", "K"])
     expect(comboKeys("g h", true)).toEqual(["G", "H"])
     expect(comboKeys("?", true)).toEqual(["?"])
+    expect(comboKeys("mod+enter", true)).toEqual(["⌘", "↵"])
+    expect(comboKeys("mod+enter", false)).toEqual(["Ctrl", "↵"])
+  })
+})
+
+describe("click shortcuts", () => {
+  it("are all defined shortcuts on the page", () => {
+    for (const id of CLICK_SHORTCUTS)
+      expect(SHORTCUTS[id].group).toBe("This page")
   })
 })

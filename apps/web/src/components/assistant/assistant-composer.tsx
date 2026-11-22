@@ -38,6 +38,7 @@ import {
 import { cn } from "@linealabs/ui/lib/utils"
 
 import { ModelSetupForm } from "@/components/models/model-setup-form"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { ASSISTANT_NAME } from "@/lib/assistant-api"
 import { readAttachments } from "@/lib/attachments"
 import type { CatalogModel } from "@/lib/model-settings-api"
@@ -301,6 +302,7 @@ export function AssistantComposer({
               onClick={submit}
               disabled={!canSend}
               aria-label="Send message"
+              {...shortcutTarget("send")}
             >
               <ArrowUpIcon />
             </Button>

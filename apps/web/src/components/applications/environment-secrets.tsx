@@ -44,6 +44,8 @@ import {
 } from "@linealabs/ui/components/table"
 
 import { SecretFormDialog } from "@/components/secrets"
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { ToolbarSearch } from "@/components/workspace/toolbar-search"
 import type { AiProviderKeyStatus, SecretSummary } from "@/lib/secrets-api"
 import {
@@ -317,9 +319,13 @@ function CustomSecretsSection({
           placeholder="Search secrets"
         />
         <div className="ml-auto">
-          <Button onClick={() => onEdit({ kind: "create" })}>
+          <Button
+            onClick={() => onEdit({ kind: "create" })}
+            {...shortcutTarget("create")}
+          >
             <PlusIcon />
             Add secret
+            <ShortcutKeys id="create" onPrimary />
           </Button>
         </div>
       </div>
