@@ -14,7 +14,7 @@ const credentialPatterns: [RegExp, string][] = [
     /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
     REDACTED,
   ],
-  [/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi, `$1 ${REDACTED}`],
+  [/\b(Bearer|Basic)\s+[a-z0-9._~+/=-]{8,}/gi, `$1 ${REDACTED}`],
   [/(:\/\/)[^\s/:@]+:[^\s/@]+@/g, `$1${REDACTED}@`],
   [/\beyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{8,}/g, REDACTED],
   [/\b(sk|gsk|xai)-[\w-]{20,}/g, REDACTED],

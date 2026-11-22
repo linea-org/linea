@@ -52,7 +52,7 @@ export async function listSecrets(
 }
 
 /** Server-side use only, such as redacting secret values from a trace; never send to a client. */
-export async function listEncryptedSecrets(
+export function listEncryptedSecrets(
   db: DbClient,
   environmentId: string
 ): Promise<Pick<Secret, "key" | "encryptedValue">[]> {

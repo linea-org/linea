@@ -4,7 +4,7 @@ import {
   publishTestWorkflow,
 } from '@linealabs/db/testing'
 import 'dotenv/config'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
 import { db, encryptSecret, pool, repositories, schema } from '@linealabs/db'
 import type { WorkflowGraph } from '@linealabs/runtime'
@@ -45,7 +45,37 @@ const graph: WorkflowGraph = {
   edges: [],
 }
 
+async function withServiceAndOrganization(
+  run: (
+    service: ExecutionsService,
+    organization: typeof schema.organizations.$inferSelect,
+  ) => Promise<void>,
+) {
+  const moduleRef = await Test.createTestingModule({
+    providers: [ExecutionsService, StepReplayQueueService],
+  }).compile()
+  const [organization] = await db
+    .insert(schema.organizations)
+    .values({
+      name: 'Executions Test Org',
+      slug: `executions-test-${randomUUID()}`,
+      createdAt: new Date(),
+    })
+    .returning()
+  try {
+    await run(moduleRef.get(ExecutionsService), organization)
+  } finally {
+    await moduleRef.close()
+    await pool.query('DELETE FROM organizations WHERE id = $1', [
+      organization.id,
+    ])
+  }
+}
+
 describe('ExecutionsService', () => {
+  beforeAll(() => {
+    process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString('base64')
+  })
   it('rejects triggering a workflow with no published version', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [ExecutionsService, StepReplayQueueService],
@@ -1023,21 +1053,9 @@ describe('ExecutionsService', () => {
       }
     })
     it('redacts credentials from the run, its steps and its node configs', async () => {
-      const moduleRef = await Test.createTestingModule({
-        providers: [ExecutionsService, StepReplayQueueService],
-      }).compile()
-      const service = moduleRef.get(ExecutionsService)
-      const suffix = randomUUID()
-      const [organization] = await db
-        .insert(schema.organizations)
-        .values({
-          name: 'Executions Redaction Test Org',
-          slug: `executions-redaction-test-${suffix}`,
-          createdAt: new Date(),
-        })
-        .returning()
-      const crmKey = `crm-live-${suffix}`
-      try {
+      await withServiceAndOrganization(async (service, organization) => {
+        const suffix = randomUUID()
+        const crmKey = `crm-live-${suffix}`
         const workflow = await repositories.workflow.createWorkflow(db, {
           applicationId: await getTestApplicationId(db, organization.id),
           workspaceId: organization.id,
@@ -1097,7 +1115,7 @@ describe('ExecutionsService', () => {
         // An End step records its input as is, which may be a string or an array.
         await pool.query(
           `INSERT INTO execution_steps (execution_id, workspace_id, trace_id, span_id, name, node_id, sequence, started_at, status, input, output)
-           VALUES ($1, $2, $3, $4, 'end', 'n2', 2, now(), 'succeeded', $5::jsonb, $6::jsonb)`,
+         VALUES ($1, $2, $3, $4, 'end', 'n2', 2, now(), 'succeeded', $5::jsonb, $6::jsonb)`,
           [
             execution.id,
             organization.id,
@@ -1139,12 +1157,7 @@ describe('ExecutionsService', () => {
           customer: 'Ada',
           apiKey: REDACTED,
         })
-      } finally {
-        await moduleRef.close()
-        await pool.query('DELETE FROM organizations WHERE id = $1', [
-          organization.id,
-        ])
-      }
+      })
     })
   })
   describe('replayStep()', () => {
@@ -1238,19 +1251,7 @@ describe('ExecutionsService', () => {
       }
     })
     it('refuses an override that still contains a redaction placeholder', async () => {
-      const moduleRef = await Test.createTestingModule({
-        providers: [ExecutionsService, StepReplayQueueService],
-      }).compile()
-      const service = moduleRef.get(ExecutionsService)
-      const [organization] = await db
-        .insert(schema.organizations)
-        .values({
-          name: 'Replay Placeholder Test Org',
-          slug: `replay-placeholder-${randomUUID()}`,
-          createdAt: new Date(),
-        })
-        .returning()
-      try {
+      await withServiceAndOrganization(async (service, organization) => {
         const { execution, step } = await setUpTerminalExecutionWithStep(
           organization.id,
         )
@@ -1268,12 +1269,7 @@ describe('ExecutionsService', () => {
             ),
           ).rejects.toThrow('still contains a redacted value')
         }
-      } finally {
-        await moduleRef.close()
-        await pool.query('DELETE FROM organizations WHERE id = $1', [
-          organization.id,
-        ])
-      }
+      })
     })
     it('rejects replaying a Run Agent step', async () => {
       const moduleRef = await Test.createTestingModule({
