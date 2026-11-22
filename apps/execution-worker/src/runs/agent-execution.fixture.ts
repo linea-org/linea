@@ -175,10 +175,12 @@ export type AgentExecutionFixture = Awaited<
 >
 
 export async function removeWorkspace(workspaceId: string) {
-  for (const statement of [
-    "DELETE FROM approval_requests WHERE workspace_id = $1",
-    "DELETE FROM connector_audit_facts WHERE workspace_id = $1",
-    "DELETE FROM organizations WHERE id = $1",
+  await pool.query("DELETE FROM approval_requests WHERE workspace_id = $1", [
+    workspaceId,
   ])
-    await pool.query(statement, [workspaceId])
+  await pool.query(
+    "DELETE FROM connector_audit_facts WHERE workspace_id = $1",
+    [workspaceId]
+  )
+  await pool.query("DELETE FROM organizations WHERE id = $1", [workspaceId])
 }
