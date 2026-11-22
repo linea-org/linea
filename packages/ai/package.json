@@ -13,6 +13,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "@linealabs/db": "workspace:*",
+    "@linealabs/flags": "workspace:*",
     "openai": "^7"
   },
   "devDependencies": {

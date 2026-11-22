@@ -1,3 +1,6 @@
+// Specs supply a deterministic platform model key rather than an Environment secret.
+process.env.FEATURE_FLAGS = "platformModelKey"
+
 // BullMQ can duplicate the Redis connection it's given internally, and a duplicate doesn't inherit createConnection()'s own "error" listener (EventEmitter listeners aren't copied by ioredis's .duplicate()) — a stray "Connection is closed" error from that duplicate closing after an owning test's teardown otherwise crashes whatever test happens to be running next. Same benign race as connection.ts's own listener, caught here as the last line of defense for connections we don't create directly.
 function isBenignRedisTeardownError(error: unknown): boolean {
   return (
