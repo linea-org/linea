@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -9,6 +10,10 @@ import {
   TableHeader,
   TableRow,
 } from "@linealabs/ui/components/table"
+
+import { HighlighterErrorBoundary } from "./highlighter-error-boundary"
+
+const HighlightedCode = lazy(() => import("./highlighted-code"))
 
 const components: Components = {
   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
@@ -47,14 +52,27 @@ const components: Components = {
     </blockquote>
   ),
   code: ({ className, children }) => {
-    // Fenced blocks carry a "language-xxx" className from remark; a plain inline `code` span doesn't.
-    const isBlock = Boolean(className)
-    return isBlock ? (
-      <code className={className}>{children}</code>
-    ) : (
-      <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-        {children}
-      </code>
+    // remark gives fenced blocks a trailing newline and, when a language is given, a
+    // "language-xxx" className; inline `code` spans have neither.
+    const isBlock =
+      Boolean(className) ||
+      (typeof children === "string" && children.endsWith("\n"))
+    if (!isBlock) {
+      return (
+        <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+          {children}
+        </code>
+      )
+    }
+    const plain = <code className={className}>{children}</code>
+    const language = /language-(\S+)/.exec(className ?? "")?.[1]
+    if (!language || typeof children !== "string") return plain
+    return (
+      <HighlighterErrorBoundary fallback={plain}>
+        <Suspense fallback={plain}>
+          <HighlightedCode code={children} language={language} />
+        </Suspense>
+      </HighlighterErrorBoundary>
     )
   },
   hr: () => <hr className="my-3 border-border" />,

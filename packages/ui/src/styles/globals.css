@@ -59,6 +59,12 @@
   --chart-3: var(--color-green-500);
   --chart-4: var(--color-yellow-500);
   --chart-5: var(--color-purple-500);
+  --code-keyword: var(--color-purple-700);
+  --code-string: var(--color-green-700);
+  --code-number: var(--color-amber-700);
+  --code-comment: var(--color-zinc-500);
+  --code-function: var(--color-sky-700);
+  --code-attribute: var(--color-indigo-700);
   --sidebar: var(--color-zinc-50);
   --sidebar-foreground: var(--color-zinc-900);
   --sidebar-primary: var(--color-indigo-600);
@@ -179,6 +185,12 @@
   --chart-3: var(--color-green-400);
   --chart-4: var(--color-yellow-400);
   --chart-5: var(--color-purple-400);
+  --code-keyword: var(--color-purple-400);
+  --code-string: var(--color-green-400);
+  --code-number: var(--color-amber-400);
+  --code-comment: var(--color-zinc-400);
+  --code-function: var(--color-sky-400);
+  --code-attribute: var(--color-indigo-400);
   --sidebar: var(--color-zinc-900);
   --sidebar-foreground: var(--color-zinc-100);
   --sidebar-primary: var(--color-indigo-500);
@@ -287,6 +299,12 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-code-keyword: var(--code-keyword);
+  --color-code-string: var(--code-string);
+  --color-code-number: var(--code-number);
+  --color-code-comment: var(--code-comment);
+  --color-code-function: var(--code-function);
+  --color-code-attribute: var(--code-attribute);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
