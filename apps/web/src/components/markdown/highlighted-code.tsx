@@ -76,14 +76,32 @@ function renderNode(node: HighlightNode, key: number): ReactNode {
   )
 }
 
+const MAX_CACHED_BLOCKS = 200
+const highlightedBlocks = new Map<string, ReactNode[]>()
+
+// Re-renders (typing in the composer, streaming of other blocks) would otherwise re-highlight
+// every unchanged block.
+function highlight(code: string, language: string) {
+  const key = `${language}:${code}`
+  const cached = highlightedBlocks.get(key)
+  if (cached) return cached
+  const nodes = lowlight.highlight(language, code).children.map(renderNode)
+  if (highlightedBlocks.size >= MAX_CACHED_BLOCKS) {
+    for (const oldest of highlightedBlocks.keys()) {
+      highlightedBlocks.delete(oldest)
+      break
+    }
+  }
+  highlightedBlocks.set(key, nodes)
+  return nodes
+}
+
 export default function HighlightedCode({
   code,
   language,
 }: Readonly<{ code: string; language: string }>) {
   if (!lowlight.registered(language)) return <code>{code}</code>
   return (
-    <code className={`language-${language}`}>
-      {lowlight.highlight(language, code).children.map(renderNode)}
-    </code>
+    <code className={`language-${language}`}>{highlight(code, language)}</code>
   )
 }

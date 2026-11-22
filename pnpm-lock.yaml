@@ -524,6 +524,9 @@ importers:
       eslint:
         specifier: ^10
         version: 10.15.0(jiti@2.7.0)
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
       typescript:
         specifier: ^6
         version: 6.0.3

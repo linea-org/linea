@@ -11,6 +11,8 @@ import {
   TableRow,
 } from "@linealabs/ui/components/table"
 
+import { HighlighterErrorBoundary } from "./highlighter-error-boundary"
+
 const HighlightedCode = lazy(() => import("./highlighted-code"))
 
 const components: Components = {
@@ -66,9 +68,11 @@ const components: Components = {
     const language = /language-(\S+)/.exec(className ?? "")?.[1]
     if (!language || typeof children !== "string") return plain
     return (
-      <Suspense fallback={plain}>
-        <HighlightedCode code={children} language={language} />
-      </Suspense>
+      <HighlighterErrorBoundary fallback={plain}>
+        <Suspense fallback={plain}>
+          <HighlightedCode code={children} language={language} />
+        </Suspense>
+      </HighlighterErrorBoundary>
     )
   },
   hr: () => <hr className="my-3 border-border" />,
