@@ -19,7 +19,7 @@ import type { AssistantToolScope, ToolOutcome } from './assistant-tool-contract'
 import { fetchPage, WEB_TOOL } from './assistant-web-fetch'
 
 export function assistantTools(
-  scope: Pick<AssistantToolScope, 'web' | 'workflowId'>,
+  scope: Pick<AssistantToolScope, 'web' | 'workflowId' | 'mentions'>,
 ): ToolDefinition[] {
   return [
     EDIT_TOOL,
@@ -27,8 +27,7 @@ export function assistantTools(
     AGENTS_TOOL,
     ...(scope.workflowId ? [RECENT_RUNS_TOOL] : []),
     RUN_TOOL,
-    WORKFLOW_TOOL,
-    APPLICATION_TOOL,
+    ...(scope.mentions ? [WORKFLOW_TOOL, APPLICATION_TOOL] : []),
     ...(scope.web ? [WEB_TOOL] : []),
   ]
 }

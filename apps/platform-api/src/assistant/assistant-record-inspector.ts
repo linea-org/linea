@@ -4,10 +4,51 @@ import { db, repositories } from '@linealabs/db'
 import type { ToolOutcome } from './assistant-tool-contract'
 import { capped } from './assistant-run-inspector'
 
+const MAX_DESCRIPTION_CHARS = 300
+const MAX_LISTED = 50
+
+const outlineSchema = z.object({
+  nodes: z.array(z.object({ id: z.string(), type: z.string() })),
+  edges: z.array(
+    z.object({
+      from: z.string(),
+      to: z.string(),
+      condition: z.string().optional(),
+    }),
+  ),
+})
+
+function listed(lines: string[]): string[] {
+  const shown = lines.slice(0, MAX_LISTED)
+  return lines.length > shown.length
+    ? [...shown, `- and ${lines.length - shown.length} more`]
+    : shown.length
+      ? shown
+      : ['- none']
+}
+
+/** Only ids and types: node config can hold secrets, headers and prompts. */
+function outlineGraph(draftGraph: unknown): string[] {
+  const outline = outlineSchema.safeParse(draftGraph)
+  if (!outline.success) return ['Draft graph: none yet.']
+  const { nodes, edges } = outline.data
+  return [
+    'Draft nodes:',
+    ...listed(nodes.map((node) => `- ${node.id} (${node.type})`)),
+    'Draft edges:',
+    ...listed(
+      edges.map(
+        (edge) =>
+          `- ${edge.from} -> ${edge.to}${edge.condition ? ` [${edge.condition}]` : ''}`,
+      ),
+    ),
+  ]
+}
+
 export const WORKFLOW_TOOL: ToolDefinition = {
   name: 'get_workflow',
   description:
-    'Show one Workflow in this workspace: its description, whether it is published, and its draft graph.',
+    'Show one Workflow in this workspace: its description, status, published version and an outline of its draft graph (nodes and edges, without node settings).',
   parameters: {
     type: 'object',
     properties: {
@@ -20,7 +61,7 @@ export const WORKFLOW_TOOL: ToolDefinition = {
 export const APPLICATION_TOOL: ToolDefinition = {
   name: 'get_application',
   description:
-    'Show one Application in this workspace with its Workflows and Agents and their ids.',
+    'Show one Application in this workspace with the ids, names and status of its Workflows and Agents.',
   parameters: {
     type: 'object',
     properties: {
@@ -44,15 +85,21 @@ export async function inspectWorkflow(
       action: null,
     }
   }
+  const published = workflow.publishedVersionId
+    ? await repositories.workflow.getWorkflowVersionById(
+        db,
+        workflow.publishedVersionId,
+      )
+    : undefined
+  let status = 'draft only'
+  if (workflow.archivedAt) status = 'archived'
+  else if (published) status = `published, version ${published.version}`
   return {
     content: capped([
-      `Workflow "${workflow.name}" (${workflow.slug}) in Application ${workflow.applicationId}.`,
-      workflow.description ?? 'No description.',
-      workflow.publishedVersionId
-        ? `Published as version ${workflow.publishedVersionId}.`
-        : 'Not published.',
-      ...(workflow.archivedAt ? ['Archived.'] : []),
-      `Draft graph: ${JSON.stringify(workflow.draftGraph ?? null)}`,
+      `Workflow "${workflow.name}" (${workflow.slug}), ${status}.`,
+      workflow.description?.slice(0, MAX_DESCRIPTION_CHARS) ??
+        'No description.',
+      ...outlineGraph(workflow.draftGraph),
     ]),
     action: null,
   }
@@ -76,24 +123,28 @@ export async function inspectApplication(
       action: null,
     }
   }
-  const [workflows, allAgents] = await Promise.all([
+  const [workflows, agents] = await Promise.all([
     repositories.workflow.listWorkflows(db, workspaceId, {
       applicationId: application.id,
     }),
     repositories.agent.listAgents(db, workspaceId, application.id),
   ])
-  const agents = allAgents.filter((agent) => !agent.archivedAt)
   return {
     content: capped([
       `Application "${application.name}" (${application.slug}).`,
       'Workflows:',
-      ...(workflows.length
-        ? workflows.map((item) => `- "${item.name}" ${item.id}`)
-        : ['- none']),
+      ...listed(
+        workflows.map(
+          (item) =>
+            `- ${item.id} "${item.name}" (${item.publishedVersionId ? 'published' : 'draft only'})`,
+        ),
+      ),
       'Agents:',
-      ...(agents.length
-        ? agents.map((agent) => `- "${agent.name}" ${agent.id}`)
-        : ['- none']),
+      ...listed(
+        agents
+          .filter((agent) => !agent.archivedAt)
+          .map((agent) => `- ${agent.id} "${agent.name}"`),
+      ),
     ]),
     action: null,
   }

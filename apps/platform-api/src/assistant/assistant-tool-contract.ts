@@ -16,4 +16,6 @@ export type AssistantToolScope = {
   /** The Development Environment, whose deployed Agents and model key the assistant uses. */
   environmentId: string
   web: boolean
+  /** The assistantMentions flag, so mention tools exist only where the feature is on. */
+  mentions: boolean
 }

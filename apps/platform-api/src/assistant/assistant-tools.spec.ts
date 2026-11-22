@@ -9,6 +9,7 @@ const scope = {
   workflowId: null,
   environmentId: 'e',
   web: false,
+  mentions: true,
 }
 const selfTest = { run: jest.fn() } as unknown as AssistantSelfTest
 const names = (on: Parameters<typeof assistantTools>[0]) =>
@@ -16,15 +17,13 @@ const names = (on: Parameters<typeof assistantTools>[0]) =>
 
 describe('AssistantTools', () => {
   it('offers run history inside a workflow and the web tool when switched on', () => {
-    expect(names({ web: false, workflowId: null })).toEqual([
+    expect(names({ web: false, workflowId: null, mentions: false })).toEqual([
       'edit_draft',
       'test_run_draft',
       'list_agents',
       'get_run',
-      'get_workflow',
-      'get_application',
     ])
-    expect(names({ web: true, workflowId: 'wf' })).toEqual([
+    expect(names({ web: true, workflowId: 'wf', mentions: true })).toEqual([
       'edit_draft',
       'test_run_draft',
       'list_agents',
@@ -34,6 +33,16 @@ describe('AssistantTools', () => {
       'get_application',
       'fetch_url',
     ])
+  })
+
+  it('offers the record tools only when assistantMentions is on', () => {
+    const on = names({ web: false, workflowId: null, mentions: true })
+    expect(on).toEqual(
+      expect.arrayContaining(['get_workflow', 'get_application']),
+    )
+    expect(
+      names({ web: false, workflowId: null, mentions: false }),
+    ).not.toEqual(expect.arrayContaining(['get_workflow']))
   })
 
   it('rejects a call to a tool it does not have', async () => {
