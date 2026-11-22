@@ -1,2 +1,2 @@
-# Any maintainer (the core-dev team) can approve a change anywhere in the repo.
-* @linea-org/core-dev
+# Only dev-linea's approval satisfies the "main review" ruleset; repo admins can bypass it at merge.
+* @dev-linea
