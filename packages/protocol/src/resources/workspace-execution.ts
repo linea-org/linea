@@ -99,17 +99,32 @@ export const workspaceExecutionDetailSchema = z.object({
 export const workspaceExecutionPageSchema = z.object({
   executions: z.array(workspaceExecutionWithWorkflowSchema),
   hasMore: z.boolean(),
+  nextCursor: z.string().nullable(),
+  /** Runs changed since the cursor's first page; a sorted list may now skip or repeat rows. */
+  changed: z.boolean(),
   total: z.number().int().nonnegative(),
 })
 
-export const listWorkspaceExecutionsSchema = z.object({
+export const workspaceExecutionSortSchema = z.templateLiteral([
+  z.enum(["workflow", "status", "trigger", "duration", "cost", "when"]),
+  ".",
+  z.enum(["asc", "desc"]),
+])
+
+const workspaceExecutionFiltersSchema = z.object({
   status: workspaceExecutionStatusSchema.optional(),
   trigger: workspaceExecutionTriggerSchema.optional(),
-  cursor: z.string().optional(),
 })
 
+export const listWorkspaceExecutionsSchema =
+  workspaceExecutionFiltersSchema.extend({
+    sort: workspaceExecutionSortSchema.optional(),
+    /** The previous page's `nextCursor`; only valid with the sort that issued it. */
+    cursor: z.string().optional(),
+  })
+
 export const countNewWorkspaceExecutionsSchema =
-  listWorkspaceExecutionsSchema.extend({
+  workspaceExecutionFiltersSchema.extend({
     since: z.string(),
   })
 
@@ -134,6 +149,9 @@ export type WorkspaceExecutionDetail = z.infer<
 >
 export type WorkspaceExecutionPage = z.infer<
   typeof workspaceExecutionPageSchema
+>
+export type WorkspaceExecutionSort = z.infer<
+  typeof workspaceExecutionSortSchema
 >
 export type ListWorkspaceExecutions = z.infer<
   typeof listWorkspaceExecutionsSchema

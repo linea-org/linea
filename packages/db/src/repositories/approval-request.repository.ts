@@ -785,19 +785,19 @@ export async function decideExternalApprovalRequest(
   )
 }
 
-export async function cancelExecutionWithPendingApproval(
+/** Takes the advisory lock of an Execution, then of its direct Agent children. A cancel must hold
+ * these before it locks or references any row a claim locks under the same lock (#359). */
+export async function lockExecutionTree(
   tx: Transaction,
   workspaceId: string,
   environmentId: string,
-  executionId: string,
-  actorEnvironmentKeyId: string,
-  cancelledAt: Date
-): Promise<Execution | undefined> {
+  executionId: string
+): Promise<Execution[]> {
   const lockKey = `action-intent-execution:${executionId}`
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
   )
-  // Agents cannot delegate: the Workflow and its direct Agent children are the complete execution tree.
+  // Agents cannot delegate: a Workflow and its direct Agent children are the whole tree.
   const tree = await tx
     .select()
     .from(executions)
@@ -811,17 +811,37 @@ export async function cancelExecutionWithPendingApproval(
         )
       )
     )
-  const root = tree.find(({ id }) => id === executionId)
-  if (!root || !["queued", "running", "paused"].includes(root.status))
-    return undefined
   const ids = tree.map(({ id }) => id)
-  // PostgreSQL evaluates this volatile output after sorting by id; sorting by the lock expression would acquire locks before sorting.
+  if (ids.length === 0) return tree
+  // PostgreSQL evaluates this volatile output after sorting by id; sorting by the lock expression
+  // would acquire locks before sorting.
   await tx.execute(sql`
     select pg_advisory_xact_lock(hashtextextended('action-intent-execution:' || id::text, 0))
     from ${executions}
     where ${inArray(executions.id, ids)} and id <> ${executionId}
     order by id
   `)
+  return tree
+}
+
+export async function cancelExecutionWithPendingApproval(
+  tx: Transaction,
+  workspaceId: string,
+  environmentId: string,
+  executionId: string,
+  actorEnvironmentKeyId: string,
+  cancelledAt: Date
+): Promise<Execution | undefined> {
+  const tree = await lockExecutionTree(
+    tx,
+    workspaceId,
+    environmentId,
+    executionId
+  )
+  const root = tree.find(({ id }) => id === executionId)
+  if (!root || !["queued", "running", "paused"].includes(root.status))
+    return undefined
+  const ids = tree.map(({ id }) => id)
   const requests = await tx
     .select()
     .from(approvalRequests)

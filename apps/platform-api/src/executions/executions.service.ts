@@ -28,6 +28,7 @@ import {
 } from './redact-execution-trace'
 import { containsRedactionPlaceholder, redactRecord } from './trace-redaction'
 import type { CountNewWorkspaceExecutionsDto } from './dto/count-new-workspace-executions.dto'
+import { encodeExecutionListCursor } from './dto/execution-list-cursor'
 import type { ListWorkspaceExecutionsDto } from './dto/list-workspace-executions.dto'
 import type { SendChatMessageDto } from './dto/chat-preview.dto'
 import type { ReplayStepDto } from './dto/replay-step.dto'
@@ -276,6 +277,7 @@ export class ExecutionsService {
       {
         status: filters.status,
         trigger: filters.trigger,
+        sort: filters.sort,
         cursor: filters.cursor,
         limit: filters.limit,
       },
@@ -285,6 +287,9 @@ export class ExecutionsService {
       executions: page.executions.map((execution) =>
         redactExecution(execution),
       ),
+      nextCursor: page.nextCursor
+        ? encodeExecutionListCursor(page.nextCursor)
+        : null,
     }
   }
 

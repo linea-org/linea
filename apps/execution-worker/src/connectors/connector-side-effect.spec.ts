@@ -614,16 +614,16 @@ async function attachParent(fixture: Fixture) {
   return parent
 }
 
-async function waitForLockWait(holderPid: number) {
+async function waitForLockWait(holderPid: number): Promise<number> {
   for (let attempt = 0; attempt < 100; attempt += 1) {
-    const blocked = await pool.query<{ count: string }>(
-      "SELECT count(*) FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))",
+    const blocked = await pool.query<{ pid: number }>(
+      "SELECT pid FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))",
       [holderPid]
     )
-    if (Number(blocked.rows[0].count) > 0) return
+    if (blocked.rows.length > 0) return blocked.rows[0].pid
     await new Promise((resolve) => setTimeout(resolve, 20))
   }
-  throw new Error("Cancellation never blocked")
+  throw new Error(`Nothing blocked behind backend ${holderPid}`)
 }
 
 describe("exact Action Intent consent", () => {
@@ -1465,6 +1465,94 @@ describe("exact Action Intent consent", () => {
       } finally {
         if (transactionOpen) await client.query("ROLLBACK")
         client.release()
+        await removeWorkspace(fixture.workspaceId)
+      }
+    }
+  )
+  it("cancels an Execution without deadlocking a claim that starts while the cancel holds the Approval Request", async () => {
+    const fixture = await createFixture()
+    const blocker = await pool.connect()
+    let transactionOpen = false
+    try {
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      const { intent } = await consent(fixture)
+      await blocker.query("BEGIN")
+      transactionOpen = true
+      await blocker.query(
+        "SELECT id FROM approval_requests WHERE workspace_id = $1 FOR UPDATE",
+        [fixture.workspaceId]
+      )
+      const { rows } = await blocker.query<{ pid: number }>(
+        "SELECT pg_backend_pid() AS pid"
+      )
+      const cancelling = cancelExecution(fixture)
+      const cancelPid = await waitForLockWait(rows[0].pid)
+      const claiming = repositories.actionIntent.claimApprovedActionIntent(db, {
+        actionIntentId: intent.id,
+        executionClaimId: fixture.executionClaimId,
+        provider: deterministicSideEffectOperation.provider,
+        actionFamily: deterministicSideEffectOperation.actionFamily,
+        requiredScopes: deterministicSideEffectOperation.requiredScopes,
+        now: new Date(),
+      })
+      // The cancel now wins the request; its audit insert then needs the rows a claim locks first.
+      await waitForLockWait(cancelPid)
+      await blocker.query("COMMIT")
+      transactionOpen = false
+      const [cancellation, claim] = await Promise.all([cancelling, claiming])
+      expect(cancellation.outcome).toBe("cancelled")
+      expect(claim?.outcome).toBe("cancelled")
+    } finally {
+      if (transactionOpen) await blocker.query("ROLLBACK")
+      blocker.release()
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+  it.each(["root", "nested"])(
+    "cancels a %s Execution without deadlocking a claim that already holds the Execution's advisory lock",
+    async (kind) => {
+      const fixture = await createFixture()
+      const blocker = await pool.connect()
+      let transactionOpen = false
+      try {
+        const cancellingFixture =
+          kind === "nested" ? await attachParent(fixture) : fixture
+        await invoke(fixture)
+        await decide(fixture, "approved")
+        const { intent } = await consent(fixture)
+        await blocker.query("BEGIN")
+        transactionOpen = true
+        // The first row a claim locks, so it stops holding only its advisory lock.
+        await blocker.query(
+          "SELECT id FROM external_subjects WHERE id = $1 FOR UPDATE",
+          [fixture.externalSubjectId]
+        )
+        const { rows } = await blocker.query<{ pid: number }>(
+          "SELECT pg_backend_pid() AS pid"
+        )
+        const claiming = repositories.actionIntent.claimApprovedActionIntent(
+          db,
+          {
+            actionIntentId: intent.id,
+            executionClaimId: fixture.executionClaimId,
+            provider: deterministicSideEffectOperation.provider,
+            actionFamily: deterministicSideEffectOperation.actionFamily,
+            requiredScopes: deterministicSideEffectOperation.requiredScopes,
+            now: new Date(),
+          }
+        )
+        const claimPid = await waitForLockWait(rows[0].pid)
+        const cancelling = cancelExecution(cancellingFixture)
+        await waitForLockWait(claimPid)
+        await blocker.query("COMMIT")
+        transactionOpen = false
+        const [claim, cancellation] = await Promise.all([claiming, cancelling])
+        expect(claim?.outcome).toBe("claimed")
+        expect(cancellation.outcome).toBe("execution_not_cancellable")
+      } finally {
+        if (transactionOpen) await blocker.query("ROLLBACK")
+        blocker.release()
         await removeWorkspace(fixture.workspaceId)
       }
     }

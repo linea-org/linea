@@ -18,6 +18,7 @@ import { AskInkyLink, RunSummaryCard } from "./run-summary-card"
 import { ExecutionStatusBadge } from "./execution-status-badge"
 import { ExecutionTraceWorkspace } from "./execution-trace-workspace"
 import { formatCost } from "./execution-list"
+import { LocalDateTime } from "./local-date-time"
 import { formatElapsed } from "@/lib/format"
 import { PageToolbar } from "@/components/workspace/page-toolbar"
 
@@ -114,7 +115,7 @@ function RunFacts({ detail }: Readonly<{ detail: ExecutionDetailResponse }>) {
     environmentLabel[execution.environment],
     executionDuration(execution, detail.steps),
     formatCost(execution.costMicros, execution.costUnpriced),
-    execution.startedAt ? new Date(execution.startedAt).toLocaleString() : "—",
+    execution.startedAt ? <LocalDateTime value={execution.startedAt} /> : "—",
     ...(execution.startedAt
       ? [`Queued ${formatElapsed(execution.createdAt, execution.startedAt)}`]
       : []),
@@ -124,7 +125,7 @@ function RunFacts({ detail }: Readonly<{ detail: ExecutionDetailResponse }>) {
       <ExecutionStatusBadge status={execution.status} />
       <CopyableId id={execution.id} />
       {facts.map((value, index) => (
-        <span key={`${index}-${value}`} className="flex items-center gap-3">
+        <span key={index} className="flex items-center gap-3">
           <Separator
             orientation="vertical"
             className="h-3 data-vertical:h-3 data-vertical:self-center"

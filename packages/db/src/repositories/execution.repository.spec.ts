@@ -1,6 +1,6 @@
 import { publishTestWorkflow as publishWorkflowVersion } from "./test-utils.js"
 import { getTestApplicationId } from "./test-utils.js"
-import { and, eq } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db, pool } from "../clients/index.js"
 import { endSubjects, executions } from "../schema/index.js"
@@ -15,6 +15,8 @@ import {
   renewLease,
   startExecution,
   triggerWorkflowExecution,
+  type WorkspaceExecutionCursor,
+  type WorkspaceExecutionSort,
 } from "./execution.repository.js"
 import {
   createExecution,
@@ -690,10 +692,9 @@ describe("listWorkspaceExecutions", () => {
       expect(firstPage.executions).toHaveLength(2)
       expect(firstPage.total).toBe(5)
       expect(firstPage.hasMore).toBe(true)
-      const last = firstPage.executions[firstPage.executions.length - 1]
       const secondPage = await listWorkspaceExecutions(tx, organization.id, {
         limit: 2,
-        cursor: { createdAt: last.createdAt, id: last.id },
+        cursor: firstPage.nextCursor ?? undefined,
       })
       expect(secondPage.executions).toHaveLength(2)
       expect(secondPage.total).toBe(5)
@@ -703,10 +704,9 @@ describe("listWorkspaceExecutions", () => {
           (e) => !firstPage.executions.some((f) => f.id === e.id)
         )
       ).toBe(true)
-      const secondLast = secondPage.executions[secondPage.executions.length - 1]
       const thirdPage = await listWorkspaceExecutions(tx, organization.id, {
         limit: 2,
-        cursor: { createdAt: secondLast.createdAt, id: secondLast.id },
+        cursor: secondPage.nextCursor ?? undefined,
       })
       expect(thirdPage.executions).toHaveLength(1)
       expect(thirdPage.total).toBe(5)
@@ -731,10 +731,9 @@ describe("listWorkspaceExecutions", () => {
       const firstPage = await listWorkspaceExecutions(tx, organization.id, {
         limit: 4,
       })
-      const last = firstPage.executions[firstPage.executions.length - 1]
       const secondPage = await listWorkspaceExecutions(tx, organization.id, {
         limit: 4,
-        cursor: { createdAt: last.createdAt, id: last.id },
+        cursor: firstPage.nextCursor ?? undefined,
       })
       const firstIds = firstPage.executions.map((e) => e.id)
       const secondIds = secondPage.executions.map((e) => e.id)
@@ -757,7 +756,6 @@ describe("listWorkspaceExecutions", () => {
       const firstPage = await listWorkspaceExecutions(tx, organization.id, {
         limit: 2,
       })
-      const last = firstPage.executions[firstPage.executions.length - 1]
       // A new execution lands after page 1's query ran but before page 2 is
       // fetched — under OFFSET pagination this shifts every later offset by
       // one. A cursor anchored to a specific row is immune: the new row
@@ -771,7 +769,7 @@ describe("listWorkspaceExecutions", () => {
       })
       const secondPage = await listWorkspaceExecutions(tx, organization.id, {
         limit: 2,
-        cursor: { createdAt: last.createdAt, id: last.id },
+        cursor: firstPage.nextCursor ?? undefined,
       })
       expect(secondPage.total).toBe(6)
       expect(
@@ -802,7 +800,6 @@ describe("listWorkspaceExecutions", () => {
         limit: 2,
       })
       expect(firstPage.executions).toHaveLength(2)
-      const last = firstPage.executions[firstPage.executions.length - 1]
       // A row already returned on page 1 (rows[1], between page 1's two
       // rows and the cursor) drops out of the "queued" filter entirely —
       // exactly the case a plain createdAt asOf bound can't stabilize,
@@ -814,7 +811,7 @@ describe("listWorkspaceExecutions", () => {
       const secondPage = await listWorkspaceExecutions(tx, organization.id, {
         status: "queued",
         limit: 2,
-        cursor: { createdAt: last.createdAt, id: last.id },
+        cursor: firstPage.nextCursor ?? undefined,
       })
       expect(
         secondPage.executions.every(
@@ -827,6 +824,222 @@ describe("listWorkspaceExecutions", () => {
         rows[2].id,
         rows[3].id,
       ])
+    })
+  })
+})
+
+describe("listWorkspaceExecutions sorting", () => {
+  const second = 1_000
+  async function insertSortFixture(
+    tx: Parameters<typeof createTestFixtures>[0]
+  ) {
+    const { organization, workflow, version } = await createTestFixtures(tx)
+    const other = await createWorkflow(tx, {
+      applicationId: await getTestApplicationId(tx, organization.id),
+      workspaceId: organization.id,
+      name: "aardvark",
+      slug: "aardvark",
+    })
+    const otherVersion = await createWorkflowVersion(tx, {
+      workflowId: other.id,
+      graph: { nodes: [], edges: [] },
+      contentHash: "sort-hash",
+    })
+    const base = Date.now() - 60 * second
+    const shared = {
+      workspaceId: organization.id,
+      workflowId: workflow.id,
+      workflowVersionId: version.id,
+      // The default is this transaction's start, which is also when its first page is served.
+      sortKeysChangedAt: new Date(base),
+    }
+    const startedAt = new Date(base)
+    const rows = await tx
+      .insert(executions)
+      .values([
+        {
+          ...shared,
+          trigger: "manual",
+          status: "succeeded",
+          costMicros: 300n,
+          startedAt,
+          completedAt: new Date(base + 5 * second),
+          createdAt: new Date(base),
+        },
+        {
+          ...shared,
+          trigger: "api",
+          status: "failed",
+          costMicros: 100n,
+          startedAt,
+          completedAt: new Date(base + 2 * second),
+          createdAt: new Date(base + second),
+        },
+        {
+          ...shared,
+          workflowId: other.id,
+          workflowVersionId: otherVersion.id,
+          trigger: "webhook",
+          status: "running",
+          costMicros: 100n,
+          startedAt,
+          createdAt: new Date(base + 2 * second),
+        },
+        {
+          ...shared,
+          trigger: "schedule",
+          status: "queued",
+          costMicros: 200n,
+          createdAt: new Date(base + 3 * second),
+        },
+        {
+          ...shared,
+          trigger: "manual",
+          status: "cancelled",
+          costMicros: 100n,
+          startedAt,
+          completedAt: new Date(base + 2 * second),
+          createdAt: new Date(base + 4 * second),
+        },
+      ])
+      .returning()
+    return { organization, rows }
+  }
+
+  const columns = [
+    "workflow",
+    "status",
+    "trigger",
+    "duration",
+    "cost",
+    "when",
+  ] as const
+  const sorts = columns.flatMap((column) => [
+    { column, direction: "asc" as const },
+    { column, direction: "desc" as const },
+  ])
+
+  it.each(sorts)(
+    "pages through every row once in $column $direction order",
+    async (sort) => {
+      await withRollback(async (tx) => {
+        const { organization } = await insertSortFixture(tx)
+        const whole = await listWorkspaceExecutions(tx, organization.id, {
+          sort,
+        })
+        expect(whole.executions).toHaveLength(5)
+        expect(whole.nextCursor).toBeNull()
+        const paged: string[] = []
+        let cursor: WorkspaceExecutionCursor | undefined
+        do {
+          const page = await listWorkspaceExecutions(tx, organization.id, {
+            sort,
+            cursor,
+            limit: 2,
+          })
+          paged.push(...page.executions.map(({ id }) => id))
+          cursor = page.nextCursor ?? undefined
+        } while (cursor)
+        expect(paged).toEqual(whole.executions.map(({ id }) => id))
+      })
+    }
+  )
+  it("reports a change after the first page so a moved sort key is not paged past silently", async () => {
+    await withRollback(async (tx) => {
+      const { organization, rows } = await insertSortFixture(tx)
+      const sort = { column: "duration", direction: "asc" } as const
+      const first = await listWorkspaceExecutions(tx, organization.id, {
+        sort,
+        limit: 2,
+      })
+      expect(first.changed).toBe(false)
+      const cursor = first.nextCursor ?? undefined
+      const unchanged = await listWorkspaceExecutions(tx, organization.id, {
+        sort,
+        cursor,
+        limit: 2,
+      })
+      expect(unchanged.changed).toBe(false)
+      expect(unchanged.nextCursor?.asOf).toEqual(cursor?.asOf)
+      // The running row finishes: its duration key drops from "unfinished" to two seconds.
+      await tx
+        .update(executions)
+        .set({
+          status: "succeeded",
+          completedAt: sql`now() + interval '1 second'`,
+        })
+        .where(eq(executions.id, rows[2].id))
+      const afterFinish = await listWorkspaceExecutions(tx, organization.id, {
+        sort,
+        cursor,
+        limit: 2,
+        status: "queued",
+      })
+      expect(afterFinish.changed).toBe(true)
+    })
+  })
+  it("reports a status change that moves no timestamp, such as a run pausing", async () => {
+    await withRollback(async (tx) => {
+      const { organization, rows } = await insertSortFixture(tx)
+      const sort = { column: "status", direction: "asc" } as const
+      const first = await listWorkspaceExecutions(tx, organization.id, {
+        sort,
+        limit: 2,
+      })
+      await tx
+        .update(executions)
+        .set({ leasedBy: "worker-1" })
+        .where(eq(executions.id, rows[2].id))
+      const page = () =>
+        listWorkspaceExecutions(tx, organization.id, {
+          sort,
+          cursor: first.nextCursor ?? undefined,
+          limit: 2,
+        })
+      expect((await page()).changed).toBe(false)
+      await tx
+        .update(executions)
+        .set({ status: "paused" })
+        .where(eq(executions.id, rows[2].id))
+      expect((await page()).changed).toBe(true)
+    })
+  })
+  it("orders the whole filtered set, not one page of it", async () => {
+    await withRollback(async (tx) => {
+      const { organization, rows } = await insertSortFixture(tx)
+      const ids = async (sort: WorkspaceExecutionSort) =>
+        (
+          await listWorkspaceExecutions(tx, organization.id, { sort })
+        ).executions.map(({ id }) => id)
+      const [succeeded, failed, running, queued, cancelled] = rows.map(
+        ({ id }) => id
+      )
+      // Equal keys fall back to id, in the sort's direction.
+      const byId = (...tied: string[]) => tied.sort()
+      expect(await ids({ column: "cost", direction: "asc" })).toEqual([
+        ...byId(failed, running, cancelled),
+        queued,
+        succeeded,
+      ])
+      expect(await ids({ column: "duration", direction: "desc" })).toEqual([
+        running,
+        succeeded,
+        ...byId(failed, cancelled).reverse(),
+        queued,
+      ])
+      expect(await ids({ column: "status", direction: "asc" })).toEqual([
+        cancelled,
+        failed,
+        queued,
+        running,
+        succeeded,
+      ])
+      expect((await ids({ column: "workflow", direction: "asc" })).at(0)).toBe(
+        running
+      )
+      expect(await ids({ column: "when", direction: "asc" })).toEqual(
+        rows.map(({ id }) => id)
+      )
     })
   })
 })

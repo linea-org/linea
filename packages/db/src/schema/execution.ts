@@ -114,6 +114,9 @@ export const executions = snakeCase.table(
     completedAt: timestamp({ withTimezone: true }),
     contentErasedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+    // Moved by a trigger when status, cost or timing change, so a paged list can tell its
+    // order moved.
+    sortKeysChangedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     check(

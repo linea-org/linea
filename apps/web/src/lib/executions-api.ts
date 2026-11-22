@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query"
 import { createServerFn } from "@tanstack/react-start"
 
 import { apiFetch, parseErrorMessage } from "./api-fetch"
+import type { ExecutionSort } from "./execution-sort"
 
 import { z } from "zod"
 import {
@@ -109,7 +110,8 @@ export const replayStepFn = createServerFn({ method: "POST" })
 export type WorkspaceExecutionFilters = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
-  /** Opaque `(createdAt, id)` keyset cursor — the last execution of the previous page, encoded via encodeExecutionCursor. Omit for the first page; not an offset, see listWorkspaceExecutions in @linealabs/db for why. */
+  sort?: ExecutionSort
+  /** The previous page's `nextCursor`, valid only with the sort that issued it; not an offset. */
   cursor?: string
   limit?: number
 }
@@ -118,11 +120,14 @@ export type WorkspaceExecutionPage = {
   executions: WorkspaceExecutionSummary[]
   /** Whether a further page exists after this one. */
   hasMore: boolean
+  nextCursor: string | null
+  /** Runs changed since the cursor's first page; a sorted list may now skip or repeat rows. */
+  changed: boolean
   /** Informational only — not something pagination correctness depends on. */
   total: number
 }
 
-/** `${createdAt}_${id}` — matches the platform-api DTO's cursor encoding; neither an ISO timestamp nor a uuid contains an underscore, so this round-trips unambiguously. */
+/** `${createdAt}_${id}`, the reference point `countNewWorkspaceExecutionsFn` takes as `since`. */
 export function encodeExecutionCursor(row: { createdAt: string; id: string }) {
   return `${row.createdAt}_${row.id}`
 }
@@ -133,6 +138,7 @@ export const listWorkspaceExecutionsFn = createServerFn({ method: "GET" })
     const params = new URLSearchParams()
     if (data.status) params.set("status", data.status)
     if (data.trigger) params.set("trigger", data.trigger)
+    if (data.sort) params.set("sort", data.sort)
     if (data.cursor) params.set("cursor", data.cursor)
     if (data.limit) params.set("limit", String(data.limit))
     const query = params.toString()

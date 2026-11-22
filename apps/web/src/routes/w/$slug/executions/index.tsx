@@ -48,19 +48,23 @@ import {
   workspaceExecutionsQueryOptions,
   type ExecutionStatus,
   type ExecutionTrigger,
-  type WorkspaceExecutionSummary,
 } from "@/lib/executions-api"
 import { rememberExecutionsList } from "@/lib/executions-list-return"
 import { formatElapsed } from "@/lib/format"
 import { SortableTableHead } from "@/components/workspace/sortable-table-head"
-import { useTableSort } from "@/components/workspace/use-table-sort"
 
+import { isExecutionStatus } from "@/lib/execution-status"
 import {
-  executionStatusDefinition,
-  isExecutionStatus,
-} from "@/lib/execution-status"
+  isExecutionSort,
+  nextExecutionSort,
+  parseExecutionSort,
+  type ExecutionSort,
+  type ExecutionSortColumn,
+} from "@/lib/execution-sort"
+import { decodeTrail, encodeTrail } from "@/lib/execution-trail"
 import { isExecutionTrigger, triggerLabel } from "@/lib/execution-trigger"
 import { ExecutionFilters } from "@/components/executions/execution-filters"
+import { LocalDateTime } from "@/components/executions/local-date-time"
 import {
   DEFAULT_PAGE_SIZE,
   ExecutionsPagination,
@@ -76,11 +80,14 @@ function parseOpaqueParam(value: unknown): string | undefined {
 type ExecutionsSearch = {
   status?: ExecutionStatus
   trigger?: ExecutionTrigger
-  /** Opaque keyset cursor for the current page — the last row of the previous page, absent on page 1. See listWorkspaceExecutions in @linealabs/db for why this isn't a page number. */
+  /** Applied by the server across every page; newest first when absent. */
+  sort?: ExecutionSort
+  /** The previous page's `nextCursor`, absent on page 1; a keyset position, not a page number. */
   cursor?: string
   /** Semicolon-joined breadcrumb of ancestor cursors used to reach the current page, so Previous can step back without recomputing history. An empty-string entry means "page 1, no cursor". */
   trail?: string
-  /** Cursor of the newest row visible when this browsing session started, fixed the moment pagination is first used — the reference point for "N new executions" polling, so it stays relative to where the user started rather than the current page. */
+  /** The newest row when paging began: the fixed reference for "N new executions" polling. Only
+   * kept under the default sort, where the top row is the newest. */
   anchor?: string
   size?: PageSize
 }
@@ -89,8 +96,11 @@ export const Route = createFileRoute("/w/$slug/executions/")({
   validateSearch: (search: Record<string, unknown>): ExecutionsSearch => ({
     status: isExecutionStatus(search.status) ? search.status : undefined,
     trigger: isExecutionTrigger(search.trigger) ? search.trigger : undefined,
+    sort: isExecutionSort(search.sort) ? search.sort : undefined,
     cursor: parseOpaqueParam(search.cursor),
-    trail: parseOpaqueParam(search.trail),
+    trail: decodeTrail(search.trail)
+      ? parseOpaqueParam(search.trail)
+      : undefined,
     anchor: parseOpaqueParam(search.anchor),
     size: parsePageSize(search.size),
   }),
@@ -127,42 +137,12 @@ function formatDuration(
   }
 }
 
-type ExecutionSortColumn =
-  "workflow" | "status" | "trigger" | "duration" | "cost" | "when"
-
-function durationMs(execution: WorkspaceExecutionSummary) {
-  if (!execution.startedAt) return null
-  if (!execution.completedAt) return Number.POSITIVE_INFINITY
-  return (
-    new Date(execution.completedAt).getTime() -
-    new Date(execution.startedAt).getTime()
-  )
-}
-
-function sortValue(
-  execution: WorkspaceExecutionSummary,
-  column: ExecutionSortColumn
-) {
-  switch (column) {
-    case "workflow":
-      return execution.workflowName.toLowerCase()
-    case "status":
-      return executionStatusDefinition[execution.status].label
-    case "trigger":
-      return triggerLabel[execution.trigger]
-    case "duration":
-      return durationMs(execution)
-    case "cost": {
-      const amount = Number(execution.costMicros)
-      return Number.isFinite(amount) ? amount : null
-    }
-    case "when":
-      return new Date(execution.createdAt).getTime()
-    default: {
-      const unreachable: never = column
-      return unreachable
-    }
-  }
+/** With no new runs the banner is shown because a sorted list changed under its cursor. */
+function refreshLabel(newCount: number) {
+  if (newCount === 0) return "The list changed — refresh"
+  return newCount === 1
+    ? "1 new execution — refresh"
+    : `${newCount} new executions — refresh`
 }
 
 function ExecutionsPage() {
@@ -180,29 +160,22 @@ function ExecutionsPage() {
   })
   const { executions, hasMore, total } = data
   useEffect(() => rememberExecutionsList(slug, search), [slug, search])
-  const {
-    sorted: sortedExecutions,
-    sorts,
-    onSort,
-  } = useTableSort<WorkspaceExecutionSummary, ExecutionSortColumn>(
-    executions,
-    sortValue,
-    (left, right) => right.createdAt.localeCompare(left.createdAt)
-  )
+  const sort = parseExecutionSort(search.sort)
+  const sorts = sort ? [sort] : []
 
-  const trail = search.trail ? search.trail.split(";") : []
+  const trail = decodeTrail(search.trail) ?? []
   const isFirstPage = trail.length === 0 && !search.cursor
   const currentPageNumber = trail.length + 1
-  const lastRow = executions[executions.length - 1]
-  const nextCursor = lastRow ? encodeExecutionCursor(lastRow) : undefined
-  const previousCursor = trail.length > 0 ? trail[trail.length - 1] : undefined
+  const nextCursor = data.nextCursor ?? undefined
+  const previousCursor = trail.at(-1)
   const previousTrail = trail.length > 0 ? trail.slice(0, -1) : []
 
   // Until pagination is used, page 1's own top row is the reference point — see the `anchor` field's doc comment on ExecutionsSearch.
   const firstRow = executions[0]
-  const effectiveAnchor =
+  const defaultSortAnchor =
     search.anchor ??
     (isFirstPage && firstRow ? encodeExecutionCursor(firstRow) : undefined)
+  const effectiveAnchor = sort ? undefined : defaultSortAnchor
 
   const { data: newData } = useQuery({
     ...newWorkspaceExecutionsQueryOptions(slug, {
@@ -219,6 +192,7 @@ function ExecutionsPage() {
     const params = new URLSearchParams()
     if (merged.status) params.set("status", merged.status)
     if (merged.trigger) params.set("trigger", merged.trigger)
+    if (merged.sort) params.set("sort", merged.sort)
     if (merged.cursor) params.set("cursor", merged.cursor)
     if (merged.trail) params.set("trail", merged.trail)
     if (merged.anchor) params.set("anchor", merged.anchor)
@@ -233,8 +207,20 @@ function ExecutionsPage() {
       search: (prev) => ({
         ...prev,
         cursor: nextCursor,
-        trail: [...trail, prev.cursor ?? ""].join(";"),
+        trail: encodeTrail([...trail, prev.cursor ?? ""]),
         anchor: prev.anchor ?? effectiveAnchor,
+      }),
+    })
+  }
+
+  function onSort(column: ExecutionSortColumn) {
+    void navigate({
+      search: (prev) => ({
+        ...prev,
+        sort: nextExecutionSort(sort, column),
+        cursor: undefined,
+        trail: undefined,
+        anchor: undefined,
       }),
     })
   }
@@ -245,7 +231,7 @@ function ExecutionsPage() {
       search: (prev) => ({
         ...prev,
         cursor: previousCursor || undefined,
-        trail: previousTrail.length > 0 ? previousTrail.join(";") : undefined,
+        trail: encodeTrail(previousTrail),
       }),
     })
   }
@@ -283,7 +269,7 @@ function ExecutionsPage() {
           }
         />
       </PageToolbar>
-      {newCount > 0 ? (
+      {newCount > 0 || data.changed ? (
         <div>
           <button
             type="button"
@@ -291,9 +277,7 @@ function ExecutionsPage() {
             className="flex w-fit items-center gap-2 rounded-md border border-input bg-accent px-3 py-1.5 text-sm text-accent-foreground transition-colors hover:bg-accent/80"
           >
             <SparklesIcon className="size-4" />
-            {newCount === 1
-              ? "1 new execution — refresh"
-              : `${newCount} new executions — refresh`}
+            {refreshLabel(newCount)}
           </button>
         </div>
       ) : null}
@@ -366,7 +350,7 @@ function ExecutionsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedExecutions.map((execution) => (
+              {executions.map((execution) => (
                 <TableRow key={execution.id}>
                   <TableCell className="px-4">
                     <Link
@@ -401,7 +385,7 @@ function ExecutionsPage() {
                     {formatCost(execution.costMicros, execution.costUnpriced)}
                   </TableCell>
                   <TableCell className="px-4 text-muted-foreground tabular-nums">
-                    {new Date(execution.createdAt).toLocaleString()}
+                    <LocalDateTime value={execution.createdAt} />
                   </TableCell>
                   <TableCell className="px-2 text-right">
                     <DropdownMenu>
@@ -470,10 +454,7 @@ function ExecutionsPage() {
             previous={{
               href: hrefFor({
                 cursor: previousCursor || undefined,
-                trail:
-                  previousTrail.length > 0
-                    ? previousTrail.join(";")
-                    : undefined,
+                trail: encodeTrail(previousTrail),
               }),
               enabled: !isFirstPage,
               onGo: goPrevious,
@@ -481,7 +462,7 @@ function ExecutionsPage() {
             next={{
               href: hrefFor({
                 cursor: nextCursor,
-                trail: [...trail, search.cursor ?? ""].join(";"),
+                trail: encodeTrail([...trail, search.cursor ?? ""]),
               }),
               enabled: hasMore,
               onGo: goNext,
