@@ -14,7 +14,7 @@ import { RunLeaseService } from "./run-lease.service"
 import { RunsService } from "./runs.service"
 import {
   createAgentExecutionFixture,
-  deleteAgentExecutionFixture,
+  removeWorkspace,
   type AgentExecutionFixture,
 } from "./agent-execution.fixture"
 
@@ -150,7 +150,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   jest.restoreAllMocks()
-  await deleteAgentExecutionFixture(fixture.workspaceId)
+  await removeWorkspace(fixture.workspaceId)
 })
 
 afterAll(async () => {

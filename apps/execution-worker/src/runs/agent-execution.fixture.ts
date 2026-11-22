@@ -174,7 +174,7 @@ export type AgentExecutionFixture = Awaited<
   ReturnType<typeof createAgentExecutionFixture>
 >
 
-export async function deleteAgentExecutionFixture(workspaceId: string) {
+export async function removeWorkspace(workspaceId: string) {
   for (const statement of [
     "DELETE FROM approval_requests WHERE workspace_id = $1",
     "DELETE FROM connector_audit_facts WHERE workspace_id = $1",

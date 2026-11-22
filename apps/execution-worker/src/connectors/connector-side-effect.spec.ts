@@ -41,6 +41,7 @@ import { TransformNode } from "../graph/nodes/transform.node"
 import { VariablesNode } from "../graph/nodes/variables.node"
 import { WaitNode } from "../graph/nodes/wait.node"
 import { RunLeaseService } from "../runs/run-lease.service"
+import { removeWorkspace } from "../runs/agent-execution.fixture"
 import { AgentExecutionService } from "../runs/agent-execution.service"
 import { ConnectorGatewayService } from "./connector-gateway.service"
 import { RunsService } from "../runs/runs.service"
@@ -522,17 +523,6 @@ function cancelExecution(fixture: Fixture) {
       }),
     }
   )
-}
-
-async function removeWorkspace(workspaceId: string): Promise<void> {
-  await pool.query("DELETE FROM approval_requests WHERE workspace_id = $1", [
-    workspaceId,
-  ])
-  await pool.query(
-    "DELETE FROM connector_audit_facts WHERE workspace_id = $1",
-    [workspaceId]
-  )
-  await pool.query("DELETE FROM organizations WHERE id = $1", [workspaceId])
 }
 
 async function attachParent(fixture: Fixture) {
