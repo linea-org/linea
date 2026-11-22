@@ -1,6 +1,7 @@
 import { createTestExecution } from "@linealabs/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
+import { createServer, type Server } from "node:http"
 import { Test } from "@nestjs/testing"
 import { registry } from "@linealabs/ai"
 import { db, pool, repositories } from "@linealabs/db"
@@ -13,6 +14,7 @@ import { RunLeaseService } from "./run-lease.service"
 import { RunsService } from "./runs.service"
 import {
   createAgentExecutionFixture,
+  removeWorkspace,
   type AgentExecutionFixture,
 } from "./agent-execution.fixture"
 
@@ -22,12 +24,18 @@ const originalCredentialKeys = {
   keys: process.env.CONNECTION_CREDENTIAL_KEYS,
 }
 let fixture: AgentExecutionFixture
+let provider: Server
+const reads: string[] = []
 let runs: RunsService
 let moduleRef: Awaited<
   ReturnType<ReturnType<typeof Test.createTestingModule>["compile"]>
 >
 
-async function startWorkflow(agentId: string, agentContractRevisionId: string) {
+async function startWorkflow(
+  agentId: string,
+  agentContractRevisionId: string,
+  externalSubjectRecordId?: string
+) {
   const graph: WorkflowGraph = {
     version: 1,
     trigger: { type: "manual" },
@@ -61,7 +69,44 @@ async function startWorkflow(agentId: string, agentContractRevisionId: string) {
     environmentId: fixture.environmentId,
     trigger: "manual",
     triggerPayload: { topic: "launch" },
+    externalSubjectRecordId,
   })
+}
+
+function mockAgentReadsThroughConnection() {
+  return jest
+    .spyOn(registry["gpt-5"], "complete")
+    .mockResolvedValueOnce({
+      text: "",
+      tokensInput: 1,
+      tokensOutput: 1,
+      toolCalls: [
+        {
+          id: "read-one",
+          name: "read",
+          arguments: {
+            connectionId: fixture.connectionId,
+            input: { resourceId: "one" },
+          },
+        },
+      ],
+    })
+    .mockResolvedValue({
+      text: JSON.stringify({ result: "read" }),
+      tokensInput: 1,
+      tokensOutput: 1,
+    })
+}
+
+async function childOf(parentExecutionId: string) {
+  const { rows } = await pool.query<{
+    id: string
+    external_subject_record_id: string | null
+  }>(
+    "SELECT id, external_subject_record_id FROM executions WHERE parent_execution_id = $1",
+    [parentExecutionId]
+  )
+  return rows[0]
 }
 
 async function statusOf(executionId: string) {
@@ -75,6 +120,17 @@ beforeAll(async () => {
   process.env.CONNECTION_CREDENTIAL_KEYS = JSON.stringify({
     "workflow-agent-test-v1": Buffer.alloc(32, 9).toString("base64"),
   })
+  provider = createServer((request, response) => {
+    const resourceId = (request.url ?? "").split("/").at(-1) ?? ""
+    reads.push(resourceId)
+    response.setHeader("content-type", "application/json")
+    response.end(JSON.stringify({ resourceId, label: "recorded read" }))
+  })
+  await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve))
+  const address = provider.address()
+  if (!address || typeof address === "string")
+    throw new Error("Provider did not bind")
+  process.env.DETERMINISTIC_CONNECTOR_BASE_URL = `http://127.0.0.1:${address.port}`
   moduleRef = await Test.createTestingModule({
     imports: [CheckpointsModule, GraphModule],
     providers: [
@@ -89,13 +145,12 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   fixture = await createAgentExecutionFixture()
+  reads.length = 0
 })
 
 afterEach(async () => {
   jest.restoreAllMocks()
-  await pool.query("DELETE FROM organizations WHERE id = $1", [
-    fixture.workspaceId,
-  ])
+  await removeWorkspace(fixture.workspaceId)
 })
 
 afterAll(async () => {
@@ -109,6 +164,10 @@ afterAll(async () => {
     delete process.env.CONNECTION_CREDENTIAL_KEYS
   else process.env.CONNECTION_CREDENTIAL_KEYS = originalCredentialKeys.keys
   await moduleRef.close()
+  await new Promise<void>((resolve, reject) =>
+    provider.close((error) => (error ? reject(error) : resolve()))
+  )
+  delete process.env.DETERMINISTIC_CONNECTOR_BASE_URL
   await pool.end()
 })
 
@@ -174,4 +233,40 @@ it("fails the Workflow step before any Agent work when the Agent is no longer de
   expect(result?.execution.status).toBe("failed")
   expect(result?.execution.error?.message).toMatch(/not deployed and enabled/)
   expect(complete).not.toHaveBeenCalled()
+})
+
+it("gives the nested Agent the Workflow Execution's End-User subject, so it can read through that End User's Connection", async () => {
+  mockAgentReadsThroughConnection()
+  const parent = await startWorkflow(
+    fixture.agentId,
+    fixture.contractId,
+    fixture.externalSubjectId
+  )
+  await runs.execute(parent.id)
+  const child = await childOf(parent.id)
+  expect(child.external_subject_record_id).toBe(fixture.externalSubjectId)
+  await runs.execute(child.id)
+  expect(await statusOf(child.id)).toBe("succeeded")
+  expect(reads).toEqual(["one"])
+  await runs.execute(parent.id)
+  const result = await repositories.execution.getExecutionWithSteps(
+    db,
+    parent.id
+  )
+  expect(result?.execution.status).toBe("succeeded")
+  expect(
+    result?.steps.find((step) => step.nodeId === "run-agent")?.output
+  ).toEqual({ result: "read" })
+})
+
+it("refuses the nested Agent's Connection read when the Workflow Execution has no End-User subject", async () => {
+  mockAgentReadsThroughConnection()
+  const parent = await startWorkflow(fixture.agentId, fixture.contractId)
+  await runs.execute(parent.id)
+  const child = await childOf(parent.id)
+  expect(child.external_subject_record_id).toBeNull()
+  await expect(runs.execute(child.id)).rejects.toThrow(
+    "Connector operation rejected"
+  )
+  expect(reads).toEqual([])
 })
