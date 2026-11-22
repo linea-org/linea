@@ -25,6 +25,7 @@ import type {
 } from "@/lib/executions-api"
 import { ExecutionStatusBadge } from "./execution-status-badge"
 import { formatDuration } from "@/lib/format"
+import { LocalDateTime } from "./local-date-time"
 
 const triggerLabel: Record<ExecutionSummary["trigger"], string> = {
   manual: "Manual",
@@ -52,7 +53,7 @@ export function stepCostUnpricedState(
 
 export function formatCost(costMicros: string, unpriced?: boolean | null) {
   if (unpriced === null) return "—"
-  const formatted = (Number(costMicros) / 1_000_000).toLocaleString(undefined, {
+  const formatted = (Number(costMicros) / 1_000_000).toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
   })
@@ -137,7 +138,7 @@ export function ExecutionList({
                 {formatCost(execution.costMicros, execution.costUnpriced)}
               </TableCell>
               <TableCell className="px-4 text-muted-foreground tabular-nums">
-                {new Date(execution.createdAt).toLocaleString()}
+                <LocalDateTime value={execution.createdAt} />
               </TableCell>
               <TableCell className="px-2 text-right">
                 <DropdownMenu>

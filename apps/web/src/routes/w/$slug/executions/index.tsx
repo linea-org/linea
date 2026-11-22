@@ -59,6 +59,7 @@ import {
 } from "@/lib/execution-status"
 import { isExecutionTrigger, triggerLabel } from "@/lib/execution-trigger"
 import { ExecutionFilters } from "@/components/executions/execution-filters"
+import { LocalDateTime } from "@/components/executions/local-date-time"
 import {
   DEFAULT_PAGE_SIZE,
   ExecutionsPagination,
@@ -398,7 +399,7 @@ function ExecutionsPage() {
                     {formatCost(execution.costMicros, execution.costUnpriced)}
                   </TableCell>
                   <TableCell className="px-4 text-muted-foreground tabular-nums">
-                    {new Date(execution.createdAt).toLocaleString()}
+                    <LocalDateTime value={execution.createdAt} />
                   </TableCell>
                   <TableCell className="px-2 text-right">
                     <DropdownMenu>

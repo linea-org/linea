@@ -1,5 +1,4 @@
 import { Badge } from "@linealabs/ui/components/badge"
-import { useHydrated } from "@tanstack/react-router"
 import {
   Tabs,
   TabsContent,
@@ -20,6 +19,7 @@ import {
 import { ErrorCallout } from "./error-callout"
 import { StepPayloadCard } from "./step-payload-card"
 import { formatDuration } from "@/lib/format"
+import { LocalDateTime } from "./local-date-time"
 
 export function ExecutionStepDetails({
   executionId,
@@ -42,7 +42,6 @@ export function ExecutionStepDetails({
   runErrorMessage: string | undefined
   onReplayTriggered: (stepId: string) => void
 }>) {
-  const hydrated = useHydrated()
   const title = `${step.replayedFromStepId ? "Replay of " : ""}${stepTitle(step.name)}`
   const model = [step.provider, step.model].filter(Boolean).join(" · ")
   return (
@@ -87,7 +86,7 @@ export function ExecutionStepDetails({
       ) : null}
       {resumedAt && (
         <p className="text-sm text-muted-foreground">
-          Resumed {hydrated ? new Date(resumedAt).toLocaleString() : resumedAt}
+          Resumed <LocalDateTime value={resumedAt} />
         </p>
       )}
       {step.error && step.error.message !== runErrorMessage ? (
