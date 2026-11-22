@@ -43,6 +43,13 @@ export const SHORTCUTS = {
 
 export type ShortcutId = keyof typeof SHORTCUTS
 
+export type ShortcutScope = "composer"
+
+/** These fire only while focus is inside an element marked `data-shortcut-scope` with the same name. */
+export const SHORTCUT_SCOPES: Partial<Record<ShortcutId, ShortcutScope>> = {
+  send: "composer",
+}
+
 /** These press the page's button that marks itself with the same id. */
 export const CLICK_SHORTCUTS = [
   "create",

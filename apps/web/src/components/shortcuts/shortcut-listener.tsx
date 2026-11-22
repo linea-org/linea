@@ -5,6 +5,7 @@ import {
   isEditableTarget,
   isOverlayTarget,
   isTypingTarget,
+  shortcutScopeOf,
 } from "@/lib/shortcuts/engine"
 
 import { shortcutHandlers } from "./shortcut-registry"
@@ -24,7 +25,12 @@ export function ShortcutListener() {
         return
       }
       if (event.defaultPrevented) return
-      const id = resolve(event, isTypingTarget(event.target), event.timeStamp)
+      const id = resolve(
+        event,
+        isTypingTarget(event.target),
+        event.timeStamp,
+        shortcutScopeOf(event.target)
+      )
       const handler = id ? shortcutHandlers.get(id) : undefined
       if (!handler) return
       event.preventDefault()
