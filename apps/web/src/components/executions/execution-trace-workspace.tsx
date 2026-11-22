@@ -21,6 +21,7 @@ import { ExecutionStepDetails } from "./execution-step-details"
 import { attachResumeMarkers } from "./execution-step-order"
 import { stepTitle } from "./execution-step-presentation"
 import { filterTraceSteps, pickSelectedStep } from "./filter-trace-steps"
+import { LocalDateTime } from "./local-date-time"
 
 const statusFilterSchema = z.enum([
   "all",
@@ -194,10 +195,7 @@ export function ExecutionTraceWorkspace({
       )}
       {orphanedResumeEvents.map((event) => (
         <p key={event.id} className="text-sm text-muted-foreground">
-          Resumed{" "}
-          {hydrated
-            ? new Date(event.startedAt).toLocaleString()
-            : event.startedAt}
+          Resumed <LocalDateTime value={event.startedAt} />
         </p>
       ))}
       {/* With nothing recorded the chart shows its own empty state. */}

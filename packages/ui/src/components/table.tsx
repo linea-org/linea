@@ -2,11 +2,21 @@ import * as React from "react"
 
 import { cn } from "@linealabs/ui/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  stickyHeader = false,
+  ...props
+}: React.ComponentProps<"table"> & { stickyHeader?: boolean }) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className={cn(
+        "relative w-full overflow-x-auto",
+        // Needs a height-bound flex parent. The header sits on the card surface with the tint on its
+        // cells so rows can't show through; a collapsed border scrolls away, hence the inset shadow.
+        stickyHeader &&
+          "min-h-0 flex-1 overflow-y-auto [&_th]:bg-muted/40 [&_th]:shadow-[inset_0_-1px_0_var(--border)] [&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-card"
+      )}
     >
       <table
         data-slot="table"
