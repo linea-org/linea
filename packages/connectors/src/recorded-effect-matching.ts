@@ -196,9 +196,13 @@ export function createRecordedEffectMatcher(
       }
     },
     /** Leftover recordings are differences, never a pass; an ambiguous one is unavailable. */
-    finish(): MatchingOutcome {
+    finish(now: Date): MatchingOutcome {
       if (stopped) return stopped
       const unconsumed = ordered.slice(cursor)
+      for (const recording of unconsumed) {
+        const reason = eligibility(recording, scope, now)
+        if (reason) return stop(reason)
+      }
       const leftoverAmbiguous = identities
         .slice(cursor)
         .some((identity) => identity && ambiguous.has(identity.full))

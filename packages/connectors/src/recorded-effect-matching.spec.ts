@@ -63,7 +63,7 @@ describe("recorded-effect matching", () => {
     expect(matcher.match(call({ repo: "a/b", page: 2 }), now)).toMatchObject({
       sequence: 2,
     })
-    expect(matcher.finish()).toEqual({ status: "completed", unconsumed: [] })
+    expect(matcher.finish(now)).toEqual({ status: "completed", unconsumed: [] })
   })
 
   it("makes identical repeated calls consume successive recordings, never one twice", () => {
@@ -158,14 +158,14 @@ describe("recorded-effect matching", () => {
       reason: "unrecorded_call",
       call: extra,
     })
-    expect(matcher.finish()).toMatchObject({ status: "unavailable" })
+    expect(matcher.finish(now)).toMatchObject({ status: "unavailable" })
   })
 
   it("lists unconsumed recordings as differences rather than a pass", () => {
     const recordings = [recording(1, { page: 1 }), recording(2, { page: 2 })]
     const matcher = createRecordedEffectMatcher(recordings, scope)
     matcher.match(call({ page: 1 }), now)
-    expect(matcher.finish()).toEqual({
+    expect(matcher.finish(now)).toEqual({
       status: "completed",
       unconsumed: [recordings[1]],
     })
@@ -228,6 +228,22 @@ describe("recorded-effect matching", () => {
     })
   })
 
+  it("refuses a leftover recording that expired before the run finished", () => {
+    const expiresAt = new Date("2026-11-01T00:10:00Z")
+    const matcher = createRecordedEffectMatcher(
+      [recording(1, { page: 1 }), recording(2, { page: 2 }, { expiresAt })],
+      scope
+    )
+    expect(matcher.start(now)).toBeUndefined()
+    expect(matcher.match(call({ page: 1 }), now)).toMatchObject({
+      status: "recorded",
+    })
+    expect(matcher.finish(expiresAt)).toEqual({
+      status: "unavailable",
+      reason: "expired",
+    })
+  })
+
   it.each([
     [
       "an unknown outcome",
@@ -281,7 +297,10 @@ describe("recorded-effect matching", () => {
         result: ["second"],
       })
       matcher.match(call({ repo: "c/d" }), now)
-      expect(matcher.finish()).toEqual({ status: "completed", unconsumed: [] })
+      expect(matcher.finish(now)).toEqual({
+        status: "completed",
+        unconsumed: [],
+      })
     })
 
     it("is ambiguous when the run makes fewer calls and moves on", () => {
@@ -296,7 +315,7 @@ describe("recorded-effect matching", () => {
     it("is ambiguous when the run makes fewer calls and ends", () => {
       const matcher = createRecordedEffectMatcher(recordings.slice(0, 2), scope)
       matcher.match(call(same), now)
-      expect(matcher.finish()).toEqual({
+      expect(matcher.finish(now)).toEqual({
         status: "unavailable",
         reason: "ambiguous_match",
       })
