@@ -11,6 +11,8 @@ import {
   mentionTriggerAtCaret,
   removeChip,
   renderText,
+  selectedMessageText,
+  deleteSelection,
   serializeEditor,
 } from "./mention-editor-dom"
 
@@ -113,5 +115,24 @@ describe("pasting", () => {
     expect(root.querySelector("b")).toBeNull()
     expect(chipHosts(root)).toHaveLength(1)
     expect(serializeEditor(root)).toBe(`x<b>bold</b> @run:${RUN_ID}`)
+  })
+})
+
+describe("copying", () => {
+  it("gives the reference text, not the chip label, for a selection with chips", () => {
+    renderText(root, `see @run:${RUN_ID} now`)
+    const range = document.createRange()
+    range.selectNodeContents(root)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    expect(selectedMessageText(root)).toBe(`see @run:${RUN_ID} now`)
+    deleteSelection(root)
+    expect(serializeEditor(root)).toBe("")
+  })
+
+  it("gives nothing for a bare caret", () => {
+    renderText(root, "hello")
+    caretAtEnd(root)
+    expect(selectedMessageText(root)).toBeNull()
   })
 })

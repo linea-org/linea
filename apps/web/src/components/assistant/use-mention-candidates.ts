@@ -2,15 +2,26 @@ import { useQuery } from "@tanstack/react-query"
 import { useParams } from "@tanstack/react-router"
 
 import { applicationsQueryOptions } from "@/lib/applications-api"
-import { workspaceExecutionsQueryOptions } from "@/lib/executions-api"
+import {
+  executionsQueryOptions,
+  workspaceExecutionsQueryOptions,
+  type ExecutionSummary,
+} from "@/lib/executions-api"
 import { formatDate } from "@/lib/format"
 import { workflowsQueryOptions } from "@/lib/workflows-api"
-import type { MentionCandidate } from "./mention-text"
+import { mentionLabel, type MentionCandidate } from "./mention-text"
 
 const RECENT_RUNS = 50
 
+const runCandidate = (run: ExecutionSummary, label: string) => ({
+  kind: "run" as const,
+  id: run.id,
+  label,
+  detail: `${run.status} · ${formatDate(run.createdAt)}`,
+})
+
 /**
- * Loads only while `enabled`. In a workflow chat only that workflow's runs are offered,
+ * Loads only while `enabled`. In a workflow chat only that workflow's own runs are offered,
  * because Inky's get_run refuses any other.
  */
 export function useMentionCandidates(
@@ -18,9 +29,13 @@ export function useMentionCandidates(
   workflowId: string | undefined
 ): { candidates: MentionCandidate[]; isLoading: boolean; error: Error | null } {
   const { slug = "" } = useParams({ strict: false })
-  const runs = useQuery({
+  const workspaceRuns = useQuery({
     ...workspaceExecutionsQueryOptions(slug, { limit: RECENT_RUNS }),
-    enabled,
+    enabled: enabled && !workflowId,
+  })
+  const workflowRuns = useQuery({
+    ...executionsQueryOptions(slug, workflowId ?? ""),
+    enabled: enabled && Boolean(workflowId),
   })
   const workflows = useQuery({ ...workflowsQueryOptions(slug), enabled })
   const applications = useQuery({
@@ -28,15 +43,16 @@ export function useMentionCandidates(
     enabled,
   })
 
+  const runs = workflowId ? workflowRuns : workspaceRuns
+  const runCandidates = workflowId
+    ? (workflowRuns.data ?? []).map((run) =>
+        runCandidate(run, mentionLabel({ kind: "run", id: run.id }))
+      )
+    : (workspaceRuns.data?.executions ?? []).map((run) =>
+        runCandidate(run, run.workflowName)
+      )
   const candidates: MentionCandidate[] = [
-    ...(runs.data?.executions ?? [])
-      .filter((run) => !workflowId || run.workflowId === workflowId)
-      .map((run) => ({
-        kind: "run" as const,
-        id: run.id,
-        label: run.workflowName,
-        detail: `${run.status} · ${formatDate(run.createdAt)}`,
-      })),
+    ...runCandidates.slice(0, RECENT_RUNS),
     ...(workflows.data ?? [])
       .filter((workflow) => !workflow.archivedAt)
       .map((workflow) => ({

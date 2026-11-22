@@ -19,12 +19,15 @@ const outlineSchema = z.object({
 })
 
 function listed(lines: string[]): string[] {
+  if (lines.length === 0) return ['- none']
   const shown = lines.slice(0, MAX_LISTED)
-  return lines.length > shown.length
-    ? [...shown, `- and ${lines.length - shown.length} more`]
-    : shown.length
-      ? shown
-      : ['- none']
+  if (lines.length === shown.length) return shown
+  return [...shown, `- and ${lines.length - shown.length} more`]
+}
+
+function describeEdge(edge: { from: string; to: string; condition?: string }) {
+  const condition = edge.condition ? ` [${edge.condition}]` : ''
+  return `- ${edge.from} -> ${edge.to}${condition}`
 }
 
 /** Only ids and types: node config can hold secrets, headers and prompts. */
@@ -36,12 +39,7 @@ function outlineGraph(draftGraph: unknown): string[] {
     'Draft nodes:',
     ...listed(nodes.map((node) => `- ${node.id} (${node.type})`)),
     'Draft edges:',
-    ...listed(
-      edges.map(
-        (edge) =>
-          `- ${edge.from} -> ${edge.to}${edge.condition ? ` [${edge.condition}]` : ''}`,
-      ),
-    ),
+    ...listed(edges.map(describeEdge)),
   ]
 }
 

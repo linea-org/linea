@@ -184,7 +184,8 @@ describe("ComposerInput", () => {
       document.dispatchEvent(new Event("selectionchange"))
     })
     expect(container.querySelector("[data-testid=picker]")).not.toBeNull()
-    expect(field.getAttribute("role")).toBe("combobox")
+    expect(field.getAttribute("role")).toBe("textbox")
+    expect(field.getAttribute("aria-haspopup")).toBe("listbox")
 
     press(field, "Enter")
     expect(onSendKey).not.toHaveBeenCalled()
@@ -206,6 +207,45 @@ describe("ComposerInput", () => {
     expect(press(field, "Enter").defaultPrevented).toBe(true)
     expect(onSendKey).not.toHaveBeenCalled()
     candidatesState.loading = false
+  })
+
+  it("copies a selection as reference text and pastes it back as chips", () => {
+    const field = mount(`see @run:${RUN_ID}`)
+    const range = document.createRange()
+    range.selectNodeContents(field)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    const store: Record<string, string> = {}
+    const copy = new Event("copy", { bubbles: true, cancelable: true })
+    Object.assign(copy, {
+      clipboardData: {
+        setData: (type: string, text: string) => (store[type] = text),
+      },
+    })
+    act(() => {
+      field.dispatchEvent(copy)
+    })
+    expect(copy.defaultPrevented).toBe(true)
+    expect(store["text/plain"]).toBe(`see @run:${RUN_ID}`)
+
+    const cut = new Event("cut", { bubbles: true, cancelable: true })
+    Object.assign(cut, { clipboardData: { setData: () => undefined } })
+    act(() => {
+      field.dispatchEvent(cut)
+    })
+    expect(field.textContent).toBe("")
+    expect(onChange).toHaveBeenLastCalledWith("")
+
+    const paste = new Event("paste", { bubbles: true, cancelable: true })
+    Object.assign(paste, {
+      clipboardData: { getData: () => store["text/plain"] },
+    })
+    caretAtEnd(field)
+    act(() => {
+      field.dispatchEvent(paste)
+    })
+    expect(field.querySelector("button")).not.toBeNull()
+    expect(onChange).toHaveBeenLastCalledWith(`see @run:${RUN_ID}`)
   })
 
   it("closes the picker on Escape without sending", () => {

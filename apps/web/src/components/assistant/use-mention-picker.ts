@@ -20,6 +20,9 @@ import {
 } from "./mention-text"
 import { useMentionCandidates } from "./use-mention-candidates"
 
+const firstKey = (items: MentionCandidate[]) =>
+  items.length > 0 ? mentionKey(items[0]) : null
+
 const sameTrigger = (
   a: MentionTriggerAtCaret | null,
   b: MentionTriggerAtCaret | null
@@ -49,7 +52,7 @@ export function useMentionPicker({
     const next = root.current ? mentionTriggerAtCaret(root.current) : null
     setTrigger((prev) => (sameTrigger(prev, next) ? prev : next))
     setDismissed((prev) =>
-      next && prev && next.node === prev.node && next.start === prev.start
+      next && prev?.node === next.node && prev.start === next.start
         ? prev
         : null
     )
@@ -74,9 +77,7 @@ export function useMentionPicker({
   const items = trigger && open ? filterMentions(candidates, trigger.query) : []
   const activeKey = items.some((item) => mentionKey(item) === active)
     ? active
-    : items[0]
-      ? mentionKey(items[0])
-      : null
+    : firstKey(items)
 
   function pick(candidate: MentionCandidate) {
     if (!root.current || !trigger) return
@@ -85,14 +86,24 @@ export function useMentionPicker({
     onInserted()
   }
 
+  // Keeps focus in the editor when an option is clicked, so typing continues to narrow the list.
+  useEffect(() => {
+    const element = pickerRef.current
+    if (!open || !element) return
+    const keepFocus = (event: MouseEvent) => event.preventDefault()
+    element.addEventListener("mousedown", keepFocus)
+    return () => element.removeEventListener("mousedown", keepFocus)
+  }, [open])
+
   // cmdk generates its own element ids, so the editor points at them after each render.
   useLayoutEffect(() => {
     const element = root.current
     if (!element) return
     const list = pickerRef.current?.querySelector("[cmdk-list]")?.id
     const option = [
-      ...(pickerRef.current?.querySelectorAll("[cmdk-item]") ?? []),
-    ].find((node) => node.getAttribute("data-value") === activeKey)?.id
+      ...(pickerRef.current?.querySelectorAll<HTMLElement>("[cmdk-item]") ??
+        []),
+    ].find((node) => node.dataset.value === activeKey)?.id
     for (const [name, id] of [
       ["aria-controls", list],
       ["aria-activedescendant", option],

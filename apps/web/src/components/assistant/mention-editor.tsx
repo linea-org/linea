@@ -14,9 +14,11 @@ import {
   caretAtEnd,
   chipHosts,
   chipNextToCaret,
+  deleteSelection,
   insertTextAtCaret,
   removeChip,
   renderText,
+  selectedMessageText,
   serializeEditor,
 } from "./mention-editor-dom"
 import { MentionPicker } from "./mention-picker"
@@ -89,12 +91,8 @@ export function MentionEditor({
       !event.nativeEvent.isComposing &&
       (event.key === "Backspace" || event.key === "Delete")
     ) {
-      const chip = root.current
-        ? chipNextToCaret(
-            root.current,
-            event.key === "Backspace" ? "before" : "after"
-          )
-        : null
+      const side = event.key === "Backspace" ? "before" : "after"
+      const chip = root.current ? chipNextToCaret(root.current, side) : null
       if (chip && root.current) {
         event.preventDefault()
         removeChip(root.current, chip)
@@ -103,6 +101,18 @@ export function MentionEditor({
       }
     }
     onSendKey(event)
+  }
+
+  /** Chips carry their ids only in data attributes, so the clipboard gets the reference text. */
+  function onCopyOrCut(event: ClipboardEvent<HTMLDivElement>) {
+    const text = root.current ? selectedMessageText(root.current) : null
+    if (text === null || !root.current) return
+    event.preventDefault()
+    event.clipboardData.setData("text/plain", text)
+    if (event.type === "cut") {
+      deleteSelection(root.current)
+      commit()
+    }
   }
 
   function onPaste(event: ClipboardEvent<HTMLDivElement>) {
@@ -137,10 +147,9 @@ export function MentionEditor({
           // plaintext-only keeps typed and dropped text free of formatting and markup.
           contentEditable="plaintext-only"
           suppressContentEditableWarning
-          role={mentions.open ? "combobox" : "textbox"}
+          role="textbox"
           aria-multiline="true"
           aria-label={label}
-          aria-expanded={mentions.open ? true : undefined}
           aria-haspopup={mentions.open ? "listbox" : undefined}
           aria-autocomplete={mentions.open ? "list" : undefined}
           spellCheck
@@ -149,6 +158,8 @@ export function MentionEditor({
             mentions.refresh()
           }}
           onKeyDown={onKeyDown}
+          onCopy={onCopyOrCut}
+          onCut={onCopyOrCut}
           onPaste={onPaste}
           className={cn(
             "block w-full overflow-y-auto px-3 py-2 text-base break-words whitespace-pre-wrap outline-none md:text-sm",

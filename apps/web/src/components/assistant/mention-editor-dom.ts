@@ -187,3 +187,14 @@ export function removeChip(root: HTMLElement, chip: HTMLElement) {
   chip.remove()
   placeCaret(root, range)
 }
+
+/** The selected part of the message as plain reference text, or null for a bare caret. */
+export function selectedMessageText(root: HTMLElement): string | null {
+  const range = selectionRange(root)
+  if (!range || range.collapsed) return null
+  return serializeEditor(range.cloneContents())
+}
+
+export function deleteSelection(root: HTMLElement) {
+  selectionRange(root)?.deleteContents()
+}
