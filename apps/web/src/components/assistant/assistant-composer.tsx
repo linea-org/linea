@@ -38,6 +38,7 @@ import {
 import { cn } from "@linealabs/ui/lib/utils"
 
 import { ModelSetupForm } from "@/components/models/model-setup-form"
+import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { ASSISTANT_NAME } from "@/lib/assistant-api"
 import { readAttachments } from "@/lib/attachments"
 import type { CatalogModel } from "@/lib/model-settings-api"
@@ -222,7 +223,10 @@ export function AssistantComposer({
     onChange("")
   }
   return (
-    <div className={cn(!hero && "border-t border-border p-3")}>
+    <div
+      data-shortcut-scope="composer"
+      className={cn(!hero && "border-t border-border p-3")}
+    >
       <InputGroup className="mx-auto max-w-3xl rounded-2xl shadow-sm">
         {options.attachments.length > 0 ? (
           <InputGroupAddon align="block-start" className="flex-wrap gap-1.5">
@@ -301,6 +305,7 @@ export function AssistantComposer({
               onClick={submit}
               disabled={!canSend}
               aria-label="Send message"
+              {...shortcutTarget("send")}
             >
               <ArrowUpIcon />
             </Button>

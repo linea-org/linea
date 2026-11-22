@@ -35,12 +35,20 @@ export const SHORTCUTS = {
   "ask-inky": { combo: "i", label: "Ask Inky", group: "This page" },
   "focus-search": { combo: "/", label: "Search this page", group: "This page" },
   filter: { combo: "f", label: "Filter", group: "This page" },
+  send: { combo: "mod+enter", label: "Send message", group: "This page" },
 } as const satisfies Record<
   string,
   { combo: string; label: string; group: ShortcutGroup }
 >
 
 export type ShortcutId = keyof typeof SHORTCUTS
+
+export type ShortcutScope = "composer"
+
+/** These fire only while focus is inside an element marked `data-shortcut-scope` with the same name. */
+export const SHORTCUT_SCOPES: Partial<Record<ShortcutId, ShortcutScope>> = {
+  send: "composer",
+}
 
 /** These press the page's button that marks itself with the same id. */
 export const CLICK_SHORTCUTS = [
@@ -54,6 +62,7 @@ export const CLICK_SHORTCUTS = [
   "add-to-suite",
   "fix",
   "mark-all-read",
+  "send",
 ] as const satisfies readonly ShortcutId[]
 
 export type ClickShortcutId = (typeof CLICK_SHORTCUTS)[number]

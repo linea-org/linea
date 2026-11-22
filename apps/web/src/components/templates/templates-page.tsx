@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@linealabs/ui/components/select"
+import { Field, FieldLabel } from "@linealabs/ui/components/field"
 import { Tabs, TabsList, TabsTrigger } from "@linealabs/ui/components/tabs"
 
 import { useComposerOptions } from "@/components/assistant/use-composer-options"
@@ -45,6 +46,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@linealabs/ui/components/empty"
+import { FilterPopover } from "@/components/workspace/filter-popover"
 import { ListSkeleton } from "@/components/workspace/list-skeleton"
 
 export type TemplateTab = "starter" | "workspace" | "public"
@@ -268,23 +270,34 @@ export function TemplatesPage({
         </Tabs>
         <div className="flex items-center gap-2">
           {search.tab === "starter" ? null : (
-            <Select
-              value={search.sort}
-              onValueChange={(sort) => go({ sort: sort as SharedTemplateSort })}
+            <FilterPopover
+              label="Filter templates"
+              active={search.sort !== "stars"}
+              onReset={() => go({ sort: "stars" })}
             >
-              <SelectTrigger className="w-36" aria-label="Sort templates">
-                <SelectValue>
-                  {(value: SharedTemplateSort) => SORT_LABELS[value]}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(SORT_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Field orientation="horizontal">
+                <FieldLabel>Sort by</FieldLabel>
+                <Select
+                  value={search.sort}
+                  onValueChange={(sort) =>
+                    go({ sort: sort as SharedTemplateSort })
+                  }
+                >
+                  <SelectTrigger className="w-36" aria-label="Sort templates">
+                    <SelectValue>
+                      {(value: SharedTemplateSort) => SORT_LABELS[value]}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(SORT_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </FilterPopover>
           )}
           <InputGroup className="w-56">
             <InputGroupAddon>

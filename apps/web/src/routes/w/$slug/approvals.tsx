@@ -1,7 +1,7 @@
 import { Card } from "@linealabs/ui/components/card"
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link, createFileRoute } from "@tanstack/react-router"
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
 import { CircleCheckIcon, XIcon } from "lucide-react"
 import { z } from "zod"
 
@@ -13,13 +13,23 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@linealabs/ui/components/empty"
+import { Field, FieldLabel } from "@linealabs/ui/components/field"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@linealabs/ui/components/select"
 import { Textarea } from "@linealabs/ui/components/textarea"
 
 import {
   pendingApprovalsQueryOptions,
   respondToApprovalFn,
 } from "@/lib/approvals-api"
+import { FilterPopover } from "@/components/workspace/filter-popover"
 import { ListSkeleton } from "@/components/workspace/list-skeleton"
+import { PageToolbar } from "@/components/workspace/page-toolbar"
 
 export const Route = createFileRoute("/w/$slug/approvals")({
   validateSearch: z.object({ executionId: z.uuid().optional() }),
@@ -29,12 +39,23 @@ export const Route = createFileRoute("/w/$slug/approvals")({
 function ApprovalsPage() {
   const { slug } = Route.useParams()
   const { executionId } = Route.useSearch()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [comments, setComments] = useState<Record<string, string>>({})
   const approvalsQuery = useQuery(pendingApprovalsQueryOptions(slug))
-  const approvals = (approvalsQuery.data ?? []).filter(
+  const pending = approvalsQuery.data ?? []
+  const approvals = pending.filter(
     (approval) => !executionId || approval.executionId === executionId
   )
+  const executionIds = [
+    ...new Set(pending.map((approval) => approval.executionId)),
+  ]
+  const filterByExecution = (next: string | undefined) =>
+    void navigate({
+      to: "/w/$slug/approvals",
+      params: { slug },
+      search: next ? { executionId: next } : {},
+    })
 
   const respond = useMutation({
     mutationFn: (input: { id: string; approved: boolean }) =>
@@ -52,6 +73,44 @@ function ApprovalsPage() {
 
   return (
     <main className="flex flex-1 flex-col p-4">
+      {pending.length > 0 ? (
+        <PageToolbar>
+          <FilterPopover
+            label="Filter approvals"
+            active={executionId !== undefined}
+            onReset={() => filterByExecution(undefined)}
+          >
+            <Field orientation="horizontal">
+              <FieldLabel>Execution</FieldLabel>
+              <Select
+                value={executionId ?? "all"}
+                onValueChange={(value) =>
+                  filterByExecution(executionIds.find((id) => id === value))
+                }
+              >
+                <SelectTrigger
+                  aria-label="Filter by execution"
+                  className="w-40"
+                >
+                  <SelectValue>
+                    {(value: string) =>
+                      value === "all" ? "All executions" : value
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All executions</SelectItem>
+                  {executionIds.map((id) => (
+                    <SelectItem key={id} value={id}>
+                      {id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </FilterPopover>
+        </PageToolbar>
+      ) : null}
       {approvalsQuery.isError ? (
         <p className="text-sm text-destructive">Could not load approvals.</p>
       ) : approvalsQuery.isPending ? (
