@@ -50,11 +50,12 @@ export async function isFlagEnabled(
   key: FlagKey,
   workspaceId: string
 ): Promise<boolean> {
-  return flagClient().getValueAsync(
+  const enabled = await flagClient().getValueAsync(
     key,
     FLAGS[key].default,
     new User(workspaceId)
   )
+  return enabled
 }
 
 export async function evaluateFlags(
