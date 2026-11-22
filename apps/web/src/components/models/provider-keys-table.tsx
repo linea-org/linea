@@ -35,6 +35,10 @@ import {
   DropdownMenuTrigger,
 } from "@linealabs/ui/components/dropdown-menu"
 
+import {
+  ProviderKeysToolbar,
+  type ProviderStatusFilter,
+} from "./provider-keys-toolbar"
 import { SecretFormDialog } from "@/components/secrets/secret-form-dialog"
 import { findOrCreateDevelopmentEnvironment } from "@/lib/default-application"
 import {
@@ -152,6 +156,11 @@ export function ProviderKeysTable({
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<AiProviderKeyStatus | null>(null)
   const [removing, setRemoving] = useState<AiProviderKeyStatus | null>(null)
+  const [status, setStatus] = useState<ProviderStatusFilter>("all")
+  const providers = setup.providers.filter(
+    (provider) =>
+      status === "all" || (status === "connected") === provider.configured
+  )
   const refresh = () =>
     queryClient.invalidateQueries({
       queryKey: modelSetupKey(slug),
@@ -170,6 +179,12 @@ export function ProviderKeysTable({
   })
   return (
     <>
+      <ProviderKeysToolbar
+        status={status}
+        onStatusChange={setStatus}
+        unconnected={setup.providers.filter((provider) => !provider.configured)}
+        onAdd={setEditing}
+      />
       <Card className="gap-0 py-0">
         <Table>
           <TableHeader className="bg-muted/40">
@@ -189,7 +204,7 @@ export function ProviderKeysTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {setup.providers.map((provider) => (
+            {providers.map((provider) => (
               <ProviderRow
                 key={provider.id}
                 provider={provider}
