@@ -10,7 +10,6 @@ import {
   repositories,
   type ChatMessage,
   type Execution,
-  type ExecutionStep,
 } from '@linealabs/db'
 import {
   assertNoReservedNodeIds,
@@ -21,6 +20,13 @@ import {
 } from '@linealabs/runtime'
 import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 import { isTraceContentRestricted } from './end-user-trace-access'
+import {
+  environmentSecrets,
+  redactExecution,
+  redactStep,
+  type RedactedStep,
+} from './redact-execution-trace'
+import { containsRedactionPlaceholder, redactRecord } from './trace-redaction'
 import type { CountNewWorkspaceExecutionsDto } from './dto/count-new-workspace-executions.dto'
 import { encodeExecutionListCursor } from './dto/execution-list-cursor'
 import type { ListWorkspaceExecutionsDto } from './dto/list-workspace-executions.dto'
@@ -254,7 +260,11 @@ export class ExecutionsService {
     if (!workflow) {
       throw new NotFoundException('Workflow not found')
     }
-    return repositories.execution.listExecutions(db, workflowId)
+    const executions = await repositories.execution.listExecutions(
+      db,
+      workflowId,
+    )
+    return executions.map((execution) => redactExecution(execution))
   }
 
   async listWorkspace(
@@ -274,6 +284,9 @@ export class ExecutionsService {
     )
     return {
       ...page,
+      executions: page.executions.map((execution) =>
+        redactExecution(execution),
+      ),
       nextCursor: page.nextCursor
         ? encodeExecutionListCursor(page.nextCursor)
         : null,
@@ -293,7 +306,7 @@ export class ExecutionsService {
     id: string,
   ): Promise<{
     execution: Execution
-    steps: ExecutionStep[]
+    steps: RedactedStep[]
     nodeConfigs: Record<string, Record<string, unknown>>
     replayable: boolean
     // The node a paused execution is currently waiting on — undefined once resolved (it becomes a
@@ -358,14 +371,23 @@ export class ExecutionsService {
         pausedAtNode = { nodeId: waitingOn.nodeId, type: 'agent' }
       }
     }
+    const secrets = await environmentSecrets(result.execution.environmentId)
     // Rows written before stacks moved to server logs may still carry one.
     const steps = result.steps.map((step) =>
-      step.error ? { ...step, error: { message: step.error.message } } : step,
+      redactStep(
+        step.error ? { ...step, error: { message: step.error.message } } : step,
+        secrets,
+      ),
     )
     return {
-      ...result,
+      execution: redactExecution(result.execution, secrets),
       steps,
-      nodeConfigs,
+      nodeConfigs: Object.fromEntries(
+        Object.entries(nodeConfigs).map(([nodeId, config]) => [
+          nodeId,
+          redactRecord(config, secrets),
+        ]),
+      ),
       replayable,
       pausedAtNode,
       nestedAgents,
@@ -416,6 +438,12 @@ export class ExecutionsService {
     if (step.name === 'agent') {
       throw new BadRequestException(
         'Run Agent steps cannot be replayed; start a new Workflow run',
+      )
+    }
+    // The dashboard is sent redacted configs; running a placeholder would test different data.
+    if (containsRedactionPlaceholder(input.overrideConfig)) {
+      throw new BadRequestException(
+        'An edited field still contains a redacted value. Replace the redacted part or leave that field unchanged.',
       )
     }
     const replayStepId = randomUUID()

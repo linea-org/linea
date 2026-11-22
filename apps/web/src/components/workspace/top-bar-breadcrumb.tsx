@@ -1,7 +1,13 @@
 import { Fragment } from "react"
-import { Link, useMatches, useNavigate } from "@tanstack/react-router"
+import {
+  Link,
+  useHydrated,
+  useMatches,
+  useNavigate,
+} from "@tanstack/react-router"
 
 import { ASSISTANT_NAME } from "@/lib/assistant-api"
+import { recallExecutionsList } from "@/lib/executions-list-return"
 
 import {
   Breadcrumb,
@@ -24,7 +30,7 @@ type Crumb =
       label: string
       to: string
       params: Record<string, string>
-      search?: { view: "agents" | "workflows" | "environments" }
+      search?: Record<string, unknown>
     }
   | { label: string }
 
@@ -47,7 +53,11 @@ function executionsCrumb(slug: string): Crumb {
   return { label: "Executions", to: "/w/$slug/executions", params: { slug } }
 }
 
-function crumbsForMatch(match: RouteMatch, slug: string): Crumb[] {
+function crumbsForMatch(
+  match: RouteMatch,
+  slug: string,
+  hydrated: boolean
+): Crumb[] {
   switch (match.routeId) {
     case "/w/$slug/agents/new":
       return [applicationsCrumb(slug), { label: "Add Agent" }]
@@ -116,7 +126,11 @@ function crumbsForMatch(match: RouteMatch, slug: string): Crumb[] {
     }
     case "/w/$slug/executions/$executionId":
       return [
-        executionsCrumb(slug),
+        // Session storage is unreadable while rendering on the server.
+        {
+          ...executionsCrumb(slug),
+          search: hydrated ? recallExecutionsList(slug) : undefined,
+        },
         { label: match.loaderData?.definitionName ?? "Execution" },
       ]
     case "/w/$slug/workflows/$workflowId/executions/$executionId":
@@ -174,7 +188,10 @@ function crumbsForMatch(match: RouteMatch, slug: string): Crumb[] {
 }
 
 export function useWorkspaceCrumbs(slug: string): Crumb[] {
-  return useRouteMatches().flatMap((match) => crumbsForMatch(match, slug))
+  const hydrated = useHydrated()
+  return useRouteMatches().flatMap((match) =>
+    crumbsForMatch(match, slug, hydrated)
+  )
 }
 
 function CrumbText({ label }: { label: string }) {

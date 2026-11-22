@@ -84,7 +84,15 @@ export function ReplayAction({
               setParseError("Enter a JSON object")
               return
             }
-            mutation.mutate(parsed)
+            // Unchanged keys stay as recorded: the server redacts credentials it sends here.
+            mutation.mutate(
+              Object.fromEntries(
+                Object.entries(parsed).filter(
+                  ([key, value]) =>
+                    JSON.stringify(value) !== JSON.stringify(nodeConfig?.[key])
+                )
+              )
+            )
           }}
         >
           {mutation.isPending ? "Replaying…" : "Run replay"}

@@ -4,11 +4,13 @@ import {
   publishTestWorkflow,
 } from '@linealabs/db/testing'
 import 'dotenv/config'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { Test } from '@nestjs/testing'
-import { db, pool, repositories, schema } from '@linealabs/db'
+import { db, encryptSecret, pool, repositories, schema } from '@linealabs/db'
 import type { WorkflowGraph } from '@linealabs/runtime'
+import { bigIntJsonReplacer } from '../common/bigint-json-replacer'
 import { ExecutionsService } from './executions.service'
+import { REDACTED } from './trace-redaction'
 import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 
 afterAll(async () => {
@@ -43,7 +45,37 @@ const graph: WorkflowGraph = {
   edges: [],
 }
 
+async function withServiceAndOrganization(
+  run: (
+    service: ExecutionsService,
+    organization: typeof schema.organizations.$inferSelect,
+  ) => Promise<void>,
+) {
+  const moduleRef = await Test.createTestingModule({
+    providers: [ExecutionsService, StepReplayQueueService],
+  }).compile()
+  const [organization] = await db
+    .insert(schema.organizations)
+    .values({
+      name: 'Executions Test Org',
+      slug: `executions-test-${randomUUID()}`,
+      createdAt: new Date(),
+    })
+    .returning()
+  try {
+    await run(moduleRef.get(ExecutionsService), organization)
+  } finally {
+    await moduleRef.close()
+    await pool.query('DELETE FROM organizations WHERE id = $1', [
+      organization.id,
+    ])
+  }
+}
+
 describe('ExecutionsService', () => {
+  beforeAll(() => {
+    process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString('base64')
+  })
   it('rejects triggering a workflow with no published version', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [ExecutionsService, StepReplayQueueService],
@@ -1020,6 +1052,113 @@ describe('ExecutionsService', () => {
         ])
       }
     })
+    it('redacts credentials from the run, its steps and its node configs', async () => {
+      await withServiceAndOrganization(async (service, organization) => {
+        const suffix = randomUUID()
+        const crmKey = `crm-live-${suffix}`
+        const workflow = await repositories.workflow.createWorkflow(db, {
+          applicationId: await getTestApplicationId(db, organization.id),
+          workspaceId: organization.id,
+          name: 'Redaction Workflow',
+          slug: `redaction-${suffix}`,
+        })
+        const version = await repositories.workflow.createWorkflowVersion(db, {
+          workflowId: workflow.id,
+          graph: {
+            version: 1,
+            trigger: { type: 'manual' },
+            entryNodeId: 'n1',
+            nodes: [
+              {
+                id: 'n1',
+                type: 'http',
+                config: {
+                  method: 'GET',
+                  url: 'https://crm.example.com/contacts',
+                  headers: { Authorization: 'Bearer config-token-123456' },
+                },
+              },
+            ],
+            edges: [],
+          },
+          contentHash: 'redaction-hash',
+        })
+        const execution = await createTestExecution(db, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          trigger: 'api',
+          triggerPayload: { customer: 'Ada', apiKey: 'caller-key-1' },
+        })
+        if (!execution.environmentId)
+          throw new Error('Fixture has no Environment')
+        await repositories.secret.upsertSecret(
+          db,
+          execution.environmentId,
+          'CRM_KEY',
+          encryptSecret(crmKey),
+        )
+        await db.insert(schema.executionSteps).values({
+          executionId: execution.id,
+          workspaceId: organization.id,
+          traceId: randomUUID(),
+          spanId: randomUUID(),
+          name: 'http',
+          nodeId: 'n1',
+          sequence: 1,
+          startedAt: new Date(),
+          status: 'failed',
+          input: { headers: { 'x-api-key': crmKey }, query: { page: 1 } },
+          output: { body: `rejected key ${crmKey}`, status: 401 },
+          error: { message: 'Upstream said: Bearer abcdef123456 is expired' },
+        })
+        // An End step records its input as is, which may be a string or an array.
+        await pool.query(
+          `INSERT INTO execution_steps (execution_id, workspace_id, trace_id, span_id, name, node_id, sequence, started_at, status, input, output)
+         VALUES ($1, $2, $3, $4, 'end', 'n2', 2, now(), 'succeeded', $5::jsonb, $6::jsonb)`,
+          [
+            execution.id,
+            organization.id,
+            randomUUID(),
+            randomUUID(),
+            JSON.stringify(['first', 'second']),
+            JSON.stringify('done with Bearer abcdef987654'),
+          ],
+        )
+        const detail = await service.get(organization.id, execution.id)
+        const end = detail.steps.find((step) => step.nodeId === 'n2')
+        expect(end?.input).toEqual(['first', 'second'])
+        expect(end?.output).toBe(`done with Bearer ${REDACTED}`)
+        const serialized = JSON.stringify(detail, bigIntJsonReplacer)
+        expect(serialized).not.toContain(crmKey)
+        expect(serialized).not.toContain('config-token-123456')
+        expect(serialized).not.toContain('caller-key-1')
+        expect(serialized).not.toContain('abcdef123456')
+        expect(detail.execution.triggerPayload).toEqual({
+          customer: 'Ada',
+          apiKey: REDACTED,
+        })
+        expect(detail.nodeConfigs.n1).toEqual({
+          method: 'GET',
+          url: 'https://crm.example.com/contacts',
+          headers: { Authorization: REDACTED },
+        })
+        expect(detail.steps[0].input).toEqual({
+          headers: { 'x-api-key': REDACTED },
+          query: { page: 1 },
+        })
+        expect(detail.steps[0].output).toEqual({
+          body: 'rejected key [secret CRM_KEY]',
+          status: 401,
+        })
+        const [listed] = (await service.listWorkspace(organization.id, {}))
+          .executions
+        expect(listed.triggerPayload).toEqual({
+          customer: 'Ada',
+          apiKey: REDACTED,
+        })
+      })
+    })
   })
   describe('replayStep()', () => {
     async function setUpTerminalExecutionWithStep(organizationId: string) {
@@ -1110,6 +1249,27 @@ describe('ExecutionsService', () => {
           organization.id,
         ])
       }
+    })
+    it('refuses an override that still contains a redaction placeholder', async () => {
+      await withServiceAndOrganization(async (service, organization) => {
+        const { execution, step } = await setUpTerminalExecutionWithStep(
+          organization.id,
+        )
+        for (const prompt of [
+          `Call the API with ${REDACTED} and summarise`,
+          'Call the API with [secret CRM_KEY] and summarise',
+        ]) {
+          await expect(
+            service.replayStep(
+              organization.id,
+              execution.id,
+              step.id,
+              { overrideConfig: { prompt } },
+              undefined,
+            ),
+          ).rejects.toThrow('still contains a redacted value')
+        }
+      })
     })
     it('rejects replaying a Run Agent step', async () => {
       const moduleRef = await Test.createTestingModule({

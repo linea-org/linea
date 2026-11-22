@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import {
   useQuery,
   useQueryClient,
@@ -48,6 +49,7 @@ import {
   type ExecutionStatus,
   type ExecutionTrigger,
 } from "@/lib/executions-api"
+import { rememberExecutionsList } from "@/lib/executions-list-return"
 import { formatElapsed } from "@/lib/format"
 import { SortableTableHead } from "@/components/workspace/sortable-table-head"
 
@@ -157,6 +159,7 @@ function ExecutionsPage() {
     initialData,
   })
   const { executions, hasMore, total } = data
+  useEffect(() => rememberExecutionsList(slug, search), [slug, search])
   const sort = parseExecutionSort(search.sort)
   const sorts = sort ? [sort] : []
 
