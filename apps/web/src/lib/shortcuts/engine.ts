@@ -40,7 +40,6 @@ export const isEditableTarget = (target: EventTarget | null) =>
 export const isOverlayTarget = (target: EventTarget | null) =>
   matches(target, overlayTargets)
 
-/** The shortcut scope the focused element sits in, if any. */
 export function shortcutScopeOf(target: EventTarget | null) {
   if (!(target instanceof Element)) return null
   const name = target
