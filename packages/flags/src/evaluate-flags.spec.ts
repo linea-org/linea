@@ -20,6 +20,7 @@ describe("flags without a ConfigCat SDK key", () => {
     expect(await isFlagEnabled("platformModelKey", "workspace-1")).toBe(false)
     expect(await evaluateFlags("workspace-1")).toEqual({
       platformModelKey: false,
+      assistantMentions: false,
     })
   })
 

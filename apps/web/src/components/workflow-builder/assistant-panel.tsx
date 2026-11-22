@@ -201,6 +201,7 @@ export function AssistantPanel({
       />
       <AssistantComposer
         hero={false}
+        workflowId={workflowId}
         value={draft}
         onChange={setDraft}
         options={options}

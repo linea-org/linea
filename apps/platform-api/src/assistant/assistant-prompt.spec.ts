@@ -6,7 +6,11 @@ import {
 } from './assistant-prompt'
 
 describe('assistant prompt', () => {
-  const prompt = buildAssistantSystemPrompt({ web: false, workflowId: null })
+  const prompt = buildAssistantSystemPrompt({
+    web: false,
+    workflowId: null,
+    mentions: true,
+  })
 
   it('describes every allowed node type from the registry', () => {
     for (const type of ASSISTANT_NODE_TYPES) {
@@ -46,14 +50,43 @@ describe('assistant prompt', () => {
     expect(prompt).not.toContain('get_recent_runs')
     expect(prompt).toContain('get_run')
     expect(
-      buildAssistantSystemPrompt({ web: false, workflowId: 'wf' }),
+      buildAssistantSystemPrompt({
+        web: false,
+        workflowId: 'wf',
+        mentions: false,
+      }),
     ).toContain('get_recent_runs')
+  })
+
+  it('teaches the model to resolve @ references with its record tools', () => {
+    for (const text of [
+      '@run:<id>',
+      '@workflow:<id>',
+      '@application:<id>',
+      'get_run',
+      'get_workflow',
+      'get_application',
+      'only a pointer, not data',
+    ]) {
+      expect(prompt).toContain(text)
+    }
+    expect(
+      buildAssistantSystemPrompt({
+        web: false,
+        workflowId: null,
+        mentions: false,
+      }),
+    ).not.toContain('@run:<id>')
   })
 
   it('mentions the web tool only when it is switched on', () => {
     expect(prompt).not.toContain('fetch_url')
     expect(
-      buildAssistantSystemPrompt({ web: true, workflowId: null }),
+      buildAssistantSystemPrompt({
+        web: true,
+        workflowId: null,
+        mentions: false,
+      }),
     ).toContain('fetch_url')
   })
 

@@ -4,6 +4,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common'
 import type { ConversationTurn, ToolCall } from '@linealabs/ai'
+import { isFlagEnabled } from '@linealabs/flags'
 import { db, repositories } from '@linealabs/db'
 import type { WorkflowGraph } from '@linealabs/runtime'
 import { branchUpTo } from './assistant-branch'
@@ -89,6 +90,7 @@ export class AssistantService {
         workflowId,
         environmentId: environment.id,
         web: input.tools.web,
+        mentions: await isFlagEnabled('assistantMentions', workspaceId),
       },
       input,
     )
@@ -123,6 +125,7 @@ export class AssistantService {
         workflowId: null,
         environmentId: environment.id,
         web: input.tools.web,
+        mentions: await isFlagEnabled('assistantMentions', workspaceId),
       },
       input,
     )

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useRef, useState, type KeyboardEvent } from "react"
 import { Link, useParams } from "@tanstack/react-router"
 import {
   ArrowUpIcon,
@@ -33,7 +33,6 @@ import {
 import {
   InputGroup,
   InputGroupAddon,
-  InputGroupTextarea,
 } from "@linealabs/ui/components/input-group"
 import { cn } from "@linealabs/ui/lib/utils"
 
@@ -42,6 +41,7 @@ import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { ASSISTANT_NAME } from "@/lib/assistant-api"
 import { readAttachments } from "@/lib/attachments"
 import type { CatalogModel } from "@/lib/model-settings-api"
+import { ComposerInput } from "./composer-input"
 import type { ComposerOptions } from "./use-composer-options"
 
 function ToolsMenu({ options }: Readonly<{ options: ComposerOptions }>) {
@@ -194,6 +194,7 @@ export function AssistantComposer({
   placeholder,
   options,
   hero,
+  workflowId,
 }: Readonly<{
   value: string
   onChange: (value: string) => void
@@ -202,6 +203,8 @@ export function AssistantComposer({
   placeholder: string
   options: ComposerOptions
   hero: boolean
+  /** Set in a workflow chat, where Inky can only read that workflow's runs. */
+  workflowId?: string
 }>) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [problems, setProblems] = useState<string[]>([])
@@ -221,6 +224,16 @@ export function AssistantComposer({
     }
     onSend(value.trim())
     onChange("")
+  }
+  function submitOnEnter(event: KeyboardEvent<HTMLElement>) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
+      event.preventDefault()
+      submit()
+    }
   }
   return (
     <div
@@ -252,24 +265,14 @@ export function AssistantComposer({
             ))}
           </InputGroupAddon>
         ) : null}
-        <InputGroupTextarea
-          aria-label={`Message ${ASSISTANT_NAME}`}
+        <ComposerInput
+          label={`Message ${ASSISTANT_NAME}`}
           value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" &&
-              !event.shiftKey &&
-              !event.nativeEvent.isComposing
-            ) {
-              event.preventDefault()
-              submit()
-            }
-          }}
+          onChange={onChange}
+          onSendKey={submitOnEnter}
           placeholder={placeholder}
-          rows={hero ? 3 : 2}
-          autoFocus={hero}
-          className={hero ? "max-h-60 min-h-24 text-base" : "max-h-40"}
+          hero={hero}
+          workflowId={workflowId}
         />
         <InputGroupAddon align="block-end" className="gap-1">
           <input

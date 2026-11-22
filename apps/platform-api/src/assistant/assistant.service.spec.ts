@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
 import { NotFoundException, UnprocessableEntityException } from '@nestjs/common'
 import type { ToolCall } from '@linealabs/ai'
+import { isFlagEnabled } from '@linealabs/flags'
 import { db, pool, repositories, schema } from '@linealabs/db'
 import type { AssistantModel } from './assistant-model'
 import { AssistantModelUnavailableError } from './assistant-model-error'
@@ -9,6 +10,10 @@ import type { ToolOutcome } from './assistant-tool-contract'
 import { AssistantSelfTest } from './assistant-self-test'
 import { AssistantTools } from './assistant-tools'
 import { AssistantService } from './assistant.service'
+
+jest.mock('@linealabs/flags', () => ({
+  isFlagEnabled: jest.fn().mockResolvedValue(false),
+}))
 
 afterAll(async () => {
   await pool.end()
@@ -56,7 +61,12 @@ type Step = string | { toolCalls: ToolCall[] }
 type CompleteArgs = [
   string,
   string,
-  { prompt?: string; tools?: unknown[]; history: unknown[] },
+  {
+    systemPrompt?: string
+    prompt?: string
+    tools?: { name: string }[]
+    history: unknown[]
+  },
   string | undefined,
 ]
 
@@ -205,6 +215,7 @@ describe('AssistantService', () => {
       workflowId: f.workflow.id,
       environmentId: dev?.id,
       web: true,
+      mentions: false,
     })
     expect(answer.reply).toBe('The page says hello.')
     expect(answer.actions).toEqual([fetched.action])
@@ -235,6 +246,39 @@ describe('AssistantService', () => {
       { ...request, tools: { web: true } },
     )
     expect(on.complete.mock.calls[0][2].tools).toHaveLength(6)
+  })
+
+  it('offers the record tools and the @ reference prompt only with assistantMentions on', async () => {
+    const f = await fixture()
+    const names = async () => {
+      const model = modelReturning('hi')
+      await new AssistantService(model, noTools).replyForWorkflow(
+        f.workspace.id,
+        f.user.id,
+        f.workflow.id,
+        request,
+      )
+      const [, , options] = model.complete.mock.calls[0]
+      return [
+        (options.tools ?? []).map((tool) => tool.name),
+        options.systemPrompt,
+      ]
+    }
+    const [off, offPrompt] = await names()
+    expect(off).not.toContain('get_workflow')
+    expect(off).not.toContain('get_application')
+    expect(offPrompt).not.toContain('@workflow:<id>')
+
+    jest.mocked(isFlagEnabled).mockResolvedValueOnce(true)
+    const [on, onPrompt] = await names()
+    expect(on).toEqual(
+      expect.arrayContaining(['get_workflow', 'get_application']),
+    )
+    expect(onPrompt).toContain('@workflow:<id>')
+    expect(isFlagEnabled).toHaveBeenLastCalledWith(
+      'assistantMentions',
+      f.workspace.id,
+    )
   })
 
   it('proposes the draft the model built with edit_draft', async () => {

@@ -17,6 +17,7 @@ const CONFIG_JSON = JSON.stringify({
         },
       ],
     },
+    assistantMentions: { t: 0, v: { b: false } },
   },
 })
 
@@ -48,7 +49,13 @@ describe("flags with a ConfigCat SDK key", () => {
 
     expect(await isFlagEnabled("platformModelKey", "ws-on")).toBe(true)
     expect(await isFlagEnabled("platformModelKey", "ws-off")).toBe(false)
-    expect(await evaluateFlags("ws-on")).toEqual({ platformModelKey: true })
-    expect(await evaluateFlags("ws-off")).toEqual({ platformModelKey: false })
+    expect(await evaluateFlags("ws-on")).toEqual({
+      platformModelKey: true,
+      assistantMentions: false,
+    })
+    expect(await evaluateFlags("ws-off")).toEqual({
+      platformModelKey: false,
+      assistantMentions: false,
+    })
   })
 })
