@@ -8,6 +8,11 @@ import {
 } from "@configcat/sdk"
 import { FLAGS, type FlagKey } from "./flag-definitions.js"
 
+// Checked on import, so a production process without a key fails at startup, not on its first flag.
+if (process.env.NODE_ENV === "production" && !process.env.CONFIGCAT_SDK_KEY) {
+  throw new Error("CONFIGCAT_SDK_KEY is required in production")
+}
+
 let client: IConfigCatClient | undefined
 
 function localFlagValues(): Record<string, boolean> {
@@ -32,8 +37,6 @@ function flagClient(): IConfigCatClient {
   const sdkKey = process.env.CONFIGCAT_SDK_KEY
   if (sdkKey) {
     client = getClient(sdkKey, PollingMode.AutoPoll)
-  } else if (process.env.NODE_ENV === "production") {
-    throw new Error("CONFIGCAT_SDK_KEY is required in production")
   } else {
     // LocalOnly never contacts ConfigCat, so the SDK accepts a placeholder key.
     client = getClient("local", PollingMode.ManualPoll, {

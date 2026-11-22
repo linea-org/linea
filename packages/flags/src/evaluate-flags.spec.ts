@@ -39,11 +39,10 @@ describe("flags without a ConfigCat SDK key", () => {
     )
   })
 
-  it("refuses to run in production", async () => {
+  it("refuses to load in production, before any flag is read", async () => {
     vi.stubEnv("CONFIGCAT_SDK_KEY", "")
     vi.stubEnv("NODE_ENV", "production")
-    const { isFlagEnabled } = await loadFresh()
-    await expect(isFlagEnabled("platformModelKey", "w")).rejects.toThrow(
+    await expect(loadFresh()).rejects.toThrow(
       "CONFIGCAT_SDK_KEY is required in production"
     )
   })
