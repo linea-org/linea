@@ -15,9 +15,8 @@ concurrency:
 
 env:
   TURBO_TELEMETRY_DISABLED: 1
-  # PRs run only the packages they change plus their dependents; pushes to main run everything.
-  # Root-level shared inputs are listed in turbo.json globalDependencies and force a full run.
   TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+  # Turbo ignores root files in --affected unless turbo.json globalDependencies lists them.
   TURBO_AFFECTED: ${{ github.event_name == 'pull_request' && '--affected' || '' }}
 
 jobs:
