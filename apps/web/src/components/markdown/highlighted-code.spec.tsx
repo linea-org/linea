@@ -38,4 +38,13 @@ describe("highlighted code", () => {
 
     expect(highlightSpies[0]?.mock.calls).toHaveLength(before + 3)
   })
+
+  it("evicts the oldest block once the cache is full", () => {
+    render("const oldest = 0\n")
+    for (let i = 0; i < 200; i++) render(`const filler = ${i}\n`)
+    const before = highlightSpies[0]?.mock.calls.length ?? 0
+    render("const oldest = 0\n")
+
+    expect(highlightSpies[0]?.mock.calls).toHaveLength(before + 1)
+  })
 })

@@ -87,10 +87,8 @@ function highlight(code: string, language: string) {
   if (cached) return cached
   const nodes = lowlight.highlight(language, code).children.map(renderNode)
   if (highlightedBlocks.size >= MAX_CACHED_BLOCKS) {
-    for (const oldest of highlightedBlocks.keys()) {
-      highlightedBlocks.delete(oldest)
-      break
-    }
+    const oldest = highlightedBlocks.keys().next().value
+    if (oldest !== undefined) highlightedBlocks.delete(oldest)
   }
   highlightedBlocks.set(key, nodes)
   return nodes
