@@ -19,6 +19,7 @@ import { cn } from "@linealabs/ui/lib/utils"
 import { UserAvatar } from "@/components/account"
 import { authClient } from "@/lib/auth-client"
 
+import { handleEditKeyDown } from "./edit-form-keys"
 import type { VisibleMessage } from "./use-assistant-chat"
 
 function BranchSwitcher({
@@ -71,18 +72,21 @@ function EditForm({
   const [text, setText] = useState(initial)
   const changed = text.trim() !== "" && text.trim() !== initial.trim()
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div
+      className="flex w-full flex-col gap-2"
+      onKeyDown={(event) =>
+        handleEditKeyDown(event, {
+          changed,
+          onCancel,
+          onSubmit: () => onSubmit(text),
+        })
+      }
+    >
       <Textarea
         autoFocus
         rows={3}
         value={text}
         onChange={(event) => setText(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") onCancel()
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-            if (changed) onSubmit(text)
-          }
-        }}
       />
       <div className="flex justify-end gap-1.5">
         <Button type="button" variant="ghost" onClick={onCancel}>
