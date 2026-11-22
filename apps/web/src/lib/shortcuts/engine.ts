@@ -42,9 +42,8 @@ export const isOverlayTarget = (target: EventTarget | null) =>
 
 export function shortcutScopeOf(target: EventTarget | null) {
   if (!(target instanceof Element)) return null
-  const name = target
-    .closest("[data-shortcut-scope]")
-    ?.getAttribute("data-shortcut-scope")
+  const name = target.closest<HTMLElement>("[data-shortcut-scope]")?.dataset
+    .shortcutScope
   return name === "composer" ? name : null
 }
 
