@@ -16,6 +16,7 @@ import { RunLeaseService } from "./run-lease.service"
 import { RunsService } from "./runs.service"
 import {
   createAgentExecutionFixture,
+  removeWorkspace,
   type AgentExecutionFixture,
 } from "./agent-execution.fixture"
 
@@ -172,16 +173,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   jest.restoreAllMocks()
-  await pool.query("DELETE FROM approval_requests WHERE workspace_id = $1", [
-    fixture.workspaceId,
-  ])
-  await pool.query(
-    "DELETE FROM connector_audit_facts WHERE workspace_id = $1",
-    [fixture.workspaceId]
-  )
-  await pool.query("DELETE FROM organizations WHERE id = $1", [
-    fixture.workspaceId,
-  ])
+  await removeWorkspace(fixture.workspaceId)
 })
 
 afterAll(async () => {
