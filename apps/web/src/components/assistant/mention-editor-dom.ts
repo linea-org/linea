@@ -194,7 +194,18 @@ export function removeChip(root: HTMLElement, chip: HTMLElement) {
 export function selectedMessageText(root: HTMLElement): string | null {
   const range = selectionRange(root)
   if (!range || range.collapsed) return null
-  return serializeEditor(range.cloneContents())
+  const fragment = range.cloneContents()
+  // Whether the closing BR was selected is only known from the live range: in the clone it
+  // looks the same as a line break that ends a copied line.
+  const placeholder = root.lastChild
+  if (
+    placeholder?.nodeName === "BR" &&
+    range.intersectsNode(placeholder) &&
+    fragment.lastChild?.nodeName === "BR"
+  ) {
+    fragment.lastChild.remove()
+  }
+  return serializeEditor(fragment)
 }
 
 export function deleteSelection(root: HTMLElement) {

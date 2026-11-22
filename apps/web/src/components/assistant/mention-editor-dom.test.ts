@@ -154,6 +154,27 @@ describe("copying", () => {
     expect(selectedMessageText(root)).toBe("a\n")
   })
 
+  it("leaves out the browser's closing placeholder when the whole draft is copied", () => {
+    root.append("hi", document.createElement("br"))
+    const range = document.createRange()
+    range.selectNodeContents(root)
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    expect(selectedMessageText(root)).toBe("hi")
+  })
+
+  it("keeps a mid-draft line break when the selection ends after it, but not mid-line", () => {
+    root.append("a", document.createElement("br"), "bc")
+    const range = document.createRange()
+    range.setStartBefore(root.firstChild as Text)
+    range.setEndAfter(root.childNodes[1])
+    document.getSelection()?.removeAllRanges()
+    document.getSelection()?.addRange(range)
+    expect(selectedMessageText(root)).toBe("a\n")
+    range.setEnd(root.childNodes[2], 1)
+    expect(selectedMessageText(root)).toBe("a\nb")
+  })
+
   it("gives nothing for a bare caret", () => {
     renderText(root, "hello")
     caretAtEnd(root)
