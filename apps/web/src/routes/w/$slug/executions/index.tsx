@@ -163,7 +163,7 @@ function ExecutionsPage() {
   const isFirstPage = trail.length === 0 && !search.cursor
   const currentPageNumber = trail.length + 1
   const nextCursor = data.nextCursor ?? undefined
-  const previousCursor = trail.length > 0 ? trail[trail.length - 1] : undefined
+  const previousCursor = trail.at(-1)
   const previousTrail = trail.length > 0 ? trail.slice(0, -1) : []
 
   // Until pagination is used, page 1's own top row is the reference point — see the `anchor` field's doc comment on ExecutionsSearch.

@@ -636,7 +636,7 @@ export async function listWorkspaceExecutions(
   const asOf = options.cursor?.asOf
   // Ignores the status filter: a run that left the filter also moved the page boundaries.
   const changedSince = asOf
-    ? sql<boolean>`coalesce(bool_or(${isNull(executions.parentExecutionId)} and greatest(${executions.createdAt}, ${executions.startedAt}, ${executions.completedAt}) > ${asOf.toISOString()}::timestamptz), false)`
+    ? sql<boolean>`coalesce(bool_or(${isNull(executions.parentExecutionId)} and ${executions.sortKeysChangedAt} > ${asOf.toISOString()}::timestamptz), false)`
     : sql<boolean>`false`
   const matches = and(
     isNull(executions.parentExecutionId),

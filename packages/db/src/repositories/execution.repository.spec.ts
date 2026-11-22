@@ -850,6 +850,8 @@ describe("listWorkspaceExecutions sorting", () => {
       workspaceId: organization.id,
       workflowId: workflow.id,
       workflowVersionId: version.id,
+      // The default is this transaction's start, which is also when its first page is served.
+      sortKeysChangedAt: new Date(base),
     }
     const startedAt = new Date(base)
     const rows = await tx
@@ -974,6 +976,32 @@ describe("listWorkspaceExecutions sorting", () => {
         status: "queued",
       })
       expect(afterFinish.changed).toBe(true)
+    })
+  })
+  it("reports a status change that moves no timestamp, such as a run pausing", async () => {
+    await withRollback(async (tx) => {
+      const { organization, rows } = await insertSortFixture(tx)
+      const sort = { column: "status", direction: "asc" } as const
+      const first = await listWorkspaceExecutions(tx, organization.id, {
+        sort,
+        limit: 2,
+      })
+      await tx
+        .update(executions)
+        .set({ leasedBy: "worker-1" })
+        .where(eq(executions.id, rows[2].id))
+      const page = () =>
+        listWorkspaceExecutions(tx, organization.id, {
+          sort,
+          cursor: first.nextCursor ?? undefined,
+          limit: 2,
+        })
+      expect((await page()).changed).toBe(false)
+      await tx
+        .update(executions)
+        .set({ status: "paused" })
+        .where(eq(executions.id, rows[2].id))
+      expect((await page()).changed).toBe(true)
     })
   })
   it("orders the whole filtered set, not one page of it", async () => {
