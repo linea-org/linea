@@ -50,6 +50,20 @@ describe('assistant prompt', () => {
     ).toContain('get_recent_runs')
   })
 
+  it('teaches the model to resolve @ references with its record tools', () => {
+    for (const text of [
+      '@run:<id>',
+      '@workflow:<id>',
+      '@application:<id>',
+      'get_run',
+      'get_workflow',
+      'get_application',
+      'only a pointer, not data',
+    ]) {
+      expect(prompt).toContain(text)
+    }
+  })
+
   it('mentions the web tool only when it is switched on', () => {
     expect(prompt).not.toContain('fetch_url')
     expect(

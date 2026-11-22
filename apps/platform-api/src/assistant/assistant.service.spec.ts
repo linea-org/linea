@@ -226,7 +226,7 @@ describe('AssistantService', () => {
       f.workflow.id,
       request,
     )
-    expect(off.complete.mock.calls[0][2].tools).toHaveLength(5)
+    expect(off.complete.mock.calls[0][2].tools).toHaveLength(7)
     const on = modelReturning('hi')
     await new AssistantService(on, noTools).replyForWorkflow(
       f.workspace.id,
@@ -234,7 +234,7 @@ describe('AssistantService', () => {
       f.workflow.id,
       { ...request, tools: { web: true } },
     )
-    expect(on.complete.mock.calls[0][2].tools).toHaveLength(6)
+    expect(on.complete.mock.calls[0][2].tools).toHaveLength(8)
   })
 
   it('proposes the draft the model built with edit_draft', async () => {

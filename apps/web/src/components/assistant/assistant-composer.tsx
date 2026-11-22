@@ -42,7 +42,9 @@ import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { ASSISTANT_NAME } from "@/lib/assistant-api"
 import { readAttachments } from "@/lib/attachments"
 import type { CatalogModel } from "@/lib/model-settings-api"
+import { MentionPicker } from "./mention-picker"
 import type { ComposerOptions } from "./use-composer-options"
+import { useMentionPicker } from "./use-mention-picker"
 
 function ToolsMenu({ options }: Readonly<{ options: ComposerOptions }>) {
   return (
@@ -194,6 +196,7 @@ export function AssistantComposer({
   placeholder,
   options,
   hero,
+  workflowId,
 }: Readonly<{
   value: string
   onChange: (value: string) => void
@@ -202,7 +205,10 @@ export function AssistantComposer({
   placeholder: string
   options: ComposerOptions
   hero: boolean
+  /** Set in a workflow chat, where Inky can only read that workflow's runs. */
+  workflowId?: string
 }>) {
+  const mentions = useMentionPicker({ value, onChange, workflowId })
   const fileInput = useRef<HTMLInputElement>(null)
   const [problems, setProblems] = useState<string[]>([])
   async function attach(files: FileList | null) {
@@ -228,6 +234,17 @@ export function AssistantComposer({
       className={cn(!hero && "border-t border-border p-3")}
     >
       <InputGroup className="mx-auto max-w-3xl rounded-2xl shadow-sm">
+        {mentions.open ? (
+          <MentionPicker
+            ref={mentions.picker}
+            items={mentions.items}
+            activeKey={mentions.activeKey}
+            onActiveChange={mentions.setActive}
+            onPick={mentions.pick}
+            isLoading={mentions.isLoading}
+            error={mentions.error}
+          />
+        ) : null}
         {options.attachments.length > 0 ? (
           <InputGroupAddon align="block-start" className="flex-wrap gap-1.5">
             {options.attachments.map((file) => (
@@ -253,10 +270,17 @@ export function AssistantComposer({
           </InputGroupAddon>
         ) : null}
         <InputGroupTextarea
+          ref={mentions.textarea}
           aria-label={`Message ${ASSISTANT_NAME}`}
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => {
+            onChange(event.target.value)
+            mentions.track(event)
+          }}
+          onSelect={mentions.track}
+          {...mentions.inputAria}
           onKeyDown={(event) => {
+            if (mentions.handleKeyDown(event)) return
             if (
               event.key === "Enter" &&
               !event.shiftKey &&

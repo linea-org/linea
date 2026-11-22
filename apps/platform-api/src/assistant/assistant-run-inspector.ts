@@ -32,7 +32,7 @@ const RECENT_LIMIT = 10
 const MAX_DETAIL_CHARS = 1_500
 const MAX_RESULT_CHARS = 12_000
 
-function capped(lines: string[]): string {
+export function capped(lines: string[]): string {
   const text = lines.join('\n')
   return text.length > MAX_RESULT_CHARS
     ? `${text.slice(0, MAX_RESULT_CHARS)}\n[cut at ${MAX_RESULT_CHARS} characters]`

@@ -21,6 +21,8 @@ describe('AssistantTools', () => {
       'test_run_draft',
       'list_agents',
       'get_run',
+      'get_workflow',
+      'get_application',
     ])
     expect(names({ web: true, workflowId: 'wf' })).toEqual([
       'edit_draft',
@@ -28,6 +30,8 @@ describe('AssistantTools', () => {
       'list_agents',
       'get_recent_runs',
       'get_run',
+      'get_workflow',
+      'get_application',
       'fetch_url',
     ])
   })
@@ -40,7 +44,7 @@ describe('AssistantTools', () => {
     )
     expect(outcome.action).toBeNull()
     expect(outcome.content).toContain(
-      'Available tools: edit_draft, test_run_draft, list_agents, get_run, fetch_url',
+      'Available tools: edit_draft, test_run_draft, list_agents, get_run, get_workflow, get_application, fetch_url',
     )
   })
 
@@ -55,4 +59,17 @@ describe('AssistantTools', () => {
       expect(outcome.content).toContain('not valid')
     },
   )
+
+  it.each([
+    ['get_workflow', { workflowId: '045f759c' }, 'No Workflow'],
+    ['get_application', { applicationId: '045f759c' }, 'No Application'],
+    ['get_run', { executionId: '045f759c' }, 'No run'],
+  ])('routes %s and refuses a shortened id', async (name, args, refusal) => {
+    const outcome = await new AssistantTools(selfTest).run(
+      { id: '1', name, arguments: args },
+      scope,
+      GraphDraft.from(undefined),
+    )
+    expect(outcome.content).toContain(refusal)
+  })
 })

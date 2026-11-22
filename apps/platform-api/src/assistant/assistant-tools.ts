@@ -3,6 +3,12 @@ import type { ToolCall, ToolDefinition } from '@linealabs/ai'
 import { AGENTS_TOOL, listAgents } from './assistant-agents'
 import { EDIT_TOOL, type GraphDraft } from './assistant-graph-draft'
 import {
+  APPLICATION_TOOL,
+  inspectApplication,
+  inspectWorkflow,
+  WORKFLOW_TOOL,
+} from './assistant-record-inspector'
+import {
   inspectRun,
   listRecentRuns,
   RECENT_RUNS_TOOL,
@@ -21,6 +27,8 @@ export function assistantTools(
     AGENTS_TOOL,
     ...(scope.workflowId ? [RECENT_RUNS_TOOL] : []),
     RUN_TOOL,
+    WORKFLOW_TOOL,
+    APPLICATION_TOOL,
     ...(scope.web ? [WEB_TOOL] : []),
   ]
 }
@@ -61,6 +69,12 @@ export class AssistantTools {
     }
     if (name === RUN_TOOL.name) {
       return inspectRun(scope.workspaceId, workflowId, executionId)
+    }
+    if (name === WORKFLOW_TOOL.name) {
+      return inspectWorkflow(scope.workspaceId, args.workflowId)
+    }
+    if (name === APPLICATION_TOOL.name) {
+      return inspectApplication(scope.workspaceId, args.applicationId)
     }
     return { content: `${name} needs different arguments.`, action: null }
   }
