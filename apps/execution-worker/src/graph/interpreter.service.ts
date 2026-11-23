@@ -502,14 +502,7 @@ export class InterpreterService {
       throw new NonRetryableError(executionBudgetMessage(usedTokens))
     }
     await this.checkpoints.assertOwnsLease(input.executionId, input.leasedBy)
-    return this.executeWithRetries(
-      input,
-      state,
-      node,
-      step,
-      attempts,
-      parseRetryPolicy(node.config.retryPolicy)
-    )
+    return this.executeWithRetries(input, state, node, step, attempts)
   }
 
   private async executeWithRetries(
@@ -517,9 +510,9 @@ export class InterpreterService {
     state: RunState,
     node: WorkflowNode,
     step: StepToExecute,
-    attempts: { made: number },
-    retryPolicy: RetryPolicy | undefined
+    attempts: { made: number }
   ): ReturnType<InterpreterService["executeNode"]> {
+    const retryPolicy = parseRetryPolicy(node.config.retryPolicy)
     try {
       return await this.executeNode(
         node,
@@ -553,14 +546,7 @@ export class InterpreterService {
       // Another branch can fail during the wait.
       if (state.failed) throw attemptError
     }
-    return this.executeWithRetries(
-      input,
-      state,
-      node,
-      step,
-      attempts,
-      retryPolicy
-    )
+    return this.executeWithRetries(input, state, node, step, attempts)
   }
 
   private async waitToRetry(

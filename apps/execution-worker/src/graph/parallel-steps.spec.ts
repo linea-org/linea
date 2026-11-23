@@ -8,6 +8,7 @@ import {
 } from "../checkpoints/checkpoints.service"
 import { createInterpreter } from "./interpreter.fixture"
 import type { RunInput } from "./interpreter.service"
+import { AiNode } from "./nodes/ai.node"
 import { HttpNode } from "./nodes/http.node"
 import type { NodeExecutionContext } from "./nodes/node-handler.interface"
 import { UsageError } from "./nodes/usage-error"
@@ -65,7 +66,16 @@ function setup(fakes: Record<string, Fake>, overrides: Partial<RunInput>) {
     .mockImplementation((config, _input, context) =>
       fakes[String(config.name)](context)
     )
-  const interpreter = createInterpreter(checkpoints, { http: httpNode })
+  const aiNode = new AiNode()
+  jest
+    .spyOn(aiNode, "execute")
+    .mockImplementation((config, _input, context) =>
+      fakes[String(config.name)](context)
+    )
+  const interpreter = createInterpreter(checkpoints, {
+    http: httpNode,
+    ai: aiNode,
+  })
   const run = () =>
     interpreter.run({
       executionId: "execution",
@@ -300,7 +310,17 @@ describe("parallel steps", () => {
             return {}
           },
         },
-        { graph: fanOut([http("a"), http("b"), http("c")]) }
+        {
+          graph: fanOut([
+            http("a"),
+            {
+              id: "b",
+              type: "ai",
+              config: { name: "b", model: "claude-sonnet-5" },
+            },
+            http("c"),
+          ]),
+        }
       )
       await run()
       expect(seen).toBe(100)
