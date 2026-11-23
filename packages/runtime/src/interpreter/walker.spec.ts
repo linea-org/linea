@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { walk, WorkflowWalkError } from "./walker.js"
+import { startWalk, WorkflowWalkError } from "./walker.js"
 import type { StepResult, StepToExecute, WalkResult } from "./walker.js"
 import type { WorkflowGraph } from "../workflow-json/schema.js"
 
@@ -41,16 +41,16 @@ function stubExecutor(step: StepToExecute): StepResult {
 function driveWalk(
   graph: WorkflowGraph,
   executor: (step: StepToExecute) => StepResult,
-  options?: Parameters<typeof walk>[1]
+  options?: Parameters<typeof startWalk>[1]
 ): { steps: StepToExecute[]; result: WalkResult } {
-  const gen = walk(graph, options)
+  const walk = startWalk(graph, options)
   const steps: StepToExecute[] = []
-  let next = gen.next()
-  while (!next.done) {
-    steps.push(next.value)
-    next = gen.next(executor(next.value))
+  for (let [next] = walk.ready(); next; [next] = walk.ready()) {
+    const step = walk.start(next.id)
+    steps.push(step)
+    walk.finish(executor(step))
   }
-  return { steps, result: next.value }
+  return { steps, result: walk.result() }
 }
 
 describe("walk", () => {
@@ -279,5 +279,51 @@ describe("walk with fan-out/fan-in", () => {
 
     expect(steps).toEqual([])
     expect(result).toEqual({ status: "completed" })
+  })
+})
+
+describe("walk with several steps started", () => {
+  const start = { nodeId: "start", output: mergeOutputs.start }
+
+  it("offers every ready step at once and a started one only once", () => {
+    const walk = startWalk(mergingGraph)
+    walk.start("start")
+    expect(walk.ready()).toEqual([])
+    walk.finish(start)
+    expect(walk.ready().map(({ id }) => id)).toEqual(["left", "right"])
+    walk.start("right")
+    expect(walk.ready().map(({ id }) => id)).toEqual(["left"])
+  })
+
+  it("offers the merge once, whichever path finishes last", () => {
+    const walk = startWalk(mergingGraph)
+    walk.start("start")
+    walk.finish(start)
+    walk.start("left")
+    walk.start("right")
+    walk.finish({ nodeId: "right", output: mergeOutputs.right })
+    expect(walk.ready()).toEqual([])
+    walk.finish({ nodeId: "left", output: mergeOutputs.left })
+    expect(walk.ready().map(({ id }) => id)).toEqual(["joined"])
+    expect(walk.start("joined").input).toEqual([
+      mergeOutputs.left,
+      mergeOutputs.right,
+    ])
+  })
+
+  it("keeps the first failure and offers nothing after it, even when a running step succeeds", () => {
+    const walk = startWalk(mergingGraph)
+    walk.start("start")
+    walk.finish(start)
+    walk.start("left")
+    walk.start("right")
+    walk.finish({ nodeId: "right", error: { message: "first" } })
+    walk.finish({ nodeId: "left", error: { message: "second" } })
+    expect(walk.ready()).toEqual([])
+    expect(walk.result()).toEqual({
+      status: "failed",
+      nodeId: "right",
+      error: "first",
+    })
   })
 })

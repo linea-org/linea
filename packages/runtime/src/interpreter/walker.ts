@@ -106,57 +106,66 @@ function nextNodeIds(
   return outgoing.map((edge) => edge.to)
 }
 
-/** Yields one step at a time; the caller owns checkpointing and feeds the result back via .next().
- * A node is "ready" once every one of its predecessors is in `completed` — for a linear or
- * branch-only graph that's always exactly one node at a time, so this is a strict generalization
- * of the old single-cursor walk, not a behavior change for graphs without a merge node. */
-export function* walk(
+export type WorkflowWalk = {
+  /** Steps that can start now, in the order they became ready; empty once a step has failed. */
+  ready: () => readonly WorkflowNode[]
+  start: (nodeId: string) => StepToExecute
+  finish: (result: StepResult) => void
+  result: () => WalkResult
+}
+
+/** The caller owns checkpointing and decides how many ready steps run at once. */
+export function startWalk(
   graph: WorkflowGraph,
   options: WalkOptions = {}
-): Generator<StepToExecute, WalkResult, StepResult> {
+): WorkflowWalk {
   const completed = new Map(options.completed ?? [])
+  const seen = new Set(completed.keys())
+  let ready: WorkflowNode[] = []
+  let failure: WalkResult | undefined
 
-  const queued = new Set<string>()
-  const ready: string[] = []
   function enqueue(nodeId: string): void {
-    if (completed.has(nodeId) || queued.has(nodeId)) return
-    if (!isReady(graph, nodeId, completed)) return
-    queued.add(nodeId)
-    ready.push(nodeId)
+    if (seen.has(nodeId) || !isReady(graph, nodeId, completed)) return
+    seen.add(nodeId)
+    ready.push(getNode(graph, nodeId))
   }
 
   // A full scan, not just forward from entryNodeId, so a resumed execution with multiple
-  // in-flight branches (some done, some not) recomputes readiness everywhere in the graph, not
-  // just along the one path the old single-cursor walker used to assume existed.
+  // in-flight branches (some done, some not) recomputes readiness everywhere in the graph.
   for (const node of graph.nodes) {
     enqueue(node.id)
   }
 
-  while (ready.length > 0) {
-    const nodeId = ready.shift()
-    if (nodeId === undefined) continue
-    queued.delete(nodeId)
-    if (completed.has(nodeId)) continue
-
-    const node = getNode(graph, nodeId)
-    const input = resolveInput(graph, node, completed, options.triggerPayload)
-    const result = yield { nodeId: node.id, nodeType: node.type, input }
-
-    if ("error" in result) {
+  return {
+    ready: () => ready,
+    start(nodeId) {
+      const node = getNode(graph, nodeId)
+      ready = ready.filter(({ id }) => id !== nodeId)
       return {
-        status: "failed",
-        nodeId: node.id,
-        error: result.error.message,
+        nodeId,
+        nodeType: node.type,
+        input: resolveInput(graph, node, completed, options.triggerPayload),
       }
-    }
-    completed.set(node.id, result.output)
-
-    for (const nextId of nextNodeIds(graph, node, result.output)) {
-      enqueue(nextId)
-    }
+    },
+    finish(result) {
+      if ("error" in result) {
+        failure ??= {
+          status: "failed",
+          nodeId: result.nodeId,
+          error: result.error.message,
+        }
+        ready = []
+        return
+      }
+      completed.set(result.nodeId, result.output)
+      if (failure) return
+      const node = getNode(graph, result.nodeId)
+      for (const nextId of nextNodeIds(graph, node, result.output)) {
+        enqueue(nextId)
+      }
+    },
+    result: () => failure ?? completedResult(graph, completed),
   }
-
-  return completedResult(graph, completed)
 }
 
 /** The run's result is what its End node produced; with several reached, the last to finish wins.

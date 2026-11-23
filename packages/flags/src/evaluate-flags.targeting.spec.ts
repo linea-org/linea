@@ -18,6 +18,7 @@ const CONFIG_JSON = JSON.stringify({
       ],
     },
     assistantMentions: { t: 0, v: { b: false } },
+    parallelBranches: { t: 0, v: { b: false } },
   },
 })
 
@@ -52,10 +53,12 @@ describe("flags with a ConfigCat SDK key", () => {
     expect(await evaluateFlags("ws-on")).toEqual({
       platformModelKey: true,
       assistantMentions: false,
+      parallelBranches: false,
     })
     expect(await evaluateFlags("ws-off")).toEqual({
       platformModelKey: false,
       assistantMentions: false,
+      parallelBranches: false,
     })
   })
 })

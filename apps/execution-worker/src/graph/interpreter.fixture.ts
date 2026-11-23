@@ -14,14 +14,18 @@ import { WaitNode } from "./nodes/wait.node"
 
 export function createInterpreter(
   checkpoints: CheckpointsService,
-  { http = new HttpNode(), approval = new ApprovalNode() } = {}
+  {
+    http = new HttpNode(),
+    ai = new AiNode(),
+    approval = new ApprovalNode(),
+  } = {}
 ): InterpreterService {
   return new InterpreterService(
     checkpoints,
     http,
     new TransformNode(),
     new BranchNode(),
-    new AiNode(),
+    ai,
     approval,
     new MemoryNode(),
     new WaitNode(),

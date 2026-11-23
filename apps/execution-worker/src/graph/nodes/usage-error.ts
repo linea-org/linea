@@ -1,4 +1,5 @@
 import { executionBudgetMessage, MAX_EXECUTION_TOKENS } from "@linealabs/ai"
+import type { NodeExecutionContext } from "./node-handler.interface"
 import { NonRetryableError } from "./non-retryable-error"
 
 export class UsageError extends NonRetryableError {
@@ -26,11 +27,12 @@ export class RetryableUsageError extends Error {
 }
 
 export function assertWithinExecutionBudget(
-  priorExecutionTokens: number | undefined,
+  context: Pick<NodeExecutionContext, "countTokens">,
   tokensInput: number,
   tokensOutput: number
 ): void {
-  const used = (priorExecutionTokens ?? 0) + tokensInput + tokensOutput
+  const ownTokens = tokensInput + tokensOutput
+  const used = context.countTokens?.(ownTokens) ?? ownTokens
   if (used >= MAX_EXECUTION_TOKENS) {
     throw new UsageError(
       executionBudgetMessage(used),

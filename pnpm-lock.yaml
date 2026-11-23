@@ -173,6 +173,9 @@ importers:
       '@linealabs/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@linealabs/flags':
+        specifier: workspace:*
+        version: link:../../packages/flags
       '@linealabs/http':
         specifier: workspace:*
         version: link:../../packages/http

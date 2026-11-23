@@ -144,16 +144,18 @@ describe("Interpreter deadlines", () => {
 
   it("tells each node how many tokens the execution has already used", async () => {
     const { interpreter, http } = setup()
-    const execute = jest.spyOn(http, "execute").mockResolvedValue({})
+    const counted: (number | undefined)[] = []
+    jest
+      .spyOn(http, "execute")
+      .mockImplementation((_config, _input, context) => {
+        counted.push(context.countTokens?.(0), context.countTokens?.(30))
+        return Promise.resolve({})
+      })
     await interpreter.run({
       ...input,
       initialTokensInput: 400,
       initialTokensOutput: 20,
     })
-    expect(execute).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      expect.objectContaining({ priorExecutionTokens: 420 })
-    )
+    expect(counted).toEqual([420, 450])
   })
 })

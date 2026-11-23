@@ -597,11 +597,7 @@ export class AiNode implements NodeHandler {
       iteration < maxIterations;
       iteration++
     ) {
-      assertWithinExecutionBudget(
-        context.priorExecutionTokens,
-        tokensInput,
-        tokensOutput
-      )
+      assertWithinExecutionBudget(context, tokensInput, tokensOutput)
       // Unlike HttpNode, idempotencyKey isn't forwarded — no supported provider accepts one.
       const result = await provider.complete(apiKey, {
         model: parsed.model,
@@ -631,11 +627,7 @@ export class AiNode implements NodeHandler {
         })
       }
       // Tool results only feed the next model call, so skip them when that call can't happen.
-      assertWithinExecutionBudget(
-        context.priorExecutionTokens,
-        tokensInput,
-        tokensOutput
-      )
+      assertWithinExecutionBudget(context, tokensInput, tokensOutput)
       conversation.push({ role: "assistant", toolCalls: result.toolCalls })
       // The write itself is lease-fenced (see saveAiNodeProgress) — this local check is just an
       // early exit, skipping a DB round trip we already know the fencing would reject.

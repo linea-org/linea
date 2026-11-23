@@ -21,6 +21,7 @@ describe("flags without a ConfigCat SDK key", () => {
     expect(await evaluateFlags("workspace-1")).toEqual({
       platformModelKey: false,
       assistantMentions: false,
+      parallelBranches: false,
     })
   })
 
