@@ -164,6 +164,72 @@ describe("runs with parallel branches", () => {
       expect(await run.approvePending()).toBe("first-approval")
     }))
 
+  it("asks for no second decision when the flag is turned off while it waits", () => {
+    const waiting: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "start",
+      nodes: [
+        { id: "start", type: "start", config: {} },
+        { id: "second", type: "approval", config: {} },
+        { id: "first", type: "approval", config: {} },
+        {
+          id: "timer",
+          type: "wait",
+          config: { mode: "duration", amount: "1", unit: "hours" },
+        },
+      ],
+      edges: ["first", "second", "timer"].map((to) => ({ from: "start", to })),
+    }
+    return withRun(async (run) => {
+      flag.mockResolvedValue(true)
+      await run.execute()
+      flag.mockResolvedValue(false)
+      await run.fireTimer("timer")
+      await run.execute()
+      expect(await run.status()).toBe("paused")
+      expect(await run.approvePending()).toBe("first")
+      await run.execute()
+      expect(await run.approvePending()).toBe("second")
+      await run.execute()
+      expect(await run.status()).toBe("succeeded")
+      expect([...(await run.stepIds())].sort()).toEqual(
+        waiting.nodes.map(({ id }) => id).sort()
+      )
+    }, waiting)
+  })
+
+  it("keeps the order of decided steps with the flag off", () => {
+    const decided: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "start",
+      nodes: [
+        { id: "start", type: "start", config: {} },
+        { id: "listed-first", type: "approval", config: {} },
+        { id: "asked-first", type: "approval", config: {} },
+      ],
+      edges: ["asked-first", "listed-first"].map((to) => ({
+        from: "start",
+        to,
+      })),
+    }
+    return withRun(async (run) => {
+      flag.mockResolvedValue(false)
+      await run.execute()
+      expect(await run.approvePending()).toBe("asked-first")
+      await run.execute()
+      expect(await run.approvePending()).toBe("listed-first")
+      await run.execute()
+      expect(await run.status()).toBe("succeeded")
+      expect(await run.stepIds()).toEqual([
+        "start",
+        "listed-first",
+        "asked-first",
+      ])
+    }, decided)
+  })
+
   it("waits on timers and one decision together, and asks for the second only after the first, across resumes", () => {
     const wait = (id: string) => ({
       id,

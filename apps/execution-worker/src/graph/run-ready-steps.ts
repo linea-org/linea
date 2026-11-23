@@ -26,20 +26,26 @@ export async function runReadySteps(input: ReadySteps): Promise<string[]> {
   const errors: unknown[] = []
   let consentHeldBy = input.consentHeldBy
 
+  function mayAsk(node: WorkflowNode): boolean {
+    return (
+      !needsConsent(node) ||
+      consentHeldBy === undefined ||
+      consentHeldBy === node.id
+    )
+  }
+
   function nextNode(): WorkflowNode | undefined {
     if (errors.length > 0 || isStopped() || running.size >= limit)
       return undefined
-    const [first] = walk.ready()
-    if (limit === 1) return parked.size === 0 ? first : undefined
+    if (limit === 1)
+      return parked.size === 0 ? walk.ready().find(mayAsk) : undefined
     const startable = [
       ...walk.ready(),
       ...[...parked.values()].filter(({ id }) => retry.has(id)),
     ]
     const free = startable.find((node) => !needsConsent(node))
     if (free || running.size > 0) return free
-    return startable.find(
-      ({ id }) => consentHeldBy === undefined || consentHeldBy === id
-    )
+    return startable.find(mayAsk)
   }
 
   function retryParked(): void {

@@ -265,6 +265,17 @@ describe("runReadySteps with parked steps", () => {
     expect(started).toEqual(["start", "a2"])
   })
 
+  it("asks for no second decision at a limit of one while another step waits for one", async () => {
+    const walk = startWalk(
+      fanOut([approval("a1"), approval("a2"), ...transforms(1)])
+    )
+    const { started, runStep } = parking(walk, new Set(["a1", "a2"]))
+    expect(await runAll(walk, 1, runStep, { consentHeldBy: "a2" })).toEqual([
+      "a2",
+    ])
+    expect(started).toEqual(["start", "a2"])
+  })
+
   it("throws rather than parks when another step fails", async () => {
     const walk = startWalk(fanOut([wait("w1"), ...transforms(1)]))
     const { runStep } = parking(walk, new Set(["w1"]))

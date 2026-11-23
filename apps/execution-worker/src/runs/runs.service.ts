@@ -77,6 +77,19 @@ export class RunsService {
     private readonly agents: AgentExecutionService
   ) {}
 
+  // With the flag off a decided step takes no turn, so steps keep their order. One can still be
+  // pending if the flag was turned off while the run waited on several steps.
+  private async pendingApprovalNodeId(
+    executionId: string
+  ): Promise<string | undefined> {
+    const request =
+      await repositories.approvalRequest.getPendingApprovalRequestForExecution(
+        db,
+        executionId
+      )
+    return request?.nodeId
+  }
+
   async execute(executionId: string): Promise<void> {
     const attemptId = `${this.processId}:${randomUUID()}`
     const execution = await repositories.execution.startExecution(
@@ -175,11 +188,13 @@ export class RunsService {
           agentTokens: parallel
             ? () => repositories.executionStep.sumAgentTokens(db, executionId)
             : undefined,
-          consentHeldBy: await repositories.approvalRequest.findConsentHolder(
-            db,
-            executionId,
-            [...resumeFrom.keys()]
-          ),
+          consentHeldBy: parallel
+            ? await repositories.approvalRequest.findConsentHolder(
+                db,
+                executionId,
+                [...resumeFrom.keys()]
+              )
+            : await this.pendingApprovalNodeId(executionId),
           signal: abortController.signal,
         })
         if (!outcome.pausedAt) break
