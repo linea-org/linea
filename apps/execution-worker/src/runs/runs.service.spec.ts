@@ -8,18 +8,9 @@ import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linealabs/db"
 import type { WorkflowGraph } from "@linealabs/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
-import { InterpreterService } from "../graph/interpreter.service"
-import { AiNode } from "../graph/nodes/ai.node"
+import { createInterpreter } from "../graph/interpreter.fixture"
+import type { InterpreterService } from "../graph/interpreter.service"
 import { ApprovalNode } from "../graph/nodes/approval.node"
-import { BranchNode } from "../graph/nodes/branch.node"
-import { DatetimeNode } from "../graph/nodes/datetime.node"
-import { FilterNode } from "../graph/nodes/filter.node"
-import { HttpNode } from "../graph/nodes/http.node"
-import { MemoryNode } from "../graph/nodes/memory.node"
-import { MergeNode } from "../graph/nodes/merge.node"
-import { TransformNode } from "../graph/nodes/transform.node"
-import { VariablesNode } from "../graph/nodes/variables.node"
-import { WaitNode } from "../graph/nodes/wait.node"
 import { RunLeaseService } from "./run-lease.service"
 import { AgentExecutionService } from "./agent-execution.service"
 import { ConnectorGatewayService } from "../connectors/connector-gateway.service"
@@ -693,116 +684,7 @@ describe("RunsService fencing identity", () => {
       ])
     }
   })
-  it("loops back and continues immediately instead of pausing when the approval resolves before the pause is recorded", async () => {
-    const suffix = randomUUID()
-    const [organization] = await db
-      .insert(schema.organizations)
-      .values({
-        name: "Runs Service Approval Race Test Org",
-        slug: `runs-approval-race-${suffix}`,
-        createdAt: new Date(),
-      })
-      .returning()
-    const [approver] = await db
-      .insert(schema.users)
-      .values({
-        name: "Race Test Approver",
-        email: `anyone-${suffix}@test.dev`,
-      })
-      .returning()
-    try {
-      await db.insert(schema.members).values({
-        organizationId: organization.id,
-        userId: approver.id,
-        role: "member",
-        createdAt: new Date(),
-      })
-      const graph: WorkflowGraph = {
-        version: 1,
-        trigger: { type: "manual" },
-        entryNodeId: "approval-1",
-        nodes: [{ id: "approval-1", type: "approval", config: {} }],
-        edges: [],
-      }
-      const { workflow, execution } = await seedExecution(
-        db,
-        organization.id,
-        graph
-      )
-      // Simulates a response racing ahead of the pause: the approval is already resolved before RunsService's own pausedAt handling runs.
-      const approval = await repositories.approvalRequest.createApprovalRequest(
-        db,
-        {
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          executionId: execution.id,
-          nodeId: "approval-1",
-          audience: "workspace",
-          display: { title: "Continue?" },
-        }
-      )
-      await repositories.approvalRequest.decideWorkspaceApprovalRequest(
-        db,
-        organization.id,
-        approval!.id,
-        {
-          outcome: "approved",
-          actorUserId: approver.id,
-          actorEmail: approver.email,
-        }
-      )
-      let callCount = 0
-      const racyInterpreter = {
-        run: () => {
-          callCount += 1
-          if (callCount === 1) {
-            return Promise.resolve({
-              pausedAt: "approval-1",
-              totalTokensInput: 0,
-              totalTokensOutput: 0,
-              totalCostMicros: 0n,
-              costUnpriced: false as const,
-            })
-          }
-          return Promise.resolve({
-            result: {
-              status: "completed" as const,
-              output: { text: "approved and done" },
-            },
-            totalTokensInput: 0,
-            totalTokensOutput: 0,
-            totalCostMicros: 0n,
-            costUnpriced: false as const,
-            completed: new Map(),
-          })
-        },
-      } as unknown as InterpreterService
-      const runs = new RunsService(
-        new CheckpointsService(),
-        racyInterpreter,
-        new RunLeaseService(),
-        new AgentExecutionService(
-          new CheckpointsService(),
-          new ConnectorGatewayService()
-        )
-      )
-      await runs.execute(execution.id)
-      // Proves the loop actually re-ran the interpreter instead of pausing on the first pausedAt result.
-      expect(callCount).toBe(2)
-      const reloaded = await repositories.execution.getExecutionById(
-        db,
-        execution.id
-      )
-      expect(reloaded?.status).toBe("succeeded")
-      expect(reloaded?.output).toEqual({ text: "approved and done" })
-    } finally {
-      await pool.query("DELETE FROM organizations WHERE id = $1", [
-        organization.id,
-      ])
-      await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
-    }
-  })
-  it("keeps the steps that finished before the pause when the approval resolves first", async () => {
+  it("continues without repeating finished steps when the approval resolves before the pause is recorded", async () => {
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
@@ -866,20 +748,9 @@ describe("RunsService fencing identity", () => {
         }
       }
       const checkpoints = new CheckpointsService()
-      const interpreter = new InterpreterService(
-        checkpoints,
-        new HttpNode(),
-        new TransformNode(),
-        new BranchNode(),
-        new AiNode(),
-        new DecidedBeforeThePause(),
-        new MemoryNode(),
-        new WaitNode(),
-        new DatetimeNode(),
-        new FilterNode(),
-        new MergeNode(),
-        new VariablesNode()
-      )
+      const interpreter = createInterpreter(checkpoints, {
+        approval: new DecidedBeforeThePause(),
+      })
       const runs = new RunsService(
         checkpoints,
         interpreter,

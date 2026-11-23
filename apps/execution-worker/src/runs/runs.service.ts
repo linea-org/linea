@@ -12,7 +12,6 @@ import {
 } from "../checkpoints/checkpoints.service"
 import {
   InterpreterService,
-  type RunInput,
   type RunOutcome,
 } from "../graph/interpreter.service"
 import { AgentExecutionService } from "./agent-execution.service"
@@ -100,30 +99,6 @@ export class RunsService {
     )
   }
 
-  private async loadResume(
-    executionId: string
-  ): Promise<
-    Pick<
-      RunInput,
-      | "resumeFrom"
-      | "initialVariables"
-      | "initialTokensInput"
-      | "initialTokensOutput"
-      | "initialCostMicros"
-      | "initialCostUnpriced"
-    >
-  > {
-    const totals = await this.checkpoints.getResumeTokenTotals(executionId)
-    return {
-      resumeFrom: await this.checkpoints.getResumeState(executionId),
-      initialVariables: await this.checkpoints.getResumeVariables(executionId),
-      initialTokensInput: totals.tokensInput,
-      initialTokensOutput: totals.tokensOutput,
-      initialCostMicros: totals.costMicros,
-      initialCostUnpriced: totals.costUnpriced,
-    }
-  }
-
   async execute(executionId: string): Promise<void> {
     const attemptId = `${this.processId}:${randomUUID()}`
     const execution = await repositories.execution.startExecution(
@@ -173,23 +148,28 @@ export class RunsService {
       }
       const graph = workflowGraphSchema.parse(version.graph)
       validateGraphStructure(graph)
-      let resume = await this.loadResume(executionId)
-      if (resume.resumeFrom.size > 0) {
-        await this.checkpoints.recordResumeEvent(
-          executionId,
-          execution.workspaceId,
-          attemptId
-        )
-      }
       // A response/timer can resolve the pause before this loop marks the execution "paused"
       // below, so claimPauseForPendingApproval/claimPauseForPendingWait re-check and pause
       // atomically (locking the approval/timer row first) instead of racing a separate
-      // check-then-pause. If already resolved, loop back immediately from the latest checkpoint —
-      // the paused node has none, so it is re-entered and this time returns its real output.
+      // check-then-pause. If already resolved, loop back immediately from the latest checkpoint:
+      // steps the pass finished must not run again, and the paused node, which has no checkpoint, is
+      // re-entered and this time returns its real output.
       const turn = chatTurn(execution)
       let outcome: RunOutcome
       let paused = false
-      for (;;) {
+      for (let pass = 1; ; pass += 1) {
+        const resumeFrom = await this.checkpoints.getResumeState(executionId)
+        const resumeVariables =
+          await this.checkpoints.getResumeVariables(executionId)
+        const resumeTotals =
+          await this.checkpoints.getResumeTokenTotals(executionId)
+        if (pass === 1 && resumeFrom.size > 0) {
+          await this.checkpoints.recordResumeEvent(
+            executionId,
+            execution.workspaceId,
+            attemptId
+          )
+        }
         outcome = await this.interpreter.run({
           executionId,
           workspaceId: execution.workspaceId,
@@ -203,7 +183,12 @@ export class RunsService {
           triggerPayload: execution.triggerPayload,
           conversationId: turn?.conversationId,
           chatMessageId: turn?.chatMessageId,
-          ...resume,
+          resumeFrom,
+          initialTokensInput: resumeTotals.tokensInput,
+          initialTokensOutput: resumeTotals.tokensOutput,
+          initialCostMicros: resumeTotals.costMicros,
+          initialCostUnpriced: resumeTotals.costUnpriced,
+          initialVariables: resumeVariables,
           signal: abortController.signal,
         })
         if (!outcome.pausedAt) break
@@ -225,9 +210,6 @@ export class RunsService {
           // Same handling as any other lease loss (see CheckpointsService) — fails visibly instead of silently reporting "paused" on a dead lease.
           throw new LeaseLostError(executionId)
         }
-        // The pass that just ended checkpointed its finished steps; re-running them would repeat
-        // their side effects.
-        resume = await this.loadResume(executionId)
       }
       knownTokensInput = outcome.totalTokensInput
       knownTokensOutput = outcome.totalTokensOutput
