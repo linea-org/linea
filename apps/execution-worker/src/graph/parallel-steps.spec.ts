@@ -404,6 +404,30 @@ describe("parallel steps", () => {
     expect(seen).toEqual([305, 305])
   })
 
+  it("keeps the higher of two overlapping answers about its Agents", async () => {
+    const answers = [
+      () => Promise.resolve(0),
+      () => sleep(30).then(() => 200),
+      () => Promise.resolve(300),
+    ]
+    let seen = 0
+    const { run } = setup(
+      {
+        a: ({ countTokens }) => {
+          seen = countTokens?.(0) ?? 0
+          return Promise.resolve({})
+        },
+        b: () => Promise.resolve({}),
+      },
+      {
+        graph: fanOut([http("a"), http("b")]),
+        agentTokens: () => answers.shift()?.() ?? Promise.resolve(0),
+      }
+    )
+    await run()
+    expect(seen).toBe(300)
+  })
+
   it("starts no step once its Agents have used the token budget", async () => {
     const { run, writes } = setup(
       { a: () => Promise.resolve({}) },

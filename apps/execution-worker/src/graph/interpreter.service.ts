@@ -226,8 +226,9 @@ function spentTokens(state: RunState): number {
 
 async function overBudget(input: RunInput, state: RunState): Promise<boolean> {
   if (input.agentTokens) {
-    // Steps read it side by side, so an older answer can arrive last.
-    state.agentTokens = Math.max(state.agentTokens, await input.agentTokens())
+    const used = await input.agentTokens()
+    // Compared after the wait: steps read it side by side, so an older answer can arrive last.
+    state.agentTokens = Math.max(state.agentTokens, used)
   }
   return spentTokens(state) >= MAX_EXECUTION_TOKENS
 }
