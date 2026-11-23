@@ -410,11 +410,12 @@ export class InterpreterService {
         attempts
       )
       const ended = endStep()
+      // Charged before waiting to save, so steps beside this one see the tokens at once.
+      const charged =
+        tokensInput !== undefined && tokensOutput !== undefined
+          ? chargeStep(state, step.nodeId, model, tokensInput, tokensOutput)
+          : {}
       await state.record(async () => {
-        const charged =
-          tokensInput !== undefined && tokensOutput !== undefined
-            ? chargeStep(state, step.nodeId, model, tokensInput, tokensOutput)
-            : {}
         // Update before checkpointing, so a crash right after the write doesn't leave a resume replaying this step.
         state.completed.set(step.nodeId, output)
         // Only this step's own entries: adopting the handler's whole view would drop what another
@@ -460,17 +461,17 @@ export class InterpreterService {
       state.failed = true
       const usage = getErrorTokenUsage(error)
       const ended = endStep()
+      const charged =
+        usage && model
+          ? chargeStep(
+              state,
+              step.nodeId,
+              model,
+              usage.tokensInput,
+              usage.tokensOutput
+            )
+          : {}
       await state.record(async () => {
-        const charged =
-          usage && model
-            ? chargeStep(
-                state,
-                step.nodeId,
-                model,
-                usage.tokensInput,
-                usage.tokensOutput
-              )
-            : {}
         await this.checkpoints.recordStep({
           ...ended,
           ...charged,
@@ -501,43 +502,65 @@ export class InterpreterService {
       throw new NonRetryableError(executionBudgetMessage(usedTokens))
     }
     await this.checkpoints.assertOwnsLease(input.executionId, input.leasedBy)
-    const retryPolicy = parseRetryPolicy(node.config.retryPolicy)
-    const maxAttempts = retryPolicy?.maxAttempts ?? 1
-    for (;;) {
-      try {
-        return await this.executeNode(
-          node,
-          step.input,
-          input.workspaceId,
-          `${input.executionId}:${step.nodeId}`,
-          withAttemptTimeout(state.signal, retryPolicy?.timeoutMs),
-          input.executionId,
-          input.conversationId,
-          input.workflowId,
-          input.chatMessageId,
-          input.leasedBy,
-          state.variables,
-          input.workflowVersionId,
-          input.environmentId,
-          input.externalSubjectRecordId,
-          (tokens) => {
-            state.runningTokens.set(step.nodeId, tokens)
-            return spentTokens(state)
-          }
-        )
-      } catch (attemptError) {
-        const isFinal =
-          attemptError instanceof NonRetryableError ||
-          attemptError instanceof PlatformKeyBudgetError ||
-          attempts.made >= maxAttempts
-        // Don't spend retry budget on a call that was never ours, or on a run that has failed.
-        if (isFinal || state.signal.aborted || state.failed) throw attemptError
-        attempts.made += 1
-        await this.waitToRetry(input, state, retryPolicy, attempts.made - 1)
-        // Another branch can fail during the wait.
-        if (state.failed) throw attemptError
-      }
+    return this.executeWithRetries(
+      input,
+      state,
+      node,
+      step,
+      attempts,
+      parseRetryPolicy(node.config.retryPolicy)
+    )
+  }
+
+  private async executeWithRetries(
+    input: RunInput,
+    state: RunState,
+    node: WorkflowNode,
+    step: StepToExecute,
+    attempts: { made: number },
+    retryPolicy: RetryPolicy | undefined
+  ): ReturnType<InterpreterService["executeNode"]> {
+    try {
+      return await this.executeNode(
+        node,
+        step.input,
+        input.workspaceId,
+        `${input.executionId}:${step.nodeId}`,
+        withAttemptTimeout(state.signal, retryPolicy?.timeoutMs),
+        input.executionId,
+        input.conversationId,
+        input.workflowId,
+        input.chatMessageId,
+        input.leasedBy,
+        state.variables,
+        input.workflowVersionId,
+        input.environmentId,
+        input.externalSubjectRecordId,
+        (tokens) => {
+          state.runningTokens.set(step.nodeId, tokens)
+          return spentTokens(state)
+        }
+      )
+    } catch (attemptError) {
+      const isFinal =
+        attemptError instanceof NonRetryableError ||
+        attemptError instanceof PlatformKeyBudgetError ||
+        attempts.made >= (retryPolicy?.maxAttempts ?? 1)
+      // Don't spend retry budget on a call that was never ours, or on a run that has failed.
+      if (isFinal || state.signal.aborted || state.failed) throw attemptError
+      attempts.made += 1
+      await this.waitToRetry(input, state, retryPolicy, attempts.made - 1)
+      // Another branch can fail during the wait.
+      if (state.failed) throw attemptError
     }
+    return this.executeWithRetries(
+      input,
+      state,
+      node,
+      step,
+      attempts,
+      retryPolicy
+    )
   }
 
   private async waitToRetry(

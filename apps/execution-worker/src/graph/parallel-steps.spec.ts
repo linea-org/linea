@@ -10,6 +10,7 @@ import { createInterpreter } from "./interpreter.fixture"
 import type { RunInput } from "./interpreter.service"
 import { HttpNode } from "./nodes/http.node"
 import type { NodeExecutionContext } from "./nodes/node-handler.interface"
+import { UsageError } from "./nodes/usage-error"
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -281,6 +282,30 @@ describe("parallel steps", () => {
     expect(seen).toEqual([107, 107])
     expect(outcome.totalTokensInput + outcome.totalTokensOutput).toBe(107)
   })
+
+  it.each([
+    ["returned", () => Promise.resolve({ tokensInput: 60, tokensOutput: 40 })],
+    ["failed", () => Promise.reject(new UsageError("too many tokens", 60, 40))],
+  ])(
+    "counts the tokens of a step that %s while it waits to be saved",
+    async (_, finish) => {
+      let seen = 0
+      const { run } = setup(
+        {
+          a: () => Promise.resolve({}),
+          b: finish,
+          c: async ({ countTokens }) => {
+            await sleep(10)
+            seen = countTokens?.(0) ?? 0
+            return {}
+          },
+        },
+        { graph: fanOut([http("a"), http("b"), http("c")]) }
+      )
+      await run()
+      expect(seen).toBe(100)
+    }
+  )
 
   it("starts no step once running ones have used the token budget", async () => {
     const { run } = setup(
