@@ -5,6 +5,7 @@ import {
   type OnModuleInit,
 } from "@nestjs/common"
 import { db, repositories } from "@linealabs/db"
+import { recordFlag } from "./record-flag"
 
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000
 
@@ -44,7 +45,7 @@ export class TranscriptFlaggersService
   private async flagToolErrors(): Promise<void> {
     const results = await repositories.flag.detectToolErrors(db)
     for (const r of results) {
-      await repositories.flag.createFlagIfNew(db, {
+      await recordFlag(this.logger, {
         workspaceId: r.workspaceId,
         executionId: r.executionId,
         nodeId: r.nodeId,
@@ -58,7 +59,7 @@ export class TranscriptFlaggersService
   private async flagEmptyResponses(): Promise<void> {
     const results = await repositories.flag.detectEmptyResponses(db)
     for (const r of results) {
-      await repositories.flag.createFlagIfNew(db, {
+      await recordFlag(this.logger, {
         workspaceId: r.workspaceId,
         executionId: r.executionId,
         nodeId: r.nodeId,
@@ -72,7 +73,7 @@ export class TranscriptFlaggersService
   private async flagRefusals(): Promise<void> {
     const results = await repositories.flag.detectRefusals(db)
     for (const r of results) {
-      await repositories.flag.createFlagIfNew(db, {
+      await recordFlag(this.logger, {
         workspaceId: r.workspaceId,
         executionId: r.executionId,
         nodeId: r.nodeId,
@@ -86,7 +87,7 @@ export class TranscriptFlaggersService
   private async flagRepeatedReplays(): Promise<void> {
     const results = await repositories.flag.detectRepeatedReplay(db)
     for (const r of results) {
-      await repositories.flag.createFlagIfNew(db, {
+      await recordFlag(this.logger, {
         workspaceId: r.workspaceId,
         executionId: r.executionId,
         flagType: "repeated_replay",

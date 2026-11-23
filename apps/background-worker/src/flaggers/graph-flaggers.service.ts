@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common"
 import { db, repositories } from "@linealabs/db"
 import { workflowGraphSchema } from "@linealabs/runtime"
+import { recordFlag } from "./record-flag"
 
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000
 
@@ -43,7 +44,7 @@ export class GraphFlaggersService implements OnModuleInit, OnModuleDestroy {
   private async flagRetryStorms(): Promise<void> {
     const results = await repositories.flag.detectRetryStorm(db)
     for (const r of results) {
-      await repositories.flag.createFlagIfNew(db, {
+      await recordFlag(this.logger, {
         workspaceId: r.workspaceId,
         executionId: r.executionId,
         nodeId: r.nodeId,
@@ -57,7 +58,7 @@ export class GraphFlaggersService implements OnModuleInit, OnModuleDestroy {
   private async flagExcessResumes(): Promise<void> {
     const results = await repositories.flag.detectExcessResumes(db)
     for (const r of results) {
-      await repositories.flag.createFlagIfNew(db, {
+      await recordFlag(this.logger, {
         workspaceId: r.workspaceId,
         executionId: r.executionId,
         flagType: "excess_resumes",
@@ -70,7 +71,7 @@ export class GraphFlaggersService implements OnModuleInit, OnModuleDestroy {
   private async flagCostJumps(): Promise<void> {
     const results = await repositories.flag.detectCostJump(db)
     for (const r of results) {
-      await repositories.flag.createFlagIfNew(db, {
+      await recordFlag(this.logger, {
         workspaceId: r.workspaceId,
         executionId: r.executionId,
         nodeId: r.nodeId,
@@ -106,7 +107,7 @@ export class GraphFlaggersService implements OnModuleInit, OnModuleDestroy {
         )
         for (const condition of possibleConditions) {
           if (observed.has(condition)) continue
-          await repositories.flag.createFlagIfNew(db, {
+          await recordFlag(this.logger, {
             workspaceId,
             workflowId,
             nodeId: node.id,
