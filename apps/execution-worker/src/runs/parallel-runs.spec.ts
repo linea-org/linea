@@ -40,7 +40,7 @@ async function withRun(
     approvePending: () => Promise<string>
     stepIds: () => Promise<(string | null)[]>
     status: () => Promise<string | undefined>
-    mostAtOnce: () => number
+    branchesStarted: () => number
   }) => Promise<void>
 ): Promise<void> {
   const suffix = randomUUID()
@@ -64,14 +64,15 @@ async function withRun(
       createdAt: new Date(),
     })
     const { execution } = await seedExecution(db, organization.id, graph)
-    let running = 0
-    let most = 0
+    let arrived = 0
+    let meet = () => {}
+    const everyone = new Promise<void>((resolve) => (meet = resolve))
     const http = new HttpNode()
+    // Each branch finishes only once all four are running, so one at a time would time out.
     jest.spyOn(http, "execute").mockImplementation(async () => {
-      running += 1
-      most = Math.max(most, running)
-      await new Promise((resolve) => setTimeout(resolve, 10))
-      running -= 1
+      arrived += 1
+      if (arrived === 4) meet()
+      await everyone
       return {}
     })
     const checkpoints = new CheckpointsService()
@@ -110,7 +111,7 @@ async function withRun(
       status: async () =>
         (await repositories.execution.getExecutionById(db, execution.id))
           ?.status,
-      mostAtOnce: () => most,
+      branchesStarted: () => arrived,
     })
   } finally {
     await pool.query("DELETE FROM organizations WHERE id = $1", [
@@ -130,7 +131,7 @@ describe("runs with parallel branches", () => {
     withRun(async (run) => {
       flag.mockResolvedValue(true)
       await run.execute()
-      expect(run.mostAtOnce()).toBe(4)
+      expect(run.branchesStarted()).toBe(4)
       expect(await run.status()).toBe("paused")
       expect(await run.approvePending()).toBe("first-approval")
       await run.execute()
@@ -146,7 +147,7 @@ describe("runs with parallel branches", () => {
     withRun(async (run) => {
       flag.mockResolvedValue(false)
       await run.execute()
-      expect(run.mostAtOnce()).toBe(0)
+      expect(run.branchesStarted()).toBe(0)
       expect(await run.stepIds()).toEqual(["start"])
       expect(await run.approvePending()).toBe("first-approval")
     }))

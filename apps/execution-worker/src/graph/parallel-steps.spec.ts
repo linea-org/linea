@@ -86,13 +86,13 @@ afterAll(async () => {
 
 describe("parallel steps", () => {
   it("runs branches together", async () => {
-    let running = 0
-    let most = 0
+    let arrived = 0
+    let meet = () => {}
+    const everyone = new Promise<void>((resolve) => (meet = resolve))
     const fake: Fake = async () => {
-      running += 1
-      most = Math.max(most, running)
-      await sleep(10)
-      running -= 1
+      arrived += 1
+      if (arrived === 3) meet()
+      await everyone
       return {}
     }
     const { run } = setup(
@@ -100,7 +100,6 @@ describe("parallel steps", () => {
       { graph: fanOut([http("a"), http("b"), http("c")]) }
     )
     expect((await run()).result?.status).toBe("completed")
-    expect(most).toBe(3)
   })
 
   it("saves checkpoints that each contain every step saved before", async () => {
@@ -154,7 +153,7 @@ describe("parallel steps", () => {
     expect(started).toEqual([])
   })
 
-  it("does not retry a step once another has failed", async () => {
+  it("does not wait to retry a step once another has failed", async () => {
     let attempts = 0
     const { run } = setup(
       {
@@ -170,7 +169,7 @@ describe("parallel steps", () => {
           http("a", {
             retryPolicy: {
               maxAttempts: 3,
-              backoff: { type: "fixed", delayMs: 1 },
+              backoff: { type: "fixed", delayMs: 60_000 },
             },
           }),
           http("b"),
@@ -179,6 +178,60 @@ describe("parallel steps", () => {
     )
     expect((await run()).result).toMatchObject({ nodeId: "b" })
     expect(attempts).toBe(1)
+  })
+
+  it("does not retry a step that was waiting to retry when another failed", async () => {
+    let attempts = 0
+    const { run } = setup(
+      {
+        a: () => {
+          attempts += 1
+          return Promise.reject(new Error("a broke"))
+        },
+        b: async () => {
+          await sleep(10)
+          throw new Error("b broke")
+        },
+      },
+      {
+        graph: fanOut([
+          http("a", {
+            retryPolicy: {
+              maxAttempts: 2,
+              backoff: { type: "fixed", delayMs: 60 },
+            },
+          }),
+          http("b"),
+        ]),
+      }
+    )
+    expect((await run()).result).toMatchObject({ nodeId: "b" })
+    expect(attempts).toBe(1)
+  })
+
+  it("starts no step after one whose save finishes while a failure waits to be saved", async () => {
+    const started: string[] = []
+    const { run } = setup(
+      {
+        a: () => Promise.resolve({}),
+        b: async () => {
+          await sleep(10)
+          throw new Error("b broke")
+        },
+        after: () => {
+          started.push("after")
+          return Promise.resolve({})
+        },
+      },
+      {
+        graph: fanOut(
+          [http("a"), http("b")],
+          [{ node: http("after"), from: "a" }]
+        ),
+      }
+    )
+    expect((await run()).result).toMatchObject({ nodeId: "b" })
+    expect(started).toEqual([])
   })
 
   it("keeps the variables every branch sets", async () => {

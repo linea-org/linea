@@ -140,6 +140,7 @@ type RunState = {
   costUnpriced: boolean | null
   // Tokens used so far by each running step, which the totals above don't include yet.
   runningTokens: Map<string, number>
+  // Set before the failure is saved, so nothing starts while it waits behind other writes.
   failed: boolean
   pausedAt?: string
 }
@@ -359,7 +360,7 @@ export class InterpreterService {
       state.walk,
       input.maxParallelSteps ?? 1,
       (step) => this.runStep(input, state, step),
-      () => state.pausedAt !== undefined
+      () => state.pausedAt !== undefined || state.failed
     )
     return {
       ...(state.pausedAt === undefined
@@ -525,36 +526,36 @@ export class InterpreterService {
           }
         )
       } catch (attemptError) {
-        // Don't spend retry budget on a call that was never ours, or on a run that has failed.
-        if (state.signal.aborted || state.failed) throw attemptError
-        if (
+        const isFinal =
           attemptError instanceof NonRetryableError ||
-          attemptError instanceof PlatformKeyBudgetError
-        )
-          throw attemptError
-        if (attempts.made >= maxAttempts) throw attemptError
+          attemptError instanceof PlatformKeyBudgetError ||
+          attempts.made >= maxAttempts
+        // Don't spend retry budget on a call that was never ours, or on a run that has failed.
+        if (isFinal || state.signal.aborted || state.failed) throw attemptError
         attempts.made += 1
-        // Recheck before sleep — a retry can outlive the lease that covered attempt 1.
-        await this.checkpoints.assertOwnsLease(
-          input.executionId,
-          input.leasedBy
-        )
-        if (retryPolicy) {
-          await sleep(
-            computeBackoffDelayMs(retryPolicy.backoff, attempts.made - 1),
-            undefined,
-            { signal: state.signal }
-          )
-          // And again after — the lease that just passed above can still expire and be
-          // reclaimed during the backoff itself (which can run to tens of seconds under
-          // exponential backoff), letting a stale worker fire an uncheckpointed HTTP/AI call
-          // alongside whoever reclaimed the work.
-          await this.checkpoints.assertOwnsLease(
-            input.executionId,
-            input.leasedBy
-          )
-        }
+        await this.waitToRetry(input, state, retryPolicy, attempts.made - 1)
+        // Another branch can fail during the wait.
+        if (state.failed) throw attemptError
       }
     }
+  }
+
+  private async waitToRetry(
+    input: RunInput,
+    state: RunState,
+    retryPolicy: RetryPolicy | undefined,
+    attemptsMade: number
+  ): Promise<void> {
+    // Recheck before sleep — a retry can outlive the lease that covered attempt 1.
+    await this.checkpoints.assertOwnsLease(input.executionId, input.leasedBy)
+    if (!retryPolicy) return
+    await sleep(
+      computeBackoffDelayMs(retryPolicy.backoff, attemptsMade),
+      undefined,
+      { signal: state.signal }
+    )
+    // And again after — the lease can expire and be reclaimed during the backoff, letting a stale
+    // worker fire an uncheckpointed HTTP/AI call alongside whoever reclaimed the work.
+    await this.checkpoints.assertOwnsLease(input.executionId, input.leasedBy)
   }
 }

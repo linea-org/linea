@@ -13,13 +13,13 @@ export async function runReadySteps(
   walk: WorkflowWalk,
   limit: number,
   runStep: (step: StepToExecute) => Promise<void>,
-  isPaused: () => boolean
+  isStopped: () => boolean
 ): Promise<void> {
   const running = new Map<string, Promise<void>>()
   const errors: unknown[] = []
 
   function nextNode(): WorkflowNode | undefined {
-    if (errors.length > 0 || isPaused()) return undefined
+    if (errors.length > 0 || isStopped()) return undefined
     if (running.size >= limit) return undefined
     const [first] = walk.ready()
     if (limit === 1) return first
