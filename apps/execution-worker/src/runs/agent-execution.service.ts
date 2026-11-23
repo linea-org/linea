@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common"
 import { db, repositories, type Execution } from "@linealabs/db"
+import { isFlagEnabled } from "@linealabs/flags"
 import { agentDefinitionSchema } from "@linealabs/runtime"
 import {
   calculateCostMicros,
@@ -231,11 +232,9 @@ export class AgentExecutionService {
     if (completed.has(modelNodeId))
       return completionSchema.parse(completed.get(modelNodeId))
     await this.assertMayContinue(execution.id, leasedBy)
-    const used = await this.checkpoints.getResumeTokenTotals(execution.id)
-    if (used.tokensInput + used.tokensOutput >= MAX_EXECUTION_TOKENS)
-      throw new Error(
-        executionBudgetMessage(used.tokensInput + used.tokensOutput)
-      )
+    const used = await this.usedTokens(execution)
+    if (used >= MAX_EXECUTION_TOKENS)
+      throw new Error(executionBudgetMessage(used))
     const startedAt = new Date()
     let result: Completion
     try {
@@ -353,6 +352,21 @@ export class AgentExecutionService {
         `Could not record failed step ${failure.nodeId}: ${recordError instanceof Error ? recordError.message : String(recordError)}`
       )
     }
+  }
+
+  /** Includes its Workflow Execution and the other Agents that one started, when they share a budget. */
+  private async usedTokens(execution: Execution): Promise<number> {
+    const { parentExecutionId, workspaceId } = execution
+    const shared =
+      parentExecutionId !== null &&
+      (await isFlagEnabled("parallelBranches", workspaceId))
+    const own = await this.checkpoints.getResumeTokenTotals(
+      shared ? parentExecutionId : execution.id
+    )
+    const agents = shared
+      ? await repositories.executionStep.sumAgentTokens(db, parentExecutionId)
+      : 0
+    return own.tokensInput + own.tokensOutput + agents
   }
 
   private async assertMayContinue(

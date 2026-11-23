@@ -107,6 +107,8 @@ export type RunInput = {
   // Seeded from the latest checkpoint's variables on resume — empty for a fresh execution.
   initialVariables?: Record<string, unknown>
   maxParallelSteps?: number
+  // Set when the Agents this run starts share its token budget.
+  agentTokens?: () => Promise<number>
 }
 
 export type RunOutcome = {
@@ -140,6 +142,7 @@ type RunState = {
   costUnpriced: boolean | null
   // Tokens used so far by each running step, which the totals above don't include yet.
   runningTokens: Map<string, number>
+  agentTokens: number
   // Set before the failure is saved, so nothing starts while it waits behind other writes.
   failed: boolean
   pausedAt?: string
@@ -177,6 +180,7 @@ function startRunState(input: RunInput): RunState {
         ? false
         : input.initialCostUnpriced,
     runningTokens: new Map(),
+    agentTokens: 0,
     failed: false,
   }
 }
@@ -215,12 +219,17 @@ function setVariables(state: RunState, node: WorkflowNode): void {
 }
 
 function spentTokens(state: RunState): number {
-  let spent = state.tokensInput + state.tokensOutput
+  let spent = state.tokensInput + state.tokensOutput + state.agentTokens
   for (const tokens of state.runningTokens.values()) spent += tokens
   return spent
 }
 
-function overBudget(state: RunState): boolean {
+async function overBudget(input: RunInput, state: RunState): Promise<boolean> {
+  if (input.agentTokens) {
+    const used = await input.agentTokens()
+    // Compared after the wait: steps read it side by side, so an older answer can arrive last.
+    state.agentTokens = Math.max(state.agentTokens, used)
+  }
   return spentTokens(state) >= MAX_EXECUTION_TOKENS
 }
 
@@ -537,7 +546,7 @@ export class InterpreterService {
     const { node, step } = run
     const retryPolicy = parseRetryPolicy(node.config.retryPolicy)
     state.signal.throwIfAborted()
-    if (overBudget(state)) {
+    if (run.attempts === 0 && (await overBudget(input, state))) {
       throw new NonRetryableError(executionBudgetMessage(spentTokens(state)))
     }
     await this.checkpoints.assertOwnsLease(input.executionId, input.leasedBy)
@@ -572,7 +581,7 @@ export class InterpreterService {
       if (isFinal || state.signal.aborted || state.failed) throw attemptError
       await this.waitToRetry(input, state, retryPolicy, run.attempts)
       // Another branch can fail or spend the budget meanwhile; this error carries the step's usage.
-      if (state.failed || overBudget(state)) throw attemptError
+      if (state.failed || (await overBudget(input, state))) throw attemptError
     }
     return this.attemptNode(input, state, run)
   }
