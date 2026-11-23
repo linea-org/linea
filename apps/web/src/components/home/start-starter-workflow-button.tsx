@@ -10,7 +10,8 @@ import { createWorkflowFromTemplate } from "@/lib/create-from-template"
 
 export function StartStarterWorkflowButton({
   slug,
-}: Readonly<{ slug: string }>) {
+  primary,
+}: Readonly<{ slug: string; primary: boolean }>) {
   const create = useCreateFromTemplate(slug, createWorkflowFromTemplate)
   return (
     <div className="flex items-center gap-2">
@@ -19,14 +20,14 @@ export function StartStarterWorkflowButton({
         <p className="text-sm text-destructive">{create.error.message}</p>
       )}
       <Button
-        variant="outline"
+        variant={primary ? "default" : "outline"}
         disabled={create.isPending}
         onClick={() => create.mutate("chat-assistant")}
         {...shortcutTarget("starter-workflow")}
       >
         {create.isPending ? <Spinner /> : null}
         Starter workflow
-        <ShortcutKeys id="starter-workflow" />
+        <ShortcutKeys id="starter-workflow" onPrimary={primary} />
       </Button>
     </div>
   )
