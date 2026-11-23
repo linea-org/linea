@@ -150,12 +150,8 @@ export class RunsService {
       }
       const graph = workflowGraphSchema.parse(version.graph)
       validateGraphStructure(graph)
-      // A response/timer can resolve the pause before this loop marks the execution "paused"
-      // below, so claimPauseForPendingApproval/claimPauseForPendingWait re-check and pause
-      // atomically (locking the approval/timer row first) instead of racing a separate
-      // check-then-pause. If already resolved, loop back immediately from the latest checkpoint:
-      // steps the pass finished must not run again, and the paused node, which has no checkpoint, is
-      // re-entered and this time returns its real output.
+      // A paused node can resolve before the pause is claimed; the next pass then starts from the
+      // latest checkpoint, so steps that finished don't run again and the paused one re-enters.
       const turn = chatTurn(execution)
       const maxParallelSteps = (await isFlagEnabled(
         "parallelBranches",

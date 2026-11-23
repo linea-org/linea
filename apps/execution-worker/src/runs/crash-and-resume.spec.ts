@@ -5,17 +5,7 @@ import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linealabs/db"
 import type { WorkflowGraph } from "@linealabs/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
-import { InterpreterService } from "../graph/interpreter.service"
-import { AiNode } from "../graph/nodes/ai.node"
-import { ApprovalNode } from "../graph/nodes/approval.node"
-import { MemoryNode } from "../graph/nodes/memory.node"
-import { WaitNode } from "../graph/nodes/wait.node"
-import { BranchNode } from "../graph/nodes/branch.node"
-import { DatetimeNode } from "../graph/nodes/datetime.node"
-import { FilterNode } from "../graph/nodes/filter.node"
-import { HttpNode } from "../graph/nodes/http.node"
-import { MergeNode } from "../graph/nodes/merge.node"
-import { VariablesNode } from "../graph/nodes/variables.node"
+import { createInterpreter } from "../graph/interpreter.fixture"
 import { TransformNode } from "../graph/nodes/transform.node"
 import { RunLeaseService } from "./run-lease.service"
 import { AgentExecutionService } from "./agent-execution.service"
@@ -111,20 +101,7 @@ describe("crash-and-resume", () => {
         [new Date(Date.now() - 1_000), execution.id]
       )
       // Worker 2 ("the restart") resumes it through the real, complete path.
-      const interpreter = new InterpreterService(
-        checkpoints,
-        new HttpNode(),
-        transformNode,
-        new BranchNode(),
-        new AiNode(),
-        new ApprovalNode(),
-        new MemoryNode(),
-        new WaitNode(),
-        new DatetimeNode(),
-        new FilterNode(),
-        new MergeNode(),
-        new VariablesNode()
-      )
+      const interpreter = createInterpreter(checkpoints)
       const runs = new RunsService(
         checkpoints,
         interpreter,
