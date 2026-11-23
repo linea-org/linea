@@ -11,7 +11,7 @@ import type { RunInput } from "./interpreter.service"
 import { AiNode } from "./nodes/ai.node"
 import { HttpNode } from "./nodes/http.node"
 import type { NodeExecutionContext } from "./nodes/node-handler.interface"
-import { UsageError } from "./nodes/usage-error"
+import { RetryableUsageError, UsageError } from "./nodes/usage-error"
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -345,13 +345,13 @@ describe("parallel steps", () => {
     }
   )
 
-  it("does not retry a step once another has used the token budget", async () => {
+  it("does not retry a step once another has used the token budget, and keeps its usage", async () => {
     let attempts = 0
     const { run, writes } = setup(
       {
         a: () => {
           attempts += 1
-          return Promise.reject(new Error("a broke"))
+          return Promise.reject(new RetryableUsageError("a broke", 30, 12))
         },
         b: async ({ countTokens }) => {
           countTokens?.(MAX_EXECUTION_TOKENS)
@@ -361,25 +361,29 @@ describe("parallel steps", () => {
       },
       {
         graph: fanOut([
-          http("a", {
-            retryPolicy: {
-              maxAttempts: 2,
-              backoff: { type: "fixed", delayMs: 20 },
+          {
+            id: "a",
+            type: "ai",
+            config: {
+              name: "a",
+              model: "claude-sonnet-5",
+              retryPolicy: {
+                maxAttempts: 2,
+                backoff: { type: "fixed", delayMs: 20 },
+              },
             },
-          }),
+          },
           http("b"),
         ]),
       }
     )
-    expect((await run()).result).toMatchObject({
-      status: "failed",
-      nodeId: "a",
-      error: expect.stringContaining("token budget") as string,
-    })
+    const outcome = await run()
+    expect(outcome.result).toMatchObject({ nodeId: "a", error: "a broke" })
     expect(attempts).toBe(1)
-    expect(
-      writes.find(({ nodeId }) => nodeId === "a")?.retryAttempts
-    ).toBeUndefined()
+    const failed = writes.find(({ nodeId }) => nodeId === "a")
+    expect(failed).toMatchObject({ tokensInput: 30, tokensOutput: 12 })
+    expect(failed?.retryAttempts).toBeUndefined()
+    expect(outcome.totalTokensInput).toBe(30)
   })
 
   it("starts no step once running ones have used the token budget", async () => {

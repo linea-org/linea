@@ -220,6 +220,10 @@ function spentTokens(state: RunState): number {
   return spent
 }
 
+function overBudget(state: RunState): boolean {
+  return spentTokens(state) >= MAX_EXECUTION_TOKENS
+}
+
 function chargeStep(
   state: RunState,
   nodeId: string,
@@ -533,9 +537,8 @@ export class InterpreterService {
     const { node, step } = run
     const retryPolicy = parseRetryPolicy(node.config.retryPolicy)
     state.signal.throwIfAborted()
-    const usedTokens = spentTokens(state)
-    if (usedTokens >= MAX_EXECUTION_TOKENS) {
-      throw new NonRetryableError(executionBudgetMessage(usedTokens))
+    if (overBudget(state)) {
+      throw new NonRetryableError(executionBudgetMessage(spentTokens(state)))
     }
     await this.checkpoints.assertOwnsLease(input.executionId, input.leasedBy)
     run.attempts += 1
@@ -568,8 +571,8 @@ export class InterpreterService {
       // Don't spend retry budget on a call that was never ours, or on a run that has failed.
       if (isFinal || state.signal.aborted || state.failed) throw attemptError
       await this.waitToRetry(input, state, retryPolicy, run.attempts)
-      // Another branch can fail during the wait.
-      if (state.failed) throw attemptError
+      // Another branch can fail or spend the budget meanwhile; this error carries the step's usage.
+      if (state.failed || overBudget(state)) throw attemptError
     }
     return this.attemptNode(input, state, run)
   }
