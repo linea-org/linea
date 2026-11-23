@@ -20,6 +20,7 @@ type ActionIntentCancellationActor =
   | { kind: "environment_key"; id: string }
   | { kind: "end_user_session"; id: string; externalSubjectId: string }
   | { kind: "workspace_member"; id: string }
+  | { kind: "system" }
 
 function cancellationScopePredicate(scope: ActionIntentCancellationScope) {
   switch (scope.kind) {
@@ -45,10 +46,12 @@ function cancellationActorColumns(actor: ActionIntentCancellationActor) {
       }
     case "workspace_member":
       return { actorUserId: actor.id }
+    case "system":
+      return {}
   }
 }
 
-async function recordApprovalCancellation(
+export async function recordApprovalCancellation(
   tx: DbClient,
   request: ApprovalRequest,
   actor: ActionIntentCancellationActor

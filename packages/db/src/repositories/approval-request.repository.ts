@@ -790,7 +790,7 @@ export async function decideExternalApprovalRequest(
 export async function lockExecutionTree(
   tx: Transaction,
   workspaceId: string,
-  environmentId: string,
+  environmentId: string | null,
   executionId: string
 ): Promise<Execution[]> {
   const lockKey = `action-intent-execution:${executionId}`
@@ -804,7 +804,9 @@ export async function lockExecutionTree(
     .where(
       and(
         eq(executions.workspaceId, workspaceId),
-        eq(executions.environmentId, environmentId),
+        environmentId === null
+          ? isNull(executions.environmentId)
+          : eq(executions.environmentId, environmentId),
         or(
           eq(executions.id, executionId),
           eq(executions.parentExecutionId, executionId)

@@ -1,6 +1,9 @@
 import { compileContractSchema } from "@linealabs/protocol/json-schema"
 import { getMemberRole } from "./organization.repository.js"
-import { activeExecutionParent } from "./execution-parent-authority.js"
+import {
+  activeExecutionParent,
+  hasExecutingActionIntent,
+} from "./execution-parent-authority.js"
 import {
   and,
   desc,
@@ -288,7 +291,7 @@ export async function startExecution(
     if (!current) return undefined
     const claimable = and(
       eq(executions.id, executionId),
-      activeExecutionParent(),
+      or(activeExecutionParent(), hasExecutingActionIntent()),
       or(
         eq(executions.status, "queued"),
         and(
@@ -500,6 +503,23 @@ export async function isLeaseValid(
     execution.leaseExpiresAt !== null &&
     execution.leaseExpiresAt > new Date()
   )
+}
+
+/** True once the Execution that started this one has ended, unless a claimed Action Intent still has to report. */
+export async function hasEndedParent(
+  db: DbClient,
+  executionId: string
+): Promise<boolean> {
+  const [continuing] = await db
+    .select({ id: executions.id })
+    .from(executions)
+    .where(
+      and(
+        eq(executions.id, executionId),
+        or(activeExecutionParent(), hasExecutingActionIntent())
+      )
+    )
+  return continuing === undefined
 }
 
 export async function getExecutionById(

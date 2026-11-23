@@ -1941,4 +1941,297 @@ describe("exact Action Intent consent", () => {
       await removeWorkspace(fixture.workspaceId)
     }
   })
+
+  describe("a Workflow Execution that fails while its Agents work", () => {
+    const claimOf = async (fixture: Fixture) => ({
+      actionIntentId: (await consent(fixture)).intent.id,
+      executionClaimId: fixture.executionClaimId,
+      provider: "test",
+      actionFamily: "test",
+      requiredScopes: ["write:resources"],
+      now: new Date(),
+    })
+
+    const statusOf = async (executionId: string) =>
+      (await repositories.execution.getExecutionById(db, executionId))?.status
+
+    async function runParent(parent: Fixture): Promise<void> {
+      await pool.query(
+        "UPDATE executions SET status = 'running', leased_by = $2, lease_expires_at = now() + interval '1 minute' WHERE id = $1",
+        [parent.executionId, parent.executionClaimId]
+      )
+    }
+
+    const failParent = (parent: Fixture, leasedBy = parent.executionClaimId) =>
+      repositories.failedExecution.failExecution(
+        db,
+        parent.executionId,
+        leasedBy,
+        {
+          error: { message: "a branch failed" },
+          costMicros: 0n,
+          costUnpriced: false,
+          tokensInput: 0,
+          tokensOutput: 0,
+        }
+      )
+
+    async function addSibling(parent: Fixture): Promise<string> {
+      const { rows } = await pool.query<{ id: string }>(
+        `INSERT INTO executions (workspace_id, environment_id, agent_id, agent_version_id, agent_contract_revision_id, environment, trigger, parent_execution_id, parent_node_id)
+       SELECT workspace_id, environment_id, agent_id, agent_version_id, agent_contract_revision_id, environment, trigger, parent_execution_id, 'sibling'
+       FROM executions WHERE parent_execution_id = $1 LIMIT 1 RETURNING id`,
+        [parent.executionId]
+      )
+      return rows[0].id
+    }
+
+    async function withFailing(
+      test: (fixture: Fixture, parent: Fixture) => Promise<void>,
+      resourceId?: string
+    ): Promise<void> {
+      const fixture = await createFixture(resourceId)
+      try {
+        const parent = await attachParent(fixture)
+        await runParent(parent)
+        await test(fixture, parent)
+      } finally {
+        await removeWorkspace(fixture.workspaceId)
+      }
+    }
+
+    it("cancels queued and running Agents and takes the running one's lease", () =>
+      withFailing(async (fixture, parent) => {
+        const sibling = await addSibling(parent)
+        expect((await failParent(parent))?.status).toBe("failed")
+        expect(await statusOf(sibling)).toBe("cancelled")
+        const child = await repositories.execution.getExecutionById(
+          db,
+          fixture.executionId
+        )
+        expect(child).toMatchObject({ status: "cancelled", leasedBy: null })
+        const audits = await pool.query<{ resource_id: string }>(
+          "SELECT resource_id FROM audit_logs WHERE workspace_id = $1 AND action = 'execution.cancelled' AND actor_user_id IS NULL AND actor_environment_key_id IS NULL",
+          [fixture.workspaceId]
+        )
+        expect(audits.rows.map((row) => row.resource_id).sort()).toEqual(
+          [sibling, fixture.executionId].sort()
+        )
+      }))
+
+    it("cancels a paused Agent's consent, with one audit entry and one event", () =>
+      withFailing(async (fixture, parent) => {
+        await invoke(fixture)
+        await repositories.approvalRequest.claimPauseForPendingApprovalRequest(
+          db,
+          fixture.workspaceId,
+          fixture.executionId,
+          "action",
+          fixture.executionClaimId
+        )
+        await failParent(parent)
+        expect(await statusOf(fixture.executionId)).toBe("cancelled")
+        const after = await consent(fixture)
+        expect(after.intent.status).toBe("cancelled")
+        expect(after.approvalRequest.status).toBe("cancelled")
+        await expect(decide(fixture, "approved")).rejects.toThrow("cancelled")
+        await expect(invoke(fixture)).rejects.toBeInstanceOf(
+          ConnectorGatewayError
+        )
+        expect(provider.requests).toHaveLength(0)
+        const recorded = await pool.query(
+          "SELECT (SELECT count(*)::int FROM audit_logs WHERE resource_id = $1 AND action = 'approval_request.cancelled') AS audits, (SELECT count(*)::int FROM outbox_messages WHERE workspace_id = $2 AND event_type = 'approval_request.cancelled') AS events",
+          [after.approvalRequest.id, fixture.workspaceId]
+        )
+        expect(recorded.rows).toEqual([{ audits: 1, events: 1 }])
+      }))
+
+    it("cancels its own pending Approval Request", () =>
+      withFailing(async (fixture, parent) => {
+        const root = await repositories.execution.getExecutionById(
+          db,
+          parent.executionId
+        )
+        const request =
+          await repositories.approvalRequest.createApprovalRequest(db, {
+            workspaceId: fixture.workspaceId,
+            environmentId: fixture.environmentId,
+            workflowId: root?.workflowId,
+            executionId: parent.executionId,
+            nodeId: "approval",
+            audience: "workspace",
+            display: { title: "Continue?" },
+          })
+        await failParent(parent)
+        const { rows } = await pool.query(
+          "SELECT status FROM approval_requests WHERE id = $1",
+          [request?.id]
+        )
+        expect(rows).toEqual([{ status: "cancelled" }])
+        const audits = await pool.query(
+          "SELECT action, actor_user_id FROM audit_logs WHERE resource_id = $1",
+          [request?.id]
+        )
+        expect(audits.rows).toEqual([
+          { action: "approval_request.cancelled", actor_user_id: null },
+        ])
+      }))
+
+    it("lets a sent write report, then stops its Agent; other Agents are cancelled", () =>
+      withFailing(async (fixture, parent) => {
+        const sibling = await addSibling(parent)
+        await invoke(fixture)
+        await decide(fixture, "approved")
+        const claim = await claimOf(fixture)
+        await repositories.actionIntent.claimApprovedActionIntent(db, claim)
+        await repositories.actionIntent.beginActionIntentDispatch(db, claim)
+        await failParent(parent)
+        expect(await statusOf(parent.executionId)).toBe("failed")
+        expect(await statusOf(sibling)).toBe("cancelled")
+        expect(await statusOf(fixture.executionId)).toBe("running")
+        expect(
+          await repositories.execution.hasEndedParent(db, fixture.executionId)
+        ).toBe(false)
+        expect(
+          (
+            await repositories.actionIntent.completeActionIntent(db, {
+              actionIntentId: claim.actionIntentId,
+              executionClaimId: fixture.executionClaimId,
+              result: {},
+              completedAt: new Date(),
+            })
+          )?.status
+        ).toBe("succeeded")
+        expect(
+          await repositories.execution.hasEndedParent(db, fixture.executionId)
+        ).toBe(true)
+      }))
+
+    it("never sends a claimed write that was not sent, and records it as failed", () =>
+      withFailing(async (fixture, parent) => {
+        await invoke(fixture)
+        await decide(fixture, "approved")
+        const claim = await claimOf(fixture)
+        await repositories.actionIntent.claimApprovedActionIntent(db, claim)
+        await failParent(parent)
+        expect(
+          await repositories.actionIntent.beginActionIntentDispatch(db, claim)
+        ).toBeUndefined()
+        expect((await consent(fixture)).intent.status).toBe("failed")
+        expect(provider.requests).toHaveLength(0)
+      }))
+
+    it("settles a write lost in a crash as unknown, without sending it again", () =>
+      withFailing(async (fixture, parent) => {
+        await invoke(fixture)
+        await decide(fixture, "approved")
+        const claim = await claimOf(fixture)
+        await repositories.actionIntent.claimApprovedActionIntent(db, claim)
+        await repositories.actionIntent.beginActionIntentDispatch(db, claim)
+        await failParent(parent)
+        await pool.query(
+          "UPDATE executions SET lease_expires_at = now() - interval '1 second' WHERE id = $1",
+          [fixture.executionId]
+        )
+        const recovered = await repositories.execution.startExecution(
+          db,
+          fixture.executionId,
+          "second-worker",
+          new Date(Date.now() + 60_000)
+        )
+        expect(recovered?.status).toBe("running")
+        await expect(
+          invoke({ ...fixture, executionClaimId: "second-worker" })
+        ).rejects.toBeInstanceOf(ConnectorGatewayError)
+        expect((await consent(fixture)).intent.status).toBe("outcome_unknown")
+        expect(provider.requests).toHaveLength(0)
+      }))
+
+    it("does nothing without the lease", () =>
+      withFailing(async (fixture, parent) => {
+        expect(await failParent(parent, "another-worker")).toBeUndefined()
+        expect(await statusOf(parent.executionId)).toBe("running")
+        expect(await statusOf(fixture.executionId)).toBe("running")
+      }))
+
+    it("cancels nothing when it succeeds", () =>
+      withFailing(async (fixture, parent) => {
+        await repositories.execution.completeExecution(
+          db,
+          parent.executionId,
+          parent.executionClaimId,
+          {
+            status: "succeeded",
+            costMicros: 0n,
+            costUnpriced: false,
+            tokensInput: 0,
+            tokensOutput: 0,
+          }
+        )
+        expect(await statusOf(fixture.executionId)).toBe("running")
+      }))
+
+    it("refuses an Agent as the parent of another Agent", () =>
+      withFailing(async (fixture) => {
+        const child = await repositories.execution.getExecutionById(
+          db,
+          fixture.executionId
+        )
+        const nested =
+          await repositories.nestedAgentExecution.startNestedAgentExecution(
+            db,
+            {
+              workspaceId: fixture.workspaceId,
+              parentExecutionId: fixture.executionId,
+              nodeId: "grandchild",
+              agentId: child?.agentId as string,
+              agentContractRevisionId: child?.agentContractRevisionId as string,
+              input: {},
+            }
+          )
+        expect(nested.outcome).toBe("parent_not_found")
+      }))
+
+    it.each(["decision", "claim", "cancel"] as const)(
+      "does not deadlock with a concurrent %s, and leaves nothing open",
+      async (kind) => {
+        for (let round = 0; round < 8; round += 1) {
+          await withFailing(async (fixture, parent) => {
+            await invoke(fixture)
+            if (kind === "claim") await decide(fixture, "approved")
+            const claim = await claimOf(fixture)
+            const other = () => {
+              if (kind === "decision")
+                return decide(fixture, "approved").catch((error: unknown) => {
+                  expect(String(error)).toContain("cancelled")
+                })
+              if (kind === "claim")
+                return repositories.actionIntent.claimApprovedActionIntent(
+                  db,
+                  claim
+                )
+              return cancelExecution(parent)
+            }
+            await Promise.all(
+              round % 2 === 0
+                ? [failParent(parent), other()]
+                : [other(), failParent(parent)]
+            )
+            const { intent, approvalRequest } = await consent(fixture)
+            const child = await statusOf(fixture.executionId)
+            expect(["failed", "cancelled"]).toContain(
+              await statusOf(parent.executionId)
+            )
+            expect(approvalRequest.status).not.toBe("pending")
+            if (intent.status === "executing") expect(child).toBe("running")
+            else {
+              expect(intent.status).toBe("cancelled")
+              expect(child).toBe("cancelled")
+            }
+          })
+        }
+      },
+      60_000
+    )
+  })
 })

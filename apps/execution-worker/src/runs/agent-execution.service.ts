@@ -43,6 +43,8 @@ const requestSchema = z.strictObject({
   input: z.unknown(),
 })
 const AGENT_WORK_BUDGET_MS = 30 * 60_000
+class ParentEndedError extends Error {}
+
 const BUDGET_EXHAUSTED = "Agent run exceeded its 30 minute work budget"
 type AgentDefinition = z.infer<typeof agentDefinitionSchema>
 type RegisteredOperation = NonNullable<
@@ -100,6 +102,8 @@ export class AgentExecutionService {
         outcome = await this.attempt(execution, leasedBy, signal, runSignal)
       } while (outcome === "resume")
     } catch (error) {
+      if (error instanceof ParentEndedError)
+        return this.stopAfterParent(execution.id, leasedBy)
       if (deadline.aborted && !signal.aborted)
         throw new Error(BUDGET_EXHAUSTED, { cause: error })
       throw error
@@ -224,7 +228,7 @@ export class AgentExecutionService {
     const modelNodeId = `agent:model:${iteration}`
     if (completed.has(modelNodeId))
       return completionSchema.parse(completed.get(modelNodeId))
-    await this.checkpoints.assertOwnsLease(execution.id, leasedBy)
+    await this.assertMayContinue(execution.id, leasedBy)
     const used = await this.checkpoints.getResumeTokenTotals(execution.id)
     if (used.tokensInput + used.tokensOutput >= MAX_EXECUTION_TOKENS)
       throw new Error(
@@ -349,6 +353,26 @@ export class AgentExecutionService {
     }
   }
 
+  private async assertMayContinue(
+    executionId: string,
+    leasedBy: string
+  ): Promise<void> {
+    await this.checkpoints.assertOwnsLease(executionId, leasedBy)
+    if (await repositories.execution.hasEndedParent(db, executionId))
+      throw new ParentEndedError()
+  }
+
+  private async stopAfterParent(
+    executionId: string,
+    leasedBy: string
+  ): Promise<void> {
+    const totals = await this.checkpoints.getResumeTokenTotals(executionId)
+    await repositories.execution.completeExecution(db, executionId, leasedBy, {
+      status: "cancelled",
+      ...totals,
+    })
+  }
+
   private async finish(context: RunContext, result: Completion): Promise<void> {
     const { execution, leasedBy, contract } = context
     const output: unknown = JSON.parse(result.text)
@@ -377,7 +401,7 @@ export class AgentExecutionService {
     )
     if (!tool) throw new Error(`Agent requested undeclared tool: ${call.name}`)
     const request = requestSchema.parse(call.arguments)
-    await this.checkpoints.assertOwnsLease(execution.id, leasedBy)
+    await this.assertMayContinue(execution.id, leasedBy)
     const startedAt = new Date()
     const toolInput = { operation: tool.operation, ...request }
     let response: Awaited<ReturnType<ConnectorGatewayService["execute"]>>
