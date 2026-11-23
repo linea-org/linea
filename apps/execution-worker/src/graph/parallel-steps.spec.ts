@@ -293,6 +293,24 @@ describe("parallel steps", () => {
     expect(outcome.totalTokensInput + outcome.totalTokensOutput).toBe(107)
   })
 
+  it("adds no variables from entries the step ignores", async () => {
+    const { run, writes } = setup(
+      {},
+      {
+        graph: fanOut([
+          {
+            id: "set",
+            type: "variables",
+            config: { operation: "set", entries: "abc" },
+          },
+        ]),
+        initialVariables: { kept: true },
+      }
+    )
+    await run()
+    expect(writes.at(-1)?.variables).toEqual({ kept: true })
+  })
+
   it.each([
     ["returned", () => Promise.resolve({ tokensInput: 60, tokensOutput: 40 })],
     ["failed", () => Promise.reject(new UsageError("too many tokens", 60, 40))],
@@ -326,6 +344,43 @@ describe("parallel steps", () => {
       expect(seen).toBe(100)
     }
   )
+
+  it("does not retry a step once another has used the token budget", async () => {
+    let attempts = 0
+    const { run, writes } = setup(
+      {
+        a: () => {
+          attempts += 1
+          return Promise.reject(new Error("a broke"))
+        },
+        b: async ({ countTokens }) => {
+          countTokens?.(MAX_EXECUTION_TOKENS)
+          await sleep(60)
+          return {}
+        },
+      },
+      {
+        graph: fanOut([
+          http("a", {
+            retryPolicy: {
+              maxAttempts: 2,
+              backoff: { type: "fixed", delayMs: 20 },
+            },
+          }),
+          http("b"),
+        ]),
+      }
+    )
+    expect((await run()).result).toMatchObject({
+      status: "failed",
+      nodeId: "a",
+      error: expect.stringContaining("token budget") as string,
+    })
+    expect(attempts).toBe(1)
+    expect(
+      writes.find(({ nodeId }) => nodeId === "a")?.retryAttempts
+    ).toBeUndefined()
+  })
 
   it("starts no step once running ones have used the token budget", async () => {
     const { run } = setup(

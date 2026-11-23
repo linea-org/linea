@@ -171,7 +171,7 @@ function startRunState(input: RunInput): RunState {
     tokensInput: input.initialTokensInput ?? 0,
     tokensOutput: input.initialTokensOutput ?? 0,
     costMicros: input.initialCostMicros ?? 0n,
-    // ?? would collapse an explicit null (unknown) into false — only a truly absent field defaults.
+    // ?? would collapse an explicit null (unknown) into false; only an absent field defaults.
     costUnpriced:
       input.initialCostUnpriced === undefined
         ? false
@@ -179,6 +179,39 @@ function startRunState(input: RunInput): RunState {
     runningTokens: new Map(),
     failed: false,
   }
+}
+
+type StepRun = {
+  node: WorkflowNode
+  step: StepToExecute
+  model: string | undefined
+  provider: string | undefined
+  startedAt: Date
+  attempts: number
+}
+
+function endStep(input: RunInput, run: StepRun) {
+  return {
+    executionId: input.executionId,
+    workspaceId: input.workspaceId,
+    leasedBy: input.leasedBy,
+    nodeId: run.step.nodeId,
+    nodeType: run.step.nodeType,
+    input: run.step.input,
+    startedAt: run.startedAt,
+    endedAt: new Date(),
+    model: run.model,
+    provider: run.provider,
+    retryAttempts: run.attempts > 1 ? run.attempts : undefined,
+  }
+}
+
+/** Applies only the step's own entries, so it can't drop what another branch set meanwhile. */
+function setVariables(state: RunState, node: WorkflowNode): void {
+  if (node.type !== "variables" || node.config.operation !== "set") return
+  const { entries } = node.config
+  if (entries === null || typeof entries !== "object") return
+  state.variables = { ...state.variables, ...entries }
 }
 
 function spentTokens(state: RunState): number {
@@ -383,136 +416,129 @@ export class InterpreterService {
     if (!node) {
       throw new Error(`Node "${step.nodeId}" not found in graph`)
     }
-    const startedAt = new Date()
-    const attempts = { made: 1 }
-    let result: StepResult
     const model = resolveNodeModel(node)
-    const provider = model ? resolveProviderId(model) : undefined
-    const endStep = () => ({
-      executionId: input.executionId,
-      workspaceId: input.workspaceId,
-      leasedBy: input.leasedBy,
-      nodeId: step.nodeId,
-      nodeType: step.nodeType,
-      input: step.input,
-      startedAt,
-      endedAt: new Date(),
+    const run: StepRun = {
+      node,
+      step,
       model,
-      provider,
-      retryAttempts: attempts.made > 1 ? attempts.made : undefined,
-    })
+      provider: model ? resolveProviderId(model) : undefined,
+      startedAt: new Date(),
+      attempts: 0,
+    }
+    let result: StepResult | undefined
     try {
-      const { output, tokensInput, tokensOutput } = await this.attemptNode(
-        input,
-        state,
-        node,
-        step,
-        attempts
-      )
-      const ended = endStep()
-      // Charged before waiting to save, so steps beside this one see the tokens at once.
-      const charged =
-        tokensInput !== undefined && tokensOutput !== undefined
-          ? chargeStep(state, step.nodeId, model, tokensInput, tokensOutput)
-          : {}
-      await state.record(async () => {
-        // Update before checkpointing, so a crash right after the write doesn't leave a resume replaying this step.
-        state.completed.set(step.nodeId, output)
-        // Only this step's own entries: adopting the handler's whole view would drop what another
-        // branch set while it ran.
-        if (node.type === "variables" && node.config.operation === "set") {
-          state.variables = {
-            ...state.variables,
-            ...(node.config.entries as Record<string, unknown> | undefined),
-          }
-        }
-        await this.checkpoints.recordStep({
-          ...ended,
-          ...charged,
-          output,
-          tokensInput,
-          tokensOutput,
-          completed: state.completed,
-          variables: state.variables,
-        })
-      })
-      result = { nodeId: step.nodeId, output }
+      result = await this.completeStep(input, state, run)
     } catch (error) {
-      // A failure-checkpoint write would be rejected too — propagate instead of attempting it.
-      if (error instanceof LeaseLostError) {
-        state.loseLease()
-        throw error
-      }
-      // An abort here is a lease loss discovered mid-call, not a genuine node failure — same handling as the up-front assertOwnsLease check.
-      if (state.leaseLost()) {
-        throw new LeaseLostError(input.executionId)
-      }
-      // No checkpoint write here: this node never produced output, so `completed` (and the latest checkpoint) already reflect every prior successful node — exactly the state a later resume should restart from.
-      if (error instanceof PauseExecutionError) {
-        state.pausedAt = error.nodeId
-        return
-      }
-      const message = error instanceof Error ? error.message : String(error)
-      // Stacks stay in server logs; step records are returned to workspace members and API keys.
-      this.logger.error(
-        `Execution ${input.executionId} node ${step.nodeId} failed: ${message}`,
-        error instanceof Error ? error.stack : undefined
-      )
-      state.failed = true
-      const usage = getErrorTokenUsage(error)
-      const ended = endStep()
-      const charged =
-        usage && model
-          ? chargeStep(
-              state,
-              step.nodeId,
-              model,
-              usage.tokensInput,
-              usage.tokensOutput
-            )
-          : {}
-      await state.record(async () => {
-        await this.checkpoints.recordStep({
-          ...ended,
-          ...charged,
-          error: { message },
-          tokensInput: usage?.tokensInput,
-          tokensOutput: usage?.tokensOutput,
-          completed: state.completed,
-          variables: state.variables,
-        })
-      })
-      result = { nodeId: step.nodeId, error: { message } }
+      result = await this.failStep(input, state, run, error)
     } finally {
       state.runningTokens.delete(step.nodeId)
     }
-    state.walk.finish(result)
+    if (result) state.walk.finish(result)
+  }
+
+  private async completeStep(
+    input: RunInput,
+    state: RunState,
+    run: StepRun
+  ): Promise<StepResult> {
+    const { node, step, model } = run
+    const { output, tokensInput, tokensOutput } = await this.attemptNode(
+      input,
+      state,
+      run
+    )
+    const ended = endStep(input, run)
+    // Charged before waiting to save, so steps beside this one see the tokens at once.
+    const charged =
+      tokensInput !== undefined && tokensOutput !== undefined
+        ? chargeStep(state, step.nodeId, model, tokensInput, tokensOutput)
+        : {}
+    await state.record(async () => {
+      // Before the write, so the checkpoint includes this step and a resume doesn't replay it.
+      state.completed.set(step.nodeId, output)
+      setVariables(state, node)
+      await this.checkpoints.recordStep({
+        ...ended,
+        ...charged,
+        output,
+        tokensInput,
+        tokensOutput,
+        completed: state.completed,
+        variables: state.variables,
+      })
+    })
+    return { nodeId: step.nodeId, output }
+  }
+
+  /** Returns nothing when the step paused; throws when this attempt no longer owns the run. */
+  private async failStep(
+    input: RunInput,
+    state: RunState,
+    run: StepRun,
+    error: unknown
+  ): Promise<StepResult | undefined> {
+    const { step, model } = run
+    // A failure-checkpoint write would be rejected too — propagate instead of attempting it.
+    if (error instanceof LeaseLostError) {
+      state.loseLease()
+      throw error
+    }
+    // An abort here is a lease loss discovered mid-call, not a genuine node failure.
+    if (state.leaseLost()) {
+      throw new LeaseLostError(input.executionId)
+    }
+    // No checkpoint write here: the latest one is already what a later resume should start from.
+    if (error instanceof PauseExecutionError) {
+      state.pausedAt = error.nodeId
+      return undefined
+    }
+    const message = error instanceof Error ? error.message : String(error)
+    // Stacks stay in server logs; step records are returned to workspace members and API keys.
+    this.logger.error(
+      `Execution ${input.executionId} node ${step.nodeId} failed: ${message}`,
+      error instanceof Error ? error.stack : undefined
+    )
+    state.failed = true
+    const usage = getErrorTokenUsage(error)
+    const ended = endStep(input, run)
+    const charged =
+      usage && model
+        ? chargeStep(
+            state,
+            step.nodeId,
+            model,
+            usage.tokensInput,
+            usage.tokensOutput
+          )
+        : {}
+    await state.record(() =>
+      this.checkpoints.recordStep({
+        ...ended,
+        ...charged,
+        error: { message },
+        tokensInput: usage?.tokensInput,
+        tokensOutput: usage?.tokensOutput,
+        completed: state.completed,
+        variables: state.variables,
+      })
+    )
+    return { nodeId: step.nodeId, error: { message } }
   }
 
   private async attemptNode(
     input: RunInput,
     state: RunState,
-    node: WorkflowNode,
-    step: StepToExecute,
-    attempts: { made: number }
+    run: StepRun
   ): ReturnType<InterpreterService["executeNode"]> {
+    const { node, step } = run
+    const retryPolicy = parseRetryPolicy(node.config.retryPolicy)
     state.signal.throwIfAborted()
     const usedTokens = spentTokens(state)
     if (usedTokens >= MAX_EXECUTION_TOKENS) {
       throw new NonRetryableError(executionBudgetMessage(usedTokens))
     }
     await this.checkpoints.assertOwnsLease(input.executionId, input.leasedBy)
-    return this.executeWithRetries(input, state, node, step, attempts)
-  }
-
-  private async executeWithRetries(
-    input: RunInput,
-    state: RunState,
-    node: WorkflowNode,
-    step: StepToExecute,
-    attempts: { made: number }
-  ): ReturnType<InterpreterService["executeNode"]> {
-    const retryPolicy = parseRetryPolicy(node.config.retryPolicy)
+    run.attempts += 1
     try {
       return await this.executeNode(
         node,
@@ -538,15 +564,14 @@ export class InterpreterService {
       const isFinal =
         attemptError instanceof NonRetryableError ||
         attemptError instanceof PlatformKeyBudgetError ||
-        attempts.made >= (retryPolicy?.maxAttempts ?? 1)
+        run.attempts >= (retryPolicy?.maxAttempts ?? 1)
       // Don't spend retry budget on a call that was never ours, or on a run that has failed.
       if (isFinal || state.signal.aborted || state.failed) throw attemptError
-      attempts.made += 1
-      await this.waitToRetry(input, state, retryPolicy, attempts.made - 1)
+      await this.waitToRetry(input, state, retryPolicy, run.attempts)
       // Another branch can fail during the wait.
       if (state.failed) throw attemptError
     }
-    return this.executeWithRetries(input, state, node, step, attempts)
+    return this.attemptNode(input, state, run)
   }
 
   private async waitToRetry(
@@ -563,8 +588,5 @@ export class InterpreterService {
       undefined,
       { signal: state.signal }
     )
-    // And again after — the lease can expire and be reclaimed during the backoff, letting a stale
-    // worker fire an uncheckpointed HTTP/AI call alongside whoever reclaimed the work.
-    await this.checkpoints.assertOwnsLease(input.executionId, input.leasedBy)
   }
 }

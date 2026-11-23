@@ -114,8 +114,7 @@ export type WorkflowWalk = {
   result: () => WalkResult
 }
 
-/** A node is ready once every one of its predecessors has finished. The caller owns checkpointing
- * and how many ready steps run at once. */
+/** The caller owns checkpointing and decides how many ready steps run at once. */
 export function startWalk(
   graph: WorkflowGraph,
   options: WalkOptions = {}

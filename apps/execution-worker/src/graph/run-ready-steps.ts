@@ -7,8 +7,7 @@ import { mayPause } from "./may-pause"
 
 export const MAX_PARALLEL_STEPS = 5
 
-/** Settles only once no step is running: an error stops new steps, waits for the running ones and
- * is then thrown. A step that may pause waits for the others and runs alone. */
+/** Waits for every running step before it returns or throws the first error; see ADR 0028. */
 export async function runReadySteps(
   walk: WorkflowWalk,
   limit: number,
