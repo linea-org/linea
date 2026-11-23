@@ -270,3 +270,67 @@ it("refuses the nested Agent's Connection read when the Workflow Execution has n
   )
   expect(reads).toEqual([])
 })
+
+it("stops the nested Agent before its next call once its Workflow Execution has ended", async () => {
+  const complete = mockAgentReadsThroughConnection()
+  const parent = await startWorkflow(
+    fixture.agentId,
+    fixture.contractId,
+    fixture.externalSubjectId
+  )
+  await runs.execute(parent.id)
+  const child = await childOf(parent.id)
+  complete.mockReset()
+  complete.mockImplementationOnce(async () => {
+    await pool.query("UPDATE executions SET status = 'failed' WHERE id = $1", [
+      parent.id,
+    ])
+    return {
+      text: "",
+      tokensInput: 7,
+      tokensOutput: 1,
+      toolCalls: [
+        {
+          id: "read-one",
+          name: "read",
+          arguments: {
+            connectionId: fixture.connectionId,
+            input: { resourceId: "one" },
+          },
+        },
+      ],
+    }
+  })
+  await runs.execute(child.id)
+  expect(reads).toEqual([])
+  expect(complete).toHaveBeenCalledTimes(1)
+  const stopped = await repositories.execution.getExecutionById(db, child.id)
+  expect(stopped).toMatchObject({ status: "cancelled", tokensInput: 7 })
+})
+
+it("stops the nested Agent as cancelled, not failed, when its call is refused because the Workflow Execution ended", async () => {
+  mockAgentReadsThroughConnection()
+  const parent = await startWorkflow(
+    fixture.agentId,
+    fixture.contractId,
+    fixture.externalSubjectId
+  )
+  await runs.execute(parent.id)
+  const child = await childOf(parent.id)
+  jest
+    .spyOn(ConnectorGatewayService.prototype, "execute")
+    .mockImplementationOnce(async () => {
+      await pool.query(
+        "UPDATE executions SET status = 'failed' WHERE id = $1",
+        [parent.id]
+      )
+      throw new Error("Action Intent execution claim was lost")
+    })
+  await runs.execute(child.id)
+  expect(await statusOf(child.id)).toBe("cancelled")
+  const { rows } = await pool.query(
+    "SELECT id FROM notifications WHERE workspace_id = $1 AND type = 'execution.failed'",
+    [fixture.workspaceId]
+  )
+  expect(rows).toEqual([])
+})

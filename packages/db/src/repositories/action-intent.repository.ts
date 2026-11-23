@@ -798,9 +798,7 @@ export async function claimApprovedActionIntent(
     const [execution] = await tx
       .select()
       .from(executions)
-      .where(
-        and(eq(executions.id, snapshot.executionId), activeExecutionParent())
-      )
+      .where(eq(executions.id, snapshot.executionId))
       .for("update")
     const [decision] = await tx
       .select()
@@ -839,6 +837,7 @@ export async function claimApprovedActionIntent(
       return { outcome: "not_ready", intent }
     }
     const authorityValid =
+      (await parentIsActive(tx, snapshot.executionId)) &&
       (await currentIntentAuthority(
         tx,
         intent,
@@ -922,6 +921,7 @@ export async function beginActionIntentDispatch(
       )
     if (!(await lockActiveActionIntentExecution(tx, input))) return undefined
     if (
+      !(await parentIsActive(tx, snapshot.executionId)) ||
       !(await currentIntentAuthority(
         tx,
         snapshot,
@@ -965,6 +965,18 @@ export async function beginActionIntentDispatch(
   })
 }
 
+async function parentIsActive(
+  tx: DbClient,
+  executionId: string
+): Promise<boolean> {
+  const [execution] = await tx
+    .select({ id: executions.id })
+    .from(executions)
+    .where(and(eq(executions.id, executionId), activeExecutionParent()))
+  return execution !== undefined
+}
+
+// Says nothing of the parent: a write already sent must report even after its Workflow ended.
 async function lockActiveActionIntentExecution(
   tx: DbClient,
   input: {
@@ -983,7 +995,6 @@ async function lockActiveActionIntentExecution(
         eq(actionIntents.status, "executing"),
         eq(actionIntents.executionClaimId, input.executionClaimId),
         eq(executions.status, "running"),
-        activeExecutionParent(),
         eq(executions.leasedBy, input.executionClaimId),
         gt(executions.leaseExpiresAt, input.now)
       )

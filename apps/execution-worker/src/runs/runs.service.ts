@@ -284,12 +284,11 @@ export class RunsService {
           }
         }
       } else {
-        const failed = await repositories.execution.completeExecution(
+        const failed = await repositories.failedExecution.failExecution(
           db,
           executionId,
           attemptId,
           {
-            status: "failed",
             error: {
               message: result.error,
               stepId: result.nodeId,
@@ -313,12 +312,11 @@ export class RunsService {
           costMicros: knownCostMicros,
           costUnpriced: knownCostUnpriced,
         }))
-      const failed = await repositories.execution.completeExecution(
+      const failed = await repositories.failedExecution.failExecution(
         db,
         executionId,
         attemptId,
         {
-          status: "failed",
           error: { message },
           costMicros: latestKnown.costMicros,
           costUnpriced: latestKnown.costUnpriced,
