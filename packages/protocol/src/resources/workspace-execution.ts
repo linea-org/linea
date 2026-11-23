@@ -88,12 +88,16 @@ export const workspaceExecutionStepSchema = z.object({
   isSystemEvent: z.boolean(),
 })
 
+const waitingNodeSchema = z.object({ nodeId: z.string(), type: z.string() })
+
 export const workspaceExecutionDetailSchema = z.object({
   execution: workspaceExecutionSchema,
   steps: z.array(workspaceExecutionStepSchema),
   nodeConfigs: z.record(z.string(), z.record(z.string(), z.unknown())),
   replayable: z.boolean(),
-  pausedAtNode: z.object({ nodeId: z.string(), type: z.string() }).optional(),
+  waitingNodes: z.array(waitingNodeSchema),
+  /** The first of `waitingNodes`. */
+  pausedAtNode: waitingNodeSchema.optional(),
 })
 
 export const workspaceExecutionPageSchema = z.object({

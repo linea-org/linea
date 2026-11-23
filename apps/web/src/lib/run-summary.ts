@@ -2,6 +2,7 @@ import type {
   ExecutionDetailResponse,
   ExecutionStepSummary,
   JsonValue,
+  WaitingNode,
 } from "@/lib/execution-detail-schema"
 
 export type RunSummary = {
@@ -69,6 +70,43 @@ function failureAdvice(message: string | undefined) {
   }
 }
 
+function summarizeWaiting(
+  nodes: WaitingNode[]
+): Pick<RunSummary, "outcome" | "attention" | "nextAction"> {
+  const timers = nodes.filter(({ type }) => type === "wait").length
+  const agents = nodes.filter(({ type }) => type === "agent").length
+  if (nodes.length === 0 || timers + agents < nodes.length)
+    return {
+      outcome: "Waiting for a decision.",
+      attention: "An action needs review before the run can continue.",
+      nextAction:
+        "Ask the assigned reviewer to decide. Viewing this run does not grant approval authority.",
+    }
+  if (agents === 0)
+    return {
+      outcome: timers === 1 ? "Waiting for a timer." : "Waiting for timers.",
+      attention: null,
+      nextAction:
+        timers === 1
+          ? "The run resumes by itself when the wait ends."
+          : "The run resumes by itself as each wait ends.",
+    }
+  if (timers > 0)
+    return {
+      outcome: "Waiting for Agents and timers.",
+      attention: null,
+      nextAction: "The run resumes by itself as each one finishes.",
+    }
+  return {
+    outcome: agents === 1 ? "Waiting for an Agent." : "Waiting for Agents.",
+    attention: null,
+    nextAction:
+      agents === 1
+        ? "The run resumes by itself when the Agent finishes. Open the Agent run below to follow it."
+        : "The run resumes by itself as each Agent finishes. Open the Agent runs below to follow them.",
+  }
+}
+
 export function summarizeRun(detail: ExecutionDetailResponse): RunSummary {
   const { execution, steps } = detail
   const request = execution.triggerPayload ?? null
@@ -85,28 +123,7 @@ export function summarizeRun(detail: ExecutionDetailResponse): RunSummary {
         nextAction: "This page updates while the run works.",
       }
     case "paused":
-      if (detail.pausedAtNode?.type === "wait")
-        return {
-          ...base,
-          outcome: "Waiting for a timer.",
-          attention: null,
-          nextAction: "The run resumes by itself when the wait ends.",
-        }
-      if (detail.pausedAtNode?.type === "agent")
-        return {
-          ...base,
-          outcome: "Waiting for an Agent.",
-          attention: null,
-          nextAction:
-            "The run resumes by itself when the Agent finishes. Open the Agent run below to follow it.",
-        }
-      return {
-        ...base,
-        outcome: "Waiting for a decision.",
-        attention: "An action needs review before the run can continue.",
-        nextAction:
-          "Ask the assigned reviewer to decide. Viewing this run does not grant approval authority.",
-      }
+      return { ...base, ...summarizeWaiting(detail.waitingNodes) }
     case "cancelled":
       return {
         ...base,

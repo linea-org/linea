@@ -35,6 +35,8 @@ import type { ReplayStepDto } from './dto/replay-step.dto'
 import type { TestRunDto } from './dto/test-run.dto'
 import type { TriggerExecutionDto } from './dto/trigger-execution.dto'
 
+type WaitingNode = { nodeId: string; type: string }
+
 @Injectable()
 export class ExecutionsService {
   constructor(private readonly stepReplayQueue: StepReplayQueueService) {}
@@ -309,10 +311,10 @@ export class ExecutionsService {
     steps: RedactedStep[]
     nodeConfigs: Record<string, Record<string, unknown>>
     replayable: boolean
-    // The node a paused execution is currently waiting on — undefined once resolved (it becomes a
-    // real checkpointed step instead) or if the execution isn't paused. Neither Approval nor Wait
-    // checkpoints before pausing, so there's no other way to know which node it stopped at.
-    pausedAtNode?: { nodeId: string; type: string }
+    // What a paused execution waits on. A waiting step has no checkpoint, so nothing else says so.
+    waitingNodes: WaitingNode[]
+    // The first of them, kept for clients that read one.
+    pausedAtNode?: WaitingNode
     nestedAgents: repositories.nestedAgentExecution.NestedAgentInvocation[]
   }> {
     const result = await repositories.execution.getExecutionWithSteps(db, id)
@@ -341,36 +343,16 @@ export class ExecutionsService {
       result.execution.origin === 'native' &&
       repositories.execution.terminalStatuses.includes(result.execution.status)
 
-    let pausedAtNode: { nodeId: string; type: string } | undefined
-    if (result.execution.status === 'paused') {
-      const [pendingApproval, pendingWaitTimer] = await Promise.all([
-        repositories.approvalRequest.getPendingApprovalRequestForExecution(
-          db,
-          id,
-        ),
-        repositories.waitTimer.getPendingWaitTimerForExecution(db, id),
-      ])
-      const nodeId = pendingApproval?.nodeId ?? pendingWaitTimer?.nodeId
-      if (nodeId && (nodeTypes[nodeId] || result.execution.agentId)) {
-        pausedAtNode = { nodeId, type: nodeTypes[nodeId] ?? 'connector' }
-      }
-    }
-
     const nestedAgents =
       await repositories.nestedAgentExecution.listNestedAgentInvocations(
         db,
         workspaceId,
         id,
       )
-    if (!pausedAtNode && result.execution.status === 'paused') {
-      const waitingOn = nestedAgents.find(
-        (invocation) =>
-          !repositories.execution.terminalStatuses.includes(invocation.status),
-      )
-      if (waitingOn) {
-        pausedAtNode = { nodeId: waitingOn.nodeId, type: 'agent' }
-      }
-    }
+    const waitingNodes =
+      result.execution.status === 'paused'
+        ? await this.waitingNodes(result.execution, nodeTypes, nestedAgents)
+        : []
     const secrets = await environmentSecrets(result.execution.environmentId)
     // Rows written before stacks moved to server logs may still carry one.
     const steps = result.steps.map((step) =>
@@ -389,9 +371,39 @@ export class ExecutionsService {
         ]),
       ),
       replayable,
-      pausedAtNode,
+      waitingNodes,
+      pausedAtNode: waitingNodes[0],
       nestedAgents,
     }
+  }
+
+  /** A decision first, then timers by when they end, then Agents. */
+  private async waitingNodes(
+    execution: Execution,
+    nodeTypes: Record<string, string>,
+    nestedAgents: repositories.nestedAgentExecution.NestedAgentInvocation[],
+  ): Promise<WaitingNode[]> {
+    const [approval, timers] = await Promise.all([
+      repositories.approvalRequest.getPendingApprovalRequestForExecution(
+        db,
+        execution.id,
+      ),
+      repositories.waitTimer.listPendingWaitTimers(db, execution.id),
+    ])
+    const paused = [...(approval ? [approval] : []), ...timers].flatMap(
+      ({ nodeId }) => {
+        const type =
+          nodeTypes[nodeId] ?? (execution.agentId ? 'connector' : undefined)
+        return type ? [{ nodeId, type }] : []
+      },
+    )
+    const agents = nestedAgents
+      .filter(
+        ({ status }) =>
+          !repositories.execution.terminalStatuses.includes(status),
+      )
+      .map(({ nodeId }) => ({ nodeId, type: 'agent' }))
+    return [...paused, ...agents]
   }
 
   async replayStep(

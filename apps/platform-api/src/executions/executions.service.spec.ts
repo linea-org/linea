@@ -251,6 +251,7 @@ describe('ExecutionsService', () => {
       })
       const paused = await service.get(organization.id, execution.id)
       expect(paused.pausedAtNode).toEqual({ nodeId: 'wait-1', type: 'wait' })
+      expect(paused.waitingNodes).toEqual([{ nodeId: 'wait-1', type: 'wait' }])
       // Resolved (fired) — no longer paused, so pausedAtNode should disappear. Forces only this
       // specific row due (not a database-wide pumped-forward "now", which would also claim any
       // concurrently running test's own not-yet-due timer and corrupt its state), then drains at
@@ -262,12 +263,142 @@ describe('ExecutionsService', () => {
       await drainDueWaitTimers()
       const resolved = await service.get(organization.id, execution.id)
       expect(resolved.pausedAtNode).toBeUndefined()
+      expect(resolved.waitingNodes).toEqual([])
     } finally {
       await moduleRef.close()
       await pool.query('DELETE FROM organizations WHERE id = $1', [
         organization.id,
       ])
     }
+  })
+  it('lists every step a paused execution waits on: the decision, timers by end, then unfinished Agents', async () => {
+    await withServiceAndOrganization(async (service, organization) => {
+      const applicationId = await getTestApplicationId(db, organization.id)
+      const workflow = await repositories.workflow.createWorkflow(db, {
+        applicationId,
+        workspaceId: organization.id,
+        name: 'Waiting Workflow',
+        slug: 'waiting-workflow',
+      })
+      const node = (
+        id: string,
+        type: WorkflowGraph['nodes'][number]['type'],
+      ) => ({ id, type, config: {} })
+      const version = await repositories.workflow.createWorkflowVersion(db, {
+        workflowId: workflow.id,
+        graph: {
+          version: 1,
+          trigger: { type: 'manual' },
+          entryNodeId: 'start',
+          nodes: [
+            node('start', 'start'),
+            node('done-agent', 'agent'),
+            node('agent', 'agent'),
+            node('late', 'wait'),
+            node('early', 'wait'),
+            node('fired', 'wait'),
+            node('decision', 'approval'),
+          ],
+          edges: [],
+        },
+        contentHash: 'waiting-test-hash',
+      })
+      const execution = await createTestExecution(db, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: 'manual',
+      })
+      const { environmentId } = execution
+      if (!environmentId) throw new Error('Fixture has no Environment')
+      const agent = await repositories.agent.createAgent(db, {
+        workspaceId: organization.id,
+        applicationId,
+        name: 'Waiting Agent',
+        slug: 'waiting-agent',
+      })
+      const contract =
+        await repositories.agentContract.createAgentContractRevision(
+          db,
+          organization.id,
+          agent!.id,
+          { inputSchema: { type: 'object' }, outputSchema: { type: 'string' } },
+        )
+      if (contract.outcome !== 'created') throw new Error(contract.outcome)
+      const agentVersion = await repositories.agent.createAgentVersion(
+        db,
+        organization.id,
+        agent!.id,
+        {
+          agentContractRevisionId: contract.revision.id,
+          definition: {
+            version: 1,
+            instructions: 'Wait',
+            model: 'gpt-5',
+            tools: [],
+            maxIterations: 1,
+          },
+        },
+      )
+      if (agentVersion.outcome !== 'created')
+        throw new Error(agentVersion.outcome)
+      for (const [nodeId, status] of [
+        ['agent', 'running'],
+        ['done-agent', 'succeeded'],
+      ] as const) {
+        await db.insert(schema.executions).values({
+          workspaceId: organization.id,
+          environmentId,
+          agentId: agent!.id,
+          agentVersionId: agentVersion.version.id,
+          agentContractRevisionId: contract.revision.id,
+          environment: execution.environment,
+          trigger: 'manual',
+          status,
+          parentExecutionId: execution.id,
+          parentNodeId: nodeId,
+        })
+      }
+      for (const [nodeId, minutes] of [
+        ['late', 20],
+        ['early', 10],
+        ['fired', 5],
+      ] as const) {
+        await repositories.waitTimer.createWaitTimer(db, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          nodeId,
+          resumeAt: new Date(Date.now() + minutes * 60_000),
+        })
+      }
+      await pool.query(
+        "UPDATE wait_timers SET fired = true, fired_at = now() WHERE execution_id = $1 AND node_id = 'fired'",
+        [execution.id],
+      )
+      await repositories.approvalRequest.createApprovalRequest(db, {
+        workspaceId: organization.id,
+        environmentId,
+        workflowId: workflow.id,
+        executionId: execution.id,
+        nodeId: 'decision',
+        audience: 'workspace',
+        display: { title: 'Continue?' },
+      })
+      const running = await service.get(organization.id, execution.id)
+      expect(running.waitingNodes).toEqual([])
+      await pool.query(
+        "UPDATE executions SET status = 'paused' WHERE id = $1",
+        [execution.id],
+      )
+      const paused = await service.get(organization.id, execution.id)
+      expect(paused.waitingNodes).toEqual([
+        { nodeId: 'decision', type: 'approval' },
+        { nodeId: 'early', type: 'wait' },
+        { nodeId: 'late', type: 'wait' },
+        { nodeId: 'agent', type: 'agent' },
+      ])
+      expect(paused.pausedAtNode).toEqual(paused.waitingNodes[0])
+    })
   })
   it('rejects triggering an archived workflow, even with a published version', async () => {
     const moduleRef = await Test.createTestingModule({

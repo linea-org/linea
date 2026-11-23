@@ -41,18 +41,17 @@ export async function getWaitTimer(
   return timer
 }
 
-/** For display only: one of the timers a paused Execution waits on. */
-export async function getPendingWaitTimerForExecution(
+export async function listPendingWaitTimers(
   db: DbClient,
   executionId: string
-): Promise<WaitTimer | undefined> {
-  const [timer] = await db
+): Promise<WaitTimer[]> {
+  return db
     .select()
     .from(waitTimers)
     .where(
       and(eq(waitTimers.executionId, executionId), eq(waitTimers.fired, false))
     )
-  return timer
+    .orderBy(waitTimers.resumeAt, waitTimers.id)
 }
 
 export type ClaimDueWaitTimerResult =

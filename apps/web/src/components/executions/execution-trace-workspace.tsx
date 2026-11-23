@@ -1,12 +1,7 @@
 import { useState } from "react"
-import {
-  Link,
-  useHydrated,
-  useLocation,
-  useNavigate,
-} from "@tanstack/react-router"
+import { useHydrated, useLocation, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
-import { Button, buttonVariants } from "@linealabs/ui/components/button"
+import { Button } from "@linealabs/ui/components/button"
 import { Input } from "@linealabs/ui/components/input"
 import {
   Select,
@@ -22,6 +17,7 @@ import { attachResumeMarkers } from "./execution-step-order"
 import { stepTitle } from "./execution-step-presentation"
 import { filterTraceSteps, pickSelectedStep } from "./filter-trace-steps"
 import { LocalDateTime } from "./local-date-time"
+import { WaitingSteps } from "./waiting-steps"
 
 const statusFilterSchema = z.enum([
   "all",
@@ -49,7 +45,7 @@ export function ExecutionTraceWorkspace({
   const hydrated = useHydrated()
   const hash = useLocation({ select: (location) => location.hash })
   const selectedId = hydrated && hash.startsWith("step-") ? hash.slice(5) : null
-  const { execution, steps, nodeConfigs, pausedAtNode } = detail
+  const { execution, steps, nodeConfigs } = detail
   const recorded = steps.filter((step) => !step.isSystemEvent)
   const query = search.trim().toLowerCase()
   const filtered = filterTraceSteps(recorded, status, query)
@@ -175,24 +171,12 @@ export function ExecutionTraceWorkspace({
           </>
         ) : null}
       </div>
-      {pausedAtNode && (
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <p>
-            Paused at {stepTitle(pausedAtNode.type)} ·{" "}
-            <span className="font-mono">{pausedAtNode.nodeId}</span>
-          </p>
-          {pausedAtNode.type === "approval" && (
-            <Link
-              to="/w/$slug/approvals"
-              params={{ slug }}
-              search={{ executionId: execution.id }}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              View approvals
-            </Link>
-          )}
-        </div>
-      )}
+      <WaitingSteps
+        slug={slug}
+        executionId={execution.id}
+        nodes={detail.waitingNodes}
+        nestedAgents={detail.nestedAgents}
+      />
       {orphanedResumeEvents.map((event) => (
         <p key={event.id} className="text-sm text-muted-foreground">
           Resumed <LocalDateTime value={event.startedAt} />
