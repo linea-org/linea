@@ -37,21 +37,27 @@ import {
   sendChatMessageFn,
   type ConversationSummary,
 } from "@/lib/chat-preview-api"
-import { executionQueryOptions, type JsonValue } from "@/lib/executions-api"
-import { runFailureFix } from "@/lib/run-failure"
+import {
+  executionQueryOptions,
+  type ExecutionDetailResponse,
+  type JsonValue,
+} from "@/lib/executions-api"
 
 import { ModelMarkdown } from "@/components/markdown/model-markdown"
 import { ChatPreviewHeader } from "./chat-preview-header"
+import { RunFailureNotice } from "./run-failure-notice"
 
 export function ChatPreviewPanel({
   slug,
   workflowId,
+  applicationId,
   graph,
   onClose,
   onExecutionStarted,
 }: {
   slug: string
   workflowId: string
+  applicationId: string | undefined
   graph: Record<string, JsonValue>
   onClose: () => void
   onExecutionStarted: (executionId: string) => void
@@ -61,10 +67,7 @@ export function ChatPreviewPanel({
   const [pendingExecutionId, setPendingExecutionId] = useState<string | null>(
     null
   )
-  const [finished, setFinished] = useState<{
-    id: string
-    failure: string | null
-  } | null>(null)
+  const [finished, setFinished] = useState<ExecutionDetailResponse | null>(null)
   const [input, setInput] = useState("")
   // "Test as" knob for memory-scoped nodes — editable only before a conversation's first message,
   // then locked (mirrors conversationId itself already being fixed for the conversation's lifetime).
@@ -85,14 +88,12 @@ export function ChatPreviewPanel({
   })
   useEffect(() => {
     const status = pendingExecution?.execution.status
-    if (pendingExecutionId && (status === "succeeded" || status === "failed")) {
-      setFinished({
-        id: pendingExecutionId,
-        failure:
-          status === "failed"
-            ? (pendingExecution?.execution.error?.message ?? "This run failed.")
-            : null,
-      })
+    if (
+      pendingExecution &&
+      pendingExecutionId &&
+      (status === "succeeded" || status === "failed")
+    ) {
+      setFinished(pendingExecution)
       void queryClient.invalidateQueries({
         queryKey: chatMessagesQueryOptions(slug, workflowId, conversationId)
           .queryKey,
@@ -156,8 +157,6 @@ export function ChatPreviewPanel({
     setExternalSubjectId("")
   }
   const isWaiting = pendingExecutionId !== null
-  const fix = finished?.failure ? runFailureFix(finished.failure) : null
-  const keyFix = fix?.to === "models" ? fix : null
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-card">
       <ChatPreviewHeader
@@ -215,28 +214,27 @@ export function ChatPreviewPanel({
                   <MarkerContent className="shimmer">Thinking…</MarkerContent>
                 </Marker>
               )}
-              {finished?.failure ? (
+              {finished?.execution.status === "failed" ? (
                 <Marker>
-                  <MarkerContent className="text-destructive">
-                    {finished.failure}
-                    {keyFix ? (
-                      <Link
-                        to="/w/$slug/settings/models"
-                        params={{ slug }}
-                        className="ml-2 font-medium underline underline-offset-4"
-                      >
-                        {keyFix.label}
-                      </Link>
-                    ) : null}
+                  <MarkerContent>
+                    <RunFailureNotice
+                      slug={slug}
+                      applicationId={applicationId}
+                      detail={finished}
+                      onKeySaved={() => {
+                        setFinished(null)
+                        setInput((draft) => draft || (send.variables ?? ""))
+                      }}
+                    />
                   </MarkerContent>
                 </Marker>
               ) : null}
-              {finished && !finished.failure ? (
+              {finished?.execution.status === "succeeded" ? (
                 <Marker>
                   <MarkerContent>
                     <Link
                       to="/w/$slug/executions/$executionId"
-                      params={{ slug, executionId: finished.id }}
+                      params={{ slug, executionId: finished.execution.id }}
                       className="font-medium underline underline-offset-4"
                     >
                       View trace

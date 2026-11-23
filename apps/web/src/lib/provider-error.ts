@@ -28,6 +28,9 @@ function sentenceFor(status: number, said: string | null): string {
 
 /** Turns a provider's `<status> <json body>` error into one sentence, keeping the raw body as details. */
 export function readableProviderError(message: string): ReadableFailure | null {
+  // A provider's SDK can also report a rejected key as plain text after the status.
+  if (/^401 [^{]*\bapi key\b/i.test(message))
+    return { summary: sentenceFor(401, null), details: message }
   const match = providerResponse.exec(message.trim())
   if (!match) return null
   let body: unknown

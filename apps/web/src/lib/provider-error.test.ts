@@ -30,4 +30,16 @@ describe("readableProviderError", () => {
     expect(readableProviderError("No OPENAI_API_KEY is set.")).toBeNull()
     expect(readableProviderError("401 not json")).toBeNull()
   })
+
+  it("reads a rejected key reported as plain text", () => {
+    expect(readableProviderError("401 Invalid API Key")).toEqual({
+      summary: "The model provider rejected the API key.",
+      details: "401 Invalid API Key",
+    })
+  })
+
+  it("leaves other plain text alone", () => {
+    expect(readableProviderError("404 pages were skipped")).toBeNull()
+    expect(readableProviderError("The run took 401 ms")).toBeNull()
+  })
 })

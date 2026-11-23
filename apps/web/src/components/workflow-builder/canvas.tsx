@@ -827,6 +827,7 @@ function WorkflowBuilderCanvasInner({
                         key={activeRunExecutionId}
                         slug={slug}
                         workflowId={workflowId}
+                        applicationId={workflow?.applicationId}
                         executionId={activeRunExecutionId}
                         onSelectExecution={setActiveRunExecutionId}
                       />
@@ -909,6 +910,7 @@ function WorkflowBuilderCanvasInner({
                 <ChatPreviewPanel
                   slug={slug}
                   workflowId={workflowId}
+                  applicationId={workflow?.applicationId}
                   graph={buildGraph(entryNodeId)}
                   onClose={() => setRightPanel(null)}
                   onExecutionStarted={rememberExecution}
