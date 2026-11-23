@@ -41,7 +41,7 @@ export async function getWaitTimer(
   return timer
 }
 
-export async function listPendingWaitTimers(
+export function listPendingWaitTimers(
   db: DbClient,
   executionId: string
 ): Promise<WaitTimer[]> {
