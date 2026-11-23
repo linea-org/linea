@@ -8,7 +8,9 @@ import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linealabs/db"
 import type { WorkflowGraph } from "@linealabs/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
+import { createInterpreter } from "../graph/interpreter.fixture"
 import type { InterpreterService } from "../graph/interpreter.service"
+import { ApprovalNode } from "../graph/nodes/approval.node"
 import { RunLeaseService } from "./run-lease.service"
 import { AgentExecutionService } from "./agent-execution.service"
 import { ConnectorGatewayService } from "../connectors/connector-gateway.service"
@@ -682,13 +684,13 @@ describe("RunsService fencing identity", () => {
       ])
     }
   })
-  it("loops back and continues immediately instead of pausing when the approval resolves before the pause is recorded", async () => {
+  it("continues without repeating finished steps when the approval resolves before the pause is recorded", async () => {
     const suffix = randomUUID()
     const [organization] = await db
       .insert(schema.organizations)
       .values({
-        name: "Runs Service Approval Race Test Org",
-        slug: `runs-approval-race-${suffix}`,
+        name: "Runs Service Approval Race Steps Test Org",
+        slug: `runs-approval-race-steps-${suffix}`,
         createdAt: new Date(),
       })
       .returning()
@@ -696,7 +698,7 @@ describe("RunsService fencing identity", () => {
       .insert(schema.users)
       .values({
         name: "Race Test Approver",
-        email: `anyone-${suffix}@test.dev`,
+        email: `race-steps-${suffix}@test.dev`,
       })
       .returning()
     try {
@@ -709,81 +711,64 @@ describe("RunsService fencing identity", () => {
       const graph: WorkflowGraph = {
         version: 1,
         trigger: { type: "manual" },
-        entryNodeId: "approval-1",
-        nodes: [{ id: "approval-1", type: "approval", config: {} }],
-        edges: [],
+        entryNodeId: "first",
+        nodes: [
+          { id: "first", type: "variables", config: { operation: "get" } },
+          { id: "approval-1", type: "approval", config: {} },
+        ],
+        edges: [{ from: "first", to: "approval-1" }],
       }
-      const { workflow, execution } = await seedExecution(
-        db,
-        organization.id,
-        graph
-      )
-      // Simulates a response racing ahead of the pause: the approval is already resolved before RunsService's own pausedAt handling runs.
-      const approval = await repositories.approvalRequest.createApprovalRequest(
-        db,
-        {
-          workspaceId: organization.id,
-          workflowId: workflow.id,
-          executionId: execution.id,
-          nodeId: "approval-1",
-          audience: "workspace",
-          display: { title: "Continue?" },
-        }
-      )
-      await repositories.approvalRequest.decideWorkspaceApprovalRequest(
-        db,
-        organization.id,
-        approval!.id,
-        {
-          outcome: "approved",
-          actorUserId: approver.id,
-          actorEmail: approver.email,
-        }
-      )
-      let callCount = 0
-      const racyInterpreter = {
-        run: () => {
-          callCount += 1
-          if (callCount === 1) {
-            return Promise.resolve({
-              pausedAt: "approval-1",
-              totalTokensInput: 0,
-              totalTokensOutput: 0,
-              totalCostMicros: 0n,
-              costUnpriced: false as const,
-            })
+      const { execution } = await seedExecution(db, organization.id, graph)
+      class DecidedBeforeThePause extends ApprovalNode {
+        async execute(...args: Parameters<ApprovalNode["execute"]>) {
+          try {
+            return await super.execute(...args)
+          } catch (error) {
+            const request =
+              await repositories.approvalRequest.getApprovalRequest(
+                db,
+                organization.id,
+                execution.id,
+                "approval-1"
+              )
+            if (request?.status === "pending") {
+              await repositories.approvalRequest.decideWorkspaceApprovalRequest(
+                db,
+                organization.id,
+                request.id,
+                {
+                  outcome: "approved",
+                  actorUserId: approver.id,
+                  actorEmail: approver.email,
+                }
+              )
+            }
+            throw error
           }
-          return Promise.resolve({
-            result: {
-              status: "completed" as const,
-              output: { text: "approved and done" },
-            },
-            totalTokensInput: 0,
-            totalTokensOutput: 0,
-            totalCostMicros: 0n,
-            costUnpriced: false as const,
-            completed: new Map(),
-          })
-        },
-      } as unknown as InterpreterService
+        }
+      }
+      const checkpoints = new CheckpointsService()
+      const interpreter = createInterpreter(checkpoints, {
+        approval: new DecidedBeforeThePause(),
+      })
       const runs = new RunsService(
-        new CheckpointsService(),
-        racyInterpreter,
+        checkpoints,
+        interpreter,
         new RunLeaseService(),
-        new AgentExecutionService(
-          new CheckpointsService(),
-          new ConnectorGatewayService()
-        )
+        new AgentExecutionService(checkpoints, new ConnectorGatewayService())
       )
       await runs.execute(execution.id)
-      // Proves the loop actually re-ran the interpreter instead of pausing on the first pausedAt result.
-      expect(callCount).toBe(2)
       const reloaded = await repositories.execution.getExecutionById(
         db,
         execution.id
       )
+      expect(reloaded?.error).toBeNull()
       expect(reloaded?.status).toBe("succeeded")
-      expect(reloaded?.output).toEqual({ text: "approved and done" })
+      const steps = await repositories.checkpoint.getStepsForExecution(
+        db,
+        execution.id
+      )
+      expect(steps.map((step) => step.nodeId)).toEqual(["first", "approval-1"])
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,

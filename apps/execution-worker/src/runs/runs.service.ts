@@ -148,26 +148,24 @@ export class RunsService {
       }
       const graph = workflowGraphSchema.parse(version.graph)
       validateGraphStructure(graph)
-      const resumeFrom = await this.checkpoints.getResumeState(executionId)
-      const resumeVariables =
-        await this.checkpoints.getResumeVariables(executionId)
-      if (resumeFrom.size > 0) {
-        await this.checkpoints.recordResumeEvent(
-          executionId,
-          execution.workspaceId,
-          attemptId
-        )
-      }
-      // A response/timer can resolve the pause before this loop marks the execution "paused"
-      // below, so claimPauseForPendingApproval/claimPauseForPendingWait re-check and pause
-      // atomically (locking the approval/timer row first) instead of racing a separate
-      // check-then-pause. If already resolved, loop back immediately — safe because neither an
-      // approval nor a wait node checkpoints before pausing, so re-running just re-enters it and
-      // this time returns its real output.
+      // A paused node can resolve before the pause is claimed; the next pass then starts from the
+      // latest checkpoint, so steps that finished don't run again and the paused one re-enters.
       const turn = chatTurn(execution)
       let outcome: RunOutcome
       let paused = false
-      for (;;) {
+      for (let pass = 1; ; pass += 1) {
+        const resumeFrom = await this.checkpoints.getResumeState(executionId)
+        const resumeVariables =
+          await this.checkpoints.getResumeVariables(executionId)
+        const resumeTotals =
+          await this.checkpoints.getResumeTokenTotals(executionId)
+        if (pass === 1 && resumeFrom.size > 0) {
+          await this.checkpoints.recordResumeEvent(
+            executionId,
+            execution.workspaceId,
+            attemptId
+          )
+        }
         outcome = await this.interpreter.run({
           executionId,
           workspaceId: execution.workspaceId,
@@ -182,10 +180,10 @@ export class RunsService {
           conversationId: turn?.conversationId,
           chatMessageId: turn?.chatMessageId,
           resumeFrom,
-          initialTokensInput: resumeTokens.tokensInput,
-          initialTokensOutput: resumeTokens.tokensOutput,
-          initialCostMicros: resumeTokens.costMicros,
-          initialCostUnpriced: resumeTokens.costUnpriced,
+          initialTokensInput: resumeTotals.tokensInput,
+          initialTokensOutput: resumeTotals.tokensOutput,
+          initialCostMicros: resumeTotals.costMicros,
+          initialCostUnpriced: resumeTotals.costUnpriced,
           initialVariables: resumeVariables,
           signal: abortController.signal,
         })
