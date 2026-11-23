@@ -5,7 +5,6 @@ import {
   type NewWaitTimer,
   type WaitTimer,
 } from "../schema/index.js"
-import { pauseExecution } from "./execution.repository.js"
 import { createWorkflowExecutionMessage } from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
 
@@ -42,7 +41,7 @@ export async function getWaitTimer(
   return timer
 }
 
-/** For display only (e.g. "what is this paused execution waiting on") — at most one unfired timer can exist per execution at a time, since a node is only ever visited once and the walker doesn't advance past it until it resolves. */
+/** For display only: one of the timers a paused Execution waits on. */
 export async function getPendingWaitTimerForExecution(
   db: DbClient,
   executionId: string
@@ -54,50 +53,6 @@ export async function getPendingWaitTimerForExecution(
       and(eq(waitTimers.executionId, executionId), eq(waitTimers.fired, false))
     )
   return timer
-}
-
-export type ClaimPauseResult =
-  | { outcome: "paused" }
-  | { outcome: "already-resolved" }
-  // pauseExecution's own guard (leasedBy match, unexpired lease) didn't hold.
-  | { outcome: "lease-lost" }
-
-/** Re-checks the timer a node just paused on and, only if still unfired, marks the execution
- * paused in the same transaction — closing the window where the poller could fire it while the
- * execution is still "running", leaving nothing to flip it back. The timer row is locked via
- * FOR UPDATE first, so claimAndResolveDueWaitTimer's UPDATE on the same row blocks behind this
- * transaction instead of racing past it. Mirrors approval.repository's claimPauseForPendingApproval. */
-export async function claimPauseForPendingWait(
-  db: DbClient,
-  workspaceId: string,
-  executionId: string,
-  nodeId: string,
-  leasedBy: string
-): Promise<ClaimPauseResult> {
-  return db.transaction(async (tx) => {
-    const [timer] = await tx
-      .select()
-      .from(waitTimers)
-      .where(
-        and(
-          eq(waitTimers.workspaceId, workspaceId),
-          eq(waitTimers.executionId, executionId),
-          eq(waitTimers.nodeId, nodeId)
-        )
-      )
-      .for("update")
-
-    if (!timer || timer.fired) {
-      return { outcome: "already-resolved" }
-    }
-
-    const paused = await pauseExecution(tx, executionId, leasedBy)
-    if (!paused) {
-      // The lease expired between the node pausing and this transaction running — must not be reported as "paused" on a dead lease.
-      return { outcome: "lease-lost" }
-    }
-    return { outcome: "paused" }
-  })
 }
 
 export type ClaimDueWaitTimerResult =

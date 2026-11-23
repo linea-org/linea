@@ -109,13 +109,14 @@ export type RunInput = {
   maxParallelSteps?: number
   // Set when the Agents this run starts share its token budget.
   agentTokens?: () => Promise<number>
+  consentHeldBy?: string
 }
 
 export type RunOutcome = {
-  // Absent (undefined) `result` only when `pausedAt` is set — the walk was abandoned mid-node, not completed or failed.
+  // Absent only when `pausedAt` is set: the walk stopped with steps waiting, not completed or failed.
   result?: WalkResult
-  // Set when a node handler threw PauseExecutionError — the run stopped short pending external input, distinct from completing or failing.
-  pausedAt?: string
+  // The steps waiting on something outside the run, when nothing else is left to do.
+  pausedAt?: string[]
   totalTokensInput: number
   totalTokensOutput: number
   totalCostMicros: bigint
@@ -145,7 +146,6 @@ type RunState = {
   agentTokens: number
   // Set before the failure is saved, so nothing starts while it waits behind other writes.
   failed: boolean
-  pausedAt?: string
 }
 
 function startRunState(input: RunInput): RunState {
@@ -402,16 +402,17 @@ export class InterpreterService {
 
   async run(input: RunInput): Promise<RunOutcome> {
     const state = startRunState(input)
-    await runReadySteps(
-      state.walk,
-      input.maxParallelSteps ?? 1,
-      (step) => this.runStep(input, state, step),
-      () => state.pausedAt !== undefined || state.failed
-    )
+    const parked = await runReadySteps({
+      walk: state.walk,
+      limit: input.maxParallelSteps ?? 1,
+      runStep: (step) => this.runStep(input, state, step),
+      isStopped: () => state.failed,
+      consentHeldBy: input.consentHeldBy,
+    })
     return {
-      ...(state.pausedAt === undefined
+      ...(state.failed || parked.length === 0
         ? { result: state.walk.result() }
-        : { pausedAt: state.pausedAt }),
+        : { pausedAt: parked }),
       totalTokensInput: state.tokensInput,
       totalTokensOutput: state.tokensOutput,
       totalCostMicros: state.costMicros,
@@ -424,7 +425,7 @@ export class InterpreterService {
     input: RunInput,
     state: RunState,
     step: StepToExecute
-  ): Promise<void> {
+  ): Promise<"finished" | "parked"> {
     const node = input.graph.nodes.find((n) => n.id === step.nodeId)
     if (!node) {
       throw new Error(`Node "${step.nodeId}" not found in graph`)
@@ -446,7 +447,9 @@ export class InterpreterService {
     } finally {
       state.runningTokens.delete(step.nodeId)
     }
-    if (result) state.walk.finish(result)
+    if (!result) return "parked"
+    state.walk.finish(result)
+    return "finished"
   }
 
   private async completeStep(
@@ -501,10 +504,7 @@ export class InterpreterService {
       throw new LeaseLostError(input.executionId)
     }
     // No checkpoint write here: the latest one is already what a later resume should start from.
-    if (error instanceof PauseExecutionError) {
-      state.pausedAt = error.nodeId
-      return undefined
-    }
+    if (error instanceof PauseExecutionError) return undefined
     const message = error instanceof Error ? error.message : String(error)
     // Stacks stay in server logs; step records are returned to workspace members and API keys.
     this.logger.error(

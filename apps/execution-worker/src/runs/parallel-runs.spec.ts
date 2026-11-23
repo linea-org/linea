@@ -41,7 +41,9 @@ async function withRun(
     stepIds: () => Promise<(string | null)[]>
     status: () => Promise<string | undefined>
     branchesStarted: () => number
-  }) => Promise<void>
+    fireTimer: (nodeId: string) => Promise<void>
+  }) => Promise<void>,
+  workflow: WorkflowGraph = graph
 ): Promise<void> {
   const suffix = randomUUID()
   const [organization] = await db
@@ -63,7 +65,7 @@ async function withRun(
       role: "member",
       createdAt: new Date(),
     })
-    const { execution } = await seedExecution(db, organization.id, graph)
+    const { execution } = await seedExecution(db, organization.id, workflow)
     let arrived = 0
     let meet = () => {}
     const everyone = new Promise<void>((resolve) => (meet = resolve))
@@ -112,6 +114,16 @@ async function withRun(
         (await repositories.execution.getExecutionById(db, execution.id))
           ?.status,
       branchesStarted: () => arrived,
+      fireTimer: async (nodeId) => {
+        await pool.query(
+          "UPDATE wait_timers SET resume_at = now() - interval '1 second' WHERE execution_id = $1 AND node_id = $2",
+          [execution.id, nodeId]
+        )
+        while (
+          (await repositories.waitTimer.claimAndResolveDueWaitTimer(db))
+            .outcome === "fired"
+        );
+      },
     })
   } finally {
     await pool.query("DELETE FROM organizations WHERE id = $1", [
@@ -151,4 +163,56 @@ describe("runs with parallel branches", () => {
       expect(await run.stepIds()).toEqual(["start"])
       expect(await run.approvePending()).toBe("first-approval")
     }))
+
+  it("waits on timers and one decision together, and asks for the second only after the first, across resumes", () => {
+    const wait = (id: string) => ({
+      id,
+      type: "wait" as const,
+      config: { mode: "duration", amount: "1", unit: "hours" },
+    })
+    // Resuming scans nodes in this order, so without holding the decision "second" would be asked
+    // for while "first" is still pending.
+    const waiting: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "start",
+      nodes: [
+        { id: "start", type: "start", config: {} },
+        { id: "second", type: "approval", config: {} },
+        { id: "first", type: "approval", config: {} },
+        wait("early"),
+        wait("late"),
+        { id: "after-early", type: "end", config: {} },
+      ],
+      edges: [
+        { from: "start", to: "first" },
+        { from: "start", to: "second" },
+        { from: "start", to: "early" },
+        { from: "start", to: "late" },
+        { from: "early", to: "after-early" },
+      ],
+    }
+    return withRun(async (run) => {
+      flag.mockResolvedValue(true)
+      await run.execute()
+      expect(await run.status()).toBe("paused")
+      await run.fireTimer("early")
+      expect(await run.status()).toBe("queued")
+      await run.execute()
+      expect(await run.status()).toBe("paused")
+      expect(await run.stepIds()).toEqual(["start", "early", "after-early"])
+      expect(await run.approvePending()).toBe("first")
+      await run.execute()
+      expect(await run.status()).toBe("paused")
+      expect(await run.approvePending()).toBe("second")
+      await run.execute()
+      expect(await run.status()).toBe("paused")
+      await run.fireTimer("late")
+      await run.execute()
+      expect(await run.status()).toBe("succeeded")
+      expect([...(await run.stepIds())].sort()).toEqual(
+        waiting.nodes.map(({ id }) => id).sort()
+      )
+    }, waiting)
+  })
 })

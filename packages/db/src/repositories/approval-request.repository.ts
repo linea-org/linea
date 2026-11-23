@@ -12,8 +12,9 @@ import {
   inArray,
   isNotNull,
   isNull,
-  lte,
   lt,
+  lte,
+  notInArray,
   or,
   sql,
 } from "drizzle-orm"
@@ -35,7 +36,6 @@ import {
   type Execution,
   type NewApprovalRequest,
 } from "../schema/index.js"
-import { pauseExecution } from "./execution.repository.js"
 import {
   createPublicEvent,
   createWorkflowExecutionMessage,
@@ -319,6 +319,29 @@ export async function getWorkspaceApprovalRequest(
       )
     )
   return view
+}
+
+/** The unfinished step holding the one decision an Execution may ask for at a time, if any. */
+export async function findConsentHolder(
+  db: DbClient,
+  executionId: string,
+  finishedNodeIds: string[]
+): Promise<string | undefined> {
+  const requests = await db
+    .select({
+      nodeId: approvalRequests.nodeId,
+      status: approvalRequests.status,
+    })
+    .from(approvalRequests)
+    .where(
+      and(
+        eq(approvalRequests.executionId, executionId),
+        notInArray(approvalRequests.nodeId, finishedNodeIds)
+      )
+    )
+    .orderBy(approvalRequests.id)
+  const pending = requests.find(({ status }) => status === "pending")
+  return (pending ?? requests[0])?.nodeId
 }
 
 export async function getPendingApprovalRequestForExecution(
@@ -984,39 +1007,6 @@ export async function cancelExecutionWithPendingApproval(
     )
   }
   return execution
-}
-
-export type ClaimPauseResult =
-  | { outcome: "paused" }
-  | { outcome: "already-decided" }
-  | { outcome: "lease-lost" }
-
-export async function claimPauseForPendingApprovalRequest(
-  db: DbClient,
-  workspaceId: string,
-  executionId: string,
-  nodeId: string,
-  leasedBy: string
-): Promise<ClaimPauseResult> {
-  return db.transaction(async (tx) => {
-    const [request] = await tx
-      .select()
-      .from(approvalRequests)
-      .where(
-        and(
-          eq(approvalRequests.workspaceId, workspaceId),
-          eq(approvalRequests.executionId, executionId),
-          eq(approvalRequests.nodeId, nodeId)
-        )
-      )
-      .for("update")
-    if (!request || request.status !== "pending") {
-      return { outcome: "already-decided" }
-    }
-    const paused = await pauseExecution(tx, executionId, leasedBy)
-    if (!paused) return { outcome: "lease-lost" }
-    return { outcome: "paused" }
-  })
 }
 
 export type ClaimTimedOutApprovalRequestResult =

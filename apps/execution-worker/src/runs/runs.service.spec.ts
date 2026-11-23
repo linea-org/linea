@@ -815,7 +815,7 @@ describe("RunsService fencing identity", () => {
             ["someone-else", new Date(Date.now() + 60_000), execution.id]
           )
           return {
-            pausedAt: "approval-1",
+            pausedAt: ["approval-1"],
             totalTokensInput: 0,
             totalTokensOutput: 0,
             totalCostMicros: 0n,
@@ -880,7 +880,7 @@ describe("RunsService fencing identity", () => {
           callCount += 1
           if (callCount === 1) {
             return Promise.resolve({
-              pausedAt: "wait-1",
+              pausedAt: ["wait-1"],
               totalTokensInput: 0,
               totalTokensOutput: 0,
               totalCostMicros: 0n,
@@ -947,13 +947,13 @@ describe("RunsService fencing identity", () => {
       })
       const leaseStealingInterpreter = {
         run: async () => {
-          // Simulates the lease being reclaimed in the gap between the pause and claimPauseForPendingWait running, so its guarded UPDATE can't match.
+          // Simulates the lease being reclaimed in the gap between the pause and claimPause running, so its guarded UPDATE can't match.
           await pool.query(
             "UPDATE executions SET leased_by = $1, lease_expires_at = $2 WHERE id = $3",
             ["someone-else", new Date(Date.now() + 60_000), execution.id]
           )
           return {
-            pausedAt: "wait-1",
+            pausedAt: ["wait-1"],
             totalTokensInput: 0,
             totalTokensOutput: 0,
             totalCostMicros: 0n,
