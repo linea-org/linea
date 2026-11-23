@@ -4,6 +4,7 @@ import {
   approvalRequests,
   auditLogs,
   executions,
+  executionSteps,
   type Execution,
 } from "../schema/index.js"
 import {
@@ -11,7 +12,6 @@ import {
   recordApprovalCancellation,
 } from "./action-intent-cancellation.repository.js"
 import { lockExecutionTree } from "./approval-request.repository.js"
-import { getStepsForExecution } from "./checkpoint.repository.js"
 import {
   completeExecution,
   terminalStatuses,
@@ -119,8 +119,16 @@ async function cancelOpenWork(
       )
     )
   if (agents.length === 0) return
+  const steps = await tx
+    .select()
+    .from(executionSteps)
+    .where(
+      inArray(
+        executionSteps.executionId,
+        agents.map(({ id }) => id)
+      )
+    )
   for (const { id } of agents) {
-    const steps = await getStepsForExecution(tx, id)
     await tx
       .update(executions)
       .set({
@@ -128,7 +136,7 @@ async function cancelOpenWork(
         completedAt: cancelledAt,
         leasedBy: null,
         leaseExpiresAt: null,
-        ...sumStepTotals(steps),
+        ...sumStepTotals(steps.filter((step) => step.executionId === id)),
       })
       .where(eq(executions.id, id))
   }
