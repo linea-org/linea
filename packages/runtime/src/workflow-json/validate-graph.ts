@@ -1,3 +1,7 @@
+import {
+  MAX_MERGE_INPUTS,
+  MIN_MERGE_INPUTS,
+} from "../nodes/definitions/merge.node.js"
 import { nodeRegistry } from "../nodes/node-registry.js"
 import { retryPolicySchema } from "../nodes/retry-policy.js"
 import type { WorkflowGraph } from "./schema.js"
@@ -54,10 +58,15 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
       }
     } else {
       // Only a merge node fans in — every other node still takes exactly one predecessor.
-      const expected = node.type === "merge" ? 2 : 1
-      if (count !== expected) {
+      if (node.type === "merge") {
+        if (count < MIN_MERGE_INPUTS || count > MAX_MERGE_INPUTS) {
+          throw new WorkflowGraphError(
+            `Merge node "${node.id}" must have ${MIN_MERGE_INPUTS} to ${MAX_MERGE_INPUTS} incoming edges, has ${count}`
+          )
+        }
+      } else if (count !== 1) {
         throw new WorkflowGraphError(
-          `Node "${node.id}" must have exactly ${expected} incoming edge${expected === 1 ? "" : "s"}, has ${count}`
+          `Node "${node.id}" must have exactly 1 incoming edge, has ${count}`
         )
       }
       // Two edges from the same source isn't two real inputs — the walker would resolve the
@@ -68,7 +77,7 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
           .map((edge) => edge.from)
         if (new Set(sources).size !== sources.length) {
           throw new WorkflowGraphError(
-            `Merge node "${node.id}" has two incoming edges from the same source "${sources[0]}"`
+            `Merge node "${node.id}" has more than one incoming edge from the same source "${sources.find((source, index) => sources.indexOf(source) !== index)}"`
           )
         }
       }
@@ -195,7 +204,7 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
     }
   }
 
-  // A merge whose two predecessors trace back through opposite arms of the same branch can never
+  // A merge with predecessors that trace back through opposite arms of the same branch can never
   // fire — the walker only activates a branch's taken edge, so the untaken arm's node never
   // completes and the merge waits forever, silently skipping it and everything downstream while
   // still reporting the execution as succeeded. Detectable here because every node but merge has
@@ -225,7 +234,7 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
       const existing = combined.get(branchId)
       if (existing !== undefined && existing !== condition) {
         throw new WorkflowGraphError(
-          `Merge node "${mergeNodeId}" combines two inputs that can never both occur in the same execution — one requires branch "${branchId}" to take "${existing}", the other requires "${condition}"`
+          `Merge node "${mergeNodeId}" combines inputs that can never all occur in the same execution — one requires branch "${branchId}" to take "${existing}", the other requires "${condition}"`
         )
       }
       combined.set(branchId, condition)
@@ -239,16 +248,12 @@ export function validateGraphStructure(graph: WorkflowGraph): void {
     if (nodeId === graph.entryNodeId) {
       result = new Map()
     } else {
-      const incoming = graph.edges.filter((edge) => edge.to === nodeId)
-      const [first, second] = incoming
-      result =
-        second === undefined
-          ? withEdge(requiredChoices(first.from), first)
-          : combineChoices(
-              withEdge(requiredChoices(first.from), first),
-              withEdge(requiredChoices(second.from), second),
-              nodeId
-            )
+      result = graph.edges
+        .filter((edge) => edge.to === nodeId)
+        .map((edge) => withEdge(requiredChoices(edge.from), edge))
+        .reduce((combined, choices) =>
+          combineChoices(combined, choices, nodeId)
+        )
     }
     choicesCache.set(nodeId, result)
     return result

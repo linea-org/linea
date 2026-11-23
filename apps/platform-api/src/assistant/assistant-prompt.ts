@@ -1,4 +1,8 @@
-import { nodeRegistry } from '@linealabs/runtime'
+import {
+  MAX_MERGE_INPUTS,
+  MIN_MERGE_INPUTS,
+  nodeRegistry,
+} from '@linealabs/runtime'
 import { ASSISTANT_NODE_TYPES, type AssistantNodeType } from './assistant-nodes'
 import type { AssistantToolScope } from './assistant-tool-contract'
 
@@ -10,7 +14,7 @@ const RULES = `Graph format:
 Workflow rules. The platform rejects any graph that breaks them:
 - Exactly one entry node of type "start", with no incoming edges. entryNodeId is its id.
 - Node ids use lowercase letters, digits and hyphens, and are unique.
-- Every other node has exactly one incoming edge, except "merge", which has exactly two from different nodes.
+- Every other node has exactly one incoming edge, except "merge", which has ${MIN_MERGE_INPUTS} to ${MAX_MERGE_INPUTS} from different nodes.
 - No cycles, and every node is reachable from the start node.
 - "end" nodes have no outgoing edges.
 - Only a "branch" node's outgoing edges carry a "condition". Each one has a different condition, and each condition is a key in that branch's config.cases or its config.defaultBranch.
