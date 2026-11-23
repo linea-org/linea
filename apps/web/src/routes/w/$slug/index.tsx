@@ -50,6 +50,26 @@ function WorkspaceHomePage() {
     ...workflowsQueryOptions(slug),
     initialData: initialData.workflows,
   })
+  const isEmpty = workflows.length === 0
+  // Keyed, so an open dialog or pending create survives the reorder.
+  const starter = (
+    <StartStarterWorkflowButton key="starter" slug={slug} primary={isEmpty} />
+  )
+  const addAgent = (
+    <AddAgentDialog
+      key="add-agent"
+      workspaceSlug={slug}
+      trigger={
+        <Button
+          variant={isEmpty ? "outline" : "default"}
+          {...shortcutTarget("add-agent")}
+        >
+          Add Agent
+          <ShortcutKeys id="add-agent" onPrimary={!isEmpty} />
+        </Button>
+      }
+    />
+  )
   return (
     <main className="flex flex-1 flex-col gap-4 px-4 pb-4">
       <div className="flex flex-col">
@@ -58,16 +78,7 @@ function WorkspaceHomePage() {
             Add an Agent to your product
           </h1>
           <div className={cn("flex items-center gap-2", COMPACT_CONTROLS)}>
-            <StartStarterWorkflowButton slug={slug} />
-            <AddAgentDialog
-              workspaceSlug={slug}
-              trigger={
-                <Button {...shortcutTarget("add-agent")}>
-                  Add Agent
-                  <ShortcutKeys id="add-agent" onPrimary />
-                </Button>
-              }
-            />
+            {isEmpty ? [addAgent, starter] : [starter, addAgent]}
           </div>
         </header>
         <HomeStats
