@@ -166,11 +166,7 @@ export class EvaluatorNode implements NodeHandler {
           let steps =
             metric.evaluationSteps ?? metricProgress.steps ?? cachedSteps?.steps
           if (!steps) {
-            assertWithinExecutionBudget(
-              context.priorExecutionTokens,
-              tokensInput,
-              tokensOutput
-            )
+            assertWithinExecutionBudget(context, tokensInput, tokensOutput)
             const generated = await generateEvaluationSteps(
               resolvedJudge.provider,
               resolvedJudge.apiKey,
@@ -196,11 +192,7 @@ export class EvaluatorNode implements NodeHandler {
             progress.metrics[metric.id] = metricProgress
             await saveProgress()
           }
-          assertWithinExecutionBudget(
-            context.priorExecutionTokens,
-            tokensInput,
-            tokensOutput
-          )
+          assertWithinExecutionBudget(context, tokensInput, tokensOutput)
           const judged = await scoreEvaluationSample(
             resolvedJudge.provider,
             resolvedJudge.apiKey,

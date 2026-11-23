@@ -304,7 +304,7 @@ describe("EvaluatorNode", () => {
           ],
         },
         { answer: "The cat." },
-        { workspaceId: "ws-1", priorExecutionTokens: 999_970 }
+        { workspaceId: "ws-1", countTokens: (used) => 999_970 + used }
       )
     ).rejects.toMatchObject({
       name: "UsageError",

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { Injectable, Logger } from "@nestjs/common"
 import { db, repositories, type Execution } from "@linealabs/db"
+import { isFlagEnabled } from "@linealabs/flags"
 import {
   validateGraphStructure,
   workflowGraphSchema,
@@ -14,6 +15,7 @@ import {
   InterpreterService,
   type RunOutcome,
 } from "../graph/interpreter.service"
+import { MAX_PARALLEL_STEPS } from "../graph/run-ready-steps"
 import { AgentExecutionService } from "./agent-execution.service"
 import { RunLeaseService } from "./run-lease.service"
 
@@ -155,6 +157,12 @@ export class RunsService {
       // steps the pass finished must not run again, and the paused node, which has no checkpoint, is
       // re-entered and this time returns its real output.
       const turn = chatTurn(execution)
+      const maxParallelSteps = (await isFlagEnabled(
+        "parallelBranches",
+        execution.workspaceId
+      ))
+        ? MAX_PARALLEL_STEPS
+        : 1
       let outcome: RunOutcome
       let paused = false
       for (let pass = 1; ; pass += 1) {
@@ -189,6 +197,7 @@ export class RunsService {
           initialCostMicros: resumeTotals.costMicros,
           initialCostUnpriced: resumeTotals.costUnpriced,
           initialVariables: resumeVariables,
+          maxParallelSteps,
           signal: abortController.signal,
         })
         if (!outcome.pausedAt) break

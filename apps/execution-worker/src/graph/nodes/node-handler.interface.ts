@@ -34,7 +34,8 @@ export type NodeExecutionContext = {
    * from this (returned as its output, then adopted by the interpreter); other handlers get it
    * read-only for their own internal use, not as something they write back into. */
   variables?: Record<string, unknown>
-  priorExecutionTokens?: number
+  /** Reports the tokens this step has used so far and returns what the whole Execution has used, including steps running beside it. */
+  countTokens?: (stepTokens: number) => number
 }
 
 export interface NodeHandler {

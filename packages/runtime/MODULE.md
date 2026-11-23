@@ -6,7 +6,7 @@ that actually runs it.
 
 ## Non-obvious invariants
 
-- **Resuming a walk is calling `walk()` again with a populated `completed`
+- **Resuming a walk is calling `startWalk()` again with a populated `completed`
   map.** There is no separate resume mode, no branch in the code path — the
   same function produces the same remaining step sequence whether it's
   running fresh or picking up after a crash. This is the property
@@ -30,10 +30,13 @@ that actually runs it.
   don't skip it and rely on the walker's own runtime errors to catch a bad
   graph, since those are less specific and fire mid-walk.
 
+- **The walker offers every ready step and never limits how many run.** The
+  execution-worker decides that (ADR 0028).
+
 ## Public surface
 
 `workflowGraphSchema`, `hashWorkflowGraph`, `validateGraphStructure`,
-`nodeRegistry`, `walk()`. Everything else is an implementation detail.
+`nodeRegistry`, `startWalk()`. Everything else is an implementation detail.
 
 ## Deliberately not here
 

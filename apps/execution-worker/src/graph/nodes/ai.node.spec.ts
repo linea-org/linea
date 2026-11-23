@@ -1482,7 +1482,7 @@ describe("AiNode", () => {
             ],
           },
           undefined,
-          { ...context, priorExecutionTokens: 950_000 }
+          { ...context, countTokens: (used) => 950_000 + used }
         )
       ).rejects.toMatchObject({
         name: "UsageError",
@@ -1498,7 +1498,7 @@ describe("AiNode", () => {
         new AiNode().execute(
           { prompt: "hello", model: "claude-sonnet-5" },
           undefined,
-          { ...context, priorExecutionTokens: 1_000_000 }
+          { ...context, countTokens: (used) => 1_000_000 + used }
         )
       ).rejects.toMatchObject({ name: "UsageError" })
       expect(complete).not.toHaveBeenCalled()
