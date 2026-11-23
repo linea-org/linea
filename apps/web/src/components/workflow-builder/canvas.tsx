@@ -85,6 +85,7 @@ import { WorkflowTitle } from "./workflow-title"
 import { NodeConfigPanel } from "./node-config-panel"
 import { NodeShell } from "./node-shell"
 import { RunPanel, RunPanelTrigger } from "./run-panel"
+import { useOpenFirstTrace } from "./use-open-first-trace"
 import { useUndoHistory } from "./use-undo-history"
 import {
   useWorkflowRealtime,
@@ -345,10 +346,13 @@ function WorkflowBuilderCanvasInner({
   const [activeRunExecutionId, setActiveRunExecutionId] = useState<
     string | null
   >(null)
+  const [startedRunId, setStartedRunId] = useState<string | null>(null)
+  useOpenFirstTrace(slug, startedRunId, dirtyRef)
   const [runPanelOpen, setRunPanelOpen] = useState(false)
   const hasRun = (activeRunExecutionId ?? latestExecutionId) !== null
   function rememberExecution(executionId: string) {
     setActiveRunExecutionId(executionId)
+    setStartedRunId(executionId)
     void queryClient.invalidateQueries({
       queryKey: executionsQueryOptions(slug, workflowId).queryKey,
     })

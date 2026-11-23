@@ -68,15 +68,29 @@ test("a new account signs up, fixes a rejected key in the builder and reaches a 
 
   await expect(composer).toHaveValue("Say hello")
   await send.click()
-  await expect(page.getByText(MODEL_REPLY)).toBeVisible({ timeout: 30_000 })
-  await page.getByRole("link", { name: "View trace", exact: true }).click()
 
-  await expect(page).toHaveURL(/\/executions\/[a-f0-9-]+$/)
+  await expect(page).toHaveURL(/\/executions\/[a-f0-9-]+$/, {
+    timeout: 30_000,
+  })
   await expect(page.getByText("Succeeded", { exact: true })).toBeVisible()
   const trace = page.getByRole("region", {
     name: "Execution trace",
     exact: true,
   })
   await expect(trace.getByRole("heading", { name: /3 steps/ })).toBeVisible()
+  const aiStep = trace.getByRole("button", { name: /^Generate text/ })
+  await expect(aiStep).toHaveAccessibleDescription(
+    new RegExp(`Received Say hello.*Returned ${MODEL_REPLY}`)
+  )
+
+  await page.goto(builder)
+  await page.waitForLoadState("networkidle")
+  await composer.fill("And again")
+  await send.click()
+  await expect(
+    page.getByRole("link", { name: "View trace", exact: true })
+  ).toBeVisible({ timeout: 30_000 })
+  await page.waitForLoadState("networkidle")
+  expect(page.url()).toBe(builder)
   expect(pageErrors).toEqual([])
 })
