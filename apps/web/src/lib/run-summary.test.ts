@@ -29,6 +29,7 @@ function detail(
     steps: [],
     nodeConfigs: {},
     replayable: false,
+    waitingNodes: [],
     nestedAgents: [],
     traceContentRestricted: false,
   }
@@ -89,7 +90,7 @@ describe("summarizeRun", () => {
   it("treats a timed wait as automatic", () => {
     const summary = summarizeRun({
       ...detail({ status: "paused" }),
-      pausedAtNode: { nodeId: "w", type: "wait" },
+      waitingNodes: [{ nodeId: "w", type: "wait" }],
     })
     expect(summary.attention).toBeNull()
     expect(summary.nextAction).toMatch(/resumes by itself/)
@@ -98,12 +99,45 @@ describe("summarizeRun", () => {
   it("says a run waiting on its Agent needs no reviewer", () => {
     const summary = summarizeRun({
       ...detail({ status: "paused" }),
-      pausedAtNode: { nodeId: "a", type: "agent" },
+      waitingNodes: [{ nodeId: "a", type: "agent" }],
     })
     expect(summary.outcome).toBe("Waiting for an Agent.")
     expect(summary.attention).toBeNull()
     expect(summary.nextAction).toMatch(/resumes by itself/)
   })
+
+  it.each([
+    [["agent", "agent"], "Waiting for Agents."],
+    [["wait", "wait"], "Waiting for timers."],
+    [["wait", "agent"], "Waiting for Agents and timers."],
+  ])(
+    "sums up a run waiting on %j without asking for review",
+    (types, outcome) => {
+      const summary = summarizeRun({
+        ...detail({ status: "paused" }),
+        waitingNodes: types.map((type, i) => ({ nodeId: `n${i}`, type })),
+      })
+      expect(summary.outcome).toBe(outcome)
+      expect(summary.attention).toBeNull()
+      expect(summary.nextAction).toMatch(/resumes by itself/)
+    }
+  )
+
+  it.each(["approval", "connector"])(
+    "asks for review when a decision on a %s is among several waits",
+    (type) => {
+      const summary = summarizeRun({
+        ...detail({ status: "paused" }),
+        waitingNodes: [
+          { nodeId: "w", type: "wait" },
+          { nodeId: "a", type: "agent" },
+          { nodeId: "d", type },
+        ],
+      })
+      expect(summary.outcome).toBe("Waiting for a decision.")
+      expect(summary.attention).toMatch(/needs review/)
+    }
+  )
 
   it("keeps falsy results such as false, 0 and an empty string", () => {
     for (const output of [false, 0, ""]) {

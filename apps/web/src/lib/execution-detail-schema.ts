@@ -68,12 +68,14 @@ const nestedAgentSchema = z.object({
   status: executionSummarySchema.shape.status,
 })
 
+const waitingNodeSchema = z.object({ nodeId: z.string(), type: z.string() })
+
 export const executionDetailResponseSchema = z.object({
   execution: executionDetailSchema,
   steps: z.array(executionStepSchema),
   nodeConfigs: z.record(z.string(), z.record(z.string(), jsonValueSchema)),
   replayable: z.boolean(),
-  pausedAtNode: z.object({ nodeId: z.string(), type: z.string() }).optional(),
+  waitingNodes: z.array(waitingNodeSchema).default([]),
   nestedAgents: z.array(nestedAgentSchema).default([]),
   traceContentRestricted: z.boolean(),
 })
@@ -83,6 +85,7 @@ export type ExecutionStatus = ExecutionSummary["status"]
 export type ExecutionTrigger = ExecutionSummary["trigger"]
 export type ExecutionEnvironment = ExecutionSummary["environment"]
 export type ExecutionDetail = z.infer<typeof executionDetailSchema>
+export type WaitingNode = z.infer<typeof waitingNodeSchema>
 export type NestedAgentInvocation = z.infer<typeof nestedAgentSchema>
 export type ExecutionStepSummary = z.infer<typeof executionStepSchema>
 export type ExecutionStepStatus = ExecutionStepSummary["status"]

@@ -186,6 +186,7 @@ describe("Linea", () => {
         steps: [],
         nodeConfigs: {},
         replayable: false,
+        waitingNodes: [],
       }
     }
     it("polls until the execution finishes", async () => {
@@ -237,6 +238,10 @@ describe("Linea", () => {
         steps: [],
         nodeConfigs: {},
         replayable: true,
+        waitingNodes: [
+          { nodeId: "n1", type: "wait" },
+          { nodeId: "n2", type: "agent" },
+        ],
         pausedAtNode: { nodeId: "n1", type: "wait" },
       }
       const fetchSpy = vi
