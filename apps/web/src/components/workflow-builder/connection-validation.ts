@@ -1,12 +1,12 @@
+import { MAX_MERGE_INPUTS } from "@linealabs/runtime"
 import type { Connection, Edge } from "@xyflow/react"
 import type { WorkflowBuilderNodeData } from "./graph-conversion"
 
 /**
  * Mirrors packages/runtime's validateGraphStructure so the canvas refuses, at connection time,
  * what the backend would otherwise only catch when saving a version: a self-loop, a second
- * incoming edge to a node that isn't a merge node (a merge node allows exactly two — the two
- * paths it combines), a third incoming edge to a merge node, a branch edge with no condition or
- * a condition reused from another of that branch's edges, and a cycle. A non-branch, non-merge-
+ * incoming edge to a node that isn't a merge node, an incoming edge past a merge node's limit, a
+ * branch edge with no condition or a condition reused from another of that branch's edges, and a cycle. A non-branch, non-merge-
  * target node may have any number of unconditioned outgoing edges — all are followed at runtime
  * (fan-out) — this repo's node types are a linear chain except branch (which conditionally routes
  * to one of several) and any node feeding a merge node (which fans out to more than one).
@@ -24,9 +24,9 @@ export function isValidConnection(
 
   const targetType = nodeTypeById.get(target)
   const incomingToTarget = edges.filter((edge) => edge.target === target)
-  const maxIncoming = targetType === "merge" ? 2 : 1
+  const maxIncoming = targetType === "merge" ? MAX_MERGE_INPUTS : 1
   if (incomingToTarget.length >= maxIncoming) return false
-  // A merge's two incoming edges must be two distinct predecessors — two edges from the same
+  // A merge's incoming edges must come from distinct predecessors — two edges from the same
   // source isn't two real inputs, it's the same value read twice (matches validate-graph.ts's
   // own runtime check), so the canvas must refuse it too instead of letting it fail later at
   // versioning/publish/test-run/execution.

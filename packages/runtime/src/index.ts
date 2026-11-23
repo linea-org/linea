@@ -12,6 +12,10 @@ export {
   type McpServerConfig,
 } from "./nodes/definitions/ai.node.js"
 export * from "./nodes/definitions/evaluator.node.js"
+export {
+  MAX_MERGE_INPUTS,
+  MIN_MERGE_INPUTS,
+} from "./nodes/definitions/merge.node.js"
 export * from "./nodes/retry-policy.js"
 export * from "./interpreter/walker.js"
 export * from "./conversation-session.js"

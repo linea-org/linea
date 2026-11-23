@@ -40,45 +40,50 @@ export class MergeNode implements NodeHandler {
       conflictStrategy: config.conflictStrategy,
       inputs: input,
     })
-    const [first, second] = parsed.inputs
+    const { inputs } = parsed
+    const preferLater = parsed.conflictStrategy === "preferSecond"
 
     let result: unknown
     switch (parsed.mode) {
       case "concat": {
-        if (!isUnknownArray(first) || !isUnknownArray(second)) {
+        if (!inputs.every(isUnknownArray)) {
           throw new Error(
-            "Merge node (concat) requires both inputs to be arrays"
+            "Merge node (concat) requires every input to be an array"
           )
         }
-        result = [...first, ...second]
+        result = inputs.flat(1)
         break
       }
       case "deepMerge": {
-        if (!isPlainObject(first) || !isPlainObject(second)) {
+        if (!inputs.every(isPlainObject)) {
           throw new Error(
-            "Merge node (deepMerge) requires both inputs to be objects"
+            "Merge node (deepMerge) requires every input to be an object"
           )
         }
-        result = deepMerge(
-          first,
-          second,
-          parsed.conflictStrategy === "preferSecond"
+        result = inputs.reduce((merged, next) =>
+          deepMerge(merged, next, preferLater)
         )
         break
       }
       case "zip": {
-        if (!isUnknownArray(first) || !isUnknownArray(second)) {
-          throw new Error("Merge node (zip) requires both inputs to be arrays")
+        if (!inputs.every(isUnknownArray)) {
+          throw new Error(
+            "Merge node (zip) requires every input to be an array"
+          )
         }
-        // Truncates to the shorter input, no padding — matches n8n's own documented Combine-by-
+        // Truncates to the shortest input, no padding — matches n8n's own documented Combine-by-
         // Position behavior for uneven lengths, not an invented default.
-        const length = Math.min(first.length, second.length)
-        const preferSecond = parsed.conflictStrategy === "preferSecond"
-        result = Array.from({ length }, (_, i) => {
-          const left = first[i] as Record<string, unknown>
-          const right = second[i] as Record<string, unknown>
-          return preferSecond ? { ...left, ...right } : { ...right, ...left }
-        })
+        const length = Math.min(...inputs.map((input) => input.length))
+        const ordered = preferLater ? inputs : inputs.toReversed()
+        result = Array.from({ length }, (_, i) =>
+          ordered.reduce<Record<string, unknown>>(
+            (row, input) => ({
+              ...row,
+              ...(input[i] as Record<string, unknown>),
+            }),
+            {}
+          )
+        )
         break
       }
     }

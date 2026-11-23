@@ -34,7 +34,7 @@ function incomingEdges(graph: WorkflowGraph, nodeId: string) {
 }
 
 // A completed branch node doesn't activate all its outgoing edges, only the one matching its
-// output — everything else (including a merge node's two edges) activates unconditionally once
+// output — everything else (including a merge node's edges) activates unconditionally once
 // its source is done.
 function isEdgeActivated(
   graph: WorkflowGraph,
