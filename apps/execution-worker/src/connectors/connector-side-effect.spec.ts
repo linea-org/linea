@@ -2019,6 +2019,46 @@ describe("exact Action Intent consent", () => {
         )
       }))
 
+    it("keeps the usage a cancelled Agent already recorded", () =>
+      withFailing(async (fixture, parent) => {
+        const sibling = await addSibling(parent)
+        for (const [nodeId, unpriced] of [
+          ["agent:model:0", false],
+          ["agent:model:1", true],
+        ] as const) {
+          await new CheckpointsService().recordStep({
+            executionId: fixture.executionId,
+            workspaceId: fixture.workspaceId,
+            leasedBy: fixture.executionClaimId,
+            nodeId,
+            nodeType: "ai",
+            input: {},
+            output: {},
+            startedAt: new Date(),
+            endedAt: new Date(),
+            tokensInput: 100,
+            tokensOutput: 20,
+            costMicros: 7n,
+            costUnpriced: unpriced,
+            completed: new Map([[nodeId, {}]]),
+            variables: {},
+          })
+        }
+        await failParent(parent)
+        expect(
+          await repositories.execution.getExecutionById(db, fixture.executionId)
+        ).toMatchObject({
+          status: "cancelled",
+          tokensInput: 200,
+          tokensOutput: 40,
+          costMicros: 14n,
+          costUnpriced: true,
+        })
+        expect(
+          await repositories.execution.getExecutionById(db, sibling)
+        ).toMatchObject({ status: "cancelled", tokensInput: 0 })
+      }))
+
     it("cancels a paused Agent's consent, with one audit entry and one event", () =>
       withFailing(async (fixture, parent) => {
         await invoke(fixture)

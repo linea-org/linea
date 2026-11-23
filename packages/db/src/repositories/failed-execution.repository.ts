@@ -11,11 +11,13 @@ import {
   recordApprovalCancellation,
 } from "./action-intent-cancellation.repository.js"
 import { lockExecutionTree } from "./approval-request.repository.js"
+import { getStepsForExecution } from "./checkpoint.repository.js"
 import {
   completeExecution,
   terminalStatuses,
   type CompleteExecutionInput,
 } from "./execution.repository.js"
+import { sumStepTotals } from "./execution-step.repository.js"
 import type { DbClient, Transaction } from "./types.js"
 
 /** Fails an Execution and cancels what it left open, except an Agent whose claimed Action Intent must still report (ADR 0029). */
@@ -107,13 +109,8 @@ async function cancelOpenWork(
     await recordApprovalCancellation(tx, request, actor)
   }
   const agents = await tx
-    .update(executions)
-    .set({
-      status: "cancelled",
-      completedAt: cancelledAt,
-      leasedBy: null,
-      leaseExpiresAt: null,
-    })
+    .select()
+    .from(executions)
     .where(
       and(
         inArray(executions.id, executionIds),
@@ -121,8 +118,20 @@ async function cancelOpenWork(
         notInArray(executions.status, terminalStatuses)
       )
     )
-    .returning()
   if (agents.length === 0) return
+  for (const { id } of agents) {
+    const steps = await getStepsForExecution(tx, id)
+    await tx
+      .update(executions)
+      .set({
+        status: "cancelled",
+        completedAt: cancelledAt,
+        leasedBy: null,
+        leaseExpiresAt: null,
+        ...sumStepTotals(steps),
+      })
+      .where(eq(executions.id, id))
+  }
   await tx.insert(auditLogs).values(
     agents.map(({ id, environmentId }) => ({
       workspaceId: failed.workspaceId,

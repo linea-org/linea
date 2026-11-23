@@ -43,8 +43,6 @@ const requestSchema = z.strictObject({
   input: z.unknown(),
 })
 const AGENT_WORK_BUDGET_MS = 30 * 60_000
-class ParentEndedError extends Error {}
-
 const BUDGET_EXHAUSTED = "Agent run exceeded its 30 minute work budget"
 type AgentDefinition = z.infer<typeof agentDefinitionSchema>
 type RegisteredOperation = NonNullable<
@@ -102,7 +100,11 @@ export class AgentExecutionService {
         outcome = await this.attempt(execution, leasedBy, signal, runSignal)
       } while (outcome === "resume")
     } catch (error) {
-      if (error instanceof ParentEndedError)
+      // An ended parent surfaces as whatever it refused; the Agent was stopped, it didn't fail.
+      if (
+        !(error instanceof LeaseLostError) &&
+        (await repositories.execution.hasEndedParent(db, execution.id))
+      )
         return this.stopAfterParent(execution.id, leasedBy)
       if (deadline.aborted && !signal.aborted)
         throw new Error(BUDGET_EXHAUSTED, { cause: error })
@@ -359,7 +361,7 @@ export class AgentExecutionService {
   ): Promise<void> {
     await this.checkpoints.assertOwnsLease(executionId, leasedBy)
     if (await repositories.execution.hasEndedParent(db, executionId))
-      throw new ParentEndedError()
+      throw new Error("The Workflow Execution that started this Agent ended")
   }
 
   private async stopAfterParent(
