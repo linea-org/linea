@@ -1,4 +1,4 @@
-import { MAX_MERGE_INPUTS } from "@linealabs/runtime"
+import { MAX_MERGE_INPUTS } from "@linealabs/runtime/browser"
 import type { Connection, Edge } from "@xyflow/react"
 import type { WorkflowBuilderNodeData } from "./graph-conversion"
 
@@ -6,10 +6,9 @@ import type { WorkflowBuilderNodeData } from "./graph-conversion"
  * Mirrors packages/runtime's validateGraphStructure so the canvas refuses, at connection time,
  * what the backend would otherwise only catch when saving a version: a self-loop, a second
  * incoming edge to a node that isn't a merge node, an incoming edge past a merge node's limit, a
- * branch edge with no condition or a condition reused from another of that branch's edges, and a cycle. A non-branch, non-merge-
- * target node may have any number of unconditioned outgoing edges — all are followed at runtime
- * (fan-out) — this repo's node types are a linear chain except branch (which conditionally routes
- * to one of several) and any node feeding a merge node (which fans out to more than one).
+ * branch edge with no condition or a condition reused from another of that branch's edges, and a
+ * cycle. A non-branch, non-merge-target node may have any number of unconditioned outgoing edges:
+ * all are followed at runtime (fan-out).
  */
 export function isValidConnection(
   connection: Connection | Edge,
