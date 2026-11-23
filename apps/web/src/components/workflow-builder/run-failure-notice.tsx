@@ -5,7 +5,7 @@ import { Link } from "@tanstack/react-router"
 import { Button, buttonVariants } from "@linealabs/ui/components/button"
 
 import { SecretFormDialog } from "@/components/secrets/secret-form-dialog"
-import { getDevelopmentEnvironment } from "@/lib/default-application"
+import { getRunEnvironment } from "@/lib/default-application"
 import type { ExecutionDetailResponse } from "@/lib/executions-api"
 import { modelSetupKey, modelSetupQueryOptions } from "@/lib/model-settings-api"
 import { readableProviderError } from "@/lib/provider-error"
@@ -25,7 +25,7 @@ export function RunFailureNotice({
 }>) {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
-  const { error } = detail.execution
+  const { error, environment: ranIn } = detail.execution
   const message = error?.message ?? "This run failed."
   const fix = runFailureFix(message)
   const keyFix = fix?.to === "models" ? fix : null
@@ -67,12 +67,12 @@ export function RunFailureNotice({
         <SecretFormDialog
           open={editing}
           onOpenChange={setEditing}
-          title={`${provider.label} API key`}
+          title={`${provider.label}${ranIn === "production" ? " production" : ""} API key`}
           submitLabel="Save key"
           nameField="none"
           initialName={provider.keyName}
           onSubmit={async ({ secret }) => {
-            const environment = await getDevelopmentEnvironment(applicationId)
+            const environment = await getRunEnvironment(applicationId, ranIn)
             await upsertSecretFn({
               data: {
                 environmentId: environment.id,

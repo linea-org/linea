@@ -1,5 +1,6 @@
 import { createApplicationFn, listApplicationsFn } from "./applications-api"
 import { listEnvironmentsFn } from "./environments-api"
+import type { ExecutionEnvironment } from "./execution-detail-schema"
 import { STARTER_APPLICATION } from "./starter-workflow"
 
 /** The oldest Application, so creating another never moves where keys and chats live. */
@@ -14,12 +15,17 @@ export async function findOrCreateDefaultApplication() {
 /** Model keys live in the default Application's Development Environment. */
 export async function findOrCreateDevelopmentEnvironment() {
   const application = await findOrCreateDefaultApplication()
-  return getDevelopmentEnvironment(application.id)
+  return getRunEnvironment(application.id, "dev")
 }
 
-export async function getDevelopmentEnvironment(applicationId: string) {
+/** The Environment a run reads its secrets from; a draft runs in Development. */
+export async function getRunEnvironment(
+  applicationId: string,
+  ranIn: ExecutionEnvironment
+) {
+  const name = ranIn === "production" ? "production" : "dev"
   const environments = await listEnvironmentsFn({ data: { applicationId } })
-  const development = environments.find((item) => item.environment === "dev")
-  if (!development) throw new Error("Development Environment not found")
-  return development
+  const environment = environments.find((item) => item.environment === name)
+  if (!environment) throw new Error(`No ${name} Environment found`)
+  return environment
 }
