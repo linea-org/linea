@@ -16,7 +16,7 @@ describe("MergeNode", () => {
     const node = new MergeNode()
 
     expect(() => node.execute({ mode: "concat" }, [{ a: 1 }, [1, 2]])).toThrow(
-      "requires both inputs to be arrays"
+      "requires every input to be an array"
     )
   })
 
@@ -52,7 +52,7 @@ describe("MergeNode", () => {
 
     expect(() =>
       node.execute({ mode: "deepMerge" }, [{ a: 1 }, [1, 2]])
-    ).toThrow("requires both inputs to be objects")
+    ).toThrow("requires every input to be an object")
   })
 
   it("zips two arrays by position, preferring the first input's keys by default", async () => {
@@ -94,5 +94,45 @@ describe("MergeNode", () => {
     ])
 
     expect(output).toEqual({ result: [{ a: 1, b: 1 }] })
+  })
+
+  it("concatenates every input in order", async () => {
+    const output = await new MergeNode().execute({ mode: "concat" }, [
+      [1],
+      [[2]],
+      [3],
+    ])
+
+    expect(output).toEqual({ result: [1, [2], 3] })
+  })
+
+  it.each([
+    ["preferFirst", { a: 1, b: 2, c: 3 }],
+    ["preferSecond", { a: 3, b: 3, c: 3 }],
+  ])("deep-merges every input with %s", async (conflictStrategy, result) => {
+    const output = await new MergeNode().execute(
+      { mode: "deepMerge", conflictStrategy },
+      [{ a: 1 }, { a: 2, b: 2 }, { a: 3, b: 3, c: 3 }]
+    )
+
+    expect(output).toEqual({ result })
+  })
+
+  it.each([
+    ["preferFirst", [{ a: 1, b: 2, c: 3 }]],
+    ["preferSecond", [{ a: 3, b: 3, c: 3 }]],
+  ])("zips every input with %s", async (conflictStrategy, result) => {
+    const output = await new MergeNode().execute(
+      { mode: "zip", conflictStrategy },
+      [[{ a: 1 }], [{ a: 2, b: 2 }, { a: 9 }], [{ a: 3, b: 3, c: 3 }]]
+    )
+
+    expect(output).toEqual({ result })
+  })
+
+  it.each([1, 6])("refuses %i inputs", (count) => {
+    expect(() =>
+      new MergeNode().execute({ mode: "concat" }, Array(count).fill([]))
+    ).toThrow()
   })
 })

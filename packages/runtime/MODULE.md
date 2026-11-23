@@ -18,7 +18,7 @@ that actually runs it.
   sandbox client, or `@linealabs/db`.
 - **A node's input is always its single predecessor's output**, except the
   entry node, whose input is the trigger payload. Every non-entry node must
-  have exactly one incoming edge, except a merge node, which has exactly two
+  have exactly one incoming edge, except a merge node, which has two to five
   from distinct sources — `validate-graph.ts` enforces this, and the walker
   assumes it without re-checking.
 - **`validateGraphStructure` is a separate, mandatory pass**, not folded

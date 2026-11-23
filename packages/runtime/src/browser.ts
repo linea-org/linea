@@ -12,3 +12,7 @@ export {
 export * from "./nodes/definitions/evaluator.node.js"
 export * from "./nodes/retry-policy.js"
 export * from "./agents/agent-definition.js"
+export {
+  MAX_MERGE_INPUTS,
+  MIN_MERGE_INPUTS,
+} from "./nodes/definitions/merge.node.js"

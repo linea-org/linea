@@ -431,28 +431,63 @@ describe("validateGraphStructure", () => {
     ).toThrow(WorkflowGraphError)
   })
 
-  it("rejects a merge node with three incoming edges", () => {
+  function fanIntoMerge(paths: number): WorkflowGraph {
+    const middle = Array.from({ length: paths }, (_, i) => `p${i}`)
+    return graph({
+      nodes: [
+        { id: "a", type: "http", config: {} },
+        ...middle.map((id) => ({
+          id,
+          type: "transform" as const,
+          config: {},
+        })),
+        { id: "joined", type: "merge", config: {} },
+      ],
+      edges: middle.flatMap((id) => [
+        { from: "a", to: id },
+        { from: id, to: "joined" },
+      ]),
+    })
+  }
+
+  it.each([2, 3, 5])("accepts a merge node with %i incoming edges", (paths) => {
+    expect(() => validateGraphStructure(fanIntoMerge(paths))).not.toThrow()
+  })
+
+  it("rejects a merge node with six incoming edges", () => {
+    expect(() => validateGraphStructure(fanIntoMerge(6))).toThrow(
+      "must have 2 to 5 incoming edges, has 6"
+    )
+  })
+
+  it("rejects a merge whose first and third inputs can never both occur", () => {
     expect(() =>
       validateGraphStructure(
         graph({
           nodes: [
-            { id: "a", type: "http", config: {} },
-            { id: "b", type: "transform", config: {} },
-            { id: "c", type: "transform", config: {} },
-            { id: "d", type: "transform", config: {} },
-            { id: "e", type: "merge", config: {} },
+            { id: "a", type: "start", config: {} },
+            { id: "free", type: "transform", config: {} },
+            {
+              id: "route",
+              type: "branch",
+              config: { cases: { yes: "true", no: "false" } },
+            },
+            { id: "yes", type: "transform", config: {} },
+            { id: "no", type: "transform", config: {} },
+            { id: "joined", type: "merge", config: {} },
           ],
           edges: [
-            { from: "a", to: "b" },
-            { from: "a", to: "c" },
-            { from: "a", to: "d" },
-            { from: "b", to: "e" },
-            { from: "c", to: "e" },
-            { from: "d", to: "e" },
+            { from: "a", to: "free" },
+            { from: "a", to: "route" },
+            { from: "route", to: "yes", condition: "yes" },
+            { from: "route", to: "no", condition: "no" },
+            { from: "yes", to: "joined" },
+            { from: "free", to: "joined" },
+            { from: "no", to: "joined" },
           ],
         })
       )
-    ).toThrow(WorkflowGraphError)
+    ).toThrow("can never all occur")
   })
 
   it("rejects a merge node with two incoming edges from the same source", () => {

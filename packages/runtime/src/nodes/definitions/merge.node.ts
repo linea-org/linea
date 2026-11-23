@@ -1,14 +1,17 @@
 import { z } from "zod"
 import type { NodeDefinition } from "../node-definition.js"
 
+export const MIN_MERGE_INPUTS = 2
+export const MAX_MERGE_INPUTS = 5
+
 const mergeInputSchema = z.object({
   mode: z.enum(["concat", "deepMerge", "zip"]),
   // Required for deepMerge/zip — n8n's own lesson: an explicit strategy field, never an implicit
   // last-wins/first-wins default.
   conflictStrategy: z.enum(["preferFirst", "preferSecond"]).optional(),
-  // Always exactly 2 — the two predecessors' outputs, in edge-declaration order. Runtime value,
-  // not config, same as Branch's "value" / Transform's "input".
-  inputs: z.tuple([z.unknown(), z.unknown()]),
+  // The predecessors' outputs, in edge-declaration order. Runtime value, not config, same as
+  // Branch's "value" / Transform's "input".
+  inputs: z.array(z.unknown()).min(MIN_MERGE_INPUTS).max(MAX_MERGE_INPUTS),
 })
 
 const mergeOutputSchema = z.object({
@@ -26,10 +29,10 @@ export const mergeNode: NodeDefinition<
   ui: {
     label: "Merge",
     description:
-      "Combine two upstream paths into one — concat, deep-merge, or zip.",
+      "Combine two to five upstream paths into one — concat, deep-merge, or zip.",
     category: "data",
     icon: "merge",
-    // "inputs" is the runtime value from both predecessors, not config.
+    // "inputs" is the runtime value from the predecessors, not config.
     fields: [
       {
         key: "mode",
@@ -46,8 +49,8 @@ export const mergeNode: NodeDefinition<
         label: "On key conflict",
         widget: "select",
         options: [
-          { label: "Prefer first input", value: "preferFirst" },
-          { label: "Prefer second input", value: "preferSecond" },
+          { label: "Prefer earlier input", value: "preferFirst" },
+          { label: "Prefer later input", value: "preferSecond" },
         ],
         showIf: { key: "mode", equals: ["deepMerge", "zip"] },
       },
