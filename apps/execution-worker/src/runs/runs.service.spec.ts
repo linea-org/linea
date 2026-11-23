@@ -8,7 +8,18 @@ import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linealabs/db"
 import type { WorkflowGraph } from "@linealabs/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
-import type { InterpreterService } from "../graph/interpreter.service"
+import { InterpreterService } from "../graph/interpreter.service"
+import { AiNode } from "../graph/nodes/ai.node"
+import { ApprovalNode } from "../graph/nodes/approval.node"
+import { BranchNode } from "../graph/nodes/branch.node"
+import { DatetimeNode } from "../graph/nodes/datetime.node"
+import { FilterNode } from "../graph/nodes/filter.node"
+import { HttpNode } from "../graph/nodes/http.node"
+import { MemoryNode } from "../graph/nodes/memory.node"
+import { MergeNode } from "../graph/nodes/merge.node"
+import { TransformNode } from "../graph/nodes/transform.node"
+import { VariablesNode } from "../graph/nodes/variables.node"
+import { WaitNode } from "../graph/nodes/wait.node"
 import { RunLeaseService } from "./run-lease.service"
 import { AgentExecutionService } from "./agent-execution.service"
 import { ConnectorGatewayService } from "../connectors/connector-gateway.service"
@@ -784,6 +795,109 @@ describe("RunsService fencing identity", () => {
       )
       expect(reloaded?.status).toBe("succeeded")
       expect(reloaded?.output).toEqual({ text: "approved and done" })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+      await pool.query("DELETE FROM users WHERE id = $1", [approver.id])
+    }
+  })
+  it("keeps the steps that finished before the pause when the approval resolves first", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Runs Service Approval Race Steps Test Org",
+        slug: `runs-approval-race-steps-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    const [approver] = await db
+      .insert(schema.users)
+      .values({
+        name: "Race Test Approver",
+        email: `race-steps-${suffix}@test.dev`,
+      })
+      .returning()
+    try {
+      await db.insert(schema.members).values({
+        organizationId: organization.id,
+        userId: approver.id,
+        role: "member",
+        createdAt: new Date(),
+      })
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: "manual" },
+        entryNodeId: "first",
+        nodes: [
+          { id: "first", type: "variables", config: { operation: "get" } },
+          { id: "approval-1", type: "approval", config: {} },
+        ],
+        edges: [{ from: "first", to: "approval-1" }],
+      }
+      const { execution } = await seedExecution(db, organization.id, graph)
+      class DecidedBeforeThePause extends ApprovalNode {
+        async execute(...args: Parameters<ApprovalNode["execute"]>) {
+          try {
+            return await super.execute(...args)
+          } catch (error) {
+            const request =
+              await repositories.approvalRequest.getApprovalRequest(
+                db,
+                organization.id,
+                execution.id,
+                "approval-1"
+              )
+            if (request?.status === "pending") {
+              await repositories.approvalRequest.decideWorkspaceApprovalRequest(
+                db,
+                organization.id,
+                request.id,
+                {
+                  outcome: "approved",
+                  actorUserId: approver.id,
+                  actorEmail: approver.email,
+                }
+              )
+            }
+            throw error
+          }
+        }
+      }
+      const checkpoints = new CheckpointsService()
+      const interpreter = new InterpreterService(
+        checkpoints,
+        new HttpNode(),
+        new TransformNode(),
+        new BranchNode(),
+        new AiNode(),
+        new DecidedBeforeThePause(),
+        new MemoryNode(),
+        new WaitNode(),
+        new DatetimeNode(),
+        new FilterNode(),
+        new MergeNode(),
+        new VariablesNode()
+      )
+      const runs = new RunsService(
+        checkpoints,
+        interpreter,
+        new RunLeaseService(),
+        new AgentExecutionService(checkpoints, new ConnectorGatewayService())
+      )
+      await runs.execute(execution.id)
+      const reloaded = await repositories.execution.getExecutionById(
+        db,
+        execution.id
+      )
+      expect(reloaded?.error).toBeNull()
+      expect(reloaded?.status).toBe("succeeded")
+      const steps = await repositories.checkpoint.getStepsForExecution(
+        db,
+        execution.id
+      )
+      expect(steps.map((step) => step.nodeId)).toEqual(["first", "approval-1"])
     } finally {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
