@@ -153,6 +153,32 @@ describe("startExecution", () => {
       expect(reclaimed?.leasedBy).toBe("worker-2")
     })
   })
+  it.each([
+    ["resumes after a pause", { status: "queued" as const, leasedBy: null }],
+    ["is reclaimed", { leaseExpiresAt: new Date(0) }],
+  ])("keeps the first start time when it %s", async (_, change) => {
+    await withRollback(async (tx) => {
+      const { organization, workflow, version } = await createTestFixtures(tx)
+      const execution = await createExecution(tx, {
+        workspaceId: organization.id,
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        trigger: "manual",
+      })
+      const lease = new Date(Date.now() + 60_000)
+      const before = Date.now()
+      const first = await startExecution(tx, execution.id, "worker-1", lease)
+      expect(first?.startedAt?.getTime()).toBeGreaterThanOrEqual(before)
+      const startedAt = new Date(before - 60_000)
+      await tx
+        .update(executions)
+        .set({ startedAt, ...change })
+        .where(eq(executions.id, execution.id))
+      const again = await startExecution(tx, execution.id, "worker-2", lease)
+      expect(again?.leasedBy).toBe("worker-2")
+      expect(again?.startedAt).toEqual(startedAt)
+    })
+  })
   it("cannot claim an execution that failQueuedExecution already marked terminal", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)

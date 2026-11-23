@@ -338,7 +338,7 @@ export async function startExecution(
         status: "running",
         leasedBy,
         leaseExpiresAt,
-        startedAt: new Date(),
+        startedAt: sql`coalesce(${executions.startedAt}, ${new Date().toISOString()}::timestamptz)`,
       })
       .where(claimable)
       .returning()
