@@ -5,6 +5,7 @@ import { createServer, type Server } from "node:http"
 import { Test } from "@nestjs/testing"
 import { registry } from "@linealabs/ai"
 import { db, pool, repositories } from "@linealabs/db"
+import { isFlagEnabled } from "@linealabs/flags"
 import type { WorkflowGraph } from "@linealabs/runtime"
 import { CheckpointsModule } from "../checkpoints/checkpoints.module"
 import { GraphModule } from "../graph/graph.module"
@@ -17,6 +18,11 @@ import {
   removeWorkspace,
   type AgentExecutionFixture,
 } from "./agent-execution.fixture"
+
+jest.mock("@linealabs/flags", () => ({ isFlagEnabled: jest.fn() }))
+const flag = jest.mocked(isFlagEnabled)
+const onlyPlatformKey = (key: string) =>
+  Promise.resolve(key === "platformModelKey")
 
 const originalKey = process.env.OPENAI_API_KEY
 const originalCredentialKeys = {
@@ -144,6 +150,7 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
+  flag.mockImplementation(onlyPlatformKey)
   fixture = await createAgentExecutionFixture()
   reads.length = 0
 })
@@ -333,4 +340,95 @@ it("stops the nested Agent as cancelled, not failed, when its call is refused be
     [fixture.workspaceId]
   )
   expect(rows).toEqual([])
+})
+
+describe("the token budget of a Workflow Execution and its Agents", () => {
+  const answer = (tokensInput: number) =>
+    jest.spyOn(registry["gpt-5"], "complete").mockResolvedValue({
+      text: JSON.stringify({ result: "hello" }),
+      tokensInput,
+      tokensOutput: 0,
+    })
+
+  async function pausedOnAgent() {
+    const parent = await startWorkflow(fixture.agentId, fixture.contractId)
+    await runs.execute(parent.id)
+    return { parent, child: await childOf(parent.id) }
+  }
+
+  async function use(executionId: string, tokens: number) {
+    await pool.query(
+      `INSERT INTO execution_steps (execution_id, workspace_id, trace_id, span_id, name, started_at, ended_at, status, node_id, sequence, attempt, tokens_input)
+       VALUES ($1::uuid, $2, $1::uuid::text, gen_random_uuid()::text, 'ai', now(), now(), 'succeeded', 'earlier', 1000, 1, $3)`,
+      [executionId, fixture.workspaceId, tokens]
+    )
+  }
+
+  async function addSibling(parentId: string): Promise<string> {
+    const { rows } = await pool.query<{ id: string }>(
+      `INSERT INTO executions (workspace_id, environment_id, agent_id, agent_version_id, agent_contract_revision_id, environment, trigger, parent_execution_id, parent_node_id)
+       SELECT workspace_id, environment_id, agent_id, agent_version_id, agent_contract_revision_id, environment, trigger, parent_execution_id, 'sibling'
+       FROM executions WHERE parent_execution_id = $1 RETURNING id`,
+      [parentId]
+    )
+    return rows[0].id
+  }
+
+  it.each(["its Workflow", "a sibling", "both"])(
+    "stops an Agent once %s used it",
+    async (who) => {
+      flag.mockResolvedValue(true)
+      const complete = answer(1)
+      const { parent, child } = await pausedOnAgent()
+      const sibling = await addSibling(parent.id)
+      if (who === "its Workflow") await use(parent.id, 1_000_000)
+      if (who === "a sibling") await use(sibling, 1_000_000)
+      if (who === "both") {
+        await use(parent.id, 400_000)
+        await use(sibling, 600_000)
+      }
+      await expect(runs.execute(child.id)).rejects.toThrow("token budget")
+      expect(complete).not.toHaveBeenCalled()
+    }
+  )
+
+  it("leaves an Agent of another Execution alone", async () => {
+    flag.mockResolvedValue(true)
+    answer(1)
+    const other = await pausedOnAgent()
+    await use(other.parent.id, 1_000_000)
+    await use(other.child.id, 1_000_000)
+    const { child } = await pausedOnAgent()
+    await runs.execute(child.id)
+    expect(await statusOf(child.id)).toBe("succeeded")
+  })
+
+  it("keeps an Agent's own budget with the flag off", async () => {
+    answer(1)
+    const { parent, child } = await pausedOnAgent()
+    await use(parent.id, 1_000_000)
+    await runs.execute(child.id)
+    expect(await statusOf(child.id)).toBe("succeeded")
+  })
+
+  it.each([
+    [true, "failed"],
+    [false, "succeeded"],
+  ])(
+    "counts its Agents in a Workflow Execution: flag %s, %s",
+    async (on, status) => {
+      if (on) flag.mockResolvedValue(true)
+      answer(1_000_000)
+      const { parent, child } = await pausedOnAgent()
+      await runs.execute(child.id)
+      expect(await statusOf(child.id)).toBe("succeeded")
+      await runs.execute(parent.id)
+      const finished = await repositories.execution.getExecutionById(
+        db,
+        parent.id
+      )
+      expect(finished?.status).toBe(status)
+      if (on) expect(finished?.error?.message).toContain("token budget")
+    }
+  )
 })

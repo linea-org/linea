@@ -48,6 +48,21 @@ export async function sumWorkspaceTokensSince(
   return row.total
 }
 
+/** Tokens used so far by the Agents a Workflow Execution started. */
+export async function sumAgentTokens(
+  db: DbClient,
+  parentExecutionId: string
+): Promise<number> {
+  const [row] = await db
+    .select({
+      total: sql<number>`coalesce(sum(${executionSteps.tokensInput} + ${executionSteps.tokensOutput}), 0)::float8`,
+    })
+    .from(executionSteps)
+    .innerJoin(executions, eq(executions.id, executionSteps.executionId))
+    .where(eq(executions.parentExecutionId, parentExecutionId))
+  return row.total
+}
+
 export function sumStepTotals(steps: ExecutionStep[]): StepTotals {
   return steps.reduce<StepTotals>(
     (totals, step) => {

@@ -153,12 +153,10 @@ export class RunsService {
       // A paused node can resolve before the pause is claimed; the next pass then starts from the
       // latest checkpoint, so steps that finished don't run again and the paused one re-enters.
       const turn = chatTurn(execution)
-      const maxParallelSteps = (await isFlagEnabled(
+      const parallel = await isFlagEnabled(
         "parallelBranches",
         execution.workspaceId
-      ))
-        ? MAX_PARALLEL_STEPS
-        : 1
+      )
       let outcome: RunOutcome
       let paused = false
       for (let pass = 1; ; pass += 1) {
@@ -193,7 +191,10 @@ export class RunsService {
           initialCostMicros: resumeTotals.costMicros,
           initialCostUnpriced: resumeTotals.costUnpriced,
           initialVariables: resumeVariables,
-          maxParallelSteps,
+          maxParallelSteps: parallel ? MAX_PARALLEL_STEPS : 1,
+          agentTokens: parallel
+            ? () => repositories.executionStep.sumAgentTokens(db, executionId)
+            : undefined,
           signal: abortController.signal,
         })
         if (!outcome.pausedAt) break

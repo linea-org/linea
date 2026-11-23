@@ -386,6 +386,75 @@ describe("parallel steps", () => {
     expect(outcome.totalTokensInput).toBe(30)
   })
 
+  it("counts what its Agents have used, read again for each step", async () => {
+    const used = [0, 300, 200]
+    const seen: (number | undefined)[] = []
+    const step: Fake = ({ countTokens }) => {
+      seen.push(countTokens?.(5))
+      return Promise.resolve({})
+    }
+    const { run } = setup(
+      { a: step, after: step },
+      {
+        graph: fanOut([http("a")], [{ node: http("after"), from: "a" }]),
+        agentTokens: () => Promise.resolve(used.shift() ?? 0),
+      }
+    )
+    await run()
+    expect(seen).toEqual([305, 305])
+  })
+
+  it("starts no step once its Agents have used the token budget", async () => {
+    const { run, writes } = setup(
+      { a: () => Promise.resolve({}) },
+      {
+        graph: fanOut([http("a")]),
+        agentTokens: () => Promise.resolve(MAX_EXECUTION_TOKENS),
+      }
+    )
+    expect((await run()).result).toMatchObject({
+      status: "failed",
+      nodeId: "start",
+    })
+    expect(writes.map(({ nodeId }) => nodeId)).toEqual(["start"])
+  })
+
+  it("does not retry a step once its Agents have used the token budget, and keeps its usage", async () => {
+    const used = [0, 0, MAX_EXECUTION_TOKENS]
+    let attempts = 0
+    const { run, writes } = setup(
+      {
+        a: () => {
+          attempts += 1
+          return Promise.reject(new RetryableUsageError("a broke", 30, 12))
+        },
+      },
+      {
+        graph: fanOut([
+          {
+            id: "a",
+            type: "ai",
+            config: {
+              name: "a",
+              model: "claude-sonnet-5",
+              retryPolicy: {
+                maxAttempts: 3,
+                backoff: { type: "fixed", delayMs: 1 },
+              },
+            },
+          },
+        ]),
+        agentTokens: () => Promise.resolve(used.shift() ?? 0),
+      }
+    )
+    expect((await run()).result).toMatchObject({
+      nodeId: "a",
+      error: "a broke",
+    })
+    expect(attempts).toBe(1)
+    expect(writes.at(-1)).toMatchObject({ tokensInput: 30, tokensOutput: 12 })
+  })
+
   it("starts no step once running ones have used the token budget", async () => {
     const { run } = setup(
       {
