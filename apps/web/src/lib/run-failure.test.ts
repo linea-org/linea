@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { runFailureFix } from "./run-failure"
+import { failedKeyName, runFailureFix } from "./run-failure"
 
 describe("runFailureFix", () => {
   it("offers to add the key when the model's key is missing", () => {
@@ -26,5 +26,30 @@ describe("runFailureFix", () => {
 
   it("offers nothing for other failures", () => {
     expect(runFailureFix("The provider timed out")).toBeNull()
+  })
+})
+
+describe("failedKeyName", () => {
+  const models = [
+    { value: "gpt-5", keyName: "OPENAI_API_KEY" },
+    { value: "grok-4.5", keyName: "XAI_API_KEY" },
+  ]
+
+  it("takes the key a missing-key failure names", () => {
+    expect(
+      failedKeyName("No GROQ_API_KEY is set. Add your key.", "gpt-5", models)
+    ).toBe("GROQ_API_KEY")
+  })
+
+  it("takes the failed step's own key when the provider rejects it", () => {
+    expect(failedKeyName("401 Invalid API Key", "grok-4.5", models)).toBe(
+      "XAI_API_KEY"
+    )
+  })
+
+  it("names no key when the failed step has no known model", () => {
+    expect(
+      failedKeyName("401 Invalid API Key", undefined, models)
+    ).toBeUndefined()
   })
 })

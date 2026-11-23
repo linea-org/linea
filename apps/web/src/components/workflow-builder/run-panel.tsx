@@ -31,17 +31,20 @@ import {
   executionsQueryOptions,
 } from "@/lib/executions-api"
 import { formatDuration } from "@/lib/format"
+import { RunFailureNotice } from "./run-failure-notice"
 
 const activeStatuses = new Set(["queued", "running", "paused"])
 
 export function RunPanel({
   slug,
   workflowId,
+  applicationId,
   executionId,
   onSelectExecution,
 }: {
   slug: string
   workflowId: string
+  applicationId: string | undefined
   executionId: string
   onSelectExecution: (executionId: string) => void
 }) {
@@ -160,9 +163,13 @@ export function RunPanel({
         ) : null}
       </div>
       {data?.execution.error ? (
-        <p className="shrink-0 border-t border-border bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {data.execution.error.message}
-        </p>
+        <div className="shrink-0 border-t border-border bg-destructive/10 px-3 py-2">
+          <RunFailureNotice
+            slug={slug}
+            applicationId={applicationId}
+            detail={data}
+          />
+        </div>
       ) : null}
       <Sheet
         open={selectedStepId !== null}

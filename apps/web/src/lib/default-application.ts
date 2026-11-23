@@ -14,9 +14,11 @@ export async function findOrCreateDefaultApplication() {
 /** Model keys live in the default Application's Development Environment. */
 export async function findOrCreateDevelopmentEnvironment() {
   const application = await findOrCreateDefaultApplication()
-  const environments = await listEnvironmentsFn({
-    data: { applicationId: application.id },
-  })
+  return getDevelopmentEnvironment(application.id)
+}
+
+export async function getDevelopmentEnvironment(applicationId: string) {
+  const environments = await listEnvironmentsFn({ data: { applicationId } })
   const development = environments.find((item) => item.environment === "dev")
   if (!development) throw new Error("Development Environment not found")
   return development
