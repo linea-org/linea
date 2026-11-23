@@ -9,6 +9,7 @@ import { isFlagEnabled } from "@linealabs/flags"
 import type { WorkflowGraph } from "@linealabs/runtime"
 import { CheckpointsModule } from "../checkpoints/checkpoints.module"
 import { GraphModule } from "../graph/graph.module"
+import { AgentNode } from "../graph/nodes/agent.node"
 import { ConnectorGatewayService } from "../connectors/connector-gateway.service"
 import { AgentExecutionService } from "./agent-execution.service"
 import { RunLeaseService } from "./run-lease.service"
@@ -40,9 +41,8 @@ let moduleRef: Awaited<
 async function startWorkflow(
   agentId: string,
   agentContractRevisionId: string,
-  externalSubjectRecordId?: string
-) {
-  const graph: WorkflowGraph = {
+  externalSubjectRecordId?: string,
+  graph: WorkflowGraph = {
     version: 1,
     trigger: { type: "manual" },
     entryNodeId: "run-agent",
@@ -55,6 +55,7 @@ async function startWorkflow(
     ],
     edges: [],
   }
+) {
   const workflow = await repositories.workflow.createWorkflow(db, {
     applicationId: (
       await repositories.agent.getAgentById(db, fixture.workspaceId, agentId)
@@ -431,4 +432,188 @@ describe("the token budget of a Workflow Execution and its Agents", () => {
       if (on) expect(finished?.error?.message).toContain("token budget")
     }
   )
+})
+
+describe("a Workflow Execution with Agents in two branches", () => {
+  beforeEach(() => {
+    flag.mockResolvedValue(true)
+    jest.spyOn(registry["gpt-5"], "complete").mockResolvedValue({
+      text: JSON.stringify({ result: "hello" }),
+      tokensInput: 1,
+      tokensOutput: 1,
+    })
+  })
+
+  function startBranches(extra: WorkflowGraph["nodes"] = []) {
+    const agent = (id: string) => ({
+      id,
+      type: "agent" as const,
+      config: {
+        agentId: fixture.agentId,
+        agentContractRevisionId: fixture.contractId,
+      },
+    })
+    return startWorkflow(fixture.agentId, fixture.contractId, undefined, {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "start",
+      nodes: [
+        { id: "start", type: "start", config: {} },
+        agent("one"),
+        agent("two"),
+        { id: "after-one", type: "end", config: {} },
+        ...extra,
+      ],
+      edges: [
+        { from: "start", to: "one" },
+        { from: "start", to: "two" },
+        { from: "one", to: "after-one" },
+        ...extra.map(({ id }) => ({ from: "start", to: id })),
+      ],
+    })
+  }
+
+  async function children(parentId: string) {
+    const { rows } = await pool.query<{
+      id: string
+      parent_node_id: string
+      status: string
+    }>(
+      "SELECT id, parent_node_id, status FROM executions WHERE parent_execution_id = $1 ORDER BY parent_node_id",
+      [parentId]
+    )
+    return rows
+  }
+
+  async function stepIds(executionId: string) {
+    const steps = await repositories.checkpoint.getStepsForExecution(
+      db,
+      executionId
+    )
+    return steps
+      .filter(({ isSystemEvent }) => !isSystemEvent)
+      .map(({ nodeId }) => nodeId)
+  }
+
+  it("starts both, continues the branch that finishes first, and repeats nothing", async () => {
+    const parent = await startBranches()
+    await runs.execute(parent.id)
+    expect(await statusOf(parent.id)).toBe("paused")
+    const [one, two] = await children(parent.id)
+    expect([one.status, two.status]).toEqual(["queued", "queued"])
+    await runs.execute(one.id)
+    expect(await statusOf(parent.id)).toBe("queued")
+    await runs.execute(parent.id)
+    expect(await statusOf(parent.id)).toBe("paused")
+    expect(await stepIds(parent.id)).toEqual(["start", "one", "after-one"])
+    await runs.execute(two.id)
+    await runs.execute(parent.id)
+    expect(await statusOf(parent.id)).toBe("succeeded")
+    expect(await stepIds(parent.id)).toEqual([
+      "start",
+      "one",
+      "after-one",
+      "two",
+    ])
+  })
+
+  it("starts one at a time with the flag off", async () => {
+    flag.mockImplementation(onlyPlatformKey)
+    const parent = await startBranches()
+    await runs.execute(parent.id)
+    expect(await children(parent.id)).toHaveLength(1)
+    expect(await statusOf(parent.id)).toBe("paused")
+  })
+
+  it("does not lose an Agent that finishes between parking and pausing", async () => {
+    const parent = await startBranches()
+    const agentNode = moduleRef.get<AgentNode>(AgentNode)
+    const real = new AgentNode()
+    let finishedOne = false
+    jest.spyOn(agentNode, "execute").mockImplementation(async (...args) => {
+      try {
+        return await real.execute(...args)
+      } catch (error) {
+        const rows = await children(parent.id)
+        if (rows.length === 2 && !finishedOne) {
+          finishedOne = true
+          await runs.execute(rows[0].id)
+        }
+        throw error
+      }
+    })
+    await runs.execute(parent.id)
+    expect(finishedOne).toBe(true)
+    expect(await stepIds(parent.id)).toEqual(["start", "one", "after-one"])
+    expect(await statusOf(parent.id)).toBe("paused")
+  })
+
+  it("never stays paused with every Agent finished, however they race", async () => {
+    for (let round = 0; round < 10; round += 1) {
+      const parent = await startBranches()
+      await Promise.all([
+        runs.execute(parent.id),
+        (async () => {
+          let rows = await children(parent.id)
+          while (rows.length < 2) rows = await children(parent.id)
+          await Promise.all(rows.map(({ id }) => runs.execute(id)))
+        })(),
+      ])
+      for (
+        let pass = 0;
+        pass < 4 && (await statusOf(parent.id)) === "queued";
+        pass += 1
+      ) {
+        await runs.execute(parent.id)
+      }
+      expect(await statusOf(parent.id)).toBe("succeeded")
+      expect([...(await stepIds(parent.id))].sort()).toEqual([
+        "after-one",
+        "one",
+        "start",
+        "two",
+      ])
+    }
+  }, 60_000)
+
+  it("cancels its Agents when another branch fails", async () => {
+    const parent = await startBranches([
+      { id: "broken", type: "http", config: {} },
+    ])
+    await runs.execute(parent.id)
+    expect(await statusOf(parent.id)).toBe("failed")
+    expect((await children(parent.id)).map(({ status }) => status)).toEqual([
+      "cancelled",
+      "cancelled",
+    ])
+  })
+
+  it("cancels the open Agent when it is refused at its next claim", async () => {
+    const parent = await startBranches()
+    await runs.execute(parent.id)
+    const [one, two] = await children(parent.id)
+    await runs.execute(one.id)
+    await pool.query(
+      "UPDATE workflows SET archived_at = now() WHERE id = (SELECT workflow_id FROM executions WHERE id = $1)",
+      [parent.id]
+    )
+    await runs.execute(parent.id)
+    expect(await statusOf(parent.id)).toBe("failed")
+    expect(await statusOf(one.id)).toBe("succeeded")
+    expect(await statusOf(two.id)).toBe("cancelled")
+  })
+
+  it("leaves the Agents of a run another worker holds alone", async () => {
+    const parent = await startBranches()
+    await runs.execute(parent.id)
+    await pool.query(
+      "UPDATE executions SET status = 'running', leased_by = 'other', lease_expires_at = now() + interval '1 minute' WHERE id = $1",
+      [parent.id]
+    )
+    await runs.execute(parent.id)
+    expect((await children(parent.id)).map(({ status }) => status)).toEqual([
+      "queued",
+      "queued",
+    ])
+  })
 })

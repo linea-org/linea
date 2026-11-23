@@ -2,12 +2,12 @@ import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import {
   claimAndResolveDueWaitTimer,
-  claimPauseForPendingWait,
   createWaitTimer,
   getWaitTimer,
 } from "./wait-timer.repository.js"
 import { db, pool } from "../clients/index.js"
 import { startExecution } from "./execution.repository.js"
+import { claimPause } from "./pause-claim.repository.js"
 import { createExecution } from "./test-utils.js"
 import { executions } from "../schema/index.js"
 import { createTestFixtures, withRollback } from "./test-utils.js"
@@ -121,7 +121,7 @@ describe("wait-timer.repository", () => {
     })
   })
 
-  describe("claimPauseForPendingWait", () => {
+  describe("claimPause on a Wait", () => {
     it("pauses the execution when the timer has not fired", async () => {
       await withRollback(async (tx) => {
         const { organization, execution } = await insertExecution(tx)
@@ -138,13 +138,12 @@ describe("wait-timer.repository", () => {
           resumeAt: new Date(Date.now() + 60_000),
         })
 
-        const claim = await claimPauseForPendingWait(
-          tx,
-          organization.id,
-          execution.id,
-          "wait-1",
-          "worker-a"
-        )
+        const claim = await claimPause(tx, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          leasedBy: "worker-a",
+          steps: [{ nodeId: "wait-1", kind: "wait" }],
+        })
         expect(claim.outcome).toBe("paused")
 
         const [reloaded] = await tx
@@ -171,13 +170,12 @@ describe("wait-timer.repository", () => {
           resumeAt: new Date(Date.now() + 60_000),
         })
 
-        const claim = await claimPauseForPendingWait(
-          tx,
-          organization.id,
-          execution.id,
-          "wait-1",
-          "worker-a"
-        )
+        const claim = await claimPause(tx, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          leasedBy: "worker-a",
+          steps: [{ nodeId: "wait-1", kind: "wait" }],
+        })
         expect(claim.outcome).toBe("lease-lost")
 
         // Must not be falsely reported as paused while actually left "running" with a dead lease.
@@ -209,13 +207,12 @@ describe("wait-timer.repository", () => {
         // "running" from startExecution above) never reached, so it's a no-op here.
         await claimAndResolveDueWaitTimer(tx)
 
-        const claim = await claimPauseForPendingWait(
-          tx,
-          organization.id,
-          execution.id,
-          "wait-1",
-          "worker-a"
-        )
+        const claim = await claimPause(tx, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          leasedBy: "worker-a",
+          steps: [{ nodeId: "wait-1", kind: "wait" }],
+        })
         expect(claim.outcome).toBe("already-resolved")
 
         const [reloaded] = await tx
@@ -249,13 +246,12 @@ describe("wait-timer.repository", () => {
           "SELECT id FROM wait_timers WHERE execution_id = $1 AND node_id = $2 FOR UPDATE",
           [execution.id, "wait-1"]
         )
-        const claimPromise = claimPauseForPendingWait(
-          db,
-          organization.id,
-          execution.id,
-          "wait-1",
-          "worker-a"
-        )
+        const claimPromise = claimPause(db, {
+          workspaceId: organization.id,
+          executionId: execution.id,
+          leasedBy: "worker-a",
+          steps: [{ nodeId: "wait-1", kind: "wait" }],
+        })
         const fireResult = await claimAndResolveDueWaitTimer(db, new Date(1))
         await lockClient.query("COMMIT")
         const claimResult = await claimPromise

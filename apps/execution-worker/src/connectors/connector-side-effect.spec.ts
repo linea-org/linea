@@ -594,13 +594,12 @@ async function attachParent(fixture: Fixture) {
     fixture.executionClaimId,
     new Date(Date.now() + 60_000)
   )
-  await repositories.nestedAgentExecution.claimPauseForNestedAgent(
-    db,
-    fixture.workspaceId,
-    parent.executionId,
-    "agent",
-    parent.executionClaimId
-  )
+  await repositories.pauseClaim.claimPause(db, {
+    workspaceId: fixture.workspaceId,
+    executionId: parent.executionId,
+    leasedBy: parent.executionClaimId,
+    steps: [{ nodeId: "agent", kind: "agent" }],
+  })
   return parent
 }
 
@@ -645,13 +644,12 @@ describe("exact Action Intent consent", () => {
       const parent = await attachParent(fixture)
       await invoke(fixture)
       expect(
-        await repositories.approvalRequest.claimPauseForPendingApprovalRequest(
-          db,
-          fixture.workspaceId,
-          fixture.executionId,
-          "action",
-          fixture.executionClaimId
-        )
+        await repositories.pauseClaim.claimPause(db, {
+          workspaceId: fixture.workspaceId,
+          executionId: fixture.executionId,
+          leasedBy: fixture.executionClaimId,
+          steps: [{ nodeId: "action", kind: "approval" }],
+        })
       ).toEqual({ outcome: "paused" })
       const before = await consent(fixture)
       expect((await cancelExecution(parent)).outcome).toBe("cancelled")
@@ -2062,13 +2060,12 @@ describe("exact Action Intent consent", () => {
     it("cancels a paused Agent's consent, with one audit entry and one event", () =>
       withFailing(async (fixture, parent) => {
         await invoke(fixture)
-        await repositories.approvalRequest.claimPauseForPendingApprovalRequest(
-          db,
-          fixture.workspaceId,
-          fixture.executionId,
-          "action",
-          fixture.executionClaimId
-        )
+        await repositories.pauseClaim.claimPause(db, {
+          workspaceId: fixture.workspaceId,
+          executionId: fixture.executionId,
+          leasedBy: fixture.executionClaimId,
+          steps: [{ nodeId: "action", kind: "approval" }],
+        })
         await failParent(parent)
         expect(await statusOf(fixture.executionId)).toBe("cancelled")
         const after = await consent(fixture)
@@ -2187,6 +2184,74 @@ describe("exact Action Intent consent", () => {
         expect(provider.requests).toHaveLength(0)
       }))
 
+    it.each([
+      ["nothing", "paused", "paused"],
+      ["the Agent", "already-resolved", "running"],
+      ["the decision", "already-resolved", "running"],
+      ["the timer", "already-resolved", "running"],
+      ["the lease", "lease-lost", "running"],
+      ["a step that never waited", "already-resolved", "running"],
+    ])(
+      "pauses on every waiting step or none: %s settled first",
+      (settled, outcome, status) =>
+        withFailing(async (fixture, parent) => {
+          const request =
+            await repositories.approvalRequest.createApprovalRequest(db, {
+              workspaceId: fixture.workspaceId,
+              environmentId: fixture.environmentId,
+              executionId: parent.executionId,
+              workflowId: (
+                await repositories.execution.getExecutionById(
+                  db,
+                  parent.executionId
+                )
+              )?.workflowId,
+              nodeId: "approval",
+              audience: "workspace",
+              display: { title: "Continue?" },
+            })
+          await repositories.waitTimer.createWaitTimer(db, {
+            workspaceId: fixture.workspaceId,
+            executionId: parent.executionId,
+            nodeId: "wait",
+            resumeAt: new Date(Date.now() + 60_000),
+          })
+          if (settled === "the Agent")
+            await pool.query(
+              "UPDATE executions SET status = 'succeeded' WHERE id = $1",
+              [fixture.executionId]
+            )
+          if (settled === "the decision")
+            await pool.query(
+              "UPDATE approval_requests SET status = 'cancelled', cancelled_at = now() WHERE id = $1",
+              [request?.id]
+            )
+          if (settled === "the timer")
+            await pool.query(
+              "UPDATE wait_timers SET fired = true, fired_at = now() WHERE execution_id = $1",
+              [parent.executionId]
+            )
+          const claim = await repositories.pauseClaim.claimPause(db, {
+            workspaceId: fixture.workspaceId,
+            executionId: parent.executionId,
+            leasedBy:
+              settled === "the lease"
+                ? "another-worker"
+                : parent.executionClaimId,
+            steps: [
+              { nodeId: "agent", kind: "agent" },
+              { nodeId: "approval", kind: "approval" },
+              { nodeId: "wait", kind: "wait" },
+              ...(settled === "a step that never waited"
+                ? [{ nodeId: "unknown", kind: "wait" as const }]
+                : []),
+            ],
+          })
+          expect(claim.outcome).toBe(outcome)
+          expect(await statusOf(parent.executionId)).toBe(status)
+        })
+    )
+
     it("does nothing without the lease", () =>
       withFailing(async (fixture, parent) => {
         expect(await failParent(parent, "another-worker")).toBeUndefined()
@@ -2231,6 +2296,141 @@ describe("exact Action Intent consent", () => {
           )
         expect(nested.outcome).toBe("parent_not_found")
       }))
+
+    it.each(["agent", "approval", "wait"] as const)(
+      "waits for a waiting %s that is being settled before it pauses",
+      (kind) =>
+        withFailing(async (fixture, parent) => {
+          const root = await repositories.execution.getExecutionById(
+            db,
+            parent.executionId
+          )
+          const request =
+            await repositories.approvalRequest.createApprovalRequest(db, {
+              workspaceId: fixture.workspaceId,
+              environmentId: fixture.environmentId,
+              workflowId: root?.workflowId,
+              executionId: parent.executionId,
+              nodeId: "approval",
+              audience: "workspace",
+              display: { title: "Continue?" },
+            })
+          await repositories.waitTimer.createWaitTimer(db, {
+            workspaceId: fixture.workspaceId,
+            executionId: parent.executionId,
+            nodeId: "wait",
+            resumeAt: new Date(Date.now() + 60_000),
+          })
+          const [settle, id] = {
+            agent: [
+              "UPDATE executions SET status = 'succeeded' WHERE id = $1",
+              fixture.executionId,
+            ],
+            approval: [
+              "UPDATE approval_requests SET status = 'cancelled', cancelled_at = now() WHERE id = $1",
+              request?.id,
+            ],
+            wait: [
+              "UPDATE wait_timers SET fired = true, fired_at = now() WHERE execution_id = $1",
+              parent.executionId,
+            ],
+          }[kind] as [string, string]
+          const client = await pool.connect()
+          try {
+            await client.query("BEGIN")
+            await client.query(settle, [id])
+            const { rows } = await client.query<{ pid: number }>(
+              "SELECT pg_backend_pid() AS pid"
+            )
+            const claim = repositories.pauseClaim.claimPause(db, {
+              workspaceId: fixture.workspaceId,
+              executionId: parent.executionId,
+              leasedBy: parent.executionClaimId,
+              steps: [{ nodeId: kind, kind }],
+            })
+            await waitForLockWait(rows[0].pid)
+            await client.query("COMMIT")
+            expect((await claim).outcome).toBe("already-resolved")
+            expect(await statusOf(parent.executionId)).toBe("running")
+          } finally {
+            client.release()
+          }
+        })
+    )
+
+    it.each(["cancel", "failure", "decision"] as const)(
+      "pauses on an Agent and an Approval Request without deadlocking with a concurrent %s",
+      async (kind) => {
+        for (let round = 0; round < 8; round += 1) {
+          await withFailing(async (fixture, parent) => {
+            const root = await repositories.execution.getExecutionById(
+              db,
+              parent.executionId
+            )
+            const request =
+              await repositories.approvalRequest.createApprovalRequest(db, {
+                workspaceId: fixture.workspaceId,
+                environmentId: fixture.environmentId,
+                workflowId: root?.workflowId,
+                executionId: parent.executionId,
+                nodeId: "approval",
+                audience: "external_subject",
+                externalSubjectId: fixture.externalSubjectId,
+                display: { title: "Continue?" },
+              })
+            const pause = () =>
+              repositories.pauseClaim.claimPause(db, {
+                workspaceId: fixture.workspaceId,
+                executionId: parent.executionId,
+                leasedBy: parent.executionClaimId,
+                steps: [
+                  { nodeId: "agent", kind: "agent" },
+                  { nodeId: "approval", kind: "approval" },
+                ],
+              })
+            const other = () => {
+              if (kind === "cancel") return cancelExecution(parent)
+              if (kind === "failure") return failParent(parent)
+              return repositories.approvalRequest.decideExternalApprovalRequest(
+                db,
+                {
+                  workspaceId: fixture.workspaceId,
+                  environmentId: fixture.environmentId,
+                  externalSubjectId: fixture.externalSubjectId,
+                  endUserSessionId: fixture.endUserSessionId,
+                  approvalRequestId: request?.id as string,
+                  outcome: "approved",
+                  idempotencyKey: randomUUID(),
+                  now: new Date(),
+                }
+              )
+            }
+            const [claim] =
+              round % 2 === 0
+                ? await Promise.all([pause(), other()])
+                : await Promise.all([other(), pause()]).then(([b, a]) => [a, b])
+            const status = await statusOf(parent.executionId)
+            const outcome = (claim as { outcome: string }).outcome
+            if (kind === "cancel") {
+              expect(status).toBe("cancelled")
+            } else if (kind === "failure") {
+              expect([status, outcome]).toEqual(
+                outcome === "paused"
+                  ? ["paused", "paused"]
+                  : ["failed", "already-resolved"]
+              )
+            } else {
+              expect([status, outcome]).toEqual(
+                outcome === "paused"
+                  ? ["queued", "paused"]
+                  : ["running", "already-resolved"]
+              )
+            }
+          })
+        }
+      },
+      60_000
+    )
 
     it.each(["decision", "claim", "cancel"] as const)(
       "does not deadlock with a concurrent %s, and leaves nothing open",

@@ -497,14 +497,12 @@ export class AgentExecutionService {
     nodeId: string
   ): Promise<ToolOutcome> {
     const { execution, leasedBy } = context
-    const claim =
-      await repositories.approvalRequest.claimPauseForPendingApprovalRequest(
-        db,
-        execution.workspaceId,
-        execution.id,
-        nodeId,
-        leasedBy
-      )
+    const claim = await repositories.pauseClaim.claimPause(db, {
+      workspaceId: execution.workspaceId,
+      executionId: execution.id,
+      leasedBy,
+      steps: [{ nodeId, kind: "approval" }],
+    })
     if (claim.outcome === "lease-lost") throw new LeaseLostError(execution.id)
     return claim.outcome === "paused" ? { kind: "paused" } : { kind: "resume" }
   }

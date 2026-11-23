@@ -56,6 +56,14 @@ function extractAssistantReply(
   return undefined
 }
 
+function waitingKind(
+  graph: WorkflowGraph,
+  nodeId: string
+): repositories.pauseClaim.WaitingStep["kind"] {
+  const type = graph.nodes.find((node) => node.id === nodeId)?.type
+  return type === "wait" || type === "agent" ? type : "approval"
+}
+
 @Injectable()
 export class RunsService {
   private readonly logger = new Logger(RunsService.name)
@@ -69,36 +77,17 @@ export class RunsService {
     private readonly agents: AgentExecutionService
   ) {}
 
-  private claimPause(
-    nodeType: string | undefined,
-    workspaceId: string,
-    executionId: string,
-    nodeId: string,
-    attemptId: string
-  ) {
-    if (nodeType === "wait")
-      return repositories.waitTimer.claimPauseForPendingWait(
+  // With the flag off a decided step takes no turn, so steps keep their order. One can still be
+  // pending if the flag was turned off while the run waited on several steps.
+  private async pendingApprovalNodeId(
+    executionId: string
+  ): Promise<string | undefined> {
+    const request =
+      await repositories.approvalRequest.getPendingApprovalRequestForExecution(
         db,
-        workspaceId,
-        executionId,
-        nodeId,
-        attemptId
+        executionId
       )
-    if (nodeType === "agent")
-      return repositories.nestedAgentExecution.claimPauseForNestedAgent(
-        db,
-        workspaceId,
-        executionId,
-        nodeId,
-        attemptId
-      )
-    return repositories.approvalRequest.claimPauseForPendingApprovalRequest(
-      db,
-      workspaceId,
-      executionId,
-      nodeId,
-      attemptId
-    )
+    return request?.nodeId
   }
 
   async execute(executionId: string): Promise<void> {
@@ -112,6 +101,10 @@ export class RunsService {
     if (!execution) {
       this.logger.warn(
         `Execution ${executionId} was not claimable (already running, terminal, or failed at claim because its authority was revoked) — skipping`
+      )
+      await repositories.failedExecution.cancelWorkOfEndedExecution(
+        db,
+        executionId
       )
       return
     }
@@ -195,19 +188,25 @@ export class RunsService {
           agentTokens: parallel
             ? () => repositories.executionStep.sumAgentTokens(db, executionId)
             : undefined,
+          consentHeldBy: parallel
+            ? await repositories.approvalRequest.findConsentHolder(
+                db,
+                executionId,
+                [...resumeFrom.keys()]
+              )
+            : await this.pendingApprovalNodeId(executionId),
           signal: abortController.signal,
         })
         if (!outcome.pausedAt) break
-        const pausedNode = graph.nodes.find(
-          (node) => node.id === outcome.pausedAt
-        )
-        const claim = await this.claimPause(
-          pausedNode?.type,
-          execution.workspaceId,
+        const claim = await repositories.pauseClaim.claimPause(db, {
+          workspaceId: execution.workspaceId,
           executionId,
-          outcome.pausedAt,
-          attemptId
-        )
+          leasedBy: attemptId,
+          steps: outcome.pausedAt.map((nodeId) => ({
+            nodeId,
+            kind: waitingKind(graph, nodeId),
+          })),
+        })
         if (claim.outcome === "paused") {
           paused = true
           break
@@ -231,7 +230,7 @@ export class RunsService {
         )
       }
       if (paused) {
-        // Already marked paused atomically by claimPauseForPendingApprovalRequest above.
+        // Already marked paused atomically by claimPause above.
         return
       }
       // Only absent when pausedAt is set, handled above — safe to assert defined here.

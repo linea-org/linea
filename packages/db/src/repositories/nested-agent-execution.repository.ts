@@ -9,7 +9,6 @@ import {
   workflows,
 } from "../schema/index.js"
 import { createWorkflowExecutionMessage } from "./outbox-message.repository.js"
-import { pauseExecution, terminalStatuses } from "./execution.repository.js"
 import type { DbClient } from "./types.js"
 
 export type NestedAgentExecutionResult =
@@ -163,38 +162,6 @@ export function startNestedAgentExecution(
       executionId: execution.id,
     })
     return { outcome: "created", execution }
-  })
-}
-
-export type ClaimNestedPauseResult =
-  | { outcome: "paused" }
-  | { outcome: "already-decided" }
-  | { outcome: "lease-lost" }
-
-/** Pauses the parent only while its nested Agent invocation is unfinished, so a child that finished first is read instead of waited for. */
-export function claimPauseForNestedAgent(
-  db: DbClient,
-  workspaceId: string,
-  parentExecutionId: string,
-  nodeId: string,
-  leasedBy: string
-): Promise<ClaimNestedPauseResult> {
-  return db.transaction(async (tx): Promise<ClaimNestedPauseResult> => {
-    const [child] = await tx
-      .select()
-      .from(executions)
-      .where(
-        and(
-          eq(executions.workspaceId, workspaceId),
-          eq(executions.parentExecutionId, parentExecutionId),
-          eq(executions.parentNodeId, nodeId)
-        )
-      )
-      .for("update")
-    if (!child || terminalStatuses.includes(child.status))
-      return { outcome: "already-decided" }
-    const paused = await pauseExecution(tx, parentExecutionId, leasedBy)
-    return paused ? { outcome: "paused" } : { outcome: "lease-lost" }
   })
 }
 

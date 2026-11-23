@@ -15,11 +15,9 @@ import {
   listWorkspaceExecutions,
   startExecution,
 } from "./execution.repository.js"
+import { claimPause } from "./pause-claim.repository.js"
 import { createExecution } from "./test-utils.js"
-import {
-  claimPauseForNestedAgent,
-  startNestedAgentExecution,
-} from "./nested-agent-execution.repository.js"
+import { startNestedAgentExecution } from "./nested-agent-execution.repository.js"
 import {
   createTestFixtures,
   getTestDevelopmentEnvironmentId,
@@ -279,13 +277,12 @@ describe("startNestedAgentExecution", () => {
       await startExecution(tx, f.parent.id, "a", new Date(Date.now() + 60_000))
       expect((await getExecutionById(tx, f.parent.id))?.status).toBe("running")
       const claim = (leasedBy: string) =>
-        claimPauseForNestedAgent(
-          tx,
-          f.organization.id,
-          f.parent.id,
-          "n",
-          leasedBy
-        )
+        claimPause(tx, {
+          workspaceId: f.organization.id,
+          executionId: f.parent.id,
+          leasedBy: leasedBy,
+          steps: [{ nodeId: "n", kind: "agent" }],
+        })
       expect(await claim("someone-else")).toEqual({ outcome: "lease-lost" })
       expect(await claim("a")).toEqual({ outcome: "paused" })
       expect((await getExecutionById(tx, f.parent.id))?.status).toBe("paused")
@@ -304,7 +301,7 @@ describe("startNestedAgentExecution", () => {
         tokensOutput: 0,
       })
       expect((await getExecutionById(tx, f.parent.id))?.status).toBe("queued")
-      expect(await claim("a")).toEqual({ outcome: "already-decided" })
+      expect(await claim("a")).toEqual({ outcome: "already-resolved" })
     })
   })
   it("fails a child whose Agent deployment was disabled before its claim and wakes the paused parent", async () => {
@@ -327,13 +324,12 @@ describe("startNestedAgentExecution", () => {
       })
       if (started.outcome !== "created") throw new Error(started.outcome)
       expect(
-        await claimPauseForNestedAgent(
-          tx,
-          f.organization.id,
-          f.parent.id,
-          "n",
-          "a"
-        )
+        await claimPause(tx, {
+          workspaceId: f.organization.id,
+          executionId: f.parent.id,
+          leasedBy: "a",
+          steps: [{ nodeId: "n", kind: "agent" }],
+        })
       ).toEqual({ outcome: "paused" })
       await tx
         .update(environmentAgentBindings)

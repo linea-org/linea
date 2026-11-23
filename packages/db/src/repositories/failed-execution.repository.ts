@@ -33,47 +33,69 @@ export function failExecution(
       .from(executions)
       .where(eq(executions.id, executionId))
     if (!current) return undefined
-    const { workspaceId, environmentId } = current
-    const tree = await lockExecutionTree(
-      tx,
-      workspaceId,
-      environmentId,
-      executionId
-    )
-    const ids = tree.map(({ id }) => id)
-    // The same row order as a cancel (#359): requests, Executions with the root last, then intents.
-    await tx
-      .select({ id: approvalRequests.id })
-      .from(approvalRequests)
-      .where(inArray(approvalRequests.executionId, ids))
-      .orderBy(approvalRequests.id)
-      .for("update")
-    await tx
-      .select({ id: executions.id })
-      .from(executions)
-      .where(inArray(executions.id, ids))
-      .orderBy(sql`${executions.id} = ${executionId}`, executions.id)
-      .for("update")
-    const executing = await tx
-      .select({ executionId: actionIntents.executionId })
-      .from(actionIntents)
-      .where(
-        and(
-          inArray(actionIntents.executionId, ids),
-          eq(actionIntents.status, "executing")
-        )
-      )
-      .orderBy(actionIntents.id)
-      .for("update")
+    const open = await lockOpenWork(tx, current)
     const failed = await completeExecution(tx, executionId, leasedBy, {
       ...input,
       status: "failed",
     })
     if (!failed) return undefined
-    const reporting = new Set(executing.map((intent) => intent.executionId))
-    const open = ids.filter((id) => !reporting.has(id))
     await cancelOpenWork(tx, failed, open, new Date())
     return failed
+  })
+}
+
+// The same row order as a cancel (#359): requests, Executions with the root last, then intents.
+async function lockOpenWork(
+  tx: Transaction,
+  { id, workspaceId, environmentId }: Execution
+): Promise<string[]> {
+  const tree = await lockExecutionTree(tx, workspaceId, environmentId, id)
+  const ids = tree.map((execution) => execution.id)
+  await tx
+    .select({ id: approvalRequests.id })
+    .from(approvalRequests)
+    .where(inArray(approvalRequests.executionId, ids))
+    .orderBy(approvalRequests.id)
+    .for("update")
+  await tx
+    .select({ id: executions.id })
+    .from(executions)
+    .where(inArray(executions.id, ids))
+    .orderBy(sql`${executions.id} = ${id}`, executions.id)
+    .for("update")
+  const executing = await tx
+    .select({ executionId: actionIntents.executionId })
+    .from(actionIntents)
+    .where(
+      and(
+        inArray(actionIntents.executionId, ids),
+        eq(actionIntents.status, "executing")
+      )
+    )
+    .orderBy(actionIntents.id)
+    .for("update")
+  const reporting = new Set(executing.map((intent) => intent.executionId))
+  return ids.filter((openId) => !reporting.has(openId))
+}
+
+/** Cancels what an Execution left open when it ended without `failExecution`, such as at a refused claim. */
+export function cancelWorkOfEndedExecution(
+  db: DbClient,
+  executionId: string
+): Promise<void> {
+  return db.transaction(async (tx) => {
+    const [ended] = await tx
+      .select()
+      .from(executions)
+      .where(
+        and(
+          eq(executions.id, executionId),
+          inArray(executions.status, terminalStatuses)
+        )
+      )
+    if (!ended) return
+    const open = await lockOpenWork(tx, ended)
+    await cancelOpenWork(tx, ended, open, new Date())
   })
 }
 
