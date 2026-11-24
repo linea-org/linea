@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common"
 import { db, repositories } from "@linealabs/db"
 import { workflowGraphSchema } from "@linealabs/runtime"
+import { recordFlags } from "./record-flags"
 
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000
 
@@ -42,35 +43,38 @@ export class GraphFlaggersService implements OnModuleInit, OnModuleDestroy {
 
   private async flagRetryStorms(): Promise<void> {
     const results = await repositories.flag.detectRetryStorm(db)
-    for (const r of results) {
-      await repositories.flag.createFlagIfNew(db, {
+    await recordFlags(
+      this.logger,
+      results.map((r) => ({
         workspaceId: r.workspaceId,
         executionId: r.executionId,
         nodeId: r.nodeId,
         flagType: "retry_storm",
         detail: { maxAttempt: r.maxAttempt },
         dedupeKey: `retry_storm:${r.executionId}:${r.nodeId}`,
-      })
-    }
+      }))
+    )
   }
 
   private async flagExcessResumes(): Promise<void> {
     const results = await repositories.flag.detectExcessResumes(db)
-    for (const r of results) {
-      await repositories.flag.createFlagIfNew(db, {
+    await recordFlags(
+      this.logger,
+      results.map((r) => ({
         workspaceId: r.workspaceId,
         executionId: r.executionId,
         flagType: "excess_resumes",
         detail: { resumeCount: r.resumeCount },
         dedupeKey: `excess_resumes:${r.executionId}`,
-      })
-    }
+      }))
+    )
   }
 
   private async flagCostJumps(): Promise<void> {
     const results = await repositories.flag.detectCostJump(db)
-    for (const r of results) {
-      await repositories.flag.createFlagIfNew(db, {
+    await recordFlags(
+      this.logger,
+      results.map((r) => ({
         workspaceId: r.workspaceId,
         executionId: r.executionId,
         nodeId: r.nodeId,
@@ -80,8 +84,8 @@ export class GraphFlaggersService implements OnModuleInit, OnModuleDestroy {
           historicalAvgMicros: r.historicalAvgMicros,
         },
         dedupeKey: `cost_jump:${r.executionId}:${r.nodeId}`,
-      })
-    }
+      }))
+    )
   }
 
   private async flagUnreachedBranches(): Promise<void> {
@@ -104,17 +108,19 @@ export class GraphFlaggersService implements OnModuleInit, OnModuleDestroy {
           version.id,
           node.id
         )
-        for (const condition of possibleConditions) {
-          if (observed.has(condition)) continue
-          await repositories.flag.createFlagIfNew(db, {
-            workspaceId,
-            workflowId,
-            nodeId: node.id,
-            flagType: "branch_never_taken",
-            detail: { condition },
-            dedupeKey: `branch_never_taken:${version.id}:${node.id}:${condition}`,
-          })
-        }
+        await recordFlags(
+          this.logger,
+          possibleConditions
+            .filter((condition) => !observed.has(condition))
+            .map((condition) => ({
+              workspaceId,
+              workflowId,
+              nodeId: node.id,
+              flagType: "branch_never_taken",
+              detail: { condition },
+              dedupeKey: `branch_never_taken:${version.id}:${node.id}:${condition}`,
+            }))
+        )
       }
     }
   }

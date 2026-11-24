@@ -2,7 +2,12 @@ import { createTestExecution } from "@linealabs/db/testing"
 import { getTestApplicationId } from "@linealabs/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
+import { Logger } from "@nestjs/common"
 import { db, pool, repositories, schema } from "@linealabs/db"
+import {
+  createFlaggerWorkspace,
+  deleteFlaggerWorkspace,
+} from "./flagger-workspace.fixture"
 import { TranscriptFlaggersService } from "./transcript-flaggers.service"
 
 afterAll(async () => {
@@ -168,6 +173,67 @@ describe("TranscriptFlaggersService.sweep", () => {
       await pool.query("DELETE FROM organizations WHERE id = $1", [
         organization.id,
       ])
+    }
+  })
+
+  it("still flags other workspaces when one is deleted mid-sweep", async () => {
+    const doomed = await createFlaggerWorkspace("Deleted Mid Sweep")
+    const survivor = await createFlaggerWorkspace("Survivor")
+    const errorLog = jest.spyOn(Logger.prototype, "error").mockImplementation()
+    try {
+      const [doomedStep] = await db
+        .insert(schema.executionSteps)
+        .values({
+          executionId: doomed.execution.id,
+          workspaceId: doomed.organization.id,
+          traceId: doomed.execution.id,
+          startedAt: new Date(),
+          spanId: "http-span",
+          name: "http",
+          nodeId: "n1",
+          sequence: 1,
+          status: "failed",
+        })
+        .returning()
+      await db.insert(schema.executionSteps).values({
+        executionId: survivor.execution.id,
+        workspaceId: survivor.organization.id,
+        traceId: survivor.execution.id,
+        startedAt: new Date(),
+        spanId: "refusal-span",
+        name: "ai",
+        nodeId: "ai-step",
+        sequence: 1,
+        status: "succeeded",
+        output: { text: "I cannot help with that." },
+      })
+      jest.spyOn(db, "transaction").mockImplementationOnce(async (run) => {
+        await deleteFlaggerWorkspace(doomed.organization.id)
+        return db.transaction(run)
+      })
+
+      await new TranscriptFlaggersService().sweep()
+
+      const allFlags = await db.select().from(schema.flags)
+      const flags = allFlags.filter(
+        (f) =>
+          f.executionId === doomed.execution.id ||
+          f.executionId === survivor.execution.id
+      )
+      expect(flags.map((f) => [f.executionId, f.flagType])).toEqual([
+        [survivor.execution.id, "refusal"],
+      ])
+      expect(errorLog).toHaveBeenCalledWith(
+        expect.stringMatching(
+          new RegExp(
+            `tool_error:${doomedStep.id}.*signals_workspace_id_organizations_id_fkey`
+          )
+        )
+      )
+    } finally {
+      jest.restoreAllMocks()
+      await deleteFlaggerWorkspace(doomed.organization.id)
+      await deleteFlaggerWorkspace(survivor.organization.id)
     }
   })
 })
