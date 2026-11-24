@@ -4,7 +4,6 @@ import {
   approvalRequests,
   auditLogs,
   executions,
-  executionSteps,
   type Execution,
 } from "../schema/index.js"
 import {
@@ -17,7 +16,7 @@ import {
   terminalStatuses,
   type CompleteExecutionInput,
 } from "./execution.repository.js"
-import { sumStepTotals } from "./execution-step.repository.js"
+import { cancelExecutions } from "./execution-cancellation.repository.js"
 import type { DbClient, Transaction } from "./types.js"
 
 /** Fails an Execution and cancels what it left open, except an Agent whose claimed Action Intent must still report (ADR 0029). */
@@ -141,27 +140,11 @@ async function cancelOpenWork(
       )
     )
   if (agents.length === 0) return
-  const steps = await tx
-    .select()
-    .from(executionSteps)
-    .where(
-      inArray(
-        executionSteps.executionId,
-        agents.map(({ id }) => id)
-      )
-    )
-  for (const { id } of agents) {
-    await tx
-      .update(executions)
-      .set({
-        status: "cancelled",
-        completedAt: cancelledAt,
-        leasedBy: null,
-        leaseExpiresAt: null,
-        ...sumStepTotals(steps.filter((step) => step.executionId === id)),
-      })
-      .where(eq(executions.id, id))
-  }
+  await cancelExecutions(
+    tx,
+    agents.map(({ id }) => id),
+    cancelledAt
+  )
   await tx.insert(auditLogs).values(
     agents.map(({ id, environmentId }) => ({
       workspaceId: failed.workspaceId,
