@@ -23,15 +23,22 @@ export class RunLeaseService {
     const timer = setInterval(() => {
       repositories.execution
         .renewLease(db, executionId, leasedBy, this.computeLeaseExpiry())
-        .then((renewed) => {
-          // Undefined means someone else reclaimed the lease — stop polling with a stale identity.
-          if (!renewed) {
-            this.logger.warn(
-              `Lost lease for execution ${executionId} to another worker — stopping heartbeat`
+        .then(async (renewed) => {
+          if (renewed) return
+          // Before anything that can fail, so the call in flight is always stopped.
+          this.stopHeartbeat(leasedBy)
+          onLeaseLost?.()
+          const cancelled =
+            await repositories.executionCancellation.wasCancelledFrom(
+              db,
+              executionId,
+              leasedBy
             )
-            this.stopHeartbeat(leasedBy)
-            onLeaseLost?.()
-          }
+          this.logger.warn(
+            cancelled
+              ? `Execution ${executionId} was cancelled — stopping heartbeat`
+              : `Lost lease for execution ${executionId} to another worker — stopping heartbeat`
+          )
         })
         .catch((error: unknown) => {
           this.logger.error(

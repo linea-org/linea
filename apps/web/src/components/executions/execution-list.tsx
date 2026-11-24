@@ -40,15 +40,14 @@ const environmentLabel: Record<ExecutionSummary["environment"], string> = {
   production: "Production",
 }
 
-/** No attribute on a succeeded "ai" step means it predates cost tracking, same tri-state as checkpoints.service.ts's stepCostUnpricedState. */
+/** No attribute on a succeeded "ai" step means it predates cost tracking, same tri-state as execution-step.repository.ts's stepCostUnpriced. */
 export function stepCostUnpricedState(
   step: Pick<ExecutionStepSummary, "name" | "status" | "attributes">
 ): boolean | null {
-  if (step.name !== "ai" || step.status !== "succeeded") return false
+  if (step.name !== "ai") return false
   const value = step.attributes?.costUnpriced
-  if (value === true) return true
-  if (value === false) return false
-  return null
+  if (typeof value === "boolean") return value
+  return step.status === "succeeded" ? null : false
 }
 
 export function formatCost(costMicros: string, unpriced?: boolean | null) {

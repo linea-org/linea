@@ -33,6 +33,7 @@ import {
   toolCallRecords,
   waitTimers,
 } from "../schema/index.js"
+import { cancelExecutions } from "./execution-cancellation.repository.js"
 import { wakeParentOfFinishedChild } from "./nested-parent-wake.js"
 import type { DbClient } from "./types.js"
 
@@ -271,21 +272,20 @@ export async function eraseExternalSubjectContent(
     }
     executionIds.push(...added)
   } while (added.length > 0)
-  const cancelledExecutions = await tx
-    .update(executions)
-    .set({
-      status: "cancelled",
-      completedAt: input.erasedAt,
-      leasedBy: null,
-      leaseExpiresAt: null,
-    })
+  const active = await tx
+    .select({ id: executions.id })
+    .from(executions)
     .where(
       and(
         inArray(executions.id, executionIds),
         inArray(executions.status, [...ACTIVE_EXECUTION_STATUSES])
       )
     )
-    .returning()
+  const cancelledExecutions = await cancelExecutions(
+    tx,
+    active.map(({ id }) => id),
+    input.erasedAt
+  )
   for (const execution of cancelledExecutions) {
     if (
       execution.parentExecutionId &&

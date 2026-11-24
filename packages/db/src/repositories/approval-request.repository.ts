@@ -1,4 +1,5 @@
 import { activeExecutionParent } from "./execution-parent-authority.js"
+import { cancelExecutions } from "./execution-cancellation.repository.js"
 import { wakeParentOfFinishedChild } from "./nested-parent-wake.js"
 import {
   getApprovalReviewerAuthority,
@@ -936,16 +937,7 @@ export async function cancelExecutionWithPendingApproval(
     actor: { kind: "environment_key", id: actorEnvironmentKeyId },
     cancelledAt,
   })
-  const cancelledExecutions = await tx
-    .update(executions)
-    .set({
-      status: "cancelled",
-      completedAt: cancelledAt,
-      leasedBy: null,
-      leaseExpiresAt: null,
-    })
-    .where(inArray(executions.id, activeIds))
-    .returning()
+  const cancelledExecutions = await cancelExecutions(tx, activeIds, cancelledAt)
   const execution = cancelledExecutions.find(({ id }) => id === executionId)
   if (!execution) throw new Error("Locked Execution disappeared")
   await wakeParentOfFinishedChild(tx, execution)

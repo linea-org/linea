@@ -16,13 +16,13 @@ export type StepTotals = {
 }
 
 function stepCostUnpriced(step: ExecutionStep): boolean | null {
-  if (step.name !== "ai" || step.status !== "succeeded") return false
-  if (step.attributes?.costUnpriced === true) return true
-  if (step.attributes?.costUnpriced === false) return false
-  return null
+  if (step.name !== "ai") return false
+  const costUnpriced = step.attributes?.costUnpriced
+  if (typeof costUnpriced === "boolean") return costUnpriced
+  return step.status === "succeeded" ? null : false
 }
 
-function mergeCostUnpriced(a: boolean | null, b: boolean | null) {
+export function mergeCostUnpriced(a: boolean | null, b: boolean | null) {
   if (a === true || b === true) return true
   if (a === null || b === null) return null
   return false

@@ -325,6 +325,18 @@ export class RunsService {
         }
       )
       if (failed) await this.notifyExecutionFailed(failed, message)
+      else if (
+        await repositories.executionCancellation.wasCancelledFrom(
+          db,
+          executionId,
+          attemptId
+        )
+      ) {
+        this.logger.log(
+          `Execution ${executionId} was cancelled${error instanceof LeaseLostError ? "" : `: ${message}`}`
+        )
+        return
+      }
       throw error
     } finally {
       this.lease.stopHeartbeat(attemptId)
