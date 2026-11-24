@@ -39,7 +39,10 @@ import {
   reservePublicRequest,
 } from "./public-idempotency.repository.js"
 import type { DbClient } from "./types.js"
-import { createWorkflowExecutionMessage } from "./outbox-message.repository.js"
+import {
+  createWorkflowExecutionMessage,
+  lockSubjectThenEnvironment,
+} from "./outbox-message.repository.js"
 
 export type PublicRuntimeActor = {
   kind: "environment_key" | "end_user_session"
@@ -530,8 +533,18 @@ export async function cancelPublicExecution(
   idempotency: Idempotency
 ): Promise<CancelPublicExecutionResult> {
   return db.transaction(async (tx): Promise<CancelPublicExecutionResult> => {
-    // The reservation references the Environment row, which a claim locks under these locks.
-    await lockExecutionTree(tx, workspaceId, environmentId, executionId)
+    const tree = await lockExecutionTree(
+      tx,
+      workspaceId,
+      environmentId,
+      executionId
+    )
+    // Before the reservation, which references the Environment a claim locks after the subject.
+    await lockSubjectThenEnvironment(tx, {
+      environmentId,
+      externalSubjectId: tree.find(({ id }) => id === executionId)
+        ?.externalSubjectRecordId,
+    })
     const reservation = await reservePublicRequest(tx, {
       workspaceId,
       environmentId,

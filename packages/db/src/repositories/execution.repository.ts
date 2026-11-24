@@ -37,6 +37,7 @@ import { upsertEndSubject } from "./end-subject.repository.js"
 import {
   createPublicEvent,
   createWorkflowExecutionMessage,
+  lockSubjectThenEnvironment,
 } from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
 import {
@@ -393,6 +394,18 @@ export async function completeExecution(
   input: CompleteExecutionInput
 ): Promise<Execution | undefined> {
   return db.transaction(async (tx) => {
+    const [scope] = await tx
+      .select({
+        environmentId: executions.environmentId,
+        externalSubjectId: executions.externalSubjectRecordId,
+      })
+      .from(executions)
+      .where(eq(executions.id, executionId))
+    if (scope?.environmentId)
+      await lockSubjectThenEnvironment(tx, {
+        ...scope,
+        environmentId: scope.environmentId,
+      })
     const [execution] = await tx
       .update(executions)
       .set({ ...input, completedAt: new Date() })

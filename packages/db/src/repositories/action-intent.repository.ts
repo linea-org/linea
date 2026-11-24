@@ -25,7 +25,10 @@ import {
 } from "./connection-authority.repository.js"
 import { createApprovalRequest } from "./approval-request.repository.js"
 import { recordActionIntentFact } from "./connector-audit.repository.js"
-import { createPublicEvent } from "./outbox-message.repository.js"
+import {
+  createPublicEvent,
+  lockSubjectThenEnvironment,
+} from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
 
 export type CreateActionIntentInput = {
@@ -510,8 +513,12 @@ function activeExecutionClaim(
 async function failRecoveredActionIntent(
   tx: DbClient,
   intent: ActionIntent,
-  input: ClaimApprovedActionIntentInput,
-  priorClaimId: string
+  input: Pick<ClaimApprovedActionIntentInput, "executionClaimId" | "now">,
+  priorClaimId: string,
+  unsent = {
+    code: "authorization_revoked",
+    message: "Connector authority became unavailable",
+  }
 ): Promise<ClaimApprovedActionIntentResult> {
   const outcomeUnknown = intent.dispatchStartedAt !== null
   const [failed] = await tx
@@ -520,10 +527,12 @@ async function failRecoveredActionIntent(
       status: outcomeUnknown ? "outcome_unknown" : "failed",
       executionClaimId: input.executionClaimId,
       normalizedError: {
-        code: outcomeUnknown ? "outcome_unknown" : "authorization_revoked",
-        message: outcomeUnknown
-          ? "Connector provider outcome could not be reconciled"
-          : "Connector authority became unavailable",
+        ...(outcomeUnknown
+          ? {
+              code: "outcome_unknown",
+              message: "Connector provider outcome could not be reconciled",
+            }
+          : unsent),
         outcomeUnknown,
       },
       updatedAt: input.now,
@@ -554,6 +563,38 @@ async function failRecoveredActionIntent(
     failureClass: failed.normalizedError?.code,
   })
   return { outcome: "terminal", intent: failed }
+}
+
+/** Settles the writes nothing can report any more, because their Execution has just failed. */
+export async function settleExecutingActionIntents(
+  tx: DbClient,
+  executionId: string,
+  executionClaimId: string,
+  now: Date
+): Promise<void> {
+  const executing = await tx
+    .select()
+    .from(actionIntents)
+    .where(
+      and(
+        eq(actionIntents.executionId, executionId),
+        eq(actionIntents.status, "executing")
+      )
+    )
+  for (const intent of executing) {
+    if (!intent.executionClaimId)
+      throw new Error("Executing Action Intent has no execution claim")
+    await failRecoveredActionIntent(
+      tx,
+      intent,
+      { executionClaimId, now },
+      intent.executionClaimId,
+      {
+        code: "provider_failed",
+        message: "The run failed before this write was sent",
+      }
+    )
+  }
 }
 
 async function recoverExecutingActionIntent(
@@ -976,6 +1017,20 @@ async function parentIsActive(
   return execution !== undefined
 }
 
+async function lockIntentEventScope(
+  tx: DbClient,
+  actionIntentId: string
+): Promise<void> {
+  const [intent] = await tx
+    .select({
+      environmentId: actionIntents.environmentId,
+      externalSubjectId: actionIntents.externalSubjectId,
+    })
+    .from(actionIntents)
+    .where(eq(actionIntents.id, actionIntentId))
+  if (intent) await lockSubjectThenEnvironment(tx, intent)
+}
+
 // Says nothing of the parent: a write already sent must report even after its Workflow ended.
 async function lockActiveActionIntentExecution(
   tx: DbClient,
@@ -1013,6 +1068,7 @@ export async function completeActionIntent(
   }
 ): Promise<ActionIntent | undefined> {
   return db.transaction(async (tx) => {
+    await lockIntentEventScope(tx, input.actionIntentId)
     if (
       !(await lockActiveActionIntentExecution(tx, {
         actionIntentId: input.actionIntentId,
@@ -1069,6 +1125,7 @@ export async function failActionIntent(
   }
 ): Promise<ActionIntent | undefined> {
   return db.transaction(async (tx) => {
+    await lockIntentEventScope(tx, input.actionIntentId)
     if (
       !(await lockActiveActionIntentExecution(tx, {
         actionIntentId: input.actionIntentId,

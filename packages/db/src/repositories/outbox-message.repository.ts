@@ -2,7 +2,9 @@ import { and, asc, eq, inArray, lte, or, sql } from "drizzle-orm"
 import type { EventType } from "@linealabs/protocol/events"
 import type { JsonValue } from "@linealabs/protocol/shared"
 import {
+  environments,
   externalSubjectEnvironments,
+  externalSubjects,
   outboxMessages,
   type OutboxMessage,
 } from "../schema/index.js"
@@ -23,6 +25,24 @@ export async function createWorkflowExecutionMessage(
   return message
 }
 
+/** Takes what public events and audit facts reference, in a claim's order; their own foreign keys take it reversed (ADR 0033). */
+export async function lockSubjectThenEnvironment(
+  tx: DbClient,
+  scope: { environmentId: string; externalSubjectId?: string | null }
+): Promise<void> {
+  if (scope.externalSubjectId)
+    await tx
+      .select({ id: externalSubjects.id })
+      .from(externalSubjects)
+      .where(eq(externalSubjects.id, scope.externalSubjectId))
+      .for("key share")
+  await tx
+    .select({ id: environments.id })
+    .from(environments)
+    .where(eq(environments.id, scope.environmentId))
+    .for("key share")
+}
+
 export async function createPublicEvent(
   db: DbClient,
   input: {
@@ -34,6 +54,7 @@ export async function createPublicEvent(
   }
 ): Promise<OutboxMessage> {
   return db.transaction(async (tx) => {
+    await lockSubjectThenEnvironment(tx, input)
     if (input.externalSubjectId) {
       const [audience] = await tx
         .select({ environmentId: externalSubjectEnvironments.environmentId })
