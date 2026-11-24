@@ -2225,7 +2225,10 @@ describe("exact Action Intent consent", () => {
           db,
           fixture.executionId
         )
-        expect(child).toMatchObject({ status: "cancelled", leasedBy: null })
+        expect(child).toMatchObject({
+          status: "cancelled",
+          leaseExpiresAt: null,
+        })
         const audits = await pool.query<{ resource_id: string }>(
           "SELECT resource_id FROM audit_logs WHERE workspace_id = $1 AND action = 'execution.cancelled' AND actor_user_id IS NULL AND actor_environment_key_id IS NULL",
           [fixture.workspaceId]

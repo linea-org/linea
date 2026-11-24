@@ -236,18 +236,25 @@ export class AgentExecutionService {
     if (used >= MAX_EXECUTION_TOKENS)
       throw new Error(executionBudgetMessage(used))
     const startedAt = new Date()
+    const call = {
+      nodeId: modelNodeId,
+      startedAt,
+      model: definition.model,
+      provider: resolveProviderId(definition.model),
+    }
     let result: Completion
     try {
       result = await this.complete(context, conversation)
     } catch (error) {
+      if (context.runSignal.aborted)
+        await this.recordCancelledCall(context, call, null)
       await this.recordFailure(context, {
-        nodeId: modelNodeId,
+        ...call,
         nodeType: "ai",
         input: { iteration },
-        startedAt,
         error,
-        model: definition.model,
-        provider: resolveProviderId(definition.model),
+        // An aborted call reports no usage, so what it cost is missing from the total.
+        costUnpriced: context.runSignal.aborted || undefined,
       })
       throw error
     }
@@ -256,27 +263,53 @@ export class AgentExecutionService {
       result.tokensInput,
       result.tokensOutput
     )
-    completed.set(modelNodeId, result)
-    await this.checkpoints.recordStep({
-      executionId: execution.id,
-      workspaceId: execution.workspaceId,
-      leasedBy,
-      nodeId: modelNodeId,
-      nodeType: "ai",
-      input: { iteration },
-      output: result,
-      startedAt,
-      endedAt: new Date(),
-      completed,
-      variables: {},
+    const usage = {
       tokensInput: result.tokensInput,
       tokensOutput: result.tokensOutput,
       costMicros: cost ?? 0n,
       costUnpriced: cost === undefined,
-      model: definition.model,
-      provider: resolveProviderId(definition.model),
-    })
+    }
+    completed.set(modelNodeId, result)
+    try {
+      await this.checkpoints.recordStep({
+        ...call,
+        ...usage,
+        executionId: execution.id,
+        workspaceId: execution.workspaceId,
+        leasedBy,
+        nodeType: "ai",
+        input: { iteration },
+        output: result,
+        endedAt: new Date(),
+        completed,
+        variables: {},
+      })
+    } catch (error) {
+      if (error instanceof LeaseLostError)
+        await this.recordCancelledCall(context, call, usage)
+      throw error
+    }
     return result
+  }
+
+  private async recordCancelledCall(
+    { execution, leasedBy }: RunContext,
+    call: { nodeId: string; startedAt: Date; model: string; provider?: string },
+    usage: Parameters<
+      typeof repositories.executionCancellation.recordCancelledModelCall
+    >[2]["usage"]
+  ): Promise<void> {
+    try {
+      await repositories.executionCancellation.recordCancelledModelCall(
+        db,
+        leasedBy,
+        { ...call, executionId: execution.id, endedAt: new Date(), usage }
+      )
+    } catch (error) {
+      this.logger.error(
+        `Could not record usage of cancelled Agent Execution ${execution.id}: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
   }
 
   private async complete(
@@ -318,6 +351,7 @@ export class AgentExecutionService {
       error: unknown
       model?: string
       provider?: string
+      costUnpriced?: boolean
     }
   ): Promise<void> {
     if (failure.error instanceof LeaseLostError || context.signal.aborted)
@@ -346,8 +380,10 @@ export class AgentExecutionService {
         variables: {},
         model: failure.model,
         provider: failure.provider,
+        costUnpriced: failure.costUnpriced,
       })
     } catch (recordError) {
+      if (recordError instanceof LeaseLostError) return
       this.logger.warn(
         `Could not record failed step ${failure.nodeId}: ${recordError instanceof Error ? recordError.message : String(recordError)}`
       )

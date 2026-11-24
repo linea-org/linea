@@ -486,7 +486,7 @@ it("fails a run that outlives its work budget and records the stalled model turn
     "Agent run exceeded its 30 minute work budget"
   )
   const final = await repositories.execution.getExecutionById(db, execution.id)
-  expect(final?.status).toBe("failed")
+  expect(final).toMatchObject({ status: "failed", costUnpriced: true })
   expect(await failedSteps(execution.id)).toEqual([
     expect.objectContaining({ name: "ai", node_id: "agent:model:0" }),
   ])

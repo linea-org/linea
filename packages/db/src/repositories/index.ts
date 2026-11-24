@@ -62,5 +62,6 @@ export * as environmentAgentBinding from "./environment-agent-binding.repository
 export * as agentExecution from "./agent-execution.repository.js"
 export * as pauseClaim from "./pause-claim.repository.js"
 export * as failedExecution from "./failed-execution.repository.js"
+export * as executionCancellation from "./execution-cancellation.repository.js"
 export * as nestedAgentExecution from "./nested-agent-execution.repository.js"
 export * as builderSocketAccess from "./builder-socket-access.repository.js"
