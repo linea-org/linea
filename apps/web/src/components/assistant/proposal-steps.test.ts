@@ -60,4 +60,12 @@ describe("proposalSteps", () => {
       [false, []],
     ])
   })
+
+  it("keeps the condition of a branch with one way on", () => {
+    const edges = graph.edges.filter((edge) => edge.condition !== "no")
+    const pick = proposalSteps({ ...graph, edges }).find(
+      ({ id }) => id === "pick"
+    )
+    expect(pick?.routes).toEqual([{ when: "yes", to: "HTTP request" }])
+  })
 })

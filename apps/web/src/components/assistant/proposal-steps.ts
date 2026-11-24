@@ -53,7 +53,8 @@ export function proposalSteps(graph: Graph) {
       when: edge.condition,
       to: titles.get(edge.to) ?? edge.to,
     }))
-    const oneWayOn = routes.length === 1 && leadsOn
+    const oneWayOn =
+      routes.length === 1 && leadsOn && routes[0].when === undefined
     return { ...step, leadsOn, routes: oneWayOn ? [] : routes }
   })
 }
