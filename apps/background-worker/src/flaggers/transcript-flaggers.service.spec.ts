@@ -175,6 +175,7 @@ describe("TranscriptFlaggersService.sweep", () => {
       ])
     }
   })
+
   it("still flags other workspaces when one is deleted mid-sweep", async () => {
     const doomed = await createFlaggerWorkspace("Deleted Mid Sweep")
     const survivor = await createFlaggerWorkspace("Survivor")
