@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import {
   attachmentSummary,
@@ -51,6 +51,18 @@ describe("readAttachments", () => {
     expect(await refusal(file("a.txt", "text/plain"), attached)).toBe(
       "Up to 5 files"
     )
+  })
+
+  it("does not read files past the limits", async () => {
+    const many = Array.from({ length: 50 }, (_, index) =>
+      file(`${index}.txt`, "text/plain")
+    )
+    const read = vi.fn(() => Promise.resolve("x"))
+    for (const each of many) each.text = read
+    const { attachments, rejected } = await readAttachments(many, [])
+    expect(attachments).toHaveLength(5)
+    expect(rejected).toHaveLength(45)
+    expect(read).toHaveBeenCalledTimes(5)
   })
 
   it("counts the files already attached against the size limit", async () => {

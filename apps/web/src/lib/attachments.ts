@@ -53,11 +53,25 @@ type ReadFile =
   { name: string; content: string } | { name: string; reason: string }
 
 const TOO_LARGE = `Over ${MAX_ATTACHMENT_BYTES / 1000} KB in total`
+const TOO_MANY = `Up to ${MAX_ATTACHMENTS} files`
 
-async function readFile(file: File): Promise<ReadFile> {
+/** Refuses what can be refused unread, so a large selection is not loaded into memory. */
+function unreadReasons(files: File[], slots: number, bytes: number) {
+  let usedSlots = 0
+  let usedBytes = 0
+  return files.map((file): string | null => {
+    if (!isTextFile(file)) return "Text files only"
+    if (usedSlots >= slots) return TOO_MANY
+    if (usedBytes + file.size > bytes) return TOO_LARGE
+    usedSlots += 1
+    usedBytes += file.size
+    return null
+  })
+}
+
+async function readFile(file: File, reason: string | null): Promise<ReadFile> {
   const { name } = file
-  if (!isTextFile(file)) return { name, reason: "Text files only" }
-  if (file.size > MAX_ATTACHMENT_BYTES) return { name, reason: TOO_LARGE }
+  if (reason !== null) return { name, reason }
   try {
     return { name, content: await file.text() }
   } catch {
@@ -84,21 +98,27 @@ export async function readAttachments(
   const attachments = [...current]
   const rejected: RejectedFile[] = []
   let used = current.reduce((sum, item) => sum + encodedBytes(item.content), 0)
-  for (const file of await Promise.all(files.map(readFile))) {
+  const reasons = unreadReasons(
+    files,
+    MAX_ATTACHMENTS - current.length,
+    MAX_ATTACHMENT_BYTES - used
+  )
+  const read = await Promise.all(
+    files.map((file, index) => readFile(file, reasons[index]))
+  )
+  for (const file of read) {
     if ("reason" in file) {
       rejected.push(file)
       continue
     }
     const { name, content } = file
     const bytes = encodedBytes(content)
-    if (attachments.length >= MAX_ATTACHMENTS) {
-      rejected.push({ name, reason: `Up to ${MAX_ATTACHMENTS} files` })
-    } else if (used + bytes > MAX_ATTACHMENT_BYTES) {
+    if (used + bytes > MAX_ATTACHMENT_BYTES) {
       rejected.push({ name, reason: TOO_LARGE })
-    } else {
-      used += bytes
-      attachments.push({ name: uniqueName(name, attachments), content })
+      continue
     }
+    used += bytes
+    attachments.push({ name: uniqueName(name, attachments), content })
   }
   return { attachments, rejected }
 }
