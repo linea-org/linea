@@ -246,7 +246,7 @@ export class AgentExecutionService {
     try {
       result = await this.complete(context, conversation)
     } catch (error) {
-      if (context.signal.aborted)
+      if (context.runSignal.aborted)
         await this.recordCancelledCall(context, call, null)
       await this.recordFailure(context, {
         ...call,

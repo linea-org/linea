@@ -343,6 +343,23 @@ describe("an Agent cancelled while its model call is in flight", () => {
     expect(logged()).not.toContain("another worker")
   })
 
+  it("marks the cost partial when the work budget aborts the call first", async () => {
+    let endBudget!: () => void
+    jest.spyOn(AbortSignal, "timeout").mockImplementationOnce(() => {
+      const controller = new AbortController()
+      endBudget = () => controller.abort()
+      return controller.signal
+    })
+    const id = await start()
+    const run = await runToModelCall(id)
+    await cancelByKey(id)
+    endBudget()
+    expect(await run.settled).toBe("returned")
+    const { execution, steps } = await read(id)
+    expect(execution).toMatchObject({ status: "cancelled", costUnpriced: true })
+    expect(steps).toHaveLength(1)
+  })
+
   it("records no usage for a call the provider refused", async () => {
     const id = await start()
     const run = await runToModelCall(id)

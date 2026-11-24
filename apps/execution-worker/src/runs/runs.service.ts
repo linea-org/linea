@@ -332,9 +332,8 @@ export class RunsService {
           attemptId
         )
       ) {
-        this.logger.log(
-          `Execution ${executionId} was cancelled${error instanceof LeaseLostError ? "" : `: ${message}`}`
-        )
+        const detail = error instanceof LeaseLostError ? "" : `: ${message}`
+        this.logger.log(`Execution ${executionId} was cancelled${detail}`)
         return
       }
       throw error
