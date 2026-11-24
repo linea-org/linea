@@ -10,12 +10,14 @@ import {
 import { queuedRegressionRunSchema } from '@linealabs/protocol/resources'
 import { OptionalAuth } from '@thallesp/nestjs-better-auth'
 import { CurrentWorkspaceId } from '../auth/current-workspace-id.decorator'
+import { OptionalUserId } from '../auth/optional-user-id.decorator'
 import { RequireRole } from '../auth/require-role.decorator'
 import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { WorkspaceRateLimit } from '../auth/workspace-rate-limit.guard'
 import { WorkspaceRoleGuard } from '../auth/workspace-role.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
+import { canReadDiagnosticContent } from '../executions/end-user-trace-access'
 import {
   listRegressionRunsSchema,
   type ListRegressionRunsDto,
@@ -66,11 +68,13 @@ export class RegressionRunsController {
   @RequireWorkspaceKeyScopes('regressions:read')
   async get(
     @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() userId: string | undefined,
     @Param('workflowId') workflowId: string,
     @Param('id') id: string,
   ) {
     return regressionRunDetailProjection(
       await this.regressionRuns.get(workspaceId, workflowId, id),
+      await canReadDiagnosticContent(workspaceId, userId),
     )
   }
 }

@@ -104,9 +104,11 @@ export function RegressionRunDetailView({
                     {formatCost(result.costMicros)}
                   </span>
                 </div>
-                <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground">
-                  {formatJson(result.output)}
-                </pre>
+                {result.output !== null && (
+                  <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground">
+                    {formatJson(result.output)}
+                  </pre>
+                )}
               </div>
             ))}
           </Card>

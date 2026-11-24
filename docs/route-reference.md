@@ -10313,11 +10313,18 @@ Status: `200`
         "type": "string"
       },
       "input": {
-        "additionalProperties": {},
-        "propertyNames": {
-          "type": "string"
-        },
-        "type": "object"
+        "anyOf": [
+          {
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "nodeId": {
         "type": ["string", "null"]
@@ -10488,11 +10495,18 @@ Status: `201`
       "type": "string"
     },
     "input": {
-      "additionalProperties": {},
-      "propertyNames": {
-        "type": "string"
-      },
-      "type": "object"
+      "anyOf": [
+        {
+          "additionalProperties": {},
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "nodeId": {
       "type": ["string", "null"]
@@ -10654,11 +10668,18 @@ Status: `201`
       "type": "string"
     },
     "input": {
-      "additionalProperties": {},
-      "propertyNames": {
-        "type": "string"
-      },
-      "type": "object"
+      "anyOf": [
+        {
+          "additionalProperties": {},
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "nodeId": {
       "type": ["string", "null"]
@@ -10813,11 +10834,18 @@ Status: `201`
       "type": "string"
     },
     "input": {
-      "additionalProperties": {},
-      "propertyNames": {
-        "type": "string"
-      },
-      "type": "object"
+      "anyOf": [
+        {
+          "additionalProperties": {},
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "nodeId": {
       "type": ["string", "null"]

@@ -15,6 +15,7 @@ import { WorkspaceAuthGuard } from '../auth/workspace-auth.guard'
 import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.decorator'
 import { WorkspaceRoleGuard } from '../auth/workspace-role.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
+import { canReadDiagnosticContent } from '../executions/end-user-trace-access'
 import {
   createRegressionCaseFromFlagSchema,
   type CreateRegressionCaseFromFlagDto,
@@ -40,6 +41,7 @@ export class RegressionCasesController {
   @RequireWorkspaceKeyScopes('regressions:read')
   async list(
     @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() userId: string | undefined,
     @Param('workflowId') workflowId: string,
     @Query(new ZodValidationPipe(listRegressionCasesSchema))
     query: ListRegressionCasesDto,
@@ -49,7 +51,8 @@ export class RegressionCasesController {
       workflowId,
       query,
     )
-    return cases.map(regressionCaseProjection)
+    const withContent = await canReadDiagnosticContent(workspaceId, userId)
+    return cases.map((item) => regressionCaseProjection(item, withContent))
   }
 
   // Cases copy recorded production input into the suite that runs on every publish, so curating them is admin-only.
@@ -69,6 +72,7 @@ export class RegressionCasesController {
         body,
         userId,
       ),
+      true,
     )
   }
 
@@ -82,6 +86,7 @@ export class RegressionCasesController {
   ) {
     return regressionCaseProjection(
       await this.regressionCases.createFromFlag(workspaceId, workflowId, body),
+      true,
     )
   }
 
@@ -94,6 +99,7 @@ export class RegressionCasesController {
   ) {
     return regressionCaseProjection(
       await this.regressionCases.archive(workspaceId, workflowId, id),
+      true,
     )
   }
 }

@@ -1,6 +1,20 @@
 import { db, repositories, type Execution } from '@linealabs/db'
 import type { RedactedStep } from './redact-execution-trace'
 
+/** Recorded End-User content (ADR 0026) is for a signed-in workspace admin or owner; workspace API keys never qualify. */
+export async function canReadDiagnosticContent(
+  workspaceId: string,
+  userId: string | undefined,
+): Promise<boolean> {
+  if (!userId) return false
+  const role = await repositories.organization.getMemberRole(
+    db,
+    workspaceId,
+    userId,
+  )
+  return role === 'admin' || role === 'owner'
+}
+
 /** True for an End-User Execution (ADR 0026) unless the caller is a signed-in workspace admin or owner; workspace API keys never qualify. */
 export async function isTraceContentRestricted(
   execution: Pick<
@@ -14,13 +28,7 @@ export async function isTraceContentRestricted(
     execution.externalSubjectId === null
   )
     return false
-  if (!userId) return true
-  const role = await repositories.organization.getMemberRole(
-    db,
-    execution.workspaceId,
-    userId,
-  )
-  return role !== 'admin' && role !== 'owner'
+  return !(await canReadDiagnosticContent(execution.workspaceId, userId))
 }
 
 /** Keeps the step timeline but nulls the run's output and its steps' input and output on End-User

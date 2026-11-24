@@ -13,16 +13,25 @@ import {
   type RegressionRun,
   type RegressionRunDetail,
 } from '@linealabs/protocol/resources'
+import {
+  redactRecord,
+  redactValue,
+  type KnownSecrets,
+} from '../executions/trace-redaction'
 
+const noSecrets: KnownSecrets = new Map()
+
+/** `withContent` is false for callers `canReadDiagnosticContent` refuses: a case can copy an End User's run. */
 export function regressionCaseProjection(
   regressionCase: DatabaseRegressionCase,
+  withContent: boolean,
 ): RegressionCase {
   return regressionCaseSchema.parse({
     id: regressionCase.id,
     workflowId: regressionCase.workflowId,
     caseType: regressionCase.caseType,
     nodeId: regressionCase.nodeId,
-    input: regressionCase.input,
+    input: withContent ? redactRecord(regressionCase.input, noSecrets) : null,
     assertions: regressionCase.assertions,
     sourceStepId: regressionCase.sourceStepId,
     sourceSignalId: regressionCase.sourceSignalId,
@@ -51,6 +60,7 @@ export function regressionRunProjection(
 
 export function regressionResultProjection(
   result: DatabaseRegressionResult,
+  withContent: boolean,
 ): RegressionResult {
   return regressionResultSchema.parse({
     id: result.id,
@@ -58,7 +68,7 @@ export function regressionResultProjection(
     caseId: result.caseId,
     status: result.status,
     score: result.score,
-    output: result.output,
+    output: withContent ? redactValue(result.output, noSecrets) : null,
     costMicros: result.costMicros.toString(),
     createdAt: result.createdAt.toISOString(),
   })
@@ -66,9 +76,12 @@ export function regressionResultProjection(
 
 export function regressionRunDetailProjection(
   run: DatabaseRegressionRun & { results: DatabaseRegressionResult[] },
+  withContent: boolean,
 ): RegressionRunDetail {
   return regressionRunDetailSchema.parse({
     ...regressionRunProjection(run),
-    results: run.results.map(regressionResultProjection),
+    results: run.results.map((result) =>
+      regressionResultProjection(result, withContent),
+    ),
   })
 }

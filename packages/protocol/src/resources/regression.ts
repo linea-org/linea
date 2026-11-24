@@ -11,7 +11,8 @@ export const regressionCaseSchema = z.object({
   workflowId: z.string(),
   caseType: z.enum(["node", "conversation"]),
   nodeId: z.string().nullable(),
-  input: z.record(z.string(), z.unknown()),
+  /** Null unless the caller is a signed-in admin or owner. */
+  input: z.record(z.string(), z.unknown()).nullable(),
   assertions: z.array(regressionAssertionSchema),
   sourceStepId: z.string().nullable(),
   sourceSignalId: z.string().nullable(),
@@ -39,6 +40,7 @@ export const regressionResultSchema = z.object({
   caseId: z.string(),
   status: z.enum(["passed", "failed", "errored"]),
   score: z.number().nullable(),
+  /** Null unless the caller is a signed-in admin or owner. */
   output: jsonValueSchema.nullable(),
   costMicros: z.string(),
   createdAt: z.string(),

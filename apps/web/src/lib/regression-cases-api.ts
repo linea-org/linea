@@ -12,7 +12,7 @@ export type RegressionCase = {
   workflowId: string
   caseType: RegressionCaseType
   nodeId: string | null
-  input: Record<string, JsonValue>
+  input: Record<string, JsonValue> | null
   assertions: { type: string; config: Record<string, JsonValue> }[]
   sourceStepId: string | null
   sourceSignalId: string | null
