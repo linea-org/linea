@@ -25,16 +25,35 @@ function describeStep(node: Graph["nodes"][number]) {
   }
 }
 
-/** Every step, with where it goes next when it goes to more than one place. */
+/** Nodes in the order they run, one branch after another; any that cannot run come last. */
+function inRunOrder(graph: Graph): Graph["nodes"] {
+  const byId = new Map(graph.nodes.map((node) => [node.id, node]))
+  const ordered = new Set<Graph["nodes"][number]>()
+  const waiting = [graph.entryNodeId]
+  for (let id = waiting.pop(); id !== undefined; id = waiting.pop()) {
+    const node = byId.get(id)
+    if (!node || ordered.has(node)) continue
+    ordered.add(node)
+    const next = graph.edges.filter((edge) => edge.from === id)
+    waiting.push(...next.map((edge) => edge.to).reverse())
+  }
+  for (const node of graph.nodes) ordered.add(node)
+  return [...ordered]
+}
+
+/** Every step, whether it leads to the one listed after it, and any other place it goes. */
 export function proposalSteps(graph: Graph) {
-  const steps = graph.nodes.map(describeStep)
+  const steps = inRunOrder(graph).map(describeStep)
   const titles = new Map(steps.map((step) => [step.id, step.title]))
-  return steps.map((step) => {
+  return steps.map((step, index) => {
+    const after = steps.at(index + 1)?.id
     const next = graph.edges.filter((edge) => edge.from === step.id)
+    const leadsOn = next.some((edge) => edge.to === after)
     const routes = next.map((edge) => ({
       when: edge.condition,
       to: titles.get(edge.to) ?? edge.to,
     }))
-    return { ...step, routes: routes.length > 1 ? routes : [] }
+    const oneWayOn = routes.length === 1 && leadsOn
+    return { ...step, leadsOn, routes: oneWayOn ? [] : routes }
   })
 }

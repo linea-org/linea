@@ -13,7 +13,7 @@ export function ProposalStepList({
         <li key={step.id} className="group/step flex gap-3">
           <span className="flex flex-col items-center">
             <StepIcon step={step} className="size-8 rounded-lg" />
-            <span className="w-px flex-1 bg-border group-last/step:hidden" />
+            {step.leadsOn ? <span className="w-px flex-1 bg-border" /> : null}
           </span>
           <div className="min-w-0 flex-1 pb-5 group-last/step:pb-0">
             <p className="truncate text-sm leading-8 font-medium">

@@ -7,23 +7,26 @@ const graph: Proposal["graph"] = {
   version: 1,
   trigger: { type: "manual" },
   entryNodeId: "start",
+  // End comes before the steps added after it, as it does in an edited Workflow.
   nodes: [
     { id: "start", type: "start", config: {} },
+    { id: "end", type: "end", config: {} },
     { id: "pick", type: "branch", config: { name: " Refund? " } },
     { id: "pay", type: "http", config: { url: "https://example.com" } },
-    { id: "end", type: "end", config: {} },
     { id: "wait", type: "wait", config: { mode: "duration" } },
+    { id: "loose", type: "merge", config: {} },
   ],
   edges: [
     { from: "start", to: "pick" },
     { from: "pick", to: "pay", condition: "yes" },
-    { from: "pick", to: "end", condition: "no" },
+    { from: "pick", to: "wait", condition: "no" },
     { from: "pay", to: "end" },
+    { from: "wait", to: "end" },
   ],
 }
 
 describe("proposalSteps", () => {
-  it("uses a step's own name, or its type's, with its main setting", () => {
+  it("lists steps in the order they run, with their main setting", () => {
     expect(
       proposalSteps(graph).map(({ title, detail }) => [title, detail])
     ).toEqual([
@@ -32,19 +35,29 @@ describe("proposalSteps", () => {
       ["HTTP request", "https://example.com"],
       ["End", undefined],
       ["Wait", "A duration"],
+      ["Merge", undefined],
     ])
   })
 
-  it("lists where a step goes only when it can go to more than one place", () => {
-    expect(proposalSteps(graph).map(({ routes }) => routes)).toEqual([
-      [],
+  it("joins only steps that lead to the next one, and names every other route", () => {
+    expect(
+      proposalSteps(graph).map(({ leadsOn, routes }) => [
+        leadsOn,
+        routes.map(({ when, to }) => [when, to]),
+      ])
+    ).toEqual([
+      [true, []],
       [
-        { when: "yes", to: "HTTP request" },
-        { when: "no", to: "End" },
+        true,
+        [
+          ["yes", "HTTP request"],
+          ["no", "Wait"],
+        ],
       ],
-      [],
-      [],
-      [],
+      [true, []],
+      [false, []],
+      [false, [[undefined, "End"]]],
+      [false, []],
     ])
   })
 })

@@ -32,7 +32,7 @@ export function ProposalChip({
         <span className="truncate text-sm font-medium">
           {proposal.title ?? "Proposed workflow"}
         </span>
-        <span className="flex items-center gap-1">
+        <span className="flex flex-wrap items-center gap-1">
           {steps.slice(0, SHOWN_STEPS).map((step) => (
             <StepIcon key={step.id} step={step} />
           ))}
