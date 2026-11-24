@@ -27,6 +27,7 @@ import {
   listRegressionCasesSchema,
   type ListRegressionCasesDto,
 } from './dto/list-regression-cases.dto'
+import { regressionContentReader } from './regression-content'
 import { regressionCaseProjection } from './regression.projections'
 import { RegressionCasesService } from './regression-cases.service'
 
@@ -40,6 +41,7 @@ export class RegressionCasesController {
   @RequireWorkspaceKeyScopes('regressions:read')
   async list(
     @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() userId: string | undefined,
     @Param('workflowId') workflowId: string,
     @Query(new ZodValidationPipe(listRegressionCasesSchema))
     query: ListRegressionCasesDto,
@@ -49,7 +51,8 @@ export class RegressionCasesController {
       workflowId,
       query,
     )
-    return cases.map(regressionCaseProjection)
+    const read = await regressionContentReader(workspaceId, workflowId, userId)
+    return cases.map((item) => regressionCaseProjection(item, read))
   }
 
   // Cases copy recorded production input into the suite that runs on every publish, so curating them is admin-only.
@@ -69,6 +72,7 @@ export class RegressionCasesController {
         body,
         userId,
       ),
+      await regressionContentReader(workspaceId, workflowId, userId),
     )
   }
 
@@ -76,12 +80,14 @@ export class RegressionCasesController {
   @RequireRole('admin')
   async createFromFlag(
     @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() userId: string | undefined,
     @Param('workflowId') workflowId: string,
     @Body(new ZodValidationPipe(createRegressionCaseFromFlagSchema))
     body: CreateRegressionCaseFromFlagDto,
   ) {
     return regressionCaseProjection(
       await this.regressionCases.createFromFlag(workspaceId, workflowId, body),
+      await regressionContentReader(workspaceId, workflowId, userId),
     )
   }
 
@@ -89,11 +95,13 @@ export class RegressionCasesController {
   @RequireRole('admin')
   async archive(
     @CurrentWorkspaceId() workspaceId: string,
+    @OptionalUserId() userId: string | undefined,
     @Param('workflowId') workflowId: string,
     @Param('id') id: string,
   ) {
     return regressionCaseProjection(
       await this.regressionCases.archive(workspaceId, workflowId, id),
+      await regressionContentReader(workspaceId, workflowId, userId),
     )
   }
 }

@@ -28,7 +28,7 @@ function caseSummary(regressionCase: RegressionCase): string {
   if (regressionCase.caseType === "node") {
     return regressionCase.nodeId ?? "—"
   }
-  const finalPrompt = regressionCase.input.finalPrompt
+  const finalPrompt = regressionCase.input?.finalPrompt
   return typeof finalPrompt === "string" ? finalPrompt : "—"
 }
 

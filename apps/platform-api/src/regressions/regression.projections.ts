@@ -13,16 +13,18 @@ import {
   type RegressionRun,
   type RegressionRunDetail,
 } from '@linealabs/protocol/resources'
+import type { ReadRegressionContent } from './regression-content'
 
 export function regressionCaseProjection(
   regressionCase: DatabaseRegressionCase,
+  readContent: ReadRegressionContent,
 ): RegressionCase {
   return regressionCaseSchema.parse({
     id: regressionCase.id,
     workflowId: regressionCase.workflowId,
     caseType: regressionCase.caseType,
     nodeId: regressionCase.nodeId,
-    input: regressionCase.input,
+    input: readContent?.(regressionCase.input) ?? null,
     assertions: regressionCase.assertions,
     sourceStepId: regressionCase.sourceStepId,
     sourceSignalId: regressionCase.sourceSignalId,
@@ -51,6 +53,7 @@ export function regressionRunProjection(
 
 export function regressionResultProjection(
   result: DatabaseRegressionResult,
+  readContent: ReadRegressionContent,
 ): RegressionResult {
   return regressionResultSchema.parse({
     id: result.id,
@@ -58,7 +61,7 @@ export function regressionResultProjection(
     caseId: result.caseId,
     status: result.status,
     score: result.score,
-    output: result.output,
+    output: readContent?.(result.output) ?? null,
     costMicros: result.costMicros.toString(),
     createdAt: result.createdAt.toISOString(),
   })
@@ -66,9 +69,12 @@ export function regressionResultProjection(
 
 export function regressionRunDetailProjection(
   run: DatabaseRegressionRun & { results: DatabaseRegressionResult[] },
+  readContent: ReadRegressionContent,
 ): RegressionRunDetail {
   return regressionRunDetailSchema.parse({
     ...regressionRunProjection(run),
-    results: run.results.map(regressionResultProjection),
+    results: run.results.map((result) =>
+      regressionResultProjection(result, readContent),
+    ),
   })
 }
