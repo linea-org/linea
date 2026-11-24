@@ -17,7 +17,6 @@ import { RequireWorkspaceKeyScopes } from '../auth/require-workspace-key-scopes.
 import { WorkspaceRateLimit } from '../auth/workspace-rate-limit.guard'
 import { WorkspaceRoleGuard } from '../auth/workspace-role.guard'
 import { ZodValidationPipe } from '../common/zod-validation.pipe'
-import { canReadDiagnosticContent } from '../executions/end-user-trace-access'
 import {
   listRegressionRunsSchema,
   type ListRegressionRunsDto,
@@ -26,6 +25,7 @@ import {
   triggerRegressionRunSchema,
   type TriggerRegressionRunDto,
 } from './dto/trigger-regression-run.dto'
+import { regressionContentReader } from './regression-content'
 import {
   regressionRunDetailProjection,
   regressionRunProjection,
@@ -74,7 +74,7 @@ export class RegressionRunsController {
   ) {
     return regressionRunDetailProjection(
       await this.regressionRuns.get(workspaceId, workflowId, id),
-      await canReadDiagnosticContent(workspaceId, userId),
+      await regressionContentReader(workspaceId, workflowId, userId),
     )
   }
 }

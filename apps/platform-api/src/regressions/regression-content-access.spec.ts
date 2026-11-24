@@ -1,8 +1,11 @@
 import 'dotenv/config'
 import { Test } from '@nestjs/testing'
 import type { NestExpressApplication } from '@nestjs/platform-express'
-import { db, pool, repositories, schema } from '@linealabs/db'
-import { getTestApplicationId } from '@linealabs/db/testing'
+import { db, encryptSecret, pool, repositories, schema } from '@linealabs/db'
+import {
+  configureTestEnvironment,
+  getTestApplicationId,
+} from '@linealabs/db/testing'
 import {
   regressionCaseSchema,
   regressionRunDetailSchema,
@@ -28,10 +31,19 @@ import { RegressionRunsService } from './regression-runs.service'
 
 const key = generateApiKey()
 const credential = 'ghp_abcdefghijklmnopqrstuvwxyz012345'
+const secrets = ['opaque-crm-value', 'opaque-erp-value']
 const recordedInput = {
-  nodeInput: { question: 'Private roadmap', token: credential },
+  nodeInput: {
+    question: 'Private roadmap',
+    token: credential,
+    message: `sent ${secrets.join(' and ')}`,
+  },
 }
-const recordedOutput = { answer: 'Private answer', note: `sent ${credential}` }
+const recordedOutput = {
+  answer: 'Private answer',
+  note: `sent ${credential}`,
+  echo: secrets[1],
+}
 
 describe('Regression content access', () => {
   let app: NestExpressApplication<Server>
@@ -54,8 +66,32 @@ describe('Regression content access', () => {
       role: 'owner',
       createdAt: new Date(),
     })
+    const applicationId = await getTestApplicationId(db, seeded.workspaceId)
+    // The same name in two Environments, as Development and Production have.
+    for (const [index, environment] of (
+      ['dev', 'production'] as const
+    ).entries()) {
+      const { id } = await configureTestEnvironment(db, {
+        workspaceId: seeded.workspaceId,
+        applicationId,
+        environment,
+        displayName: environment,
+        allowedBrowserOrigins: ['http://127.0.0.1:4173'],
+        allowedRedirectOrigins: ['http://127.0.0.1:4173'],
+        oidcIssuer: 'https://identity.example.com',
+        oidcClientId: environment,
+        oidcAudience: environment,
+        oidcJwksUrl: 'https://identity.example.com/jwks',
+      })
+      await repositories.secret.upsertSecret(
+        db,
+        id,
+        'CRM_KEY',
+        encryptSecret(secrets[index]),
+      )
+    }
     const workflow = await repositories.workflow.createWorkflow(db, {
-      applicationId: await getTestApplicationId(db, seeded.workspaceId),
+      applicationId,
       workspaceId: seeded.workspaceId,
       name: 'Regression content',
       slug: `regression-content-${key.keyPrefix}`,
@@ -155,13 +191,19 @@ describe('Regression content access', () => {
     for (const userId of [seeded.adminId, ownerId]) {
       const seen = await read({ 'x-test-user': userId })
       expect(seen.cases[0].input).toEqual({
-        nodeInput: { question: 'Private roadmap', token: REDACTED },
+        nodeInput: {
+          question: 'Private roadmap',
+          token: REDACTED,
+          message: 'sent [secret CRM_KEY] and [secret CRM_KEY]',
+        },
       })
       expect(seen.run.results[0].output).toEqual({
         answer: 'Private answer',
         note: `sent ${REDACTED}`,
+        echo: '[secret CRM_KEY]',
       })
-      expect(JSON.stringify(seen)).not.toContain(credential)
+      for (const value of [credential, ...secrets])
+        expect(JSON.stringify(seen)).not.toContain(value)
     }
   })
 

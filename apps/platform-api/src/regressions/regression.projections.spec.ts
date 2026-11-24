@@ -22,7 +22,7 @@ describe('regression projections', () => {
           createdAt,
           archivedAt: null,
         },
-        true,
+        (value) => value,
       ),
     ).toEqual({
       id: 'case-id',
@@ -71,7 +71,7 @@ describe('regression projections', () => {
             },
           ],
         },
-        true,
+        (value) => value,
       ),
     ).toEqual({
       id: 'run-id',
