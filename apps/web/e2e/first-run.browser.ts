@@ -92,5 +92,23 @@ test("a new account signs up, fixes a rejected key in the builder and reaches a 
   ).toBeVisible({ timeout: 30_000 })
   await page.waitForLoadState("networkidle")
   expect(page.url()).toBe(builder)
+
+  // An edit still waiting for the autosave is kept when an in-app link leaves the builder.
+  await page.getByLabel("Open run panel", { exact: true }).click()
+  const openTrace = page.getByRole("link", { name: "Open trace", exact: true })
+  await expect(openTrace).toBeVisible()
+  const aiNode = page.locator(".react-flow__node", { hasText: "Generate" })
+  await aiNode.click()
+  await page.keyboard.press("Backspace")
+  await expect(aiNode).toHaveCount(0)
+  const saved = page.waitForResponse(
+    (response) => response.request().method() === "POST"
+  )
+  await openTrace.click()
+  await expect(page).toHaveURL(/\/executions\//)
+  await saved
+  await page.goto(builder)
+  await expect(page.locator(".react-flow__node").first()).toBeVisible()
+  await expect(aiNode).toHaveCount(0)
   expect(pageErrors).toEqual([])
 })

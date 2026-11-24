@@ -428,14 +428,28 @@ function WorkflowBuilderCanvasInner({
       editGeneration.current += 1
     }
   }
+  const savePending = useRef<(() => void) | null>(null)
+  // Leaving the builder cancels the debounce, so an edit it still holds is saved here.
+  useEffect(
+    () => () => {
+      if (dirtyRef.current) savePending.current?.()
+    },
+    []
+  )
   useEffect(() => {
     if (editGeneration.current === scheduledGeneration.current) return
     scheduledGeneration.current = editGeneration.current
     const generation = editGeneration.current
+    const graph = buildGraph(entryNodeId)
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
-    saveTimeout.current = setTimeout(() => {
-      void flushDraftSave(buildGraph(entryNodeId), generation)
-    }, DRAFT_SAVE_DEBOUNCE_MS)
+    savePending.current = () => {
+      savePending.current = null
+      void flushDraftSave(graph, generation)
+    }
+    saveTimeout.current = setTimeout(
+      () => savePending.current?.(),
+      DRAFT_SAVE_DEBOUNCE_MS
+    )
     return () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current)
     }
