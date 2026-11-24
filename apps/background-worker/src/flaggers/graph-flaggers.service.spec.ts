@@ -4,42 +4,15 @@ import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { Logger } from "@nestjs/common"
 import { db, pool, repositories, schema } from "@linealabs/db"
+import {
+  createFlaggerWorkspace,
+  deleteFlaggerWorkspace,
+} from "./flagger-workspace.fixture"
 import { GraphFlaggersService } from "./graph-flaggers.service"
 
 afterAll(async () => {
   await pool.end()
 })
-
-async function createOrganizationWithExecution(name: string) {
-  const suffix = randomUUID()
-  const [organization] = await db
-    .insert(schema.organizations)
-    .values({ name, slug: `flaggers-${suffix}`, createdAt: new Date() })
-    .returning()
-  const workflow = await repositories.workflow.createWorkflow(db, {
-    applicationId: await getTestApplicationId(db, organization.id),
-    workspaceId: organization.id,
-    name,
-    slug: `flaggers-workflow-${suffix}`,
-  })
-  const version = await repositories.workflow.createWorkflowVersion(db, {
-    workflowId: workflow.id,
-    graph: { nodes: [], edges: [] },
-    contentHash: `flaggers-hash-${suffix}`,
-  })
-  const execution = await createTestExecution(db, {
-    workspaceId: organization.id,
-    workflowId: workflow.id,
-    workflowVersionId: version.id,
-    trigger: "manual",
-    triggerPayload: {},
-  })
-  return { organization, execution }
-}
-
-async function deleteOrganization(id: string) {
-  await pool.query("DELETE FROM organizations WHERE id = $1", [id])
-}
 
 describe("GraphFlaggersService.sweep, branch never taken", () => {
   it("flags a branch condition that's never been observed, not one that has", async () => {
@@ -123,8 +96,8 @@ describe("GraphFlaggersService.sweep, branch never taken", () => {
 
 describe("GraphFlaggersService.sweep", () => {
   it("still flags other workspaces when one is deleted mid-sweep", async () => {
-    const doomed = await createOrganizationWithExecution("Deleted Mid Sweep")
-    const survivor = await createOrganizationWithExecution("Survivor")
+    const doomed = await createFlaggerWorkspace("Deleted Mid Sweep")
+    const survivor = await createFlaggerWorkspace("Survivor")
     const errorLog = jest.spyOn(Logger.prototype, "error").mockImplementation()
     try {
       await db.insert(schema.executionSteps).values({
@@ -137,7 +110,7 @@ describe("GraphFlaggersService.sweep", () => {
         nodeId: "n1",
         sequence: 1,
         attempt: 3,
-        status: "failed",
+        status: "succeeded",
       })
       await db.insert(schema.executionSteps).values(
         [1, 2, 3].map((sequence) => ({
@@ -155,7 +128,7 @@ describe("GraphFlaggersService.sweep", () => {
         }))
       )
       jest.spyOn(db, "transaction").mockImplementationOnce(async (run) => {
-        await deleteOrganization(doomed.organization.id)
+        await deleteFlaggerWorkspace(doomed.organization.id)
         return db.transaction(run)
       })
 
@@ -179,8 +152,8 @@ describe("GraphFlaggersService.sweep", () => {
       )
     } finally {
       jest.restoreAllMocks()
-      await deleteOrganization(doomed.organization.id)
-      await deleteOrganization(survivor.organization.id)
+      await deleteFlaggerWorkspace(doomed.organization.id)
+      await deleteFlaggerWorkspace(survivor.organization.id)
     }
   })
 })
