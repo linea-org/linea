@@ -12,7 +12,7 @@ export function ComposerInput({
   onSendKey,
   label,
   placeholder,
-  hero,
+  autoFocus,
   workflowId,
 }: Readonly<{
   value: string
@@ -20,7 +20,7 @@ export function ComposerInput({
   onSendKey: (event: KeyboardEvent<HTMLElement>) => void
   label: string
   placeholder: string
-  hero: boolean
+  autoFocus: boolean
   workflowId?: string
 }>) {
   const mentions = useFlag("assistantMentions")
@@ -32,7 +32,7 @@ export function ComposerInput({
         onSendKey={onSendKey}
         label={label}
         placeholder={placeholder}
-        hero={hero}
+        autoFocus={autoFocus}
         workflowId={workflowId}
       />
     )
@@ -44,9 +44,9 @@ export function ComposerInput({
       onChange={(event) => onChange(event.target.value)}
       onKeyDown={onSendKey}
       placeholder={placeholder}
-      rows={hero ? 3 : 2}
-      autoFocus={hero}
-      className={hero ? "max-h-60 min-h-24 text-base" : "max-h-40"}
+      rows={1}
+      autoFocus={autoFocus}
+      className="max-h-40 min-h-0 placeholder-shown:overflow-hidden placeholder-shown:text-nowrap"
     />
   )
 }

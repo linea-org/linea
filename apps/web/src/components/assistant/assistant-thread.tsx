@@ -10,9 +10,14 @@ import {
   HistoryIcon,
   RotateCcwIcon,
   WorkflowIcon,
+  XIcon,
 } from "lucide-react"
 
-import { Alert, AlertDescription } from "@linealabs/ui/components/alert"
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+} from "@linealabs/ui/components/alert"
 import { Badge } from "@linealabs/ui/components/badge"
 import {
   Bubble,
@@ -49,7 +54,11 @@ import { cn } from "@linealabs/ui/lib/utils"
 import { ModelMarkdown } from "@/components/markdown/model-markdown"
 import { UserTurn } from "./user-turn"
 import { WorkflowPreview } from "./workflow-preview"
-import type { ChatMessage, VisibleMessage } from "./use-assistant-chat"
+import type {
+  ChatMessage,
+  QueuedMessage,
+  VisibleMessage,
+} from "./use-assistant-chat"
 
 const ENTER = "animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
 
@@ -281,13 +290,42 @@ function Thinking() {
       <div className="min-w-0 flex-1 space-y-3 pt-1">
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Spinner className="size-3.5" />
-          Designing your workflow…
+          Thinking…
         </div>
         <Skeleton className="h-3.5 w-11/12 rounded-full" />
         <Skeleton className="h-3.5 w-7/10 rounded-full" />
       </div>
     </output>
   )
+}
+
+function QueuedMessages({
+  queue,
+  onRemove,
+}: Readonly<{
+  queue: QueuedMessage[]
+  onRemove: (id: string) => void
+}>) {
+  return queue.map((item) => (
+    <div key={item.id} className={cn("flex items-center gap-1.5 pl-11", ENTER)}>
+      <BubbleGroup className="min-w-0 flex-1">
+        <Bubble align="end" variant="outline">
+          <BubbleContent className="border-dashed whitespace-pre-wrap text-muted-foreground">
+            {item.text}
+          </BubbleContent>
+        </Bubble>
+      </BubbleGroup>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        aria-label="Remove queued message"
+        onClick={() => onRemove(item.id)}
+      >
+        <XIcon />
+      </Button>
+    </div>
+  ))
 }
 
 function EmptyThread({
@@ -322,8 +360,11 @@ function EmptyThread({
 
 export function AssistantThread({
   messages,
+  queue,
+  onUnqueue,
   isPending,
   error,
+  onResend,
   selectedProposalId,
   onSelectProposal,
   onEdit,
@@ -333,8 +374,11 @@ export function AssistantThread({
   renderProposalActions,
 }: Readonly<{
   messages: VisibleMessage[]
+  queue: QueuedMessage[]
+  onUnqueue: (id: string) => void
   isPending: boolean
   error: Error | null
+  onResend: () => void
   selectedProposalId: string | null
   onSelectProposal: (id: string) => void
   onEdit: (id: string, text: string) => void
@@ -403,8 +447,14 @@ export function AssistantThread({
             {error ? (
               <Alert variant="destructive">
                 <AlertDescription>{error.message}</AlertDescription>
+                <AlertAction>
+                  <Button type="button" variant="outline" onClick={onResend}>
+                    Try again
+                  </Button>
+                </AlertAction>
               </Alert>
             ) : null}
+            <QueuedMessages queue={queue} onRemove={onUnqueue} />
           </MessageScrollerContent>
         </MessageScrollerViewport>
         <MessageScrollerButton />

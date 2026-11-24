@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 
 import { workflowGraphSchema } from "@linealabs/runtime/browser"
@@ -91,20 +91,35 @@ export function toChatMessages(saved: SavedMessage[]): ChatMessage[] {
   }))
 }
 
-type PendingAsk = { input: AskInput; pendingId: string }
+/** A message written while Inky was still answering; it is sent after that answer. */
+export type QueuedMessage = {
+  id: string
+  text: string
+  attachments: Attachment[]
+  graph?: Record<string, JsonValue>
+}
+
+type PendingAsk = { input: AskInput; pendingId: string; visit: number }
 
 export function useAssistantChat(
-  askAssistant: (input: AskInput) => Promise<AssistantAnswer>
+  askAssistant: (input: AskInput) => Promise<AssistantAnswer>,
+  onAnswered?: (conversationId: string) => void
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [leafId, setLeafId] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [failedId, setFailedId] = useState<string | null>(null)
+  // Counts the chats opened here, so an answer to one that was left is not written into the next.
+  const visit = useRef(0)
+  const [queue, setQueue] = useState<QueuedMessage[]>([])
   const request = useMutation({
     mutationFn: ({ input }: PendingAsk) => askAssistant(input),
-    onError: (_error, { pendingId }) => setFailedId(pendingId),
-    onSuccess: (answer, { pendingId }) => {
+    onError: (_error, asked) => {
+      if (asked.visit === visit.current) setFailedId(asked.pendingId)
+    },
+    onSuccess: (answer, { pendingId, visit: askedIn }) => {
+      if (askedIn !== visit.current) return
       const reply = toMessage(answer, answer.userMessageId)
       setConversationId(answer.conversationId)
       setMessages((current) => [
@@ -117,6 +132,7 @@ export function useAssistantChat(
       ])
       setLeafId(reply.id)
       if (reply.proposal) setSelectedId(reply.id)
+      onAnswered?.(answer.conversationId)
     },
   })
   const branch = branchTo(messages, leafId)
@@ -162,6 +178,7 @@ export function useAssistantChat(
     setLeafId(pendingId)
     request.mutate({
       pendingId,
+      visit: visit.current,
       input: {
         message,
         parentMessageId: parent,
@@ -177,7 +194,26 @@ export function useAssistantChat(
     attachments: Attachment[],
     graph?: Record<string, JsonValue>
   ) {
-    ask(text, attachments, leafId, graph)
+    if (!request.isPending) {
+      ask(text, attachments, leafId, graph)
+      return
+    }
+    const id = crypto.randomUUID()
+    setQueue((current) => [...current, { id, text, attachments, graph }])
+  }
+  const next = queue.at(0)
+  // After a failure the queue waits, so the next message is not sent into a broken chat.
+  const ready = next !== undefined && !request.isPending && !request.isError
+  const sendNext = useEffectEvent(() => {
+    if (!next) return
+    setQueue((current) => current.slice(1))
+    ask(next.text, next.attachments, leafId, next.graph)
+  })
+  useEffect(() => {
+    if (ready) sendNext()
+  }, [ready])
+  function unqueue(id: string) {
+    setQueue((current) => current.filter((item) => item.id !== id))
   }
   /** Writes a new version of a user message next to the old one; the old branch stays reachable. */
   function edit(id: string, text: string, graph?: Record<string, JsonValue>) {
@@ -192,12 +228,20 @@ export function useAssistantChat(
     if (!question) throw new Error(`Reply ${id} has no question in this chat`)
     ask(question.content, [], question.parentId, graph, model)
   }
+  /** Sends the message whose answer failed again, with its files. */
+  function resend() {
+    if (!request.isError) return
+    const { pendingId, input } = request.variables
+    ask(input.message, input.attachments, pendingId, input.graph, input.model)
+  }
   function switchTo(id: string) {
     if (request.isPending) return
     setLeafId(latestLeafFrom(messages, id))
   }
   function open(id: string, saved: ChatMessage[]) {
+    visit.current += 1
     request.reset()
+    setQueue([])
     setFailedId(null)
     setConversationId(id)
     setMessages(saved)
@@ -205,7 +249,9 @@ export function useAssistantChat(
     setSelectedId(null)
   }
   function startNew() {
+    visit.current += 1
     request.reset()
+    setQueue([])
     setFailedId(null)
     setConversationId(null)
     setMessages([])
@@ -221,10 +267,13 @@ export function useAssistantChat(
   }
   return {
     messages: visible,
+    queue,
+    unqueue,
     conversationId,
     send,
     edit,
     retry,
+    resend,
     switchTo,
     open,
     startNew,

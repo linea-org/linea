@@ -1,24 +1,26 @@
 import { useState } from "react"
 import {
+  ArrowUpIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  FileTextIcon,
   PencilIcon,
 } from "lucide-react"
 
-import { Badge } from "@linealabs/ui/components/badge"
 import {
   Bubble,
   BubbleContent,
   BubbleGroup,
 } from "@linealabs/ui/components/bubble"
 import { Button } from "@linealabs/ui/components/button"
-import { Textarea } from "@linealabs/ui/components/textarea"
+import { InputGroupTextarea } from "@linealabs/ui/components/input-group"
 import { cn } from "@linealabs/ui/lib/utils"
 
 import { UserAvatar } from "@/components/account"
 import { authClient } from "@/lib/auth-client"
 
+import { ComposerFrame } from "./composer-frame"
+import { FileCard } from "./file-card"
+import { sendOnEnter } from "./send-on-enter"
 import type { VisibleMessage } from "./use-assistant-chat"
 
 function BranchSwitcher({
@@ -71,32 +73,46 @@ function EditForm({
   const [text, setText] = useState(initial)
   const changed = text.trim() !== "" && text.trim() !== initial.trim()
   return (
-    <div className="flex w-full flex-col gap-2">
-      <Textarea
+    <ComposerFrame
+      value={text}
+      trailing={
+        <>
+          <Button
+            type="button"
+            variant="ghost"
+            className="rounded-full"
+            onClick={onCancel}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            className="rounded-full"
+            aria-label="Send edited message"
+            disabled={!changed}
+            onClick={() => onSubmit(text)}
+          >
+            <ArrowUpIcon />
+          </Button>
+        </>
+      }
+    >
+      <InputGroupTextarea
         autoFocus
-        rows={3}
+        aria-label="Edit message"
+        rows={1}
         value={text}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Escape") onCancel()
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+          sendOnEnter(event, () => {
             if (changed) onSubmit(text)
-          }
+          })
         }}
+        className="max-h-60 min-h-0"
       />
-      <div className="flex justify-end gap-1.5">
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button
-          type="button"
-          disabled={!changed}
-          onClick={() => onSubmit(text)}
-        >
-          Send
-        </Button>
-      </div>
-    </div>
+    </ComposerFrame>
   )
 }
 
@@ -126,10 +142,7 @@ export function UserTurn({
         <ul className="flex flex-wrap justify-end gap-1.5 pr-11">
           {message.attachments.map((file, index) => (
             <li key={`${file.name}-${index}`}>
-              <Badge variant="outline">
-                <FileTextIcon />
-                {file.name}
-              </Badge>
+              <FileCard name={file.name} />
             </li>
           ))}
         </ul>

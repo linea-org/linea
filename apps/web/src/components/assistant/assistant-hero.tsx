@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
   FileTextIcon,
@@ -11,11 +12,13 @@ import {
 
 import { Badge } from "@linealabs/ui/components/badge"
 import { Button } from "@linealabs/ui/components/button"
+import { cn } from "@linealabs/ui/lib/utils"
 
 import { StarterTemplateGrid } from "@/components/templates/starter-template-grid"
 import { workflowTemplates } from "@/lib/workflow-templates"
 import { AssistantComposer } from "./assistant-composer"
 import type { ComposerOptions } from "./use-composer-options"
+import { useGreeting } from "./use-greeting"
 
 type Idea = {
   label: string
@@ -47,6 +50,12 @@ const IDEAS: Idea[] = [
     prompt: "Explain how branch and merge nodes work, with an example",
     Icon: LightbulbIcon,
   },
+]
+
+const SUGGESTIONS = [
+  "Build a workflow that triages support tickets",
+  "Draft a short weekly update for my team",
+  "Explain how Branch and Merge steps work",
 ]
 
 const HERO_TEMPLATES = workflowTemplates.slice(0, 8)
@@ -120,7 +129,6 @@ export function AssistantHero({
   draft,
   onDraftChange,
   onSend,
-  disabled,
   runId,
 }: Readonly<{
   slug: string
@@ -128,14 +136,20 @@ export function AssistantHero({
   draft: string
   onDraftChange: (value: string) => void
   onSend: (text: string) => void
-  disabled: boolean
   runId: string | undefined
 }>) {
+  const greeting = useGreeting()
+  const [suggestion, setSuggestion] = useState(SUGGESTIONS[0])
+  useEffect(() => {
+    setSuggestion(SUGGESTIONS[Math.floor(Math.random() * SUGGESTIONS.length)])
+  }, [])
   return (
     <div className="mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-6xl flex-col px-4">
       <div className="my-auto flex flex-col py-12 pb-24">
         <h1 className="text-center text-xl font-semibold tracking-tight">
-          What can I help with?
+          <span className={cn(greeting ? "animate-in fade-in-0" : "invisible")}>
+            {greeting ?? "Hello"}
+          </span>
         </h1>
         <div className="mx-auto mt-8 w-full max-w-3xl">
           {runId ? <RunContext slug={slug} runId={runId} /> : null}
@@ -144,7 +158,7 @@ export function AssistantHero({
             value={draft}
             onChange={onDraftChange}
             onSend={onSend}
-            disabled={disabled}
+            suggestion={suggestion}
             placeholder="Ask anything, or describe what to build…"
             options={options}
           />

@@ -27,6 +27,15 @@ export function usePageChat({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const listKey = assistantConversationsQueryOptions(slug, null).queryKey
+  function showInAddress(answeredId: string) {
+    if (answeredId === conversationId) return
+    void navigate({
+      to: "/w/$slug/assistant",
+      params: { slug },
+      search: { c: answeredId },
+      replace: true,
+    })
+  }
   const chat = useAssistantChat(async (input) => {
     const application = await findOrCreateDefaultApplication()
     const answer = await sendApplicationAssistantMessageFn({
@@ -38,16 +47,8 @@ export function usePageChat({
       },
     })
     await queryClient.invalidateQueries({ queryKey: listKey })
-    if (answer.conversationId !== conversationId) {
-      await navigate({
-        to: "/w/$slug/assistant",
-        params: { slug },
-        search: { c: answer.conversationId },
-        replace: true,
-      })
-    }
     return answer
-  })
+  }, showInAddress)
   const saved = useQuery({
     ...assistantConversationQueryOptions(conversationId ?? ""),
     enabled: conversationId !== undefined,
