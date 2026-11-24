@@ -58,6 +58,7 @@ describe("wait-timer.repository", () => {
   })
 
   describe("claimAndResolveDueWaitTimer", () => {
+    // Times near the epoch, so a claim cannot take a due timer of a test in another package.
     it("fires a past-due timer and resumes the paused execution", async () => {
       await withRollback(async (tx) => {
         const { organization, execution } = await insertExecution(tx)
@@ -69,10 +70,10 @@ describe("wait-timer.repository", () => {
           workspaceId: organization.id,
           executionId: execution.id,
           nodeId: "wait-1",
-          resumeAt: new Date(Date.now() - 60_000),
+          resumeAt: new Date(0),
         })
 
-        const result = await claimAndResolveDueWaitTimer(tx)
+        const result = await claimAndResolveDueWaitTimer(tx, new Date(1))
         expect(result.outcome).toBe("fired")
         if (result.outcome === "fired") {
           expect(result.waitTimer.fired).toBe(true)
@@ -94,10 +95,10 @@ describe("wait-timer.repository", () => {
           workspaceId: organization.id,
           executionId: execution.id,
           nodeId: "future",
-          resumeAt: new Date(Date.now() + 60_000),
+          resumeAt: new Date(2),
         })
 
-        const result = await claimAndResolveDueWaitTimer(tx)
+        const result = await claimAndResolveDueWaitTimer(tx, new Date(1))
         expect(result.outcome).toBe("empty")
       })
     })
@@ -109,13 +110,13 @@ describe("wait-timer.repository", () => {
           workspaceId: organization.id,
           executionId: execution.id,
           nodeId: "wait-1",
-          resumeAt: new Date(Date.now() - 60_000),
+          resumeAt: new Date(0),
         })
 
-        const first = await claimAndResolveDueWaitTimer(tx)
+        const first = await claimAndResolveDueWaitTimer(tx, new Date(1))
         expect(first.outcome).toBe("fired")
 
-        const second = await claimAndResolveDueWaitTimer(tx)
+        const second = await claimAndResolveDueWaitTimer(tx, new Date(1))
         expect(second.outcome).toBe("empty")
       })
     })
@@ -200,12 +201,12 @@ describe("wait-timer.repository", () => {
           workspaceId: organization.id,
           executionId: execution.id,
           nodeId: "wait-1",
-          resumeAt: new Date(Date.now() - 60_000),
+          resumeAt: new Date(0),
         })
         // Fires it directly, bypassing a real pause — claimAndResolveDueWaitTimer's own
         // executions update is conditioned on status='paused', which this execution (still
         // "running" from startExecution above) never reached, so it's a no-op here.
-        await claimAndResolveDueWaitTimer(tx)
+        await claimAndResolveDueWaitTimer(tx, new Date(1))
 
         const claim = await claimPause(tx, {
           workspaceId: organization.id,

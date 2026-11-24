@@ -1,5 +1,6 @@
 import { createTestExecution } from '@linealabs/db/testing'
 import {
+  fireWaitTimer,
   getTestApplicationId,
   publishTestWorkflow,
 } from '@linealabs/db/testing'
@@ -16,26 +17,6 @@ import { StepReplayQueueService } from '../queue/step-replay-queue.service'
 afterAll(async () => {
   await pool.end()
 })
-
-// claimAndResolveDueWaitTimer claims one arbitrary due wait timer across the whole database by
-// design (it backs the background poller's "fire the next one" step, not scoped to a workspace)
-// — so a real leftover due timer anywhere in this shared local dev Postgres could get claimed
-// ahead of the one this test just created, leaving the test's own timer still unfired. Draining
-// first clears that backlog (a real, if benign, side effect here — this test isn't wrapped in a
-// rolled-back transaction — but every drained timer really was due, so firing it early is exactly
-// what the real poller would have done anyway).
-//
-// Deliberately always uses the real current time, never a pumped-forward "now": a caller wanting
-// to force its own not-yet-due row to fire immediately must update that specific row directly (by
-// workspace/execution/node) rather than pass a future cutoff here — pumping the cutoff for this
-// whole-database drain would also claim and permanently fire any concurrently running test's own
-// legitimately-not-yet-due timer, corrupting that test's state.
-async function drainDueWaitTimers(): Promise<void> {
-  let result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
-  while (result.outcome === 'fired') {
-    result = await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
-  }
-}
 
 const graph: WorkflowGraph = {
   version: 1,
@@ -214,7 +195,6 @@ describe('ExecutionsService', () => {
       })
       .returning()
     try {
-      await drainDueWaitTimers()
       const waitGraph: WorkflowGraph = {
         version: 1,
         trigger: { type: 'manual' },
@@ -252,15 +232,7 @@ describe('ExecutionsService', () => {
       const paused = await service.get(organization.id, execution.id)
       expect(paused.pausedAtNode).toEqual({ nodeId: 'wait-1', type: 'wait' })
       expect(paused.waitingNodes).toEqual([{ nodeId: 'wait-1', type: 'wait' }])
-      // Resolved (fired) — no longer paused, so pausedAtNode should disappear. Forces only this
-      // specific row due (not a database-wide pumped-forward "now", which would also claim any
-      // concurrently running test's own not-yet-due timer and corrupt its state), then drains at
-      // the real current time so this row — now genuinely due — is guaranteed to be processed.
-      await pool.query(
-        "UPDATE wait_timers SET resume_at = now() - interval '1 second' WHERE workspace_id = $1 AND execution_id = $2 AND node_id = $3",
-        [organization.id, execution.id, 'wait-1'],
-      )
-      await drainDueWaitTimers()
+      await fireWaitTimer(db, execution.id, 'wait-1')
       const resolved = await service.get(organization.id, execution.id)
       expect(resolved.pausedAtNode).toBeUndefined()
       expect(resolved.waitingNodes).toEqual([])
