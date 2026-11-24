@@ -484,7 +484,7 @@ it("fails a run that outlives its work budget and records the stalled model turn
   await expect(runs.execute(execution.id)).rejects.toThrow(
     "Agent run exceeded its 30 minute work budget"
   )
-  expect(timeout.mock.calls[0][0]).toBeGreaterThan(29 * 60_000)
+  expect(timeout).toHaveBeenNthCalledWith(1, 30 * 60_000)
   const final = await repositories.execution.getExecutionById(db, execution.id)
   expect(final).toMatchObject({ status: "failed", costUnpriced: true })
   expect(await failedSteps(execution.id)).toEqual([
