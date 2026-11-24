@@ -1,4 +1,4 @@
-import { createTestExecution } from "@linealabs/db/testing"
+import { createTestExecution, fireWaitTimer } from "@linealabs/db/testing"
 import { getTestApplicationId } from "@linealabs/db/testing"
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
@@ -88,28 +88,12 @@ describe("WaitNode", () => {
       }
       await expect(
         node.execute(
-          { mode: "duration", amount: 1, unit: "seconds" },
+          { mode: "duration", amount: 5, unit: "minutes" },
           undefined,
           context
         )
       ).rejects.toThrow()
-      // Forces only this specific row due — not a database-wide pumped-forward "now", which would
-      // also claim and permanently fire any concurrently running test's own legitimately-not-yet-
-      // due timer and corrupt its state. Then drains at the real current time (claimAndResolveDueWaitTimer
-      // claims one arbitrary due row database-wide by design, so a real leftover due timer
-      // elsewhere in this shared local dev Postgres could still be claimed first) so this row —
-      // now genuinely due — is guaranteed to be processed, and reads it back directly for the
-      // specific value this assertion needs.
-      await pool.query(
-        "UPDATE wait_timers SET resume_at = now() - interval '1 second' WHERE workspace_id = $1 AND execution_id = $2 AND node_id = $3",
-        [organization.id, execution.id, "wait-1"]
-      )
-      let drainResult =
-        await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
-      while (drainResult.outcome === "fired") {
-        drainResult =
-          await repositories.waitTimer.claimAndResolveDueWaitTimer(db)
-      }
+      await fireWaitTimer(db, execution.id, "wait-1")
       const firedTimer = await repositories.waitTimer.getWaitTimer(
         db,
         organization.id,
@@ -118,7 +102,7 @@ describe("WaitNode", () => {
       )
       expect(firedTimer?.fired).toBe(true)
       const output = await node.execute(
-        { mode: "duration", amount: 1, unit: "seconds" },
+        { mode: "duration", amount: 5, unit: "minutes" },
         undefined,
         context
       )

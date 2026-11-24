@@ -2,6 +2,7 @@ export {
   createExecution as createTestExecution,
   seedExecution,
   seedRunning,
+  fireWaitTimer,
   getTestApplicationId,
   getTestDevelopmentEnvironmentId,
   fixtureIssuer,

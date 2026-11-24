@@ -1,7 +1,7 @@
 import "dotenv/config"
 import { randomUUID } from "node:crypto"
 import { db, pool, repositories, schema } from "@linealabs/db"
-import { seedExecution } from "@linealabs/db/testing"
+import { fireWaitTimer, seedExecution } from "@linealabs/db/testing"
 import { isFlagEnabled } from "@linealabs/flags"
 import type { WorkflowGraph } from "@linealabs/runtime"
 import { CheckpointsService } from "../checkpoints/checkpoints.service"
@@ -114,16 +114,7 @@ async function withRun(
         (await repositories.execution.getExecutionById(db, execution.id))
           ?.status,
       branchesStarted: () => arrived,
-      fireTimer: async (nodeId) => {
-        await pool.query(
-          "UPDATE wait_timers SET resume_at = now() - interval '1 second' WHERE execution_id = $1 AND node_id = $2",
-          [execution.id, nodeId]
-        )
-        while (
-          (await repositories.waitTimer.claimAndResolveDueWaitTimer(db))
-            .outcome === "fired"
-        );
-      },
+      fireTimer: (nodeId) => fireWaitTimer(db, execution.id, nodeId),
     })
   } finally {
     await pool.query("DELETE FROM organizations WHERE id = $1", [

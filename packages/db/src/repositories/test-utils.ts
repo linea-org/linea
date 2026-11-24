@@ -9,6 +9,7 @@ import {
   applications,
   environments,
   organizations,
+  waitTimers,
   workflows,
   workflowVersions,
   type NewEnvironment,
@@ -22,6 +23,7 @@ import { getWorkflowEnvironment } from "./environment.repository.js"
 import { startExecution } from "./execution.repository.js"
 import { putEnvironmentWorkflowBinding } from "./environment-workflow-binding.repository.js"
 import type { DbClient, Transaction } from "./types.js"
+import { claimAndResolveDueWaitTimer } from "./wait-timer.repository.js"
 
 const rollbackSentinel = new Error("test transaction rollback")
 
@@ -291,4 +293,27 @@ export async function seedRunning(
     new Date(Date.now() + 60_000)
   )
   return seeded
+}
+
+/** Makes one timer due and fires it in a single transaction, so no other test's sweep can take it. */
+export async function fireWaitTimer(
+  client: DbClient,
+  executionId: string,
+  nodeId: string
+): Promise<void> {
+  // Before the epoch, so the claim cannot take another test's due timer either.
+  const due = new Date(-1)
+  await client.transaction(async (tx) => {
+    await tx
+      .update(waitTimers)
+      .set({ resumeAt: due })
+      .where(
+        and(
+          eq(waitTimers.executionId, executionId),
+          eq(waitTimers.nodeId, nodeId)
+        )
+      )
+    const { outcome } = await claimAndResolveDueWaitTimer(tx, due)
+    if (outcome !== "fired") throw new Error(`No unfired timer on ${nodeId}`)
+  })
 }
