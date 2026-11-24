@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { useLocation, useNavigate } from "@tanstack/react-router"
 
 import {
   assistantConversationQueryOptions,
@@ -10,6 +10,13 @@ import {
 import { findOrCreateDefaultApplication } from "@/lib/default-application"
 import { toChatMessages, useAssistantChat } from "./use-assistant-chat"
 import type { useComposerOptions } from "./use-composer-options"
+
+declare module "@tanstack/react-router" {
+  interface HistoryState {
+    /** Set by the New chat link, and different each time it is used. */
+    newChat?: string
+  }
+}
 
 /** The general chat: kept in step with the chat named in the address and the saved list. */
 export function usePageChat({
@@ -68,5 +75,14 @@ export function usePageChat({
     }
     addressedId.current = conversationId
   }, [conversationId, startNew, onReset])
+  // A chat waiting for its first answer has no address to clear, so the link says so itself.
+  const newChat = useLocation({ select: ({ state }) => state.newChat })
+  const seenNewChat = useRef(newChat)
+  useEffect(() => {
+    if (newChat === undefined || newChat === seenNewChat.current) return
+    seenNewChat.current = newChat
+    startNew()
+    onReset()
+  }, [newChat, startNew, onReset])
   return { chat, title: saved.data?.conversation.title ?? "New chat" }
 }

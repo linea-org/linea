@@ -99,6 +99,9 @@ export type QueuedMessage = {
   graph?: Record<string, JsonValue>
 }
 
+/** Just under the API's 128 KB body limit, leaving room for the model and tool choice. */
+const MAX_REQUEST_BYTES = 128_000
+
 type PendingAsk = { input: AskInput; pendingId: string; visit: number }
 
 export function useAssistantChat(
@@ -114,7 +117,12 @@ export function useAssistantChat(
   const visit = useRef(0)
   const [queue, setQueue] = useState<QueuedMessage[]>([])
   const request = useMutation({
-    mutationFn: ({ input }: PendingAsk) => askAssistant(input),
+    mutationFn: async ({ input }: PendingAsk) => {
+      if (new Blob([JSON.stringify(input)]).size > MAX_REQUEST_BYTES) {
+        throw new Error("The message, files and Workflow are too large to send")
+      }
+      return askAssistant(input)
+    },
     onError: (_error, asked) => {
       if (asked.visit === visit.current) setFailedId(asked.pendingId)
     },
@@ -194,7 +202,8 @@ export function useAssistantChat(
     attachments: Attachment[],
     graph?: Record<string, JsonValue>
   ) {
-    if (!request.isPending) {
+    const blocked = request.isPending || (request.isError && queue.length > 0)
+    if (!blocked) {
       ask(text, attachments, leafId, graph)
       return
     }

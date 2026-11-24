@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 
 import { ScrollArea } from "@linealabs/ui/components/scroll-area"
 import {
@@ -45,6 +46,15 @@ export function AssistantPage({
     initialData: initialSetup,
   })
   const [draft, setDraft] = useSavedDraft(`inky:${slug}`, initialDraft)
+  const navigate = useNavigate({ from: "/w/$slug/assistant" })
+  // Leaves the address once it is the draft, so a reload keeps the edits instead of the question.
+  useEffect(() => {
+    if (initialDraft === undefined) return
+    void navigate({
+      search: (current) => ({ ...current, ask: undefined }),
+      replace: true,
+    })
+  }, [initialDraft, navigate])
   const [detailsOpen, setDetailsOpen] = useState(true)
   // The prompt card glides down from the middle only when a chat starts here, not when one is opened.
   const [composerGlides, setComposerGlides] = useState(false)

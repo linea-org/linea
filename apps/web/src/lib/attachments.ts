@@ -2,7 +2,7 @@ export type Attachment = { name: string; content: string }
 export type RejectedFile = { name: string; reason: string }
 
 export const MAX_ATTACHMENTS = 5
-/** For all files together: the API refuses a message body over 128 KB. */
+/** For all files together, as sent; the rest of the API's 128 KB is for the message and graph. */
 export const MAX_ATTACHMENT_BYTES = 100_000
 export const LONG_PASTE_CHARACTERS = 2_000
 
@@ -44,36 +44,37 @@ function isTextFile(file: FileInfo): boolean {
   )
 }
 
-function bytesOf(text: string): number {
-  return new Blob([text]).size
+/** What text takes up in a JSON request, where newlines and quotes are written as two bytes. */
+function encodedBytes(text: string): number {
+  return new Blob([JSON.stringify(text)]).size
 }
 
-/** Why a file cannot be attached, or null when it can. */
-export function attachmentProblem(
-  file: FileInfo,
-  attached: readonly Attachment[]
-): string | null {
-  if (attached.length >= MAX_ATTACHMENTS) {
-    return `Up to ${MAX_ATTACHMENTS} files`
+type ReadFile =
+  { name: string; content: string } | { name: string; reason: string }
+
+const TOO_LARGE = `Over ${MAX_ATTACHMENT_BYTES / 1000} KB in total`
+
+async function readFile(file: File): Promise<ReadFile> {
+  const { name } = file
+  if (!isTextFile(file)) return { name, reason: "Text files only" }
+  if (file.size > MAX_ATTACHMENT_BYTES) return { name, reason: TOO_LARGE }
+  try {
+    return { name, content: await file.text() }
+  } catch {
+    // A dropped folder looks like a file until it is read.
+    return { name, reason: "Couldn't be read" }
   }
-  if (!isTextFile(file)) return "Text files only"
-  const used = attached.reduce((sum, item) => sum + bytesOf(item.content), 0)
-  if (used + file.size > MAX_ATTACHMENT_BYTES) {
-    return `Over ${MAX_ATTACHMENT_BYTES / 1000} KB in total`
-  }
-  return null
 }
 
 function uniqueName(name: string, attached: readonly Attachment[]): string {
   const taken = new Set(attached.map((item) => item.name))
+  if (!taken.has(name)) return name
   const dot = name.lastIndexOf(".")
   const [stem, end] =
     dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""]
-  let candidate = name
-  for (let copy = 2; taken.has(candidate); copy++) {
-    candidate = `${stem} ${copy}${end}`
-  }
-  return candidate
+  let copy = 2
+  while (taken.has(`${stem} ${copy}${end}`)) copy += 1
+  return `${stem} ${copy}${end}`
 }
 
 export async function readAttachments(
@@ -82,18 +83,21 @@ export async function readAttachments(
 ): Promise<{ attachments: Attachment[]; rejected: RejectedFile[] }> {
   const attachments = [...current]
   const rejected: RejectedFile[] = []
-  for (const file of files) {
-    const reason = attachmentProblem(file, attachments)
-    if (reason) {
-      rejected.push({ name: file.name, reason })
+  let used = current.reduce((sum, item) => sum + encodedBytes(item.content), 0)
+  for (const file of await Promise.all(files.map(readFile))) {
+    if ("reason" in file) {
+      rejected.push(file)
       continue
     }
-    try {
-      const content = await file.text()
-      attachments.push({ name: uniqueName(file.name, attachments), content })
-    } catch {
-      // A dropped folder looks like a file until it is read.
-      rejected.push({ name: file.name, reason: "Couldn't be read" })
+    const { name, content } = file
+    const bytes = encodedBytes(content)
+    if (attachments.length >= MAX_ATTACHMENTS) {
+      rejected.push({ name, reason: `Up to ${MAX_ATTACHMENTS} files` })
+    } else if (used + bytes > MAX_ATTACHMENT_BYTES) {
+      rejected.push({ name, reason: TOO_LARGE })
+    } else {
+      used += bytes
+      attachments.push({ name: uniqueName(name, attachments), content })
     }
   }
   return { attachments, rejected }

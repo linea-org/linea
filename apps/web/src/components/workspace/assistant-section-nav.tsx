@@ -40,7 +40,12 @@ export function AssistantSectionNav({ slug }: Readonly<{ slug: string }>) {
                 title="New chat"
                 {...shortcutTarget("create")}
                 render={
-                  <Link to="/w/$slug/assistant" params={{ slug }} search={{}} />
+                  <Link
+                    to="/w/$slug/assistant"
+                    params={{ slug }}
+                    search={{}}
+                    state={() => ({ newChat: crypto.randomUUID() })}
+                  />
                 }
               >
                 <SquarePenIcon />

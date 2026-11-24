@@ -71,8 +71,8 @@ afterEach(() => act(() => root.unmount()))
 
 const messages = () => asked.map(({ message }) => message)
 
-describe("messages written while Inky answers", () => {
-  it("are sent in order, each under the reply before it", async () => {
+describe("messages sent to Inky", () => {
+  it("written while it answers are sent in order, each under the reply before it", async () => {
     await settle(() => chat.send("one", []))
     await settle(() => chat.send("two", []))
     await settle(() => chat.send("three", []))
@@ -86,12 +86,14 @@ describe("messages written while Inky answers", () => {
     expect(chat.queue).toEqual([])
   })
 
-  it("wait when the answer fails", async () => {
+  it("wait when an answer fails, and stay in order", async () => {
     await settle(() => chat.send("one", []))
     await settle(() => chat.send("two", []))
     await settle(asked[0].fail)
     expect(messages()).toEqual(["one"])
-    expect(chat.queue).toHaveLength(1)
+    await settle(() => chat.send("three", []))
+    expect(messages()).toEqual(["one"])
+    expect(chat.queue.map(({ text }) => text)).toEqual(["two", "three"])
 
     await settle(() => chat.resend())
     expect(messages()).toEqual(["one", "one"])
@@ -102,6 +104,14 @@ describe("messages written while Inky answers", () => {
       "reply 1",
       "two",
     ])
+  })
+
+  it("are refused before they are sent when they are too large", async () => {
+    await settle(() =>
+      chat.send("one", [{ name: "a.txt", content: "\n".repeat(70_000) }])
+    )
+    expect(asked).toEqual([])
+    expect(chat.error?.message).toMatch(/too large/)
   })
 
   it("can be taken back, and go away with the chat", async () => {

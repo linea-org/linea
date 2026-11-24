@@ -20,11 +20,17 @@ function saveDraft(key: string, text: string) {
   }
 }
 
-/** A message kept for this tab, so a reload does not lose it. */
+/** A message kept for this tab, so a reload does not lose it; a new `initial` replaces it. */
 export function useSavedDraft(key: string, initial = "") {
   const [draft, setDraft] = useState(initial)
   useEffect(() => {
-    if (!initial) setDraft(readDraft(key))
+    if (initial) {
+      setDraft(initial)
+      saveDraft(key, initial)
+      return
+    }
+    const saved = readDraft(key)
+    if (saved) setDraft(saved)
   }, [key, initial])
   const change = useCallback(
     (text: string) => {
