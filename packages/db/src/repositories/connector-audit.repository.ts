@@ -22,6 +22,7 @@ import {
   type ConnectorAuditContent,
   type ConnectorAuditFact,
 } from "../schema/index.js"
+import { lockSubjectThenEnvironment } from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
 import { redactedActionIntentContent } from "./end-user-content.repository.js"
 
@@ -98,6 +99,7 @@ export async function recordConnectionFact(
     content?: ConnectorAuditContent
   }
 ): Promise<ConnectorAuditFact> {
+  await lockSubjectThenEnvironment(tx, input.connection)
   const context = await retentionContext(
     tx,
     input.connection.environmentId,
@@ -143,6 +145,7 @@ export async function recordActionIntentFact(
     failureClass?: string
   }
 ): Promise<ConnectorAuditFact> {
+  await lockSubjectThenEnvironment(tx, input.intent)
   const context = await retentionContext(
     tx,
     input.intent.environmentId,

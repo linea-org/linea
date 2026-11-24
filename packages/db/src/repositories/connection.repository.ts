@@ -29,7 +29,10 @@ import {
 import { encryptCredential } from "../credential-encryption.js"
 import { cancelNonExecutingActionIntents } from "./action-intent-cancellation.repository.js"
 import { recordConnectionFact } from "./connector-audit.repository.js"
-import { createPublicEvent } from "./outbox-message.repository.js"
+import {
+  createPublicEvent,
+  lockSubjectThenEnvironment,
+} from "./outbox-message.repository.js"
 import type { DbClient } from "./types.js"
 
 type CreateAuthorizationInput = {
@@ -764,6 +767,7 @@ export async function revokeConnection(
     if (current) {
       await lockGoogleGrant(tx, current.provider, current.providerAccountId)
     }
+    await lockSubjectThenEnvironment(tx, owner)
     const [connection] = await tx
       .update(connections)
       .set({

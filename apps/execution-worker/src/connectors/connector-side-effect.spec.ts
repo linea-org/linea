@@ -1457,6 +1457,224 @@ describe("exact Action Intent consent", () => {
       }
     }
   )
+  describe("beside a transaction that holds the End User, as another run's claim does", () => {
+    async function claimWrite(fixture: Fixture, sent = true): Promise<string> {
+      await invoke(fixture)
+      await decide(fixture, "approved")
+      const { intent } = await consent(fixture)
+      const authority = {
+        actionIntentId: intent.id,
+        executionClaimId: fixture.executionClaimId,
+        provider: deterministicSideEffectOperation.provider,
+        actionFamily: deterministicSideEffectOperation.actionFamily,
+        requiredScopes: deterministicSideEffectOperation.requiredScopes,
+        now: new Date(),
+      }
+      const claim = await repositories.actionIntent.claimApprovedActionIntent(
+        db,
+        authority
+      )
+      expect(claim?.outcome).toBe("claimed")
+      if (sent)
+        await repositories.actionIntent.beginActionIntentDispatch(db, authority)
+      return intent.id
+    }
+
+    const ending = {
+      costMicros: 0n,
+      costUnpriced: false,
+      tokensInput: 0,
+      tokensOutput: 0,
+    }
+    const recordFact = async (fixture: Fixture) => {
+      const connection = await repositories.connection.getConnection(
+        db,
+        fixture,
+        fixture.connectionId
+      )
+      if (!connection) throw new Error("Fixture Connection is missing")
+      return repositories.connectorAudit.recordConnectionFact(db, {
+        connection,
+        factType: "connection.revoked",
+        occurredAt: new Date(),
+      })
+    }
+    const timeOut = (fixture: Fixture) =>
+      repositories.approvalRequest.claimAndDecideTimedOutApprovalRequest(
+        db,
+        new Date(Date.now() + 365 * 24 * 60 * 60_000),
+        fixture.workspaceId
+      )
+
+    const sides: [
+      string,
+      "claimed write" | "proposed write" | "question" | "nothing",
+      (fixture: Fixture, intentId: string) => Promise<unknown>,
+    ][] = [
+      [
+        "records a write that landed",
+        "claimed write",
+        (fixture, actionIntentId) =>
+          repositories.actionIntent.completeActionIntent(db, {
+            actionIntentId,
+            executionClaimId: fixture.executionClaimId,
+            result: {},
+            completedAt: new Date(),
+          }),
+      ],
+      [
+        "records a write that failed",
+        "claimed write",
+        (fixture, actionIntentId) =>
+          repositories.actionIntent.failActionIntent(db, {
+            actionIntentId,
+            executionClaimId: fixture.executionClaimId,
+            status: "failed",
+            error: {
+              code: "provider_failed",
+              message: "failed",
+              outcomeUnknown: false,
+            },
+            failedAt: new Date(),
+          }),
+      ],
+      [
+        "finishes a run",
+        "proposed write",
+        (fixture) =>
+          repositories.execution.completeExecution(
+            db,
+            fixture.executionId,
+            fixture.executionClaimId,
+            { ...ending, status: "succeeded" }
+          ),
+      ],
+      [
+        "fails a run",
+        "proposed write",
+        (fixture) =>
+          repositories.failedExecution.failExecution(
+            db,
+            fixture.executionId,
+            fixture.executionClaimId,
+            { ...ending, error: { message: "failed" } }
+          ),
+      ],
+      ["cancels a run", "proposed write", cancelExecution],
+      ["revokes a Connection", "proposed write", revoke],
+      ["revokes a Connection", "nothing", revoke],
+      ["records a Connection fact", "nothing", recordFact],
+      ["times out an approval", "proposed write", timeOut],
+      ["times out an approval", "question", timeOut],
+    ]
+
+    // These hold the Approval Request first, as a disable or erasure does too.
+    const holdsApproval = new Set<unknown>(
+      sides.slice(-6).map(([, , side]) => side)
+    )
+
+    it.each(sides)("%s (%s) without deadlocking", async (_what, open, run) => {
+      const fixture = await createFixture()
+      const holder = await pool.connect()
+      let transactionOpen = false
+      try {
+        let intentId = ""
+        if (open === "claimed write") intentId = await claimWrite(fixture)
+        if (open === "proposed write") await invoke(fixture)
+        if (open === "question")
+          await repositories.approvalRequest.createApprovalRequest(db, {
+            workspaceId: fixture.workspaceId,
+            environmentId: fixture.environmentId,
+            executionId: fixture.executionId,
+            nodeId: "question",
+            audience: "external_subject",
+            externalSubjectId: fixture.externalSubjectId,
+            display: { title: "Continue?" },
+            expiresAt: new Date(Date.now() + 60_000),
+            timeoutAction: "auto_reject",
+          })
+        await holder.query("BEGIN")
+        transactionOpen = true
+        await holder.query(
+          "SELECT id FROM external_subjects WHERE id = $1 FOR UPDATE",
+          [fixture.externalSubjectId]
+        )
+        const { rows } = await holder.query<{ pid: number }>(
+          "SELECT pg_backend_pid() AS pid"
+        )
+        const running = run(fixture, intentId)
+        await waitForLockWait(rows[0].pid)
+        // What a claim takes next, and the event row it ends with.
+        await holder.query("SET LOCAL lock_timeout = '5s'")
+        await holder.query(
+          "SELECT id FROM environments WHERE id = $1 FOR UPDATE",
+          [fixture.environmentId]
+        )
+        await holder.query(
+          "SELECT 1 FROM external_subject_environments WHERE external_subject_id = $1 FOR UPDATE",
+          [fixture.externalSubjectId]
+        )
+        if (run !== cancelExecution)
+          await holder.query(
+            "SELECT id FROM connections WHERE id = $1 FOR UPDATE",
+            [fixture.connectionId]
+          )
+        // What disabling or erasing the End User takes next.
+        if (!holdsApproval.has(run)) {
+          await holder.query(
+            "SELECT id FROM action_intents WHERE execution_id = $1 FOR UPDATE",
+            [fixture.executionId]
+          )
+          await holder.query(
+            "SELECT id FROM executions WHERE id = $1 FOR UPDATE",
+            [fixture.executionId]
+          )
+        }
+        await holder.query("COMMIT")
+        transactionOpen = false
+        expect(await running).toBeDefined()
+      } finally {
+        if (transactionOpen) await holder.query("ROLLBACK")
+        holder.release()
+        await removeWorkspace(fixture.workspaceId)
+      }
+    })
+
+    it.each([
+      ["sent", "outcome_unknown"],
+      ["sent by an earlier worker", "outcome_unknown"],
+      ["not sent", "failed"],
+    ])(
+      "settles its own claimed write that was %s when the run fails without recording it",
+      async (state, status) => {
+        const fixture = await createFixture()
+        try {
+          await claimWrite(fixture, state !== "not sent")
+          if (state === "sent by an earlier worker") {
+            fixture.executionClaimId = "later-worker"
+            await pool.query(
+              "UPDATE executions SET leased_by = $2 WHERE id = $1",
+              [fixture.executionId, fixture.executionClaimId]
+            )
+          }
+          await repositories.failedExecution.failExecution(
+            db,
+            fixture.executionId,
+            fixture.executionClaimId,
+            { ...ending, error: { message: "database went away" } }
+          )
+          expect((await consent(fixture)).intent.status).toBe(status)
+          const events = await pool.query(
+            "SELECT 1 FROM outbox_messages WHERE workspace_id = $1 AND event_type = 'action_intent.failed'",
+            [fixture.workspaceId]
+          )
+          expect(events.rowCount).toBe(1)
+        } finally {
+          await removeWorkspace(fixture.workspaceId)
+        }
+      }
+    )
+  })
   it("cancels an Execution without deadlocking a claim that starts while the cancel holds the Approval Request", async () => {
     const fixture = await createFixture()
     const blocker = await pool.connect()

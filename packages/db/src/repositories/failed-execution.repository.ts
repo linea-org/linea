@@ -18,6 +18,8 @@ import {
   type CompleteExecutionInput,
 } from "./execution.repository.js"
 import { sumStepTotals } from "./execution-step.repository.js"
+import { settleExecutingActionIntents } from "./action-intent.repository.js"
+import { lockSubjectThenEnvironment } from "./outbox-message.repository.js"
 import type { DbClient, Transaction } from "./types.js"
 
 /** Fails an Execution and cancels what it left open, except an Agent whose claimed Action Intent must still report (ADR 0029). */
@@ -39,7 +41,10 @@ export function failExecution(
       status: "failed",
     })
     if (!failed) return undefined
-    await cancelOpenWork(tx, failed, open, new Date())
+    const now = new Date()
+    await settleExecutingActionIntents(tx, executionId, leasedBy, now)
+    // Its own work is cancelled too: after this nothing of it is left to report.
+    await cancelOpenWork(tx, failed, [...new Set([...open, executionId])], now)
     return failed
   })
 }
@@ -47,9 +52,14 @@ export function failExecution(
 // The same row order as a cancel (#359): requests, Executions with the root last, then intents.
 async function lockOpenWork(
   tx: Transaction,
-  { id, workspaceId, environmentId }: Execution
+  { id, workspaceId, environmentId, externalSubjectRecordId }: Execution
 ): Promise<string[]> {
   const tree = await lockExecutionTree(tx, workspaceId, environmentId, id)
+  if (environmentId)
+    await lockSubjectThenEnvironment(tx, {
+      environmentId,
+      externalSubjectId: externalSubjectRecordId,
+    })
   const ids = tree.map((execution) => execution.id)
   await tx
     .select({ id: approvalRequests.id })
