@@ -18,10 +18,6 @@ import {
 import { RunLeaseService } from "./run-lease.service"
 import { RunsService } from "./runs.service"
 
-jest.mock("@linealabs/flags", () => ({
-  isFlagEnabled: (key: string) => Promise.resolve(key === "platformModelKey"),
-}))
-
 jest.setTimeout(30_000)
 
 const originalKey = process.env.OPENAI_API_KEY

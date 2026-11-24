@@ -26,6 +26,7 @@
     "@linealabs/ai": "workspace:*",
     "@linealabs/config": "workspace:*",
     "@linealabs/db": "workspace:*",
+    "@linealabs/flags": "workspace:*",
     "@linealabs/http": "workspace:*",
     "@linealabs/queue": "workspace:*",
     "@linealabs/runtime": "workspace:*",
