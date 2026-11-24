@@ -213,7 +213,7 @@ export function AssistantPanel({
           chat.send(text, options.attachments, graph)
           options.onAttachmentsChange([])
         }}
-        placeholder={`Ask or change this workflow`}
+        placeholder="Ask or change this workflow"
       />
       <Dialog
         open={Boolean(selected?.proposal)}
