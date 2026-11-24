@@ -467,24 +467,24 @@ it("records a failed connector step when a tool call fails, but not for an appro
 })
 
 it("fails a run that outlives its work budget and records the stalled model turn", async () => {
-  jest.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
-    const controller = new AbortController()
-    setTimeout(() => controller.abort(), ms > 29 * 60_000 ? 25 : ms).unref()
-    return controller.signal
-  })
+  const budget = new AbortController()
+  const timeout = jest
+    .spyOn(AbortSignal, "timeout")
+    .mockReturnValueOnce(budget.signal)
   jest.spyOn(registry["gpt-5"], "complete").mockImplementation(
     (_apiKey, request) =>
       new Promise((_resolve, reject) => {
-        const abort = () => reject(new Error("aborted by signal"))
-        // On a slow runner the 25 ms deadline can fire before this call starts.
-        if (request.signal?.aborted) abort()
-        request.signal?.addEventListener("abort", abort)
+        request.signal?.addEventListener("abort", () =>
+          reject(new Error("aborted by signal"))
+        )
+        budget.abort()
       })
   )
   const execution = await start()
   await expect(runs.execute(execution.id)).rejects.toThrow(
     "Agent run exceeded its 30 minute work budget"
   )
+  expect(timeout).toHaveBeenNthCalledWith(1, 30 * 60_000)
   const final = await repositories.execution.getExecutionById(db, execution.id)
   expect(final).toMatchObject({ status: "failed", costUnpriced: true })
   expect(await failedSteps(execution.id)).toEqual([
