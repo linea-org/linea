@@ -11,6 +11,7 @@ import {
   regressionRunDetailSchema,
   regressionRunSchema,
 } from '@linealabs/protocol/resources'
+import { randomBytes } from 'node:crypto'
 import request from 'supertest'
 import type { Server } from 'node:http'
 import { generateApiKey } from '../auth/api-key.util'
@@ -29,6 +30,7 @@ import { RegressionCasesService } from './regression-cases.service'
 import { RegressionRunsController } from './regression-runs.controller'
 import { RegressionRunsService } from './regression-runs.service'
 
+const originalSecretsKey = process.env.SECRETS_ENCRYPTION_KEY
 const key = generateApiKey()
 const credential = 'ghp_abcdefghijklmnopqrstuvwxyz012345'
 const secrets = ['opaque-crm-value', 'opaque-erp-value']
@@ -54,6 +56,7 @@ describe('Regression content access', () => {
   let runId: string
 
   beforeAll(async () => {
+    process.env.SECRETS_ENCRYPTION_KEY = randomBytes(32).toString('base64')
     seeded = await seedAuthorizationWorkspace('Regression content', key)
     const [owner] = await db
       .insert(schema.users)
@@ -145,6 +148,9 @@ describe('Regression content access', () => {
   })
 
   afterAll(async () => {
+    if (originalSecretsKey === undefined)
+      delete process.env.SECRETS_ENCRYPTION_KEY
+    else process.env.SECRETS_ENCRYPTION_KEY = originalSecretsKey
     await app?.close()
     await deleteAuthorizationWorkspace(seeded)
     await pool.query('DELETE FROM users WHERE id = $1', [ownerId])
