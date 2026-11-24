@@ -36,23 +36,28 @@ export function ProposalDetails({
           {start.isError ? (
             <p className="text-sm text-destructive">{start.error.message}</p>
           ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            disabled={start.isPending}
-            onClick={() => start.mutate(proposal)}
-          >
-            {start.isPending ? <Spinner /> : <PlayIcon />}
-            Run
-          </Button>
-          <Button
-            type="button"
-            disabled={create.isPending}
-            onClick={() => create.mutate(proposal)}
-          >
-            {create.isPending ? <Spinner /> : <PlusIcon />}
-            Create workflow
-          </Button>
+          <div className="flex gap-2">
+            {" "}
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              disabled={start.isPending}
+              onClick={() => start.mutate(proposal)}
+            >
+              {start.isPending ? <Spinner /> : <PlayIcon />}
+              Run
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              disabled={create.isPending}
+              onClick={() => create.mutate(proposal)}
+            >
+              {create.isPending ? <Spinner /> : <PlusIcon />}
+              Create workflow
+            </Button>
+          </div>{" "}
           {create.isError ? (
             <p className="text-sm text-destructive">{create.error.message}</p>
           ) : null}
