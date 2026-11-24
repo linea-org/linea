@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 
 import { buttonVariants } from "@linealabs/ui/components/button"
@@ -8,7 +7,6 @@ import { ModelMarkdown } from "@/components/markdown/model-markdown"
 import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys"
 import { shortcutTarget } from "@/components/shortcuts/shortcut-target"
 import { ASSISTANT_NAME } from "@/lib/assistant-api"
-import { chatMessagesQueryOptions } from "@/lib/chat-preview-api"
 import type {
   ExecutionDetailResponse,
   JsonValue,
@@ -21,8 +19,10 @@ import {
   readableText,
   summarizeRun,
 } from "@/lib/run-summary"
+import { chatMessageRef } from "@/lib/step-line"
 import { ErrorCallout } from "./error-callout"
 import { stepTitle } from "./execution-step-presentation"
+import { useChatMessage } from "./use-chat-message"
 
 function ResultPreview({ value }: Readonly<{ value: JsonValue }>) {
   const text = readableText(value)
@@ -38,24 +38,10 @@ function ResultPreview({ value }: Readonly<{ value: JsonValue }>) {
 }
 
 function useSentMessage(slug: string, detail: ExecutionDetailResponse) {
-  const { execution } = detail
-  const payload = execution.triggerPayload ?? null
-  const chatMessageId =
-    typeof payload?.chatMessageId === "string" ? payload.chatMessageId : null
-  const conversationId =
-    typeof payload?.conversationId === "string" ? payload.conversationId : null
-  const { data: messages } = useQuery(
-    chatMessagesQueryOptions(
-      slug,
-      execution.workflowId ?? "",
-      execution.workflowId ? conversationId : null
-    )
-  )
-  const chatMessage = messages?.find(
-    (message) => message.id === chatMessageId
-  )?.content
+  const payload = detail.execution.triggerPayload ?? null
+  const chatMessage = useChatMessage(slug, detail.execution)
   if (chatMessage) return chatMessage
-  return chatMessageId === null && payload ? previewJson(payload) : undefined
+  return payload && !chatMessageRef(payload) ? previewJson(payload) : undefined
 }
 
 const fixLinkClass = cn(

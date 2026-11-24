@@ -8,6 +8,7 @@ import type { ExecutionStepSummary } from "@/lib/executions-api"
 import { NODE_CATEGORY_COLORS } from "../workflow-builder/node-category-colors"
 import { NodeIcon } from "../workflow-builder/node-icon"
 import { isNodeTypeId, stepTitle } from "./execution-step-presentation"
+import { StepIoLine } from "./step-io-line"
 import { GanttTimeAxis } from "./gantt-time-axis"
 import { useTimelineZoom } from "./use-timeline-zoom"
 import { Empty, EmptyHeader, EmptyTitle } from "@linealabs/ui/components/empty"
@@ -64,6 +65,7 @@ type ChartProps = {
   allSteps: ExecutionStepSummary[]
   executionStartedAt: string | null
   executionCompletedAt: string | null
+  chatMessage: string | undefined
   selectedStepId?: string | null
   onStepSelect?: (stepId: string) => void
   // Opens inline under the selected row, so the run reads top to bottom.
@@ -206,6 +208,7 @@ function StepTrack({
 function GanttTimeline({
   rows,
   allSteps,
+  chatMessage,
   executionStartedAt,
   executionCompletedAt,
   selectedStepId,
@@ -296,6 +299,7 @@ function GanttTimeline({
                 onClick={() => onStepSelect?.(step.id)}
                 title={`${label} · ${formatElapsed(endMs - startMs)}${waitNote}`}
                 aria-label={`${label} · ${step.status} · attempt ${step.attempt}`}
+                aria-describedby={`step-io-${step.id}`}
                 aria-pressed={selectedStepId === step.id}
                 className={cn(
                   "flex w-full flex-col gap-1.5 rounded-md px-2 py-1.5 text-left hover:bg-muted/50",
@@ -329,6 +333,11 @@ function GanttTimeline({
                     {formatElapsed(endMs - startMs)}
                   </span>
                 </div>
+                <StepIoLine
+                  id={`step-io-${step.id}`}
+                  step={step}
+                  chatMessage={chatMessage}
+                />
                 {compact ? null : (
                   <StepTrack
                     leftPct={leftPct}

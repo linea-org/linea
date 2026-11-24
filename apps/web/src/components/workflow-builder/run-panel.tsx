@@ -13,6 +13,7 @@ import {
 } from "@linealabs/ui/components/sheet"
 import { ExecutionStepDetails } from "../executions/execution-step-details"
 import { attachResumeMarkers } from "../executions/execution-step-order"
+import { useChatMessage } from "../executions/use-chat-message"
 import {
   Select,
   SelectContent,
@@ -64,6 +65,7 @@ export function RunPanel({
       return !replay || replay.status === "running" ? 1500 : false
     },
   })
+  const chatMessage = useChatMessage(slug, data?.execution)
   const { data: recentExecutions } = useQuery(
     executionsQueryOptions(slug, workflowId)
   )
@@ -144,6 +146,7 @@ export function RunPanel({
           <ExecutionGanttChart
             steps={data.steps}
             allSteps={data.steps}
+            chatMessage={chatMessage}
             executionStartedAt={data.execution.startedAt}
             executionCompletedAt={data.execution.completedAt}
             selectedStepId={selectedStepId}

@@ -17,6 +17,7 @@ import { attachResumeMarkers } from "./execution-step-order"
 import { stepTitle } from "./execution-step-presentation"
 import { filterTraceSteps, pickSelectedStep } from "./filter-trace-steps"
 import { LocalDateTime } from "./local-date-time"
+import { useChatMessage } from "./use-chat-message"
 import { WaitingSteps } from "./waiting-steps"
 
 const statusFilterSchema = z.enum([
@@ -46,6 +47,7 @@ export function ExecutionTraceWorkspace({
   const hash = useLocation({ select: (location) => location.hash })
   const selectedId = hydrated && hash.startsWith("step-") ? hash.slice(5) : null
   const { execution, steps, nodeConfigs } = detail
+  const chatMessage = useChatMessage(slug, execution)
   const recorded = steps.filter((step) => !step.isSystemEvent)
   const query = search.trim().toLowerCase()
   const filtered = filterTraceSteps(recorded, status, query)
@@ -189,6 +191,7 @@ export function ExecutionTraceWorkspace({
         <ExecutionGanttChart
           steps={filtered}
           allSteps={recorded}
+          chatMessage={chatMessage}
           executionStartedAt={execution.startedAt}
           executionCompletedAt={execution.completedAt}
           selectedStepId={selected?.id ?? null}

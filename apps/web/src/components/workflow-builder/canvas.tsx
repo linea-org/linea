@@ -85,6 +85,7 @@ import { WorkflowTitle } from "./workflow-title"
 import { NodeConfigPanel } from "./node-config-panel"
 import { NodeShell } from "./node-shell"
 import { RunPanel, RunPanelTrigger } from "./run-panel"
+import { useOpenFirstTrace } from "./use-open-first-trace"
 import { useUndoHistory } from "./use-undo-history"
 import {
   useWorkflowRealtime,
@@ -345,10 +346,13 @@ function WorkflowBuilderCanvasInner({
   const [activeRunExecutionId, setActiveRunExecutionId] = useState<
     string | null
   >(null)
+  const [startedRunId, setStartedRunId] = useState<string | null>(null)
+  useOpenFirstTrace(slug, startedRunId, dirtyRef)
   const [runPanelOpen, setRunPanelOpen] = useState(false)
   const hasRun = (activeRunExecutionId ?? latestExecutionId) !== null
   function rememberExecution(executionId: string) {
     setActiveRunExecutionId(executionId)
+    setStartedRunId(executionId)
     void queryClient.invalidateQueries({
       queryKey: executionsQueryOptions(slug, workflowId).queryKey,
     })
@@ -424,14 +428,28 @@ function WorkflowBuilderCanvasInner({
       editGeneration.current += 1
     }
   }
+  const savePending = useRef<(() => void) | null>(null)
+  // Leaving the builder cancels the debounce, so an edit it still holds is saved here.
+  useEffect(
+    () => () => {
+      if (dirtyRef.current) savePending.current?.()
+    },
+    []
+  )
   useEffect(() => {
     if (editGeneration.current === scheduledGeneration.current) return
     scheduledGeneration.current = editGeneration.current
     const generation = editGeneration.current
+    const graph = buildGraph(entryNodeId)
     if (saveTimeout.current) clearTimeout(saveTimeout.current)
-    saveTimeout.current = setTimeout(() => {
-      void flushDraftSave(buildGraph(entryNodeId), generation)
-    }, DRAFT_SAVE_DEBOUNCE_MS)
+    savePending.current = () => {
+      savePending.current = null
+      void flushDraftSave(graph, generation)
+    }
+    saveTimeout.current = setTimeout(
+      () => savePending.current?.(),
+      DRAFT_SAVE_DEBOUNCE_MS
+    )
     return () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current)
     }
