@@ -2,6 +2,7 @@ import {
   MAX_MERGE_INPUTS,
   MIN_MERGE_INPUTS,
   nodeRegistry,
+  type NodeUIField,
 } from '@linealabs/runtime'
 import { ASSISTANT_NODE_TYPES, type AssistantNodeType } from './assistant-nodes'
 import type { AssistantToolScope } from './assistant-tool-contract'
@@ -23,18 +24,24 @@ Workflow rules. The platform rejects any graph that breaks them:
 
 How data flows:
 - A node's input is the output of the node before it. Only the start node receives the run's trigger payload.
-- Node config is fixed text: nothing like {{placeholders}} exists. An "ai" node's prompt cannot mention an earlier node's output, so never promise that it does. In the chat preview the user's message is what the "ai" node answers.
+- A config field marked "takes references" may read values: {{steps.<node id>.<path>}} for any node that runs before it, {{input.<path>}} for its own input and {{variables.<name>}}. Examples: {{steps.fetch.body.title}}, {{steps.start.email}}, {{input.items[0].id}}, {{input["full name"]}}. A path with no value fails the step, so use paths you saw in a test run. There are no expressions or filters, and every other field is fixed text. Write \\{{ for literal braces.
+- Outputs to refer to: "ai" gives text, "http" gives status, headers and body, "extract" gives data.<field>, "transform" gives output, "datetime" gives result, and "start" gives the trigger payload.
+- In config, write an object or a list as itself, never inside a string, and leave out fields you don't need. In an "http" body, put each reference in its own string: {"email": "{{input.email}}"}.
+- In the chat preview the user's message replaces the "ai" node's prompt.
+- A field marked "and secrets" may hold {{secrets.<NAME>}}, with the URL's https:// address written out. Use only names the user gave, never write a secret's value, and tell the user to add it to the Application's secrets.
 - An "agent" node runs one of this Application's Agents on its input, which must match that Agent's input schema. Call list_agents first and copy its config exactly; never guess ids.
 - Use "ai" nodes to generate text, "http" for outside requests, "transform", "filter" and "extract" to shape data, and "branch" to route.
 - Never invent node types, config fields or model names. If the request needs something the allowed nodes cannot do, say so in "reply" and build the closest workable graph, or return graph null.`
 
 function describeNode(type: AssistantNodeType): string {
   const { ui } = nodeRegistry[type]
-  const fields = ui.fields.map((field) => {
+  const fields = ui.fields.map((field: NodeUIField) => {
     const options = field.options
       ? ` One of: ${field.options.map((option) => option.value).join(', ')}.`
       : ''
-    return `    - ${field.key}: ${field.description ?? field.label}${options}`
+    const secrets = field.references?.secrets ? ' and secrets' : ''
+    const references = field.references ? ` (takes references${secrets})` : ''
+    return `    - ${field.key}: ${field.description ?? field.label}${options}${references}`
   })
   return [`- "${type}" (${ui.label}): ${ui.description}`, ...fields].join('\n')
 }

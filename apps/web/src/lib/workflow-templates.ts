@@ -128,7 +128,9 @@ export const workflowTemplates: WorkflowTemplate[] = [
           {
             url: "https://hooks.example.com/billing",
             method: "POST",
-            body: { text: "New billing ticket" },
+            body: {
+              text: "Billing ticket ({{steps.classify.data.urgency}}): {{steps.classify.data.summary}}",
+            },
           },
           1140,
           60
@@ -139,7 +141,9 @@ export const workflowTemplates: WorkflowTemplate[] = [
           {
             url: "https://hooks.example.com/technical",
             method: "POST",
-            body: { text: "New technical ticket" },
+            body: {
+              text: "Technical ticket ({{steps.classify.data.urgency}}): {{steps.classify.data.summary}}",
+            },
           },
           1140,
           180
@@ -199,7 +203,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
           {
             url: "https://hooks.example.com/publish",
             method: "POST",
-            body: { text: "Post approved" },
+            body: { text: "{{steps.answer.text}}" },
           },
           1400,
           100
@@ -256,7 +260,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
           {
             url: "https://hooks.example.com/alerts",
             method: "POST",
-            body: { text: "The endpoint is not healthy" },
+            body: { text: "The endpoint returned {{steps.check.status}}" },
           },
           1140,
           260
@@ -321,7 +325,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
         aiNode(
           model,
           "You are a concise productivity assistant.",
-          "Suggest one next action for a pending to-do item, in a single sentence.",
+          "Suggest one next action for this to-do item, in a single sentence: {{steps.fetch.body.title}}",
           1140,
           120
         ),

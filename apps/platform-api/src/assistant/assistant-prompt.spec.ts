@@ -24,8 +24,16 @@ describe('assistant prompt', () => {
     }
   })
 
-  it('tells the model that prompts cannot reference earlier output', () => {
-    expect(prompt).toContain('cannot mention an earlier node')
+  it('says which fields take references and which also take secrets', () => {
+    expect(prompt).toContain('{{steps.<node id>.<path>}}')
+    expect(prompt).toContain(String.raw`Write \{{ for literal braces`)
+    expect(prompt).toContain(
+      '    - prompt: The task for this run. (takes references)',
+    )
+    expect(prompt).toContain(
+      '    - headers: Headers (takes references and secrets)',
+    )
+    expect(prompt).not.toMatch(/- systemPrompt: .*takes references/)
   })
 
   it('makes the assistant a general helper that builds workflows only when wanted', () => {
