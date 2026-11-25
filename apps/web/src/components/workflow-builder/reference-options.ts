@@ -48,8 +48,10 @@ function outputPaths(data: BuilderNode["data"]): string[][] {
   const { nodeType, config } = data
   const paths = outputKeys(data).map((key) => [key])
   if (nodeType !== "extract") return paths
-  const properties = readPath(config.schema, ["properties"])
-  return [...paths, ...keysOf(properties).map((key) => ["data", key])]
+  const required = readPath(config.schema, ["required"])
+  if (!Array.isArray(required)) return paths
+  const keys = required.filter((key) => typeof key === "string")
+  return [...paths, ...keys.map((key) => ["data", key])]
 }
 
 function toItems(

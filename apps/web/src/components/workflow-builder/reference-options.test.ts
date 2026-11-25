@@ -57,7 +57,10 @@ describe("referenceGroups", () => {
     const groups = referenceGroups(
       [
         node("read", "extract", {
-          schema: { properties: { "full name": {}, 'a"b': {} } },
+          schema: {
+            properties: { "full name": {}, 'a"b': {}, nickname: {} },
+            required: ["full name", 'a"b'],
+          },
         }),
         node("set", "variables", { operation: "set", entries: { city: "x" } }),
         node("ask", "ai"),
