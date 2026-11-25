@@ -44,12 +44,6 @@ type LaunchFixture = {
   contractRevisionId: string
   environmentKey: string
 }
-type RateLimitSnapshot = {
-  key: string
-  requestCount: number
-  expiresAt: Date
-}
-
 function challenge(value: string): string {
   return createHash('sha256').update(value).digest('base64url')
 }
@@ -95,15 +89,10 @@ describe('first-launch approval protocol', () => {
   let primary: LaunchSession
   let secondDevice: LaunchSession
   let otherSubject: LaunchSession
-  let rateLimitBaseline: Map<string, RateLimitSnapshot>
   beforeAll(async () => {
     jest.replaceProperty(process.env, 'NODE_ENV', 'development')
     identityProvider = await startTestIdentityProvider()
     fixture = await createFixture(identityProvider)
-    const rateLimits = await pool.query<RateLimitSnapshot>(
-      'SELECT key, request_count AS "requestCount", expires_at AS "expiresAt" FROM end_user_authorization_rate_limits',
-    )
-    rateLimitBaseline = new Map(rateLimits.rows.map((row) => [row.key, row]))
     const moduleRef = await Test.createTestingModule({
       imports: [EndUserAuthorizationModule, PublicRuntimeModule],
     }).compile()
@@ -119,29 +108,6 @@ describe('first-launch approval protocol', () => {
     jest.restoreAllMocks()
     await app.close()
     await identityProvider.close()
-    const rateLimits = await pool.query<RateLimitSnapshot>(
-      'SELECT key, request_count AS "requestCount", expires_at AS "expiresAt" FROM end_user_authorization_rate_limits',
-    )
-    for (const current of rateLimits.rows) {
-      const baseline = rateLimitBaseline.get(current.key)
-      if (
-        baseline &&
-        baseline.requestCount === current.requestCount &&
-        baseline.expiresAt.getTime() === current.expiresAt.getTime()
-      )
-        continue
-      if (baseline) {
-        await pool.query(
-          'UPDATE end_user_authorization_rate_limits SET request_count = $2, expires_at = $3 WHERE key = $1',
-          [baseline.key, baseline.requestCount, baseline.expiresAt],
-        )
-      } else {
-        await pool.query(
-          'DELETE FROM end_user_authorization_rate_limits WHERE key = $1',
-          [current.key],
-        )
-      }
-    }
     await pool.query('DELETE FROM approval_requests WHERE workspace_id = $1', [
       fixture.workspaceId,
     ])
