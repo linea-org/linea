@@ -6,7 +6,7 @@
   "scripts": {
     "build": "turbo build",
     "lint": "turbo lint",
-    "format:check": "prettier --check .",
+    "format:check": "prettier --check . '!pnpm-lock.yaml'",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "test:pack": "pnpm --filter @linealabs/sdk --filter @linealabs/sdk-react test:pack",
@@ -21,6 +21,14 @@
   "packageManager": "pnpm@10.33.4",
   "engines": {
     "node": "24.22.1"
+  },
+  "prettier": {
+    "endOfLine": "lf",
+    "semi": false,
+    "singleQuote": false,
+    "tabWidth": 2,
+    "trailingComma": "es5",
+    "printWidth": 80
   },
   "pnpm": {
     "overrides": {
