@@ -39,9 +39,8 @@ function describeNode(type: AssistantNodeType): string {
     const options = field.options
       ? ` One of: ${field.options.map((option) => option.value).join(', ')}.`
       : ''
-    const references = field.references
-      ? ` (takes references${field.references.secrets ? ' and secrets' : ''})`
-      : ''
+    const secrets = field.references?.secrets ? ' and secrets' : ''
+    const references = field.references ? ` (takes references${secrets})` : ''
     return `    - ${field.key}: ${field.description ?? field.label}${options}${references}`
   })
   return [`- "${type}" (${ui.label}): ${ui.description}`, ...fields].join('\n')
