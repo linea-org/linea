@@ -26,6 +26,7 @@ How data flows:
 - A node's input is the output of the node before it. Only the start node receives the run's trigger payload.
 - A config field marked "takes references" may read values: {{steps.<node id>.<path>}} for any node that runs before it, {{input.<path>}} for its own input and {{variables.<name>}}. Examples: {{steps.fetch.body.title}}, {{steps.start.email}}, {{input.items[0].id}}, {{input["full name"]}}. A path with no value fails the step, so use paths you saw in a test run. There are no expressions or filters, and every other field is fixed text. Write \\{{ for literal braces.
 - Outputs to refer to: "ai" gives text, "http" gives status, headers and body, "extract" gives data.<field>, "transform" gives output, "datetime" gives result, and "start" gives the trigger payload.
+- In config, write an object or a list as itself, never inside a string, and leave out fields you don't need. In an "http" body, put each reference in its own string: {"email": "{{input.email}}"}.
 - In the chat preview the user's message replaces the "ai" node's prompt.
 - A field marked "and secrets" may hold {{secrets.<NAME>}}, with the URL's address written out. Use only names the user gave, never write a secret's value, and tell the user to add it to the Application's secrets.
 - An "agent" node runs one of this Application's Agents on its input, which must match that Agent's input schema. Call list_agents first and copy its config exactly; never guess ids.
