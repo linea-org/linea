@@ -2,6 +2,8 @@ import type { z } from "zod"
 
 type Issue = z.core.$ZodIssue
 type Path = PropertyKey[]
+// A tree of paths; a key without keys of its own is the field to remove.
+type Removals = Map<PropertyKey, Removals>
 
 /** Ignores fields this version of the SDK does not know, so the API can add one. */
 export function safeParseResponse<T>(
@@ -12,7 +14,7 @@ export function safeParseResponse<T>(
   if (result.success) return result
   const unknown = result.error.issues.flatMap(unknownFields)
   if (unknown.length === 0) return result
-  return safeParseResponse(schema, unknown.reduce(withoutField, value))
+  return schema.safeParse(without(value, removals(unknown)))
 }
 
 export function parseResponse<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -37,18 +39,33 @@ function onlyUnknownFields(issue: Issue): boolean {
   return issue.code === "unrecognized_keys" || unknownFields(issue).length > 0
 }
 
-function withoutField(value: unknown, [key, ...rest]: Path): unknown {
+function removals(paths: Path[]): Removals {
+  const root: Removals = new Map()
+  for (const path of paths) {
+    let node = root
+    for (const key of path) {
+      const next = node.get(key) ?? new Map<PropertyKey, Removals>()
+      node.set(key, next)
+      node = next
+    }
+  }
+  return root
+}
+
+function without(value: unknown, fields: Removals): unknown {
   if (Array.isArray(value)) {
     const items: unknown[] = value
-    return items.map((item, index) =>
-      index === key ? withoutField(item, rest) : item
-    )
+    return items.map((item, index) => {
+      const inner = fields.get(index)
+      return inner ? without(item, inner) : item
+    })
   }
   if (typeof value !== "object" || value === null) return value
   return Object.fromEntries(
     Object.entries(value).flatMap(([name, field]): [string, unknown][] => {
-      if (name !== key) return [[name, field]]
-      return rest.length === 0 ? [] : [[name, withoutField(field, rest)]]
+      const inner = fields.get(name)
+      if (!inner) return [[name, field]]
+      return inner.size === 0 ? [] : [[name, without(field, inner)]]
     })
   )
 }
