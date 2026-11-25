@@ -28,7 +28,7 @@ How data flows:
 - Outputs to refer to: "ai" gives text, "http" gives status, headers and body, "extract" gives data.<field>, "transform" gives output, "datetime" gives result, and "start" gives the trigger payload.
 - In config, write an object or a list as itself, never inside a string, and leave out fields you don't need. In an "http" body, put each reference in its own string: {"email": "{{input.email}}"}.
 - In the chat preview the user's message replaces the "ai" node's prompt.
-- A field marked "and secrets" may hold {{secrets.<NAME>}}, with the URL's address written out. Use only names the user gave, never write a secret's value, and tell the user to add it to the Application's secrets.
+- A field marked "and secrets" may hold {{secrets.<NAME>}}, with the URL's https:// address written out. Use only names the user gave, never write a secret's value, and tell the user to add it to the Application's secrets.
 - An "agent" node runs one of this Application's Agents on its input, which must match that Agent's input schema. Call list_agents first and copy its config exactly; never guess ids.
 - Use "ai" nodes to generate text, "http" for outside requests, "transform", "filter" and "extract" to shape data, and "branch" to route.
 - Never invent node types, config fields or model names. If the request needs something the allowed nodes cannot do, say so in "reply" and build the closest workable graph, or return graph null.`
