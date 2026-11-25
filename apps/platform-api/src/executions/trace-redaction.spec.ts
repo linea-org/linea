@@ -107,6 +107,27 @@ describe('trace redaction', () => {
     expect(containsRedactionPlaceholder({})).toBe(false)
   })
 
+  it.each(['\t', '\v', '\u00a0', '\u2028', '\u3000', '\ufeff'])(
+    'redacts a token after the space %j',
+    (space) => {
+      expect(redactText(`Bearer${space}abcdefgh1234`, none)).toBe(
+        `Bearer ${REDACTED}`,
+      )
+    },
+  )
+
+  it.each([
+    ['an unfinished token', 'eyJ-'],
+    ['unfinished private keys', '-----BEGIN PRIVATE KEY-----'],
+    ['unfinished URL credentials', '://a:b'],
+    ['unfinished GitHub tokens', 'ghp_'],
+  ])('stays fast on 1 MB of %s', (_name, part) => {
+    const text = part.repeat(Math.ceil(1_000_000 / part.length))
+    const started = performance.now()
+    redactText(text, none)
+    expect(performance.now() - started).toBeLessThan(1000)
+  })
+
   it('leaves ordinary prose and URLs alone', () => {
     const text =
       'See https://example.com/docs?page=2 or mail ada@example.com about task-1234567890.'

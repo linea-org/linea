@@ -1,8 +1,8 @@
 import { evaluateRuleMetric } from "./evaluation-engine"
 
 describe("evaluateRuleMetric", () => {
-  it("rejects regex patterns with catastrophic backtracking risk", () => {
-    expect(() =>
+  it("rejects regex patterns with catastrophic backtracking risk", async () => {
+    await expect(
       evaluateRuleMetric(
         { actualOutput: "aaaaaaaa!" },
         {
@@ -13,11 +13,11 @@ describe("evaluateRuleMetric", () => {
           pattern: "(a+)+$",
         }
       )
-    ).toThrow("unsafe")
+    ).rejects.toThrow("unsafe")
   })
 
-  it("rejects regex evaluation against oversized output", () => {
-    expect(() =>
+  it("rejects regex evaluation against oversized output", async () => {
+    await expect(
       evaluateRuleMetric(
         { actualOutput: "a".repeat(100_001) },
         {
@@ -28,6 +28,17 @@ describe("evaluateRuleMetric", () => {
           pattern: "a+$",
         }
       )
-    ).toThrow("100000")
+    ).rejects.toThrow("100000")
   })
+
+  it.each(["x+x+y", "(x|x)*$", "(x|xx)+$", "x*x*x*x*x*y"])(
+    "stops %s, which the safety check accepts",
+    async (pattern) => {
+      const text = "x".repeat(50_000) + "!"
+      const metric = { id: "m", revision: 1, name: "Slow", pattern }
+      await expect(
+        evaluateRuleMetric({ actualOutput: text }, { ...metric, type: "regex" })
+      ).rejects.toThrow("was stopped")
+    }
+  )
 })

@@ -7,6 +7,7 @@ import {
   type ToolDefinition,
 } from "@linealabs/ai"
 import { db } from "@linealabs/db"
+import { withTimeLimit } from "../../evaluation/time-limit"
 import { getPath } from "./dot-path"
 import type {
   NodeExecutionContext,
@@ -83,7 +84,16 @@ export class ExtractNode implements NodeHandler {
         result.tokensOutput
       )
     }
-    const validation = extractionSchema.safeParse(call.arguments)
+    const validation = await withTimeLimit(() =>
+      extractionSchema.safeParse(call.arguments)
+    ).catch((error: unknown) => {
+      throw new UsageError(
+        `Extract model's data could not be checked against the schema: ${errorMessage(error)}`,
+        result.tokensInput,
+        result.tokensOutput,
+        { cause: error }
+      )
+    })
     if (!validation.success) {
       throw new UsageError(
         `Extract model returned data that does not match the schema: ${validation.error.message}`,

@@ -7,6 +7,7 @@ import {
 } from "@linealabs/runtime"
 import type { AiProvider, ToolDefinition } from "@linealabs/ai"
 import { getPath } from "../graph/nodes/dot-path"
+import { withTimeLimit } from "./time-limit"
 
 export type EvaluationSample = {
   input?: unknown
@@ -117,25 +118,28 @@ function textValue(value: unknown): string {
   return serialized
 }
 
-export function evaluateRuleMetric(
-  sample: EvaluationSample,
-  metric: RuleMetric
-): EvaluationMetricResult {
-  const text = textValue(sample.actualOutput)
-  if (metric.type === "regex" && !isSafeEvaluationRegex(metric.pattern)) {
+async function matchesRule(text: string, metric: RuleMetric): Promise<boolean> {
+  if (metric.type === "contains") return text.includes(metric.value)
+  if (metric.type === "not_contains") return !text.includes(metric.value)
+  if (!isSafeEvaluationRegex(metric.pattern)) {
     throw new Error("Evaluator regex is unsafe")
   }
-  if (metric.type === "regex" && text.length > MAX_REGEX_INPUT_LENGTH) {
+  if (text.length > MAX_REGEX_INPUT_LENGTH) {
     throw new Error(
       `Evaluator regex input exceeds ${MAX_REGEX_INPUT_LENGTH} characters`
     )
   }
-  const matched =
-    metric.type === "contains"
-      ? text.includes(metric.value)
-      : metric.type === "not_contains"
-        ? !text.includes(metric.value)
-        : new RegExp(metric.pattern, metric.flags).test(text)
+  return withTimeLimit(() =>
+    new RegExp(metric.pattern, metric.flags).test(text)
+  )
+}
+
+export async function evaluateRuleMetric(
+  sample: EvaluationSample,
+  metric: RuleMetric
+): Promise<EvaluationMetricResult> {
+  const text = textValue(sample.actualOutput)
+  const matched = await matchesRule(text, metric)
   const reason =
     metric.type === "contains"
       ? `Actual output ${matched ? "contains" : "does not contain"} "${metric.value}".`

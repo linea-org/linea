@@ -37,27 +37,31 @@ function stringTarget(
   }
 }
 
-function evaluateContains(
+async function evaluateContains(
   text: string,
   config: Record<string, unknown>,
   negate: boolean
-): boolean {
+): Promise<boolean> {
   const type = negate ? "not_contains" : "contains"
   const sample: EvaluationSample = { actualOutput: text }
-  return evaluateRuleMetric(sample, {
+  const result = await evaluateRuleMetric(sample, {
     id: type,
     revision: 1,
     name: type,
     type,
     value: typeof config.value === "string" ? config.value : "",
-  }).passed
+  })
+  return result.passed
 }
 
-function evaluateRegex(text: string, config: Record<string, unknown>): boolean {
+async function evaluateRegex(
+  text: string,
+  config: Record<string, unknown>
+): Promise<Pick<AssertionResult, "passed" | "detail">> {
   const pattern = typeof config.pattern === "string" ? config.pattern : ""
   const flags = typeof config.flags === "string" ? config.flags : undefined
   try {
-    return evaluateRuleMetric(
+    const result = await evaluateRuleMetric(
       { actualOutput: text },
       {
         id: "regex",
@@ -67,10 +71,12 @@ function evaluateRegex(text: string, config: Record<string, unknown>): boolean {
         pattern,
         flags,
       }
-    ).passed
-  } catch {
-    // Malformed patterns are failed assertions rather than successful non-matches.
-    return false
+    )
+    return { passed: result.passed }
+  } catch (error) {
+    // Malformed or too slow patterns are failed assertions rather than successful non-matches.
+    const detail = error instanceof Error ? error.message : String(error)
+    return { passed: false, detail }
   }
 }
 
@@ -212,14 +218,20 @@ export async function evaluateAssertion(
   let passed: boolean
   switch (assertion.type) {
     case "contains":
-      passed = evaluateContains(text, assertion.config, false)
+      passed = await evaluateContains(text, assertion.config, false)
       break
     case "not_contains":
-      passed = evaluateContains(text, assertion.config, true)
+      passed = await evaluateContains(text, assertion.config, true)
       break
-    case "regex":
-      passed = evaluateRegex(text, assertion.config)
-      break
+    case "regex": {
+      const result = await evaluateRegex(text, assertion.config)
+      return {
+        ...result,
+        type: assertion.type,
+        score: result.passed ? 1 : 0,
+        costMicros: 0n,
+      }
+    }
     default:
       return {
         type: assertion.type,
@@ -248,8 +260,16 @@ export async function gradeOutput(
   if (assertions.length === 0) {
     return { status: "passed", score: null, costMicros: 0n, details: [] }
   }
+  // Rules take turns, so that one case can't fill the queue for time-limited patterns.
+  let rules: Promise<unknown> = Promise.resolve()
   const details = await Promise.all(
-    assertions.map((assertion) => evaluateAssertion(scope, output, assertion))
+    assertions.map((assertion) => {
+      const evaluate = () => evaluateAssertion(scope, output, assertion)
+      if (assertion.type === "llm_judge") return evaluate()
+      const result = rules.then(evaluate)
+      rules = result
+      return result
+    })
   )
   const passed = details.every((d) => d.passed)
   const score = details.reduce((sum, d) => sum + d.score, 0) / details.length
