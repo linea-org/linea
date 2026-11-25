@@ -9,6 +9,7 @@ import {
 } from "@linealabs/ai"
 import { db, repositories } from "@linealabs/db"
 import type { Memory } from "@linealabs/db"
+import { isFlagEnabled } from "@linealabs/flags"
 import { PermanentRequestError, requestPublic } from "@linealabs/http"
 import { nodeRegistry } from "@linealabs/runtime"
 import { NonRetryableError } from "./non-retryable-error"
@@ -465,6 +466,11 @@ export class AiNode implements NodeHandler {
       memoryNamespace: config.memoryNamespace,
       mcpServers: config.mcpServers,
     })
+    if (
+      parsed.mcpServers?.length &&
+      (await isFlagEnabled("pauseMcpTools", context.workspaceId))
+    )
+      throw new NonRetryableError("MCP tools are paused")
     const mcp = parsed.mcpServers?.length
       ? await openMcpTools(
           parsed.mcpServers,

@@ -6,4 +6,6 @@ Evaluation happens only on the server (API and workers). The web app reads the v
 
 When ConfigCat is unreachable the SDK keeps serving the last config it fetched; before the first successful fetch every flag is off. A process in production refuses to start without `CONFIGCAT_SDK_KEY`, or while ConfigCat answers but lacks a declared on/off flag, so a mistyped key cannot silently mean off; a ConfigCat outage does not stop it. Local development and CI may run without a key, and every flag is then off. Tests of flagged code mock `@linealabs/flags`.
 
+Off switches for incidents are flags too, named for the pause (`pauseWebhooks`), so that off, the value without ConfigCat, is normal operation. Sign-in, permissions, network guards, encryption and retention are never flags.
+
 `platform_model_key_enabled` becomes the `platformModelKey` flag. Its column stays in `workspace_settings` but is no longer read; it is dropped once every environment's granted workspaces are in the flag's targeting rule.

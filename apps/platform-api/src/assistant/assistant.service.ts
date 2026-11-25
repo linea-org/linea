@@ -89,7 +89,7 @@ export class AssistantService {
         applicationId: workflow.applicationId,
         workflowId,
         environmentId: environment.id,
-        web: input.tools.web,
+        web: await this.mayBrowse(workspaceId, input),
         mentions: await isFlagEnabled('assistantMentions', workspaceId),
       },
       input,
@@ -124,10 +124,19 @@ export class AssistantService {
         applicationId,
         workflowId: null,
         environmentId: environment.id,
-        web: input.tools.web,
+        web: await this.mayBrowse(workspaceId, input),
         mentions: await isFlagEnabled('assistantMentions', workspaceId),
       },
       input,
+    )
+  }
+
+  private async mayBrowse(
+    workspaceId: string,
+    input: AssistantMessageDto,
+  ): Promise<boolean> {
+    return (
+      input.tools.web && !(await isFlagEnabled('pauseInkyWeb', workspaceId))
     )
   }
 

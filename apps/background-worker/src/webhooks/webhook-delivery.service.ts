@@ -6,6 +6,7 @@ import {
   type OnModuleInit,
 } from "@nestjs/common"
 import { db, decryptSecret, repositories } from "@linealabs/db"
+import { isFlagEnabled } from "@linealabs/flags"
 import {
   WEBHOOK_DELIVERY_ATTEMPTS,
   WEBHOOK_RETRY_BASE_DELAY_MS,
@@ -14,11 +15,12 @@ import {
   createWebhookDeliveryWorker,
   type WebhookDeliveryJob,
 } from "@linealabs/queue"
-import type { Worker } from "bullmq"
+import { DelayedError, type Worker } from "bullmq"
 import type { Redis } from "ioredis"
 import { deliverWebhook, type WebhookResponse } from "./webhook-request"
 import { signWebhook } from "./webhook-signature"
 
+const PAUSE_RECHECK_MS = 30_000
 const MAXIMUM_RETRY_DELAY_MS = 60_000
 const MAXIMUM_ERROR_LENGTH = 4_096
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1_000
@@ -47,6 +49,10 @@ export class WebhookDeliveryService implements OnModuleInit, OnModuleDestroy {
           delivery.status === "failed"
         )
           return
+        if (await isFlagEnabled("pauseWebhooks", delivery.workspaceId)) {
+          await job.moveToDelayed(Date.now() + PAUSE_RECHECK_MS, token)
+          throw new DelayedError()
+        }
         await withWebhookAdmission(connection, job, token, delivery, (signal) =>
           this.processDelivery(job.data.deliveryId, job.attemptsMade, signal)
         )

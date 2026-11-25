@@ -696,6 +696,9 @@ importers:
       '@linealabs/db':
         specifier: workspace:*
         version: link:../db
+      '@linealabs/flags':
+        specifier: workspace:*
+        version: link:../flags
       '@linealabs/protocol':
         specifier: workspace:*
         version: link:../protocol

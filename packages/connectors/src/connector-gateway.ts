@@ -11,6 +11,7 @@ import {
   type ActionIntent,
   type Database,
 } from "@linealabs/db"
+import { isFlagEnabled } from "@linealabs/flags"
 import { z } from "zod"
 import {
   ACTION_INTENT_DIGEST_VERSION,
@@ -854,6 +855,7 @@ export class ConnectorGateway {
     if (!execution) throw new Error("Connector Execution is missing")
     const maximumAttempts = maximumDispatchAttempts(operation, execution)
     if (!claimed.dispatchStartedAt) {
+      await this.requireWritesNotPaused(claimed, executionClaimId)
       await this.requireCurrentProviderPreconditions(
         operation,
         claimed,
@@ -935,6 +937,24 @@ export class ConnectorGateway {
       if (!completed) throw new Error("Action Intent completion was lost")
       return result
     }
+  }
+
+  private async requireWritesNotPaused(
+    claimed: ActionIntent,
+    executionClaimId: string
+  ): Promise<void> {
+    if (!(await isFlagEnabled("pauseConnectorWrites", claimed.workspaceId)))
+      return
+    await this.failSideEffect(
+      claimed,
+      executionClaimId,
+      {
+        code: "connector_rejected",
+        message: "Connector writes are paused",
+        outcomeUnknown: false,
+      },
+      "failed"
+    )
   }
 
   private async requireCurrentProviderPreconditions(

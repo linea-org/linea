@@ -228,7 +228,7 @@ describe('AssistantService', () => {
     })
   })
 
-  it('offers the web tool only when it was switched on', async () => {
+  it('offers the web tool only when it was switched on and is not paused', async () => {
     const f = await fixture()
     const off = modelReturning('hi')
     await new AssistantService(off, noTools).replyForWorkflow(
@@ -246,6 +246,16 @@ describe('AssistantService', () => {
       { ...request, tools: { web: true } },
     )
     expect(on.complete.mock.calls[0][2].tools).toHaveLength(6)
+    jest.mocked(isFlagEnabled).mockResolvedValueOnce(true)
+    const paused = modelReturning('hi')
+    await new AssistantService(paused, noTools).replyForWorkflow(
+      f.workspace.id,
+      f.user.id,
+      f.workflow.id,
+      { ...request, tools: { web: true } },
+    )
+    expect(isFlagEnabled).toHaveBeenCalledWith('pauseInkyWeb', f.workspace.id)
+    expect(paused.complete.mock.calls[0][2].tools).toHaveLength(5)
   })
 
   it('offers the record tools and the @ reference prompt only with assistantMentions on', async () => {

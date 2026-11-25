@@ -46,6 +46,12 @@ import { AgentExecutionService } from "../runs/agent-execution.service"
 import { ConnectorGatewayService } from "./connector-gateway.service"
 import { RunsService } from "../runs/runs.service"
 
+const paused = new Set<string>()
+jest.mock("@linealabs/flags", () => ({
+  isFlagEnabled: (key: string) =>
+    Promise.resolve(key === "platformModelKey" || paused.has(key)),
+}))
+
 type ProviderRequest = {
   authorization: string | undefined
   body: unknown
@@ -1108,6 +1114,27 @@ describe("exact Action Intent consent", () => {
       )
       expect(JSON.stringify(terminalFacts)).not.toContain(fixture.input.secret)
     } finally {
+      await removeWorkspace(fixture.workspaceId)
+    }
+  })
+  it("fails an approved write before it reaches the provider while writes are paused", async () => {
+    const fixture = await createFixture("paused-writes", false)
+    const worker = runs()
+    try {
+      await worker.execute(fixture.executionId)
+      await decide(fixture, "approved")
+      paused.add("pauseConnectorWrites")
+      await worker.execute(fixture.executionId).catch(() => undefined)
+      expect(
+        await repositories.execution.getExecutionById(db, fixture.executionId)
+      ).toMatchObject({
+        status: "failed",
+        error: { message: "Connector writes are paused" },
+      })
+      expect((await consent(fixture)).intent.status).toBe("failed")
+      expect(provider.requests).toHaveLength(0)
+    } finally {
+      paused.clear()
       await removeWorkspace(fixture.workspaceId)
     }
   })
