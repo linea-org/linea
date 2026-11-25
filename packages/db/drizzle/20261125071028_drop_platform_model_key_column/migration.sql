@@ -1,0 +1,1 @@
+ALTER TABLE "workspace_settings" DROP COLUMN "platform_model_key_enabled";
