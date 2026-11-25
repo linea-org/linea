@@ -49,14 +49,20 @@ export function assertContractSchema(schema: AnySchema): void {
 }
 
 /** The check refuses data that takes too long to check, and throws when the schema is invalid. */
-export function compileContractSchema(schema: AnySchema): ContractCheck {
-  const key = JSON.stringify(schema)
+export function compileContractSchema(
+  schema: AnySchema,
+  workspaceId: string
+): ContractCheck {
+  const key = workspaceId + JSON.stringify(schema)
   let validate: ValidateFunction<unknown> | undefined
   const check: ContractCheck = (data) => {
     check.errors = TOO_SLOW
     if (mustRest(key)) return false
     try {
-      const valid = runTimed(key, () => (validate ??= compile(schema))(data))
+      const valid = runTimed(key, () => {
+        validate ??= compile(schema)
+        return validate(data)
+      })
       check.errors = validate?.errors
       return valid
     } catch (error) {

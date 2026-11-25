@@ -1,8 +1,11 @@
 import { expect, it } from "vitest"
 import {
   assertContractSchema,
-  compileContractSchema,
+  compileContractSchema as compileFor,
 } from "../src/compile-contract-schema.js"
+
+const compileContractSchema = (schema: object, workspaceId = "ws-1") =>
+  compileFor(schema, workspaceId)
 
 const nested: Record<string, unknown> = { d40: { type: "string" } }
 for (let index = 0; index < 40; index++) {
@@ -50,12 +53,18 @@ it("refuses a schema that is slow to compile, and compiles the next one", () => 
   expect(compileContractSchema({ type: "string" })("a")).toBe(true)
 })
 
-it("makes schemas that were slow lately wait, and no others", () => {
+it("makes a workspace's schemas that were slow lately wait, and no others", () => {
   const slow = (title: string) =>
     compileContractSchema({ title, type: "string", pattern: "^(a+)+$" })
   expect(slow("one")(hostile)).toBe(false)
   expect(slow("one")("a")).toBe(false)
   expect(slow("two")("a")).toBe(true)
+  expect(
+    compileContractSchema(
+      { title: "one", type: "string", pattern: "^(a+)+$" },
+      "ws-2"
+    )("a")
+  ).toBe(true)
   expect(compileContractSchema({ type: "string" })("a")).toBe(true)
 })
 

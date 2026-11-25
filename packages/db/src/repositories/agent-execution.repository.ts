@@ -105,9 +105,10 @@ export function startAgentExecution(
       return { outcome: "resource_not_found" }
     }
     if (
-      !compileContractSchema(deployment.contract.inputSchema)(
-        input.triggerPayload
-      )
+      !compileContractSchema(
+        deployment.contract.inputSchema,
+        input.workspaceId
+      )(input.triggerPayload)
     ) {
       await releasePublicRequest(tx, reservation.recordId)
       return { outcome: "validation_failed" }

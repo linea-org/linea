@@ -429,7 +429,12 @@ export class AgentExecutionService {
   private async finish(context: RunContext, result: Completion): Promise<void> {
     const { execution, leasedBy, contract } = context
     const output: unknown = JSON.parse(result.text)
-    if (!compileContractSchema(contract.outputSchema)(output))
+    if (
+      !compileContractSchema(
+        contract.outputSchema,
+        execution.workspaceId
+      )(output)
+    )
       throw new Error("Agent output failed pinned Contract validation")
     const totals = await this.checkpoints.getResumeTokenTotals(execution.id)
     await repositories.execution.completeExecution(db, execution.id, leasedBy, {

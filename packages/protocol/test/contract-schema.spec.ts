@@ -1,8 +1,11 @@
 import { expect, it } from "vitest"
 import {
   assertContractSchema,
-  compileContractSchema,
+  compileContractSchema as compileFor,
 } from "../src/compile-contract-schema.js"
+
+const compileContractSchema = (schema: object, workspaceId = "ws-1") =>
+  compileFor(schema, workspaceId)
 
 it("keeps earlier validators usable after rotating through tenant schemas", () => {
   const original = compileContractSchema({ type: "string", minLength: 3 })
