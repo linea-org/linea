@@ -8,7 +8,7 @@ import { StepIcon } from "./step-icon"
 
 const SHOWN_STEPS = 8
 
-/** Opens a proposed Workflow; its steps show as icons, since a whole graph is too small to read here. */
+/** Opens a proposed Workflow. Steps show as icons: a whole graph is too small to read here. */
 export function ProposalChip({
   proposal,
   selected,

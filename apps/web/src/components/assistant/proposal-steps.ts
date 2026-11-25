@@ -19,6 +19,7 @@ function describeStep(node: Graph["nodes"][number]) {
   return {
     id: node.id,
     title: customName || ui.label,
+    label: ui.label,
     icon: ui.icon,
     category: ui.category,
     detail: option?.label ?? value,
