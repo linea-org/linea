@@ -1,7 +1,8 @@
-import { setImmediate } from "node:timers/promises"
+import { setTimeout as sleep } from "node:timers/promises"
 import { Script } from "node:vm"
 
 const LIMIT_MS = 250
+const REST_RATIO = 3
 const script = new Script("run()")
 
 export class TimeLimitError extends Error {
@@ -29,9 +30,18 @@ function runLimited<T>(run: () => T): T {
 let last: Promise<unknown> = Promise.resolve()
 
 /** Runs code an author's pattern or schema can make arbitrarily slow, such as a regex: it is stopped
- * at the limit, and other runs get a turn between two calls. */
+ * at the limit, and the next call waits longer than it took, so other runs keep most of the time. */
 export function withTimeLimit<T>(run: () => T): Promise<T> {
-  const result = last.then(() => setImmediate()).then(() => runLimited(run))
-  last = result.catch(() => undefined)
+  let took = 0
+  const result = last.then(() => {
+    const started = performance.now()
+    try {
+      return runLimited(run)
+    } finally {
+      took = performance.now() - started
+    }
+  })
+  const rest = () => sleep(took * REST_RATIO, undefined, { ref: false })
+  last = result.then(rest, rest)
   return result
 }

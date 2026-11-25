@@ -253,8 +253,16 @@ export async function gradeOutput(
   if (assertions.length === 0) {
     return { status: "passed", score: null, costMicros: 0n, details: [] }
   }
+  // Rules take turns, so that one case can't fill the queue for time-limited patterns.
+  let rules: Promise<unknown> = Promise.resolve()
   const details = await Promise.all(
-    assertions.map((assertion) => evaluateAssertion(scope, output, assertion))
+    assertions.map((assertion) => {
+      const evaluate = () => evaluateAssertion(scope, output, assertion)
+      if (assertion.type === "llm_judge") return evaluate()
+      const result = rules.then(evaluate)
+      rules = result
+      return result
+    })
   )
   const passed = details.every((d) => d.passed)
   const score = details.reduce((sum, d) => sum + d.score, 0) / details.length
