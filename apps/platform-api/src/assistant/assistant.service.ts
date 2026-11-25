@@ -28,7 +28,6 @@ import {
   checkAssistantReply,
   findAnswer,
   parseAssistantReply,
-  type AssistantReply,
 } from './assistant-reply'
 import type { AssistantMessageDto } from './dto/assistant-message.dto'
 
@@ -272,10 +271,7 @@ export class AssistantService {
         continue
       }
       try {
-        const parsed = answer
-          ? checkAssistantReply(answer.arguments)
-          : parseAssistantReply(result.text)
-        return await buildReply(parsed, result.model, actions, {
+        return await buildReply(result.text, answer, result.model, actions, {
           scope,
           draft,
         })
@@ -289,16 +285,7 @@ export class AssistantService {
             result.model,
           )
         }
-        const rejection = `Your last answer was rejected: ${error.message}\nCall "answer" again with the correction.`
-        if (answer) {
-          history.push(
-            { role: 'assistant', toolCalls: [answer] },
-            { role: 'tool', toolCallId: answer.id, content: rejection },
-          )
-        } else {
-          history.push({ role: 'assistant', content: result.text })
-          prompt = rejection
-        }
+        prompt = rejectAnswer(history, result.text, answer, error)
       }
     }
   }
@@ -352,12 +339,35 @@ export class AssistantService {
   }
 }
 
+/** Adds the rejection to the history; returns it as the next prompt unless it answers a call. */
+function rejectAnswer(
+  history: ConversationTurn[],
+  text: string,
+  answer: ToolCall | undefined,
+  error: AssistantOutputError,
+): string | undefined {
+  const rejection = `Your last answer was rejected: ${error.message}\nCall "answer" again with the correction.`
+  if (!answer) {
+    history.push({ role: 'assistant', content: text })
+    return rejection
+  }
+  history.push(
+    { role: 'assistant', toolCalls: [answer] },
+    { role: 'tool', toolCallId: answer.id, content: rejection },
+  )
+  return undefined
+}
+
 async function buildReply(
-  parsed: AssistantReply,
+  text: string,
+  answer: ToolCall | undefined,
   model: string,
   actions: AssistantAction[],
   { scope, draft }: ReplyContext,
 ): Promise<Reply> {
+  const parsed = answer
+    ? checkAssistantReply(answer.arguments)
+    : parseAssistantReply(text)
   const proposed = parsed.graph === 'draft' ? draft.current : parsed.graph
   if (parsed.graph === 'draft' && !proposed) {
     throw new AssistantOutputError(
