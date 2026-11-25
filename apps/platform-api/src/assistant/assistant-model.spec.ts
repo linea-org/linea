@@ -1,9 +1,11 @@
 import 'dotenv/config'
 import { randomUUID } from 'node:crypto'
+import { resolveProvider } from '@linealabs/ai'
 import { db, pool, repositories, schema } from '@linealabs/db'
 import { AssistantModel } from './assistant-model'
 import { AssistantModelUnavailableError } from './assistant-model-error'
 
+afterEach(() => jest.restoreAllMocks())
 afterAll(async () => {
   await pool.end()
 })
@@ -48,6 +50,44 @@ describe('AssistantModel', () => {
     await expect(
       new AssistantModel().complete(f.workspace.id, f.development.id, request),
     ).rejects.toBeInstanceOf(AssistantModelUnavailableError)
+  })
+
+  async function withRefusedToolCalls(times: number) {
+    const f = await environmentFixture()
+    await repositories.secret.upsertSecret(
+      db,
+      f.development.id,
+      'OPENAI_API_KEY',
+      'sk-test',
+    )
+    const refused = Object.assign(new Error('tool call validation failed'), {
+      status: 400,
+      code: 'tool_use_failed',
+    })
+    const complete = jest
+      .spyOn(resolveProvider('gpt-5'), 'complete')
+      .mockResolvedValue({ text: 'ok', tokensInput: 1, tokensOutput: 1 })
+    for (let i = 0; i < times; i++) complete.mockRejectedValueOnce(refused)
+    const ask = () =>
+      new AssistantModel().complete(
+        f.workspace.id,
+        f.development.id,
+        request,
+        'gpt-5',
+      )
+    return { ask, complete }
+  }
+
+  it('asks once more when the provider refuses the model’s tool call', async () => {
+    const { ask, complete } = await withRefusedToolCalls(1)
+    await expect(ask()).resolves.toMatchObject({ text: 'ok' })
+    expect(complete).toHaveBeenCalledTimes(2)
+  })
+
+  it('explains a tool call that is refused twice', async () => {
+    const { ask, complete } = await withRefusedToolCalls(2)
+    await expect(ask()).rejects.toThrow(AssistantModelUnavailableError)
+    expect(complete).toHaveBeenCalledTimes(2)
   })
 
   it('names the provider to add a key for when the chosen model has none', async () => {

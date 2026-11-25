@@ -9,6 +9,16 @@ export function providerStatus(error: unknown): number | null {
   return typeof error.status === 'number' ? error.status : null
 }
 
+/** Groq refuses a whole answer whose tool call it can't match to a tool; asking again often works. */
+export function isRefusedToolCall(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'tool_use_failed'
+  )
+}
+
 /** What a provider's rejection means for the member, or null for a status we have no advice for. */
 export function describeProviderFailure(
   status: number,
@@ -22,6 +32,9 @@ export function describeProviderFailure(
   }
   if (status === 429) {
     return `${provider} is limiting this key, or it is out of credit. Try again shortly or check your plan.`
+  }
+  if (status === 400) {
+    return `${provider} could not handle that request. Try again, or pick another model.`
   }
   if (status >= 500) {
     return `${provider} is having trouble right now. Try again in a moment.`

@@ -174,6 +174,47 @@ describe('AssistantService', () => {
     )
   })
 
+  const answerCall = (args: Record<string, unknown>): Step => ({
+    toolCalls: [{ id: 'call-9', name: 'answer', arguments: args }],
+  })
+
+  it('takes the answer tool’s call as the answer', async () => {
+    const f = await fixture()
+    const model = modelReturning(
+      answerCall({ reply: 'Built it', graph: validGraph, title: '' }),
+    )
+    const answer = await new AssistantService(model, noTools).replyForWorkflow(
+      f.workspace.id,
+      f.user.id,
+      f.workflow.id,
+      request,
+    )
+    expect(answer).toMatchObject({ reply: 'Built it', title: null })
+    expect(answer.graph?.nodes).toHaveLength(2)
+    expect(model.complete.mock.calls).toHaveLength(1)
+  })
+
+  it('returns a rejected answer call to the model as that call’s result', async () => {
+    const f = await fixture()
+    const model = modelReturning(
+      answerCall({ reply: 'First try', graph: { ...validGraph, edges: [] } }),
+      answerCall({ reply: 'Fixed', graph: validGraph }),
+    )
+    const answer = await new AssistantService(model, noTools).replyForWorkflow(
+      f.workspace.id,
+      f.user.id,
+      f.workflow.id,
+      request,
+    )
+    expect(answer.reply).toBe('Fixed')
+    const [, , retry] = model.complete.mock.calls[1]
+    expect(retry.prompt).toBeUndefined()
+    expect(retry.history.at(-1)).toMatchObject({
+      role: 'tool',
+      toolCallId: 'call-9',
+    })
+  })
+
   it('gives up after two invalid answers and never returns a graph', async () => {
     const f = await fixture()
     const model = modelReturning('{ not json', '{ still not json')
@@ -237,7 +278,7 @@ describe('AssistantService', () => {
       f.workflow.id,
       request,
     )
-    expect(off.complete.mock.calls[0][2].tools).toHaveLength(5)
+    expect(off.complete.mock.calls[0][2].tools).toHaveLength(6)
     const on = modelReturning('hi')
     await new AssistantService(on, noTools).replyForWorkflow(
       f.workspace.id,
@@ -245,7 +286,7 @@ describe('AssistantService', () => {
       f.workflow.id,
       { ...request, tools: { web: true } },
     )
-    expect(on.complete.mock.calls[0][2].tools).toHaveLength(6)
+    expect(on.complete.mock.calls[0][2].tools).toHaveLength(7)
     jest.mocked(isFlagEnabled).mockResolvedValueOnce(true)
     const paused = modelReturning('hi')
     await new AssistantService(paused, noTools).replyForWorkflow(
@@ -255,7 +296,7 @@ describe('AssistantService', () => {
       { ...request, tools: { web: true } },
     )
     expect(isFlagEnabled).toHaveBeenCalledWith('pauseInkyWeb', f.workspace.id)
-    expect(paused.complete.mock.calls[0][2].tools).toHaveLength(5)
+    expect(paused.complete.mock.calls[0][2].tools).toHaveLength(6)
   })
 
   it('offers the record tools and the @ reference prompt only with assistantMentions on', async () => {

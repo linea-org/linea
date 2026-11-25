@@ -1,5 +1,9 @@
 import { AssistantOutputError } from './assistant-output-error'
-import { parseAssistantReply } from './assistant-reply'
+import {
+  checkAssistantReply,
+  findAnswer,
+  parseAssistantReply,
+} from './assistant-reply'
 
 describe('parseAssistantReply', () => {
   it('reads a plain JSON answer', () => {
@@ -38,5 +42,23 @@ describe('parseAssistantReply', () => {
     ['empty text', '   '],
   ])('rejects %s', (_name, text) => {
     expect(() => parseAssistantReply(text)).toThrow(AssistantOutputError)
+  })
+})
+
+describe('the answer tool', () => {
+  const call = { id: '1', name: 'answer', arguments: { reply: 'Done' } }
+
+  it('answers without a graph', () => {
+    expect(checkAssistantReply(call.arguments)).toEqual({
+      reply: 'Done',
+      graph: null,
+    })
+  })
+
+  it('counts only when it is the one call', () => {
+    expect(findAnswer([call])).toBe(call)
+    expect(findAnswer([call, { ...call, name: 'edit_draft' }])).toBeUndefined()
+    expect(findAnswer([{ ...call, name: 'edit_draft' }])).toBeUndefined()
+    expect(findAnswer(undefined)).toBeUndefined()
   })
 })

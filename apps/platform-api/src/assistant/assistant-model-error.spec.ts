@@ -13,6 +13,7 @@ describe('provider failures', () => {
   })
 
   it.each([
+    [400, 'could not handle that request'],
     [401, 'rejected the API key'],
     [403, 'rejected the API key'],
     [404, 'does not offer this model'],
@@ -24,6 +25,6 @@ describe('provider failures', () => {
   })
 
   it('has no advice for other statuses', () => {
-    expect(describeProviderFailure(400, 'OpenAI')).toBeNull()
+    expect(describeProviderFailure(409, 'OpenAI')).toBeNull()
   })
 })

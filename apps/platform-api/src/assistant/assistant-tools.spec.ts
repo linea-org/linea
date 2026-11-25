@@ -18,12 +18,14 @@ const names = (on: Parameters<typeof assistantTools>[0]) =>
 describe('AssistantTools', () => {
   it('offers run history inside a workflow and the web tool when switched on', () => {
     expect(names({ web: false, workflowId: null, mentions: false })).toEqual([
+      'answer',
       'edit_draft',
       'test_run_draft',
       'list_agents',
       'get_run',
     ])
     expect(names({ web: true, workflowId: 'wf', mentions: true })).toEqual([
+      'answer',
       'edit_draft',
       'test_run_draft',
       'list_agents',
@@ -53,7 +55,7 @@ describe('AssistantTools', () => {
     )
     expect(outcome.action).toBeNull()
     expect(outcome.content).toContain(
-      'Available tools: edit_draft, test_run_draft, list_agents, get_run, get_workflow, get_application, fetch_url',
+      'Available tools: answer, edit_draft, test_run_draft, list_agents, get_run, get_workflow, get_application, fetch_url',
     )
   })
 
