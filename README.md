@@ -31,5 +31,5 @@ pnpm build
 pnpm test
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Licensed under
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md). Licensed under
 [Apache 2.0](LICENSE).

@@ -3,7 +3,7 @@
 import { createSharedEslintConfig, globals } from "@linealabs/config/eslint"
 
 export default createSharedEslintConfig({
-  ignores: ["eslint.config.js", ".prettierrc", "dist/**", "test/*.mjs"],
+  ignores: ["eslint.config.js", "dist/**", "test/*.mjs"],
   globals: {
     ...globals.node,
     ...globals.browser,
