@@ -339,7 +339,7 @@ export class AssistantService {
   }
 }
 
-/** Adds the rejection to the history; returns it as the next prompt unless it answers a call. */
+// Providers refuse a history whose tool call has no result, so a rejected call gets one.
 function rejectAnswer(
   history: ConversationTurn[],
   text: string,
