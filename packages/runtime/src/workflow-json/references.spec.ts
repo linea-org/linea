@@ -97,6 +97,16 @@ describe("resolveReferences", () => {
     expect(resolveReferences(node, read)).toEqual(node.config)
   })
 
+  it("refuses to read more than 4 MB in all", () => {
+    const large = () => ["x".repeat(1_000_000)]
+    const times = (count: number) =>
+      Array<string>(count).fill("{{steps.start}}")
+    const resolve = (count: number) =>
+      resolveReferences(http({ body: times(count) }), large)
+    expect(() => resolve(4)).not.toThrow()
+    expect(() => resolve(5)).toThrow("more than 4 MB")
+  })
+
   it("encodes values in a URL except at its start", () => {
     expect(url("{{steps.start.base}}/u/{{steps.start.name}}?q={{input}}")).toBe(
       "https://api.example.com/v1/u/Ada%20%26%20Bo?q=%7B%22text%22%3A%22hello%22%7D"

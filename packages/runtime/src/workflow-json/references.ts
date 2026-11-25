@@ -235,11 +235,29 @@ function resolveValue(
   )
 }
 
+// A short template can repeat a large value until the worker runs out of memory.
+const MAX_READ_CHARS = 4_194_304
+
+function withLimit(read: ReadReference): ReadReference {
+  let left = MAX_READ_CHARS
+  return (reference) => {
+    const value = read(reference)
+    left -= value === undefined ? 0 : asText(value).length
+    if (left < 0) {
+      throw new ReferenceValueError(
+        "The values this step reads add up to more than 4 MB"
+      )
+    }
+    return value
+  }
+}
+
 /** Replaces every reference in one pass, so a value that looks like a reference stays text. */
 export function resolveReferences(
   node: ConfiguredNode,
-  read: ReadReference
+  readUnlimited: ReadReference
 ): Record<string, unknown> {
+  const read = withLimit(readUnlimited)
   const config = { ...node.config }
   for (const { key, references } of referenceFields(node)) {
     if (!references || config[key] === undefined) continue
