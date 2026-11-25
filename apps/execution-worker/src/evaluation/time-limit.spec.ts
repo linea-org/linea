@@ -1,4 +1,5 @@
-import { TimeLimitError, withTimeLimit } from "./time-limit"
+import { TimeLimitError } from "@linealabs/protocol/json-schema"
+import { withTimeLimit } from "./time-limit"
 
 const slow = () => /x+x+y/.test("x".repeat(99_000))
 

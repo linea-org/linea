@@ -17,5 +17,5 @@ export default defineConfig({
   sourcemap: true,
   target: "es2022",
   platform: "browser",
-  external: ["zod"],
+  external: ["zod", "node:vm"],
 })

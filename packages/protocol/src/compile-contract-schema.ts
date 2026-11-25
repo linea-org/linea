@@ -1,100 +1,51 @@
 // Rotate whole compilers so cached tenant schemas and generated validators are collectible.
 import Ajv2020 from "ajv/dist/2020.js"
-import type { AnySchema, ValidateFunction } from "ajv"
-import RE2 from "re2"
+import type { AnySchema, ErrorObject, ValidateFunction } from "ajv"
+import { runLimited, TimeLimitError } from "./time-limit.js"
 
-const regExp = Object.assign(
-  (pattern: string, flags: string) => {
-    try {
-      return new RE2(pattern, flags)
-    } catch (error) {
-      throw new Error(`Unsupported contract regex ${JSON.stringify(pattern)}`, {
-        cause: error,
-      })
-    }
-  },
-  { code: "require('re2')" }
-)
+export { runLimited, TimeLimitError }
+
+export type ContractCheck = {
+  (data: unknown): boolean
+  errors?: Partial<ErrorObject>[] | null
+}
 
 function createValidator() {
-  return new Ajv2020({
-    strict: true,
-    addUsedSchema: false,
-    // Ajv's strict overlap check bypasses code.regExp; enforce it with RE2 below.
-    allowMatchingProperties: true,
-    code: { regExp },
-  })
+  return new Ajv2020({ strict: true, addUsedSchema: false })
 }
 
 const MAX_COMPILATIONS = 128
 let validator = createValidator()
 let compilations = 0
 
-export function compileContractSchema(
-  schema: AnySchema
-): ValidateFunction<unknown> {
-  checkSchemaRegexes(schema)
+function compile(schema: AnySchema): ValidateFunction<unknown> {
   if (compilations === MAX_COMPILATIONS) {
     validator = createValidator()
     compilations = 0
   }
   compilations += 1
-  return validator.compile<unknown>(schema)
+  try {
+    return runLimited(() => validator.compile<unknown>(schema))
+  } catch (error) {
+    // Ajv keeps track of a compilation that was cut short, which would confuse the next one.
+    if (error instanceof TimeLimitError) compilations = MAX_COMPILATIONS
+    throw error
+  }
 }
 
-function checkSchemaRegexes(schema: unknown): void {
-  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return
-  const entries: [string, unknown][] = Object.entries(schema)
-  for (const [keyword, value] of entries) {
-    if (keyword === "pattern" && typeof value === "string") regExp(value, "u")
-    if (keyword === "patternProperties" && value && typeof value === "object") {
-      for (const pattern of Object.keys(value)) {
-        const regex = regExp(pattern, "u")
-        if (
-          !("properties" in schema) ||
-          !schema.properties ||
-          typeof schema.properties !== "object"
-        )
-          continue
-        for (const property of Object.keys(schema.properties)) {
-          if (regex.test(property))
-            throw new Error(`property ${property} matches pattern ${pattern}`)
-        }
-      }
-    }
-    if (
-      [
-        "properties",
-        "patternProperties",
-        "$defs",
-        "definitions",
-        "dependentSchemas",
-        "dependencies",
-      ].includes(keyword) &&
-      value &&
-      typeof value === "object"
-    ) {
-      for (const child of Object.values(value)) checkSchemaRegexes(child)
-    } else if (
-      ["allOf", "anyOf", "oneOf", "prefixItems"].includes(keyword) &&
-      Array.isArray(value)
-    ) {
-      for (const child of value) checkSchemaRegexes(child)
-    } else if (
-      [
-        "items",
-        "contains",
-        "additionalProperties",
-        "propertyNames",
-        "not",
-        "if",
-        "then",
-        "else",
-        "unevaluatedProperties",
-        "unevaluatedItems",
-      ].includes(keyword)
-    ) {
-      checkSchemaRegexes(value)
+/** The check refuses data that takes too long to check. */
+export function compileContractSchema(schema: AnySchema): ContractCheck {
+  const validate = compile(schema)
+  const check: ContractCheck = (data) => {
+    try {
+      const valid = runLimited(() => validate(data))
+      check.errors = validate.errors
+      return valid
+    } catch (error) {
+      if (!(error instanceof TimeLimitError)) throw error
+      check.errors = [{ message: "took too long to check" }]
+      return false
     }
   }
+  return check
 }
