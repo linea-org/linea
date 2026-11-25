@@ -10,8 +10,7 @@ export class TimeLimitError extends Error {
   }
 }
 
-/** Runs JavaScript that an author's pattern or schema can make arbitrarily slow; it can interrupt a
- * regex but not native code such as RE2. */
+/** Stops JavaScript at the limit, a regex included, but not native code such as RE2. */
 export function runLimited<T>(run: () => T): T {
   try {
     return script.runInNewContext({ run }, { timeout: LIMIT_MS }) as T
