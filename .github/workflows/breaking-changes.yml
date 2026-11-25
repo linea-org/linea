@@ -1,0 +1,37 @@
+name: Breaking changes
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: breaking-changes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  openapi:
+    name: Public API
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'breaking') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Get the API description from main
+        run: git show "origin/$GITHUB_BASE_REF:docs/openapi.json" > base.json
+
+      # A change that has to break clients gets the label "breaking".
+      - uses: oasdiff/oasdiff-action/breaking@17214aea5113d728707fdd7d84bc811f4850fe3a # v0.1.22
+        with:
+          base: base.json
+          revision: docs/openapi.json
+          fail-on: ERR
+          review: "false"
+          github-token: ""
