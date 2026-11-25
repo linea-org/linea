@@ -244,6 +244,60 @@ describe("server SDK public HTTP contract", () => {
       message: "Execution not found",
     })
   })
+  it("lists webhook deliveries of event types it does not know", async () => {
+    const envelope = {
+      id: "event-1",
+      type: "execution.completed",
+      version: 1,
+      createdAt: "2026-09-18T10:00:00.000Z",
+      environmentId: "environment-1",
+      data: { executionId: execution().id, status: "succeeded" },
+    }
+    const delivery = {
+      id: "00000000-0000-4000-8000-000000000005",
+      webhookId: "00000000-0000-4000-8000-000000000006",
+      eventId: "event-1",
+      eventType: "execution.completed",
+      status: "succeeded",
+      url: "https://example.com/hook",
+      envelope,
+      attempts: 1,
+      responseStatus: 200,
+      responseBody: null,
+      lastError: null,
+      nextAttemptAt: null,
+      deliveredAt: "2026-09-18T10:00:00.000Z",
+      failedAt: null,
+      createdAt: "2026-09-18T10:00:00.000Z",
+    }
+    let data: object[] = [
+      { ...delivery, addedLater: 1 },
+      {
+        ...delivery,
+        eventType: "execution.archived",
+        envelope: { ...envelope, type: "execution.archived", data: {} },
+      },
+    ]
+    const server = await testServer((_request, response) =>
+      json(response, { data, nextCursor: null })
+    )
+    const client = new LineaEnvironmentClient({
+      environmentId: "00000000-0000-4000-8000-000000000002",
+      environmentKey: environmentKey("lin_env_secret"),
+      baseUrl: server.baseUrl,
+    })
+    await expect(client.listWebhookDeliveries()).resolves.toEqual({
+      data: [
+        delivery,
+        { ...delivery, eventType: "execution.archived", envelope: null },
+      ],
+      nextCursor: null,
+    })
+    data = [{ ...delivery, envelope: { ...envelope, data: {} } }]
+    await expect(client.listWebhookDeliveries()).rejects.toThrow(
+      "Invalid protocol response"
+    )
+  })
   it("uses the workspace key for Signal and Regression operations", async () => {
     const server = await testServer((request, response) => {
       if (request.url === "/v1/signals") json(response, [])

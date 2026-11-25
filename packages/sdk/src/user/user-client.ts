@@ -63,6 +63,7 @@ import type {
   PaginationQuery,
 } from "@linealabs/protocol/shared"
 import { LineaExecutionHandle } from "./execution-handle.js"
+import { isKnownEvent, type ReceivedEvent } from "../events/received-event.js"
 import { readEventStream, waitForReconnect } from "./event-stream.js"
 import {
   LineaUserApiError,
@@ -659,7 +660,7 @@ export class LineaUserClient {
       yield { kind: "connected" }
       for await (const event of this.readEventConnection(connection.response)) {
         cursor = event.id
-        yield { kind: "event", event }
+        if (isKnownEvent(event)) yield { kind: "event", event }
       }
       yield { kind: "reconnecting" }
       await waitForReconnect(
@@ -701,7 +702,7 @@ export class LineaUserClient {
 
   private async *readEventConnection(
     response: Response
-  ): AsyncGenerator<EventEnvelope> {
+  ): AsyncGenerator<ReceivedEvent> {
     try {
       yield* readEventStream(response, streamEndUserEventsOperation.path)
     } catch (error) {

@@ -235,6 +235,19 @@ try {
 }
 ```
 
+## Newer API versions
+
+The API can add fields and event types at any time. Every client ignores fields it
+does not know, `streamEvents` skips event types it does not know, and
+`verifyWebhook` accepts them with a null `envelope`:
+
+```ts
+const webhook = verifyWebhook(input)
+if (!webhook.valid) return new Response(null, { status: 400 })
+if (webhook.envelope) await handle(webhook.envelope)
+return new Response(null, { status: 204 })
+```
+
 ## A note on `costMicros`
 
 `Execution.costMicros` and `ExecutionStep.costMicros` are Postgres `bigint`

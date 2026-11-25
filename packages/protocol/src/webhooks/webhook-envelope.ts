@@ -36,46 +36,62 @@ const connectionDataSchema = z.strictObject({
 })
 
 export const webhookEnvelopeSchema = z.discriminatedUnion("type", [
-  z.strictObject({
-    ...baseEnvelope,
-    type: z.literal("execution.completed"),
-    data: executionDataSchema,
-  }),
-  z.strictObject({
-    ...baseEnvelope,
-    type: z.literal("execution.failed"),
-    data: executionDataSchema,
-  }),
-  z.strictObject({
-    ...baseEnvelope,
-    type: z.literal("approval_request.created"),
-    data: approvalRequestDataSchema,
-  }),
-  z.strictObject({
-    ...baseEnvelope,
-    type: z.literal("approval_request.decided"),
-    data: approvalDecisionDataSchema,
-  }),
-  z.strictObject({
-    ...baseEnvelope,
-    type: z.literal("approval_request.cancelled"),
-    data: approvalRequestDataSchema,
-  }),
-  z.strictObject({
-    ...baseEnvelope,
-    type: z.literal("action_intent.executed"),
-    data: actionIntentDataSchema,
-  }),
-  z.strictObject({
-    ...baseEnvelope,
-    type: z.literal("action_intent.failed"),
-    data: actionIntentDataSchema,
-  }),
-  z.strictObject({
-    ...baseEnvelope,
-    type: z.literal("connection.revoked"),
-    data: connectionDataSchema,
-  }),
+  z
+    .strictObject({
+      ...baseEnvelope,
+      type: z.literal("execution.completed"),
+      data: executionDataSchema,
+    })
+    .meta({ title: "execution.completed" }),
+  z
+    .strictObject({
+      ...baseEnvelope,
+      type: z.literal("execution.failed"),
+      data: executionDataSchema,
+    })
+    .meta({ title: "execution.failed" }),
+  z
+    .strictObject({
+      ...baseEnvelope,
+      type: z.literal("approval_request.created"),
+      data: approvalRequestDataSchema,
+    })
+    .meta({ title: "approval_request.created" }),
+  z
+    .strictObject({
+      ...baseEnvelope,
+      type: z.literal("approval_request.decided"),
+      data: approvalDecisionDataSchema,
+    })
+    .meta({ title: "approval_request.decided" }),
+  z
+    .strictObject({
+      ...baseEnvelope,
+      type: z.literal("approval_request.cancelled"),
+      data: approvalRequestDataSchema,
+    })
+    .meta({ title: "approval_request.cancelled" }),
+  z
+    .strictObject({
+      ...baseEnvelope,
+      type: z.literal("action_intent.executed"),
+      data: actionIntentDataSchema,
+    })
+    .meta({ title: "action_intent.executed" }),
+  z
+    .strictObject({
+      ...baseEnvelope,
+      type: z.literal("action_intent.failed"),
+      data: actionIntentDataSchema,
+    })
+    .meta({ title: "action_intent.failed" }),
+  z
+    .strictObject({
+      ...baseEnvelope,
+      type: z.literal("connection.revoked"),
+      data: connectionDataSchema,
+    })
+    .meta({ title: "connection.revoked" }),
 ])
 
 export const webhookDeliveryStatusSchema = z.enum([

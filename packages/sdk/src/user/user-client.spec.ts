@@ -488,6 +488,28 @@ describe("browser end-user client", () => {
     expect(JSON.stringify(received)).not.toContain("t1")
     await events.return(undefined)
   })
+  it("skips events it does not know and resumes after them", async () => {
+    const lastEventIds: (string | undefined)[] = []
+    const { client } = await authenticatedClient((_path, init) => {
+      const headers = init.headers as Record<string, string>
+      lastEventIds.push(headers["Last-Event-ID"])
+      const events = event("event_1").replaceAll(
+        "approval_request.created",
+        "approval_request.escalated"
+      )
+      return new Response(
+        lastEventIds.length === 1 ? events : event("event_2"),
+        { headers: { "content-type": "text/event-stream" } }
+      )
+    })
+    const kinds: string[] = []
+    for await (const update of client.streamEvents({ reconnectDelayMs: 0 })) {
+      kinds.push(update.kind === "event" ? update.event.id : update.kind)
+      if (update.kind === "event") break
+    }
+    expect(kinds).toEqual(["connected", "reconnecting", "connected", "event_2"])
+    expect(lastEventIds).toEqual([undefined, "event_1"])
+  })
   it("reconnects with Last-Event-ID and fresh DPoP proof", async () => {
     const eventHeaders: Record<string, string>[] = []
     let connection = 0

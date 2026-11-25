@@ -4136,6 +4136,7 @@
                       }
                     },
                     "required": ["workflowId", "externalSubjectId", "input"],
+                    "title": "Start of a Workflow",
                     "type": "object"
                   },
                   {
@@ -4154,6 +4155,7 @@
                       "input": {}
                     },
                     "required": ["agentId", "externalSubjectId", "input"],
+                    "title": "Start of an Agent",
                     "type": "object"
                   }
                 ]
@@ -4289,6 +4291,7 @@
                         "completedAt",
                         "workflowId"
                       ],
+                      "title": "Workflow run",
                       "type": "object"
                     },
                     {
@@ -4416,6 +4419,7 @@
                         "workflowId",
                         "agentId"
                       ],
+                      "title": "Agent run",
                       "type": "object"
                     }
                   ]
@@ -5105,6 +5109,7 @@
                                   "type",
                                   "data"
                                 ],
+                                "title": "execution.completed",
                                 "type": "object"
                               },
                               {
@@ -5165,6 +5170,7 @@
                                   "type",
                                   "data"
                                 ],
+                                "title": "execution.failed",
                                 "type": "object"
                               },
                               {
@@ -5238,6 +5244,7 @@
                                   "type",
                                   "data"
                                 ],
+                                "title": "approval_request.created",
                                 "type": "object"
                               },
                               {
@@ -5327,6 +5334,7 @@
                                   "type",
                                   "data"
                                 ],
+                                "title": "approval_request.decided",
                                 "type": "object"
                               },
                               {
@@ -5400,6 +5408,7 @@
                                   "type",
                                   "data"
                                 ],
+                                "title": "approval_request.cancelled",
                                 "type": "object"
                               },
                               {
@@ -5459,6 +5468,7 @@
                                   "type",
                                   "data"
                                 ],
+                                "title": "action_intent.executed",
                                 "type": "object"
                               },
                               {
@@ -5518,6 +5528,7 @@
                                   "type",
                                   "data"
                                 ],
+                                "title": "action_intent.failed",
                                 "type": "object"
                               },
                               {
@@ -5569,6 +5580,7 @@
                                   "type",
                                   "data"
                                 ],
+                                "title": "connection.revoked",
                                 "type": "object"
                               }
                             ]
@@ -5948,6 +5960,7 @@
                         "completedAt",
                         "workflowId"
                       ],
+                      "title": "Workflow run",
                       "type": "object"
                     },
                     {
@@ -6075,6 +6088,7 @@
                         "workflowId",
                         "agentId"
                       ],
+                      "title": "Agent run",
                       "type": "object"
                     }
                   ]
@@ -6370,6 +6384,7 @@
                         "completedAt",
                         "workflowId"
                       ],
+                      "title": "Workflow run",
                       "type": "object"
                     },
                     {
@@ -6497,6 +6512,7 @@
                         "workflowId",
                         "agentId"
                       ],
+                      "title": "Agent run",
                       "type": "object"
                     }
                   ]
@@ -13005,6 +13021,7 @@
                         "completedAt",
                         "workflowId"
                       ],
+                      "title": "Workflow run",
                       "type": "object"
                     },
                     {
@@ -13132,6 +13149,7 @@
                         "workflowId",
                         "agentId"
                       ],
+                      "title": "Agent run",
                       "type": "object"
                     }
                   ]
@@ -13534,6 +13552,7 @@
                         "completedAt",
                         "workflowId"
                       ],
+                      "title": "Workflow run",
                       "type": "object"
                     },
                     {
@@ -13661,6 +13680,7 @@
                         "workflowId",
                         "agentId"
                       ],
+                      "title": "Agent run",
                       "type": "object"
                     }
                   ]

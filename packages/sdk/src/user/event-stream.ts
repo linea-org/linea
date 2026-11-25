@@ -1,7 +1,7 @@
 import {
-  eventEnvelopeSchema,
-  type EventEnvelope,
-} from "@linealabs/protocol/events"
+  receivedEventSchema,
+  type ReceivedEvent,
+} from "../events/received-event.js"
 import { parseResponse } from "../http/parse-response.js"
 import { LineaUserNetworkError, LineaUserProtocolError } from "./errors.js"
 
@@ -20,13 +20,13 @@ function addEventLine(block: EventBlock, line: string): void {
 function parseBlock(
   block: string,
   endpoint: string
-): EventEnvelope | undefined {
+): ReceivedEvent | undefined {
   const parsedBlock: EventBlock = { id: undefined, data: [] }
   for (const line of block.split(/\r?\n/)) addEventLine(parsedBlock, line)
   if (parsedBlock.data.length === 0) return undefined
   try {
     const event = parseResponse(
-      eventEnvelopeSchema,
+      receivedEventSchema,
       JSON.parse(parsedBlock.data.join("\n"))
     )
     if (parsedBlock.id !== undefined && parsedBlock.id !== event.id) {
@@ -41,7 +41,7 @@ function parseBlock(
 export async function* readEventStream(
   response: Response,
   endpoint: string
-): AsyncGenerator<EventEnvelope> {
+): AsyncGenerator<ReceivedEvent> {
   if (!response.body) {
     throw new LineaUserProtocolError(endpoint, "Missing response body")
   }

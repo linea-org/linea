@@ -1,10 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { eventIdSchema } from "@linealabs/protocol/shared"
+import type { WebhookEnvelope } from "@linealabs/protocol/webhooks"
 import {
-  webhookEnvelopeSchema,
-  type WebhookEnvelope,
-} from "@linealabs/protocol/webhooks"
-import { safeParseResponse } from "./http/parse-response.js"
+  parseWebhook,
+  type ReceivedWebhook,
+} from "./events/received-webhook.js"
 
 export type VerifyWebhookSignatureInput = {
   body: Uint8Array
@@ -24,7 +24,8 @@ export type WebhookVerificationResult =
 export type VerifiedWebhook = {
   valid: true
   secret: "current" | "previous"
-  envelope: WebhookEnvelope
+  /** Null for an event type this version of the SDK does not know: accept it and do nothing. */
+  envelope: WebhookEnvelope | null
 }
 
 export type WebhookVerification =
@@ -114,18 +115,20 @@ export function verifyWebhook(
   }
   const signature = verifyWebhookSignature(input)
   if (!signature.valid) return { valid: false, reason: "signature_invalid" }
-  let body: unknown
+  let received: ReceivedWebhook
   try {
-    body = JSON.parse(
-      new TextDecoder("utf-8", { fatal: true }).decode(input.body)
+    received = parseWebhook(
+      JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(input.body))
     )
   } catch {
     return { valid: false, reason: "body_invalid" }
   }
-  const envelope = safeParseResponse(webhookEnvelopeSchema, body)
-  if (!envelope.success) return { valid: false, reason: "body_invalid" }
-  if (envelope.data.id !== input.eventId) {
+  if (received.id !== input.eventId) {
     return { valid: false, reason: "event_id_mismatch" }
   }
-  return { valid: true, secret: signature.secret, envelope: envelope.data }
+  return {
+    valid: true,
+    secret: signature.secret,
+    envelope: received.envelope,
+  }
 }
