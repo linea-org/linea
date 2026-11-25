@@ -6,3 +6,5 @@ dist
 .turbo
 *.tsbuildinfo
 coverage/
+.context/
+.claude/
