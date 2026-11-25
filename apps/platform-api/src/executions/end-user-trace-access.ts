@@ -31,7 +31,14 @@ export async function isTraceContentRestricted(
   return !(await canReadDiagnosticContent(execution.workspaceId, userId))
 }
 
-/** Keeps the step timeline but nulls the run's output and its steps' input and output on End-User
+function withoutContent(step: RedactedStep): RedactedStep {
+  const attributes = step.attributes && { ...step.attributes }
+  // The values a step read by reference (ADR 0034) are content, as its input is.
+  delete attributes?.references
+  return { ...step, attributes, input: null, output: null }
+}
+
+/** Keeps the step timeline but removes the run's output and its steps' content on End-User
  * Executions for callers below admin; the run output is usually a step's output passed through. */
 export async function restrictEndUserTrace<
   T extends { execution: Execution; steps: RedactedStep[] },
@@ -44,7 +51,7 @@ export async function restrictEndUserTrace<
   return {
     ...detail,
     execution: { ...detail.execution, output: null },
-    steps: detail.steps.map((step) => ({ ...step, input: null, output: null })),
+    steps: detail.steps.map(withoutContent),
     traceContentRestricted: true,
   }
 }

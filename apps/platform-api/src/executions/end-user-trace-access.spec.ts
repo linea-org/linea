@@ -24,7 +24,12 @@ const traceSchema = z.object({
   traceContentRestricted: z.boolean(),
   execution: z.object({ output: z.unknown() }),
   steps: z.array(
-    z.object({ status: z.string(), input: z.unknown(), output: z.unknown() }),
+    z.object({
+      status: z.string(),
+      input: z.unknown(),
+      output: z.unknown(),
+      attributes: z.record(z.string(), z.unknown()).nullable(),
+    }),
   ),
 })
 
@@ -72,6 +77,10 @@ describe('End-User execution trace access', () => {
         status: 'succeeded',
         input: { operation: 'github.issues.list' },
         output: providerOutput,
+        attributes: {
+          costUnpriced: false,
+          references: { 'steps.n0.issues': providerOutput },
+        },
       })
       .returning()
     return step
@@ -184,7 +193,12 @@ describe('End-User execution trace access', () => {
       expect(trace.traceContentRestricted).toBe(true)
       expect(trace.execution.output).toBeNull()
       expect(trace.steps).toEqual([
-        { status: 'succeeded', input: null, output: null },
+        {
+          status: 'succeeded',
+          input: null,
+          output: null,
+          attributes: { costUnpriced: false },
+        },
       ])
       expect(JSON.stringify(response.body)).not.toContain('Private roadmap')
     }
@@ -197,6 +211,7 @@ describe('End-User execution trace access', () => {
       expect(trace.traceContentRestricted).toBe(false)
       expect(trace.execution.output).toEqual(providerOutput)
       expect(trace.steps[0].output).toEqual(providerOutput)
+      expect(trace.steps[0].attributes).toHaveProperty('references')
     }
   })
   it('keeps full trace content for members on executions without an End User', async () => {
