@@ -49,34 +49,21 @@ function encodedBytes(text: string): number {
   return new Blob([JSON.stringify(text)]).size
 }
 
-type ReadFile =
-  { name: string; content: string } | { name: string; reason: string }
-
 const TOO_LARGE = `Over ${MAX_ATTACHMENT_BYTES / 1000} KB in total`
-const TOO_MANY = `Up to ${MAX_ATTACHMENTS} files`
 
-/** Refuses what can be refused unread, so a large selection is not loaded into memory. */
-function unreadReasons(files: File[], slots: number, bytes: number) {
-  let usedSlots = 0
-  let usedBytes = 0
-  return files.map((file): string | null => {
-    if (!isTextFile(file)) return "Text files only"
-    if (usedSlots >= slots) return TOO_MANY
-    if (usedBytes + file.size > bytes) return TOO_LARGE
-    usedSlots += 1
-    usedBytes += file.size
-    return null
-  })
+/** Why a file is refused before it is read, so a large selection is not loaded into memory. */
+function unreadProblem(file: File, attached: number, free: number) {
+  if (!isTextFile(file)) return "Text files only"
+  if (attached >= MAX_ATTACHMENTS) return `Up to ${MAX_ATTACHMENTS} files`
+  return file.size > free ? TOO_LARGE : null
 }
 
-async function readFile(file: File, reason: string | null): Promise<ReadFile> {
-  const { name } = file
-  if (reason !== null) return { name, reason }
+/** Null for what cannot be read, such as a dropped folder, which looks like a file until then. */
+async function readText(file: File): Promise<string | null> {
   try {
-    return { name, content: await file.text() }
+    return await file.text()
   } catch {
-    // A dropped folder looks like a file until it is read.
-    return { name, reason: "Couldn't be read" }
+    return null
   }
 }
 
@@ -97,28 +84,22 @@ export async function readAttachments(
 ): Promise<{ attachments: Attachment[]; rejected: RejectedFile[] }> {
   const attachments = [...current]
   const rejected: RejectedFile[] = []
-  let used = current.reduce((sum, item) => sum + encodedBytes(item.content), 0)
-  const reasons = unreadReasons(
-    files,
-    MAX_ATTACHMENTS - current.length,
-    MAX_ATTACHMENT_BYTES - used
+  let free = current.reduce(
+    (left, item) => left - encodedBytes(item.content),
+    MAX_ATTACHMENT_BYTES
   )
-  const read = await Promise.all(
-    files.map((file, index) => readFile(file, reasons[index]))
-  )
-  for (const file of read) {
-    if ("reason" in file) {
-      rejected.push(file)
-      continue
+  // One at a time, so a refused file takes no room from the ones after it.
+  for (const file of files) {
+    const problem = unreadProblem(file, attachments.length, free)
+    const content = problem === null ? await readText(file) : null
+    if (content === null) {
+      rejected.push({ name: file.name, reason: problem ?? "Couldn't be read" })
+    } else if (encodedBytes(content) > free) {
+      rejected.push({ name: file.name, reason: TOO_LARGE })
+    } else {
+      free -= encodedBytes(content)
+      attachments.push({ name: uniqueName(file.name, attachments), content })
     }
-    const { name, content } = file
-    const bytes = encodedBytes(content)
-    if (used + bytes > MAX_ATTACHMENT_BYTES) {
-      rejected.push({ name, reason: TOO_LARGE })
-      continue
-    }
-    used += bytes
-    attachments.push({ name: uniqueName(name, attachments), content })
   }
   return { attachments, rejected }
 }

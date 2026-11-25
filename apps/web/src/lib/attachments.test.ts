@@ -79,6 +79,17 @@ describe("readAttachments", () => {
     )
   })
 
+  it("gives a refused file's room to the next one", async () => {
+    const { attachments } = await readAttachments(
+      [
+        file("lines.txt", "text/plain", "\n".repeat(70_000)),
+        file("notes.txt", "text/plain", "y".repeat(40_000)),
+      ],
+      []
+    )
+    expect(attachments.map(({ name }) => name)).toEqual(["notes.txt"])
+  })
+
   it("refuses a file that cannot be read, such as a folder", async () => {
     const folder = file("logs.txt", "text/plain")
     folder.text = () => Promise.reject(new Error("not found"))
