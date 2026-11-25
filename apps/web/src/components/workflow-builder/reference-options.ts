@@ -3,7 +3,7 @@ import {
   nodeRegistry,
   readPath,
   stepsBefore,
-  type NodeTypeId,
+  type NodeDefinition,
 } from "@linealabs/runtime/browser"
 import { z } from "zod"
 
@@ -29,15 +29,24 @@ function toPath(...keys: string[]): string | undefined {
     .join("")
 }
 
-function outputKeys(nodeType: NodeTypeId): string[] {
-  const { outputSchema } = nodeRegistry[nodeType]
-  return outputSchema instanceof z.ZodObject
-    ? Object.keys(outputSchema.shape).filter((key) => !key.startsWith("tokens"))
-    : []
+function outputKeys({ nodeType, config }: BuilderNode["data"]): string[] {
+  const definition: NodeDefinition = nodeRegistry[nodeType]
+  const { outputsByOperation } = definition.ui
+  if (outputsByOperation) {
+    return outputsByOperation[String(config.operation)] ?? []
+  }
+  const { outputSchema } = definition
+  if (!(outputSchema instanceof z.ZodObject)) return []
+  // A key that may be missing would fail the step that refers to it.
+  return Object.entries(outputSchema.shape)
+    .filter(([, schema]) => !(schema instanceof z.ZodOptional))
+    .map(([key]) => key)
+    .filter((key) => !key.startsWith("tokens"))
 }
 
-function outputPaths({ nodeType, config }: BuilderNode["data"]): string[][] {
-  const paths = outputKeys(nodeType).map((key) => [key])
+function outputPaths(data: BuilderNode["data"]): string[][] {
+  const { nodeType, config } = data
+  const paths = outputKeys(data).map((key) => [key])
   if (nodeType !== "extract") return paths
   const properties = readPath(config.schema, ["properties"])
   return [...paths, ...keysOf(properties).map((key) => ["data", key])]
@@ -86,7 +95,7 @@ export function referenceGroups(
       titles.filter((title) => title === titles[index]).length < 2
     return [
       {
-        id: step.id,
+        id: `step:${step.id}`,
         heading: isUnique ? titles[index] : `${titles[index]} (${step.id})`,
         items: [
           { label: "Whole output", text: root },

@@ -4,7 +4,8 @@ export type ReferenceTarget = HTMLInputElement | HTMLTextAreaElement
 export const REFERENCE_TARGET = "data-reference-target"
 
 function isInsideString(json: string): boolean {
-  return (json.match(/(?<!\\)"/g)?.length ?? 0) % 2 === 1
+  const unescaped = json.replace(/\\./g, "")
+  return unescaped.split('"').length % 2 === 0
 }
 
 /** Inserts at the caret, quoted when the caret is outside a JSON string. */

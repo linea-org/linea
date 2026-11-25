@@ -35,4 +35,12 @@ describe("insertReference", () => {
       x: 'Hi {{steps.a["b c"]}}',
     })
   })
+
+  it("counts a quote after an escaped backslash as closing the string", () => {
+    const before = String.raw`{"path":"C:\\","value": }`
+    expect(JSON.parse(insertAt(before, before.length - 1, true))).toEqual({
+      path: "C:\\",
+      value: '{{steps.a["b c"]}}',
+    })
+  })
 })

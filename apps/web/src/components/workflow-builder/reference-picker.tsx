@@ -46,7 +46,17 @@ function SecretItems({
   applicationId: string | undefined
   onSelect: SelectReference
 }>) {
-  const { names } = useSecretNames(applicationId)
+  const { names, error, pending } = useSecretNames(applicationId)
+  const status = error ? error.message : pending && "Loading…"
+  if (status) {
+    return (
+      <CommandGroup heading="Secrets">
+        <CommandItem value="Secrets" disabled>
+          {status}
+        </CommandItem>
+      </CommandGroup>
+    )
+  }
   if (names.length === 0) return null
   const items = names.map(({ name }) => ({
     label: name,

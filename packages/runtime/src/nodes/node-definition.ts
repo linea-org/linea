@@ -33,6 +33,8 @@ export type NodeUIMeta = {
   fields: NodeUIField[]
   // Which config field's value the canvas shows as the node's one-line summary.
   summaryField?: string
+  // Output keys by operation, for a node whose operations don't all return the same ones.
+  outputsByOperation?: Record<string, string[]>
 }
 
 export type NodeDefinition<TInput = unknown, TOutput = unknown> = {

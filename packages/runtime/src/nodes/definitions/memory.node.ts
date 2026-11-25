@@ -73,5 +73,9 @@ export const memoryNode: NodeDefinition<
       },
     ],
     summaryField: "key",
+    outputsByOperation: {
+      write: ["key", "expiresAt"],
+      read: ["found", "value"],
+    },
   },
 }

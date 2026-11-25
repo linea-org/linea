@@ -53,5 +53,6 @@ export const variablesNode: NodeDefinition<
       },
     ],
     summaryField: "operation",
+    outputsByOperation: { set: ["variables"], get: ["found", "value"] },
   },
 }

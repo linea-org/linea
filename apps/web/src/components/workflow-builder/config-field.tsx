@@ -42,7 +42,10 @@ export function ConfigField({
     }
   }
   const insert = (text: string) => {
-    if (!target.current?.isConnected) {
+    if (
+      !target.current?.isConnected ||
+      !target.current.hasAttribute(REFERENCE_TARGET)
+    ) {
       target.current =
         container.current?.querySelector<ReferenceTarget>(
           `[${REFERENCE_TARGET}]`

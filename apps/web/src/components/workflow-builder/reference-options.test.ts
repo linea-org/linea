@@ -32,7 +32,7 @@ describe("referenceGroups", () => {
       "Get order",
       "Start",
     ])
-    expect(find(groups, "get")?.items).toEqual([
+    expect(find(groups, "step:get")?.items).toEqual([
       { label: "Whole output", text: "steps.get" },
       { label: "status", text: "steps.get.status" },
       { label: "headers", text: "steps.get.headers" },
@@ -46,11 +46,10 @@ describe("referenceGroups", () => {
       chain("a", "b", "c"),
       "c"
     )
-    expect(find(groups, "a")?.heading).toBe("Generate text (a)")
-    expect(find(groups, "a")?.items.map(({ label }) => label)).toEqual([
+    expect(find(groups, "step:a")?.heading).toBe("Generate text (a)")
+    expect(find(groups, "step:a")?.items.map(({ label }) => label)).toEqual([
       "Whole output",
       "text",
-      "toolCalls",
     ])
   })
 
@@ -66,7 +65,7 @@ describe("referenceGroups", () => {
       chain("read", "set", "ask"),
       "ask"
     )
-    expect(find(groups, "read")?.items.map(({ text }) => text)).toEqual([
+    expect(find(groups, "step:read")?.items.map(({ text }) => text)).toEqual([
       "steps.read",
       "steps.read.data",
       'steps.read.data["full name"]',
@@ -74,5 +73,28 @@ describe("referenceGroups", () => {
     expect(find(groups, "variables")?.items).toEqual([
       { label: "city", text: "variables.city" },
     ])
+  })
+
+  it("offers only what the chosen operation returns", () => {
+    const labels = (operation: string) =>
+      find(
+        referenceGroups(
+          [node("v", "variables", { operation }), node("ask", "ai")],
+          chain("v", "ask"),
+          "ask"
+        ),
+        "step:v"
+      )?.items.map(({ label }) => label)
+    expect(labels("set")).toEqual(["Whole output", "variables"])
+    expect(labels("get")).toEqual(["Whole output", "found", "value"])
+  })
+
+  it("keeps a step named like a built-in group apart from it", () => {
+    const groups = referenceGroups(
+      [node("input", "ai"), node("ask", "ai")],
+      chain("input", "ask"),
+      "ask"
+    )
+    expect(new Set(groups.map(({ id }) => id)).size).toBe(groups.length)
   })
 })

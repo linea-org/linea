@@ -76,6 +76,34 @@ function selectDefaults(
   return Object.keys(next).length > 0 ? next : null
 }
 
+function TextField({
+  id,
+  widget,
+  value,
+  invalid,
+  onChange,
+}: Readonly<{
+  id: string
+  widget: "textarea" | "code"
+  value: string
+  invalid: boolean
+  onChange: (value: string) => void
+}>) {
+  const isJson = isJsonWidget(widget)
+  return (
+    <Textarea
+      id={id}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      rows={isJson ? 6 : 4}
+      {...{ [REFERENCE_TARGET]: isJson ? "json" : "" }}
+      aria-invalid={invalid || undefined}
+      className={isJson ? "field-sizing-fixed font-mono text-sm" : undefined}
+      placeholder={isJson ? "{}" : undefined}
+    />
+  )
+}
+
 export function NodeConfigPanel({
   nodeType,
   config,
@@ -205,19 +233,12 @@ export function NodeConfigPanel({
     }
     if (field.widget === "textarea" || field.widget === "code") {
       return (
-        <Textarea
+        <TextField
           id={id}
+          widget={field.widget}
           value={draft[field.key] ?? ""}
-          onChange={(e) => setField(field, e.target.value)}
-          rows={field.widget === "textarea" ? 4 : 6}
-          {...{ [REFERENCE_TARGET]: isJsonWidget(field.widget) ? "json" : "" }}
-          aria-invalid={invalid || undefined}
-          className={
-            isJsonWidget(field.widget)
-              ? "field-sizing-fixed font-mono text-sm"
-              : undefined
-          }
-          placeholder={isJsonWidget(field.widget) ? "{}" : undefined}
+          invalid={invalid}
+          onChange={(value) => setField(field, value)}
         />
       )
     }
