@@ -51,8 +51,10 @@ function parseTemplate(
         `"${token}" is not a reference. Write "\\${token}" to keep it as text`
       )
     }
-    template.push(source.slice(end, match.index))
-    template.push(reference ?? (escaped ? token.slice(1) : token))
+    template.push(
+      source.slice(end, match.index),
+      reference ?? (escaped ? token.slice(1) : token)
+    )
     end = match.index + token.length
   }
   template.push(source.slice(end))
@@ -68,13 +70,15 @@ function stringsIn(value: unknown): string[] {
 type ConfiguredNode = Pick<WorkflowNode, "type" | "config">
 type FieldReference = { field: NodeUIField; reference: Reference }
 
+function isShown({ showIf }: NodeUIField, config: ConfiguredNode["config"]) {
+  if (!showIf) return true
+  const current = config[showIf.key]
+  return typeof current === "string" && [showIf.equals].flat().includes(current)
+}
+
 function referenceFields({ type, config }: ConfiguredNode): NodeUIField[] {
   const fields: NodeUIField[] = nodeRegistry[type].ui.fields
-  return fields.filter(
-    ({ references, showIf }) =>
-      references &&
-      (!showIf || [showIf.equals].flat().some((v) => v === config[showIf.key]))
-  )
+  return fields.filter((field) => field.references && isShown(field, config))
 }
 
 function fieldReferences(
@@ -188,9 +192,13 @@ function asText(value: unknown): string {
 
 function asUrlPart(value: unknown, before: string): string {
   const text = asText(value)
-  // An empty or dot path segment would send the request to another resource.
-  if (!before.includes("?") && ["", ".", ".."].includes(text)) {
-    throw new ReferenceValueError(`"${text}" can't be part of a URL path`)
+  // An empty or dot path segment would send the request to another resource, and a value after
+  // a written "%" could spell one.
+  const spellsDot = /%[0-9a-f]?$/i.test(before)
+  if (spellsDot || (!before.includes("?") && ["", ".", ".."].includes(text))) {
+    throw new ReferenceValueError(
+      'A value in a URL path can\'t be empty, "." or "..", or follow "%"'
+    )
   }
   return encodeURIComponent(text)
 }

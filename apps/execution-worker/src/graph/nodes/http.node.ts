@@ -27,7 +27,7 @@ export class HttpNode implements NodeHandler {
       url: config.url,
       method: config.method,
       headers: config.headers,
-      body: config.body === "" ? input : (config.body ?? input),
+      body: config.body === undefined ? input : config.body,
     })
     if (context.diagnostic && parsed.method !== "GET") {
       throw new NonRetryableError(
@@ -38,15 +38,18 @@ export class HttpNode implements NodeHandler {
     const hasBody =
       parsed.method !== "GET" &&
       parsed.body !== undefined &&
-      parsed.body !== null
+      parsed.body !== null &&
+      parsed.body !== ""
     const headers = { ...parsed.headers }
     assertSingleLine(headers)
-    const names = Object.keys(headers).map((name) => name.toLowerCase())
+    const names = new Set(
+      Object.keys(headers).map((name) => name.toLowerCase())
+    )
     // Destinations may rely on an author-provided deduplication key.
-    if (context.idempotencyKey && !names.includes("idempotency-key")) {
+    if (context.idempotencyKey && !names.has("idempotency-key")) {
       headers["Idempotency-Key"] = context.idempotencyKey
     }
-    if (hasBody && !names.includes("content-type")) {
+    if (hasBody && !names.has("content-type")) {
       headers["Content-Type"] = "application/json"
     }
     const response = await requestPublic(parsed.url, {

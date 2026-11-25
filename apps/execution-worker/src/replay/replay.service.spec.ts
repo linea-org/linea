@@ -212,7 +212,7 @@ describe("ReplayService.replay", () => {
       const { execution, originalStep, replay } = await setUpExecutionWithStep(
         organization.id,
         {
-          httpNode: { execute } as unknown as HttpNode,
+          httpNode: { execute },
           nodeConfig: {
             url: "https://example.com/{{steps.earlier.id}}/{{input.trigger}}",
           },
@@ -264,7 +264,7 @@ describe("ReplayService.replay", () => {
       const { execution, originalStep, replay } = await setUpExecutionWithStep(
         organization.id,
         {
-          httpNode: { execute } as unknown as HttpNode,
+          httpNode: { execute },
           nodeConfig: { url: "https://example.com/{{variables.id}}" },
         }
       )

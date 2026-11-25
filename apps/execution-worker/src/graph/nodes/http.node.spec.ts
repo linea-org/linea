@@ -87,6 +87,20 @@ describe("HttpNode", () => {
       })
     )
   })
+  it.each([null, ""])(
+    "sends nothing, not the input, for a body that is %j",
+    async (body) => {
+      await new HttpNode().execute(
+        { url: "https://example.com", method: "POST", body },
+        { private: "note" },
+        { workspaceId: "ws-1" }
+      )
+      expect(request).toHaveBeenCalledWith(
+        "https://example.com",
+        expect.objectContaining({ body: undefined })
+      )
+    }
+  )
   it("sends no body with a GET", async () => {
     await new HttpNode().execute(
       { url: "https://example.com", method: "GET" },

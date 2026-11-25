@@ -11,6 +11,7 @@ import {
   hashWorkflowGraph,
   nodeReferences,
   type WorkflowGraph,
+  type WorkflowNode,
 } from '@linealabs/runtime'
 import { validateAssistantGraph } from './assistant-graph'
 import { AssistantOutputError } from './assistant-output-error'
@@ -56,6 +57,7 @@ const MAX_RESULT_CHARS = 12_000
  * agreed to send, or outlive the chat turn. A web page can steer what Inky drafts. */
 function untestableReason(graph: WorkflowGraph): string | null {
   for (const node of graph.nodes) {
+    if (sendsSecret(node)) return `"${node.id}" sends a secret`
     if (node.type === 'wait') return `"${node.id}" is a wait node`
     if (node.type === 'ai' && !onlyReadTools(node.config.tools)) {
       return `"${node.id}" gives its model a tool that is not GET`
@@ -63,14 +65,15 @@ function untestableReason(graph: WorkflowGraph): string | null {
     if (node.config.mcpServers !== undefined) {
       return `"${node.id}" connects to an MCP server`
     }
-    if (nodeReferences(node).some(({ root }) => root === 'secrets')) {
-      return `"${node.id}" sends a secret`
-    }
     if (node.type === 'agent') return `"${node.id}" runs an Agent`
     const method = node.type === 'http' ? (node.config.method ?? 'GET') : 'GET'
     if (method !== 'GET') return `"${node.id}" sends a request that is not GET`
   }
   return null
+}
+
+function sendsSecret(node: WorkflowNode): boolean {
+  return nodeReferences(node).some(({ root }) => root === 'secrets')
 }
 
 function onlyReadTools(tools: unknown): boolean {

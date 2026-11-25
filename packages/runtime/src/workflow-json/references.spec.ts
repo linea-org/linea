@@ -46,6 +46,7 @@ const values: Record<string, unknown> = {
       nested: { "a b": [10, 20] },
       dots: "..",
       empty: "",
+      hex: "2e",
       base: "https://api.example.com/v1",
       tricky: "{{secrets.KEY}}",
     },
@@ -118,6 +119,11 @@ describe("resolveReferences", () => {
       expect(() =>
         url(`https://api.example.com/u/{{steps.start.${key}}}`)
       ).toThrow("URL path")
+    }
+    for (const text of ["%{{steps.start.hex}}", "%2{{steps.start.hex}}"]) {
+      expect(() => url(`https://api.example.com/a/${text}/b`)).toThrow(
+        "URL path"
+      )
     }
     expect(url("https://api.example.com/?q={{steps.start.empty}}")).toBe(
       "https://api.example.com/?q="
