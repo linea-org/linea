@@ -9,7 +9,9 @@
     "format:check": "prettier --check .",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "test:pack": "pnpm --filter @linealabs/sdk --filter @linealabs/sdk-react test:pack"
+    "test:pack": "pnpm --filter @linealabs/sdk --filter @linealabs/sdk-react test:pack",
+    "generate:contracts": "pnpm --filter @linealabs/protocol build && node packages/protocol/scripts/generate-public-contracts.mjs",
+    "check:contracts": "pnpm --filter @linealabs/protocol build && node packages/protocol/scripts/generate-public-contracts.mjs --check"
   },
   "devDependencies": {
     "prettier": "^3.10.1",
@@ -22,11 +24,6 @@
   },
   "pnpm": {
     "overrides": {
-      "@better-auth/expo>expo-constants": "-",
-      "@better-auth/expo>expo-linking": "-",
-      "@better-auth/expo>expo-network": "-",
-      "@better-auth/expo>expo-secure-store": "-",
-      "@better-auth/expo>expo-web-browser": "-",
       "@hono/node-server@2": "^2.1.6",
       "baseline-browser-mapping": "2.11.25",
       "body-parser@2": "^2.4.0",
