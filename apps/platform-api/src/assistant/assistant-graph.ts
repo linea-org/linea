@@ -1,5 +1,6 @@
 import {
   assertNoReservedNodeIds,
+  assertValidReferences,
   validateGraphStructure,
   WorkflowGraphError,
   workflowGraphSchema,
@@ -27,6 +28,7 @@ export function validateAssistantGraph(raw: unknown): WorkflowGraph {
   try {
     assertNoReservedNodeIds(graph)
     validateGraphStructure(graph)
+    assertValidReferences(graph)
   } catch (error) {
     if (error instanceof WorkflowGraphError) {
       throw new AssistantOutputError(error.message)

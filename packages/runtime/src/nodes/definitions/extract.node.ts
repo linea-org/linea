@@ -75,6 +75,7 @@ export const extractNode: NodeDefinition<
         key: "instructions",
         label: "Extraction instructions",
         widget: "textarea",
+        references: { as: "text" },
         description:
           "Describe what the model should extract from the source text.",
       },

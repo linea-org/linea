@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { db, pool, repositories } from '@linealabs/db'
 import {
   assertNoReservedNodeIds,
+  assertValidReferences,
   hashWorkflowGraph,
   validateGraphStructure,
   workflowGraphSchema,
@@ -49,6 +50,7 @@ function loadGraph(): WorkflowGraph {
   const graph = workflowGraphSchema.parse(raw)
   validateGraphStructure(graph)
   assertNoReservedNodeIds(graph)
+  assertValidReferences(graph)
   const aiNode = graph.nodes.find((node) => node.type === 'ai')
   if (aiNode) {
     aiNode.config = { ...aiNode.config, model: resolveDemoModel() }

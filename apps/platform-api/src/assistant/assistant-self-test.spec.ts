@@ -49,6 +49,27 @@ describe('AssistantSelfTest', () => {
       },
       'not GET',
     ],
+    [
+      {
+        type: 'http',
+        config: {
+          url: 'https://x.dev',
+          headers: { authorization: 'Bearer {{ secrets.CRM_KEY }}' },
+        },
+      },
+      'sends a secret',
+    ],
+    [
+      {
+        type: 'ai',
+        config: {
+          mcpServers: [
+            { name: 'x', url: 'https://x.dev', headers: { key: 'CRM_KEY' } },
+          ],
+        },
+      },
+      'connects to an MCP server',
+    ],
     [{ type: 'agent', config: {} }, 'runs an Agent'],
   ])('refuses a draft whose run could have side effects', async (node, why) => {
     const outcome = await selfTest.run(scope, { graph: graphWith(node) })

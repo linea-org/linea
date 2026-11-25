@@ -123,6 +123,64 @@ describe("RegressionExecutionService.runRegressionForVersion", () => {
       ])
     }
   })
+  it("uses the case's own recorded references and reports an error for a missing one", async () => {
+    const graph: WorkflowGraph = {
+      version: 1,
+      trigger: { type: "manual" },
+      entryNodeId: "ai-1",
+      nodes: [
+        {
+          id: "ai-1",
+          type: "ai",
+          config: { prompt: "{{steps.earlier.name}} {{input.text}}" },
+        },
+      ],
+      edges: [],
+    }
+    const { organization, workflow, version } = await setUpWorkflow(graph)
+    const execute = jest.fn().mockResolvedValue({ text: "ok" })
+    const aiNode = { execute } as unknown as AiNode
+    const service = new RegressionExecutionService(
+      buildInterpreter(aiNode),
+      aiNode
+    )
+    try {
+      for (const references of [{ "steps.earlier.name": "Ada" }, {}]) {
+        await repositories.regressionCase.createRegressionCase(db, {
+          workspaceId: organization.id,
+          workflowId: workflow.id,
+          caseType: "node",
+          nodeId: "ai-1",
+          input: { nodeInput: { text: "hi" }, references },
+          assertions: [],
+        })
+      }
+      const run = await service.runRegressionForVersion(
+        organization.id,
+        workflow.id,
+        version.id,
+        "manual"
+      )
+      expect(execute).toHaveBeenCalledTimes(1)
+      expect(execute).toHaveBeenCalledWith(
+        { prompt: "Ada hi" },
+        { text: "hi" },
+        expect.objectContaining({ diagnostic: true })
+      )
+      const results = await repositories.regressionRun.listRegressionResults(
+        db,
+        organization.id,
+        run.id
+      )
+      expect(
+        results.find(({ status }) => status === "errored")?.output
+      ).toEqual({ error: '"{{steps.earlier.name}}" has no value' })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
   it("runs an Evaluator node as a regression case", async () => {
     const graph: WorkflowGraph = {
       version: 1,

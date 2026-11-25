@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest"
 import {
   assertNoReservedNodeIds,
   validateGraphStructure,
-  WorkflowGraphError,
 } from "./validate-graph.js"
+import { WorkflowGraphError } from "./workflow-graph-error.js"
 import type { WorkflowGraph } from "./schema.js"
 
 function graph(overrides: Partial<WorkflowGraph>): WorkflowGraph {

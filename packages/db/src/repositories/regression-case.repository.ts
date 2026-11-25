@@ -113,7 +113,10 @@ export function createRegressionCaseFromStep(
       workflowId: execution.workflowId,
       caseType: "node",
       nodeId: step.nodeId,
-      input: { nodeInput: step.input ?? {} },
+      input: {
+        nodeInput: step.input ?? {},
+        references: step.attributes?.references,
+      },
       assertions: input.assertions ?? [],
       sourceStepId: step.id,
       sourceSignalId: input.sourceSignalId,

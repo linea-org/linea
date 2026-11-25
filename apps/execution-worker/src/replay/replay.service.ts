@@ -1,9 +1,21 @@
 import { Injectable, Logger } from "@nestjs/common"
 import { calculateCostMicros, resolveProviderId } from "@linealabs/ai"
 import { db, repositories } from "@linealabs/db"
-import { workflowGraphSchema } from "@linealabs/runtime"
+import {
+  readPath,
+  stepsBefore,
+  workflowGraphSchema,
+  type Reference,
+  type WorkflowGraph,
+} from "@linealabs/runtime"
 import type { WorkflowStepReplayJob } from "@linealabs/queue"
+import { buildStepAttributes } from "../checkpoints/checkpoints.service"
 import { InterpreterService } from "../graph/interpreter.service"
+import {
+  readRecorded,
+  resolveNode,
+  type ResolvedNode,
+} from "../graph/resolve-node"
 import { resolveNodeModel } from "../graph/resolve-node-model"
 import { getErrorTokenUsage } from "../graph/nodes/usage-error"
 import { lockedOverrideKeys } from "./replay-override"
@@ -19,6 +31,19 @@ class ReplayClaimPendingError extends Error {
     )
     this.name = "ReplayClaimPendingError"
   }
+}
+
+/** Outputs of the source run's earlier steps; its variables at that point are not kept. */
+function earlierOutputs(
+  graph: WorkflowGraph,
+  nodeId: string,
+  outputs: unknown
+) {
+  const before = stepsBefore(graph, nodeId)
+  return ({ root, path }: Reference): unknown =>
+    root === "steps" && before.has(path[0])
+      ? readPath(outputs, path)
+      : undefined
 }
 
 @Injectable()
@@ -225,6 +250,7 @@ export class ReplayService {
           pendingRenewal = undefined
         })
     }, REPLAY_HEARTBEAT_INTERVAL_MS)
+    let resolved: ResolvedNode | undefined
     let outcome: {
       status: "succeeded" | "failed"
       output?: Record<string, unknown>
@@ -235,8 +261,21 @@ export class ReplayService {
       costUnpriced?: boolean
     }
     try {
-      const result = await this.interpreter.executeDiagnosticNode(
+      const checkpoint = await repositories.checkpoint.getLatestCheckpoint(
+        db,
+        execution.id
+      )
+      resolved = await resolveNode(
         mergedNode,
+        execution.environmentId ?? undefined,
+        readRecorded(
+          originalStep.attributes?.references,
+          originalStep.input,
+          earlierOutputs(graph, mergedNode.id, checkpoint?.context)
+        )
+      )
+      const result = await this.interpreter.executeDiagnosticNode(
+        resolved,
         originalStep.input,
         {
           workspaceId: execution.workspaceId,
@@ -309,10 +348,10 @@ export class ReplayService {
         costMicros: outcome.costMicros,
         tokensInput: outcome.tokensInput,
         tokensOutput: outcome.tokensOutput,
-        attributes:
-          outcome.costUnpriced !== undefined
-            ? { costUnpriced: outcome.costUnpriced }
-            : undefined,
+        attributes: buildStepAttributes({
+          costUnpriced: outcome.costUnpriced,
+          references: resolved?.references,
+        }),
       }
     )
   }

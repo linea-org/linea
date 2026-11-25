@@ -197,6 +197,100 @@ describe("ReplayService.replay", () => {
       ])
     }
   })
+  it("replays with the values the original step read, and records them again", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Test Org",
+        slug: `replay-test-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    try {
+      const execute = jest.fn().mockResolvedValue({ status: 200, body: {} })
+      const { execution, originalStep, replay } = await setUpExecutionWithStep(
+        organization.id,
+        {
+          httpNode: { execute },
+          nodeConfig: {
+            url: "https://example.com/{{steps.earlier.id}}/{{input.trigger}}",
+          },
+        }
+      )
+      await pool.query(
+        "UPDATE execution_steps SET attributes = $1 WHERE id = $2",
+        [
+          JSON.stringify({ references: { "steps.earlier.id": 7 } }),
+          originalStep.id,
+        ]
+      )
+      const replayStepId = randomUUID()
+      await replay.replay({
+        replayStepId,
+        originalStepId: originalStep.id,
+        overrideConfig: {},
+      })
+      expect(execute).toHaveBeenCalledWith(
+        { url: "https://example.com/7/original" },
+        originalStep.input,
+        expect.objectContaining({ diagnostic: true, carriesSecrets: false })
+      )
+      const result = await repositories.execution.getExecutionWithSteps(
+        db,
+        execution.id
+      )
+      expect(
+        result?.steps.find((step) => step.id === replayStepId)?.attributes
+      ).toEqual({ references: { "steps.earlier.id": 7 } })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
+  it("fails a replay whose reference was not recorded and has no earlier output", async () => {
+    const suffix = randomUUID()
+    const [organization] = await db
+      .insert(schema.organizations)
+      .values({
+        name: "Replay Test Org",
+        slug: `replay-test-${suffix}`,
+        createdAt: new Date(),
+      })
+      .returning()
+    try {
+      const execute = jest.fn()
+      const { execution, originalStep, replay } = await setUpExecutionWithStep(
+        organization.id,
+        {
+          httpNode: { execute },
+          nodeConfig: { url: "https://example.com/{{variables.id}}" },
+        }
+      )
+      const replayStepId = randomUUID()
+      await replay.replay({
+        replayStepId,
+        originalStepId: originalStep.id,
+        overrideConfig: {},
+      })
+      expect(execute).not.toHaveBeenCalled()
+      const result = await repositories.execution.getExecutionWithSteps(
+        db,
+        execution.id
+      )
+      expect(
+        result?.steps.find((step) => step.id === replayStepId)
+      ).toMatchObject({
+        status: "failed",
+        error: { message: '"{{variables.id}}" has no value' },
+      })
+    } finally {
+      await pool.query("DELETE FROM organizations WHERE id = $1", [
+        organization.id,
+      ])
+    }
+  })
   it("marks a replayed unpriced AI step as unpriced rather than silently free", async () => {
     const suffix = randomUUID()
     const [organization] = await db

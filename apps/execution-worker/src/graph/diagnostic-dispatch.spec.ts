@@ -1,6 +1,6 @@
 import "dotenv/config"
 import { pool } from "@linealabs/db"
-import type { NodeType } from "@linealabs/runtime"
+import type { NodeType, WorkflowNode } from "@linealabs/runtime"
 import type { CheckpointsService } from "../checkpoints/checkpoints.service"
 import { diagnosticDispatch } from "./diagnostic-dispatch"
 import { InterpreterService } from "./interpreter.service"
@@ -55,6 +55,12 @@ const spiedTypes = Object.keys(spies).filter(
   (type): type is keyof typeof spies & NodeType => type in diagnosticDispatch
 )
 
+const resolved = (node: WorkflowNode) => ({
+  node,
+  references: {},
+  carriesSecrets: false,
+})
+
 describe("InterpreterService.executeDiagnosticNode", () => {
   beforeEach(() => {
     for (const spy of Object.values(spies)) spy.execute.mockClear()
@@ -64,7 +70,7 @@ describe("InterpreterService.executeDiagnosticNode", () => {
     async (type) => {
       await expect(
         interpreter.executeDiagnosticNode(
-          { id: "n1", type, config: {} },
+          resolved({ id: "n1", type, config: {} }),
           {},
           { workspaceId: "ws-1", executionId: "exec-1", leasedBy: "worker-1" }
         )
@@ -76,7 +82,7 @@ describe("InterpreterService.executeDiagnosticNode", () => {
     "marks the %s handler's context as diagnostic",
     async (type) => {
       await interpreter.executeDiagnosticNode(
-        { id: "n1", type, config: {} },
+        resolved({ id: "n1", type, config: {} }),
         {},
         { workspaceId: "ws-1" }
       )

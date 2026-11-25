@@ -147,6 +147,38 @@ describe('WorkflowsService', () => {
     })
     await moduleRef.close()
   })
+  it('rejects a graph that refers to a step that does not run first', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers,
+    }).compile()
+    const service = moduleRef.get(WorkflowsService)
+    await withOrg(async (workspaceId) => {
+      const workflow = await service.create(workspaceId, {
+        applicationId: (
+          await repositories.application.createApplication(db, {
+            workspaceId,
+            name: 'Test application',
+            slug: randomUUID(),
+          })
+        ).id,
+        name: 'Unknown Step Workflow',
+        slug: `unknown-step-${randomUUID()}`,
+      })
+      const graph: WorkflowGraph = {
+        version: 1,
+        trigger: { type: 'manual' },
+        entryNodeId: 'n1',
+        nodes: [
+          { id: 'n1', type: 'ai', config: { prompt: '{{steps.n2.text}}' } },
+        ],
+        edges: [],
+      }
+      await expect(
+        service.createVersion(workspaceId, workflow.id, { graph }),
+      ).rejects.toThrow('names a step that does not run before it')
+    })
+    await moduleRef.close()
+  })
   it('creates and publishes a version, scoped to the owning workflow', async () => {
     const moduleRef = await Test.createTestingModule({
       providers,

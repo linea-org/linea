@@ -39,8 +39,9 @@ export const variablesNode: NodeDefinition<
         key: "entries",
         label: "Values to set",
         widget: "key-value",
+        references: { as: "value" },
         description:
-          "Merged into the existing workflow variables — keys not listed here are left untouched. Literal values only; chain a Transform node first to write a value from this node's input.",
+          "Merged into the existing workflow variables — keys not listed here are left untouched.",
         showIf: { key: "operation", equals: "set" },
       },
       {

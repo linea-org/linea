@@ -1,11 +1,5 @@
 import { Logger } from "@nestjs/common"
-import { providers, type ToolDefinition } from "@linealabs/ai"
-import {
-  db,
-  decryptSecret,
-  isEncryptedSecret,
-  repositories,
-} from "@linealabs/db"
+import type { ToolDefinition } from "@linealabs/ai"
 import { PermanentRequestError, requestPublic } from "@linealabs/http"
 import type { McpServerConfig } from "@linealabs/runtime"
 import {
@@ -15,6 +9,7 @@ import {
   type FetchLike,
   type Tool,
 } from "@modelcontextprotocol/client"
+import { loadSecret } from "../load-secret"
 import { NonRetryableError } from "./non-retryable-error"
 
 export type McpToolResult = { content: string } | { error: string }
@@ -77,33 +72,17 @@ async function resolveHeaders(
   server: McpServerConfig,
   environmentId: string
 ): Promise<Record<string, string>> {
-  const entries = Object.entries(server.headers)
-  for (const [, secretName] of entries) {
-    if (providers.some((provider) => provider.keyName === secretName)) {
-      throw new NonRetryableError(
-        `MCP server "${server.name}" can't be sent the model key "${secretName}"`
-      )
-    }
-  }
   const values = await Promise.all(
-    entries.map(async ([header, secretName]): Promise<[string, string]> => {
-      const secret = await repositories.secret.getSecret(
-        db,
-        environmentId,
-        secretName
-      )
-      if (!secret) {
-        throw new NonRetryableError(
-          `MCP server "${server.name}" needs the secret "${secretName}", which isn't set in this Environment`
-        )
-      }
-      if (!isEncryptedSecret(secret.encryptedValue)) {
-        throw new NonRetryableError(
-          `Stored secret "${secretName}" is not encrypted and can't be sent to an MCP server`
-        )
-      }
-      return [header, decryptSecret(secret.encryptedValue)]
-    })
+    Object.entries(server.headers).map(
+      async ([header, secretName]): Promise<[string, string]> => [
+        header,
+        await loadSecret(
+          environmentId,
+          secretName,
+          `MCP server "${server.name}"`
+        ),
+      ]
+    )
   )
   return Object.fromEntries(values)
 }

@@ -13,6 +13,7 @@ import {
 } from '@linealabs/db'
 import {
   assertNoReservedNodeIds,
+  assertValidReferences,
   hashWorkflowGraph,
   validateGraphStructure,
   workflowGraphSchema,
@@ -101,6 +102,7 @@ export class ExecutionsService {
     try {
       validateGraphStructure(input.graph)
       assertNoReservedNodeIds(input.graph)
+      assertValidReferences(input.graph)
     } catch (error) {
       if (error instanceof WorkflowGraphError) {
         throw new BadRequestException(error.message)
@@ -151,6 +153,7 @@ export class ExecutionsService {
     try {
       validateGraphStructure(input.graph)
       assertNoReservedNodeIds(input.graph)
+      assertValidReferences(input.graph)
     } catch (error) {
       if (error instanceof WorkflowGraphError) {
         throw new BadRequestException(error.message)

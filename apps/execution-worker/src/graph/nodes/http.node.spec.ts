@@ -32,7 +32,10 @@ describe("HttpNode", () => {
     expect(request).toHaveBeenCalledWith(
       "https://example.com",
       expect.objectContaining({
-        headers: { "Idempotency-Key": "exec-1:node-1" },
+        headers: {
+          "Idempotency-Key": "exec-1:node-1",
+          "Content-Type": "application/json",
+        },
         body: '{"foo":"bar"}',
         timeoutMs: 30_000,
         maxResponseBytes: 1_048_576,
@@ -58,9 +61,84 @@ describe("HttpNode", () => {
     expect(request).toHaveBeenCalledWith(
       "https://example.com",
       expect.objectContaining({
-        headers: { "idempotency-key": "user-supplied" },
+        headers: {
+          "idempotency-key": "user-supplied",
+          "Content-Type": "application/json",
+        },
       })
     )
+  })
+  it("sends the configured body instead of the input", async () => {
+    await new HttpNode().execute(
+      {
+        url: "https://example.com",
+        method: "POST",
+        headers: { "content-type": "text/plain" },
+        body: { a: 1 },
+      },
+      { foo: "bar" },
+      { workspaceId: "ws-1" }
+    )
+    expect(request).toHaveBeenCalledWith(
+      "https://example.com",
+      expect.objectContaining({
+        headers: { "content-type": "text/plain" },
+        body: '{"a":1}',
+      })
+    )
+  })
+  it.each([null, ""])(
+    "sends nothing, not the input, for a body that is %j",
+    async (body) => {
+      await new HttpNode().execute(
+        { url: "https://example.com", method: "POST", body },
+        { private: "note" },
+        { workspaceId: "ws-1" }
+      )
+      expect(request).toHaveBeenCalledWith(
+        "https://example.com",
+        expect.objectContaining({ body: undefined })
+      )
+    }
+  )
+  it("sends no body with a GET", async () => {
+    await new HttpNode().execute(
+      { url: "https://example.com", method: "GET" },
+      { foo: "bar" },
+      { workspaceId: "ws-1" }
+    )
+    expect(request).toHaveBeenCalledWith(
+      "https://example.com",
+      expect.objectContaining({ headers: {}, body: undefined })
+    )
+  })
+  it("keeps a request that carries secrets on HTTPS and its own origin", async () => {
+    await new HttpNode().execute(
+      { url: "https://example.com", method: "GET" },
+      null,
+      { workspaceId: "ws-1", carriesSecrets: true }
+    )
+    expect(request).toHaveBeenCalledWith(
+      "https://example.com",
+      expect.objectContaining({
+        requireHttps: true,
+        redirectMode: "same-origin",
+      })
+    )
+  })
+  it("does not repeat a refused header value in its error", async () => {
+    await expect(
+      new HttpNode().execute(
+        {
+          url: "https://example.com",
+          method: "GET",
+          headers: { authorization: "s3cret\nline" },
+        },
+        null,
+        { workspaceId: "ws-1" }
+      )
+    ).rejects.toThrow('Header "authorization" must be a single line')
+    expect(request).not.toHaveBeenCalled()
   })
   it("omits a null body and forwards cancellation", async () => {
     const signal = new AbortController().signal
