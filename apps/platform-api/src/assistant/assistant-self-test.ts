@@ -7,7 +7,11 @@ import {
   type Execution,
   type ExecutionStep,
 } from '@linealabs/db'
-import { hashWorkflowGraph, type WorkflowGraph } from '@linealabs/runtime'
+import {
+  hashWorkflowGraph,
+  nodeReferences,
+  type WorkflowGraph,
+} from '@linealabs/runtime'
 import { validateAssistantGraph } from './assistant-graph'
 import { AssistantOutputError } from './assistant-output-error'
 import type { AssistantToolScope, ToolOutcome } from './assistant-tool-contract'
@@ -48,12 +52,19 @@ const MAX_WAIT_MS = 30_000
 const MAX_STEP_CHARS = 1_500
 const MAX_RESULT_CHARS = 12_000
 
-/** Refuses drafts whose run could change something outside Linea or outlive the chat turn. */
+/** Refuses drafts whose run could change something outside Linea, send a secret the user has not
+ * agreed to send, or outlive the chat turn. A web page can steer what Inky drafts. */
 function untestableReason(graph: WorkflowGraph): string | null {
   for (const node of graph.nodes) {
     if (node.type === 'wait') return `"${node.id}" is a wait node`
     if (node.type === 'ai' && !onlyReadTools(node.config.tools)) {
       return `"${node.id}" gives its model a tool that is not GET`
+    }
+    if (node.config.mcpServers !== undefined) {
+      return `"${node.id}" connects to an MCP server`
+    }
+    if (nodeReferences(node).some(({ root }) => root === 'secrets')) {
+      return `"${node.id}" sends a secret`
     }
     if (node.type === 'agent') return `"${node.id}" runs an Agent`
     const method = node.type === 'http' ? (node.config.method ?? 'GET') : 'GET'
