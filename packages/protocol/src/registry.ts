@@ -79,7 +79,6 @@ function freezeOperation(operation: OperationDefinition): void {
   Object.freeze(operation.request)
   Object.freeze(operation.response)
   Object.freeze(operation.errors)
-  if (metadata.adapter) Object.freeze(metadata.adapter)
   if (metadata.sdk) Object.freeze(metadata.sdk)
   Object.freeze(operation)
 }

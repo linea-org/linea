@@ -1,5 +1,4 @@
 import type {
-  OperationAdapter,
   OperationMetadata,
   OperationSdkCoverage,
 } from "./operations/operation-metadata"
@@ -17,10 +16,6 @@ const userCaller = "An End User's browser or native environment."
 const environmentCaller =
   "A trusted Operator backend acting for one Environment."
 const workspaceCaller = "A trusted Operator backend acting for one workspace."
-
-function adapter(source: string, handler: string): OperationAdapter {
-  return { source, handler }
-}
 
 function environmentSdk(method: string): OperationSdkCoverage {
   return {
@@ -54,10 +49,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/environment-connections.controller.ts",
-      "list"
-    ),
     sdk: {
       importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
@@ -72,10 +63,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/environment-connections.controller.ts",
-      "createGithubInstallation"
-    ),
     sdk: {
       importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
@@ -90,10 +77,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/environment-connections.controller.ts",
-      "authorities"
-    ),
     sdk: {
       importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
@@ -108,10 +91,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/environment-connections.controller.ts",
-      "grant"
-    ),
     sdk: {
       importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
@@ -126,10 +105,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/environment-connections.controller.ts",
-      "revokeGrant"
-    ),
     sdk: {
       importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
@@ -144,10 +119,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/environment-connections.controller.ts",
-      "assignReviewer"
-    ),
     sdk: {
       importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
@@ -162,10 +133,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/environment-connections.controller.ts",
-      "revokeReviewer"
-    ),
     sdk: {
       importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
@@ -180,10 +147,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/environment-connections.controller.ts",
-      "revoke"
-    ),
     sdk: {
       importPath: "@linealabs/sdk/server",
       client: "LineaConnectionAdminClient",
@@ -197,10 +160,6 @@ export const operationMetadata = {
     rateLimit: environmentKeyRead,
     pagination: cursorPagination,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/environment-connector-audit.controller.ts",
-      "list"
-    ),
     sdk: environmentSdk("listAuditEvents"),
   },
   listWorkspaceConnectorAuditEvents: {
@@ -210,10 +169,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: cursorPagination,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/workspace-connector-audit.controller.ts",
-      "list"
-    ),
     sdk: workspaceSdk("auditEvents.list"),
   },
   listEndUserConnectorAuditEvents: {
@@ -223,10 +178,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: cursorPagination,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-connector-audit.controller.ts",
-      "list"
-    ),
     sdk: userSdk("listAuditEvents"),
   },
   launchConnectionAuthorization: {
@@ -237,10 +188,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/connections.controller.ts",
-      "launchAuthorization"
-    ),
     sdk: userSdk("launchConnectionAuthorization"),
   },
   startConnectionAuthorization: {
@@ -250,10 +197,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/connections.controller.ts",
-      "startAuthorization"
-    ),
     sdk: userSdk("startConnectionAuthorization"),
   },
   getConnectionAuthorization: {
@@ -263,10 +206,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/connections.controller.ts",
-      "getAuthorization"
-    ),
     sdk: userSdk("getConnectionAuthorization"),
   },
   listConnections: {
@@ -276,10 +215,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: cursorPagination,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/connections.controller.ts",
-      "list"
-    ),
     sdk: userSdk("listConnections"),
   },
   getConnection: {
@@ -289,10 +224,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/connections.controller.ts",
-      "get"
-    ),
     sdk: userSdk("getConnection"),
   },
   startConnectionScopeUpgrade: {
@@ -303,10 +234,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/connections.controller.ts",
-      "startScopeUpgrade"
-    ),
     sdk: userSdk("startConnectionScopeUpgrade"),
   },
   listConnectionUses: {
@@ -316,10 +243,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: cursorPagination,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/connections.controller.ts",
-      "listUses"
-    ),
     sdk: userSdk("listConnectionUses"),
   },
   revokeConnection: {
@@ -329,10 +252,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/connections/connections.controller.ts",
-      "revoke"
-    ),
     sdk: userSdk("revokeConnection"),
   },
   startEndUserAuthorization: {
@@ -342,10 +261,6 @@ export const operationMetadata = {
     rateLimit: "30 requests per client IP each minute.",
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/end-user-authorization/end-user-authorization.controller.ts",
-      "start"
-    ),
     sdk: userSdk("startAuthorization"),
   },
   exchangeEndUserAuthorization: {
@@ -356,10 +271,6 @@ export const operationMetadata = {
     rateLimit: "60 requests per client IP each minute.",
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/end-user-authorization/end-user-authorization.controller.ts",
-      "exchange"
-    ),
     sdk: userSdk("completeAuthorization"),
   },
   createEndUserSession: {
@@ -370,10 +281,6 @@ export const operationMetadata = {
       "10 requests per client IP and 10 sessions per External Subject within an Environment each minute.",
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/end-user-sessions/end-user-sessions.controller.ts",
-      "create"
-    ),
     sdk: userSdk("completeAuthorization"),
   },
   revokeEndUserSession: {
@@ -383,10 +290,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/end-user-sessions/end-user-sessions.controller.ts",
-      "revoke"
-    ),
     sdk: userSdk("revoke"),
   },
   provisionEnvironmentSubject: {
@@ -396,10 +299,6 @@ export const operationMetadata = {
     rateLimit: environmentKeyWrite,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/environments/environment-external-subjects.controller.ts",
-      "provision"
-    ),
     sdk: environmentSdk("provisionSubject"),
   },
   createEnvironmentConversation: {
@@ -411,10 +310,6 @@ export const operationMetadata = {
     rateLimit: environmentKeyWrite,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/environment-conversations.controller.ts",
-      "create"
-    ),
     sdk: environmentSdk("createConversation"),
   },
   listEnvironmentConversations: {
@@ -424,10 +319,6 @@ export const operationMetadata = {
     rateLimit: environmentKeyRead,
     pagination: cursorPagination,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/environment-conversations.controller.ts",
-      "list"
-    ),
     sdk: environmentSdk("listConversations"),
   },
   getEnvironmentConversation: {
@@ -437,10 +328,6 @@ export const operationMetadata = {
     rateLimit: environmentKeyRead,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/environment-conversations.controller.ts",
-      "get"
-    ),
     sdk: environmentSdk("getConversation"),
   },
   startEnvironmentExecution: {
@@ -451,10 +338,6 @@ export const operationMetadata = {
     rateLimit: environmentKeyWrite,
     pagination: none,
     events: "May emit execution and approval events and configured webhooks.",
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/environment-executions.controller.ts",
-      "start"
-    ),
     sdk: environmentSdk("startExecution"),
   },
   getEnvironmentExecution: {
@@ -464,10 +347,6 @@ export const operationMetadata = {
     rateLimit: environmentKeyRead,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/environment-executions.controller.ts",
-      "get"
-    ),
     sdk: environmentSdk("getExecution"),
   },
   cancelEnvironmentExecution: {
@@ -479,10 +358,6 @@ export const operationMetadata = {
     pagination: none,
     events:
       "May emit execution and approval cancellation events and configured webhooks.",
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/environment-executions.controller.ts",
-      "cancel"
-    ),
     sdk: environmentSdk("cancelExecution"),
   },
   createEndUserConversation: {
@@ -493,10 +368,6 @@ export const operationMetadata = {
     rateLimit: "20 Conversations per External Subject each minute.",
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
-      "createConversation"
-    ),
     sdk: userSdk("createConversation"),
   },
   listEndUserConversations: {
@@ -506,10 +377,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: cursorPagination,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
-      "listConversations"
-    ),
     sdk: userSdk("listConversations"),
   },
   getEndUserConversation: {
@@ -519,10 +386,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
-      "getConversation"
-    ),
     sdk: userSdk("getConversation"),
   },
   createEndUserMessage: {
@@ -533,10 +396,6 @@ export const operationMetadata = {
     rateLimit: "60 messages per End-User Session each minute.",
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
-      "createMessage"
-    ),
     sdk: userSdk("sendMessage"),
   },
   listEndUserMessages: {
@@ -546,10 +405,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: cursorPagination,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
-      "listMessages"
-    ),
     sdk: userSdk("listMessages"),
   },
   startEndUserExecution: {
@@ -560,10 +415,6 @@ export const operationMetadata = {
     rateLimit: "10 Executions per External Subject each minute.",
     pagination: none,
     events: "May emit execution and approval events and configured webhooks.",
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
-      "startExecution"
-    ),
     sdk: userSdk("startExecution"),
   },
   getEndUserExecution: {
@@ -573,10 +424,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
-      "getExecution"
-    ),
     sdk: userSdk("getExecution"),
   },
   listEndUserApprovalRequests: {
@@ -586,10 +433,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: cursorPagination,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
-      "listApprovalRequests"
-    ),
     sdk: userSdk("listApprovalRequests"),
   },
   getEndUserApprovalRequest: {
@@ -599,10 +442,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
-      "getApprovalRequest"
-    ),
     sdk: userSdk("getApprovalRequest"),
   },
   decideEndUserApprovalRequest: {
@@ -613,10 +452,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: "Emits approval_request.decided and its configured webhook.",
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
-      "decideApprovalRequest"
-    ),
     sdk: userSdk("decide"),
   },
   listPendingActionIntents: {
@@ -626,10 +461,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: cursorPagination,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
-      "listPendingActionIntents"
-    ),
     sdk: userSdk("listPendingActionIntents"),
   },
   streamEndUserEvents: {
@@ -642,10 +473,6 @@ export const operationMetadata = {
       "Resume with Last-Event-ID; an expired cursor returns event_cursor_expired.",
     events:
       "Streams the event types selected by the eventType query parameter.",
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/end-user-runtime.controller.ts",
-      "streamEvents"
-    ),
     sdk: userSdk("streamEvents"),
   },
   listWebhookDeliveries: {
@@ -655,10 +482,6 @@ export const operationMetadata = {
     rateLimit: environmentKeyRead,
     pagination: cursorPagination,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/public-runtime/webhook-deliveries.controller.ts",
-      "list"
-    ),
     sdk: environmentSdk("listWebhookDeliveries"),
   },
   listRegressionCases: {
@@ -668,10 +491,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/regressions/regression-cases.controller.ts",
-      "list"
-    ),
     sdk: workspaceSdk("regressions.listCases"),
   },
   createRegressionCaseFromStep: {
@@ -681,10 +500,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/regressions/regression-cases.controller.ts",
-      "createFromStep"
-    ),
     sdk: {
       reason:
         "Regression writes require an administrator session; workspace API keys cannot call them.",
@@ -697,10 +512,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/regressions/regression-cases.controller.ts",
-      "createFromFlag"
-    ),
     sdk: {
       reason:
         "Regression writes require an administrator session; workspace API keys cannot call them.",
@@ -713,10 +524,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/regressions/regression-cases.controller.ts",
-      "archive"
-    ),
     sdk: {
       reason:
         "Regression writes require an administrator session; workspace API keys cannot call them.",
@@ -729,10 +536,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: "Bounded by the limit query parameter; no continuation cursor.",
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/regressions/regression-runs.controller.ts",
-      "list"
-    ),
     sdk: workspaceSdk("regressions.listRuns"),
   },
   triggerRegressionRun: {
@@ -742,10 +545,6 @@ export const operationMetadata = {
     rateLimit: "10 requests per caller and 30 per workspace each minute.",
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/regressions/regression-runs.controller.ts",
-      "trigger"
-    ),
     sdk: {
       reason:
         "Regression writes require an administrator session; workspace API keys cannot call them.",
@@ -758,10 +557,6 @@ export const operationMetadata = {
     rateLimit: platformProtection,
     pagination: none,
     events: none,
-    adapter: adapter(
-      "apps/platform-api/src/regressions/regression-runs.controller.ts",
-      "get"
-    ),
     sdk: workspaceSdk("regressions.getRun"),
   },
 } as const satisfies Record<string, OperationMetadata>

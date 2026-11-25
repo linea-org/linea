@@ -12,7 +12,7 @@ npm install @linealabs/sdk
 ```
 
 Every client talks to `https://api.getlinea.app` unless you pass `baseUrl`.
-Set it to reach a local or self-hosted API. It must use `https`; plain `http`
+Set it to reach another API, such as a local one. It must use `https`; plain `http`
 is accepted only for `localhost`, so keys and session proofs never travel
 unencrypted.
 

@@ -5,32 +5,14 @@
   "license": "Apache-2.0",
   "scripts": {
     "build": "turbo build",
-    "dev": "turbo dev",
     "lint": "turbo lint",
-    "format": "turbo format",
     "format:check": "prettier --check .",
-    "generate:contracts": "pnpm --filter @linealabs/protocol build && node packages/protocol/scripts/generate-public-contracts.mjs",
-    "check:contracts": "pnpm --filter @linealabs/protocol build && node packages/protocol/scripts/generate-public-contracts.mjs --check",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "test:launch": "node scripts/first-launch-gate.mjs",
-    "test:connections-launch": "node scripts/connections-launch-gate.mjs",
-    "test:connections-launch:ci": "node scripts/connections-launch-gate.mjs --ci",
-    "db:up": "pnpm --filter @linealabs/db db:up",
-    "db:down": "pnpm --filter @linealabs/db db:down",
-    "db:logs": "pnpm --filter @linealabs/db db:logs",
-    "db:generate": "pnpm --filter @linealabs/db db:generate",
-    "db:migrate": "pnpm --filter @linealabs/db db:migrate",
-    "db:studio": "pnpm --filter @linealabs/db db:studio",
-    "queue:up": "pnpm --filter @linealabs/queue queue:up",
-    "queue:down": "pnpm --filter @linealabs/queue queue:down",
-    "queue:logs": "pnpm --filter @linealabs/queue queue:logs",
-    "demo": "pnpm --filter @linealabs/platform-api demo"
+    "test:pack": "pnpm --filter @linealabs/sdk --filter @linealabs/sdk-react test:pack"
   },
   "devDependencies": {
-    "dotenv": "18.0.10",
     "prettier": "^3.10.1",
-    "prettier-plugin-tailwindcss": "^0.8.1",
     "turbo": "^2.11.12",
     "typescript": "^6"
   },
@@ -39,11 +21,6 @@
     "node": "24.22.1"
   },
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "lightningcss",
-      "re2"
-    ],
     "overrides": {
       "@better-auth/expo>expo-constants": "-",
       "@better-auth/expo>expo-linking": "-",

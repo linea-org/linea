@@ -1,38 +1,10 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "stream",
-  "globalDependencies": [
-    "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-    "tsconfig.json",
-    ".prettierrc",
-    ".nvmrc",
-    ".github/workflows/ci.yml"
-  ],
   "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**", ".next/**", ".output/**"]
-    },
-    "lint": {
-      "dependsOn": ["^build", "^lint"]
-    },
-    "format": {
-      "dependsOn": ["^format"]
-    },
-    "typecheck": {
-      "dependsOn": ["^build", "^typecheck"]
-    },
-    "test": {
-      "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "REDIS_URL"]
-    },
-    "dev": {
-      "dependsOn": ["^build"],
-      "cache": false,
-      "persistent": true
-    }
+    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "lint": { "dependsOn": ["^build"] },
+    "typecheck": { "dependsOn": ["^build"] },
+    "test": { "dependsOn": ["^build"] }
   }
 }

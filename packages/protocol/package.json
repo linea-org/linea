@@ -12,12 +12,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "ajv": "8.20.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@linealabs/config": "workspace:*",
-    "@types/node": "26",
     "esbuild": "0.28.2",
     "eslint": "^9",
     "tsup": "^8.5.0",
@@ -59,15 +57,11 @@
       "types": "./dist/webhooks.d.ts",
       "import": "./dist/webhooks.js",
       "require": "./dist/webhooks.cjs"
-    },
-    "./json-schema": {
-      "types": "./dist/json-schema.d.ts",
-      "import": "./dist/json-schema.js",
-      "require": "./dist/json-schema.cjs"
     }
   },
   "files": [
     "dist",
     "src"
-  ]
+  ],
+  "license": "Apache-2.0"
 }
