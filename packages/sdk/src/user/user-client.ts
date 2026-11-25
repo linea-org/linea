@@ -1,4 +1,5 @@
 import { openConnectionAuthorization } from "./open-connection-authorization.js"
+import type { z } from "zod"
 import type { PublicErrorCode } from "@linealabs/protocol/errors"
 import type {
   EventEnvelope,
@@ -92,7 +93,7 @@ import {
 const DEFAULT_RECONNECT_DELAY_MS = 1_000
 
 type QueryValue = string | number | readonly string[] | undefined
-type ResponseSchema<T> = { parse(value: unknown): T }
+type ResponseSchema<T> = z.ZodType<T>
 type SessionRequest = {
   method: string
   path: string

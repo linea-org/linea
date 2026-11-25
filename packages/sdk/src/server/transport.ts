@@ -1,10 +1,12 @@
 import { publicErrorResponseSchema } from "@linealabs/protocol/errors"
 import type { OperationDefinition } from "@linealabs/protocol/operations"
+import type { z } from "zod"
 import {
   LineaApiError,
   LineaNetworkError,
   LineaProtocolError,
 } from "../http/errors.js"
+import { parseResponse, safeParseResponse } from "../http/parse-response.js"
 
 type QueryValue = string | number | boolean | undefined
 
@@ -17,7 +19,7 @@ type OperationCall = {
 
 type ParseableOperation<TResponse> = Omit<OperationDefinition, "response"> & {
   readonly response: Omit<OperationDefinition["response"], "body"> & {
-    readonly body: { parse(input: unknown): TResponse }
+    readonly body: z.ZodType<TResponse>
   }
 }
 
@@ -71,7 +73,7 @@ function wait(milliseconds: number): Promise<void> {
 }
 
 function readableError(body: unknown, fallback: string): string {
-  const parsed = publicErrorResponseSchema.safeParse(body)
+  const parsed = safeParseResponse(publicErrorResponseSchema, body)
   if (parsed.success) return parsed.data.error.message
   if (body && typeof body === "object" && "message" in body) {
     const message = body.message
@@ -129,7 +131,7 @@ function apiError(
   endpoint: string,
   body: unknown
 ): LineaApiError {
-  const parsed = publicErrorResponseSchema.safeParse(body)
+  const parsed = safeParseResponse(publicErrorResponseSchema, body)
   return new LineaApiError({
     status: response.status,
     endpoint,
@@ -209,7 +211,7 @@ export class ServerTransport {
         })
       }
       try {
-        return operation.response.body.parse(responseBody)
+        return parseResponse(operation.response.body, responseBody)
       } catch (cause) {
         throw new LineaProtocolError({ endpoint, cause })
       }

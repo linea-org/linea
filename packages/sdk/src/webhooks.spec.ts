@@ -134,6 +134,20 @@ describe("verifyWebhook", () => {
       envelope,
     })
   })
+  it("ignores fields that a newer API adds to the envelope", () => {
+    const body = Buffer.from(
+      JSON.stringify({
+        ...envelope,
+        attempt: 2,
+        data: { ...envelope.data, workflowId: "added" },
+      })
+    )
+    expect(verifyWebhook(input(body))).toEqual({
+      valid: true,
+      secret: "current",
+      envelope,
+    })
+  })
   it("gives receivers a stable verified event ID for retry deduplication", () => {
     const body = Buffer.from(JSON.stringify(envelope))
     const handled = new Set<string>()

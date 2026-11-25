@@ -429,6 +429,36 @@ describe("browser end-user client", () => {
     expect(remove).toHaveBeenCalledWith("native-key-0")
     expect(remove).not.toHaveBeenCalledWith("native-key-1")
   })
+  it("ignores fields that a newer API adds to responses and errors", async () => {
+    let status = 200
+    const { client } = await authenticatedClient(() =>
+      status === 200
+        ? jsonResponse({
+            data: [],
+            nextCursor: null,
+            total: 0,
+          })
+        : jsonResponse(
+            {
+              error: {
+                code: "resource_not_found",
+                message: "Conversation not found",
+                helpUrl: "https://example.com",
+              },
+            },
+            status
+          )
+    )
+    await expect(client.listConversations()).resolves.toEqual({
+      data: [],
+      nextCursor: null,
+    })
+    status = 404
+    await expect(client.listConversations()).rejects.toMatchObject({
+      code: "resource_not_found",
+      message: "Conversation not found",
+    })
+  })
   it("rejects malformed errors without exposing untrusted response fields", async () => {
     const { client } = await authenticatedClient(() =>
       jsonResponse(
@@ -439,6 +469,24 @@ describe("browser end-user client", () => {
     await expect(client.listConversations()).rejects.toBeInstanceOf(
       LineaUserProtocolError
     )
+  })
+  it("ignores fields that a newer API adds to an event", async () => {
+    const { client } = await authenticatedClient(
+      () =>
+        new Response(
+          event("event_1").replace('"version":1', '"version":1,"trace":"t1"'),
+          { headers: { "content-type": "text/event-stream" } }
+        )
+    )
+    const events = client.streamEvents()
+    await events.next()
+    const received = await events.next()
+    expect(received.value).toMatchObject({
+      kind: "event",
+      event: { id: "event_1" },
+    })
+    expect(JSON.stringify(received)).not.toContain("t1")
+    await events.return(undefined)
   })
   it("reconnects with Last-Event-ID and fresh DPoP proof", async () => {
     const eventHeaders: Record<string, string>[] = []

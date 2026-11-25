@@ -211,6 +211,39 @@ describe("server SDK public HTTP contract", () => {
     expect(error).toMatchObject({ status: 409, code: "idempotency_conflict" })
     expect(attempts).toBe(1)
   })
+  it("ignores fields that a newer API adds to responses and errors", async () => {
+    let status = 200
+    const server = await testServer((_request, response) =>
+      status === 200
+        ? json(response, { ...execution(), addedLater: { nested: true } })
+        : json(
+            response,
+            {
+              error: {
+                code: "resource_not_found",
+                message: "Execution not found",
+                helpUrl: "https://example.com",
+              },
+              requestId: "r1",
+            },
+            status
+          )
+    )
+    const client = new LineaEnvironmentClient({
+      environmentId: "00000000-0000-4000-8000-000000000002",
+      environmentKey: environmentKey("lin_env_secret"),
+      baseUrl: server.baseUrl,
+    })
+    await expect(client.getExecution(execution().id)).resolves.toEqual(
+      execution()
+    )
+    status = 404
+    await expect(client.getExecution(execution().id)).rejects.toMatchObject({
+      status: 404,
+      code: "resource_not_found",
+      message: "Execution not found",
+    })
+  })
   it("uses the workspace key for Signal and Regression operations", async () => {
     const server = await testServer((request, response) => {
       if (request.url === "/v1/signals") json(response, [])

@@ -1,4 +1,5 @@
 import { connectionBrowserMessageSchema } from "@linealabs/protocol/resources"
+import { safeParseResponse } from "../http/parse-response.js"
 import type {
   ConnectionAuthorizationResponse,
   LaunchConnectionAuthorization,
@@ -27,7 +28,10 @@ export function openConnectionAuthorization(
     }
     const receive = (event: MessageEvent<unknown>) => {
       if (event.source !== popup || event.origin !== origin) return
-      const parsed = connectionBrowserMessageSchema.safeParse(event.data)
+      const parsed = safeParseResponse(
+        connectionBrowserMessageSchema,
+        event.data
+      )
       if (
         !parsed.success ||
         parsed.data.authorizationId !== authorization.authorizationId
