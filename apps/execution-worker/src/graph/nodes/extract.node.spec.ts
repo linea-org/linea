@@ -102,6 +102,38 @@ describe("ExtractNode", () => {
     expect(complete).not.toHaveBeenCalled()
   })
 
+  const nested: Record<string, unknown> = { d40: { type: "string" } }
+  for (let index = 0; index < 40; index++) {
+    const next = { $ref: `#/$defs/d${index + 1}` }
+    nested[`d${index}`] = { allOf: [next, next] }
+  }
+
+  it.each([
+    ["a slow pattern", { type: "string", pattern: "^(a+)+$" }, {}],
+    ["nested references", { $ref: "#/$defs/d0" }, nested],
+  ])("stops a check made slow by %s", async (_name, product, $defs) => {
+    complete.mockResolvedValue({
+      text: "",
+      tokensInput: 12,
+      tokensOutput: 4,
+      toolCalls: [
+        {
+          id: "call-1",
+          name: "report_extraction",
+          arguments: { product: "a".repeat(60) + "!" },
+        },
+      ],
+    })
+    const schema = { type: "object", properties: { product }, $defs }
+    const run = new ExtractNode().execute(
+      { ...config, schema },
+      { body: "text" },
+      { workspaceId: "ws-1" }
+    )
+    await expect(run).rejects.toThrow("was stopped")
+    await expect(run).rejects.toMatchObject({ tokensInput: 12 })
+  })
+
   it("preserves paid usage when the model returns data outside the schema", async () => {
     complete.mockResolvedValue({
       text: "",

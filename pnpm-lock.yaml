@@ -342,6 +342,9 @@ importers:
       jose-v5:
         specifier: npm:jose@5.10.0
         version: jose@5.10.0
+      re2:
+        specifier: 1.27.1
+        version: 1.27.1
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2

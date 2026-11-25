@@ -250,7 +250,7 @@ export class EvaluatorNode implements NodeHandler {
         continue
       }
       try {
-        metrics.push(evaluateRuleMetric(sample, metric))
+        metrics.push(await evaluateRuleMetric(sample, metric))
       } catch (error) {
         throw new NonRetryableError(
           `Evaluator node metric "${metric.name}" failed: ${error instanceof Error ? error.message : String(error)}`,

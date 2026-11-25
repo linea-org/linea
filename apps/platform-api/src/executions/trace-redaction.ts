@@ -1,3 +1,5 @@
+import RE2 from 're2'
+
 export const REDACTED = '[redacted]'
 
 /** Environment secret values to replace wherever they appear, keyed by secret name. */
@@ -9,12 +11,12 @@ const MIN_SECRET_LENGTH = 8
 const credentialKey =
   /(^|_)(authorization|cookie|password|passwd|secret|token|api_?key|private_?key|credential)s?$/
 
-const credentialPatterns: [RegExp, string][] = [
+const credentials: [RegExp, string][] = [
   [
     /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
     REDACTED,
   ],
-  [/\b(Bearer|Basic)\s+[a-z0-9._~+/=-]{8,}/gi, `$1 ${REDACTED}`],
+  [/\b(Bearer|Basic)[\s\p{Z}]+[a-z0-9._~+/=-]{8,}/giu, `$1 ${REDACTED}`],
   [/(:\/\/)[^\s/:@]+:[^\s/@]+@/g, `$1${REDACTED}@`],
   [/\beyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{8,}/g, REDACTED],
   [/\b(sk|gsk|xai)-[\w-]{20,}/g, REDACTED],
@@ -23,6 +25,11 @@ const credentialPatterns: [RegExp, string][] = [
   [/\bxox[abprs]-[\w-]{10,}/g, REDACTED],
   [/\bAKIA[0-9A-Z]{16}\b/g, REDACTED],
 ]
+
+// RE2, because anyone can choose the text a run page matches, and the time must stay linear.
+const credentialPatterns = credentials.map(
+  ([pattern, replacement]): [RE2, string] => [new RE2(pattern), replacement],
+)
 
 function isCredentialKey(key: string) {
   const normalized = key

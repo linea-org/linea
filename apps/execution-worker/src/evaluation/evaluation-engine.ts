@@ -7,6 +7,7 @@ import {
 } from "@linealabs/runtime"
 import type { AiProvider, ToolDefinition } from "@linealabs/ai"
 import { getPath } from "../graph/nodes/dot-path"
+import { withTimeLimit } from "./time-limit"
 
 export type EvaluationSample = {
   input?: unknown
@@ -117,10 +118,10 @@ function textValue(value: unknown): string {
   return serialized
 }
 
-export function evaluateRuleMetric(
+export async function evaluateRuleMetric(
   sample: EvaluationSample,
   metric: RuleMetric
-): EvaluationMetricResult {
+): Promise<EvaluationMetricResult> {
   const text = textValue(sample.actualOutput)
   if (metric.type === "regex" && !isSafeEvaluationRegex(metric.pattern)) {
     throw new Error("Evaluator regex is unsafe")
@@ -135,7 +136,9 @@ export function evaluateRuleMetric(
       ? text.includes(metric.value)
       : metric.type === "not_contains"
         ? !text.includes(metric.value)
-        : new RegExp(metric.pattern, metric.flags).test(text)
+        : await withTimeLimit(() =>
+            new RegExp(metric.pattern, metric.flags).test(text)
+          )
   const reason =
     metric.type === "contains"
       ? `Actual output ${matched ? "contains" : "does not contain"} "${metric.value}".`

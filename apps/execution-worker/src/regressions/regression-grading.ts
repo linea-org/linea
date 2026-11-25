@@ -37,27 +37,31 @@ function stringTarget(
   }
 }
 
-function evaluateContains(
+async function evaluateContains(
   text: string,
   config: Record<string, unknown>,
   negate: boolean
-): boolean {
+): Promise<boolean> {
   const type = negate ? "not_contains" : "contains"
   const sample: EvaluationSample = { actualOutput: text }
-  return evaluateRuleMetric(sample, {
+  const result = await evaluateRuleMetric(sample, {
     id: type,
     revision: 1,
     name: type,
     type,
     value: typeof config.value === "string" ? config.value : "",
-  }).passed
+  })
+  return result.passed
 }
 
-function evaluateRegex(text: string, config: Record<string, unknown>): boolean {
+async function evaluateRegex(
+  text: string,
+  config: Record<string, unknown>
+): Promise<boolean> {
   const pattern = typeof config.pattern === "string" ? config.pattern : ""
   const flags = typeof config.flags === "string" ? config.flags : undefined
   try {
-    return evaluateRuleMetric(
+    const result = await evaluateRuleMetric(
       { actualOutput: text },
       {
         id: "regex",
@@ -67,9 +71,10 @@ function evaluateRegex(text: string, config: Record<string, unknown>): boolean {
         pattern,
         flags,
       }
-    ).passed
+    )
+    return result.passed
   } catch {
-    // Malformed patterns are failed assertions rather than successful non-matches.
+    // Malformed or too slow patterns are failed assertions rather than successful non-matches.
     return false
   }
 }
@@ -212,13 +217,13 @@ export async function evaluateAssertion(
   let passed: boolean
   switch (assertion.type) {
     case "contains":
-      passed = evaluateContains(text, assertion.config, false)
+      passed = await evaluateContains(text, assertion.config, false)
       break
     case "not_contains":
-      passed = evaluateContains(text, assertion.config, true)
+      passed = await evaluateContains(text, assertion.config, true)
       break
     case "regex":
-      passed = evaluateRegex(text, assertion.config)
+      passed = await evaluateRegex(text, assertion.config)
       break
     default:
       return {
