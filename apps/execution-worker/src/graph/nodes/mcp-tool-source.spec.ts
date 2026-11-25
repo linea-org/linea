@@ -313,6 +313,7 @@ describe("AiNode with MCP servers", () => {
         )
       ).rejects.toThrow("MCP tools are paused")
       expect(complete).not.toHaveBeenCalled()
+      expect(fixture.requests).toEqual([])
     } finally {
       paused.clear()
     }
