@@ -2,6 +2,7 @@ import {
   eventEnvelopeSchema,
   type EventEnvelope,
 } from "@linealabs/protocol/events"
+import { parseResponse } from "../http/parse-response.js"
 import { LineaUserNetworkError, LineaUserProtocolError } from "./errors.js"
 
 type EventBlock = { id: string | undefined; data: string[] }
@@ -24,7 +25,8 @@ function parseBlock(
   for (const line of block.split(/\r?\n/)) addEventLine(parsedBlock, line)
   if (parsedBlock.data.length === 0) return undefined
   try {
-    const event = eventEnvelopeSchema.parse(
+    const event = parseResponse(
+      eventEnvelopeSchema,
       JSON.parse(parsedBlock.data.join("\n"))
     )
     if (parsedBlock.id !== undefined && parsedBlock.id !== event.id) {

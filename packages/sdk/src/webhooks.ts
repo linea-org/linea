@@ -4,6 +4,7 @@ import {
   webhookEnvelopeSchema,
   type WebhookEnvelope,
 } from "@linealabs/protocol/webhooks"
+import { safeParseResponse } from "./http/parse-response.js"
 
 export type VerifyWebhookSignatureInput = {
   body: Uint8Array
@@ -121,7 +122,7 @@ export function verifyWebhook(
   } catch {
     return { valid: false, reason: "body_invalid" }
   }
-  const envelope = webhookEnvelopeSchema.safeParse(body)
+  const envelope = safeParseResponse(webhookEnvelopeSchema, body)
   if (!envelope.success) return { valid: false, reason: "body_invalid" }
   if (envelope.data.id !== input.eventId) {
     return { valid: false, reason: "event_id_mismatch" }

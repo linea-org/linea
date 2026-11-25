@@ -2,13 +2,13 @@ import {
   publicErrorResponseSchema,
   type PublicErrorCode,
 } from "@linealabs/protocol/errors"
+import type { z } from "zod"
+import { parseResponse, safeParseResponse } from "../http/parse-response.js"
 import {
   LineaUserApiError,
   LineaUserNetworkError,
   LineaUserProtocolError,
 } from "./errors.js"
-
-type Schema<T> = { parse(value: unknown): T }
 
 async function readText(response: Response, endpoint: string): Promise<string> {
   try {
@@ -29,7 +29,7 @@ export async function parseErrorResponse(
   } catch (cause) {
     throw new LineaUserProtocolError(endpoint, cause)
   }
-  const parsed = publicErrorResponseSchema.safeParse(body)
+  const parsed = safeParseResponse(publicErrorResponseSchema, body)
   if (!parsed.success) throw new LineaUserProtocolError(endpoint, parsed.error)
   const retryAfterHeader = response.headers.get("retry-after")
   const retryAfter = retryAfterHeader
@@ -62,7 +62,7 @@ export async function fetchResponse(
 export async function parseJsonResponse<T>(
   response: Response,
   endpoint: string,
-  schema: Schema<T>
+  schema: z.ZodType<T>
 ): Promise<T> {
   if (!response.ok) throw await parseErrorResponse(response, endpoint)
   const text = await readText(response, endpoint)
@@ -73,7 +73,7 @@ export async function parseJsonResponse<T>(
     throw new LineaUserProtocolError(endpoint, cause)
   }
   try {
-    return schema.parse(body)
+    return parseResponse(schema, body)
   } catch (cause) {
     throw new LineaUserProtocolError(endpoint, cause)
   }
