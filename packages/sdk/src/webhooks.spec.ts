@@ -148,6 +148,25 @@ describe("verifyWebhook", () => {
       envelope,
     })
   })
+  it("accepts an event type it does not know, without its data", () => {
+    const body = Buffer.from(
+      JSON.stringify({ ...envelope, type: "execution.archived", data: {} })
+    )
+    expect(verifyWebhook(input(body))).toEqual({
+      valid: true,
+      secret: "current",
+      envelope: null,
+    })
+    expect(verifyWebhook(input(body, "event-2"))).toEqual({
+      valid: false,
+      reason: "event_id_mismatch",
+    })
+    const unsigned = { ...input(body), signature: `v1=${"0".repeat(64)}` }
+    expect(verifyWebhook(unsigned)).toEqual({
+      valid: false,
+      reason: "signature_invalid",
+    })
+  })
   it("gives receivers a stable verified event ID for retry deduplication", () => {
     const body = Buffer.from(JSON.stringify(envelope))
     const handled = new Set<string>()
@@ -156,7 +175,8 @@ describe("verifyWebhook", () => {
       verifyWebhook(input(body)),
       verifyWebhook(input(body)),
     ]) {
-      if (!delivery.valid || handled.has(delivery.envelope.id)) continue
+      if (!delivery.valid || !delivery.envelope) continue
+      if (handled.has(delivery.envelope.id)) continue
       handled.add(delivery.envelope.id)
       effects += 1
     }

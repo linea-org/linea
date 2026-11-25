@@ -6,6 +6,7 @@ export {
 export { environmentKey, type EnvironmentKey } from "./credentials.js"
 export { Linea, type LineaOptions } from "../linea.js"
 export type { WaitOptions } from "../wait-until-finished.js"
+export type { WebhookDelivery } from "../events/received-webhook.js"
 export type {
   OperatorConnectorAuditEvent,
   WorkspaceConnectorAuditQuery,

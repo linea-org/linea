@@ -22,11 +22,23 @@ import type {
   PaginatedResponse,
   PaginationQuery,
 } from "@linealabs/protocol/shared"
-import type { WebhookDelivery } from "@linealabs/protocol/webhooks"
+import { paginatedResponseSchema } from "@linealabs/protocol/shared"
+import {
+  receivedDeliverySchema,
+  type WebhookDelivery,
+} from "../events/received-webhook.js"
 import { resolveBaseUrl } from "../http/base-url.js"
 import { waitUntilFinished, type WaitOptions } from "../wait-until-finished.js"
 import type { EnvironmentKey } from "./credentials.js"
 import { ServerTransport } from "./transport.js"
+
+const listReceivedDeliveries = {
+  ...listWebhookDeliveriesOperation,
+  response: {
+    ...listWebhookDeliveriesOperation.response,
+    body: paginatedResponseSchema(receivedDeliverySchema),
+  },
+}
 
 export type LineaEnvironmentClientOptions = {
   environmentId: string
@@ -131,7 +143,7 @@ export class LineaEnvironmentClient {
   listWebhookDeliveries(
     query: Partial<PaginationQuery> = {}
   ): Promise<PaginatedResponse<WebhookDelivery>> {
-    return this.transport.execute(listWebhookDeliveriesOperation, {
+    return this.transport.execute(listReceivedDeliveries, {
       path: { environmentId: this.environmentId },
       query,
     })
