@@ -6,6 +6,7 @@ import { NestFactory } from '@nestjs/core'
 import type { NestExpressApplication } from '@nestjs/platform-express'
 import { IoAdapter } from '@nestjs/platform-socket.io'
 import { enabledSocialProviders } from '@linealabs/auth'
+import { assertFlagsExist } from '@linealabs/flags'
 import { AppModule } from './app.module'
 import { API_PREFIX } from './common/api-prefix'
 import { configureAuthClientIp } from './common/auth-client-ip'
@@ -17,6 +18,7 @@ import {
 } from './common/trusted-origin'
 
 async function bootstrap() {
+  await assertFlagsExist()
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   })
