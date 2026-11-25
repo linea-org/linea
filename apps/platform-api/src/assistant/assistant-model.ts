@@ -13,6 +13,7 @@ import { db, repositories } from '@linealabs/db'
 import {
   AssistantModelUnavailableError,
   describeProviderFailure,
+  isRefusedToolCall,
   providerStatus,
 } from './assistant-model-error'
 import { buildModelCatalog } from '../model-settings/model-catalog'
@@ -46,9 +47,11 @@ export class AssistantModel {
         environmentId,
         keyName: resolveKeyName(model),
       })
-      const result = await resolveProvider(model).complete(apiKey, {
-        ...request,
-        model,
+      const provider = resolveProvider(model)
+      const ask = () => provider.complete(apiKey, { ...request, model })
+      const result = await ask().catch((error: unknown) => {
+        if (isRefusedToolCall(error)) return ask()
+        throw error
       })
       if (source === 'platform') {
         await repositories.assistantUsage.recordAssistantUsage(

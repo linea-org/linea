@@ -14,6 +14,7 @@ import {
   RECENT_RUNS_TOOL,
   RUN_TOOL,
 } from './assistant-run-inspector'
+import { ANSWER_TOOL } from './assistant-reply'
 import { AssistantSelfTest, TEST_TOOL } from './assistant-self-test'
 import type { AssistantToolScope, ToolOutcome } from './assistant-tool-contract'
 import { fetchPage, WEB_TOOL } from './assistant-web-fetch'
@@ -22,6 +23,7 @@ export function assistantTools(
   scope: Pick<AssistantToolScope, 'web' | 'workflowId' | 'mentions'>,
 ): ToolDefinition[] {
   return [
+    ANSWER_TOOL,
     EDIT_TOOL,
     TEST_TOOL,
     AGENTS_TOOL,
@@ -47,6 +49,12 @@ export class AssistantTools {
     if (!offered.includes(name)) {
       return {
         content: `The tool call was not valid. Available tools: ${offered.join(', ')}.`,
+        action: null,
+      }
+    }
+    if (name === ANSWER_TOOL.name) {
+      return {
+        content: 'Read the other results first, then answer on its own.',
         action: null,
       }
     }

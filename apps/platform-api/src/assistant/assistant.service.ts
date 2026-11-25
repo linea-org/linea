@@ -24,7 +24,11 @@ import {
   buildAssistantUserTurn,
   withAttachments,
 } from './assistant-prompt'
-import { parseAssistantReply } from './assistant-reply'
+import {
+  checkAssistantReply,
+  findAnswer,
+  parseAssistantReply,
+} from './assistant-reply'
 import type { AssistantMessageDto } from './dto/assistant-message.dto'
 
 const MAX_ATTEMPTS = 2
@@ -247,7 +251,8 @@ export class AssistantService {
     for (;;) {
       const result = await this.completeTurn(scope, input, history, prompt)
       prompt = undefined
-      if (result.toolCalls?.length) {
+      const answer = findAnswer(result.toolCalls)
+      if (result.toolCalls?.length && !answer) {
         toolRounds += 1
         if (toolRounds > MAX_TOOL_ROUNDS) {
           return noGraphReply(
@@ -266,7 +271,7 @@ export class AssistantService {
         continue
       }
       try {
-        return await buildReply(result.text, result.model, actions, {
+        return await buildReply(result.text, answer, result.model, actions, {
           scope,
           draft,
         })
@@ -280,8 +285,7 @@ export class AssistantService {
             result.model,
           )
         }
-        history.push({ role: 'assistant', content: result.text })
-        prompt = `Your last answer was rejected: ${error.message}\nAnswer again with the corrected JSON object only.`
+        prompt = rejectAnswer(history, result.text, answer, error)
       }
     }
   }
@@ -335,13 +339,35 @@ export class AssistantService {
   }
 }
 
+// Providers refuse a history whose tool call has no result, so a rejected call gets one.
+function rejectAnswer(
+  history: ConversationTurn[],
+  text: string,
+  answer: ToolCall | undefined,
+  error: AssistantOutputError,
+): string | undefined {
+  const rejection = `Your last answer was rejected: ${error.message}\nCall "answer" again with the correction.`
+  if (!answer) {
+    history.push({ role: 'assistant', content: text })
+    return rejection
+  }
+  history.push(
+    { role: 'assistant', toolCalls: [answer] },
+    { role: 'tool', toolCallId: answer.id, content: rejection },
+  )
+  return undefined
+}
+
 async function buildReply(
   text: string,
+  answer: ToolCall | undefined,
   model: string,
   actions: AssistantAction[],
   { scope, draft }: ReplyContext,
 ): Promise<Reply> {
-  const parsed = parseAssistantReply(text)
+  const parsed = answer
+    ? checkAssistantReply(answer.arguments)
+    : parseAssistantReply(text)
   const proposed = parsed.graph === 'draft' ? draft.current : parsed.graph
   if (parsed.graph === 'draft' && !proposed) {
     throw new AssistantOutputError(
@@ -352,7 +378,7 @@ async function buildReply(
   if (graph) await assertAgentsDeployed(graph, scope)
   return {
     reply: parsed.reply,
-    title: graph ? (parsed.title ?? null) : null,
+    title: graph ? parsed.title || null : null,
     graph,
     actions,
     model,
