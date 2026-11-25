@@ -1,4 +1,4 @@
-const SLOW_MS = 50
+const SLOW_MS = 100
 const REST_RATIO = 3
 const REMEMBER_MS = 600_000
 const MAX_REMEMBERED = 100
@@ -15,7 +15,7 @@ export function mustRest(schema: string): boolean {
 export function recordTime(schema: string, tookMs: number): void {
   if (tookMs < SLOW_MS) return
   const now = performance.now()
-  restUntil = now + tookMs * REST_RATIO
+  restUntil = Math.max(restUntil, now + tookMs * REST_RATIO)
   slowUntil.delete(schema)
   slowUntil.set(schema, now + REMEMBER_MS)
   const [oldest] = slowUntil.keys()

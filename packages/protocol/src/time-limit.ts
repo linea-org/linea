@@ -1,7 +1,7 @@
 // eslint-disable-next-line no-restricted-imports -- only the Node-only json-schema entry uses this
 import { Script } from "node:vm"
 
-const LIMIT_MS = 250
+export const LIMIT_MS = 250
 const script = new Script("run()")
 
 export class TimeLimitError extends Error {
