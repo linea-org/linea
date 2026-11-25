@@ -27,7 +27,7 @@
     "@linealabs/protocol": "workspace:*",
     "@types/node": "26",
     "esbuild": "0.28.2",
-    "eslint": "^9",
+    "eslint": "^10",
     "tsup": "^8.5.0",
     "typescript": "^6",
     "vitest": "^5.1.1"
