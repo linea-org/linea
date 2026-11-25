@@ -4,6 +4,10 @@ The open-source SDKs, wire protocol and examples for
 [Linea](https://www.getlinea.app), the platform for building and operating
 production agents.
 
+> [!WARNING]
+> The SDKs are not released yet: they are not on npm, the API they call is not public, and they can
+> change without notice. Don't build on them yet.
+
 [Documentation](https://docs.getlinea.app) ·
 [Start building](https://platform.getlinea.app) ·
 [Discord](https://discord.gg/7FWR97VkBD)
