@@ -1,5 +1,9 @@
 # @linealabs/sdk
 
+> [!WARNING]
+> Not released yet: this package is not on npm, the API it calls is not public, and it can change
+> without notice. Don't build on it yet.
+
 Typed clients for Linea's public `/v1` protocol:
 
 - `Linea` builds, runs and monitors Workflows with a workspace API key.
@@ -7,12 +11,8 @@ Typed clients for Linea's public `/v1` protocol:
 - `@linealabs/sdk/user` is the browser, edge and native End-User client.
 - `@linealabs/sdk/webhooks` verifies webhook deliveries.
 
-```sh
-npm install @linealabs/sdk
-```
-
 Every client talks to `https://api.getlinea.app` unless you pass `baseUrl`.
-Set it to reach a local or self-hosted API. It must use `https`; plain `http`
+Set it to reach another API, such as a local one. It must use `https`; plain `http`
 is accepted only for `localhost`, so keys and session proofs never travel
 unencrypted.
 

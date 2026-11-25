@@ -1,5 +1,9 @@
 # `@linealabs/sdk-react`
 
+> [!WARNING]
+> Not released yet: this package is not on npm, the API it calls is not public, and it can change
+> without notice. Don't build on it yet.
+
 `@linealabs/sdk-react` provides headless React hooks and optional presentation for Linea end-user sessions.
 
 ## CopilotKit adapter

@@ -1,23 +1,10 @@
 node_modules
 .DS_Store
 dist
-dist-ssr
-*.local
 .env*
 !.env.example
-docker-compose.override.yml
-.tanstack
-.wrangler
-.output
-.vinxi
-__unconfig*
-todos.json
-
-# turbo
 .turbo
-
-# typescript
 *.tsbuildinfo
-
-# local agent/browser scratch output
+coverage/
 .context/
+.claude/

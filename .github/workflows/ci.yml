@@ -15,10 +15,8 @@ concurrency:
 
 env:
   TURBO_TELEMETRY_DISABLED: 1
-  TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
-  # Turbo ignores root files in --affected unless turbo.json globalDependencies lists them.
-  TURBO_AFFECTED: ${{ github.event_name == 'pull_request' && '--affected' || '' }}
 
+# The "main checks" ruleset requires these job names.
 jobs:
   format:
     name: Format (Prettier)
@@ -36,16 +34,14 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
-      - name: Check formatting
-        run: pnpm format:check
+      - run: pnpm format:check
 
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -57,13 +53,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # Audit reads only pnpm-lock.yaml, so no install scripts run here.
-      - name: Audit production dependencies (blocks on high and critical)
-        run: pnpm audit --prod --audit-level high
-
-      - name: Audit all dependencies (report only)
-        continue-on-error: true
-        run: pnpm audit --audit-level moderate
+      - run: pnpm audit --prod --audit-level high
 
   lint:
     name: Lint
@@ -73,7 +63,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 0
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
@@ -82,11 +71,9 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint $TURBO_AFFECTED
+      - run: pnpm lint
 
   typecheck:
     name: Type check
@@ -96,7 +83,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 0
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
@@ -105,11 +91,9 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
-      - name: Type check
-        run: pnpm typecheck $TURBO_AFFECTED
+      - run: pnpm typecheck
 
   public-contracts:
     name: Public contract coverage
@@ -127,106 +111,16 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
-      - name: Check generated contracts and coverage
-        run: pnpm check:contracts
-
-      - name: Build SDK
-        run: pnpm --filter @linealabs/sdk build
-
-      - name: Verify packed examples
-        run: pnpm --filter @linealabs/sdk test:pack
-
-      - name: Build React SDK
-        run: pnpm --filter @linealabs/sdk-react build
-
-      - name: Verify packed React example
-        run: pnpm --filter @linealabs/sdk-react test:pack
+      - run: pnpm check:contracts
+      - run: pnpm exec turbo build --filter @linealabs/sdk --filter @linealabs/sdk-react
+      - run: pnpm test:pack
 
   test:
     name: Test
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: linea
-          POSTGRES_PASSWORD: linea
-          POSTGRES_DB: linea
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U linea -d linea"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql://linea:linea@localhost:5432/linea
-      REDIS_URL: redis://localhost:6379
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run database migrations
-        run: pnpm db:migrate
-
-      - name: Test
-        run: pnpm test $TURBO_AFFECTED
-
-  launch-gate:
-    name: Connections and Action Consent launch gate
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: linea
-          POSTGRES_PASSWORD: linea
-          POSTGRES_DB: linea
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U linea -d linea"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql://linea:linea@localhost:5432/linea
-      REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -239,25 +133,18 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
-      - name: Run database migrations
-        run: pnpm db:migrate
-
-      - name: Run Connections and Action Consent launch gate
-        run: pnpm test:connections-launch:ci
+      - run: pnpm test
 
   build:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [lint, typecheck]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 0
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
@@ -266,8 +153,6 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm build $TURBO_AFFECTED
+      - run: pnpm build

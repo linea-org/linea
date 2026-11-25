@@ -411,24 +411,6 @@ function hasMethodDeclaration(source, filename, methodName) {
   return found
 }
 
-function assertAdapter(operation) {
-  const source = readFileSync(
-    resolve(repository, operation.adapter.source),
-    "utf8"
-  )
-  if (
-    !hasMethodDeclaration(
-      source,
-      operation.adapter.source,
-      operation.adapter.handler
-    )
-  ) {
-    throw new Error(
-      `${operation.operationId} lacks its registered platform-api adapter`
-    )
-  }
-}
-
 function assertDocumentation(operation, documented, routes) {
   if (!documented.has(operation.operationId)) {
     throw new Error(`${operation.operationId} lacks an OpenAPI entry`)
@@ -479,7 +461,6 @@ function assertCoverage(openapi, routes) {
     )
   )
   for (const operation of operationRegistry) {
-    assertAdapter(operation)
     assertDocumentation(operation, documented, routes)
     assertSdk(operation)
   }

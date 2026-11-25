@@ -1,17 +1,5 @@
 dist/
 node_modules/
 .turbo/
-.next/
-.source/
-**/next-env.d.ts
-.context/
-.gstack/
-.output/
-.nitro/
-.tanstack/
-.vinxi/
 coverage/
 pnpm-lock.yaml
-.pnpm-store/
-apps/web/src/routeTree.gen.ts
-packages/db/drizzle/

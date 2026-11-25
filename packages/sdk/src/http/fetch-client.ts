@@ -22,7 +22,7 @@ function buildQueryString(
 }
 
 // A Nest exception body's `message` is a plain string in the common case, but a request rejected
-// by ZodValidationPipe (`apps/platform-api/src/common/zod-validation.pipe.ts`) produces an array
+// by request validation produces an array
 // of Zod issue objects instead — this normalizes either shape (plus a defensive fallback for
 // anything else) into one readable string rather than letting `.message` end up as
 // "[object Object]" or "undefined".

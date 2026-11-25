@@ -1,10 +1,5 @@
 import type { OperationDefinition } from "./operation"
 
-export type OperationAdapter = {
-  readonly source: string
-  readonly handler: string
-}
-
 export type OperationSdkCoverage =
   | {
       readonly importPath: "@linealabs/sdk/server" | "@linealabs/sdk/user"
@@ -24,7 +19,6 @@ export type OperationMetadata = {
   readonly rateLimit: string
   readonly pagination: string
   readonly events: string
-  readonly adapter: OperationAdapter
   readonly sdk: OperationSdkCoverage
 }
 

@@ -10,15 +10,7 @@ export default createSharedEslintConfig({
       {
         patterns: [
           {
-            group: [
-              "node:*",
-              "@nestjs/*",
-              "@linealabs/db",
-              "@linealabs/queue",
-              "bullmq",
-              "react",
-              "react-native",
-            ],
+            group: ["node:*", "react", "react-native"],
             message:
               "@linealabs/protocol runtime code must remain browser-safe.",
           },

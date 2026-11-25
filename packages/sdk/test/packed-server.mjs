@@ -87,7 +87,10 @@ if (!result.valid || result.envelope.id !== eventId) throw new Error("Packed web
     pnpmArguments(["install", "--ignore-scripts", "--no-lockfile"]),
     { cwd: temporary, stdio: "inherit" }
   )
-  const typescript = resolve(repository, "node_modules/typescript/bin/tsc")
+  const typescript = resolve(
+    import.meta.dirname,
+    "../node_modules/typescript/bin/tsc"
+  )
   execFileSync(process.execPath, [typescript, "--project", "tsconfig.json"], {
     cwd: temporary,
     stdio: "inherit",
