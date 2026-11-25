@@ -57,7 +57,7 @@ async function evaluateContains(
 async function evaluateRegex(
   text: string,
   config: Record<string, unknown>
-): Promise<boolean> {
+): Promise<Pick<AssertionResult, "passed" | "detail">> {
   const pattern = typeof config.pattern === "string" ? config.pattern : ""
   const flags = typeof config.flags === "string" ? config.flags : undefined
   try {
@@ -72,10 +72,11 @@ async function evaluateRegex(
         flags,
       }
     )
-    return result.passed
-  } catch {
+    return { passed: result.passed }
+  } catch (error) {
     // Malformed or too slow patterns are failed assertions rather than successful non-matches.
-    return false
+    const detail = error instanceof Error ? error.message : String(error)
+    return { passed: false, detail }
   }
 }
 
@@ -222,9 +223,15 @@ export async function evaluateAssertion(
     case "not_contains":
       passed = await evaluateContains(text, assertion.config, true)
       break
-    case "regex":
-      passed = await evaluateRegex(text, assertion.config)
-      break
+    case "regex": {
+      const result = await evaluateRegex(text, assertion.config)
+      return {
+        ...result,
+        type: assertion.type,
+        score: result.passed ? 1 : 0,
+        costMicros: 0n,
+      }
+    }
     default:
       return {
         type: assertion.type,

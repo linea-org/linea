@@ -85,6 +85,17 @@ describe("evaluateAssertion", () => {
       { type: "regex", config: { target: "text", pattern: "(unclosed" } }
     )
     expect(malformed.passed).toBe(false)
+    expect(malformed.detail).toBe("Evaluator regex is unsafe")
+  })
+
+  it("says that a slow pattern was stopped", async () => {
+    const slow = await evaluateAssertion(
+      scope,
+      { text: "x".repeat(50_000) },
+      { type: "regex", config: { target: "text", pattern: "x+x+y" } }
+    )
+    expect(slow).toMatchObject({ passed: false, score: 0 })
+    expect(slow.detail).toContain("was stopped")
   })
 
   it("a target that doesn't resolve fails every assertion type instead of throwing or silently passing", async () => {

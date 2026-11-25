@@ -16,7 +16,10 @@ const credentials: [RegExp, string][] = [
     /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
     REDACTED,
   ],
-  [/\b(Bearer|Basic)[\s\p{Z}]+[a-z0-9._~+/=-]{8,}/giu, `$1 ${REDACTED}`],
+  [
+    /\b(Bearer|Basic)[\s\p{Z}\v\ufeff]+[a-z0-9._~+/=-]{8,}/giu,
+    `$1 ${REDACTED}`,
+  ],
   [/(:\/\/)[^\s/:@]+:[^\s/@]+@/g, `$1${REDACTED}@`],
   [/\beyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]{8,}/g, REDACTED],
   [/\b(sk|gsk|xai)-[\w-]{20,}/g, REDACTED],

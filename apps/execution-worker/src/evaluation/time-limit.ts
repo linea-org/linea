@@ -29,8 +29,7 @@ function runLimited<T>(run: () => T): T {
 
 let last: Promise<unknown> = Promise.resolve()
 
-/** Runs code an author's pattern or schema can make arbitrarily slow, such as a regex: it is stopped
- * at the limit, and the next call waits longer than it took, so other runs keep most of the time. */
+/** Stops slow code at the limit; the next call waits three times as long as the last one took. */
 export function withTimeLimit<T>(run: () => T): Promise<T> {
   let took = 0
   const result = last.then(() => {

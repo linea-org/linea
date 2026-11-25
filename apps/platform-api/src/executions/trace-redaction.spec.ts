@@ -107,9 +107,14 @@ describe('trace redaction', () => {
     expect(containsRedactionPlaceholder({})).toBe(false)
   })
 
-  it('redacts a token after a non-breaking space', () => {
-    expect(redactText('Bearer\u00a0abcdefgh1234', none)).toContain(REDACTED)
-  })
+  it.each(['\t', '\v', '\u00a0', '\u2028', '\u3000', '\ufeff'])(
+    'redacts a token after the space %j',
+    (space) => {
+      expect(redactText(`Bearer${space}abcdefgh1234`, none)).toBe(
+        `Bearer ${REDACTED}`,
+      )
+    },
+  )
 
   it.each([
     ['an unfinished token', 'eyJ-'],
