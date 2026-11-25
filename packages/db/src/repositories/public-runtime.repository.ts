@@ -462,7 +462,12 @@ export async function startPublicExecution(
       await releasePublicRequest(tx, reservation.recordId)
       return { outcome: "workflow_binding_incompatible" }
     }
-    if (!compileContractSchema(version.inputSchema)(input.triggerPayload)) {
+    if (
+      !compileContractSchema(
+        version.inputSchema,
+        input.workspaceId
+      )(input.triggerPayload)
+    ) {
       await releasePublicRequest(tx, reservation.recordId)
       return { outcome: "validation_failed" }
     }

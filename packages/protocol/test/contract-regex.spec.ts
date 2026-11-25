@@ -1,28 +1,83 @@
 import { expect, it } from "vitest"
-import { compileContractSchema } from "../src/compile-contract-schema.js"
+import {
+  assertContractSchema,
+  compileContractSchema as compileFor,
+} from "../src/compile-contract-schema.js"
 
-it.each(["(?=a)a", "(?!a)b", "(?<=a)b", "(?<!a)b", "^(a)\\1$"])(
-  "rejects unsupported syntax %s, including stored and unused schemas",
-  (pattern) => {
-    for (const schema of [
-      { type: "string", pattern },
-      { type: "object", propertyNames: { pattern } },
-      { type: "object", patternProperties: { [pattern]: true } },
-      { $defs: { unused: { type: "string", pattern } } },
-      { type: "array", prefixItems: [{ type: "string", pattern }] },
-      { type: "array", unevaluatedItems: { type: "string", pattern } },
-      { type: "object", dependencies: { key: { type: "string", pattern } } },
-      {
-        type: "object",
-        dependentSchemas: { pattern: { type: "string", pattern } },
-      },
-    ]) {
-      expect(() => compileContractSchema(schema)).toThrow(
-        "Unsupported contract regex"
-      )
-    }
+const compileContractSchema = (schema: object, workspaceId = "ws-1") =>
+  compileFor(schema, workspaceId)
+
+const nested: Record<string, unknown> = { d40: { type: "string" } }
+for (let index = 0; index < 40; index++) {
+  const next = { $ref: `#/$defs/d${index + 1}` }
+  nested[`d${index}`] = { allOf: [next, next] }
+}
+const hostile = "a".repeat(100_000) + "!"
+
+it.each([
+  ["a backtracking pattern", { type: "string", pattern: "^(a+)+$" }, hostile],
+  [
+    "counted repeats",
+    { type: "string", pattern: "a{0,1000}".repeat(200) + "c$" },
+    hostile,
+  ],
+  [
+    "a slow property name",
+    { type: "object", propertyNames: { pattern: "^(a|aa)+$" } },
+    { [hostile]: 1 },
+  ],
+  ["nested references", { $ref: "#/$defs/d0", $defs: nested }, "a"],
+  [
+    "unique items",
+    { type: "array", uniqueItems: true },
+    Array.from({ length: 60_000 }, (_, index) => ({ index })),
+  ],
+])("refuses data made slow to check by %s", (_name, schema, data) => {
+  const check = compileContractSchema(schema)
+  const started = performance.now()
+  expect(check(data)).toBe(false)
+  expect(performance.now() - started).toBeLessThan(1000)
+  expect(check.errors).toEqual([{ message: "took too long to check" }])
+})
+
+it("refuses a schema that is slow to compile, and compiles the next one", () => {
+  const schema = {
+    type: "object",
+    properties: { [hostile]: true },
+    patternProperties: { "^(a|aa)+$": true },
   }
-)
+  expect(() => assertContractSchema(schema)).toThrow("was stopped")
+  const check = compileContractSchema(schema)
+  expect(check({})).toBe(false)
+  expect(check.errors).toEqual([{ message: "took too long to check" }])
+  expect(compileContractSchema({ type: "string" })("a")).toBe(true)
+})
+
+it("makes a workspace's schemas that were slow lately wait, and no others", () => {
+  const slow = (title: string) =>
+    compileContractSchema({ title, type: "string", pattern: "^(a+)+$" })
+  expect(slow("one")(hostile)).toBe(false)
+  expect(slow("one")("a")).toBe(false)
+  expect(slow("two")("a")).toBe(true)
+  expect(
+    compileContractSchema(
+      { title: "one", type: "string", pattern: "^(a+)+$" },
+      "ws-2"
+    )("a")
+  ).toBe(true)
+  expect(compileContractSchema({ type: "string" })("a")).toBe(true)
+})
+
+it("checks a schema that was slow again after its rest", async () => {
+  const check = compileContractSchema({
+    title: "rest",
+    type: "string",
+    pattern: "^(a+)+$",
+  })
+  expect(check(hostile)).toBe(false)
+  await new Promise((resolve) => setTimeout(resolve, 900))
+  expect(check("a")).toBe(true)
+})
 
 it("preserves ordinary regex, Unicode and referenced schema validation", () => {
   const validate = compileContractSchema({
@@ -42,9 +97,7 @@ it("preserves ordinary regex, Unicode and referenced schema validation", () => {
   expect(compileContractSchema({ type: "string", pattern: "^.$" })("😀")).toBe(
     true
   )
-  expect(() =>
-    compileContractSchema({ type: "string", pattern: "[" })
-  ).toThrow()
+  expect(() => assertContractSchema({ type: "string", pattern: "[" })).toThrow()
 })
 
 it("preserves strict rejection of overlapping properties at nested schema paths", () => {
@@ -55,11 +108,11 @@ it("preserves strict rejection of overlapping properties at nested schema paths"
   }
   for (const schema of [
     overlapping,
-    { type: "array", prefixItems: [overlapping], items: false },
+    { type: "array", prefixItems: [overlapping], minItems: 1, items: false },
     { type: "object", dependentSchemas: { key: overlapping } },
     { type: "object", dependencies: { key: overlapping } },
   ]) {
-    expect(() => compileContractSchema(schema)).toThrow("matches pattern")
+    expect(() => assertContractSchema(schema)).toThrow("matches pattern")
   }
 })
 

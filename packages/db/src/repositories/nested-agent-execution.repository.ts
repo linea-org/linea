@@ -135,7 +135,12 @@ export function startNestedAgentExecution(
         message:
           "The Agent's deployed Contract differs from the revision this Workflow was saved with",
       }
-    if (!compileContractSchema(deployment.contract.inputSchema)(input.input))
+    if (
+      !compileContractSchema(
+        deployment.contract.inputSchema,
+        input.workspaceId
+      )(input.input)
+    )
       return {
         outcome: "input_invalid",
         message: "The step input does not satisfy the Agent's Contract",

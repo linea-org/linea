@@ -13,11 +13,11 @@
   },
   "dependencies": {
     "ajv": "8.20.0",
-    "re2": "1.27.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@linealabs/config": "workspace:*",
+    "@types/node": "26",
     "esbuild": "0.28.2",
     "eslint": "^9",
     "tsup": "^8.5.0",

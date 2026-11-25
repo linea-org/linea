@@ -619,7 +619,10 @@ export class PublicRuntimeService {
         )
       if (
         !contract ||
-        !compileContractSchema(contract.outputSchema)(execution.output)
+        !compileContractSchema(
+          contract.outputSchema,
+          execution.workspaceId,
+        )(execution.output)
       )
         throw new Error('Agent output failed Contract validation')
       return executionProjection(
@@ -660,7 +663,12 @@ export class PublicRuntimeService {
         (step) => step.status === 'succeeded' && endNodeIds.has(step.nodeId),
       )
     if (!endStep) throw new Error('Public Execution has no completed End node')
-    if (!compileContractSchema(contract.outputSchema)(endStep.output)) {
+    if (
+      !compileContractSchema(
+        contract.outputSchema,
+        execution.workspaceId,
+      )(endStep.output)
+    ) {
       throw new Error('Public Execution output failed Contract validation')
     }
     return executionProjection(execution, jsonValueSchema.parse(endStep.output))

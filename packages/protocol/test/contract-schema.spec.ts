@@ -1,5 +1,11 @@
 import { expect, it } from "vitest"
-import { compileContractSchema } from "../src/compile-contract-schema.js"
+import {
+  assertContractSchema,
+  compileContractSchema as compileFor,
+} from "../src/compile-contract-schema.js"
+
+const compileContractSchema = (schema: object, workspaceId = "ws-1") =>
+  compileFor(schema, workspaceId)
 
 it("keeps earlier validators usable after rotating through tenant schemas", () => {
   const original = compileContractSchema({ type: "string", minLength: 3 })
@@ -14,5 +20,5 @@ it("keeps earlier validators usable after rotating through tenant schemas", () =
   }
   expect(original("valid")).toBe(true)
   expect(original(42)).toBe(false)
-  expect(() => compileContractSchema({ type: "invalid" })).toThrow()
+  expect(() => assertContractSchema({ type: "invalid" })).toThrow()
 })

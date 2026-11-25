@@ -167,7 +167,7 @@ export async function triggerWorkflowExecution(
     if (!deployment.allowBackendStart)
       return { outcome: "workflow_start_not_allowed" }
     const payload = input.triggerPayload ?? {}
-    const validate = compileContractSchema(deployment.inputSchema)
+    const validate = compileContractSchema(deployment.inputSchema, workspaceId)
     if (!validate(payload)) {
       const details = validate.errors
         ?.map((error) => `${error.instancePath || "/"} ${error.message}`)
