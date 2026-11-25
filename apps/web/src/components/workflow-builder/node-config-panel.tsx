@@ -5,14 +5,9 @@ import {
   type NodeTypeId,
   type NodeUIField,
 } from "@linealabs/runtime/browser"
-import { InfoIcon, XIcon } from "lucide-react"
+import { XIcon } from "lucide-react"
 import { Button } from "@linealabs/ui/components/button"
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@linealabs/ui/components/field"
+import { FieldGroup } from "@linealabs/ui/components/field"
 import { Input } from "@linealabs/ui/components/input"
 import { Textarea } from "@linealabs/ui/components/textarea"
 import {
@@ -22,20 +17,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@linealabs/ui/components/select"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@linealabs/ui/components/tooltip"
+import { TooltipProvider } from "@linealabs/ui/components/tooltip"
 import { AgentStepField } from "./agent-step-field"
+import { ConfigField } from "./config-field"
+import { REFERENCE_TARGET } from "./insert-reference"
 import { KeyValueEditor } from "./key-value-editor"
 import { McpServersField } from "./mcp-servers-field"
+import type { ReferenceGroup } from "./reference-options"
 
 type NodeConfigPanelProps = {
   nodeType: NodeTypeId
   config: Record<string, unknown>
   applicationId?: string
+  references: ReferenceGroup[]
   onClose: () => void
   onChange: (config: Record<string, unknown>) => void
 }
@@ -82,10 +76,39 @@ function selectDefaults(
   return Object.keys(next).length > 0 ? next : null
 }
 
+function TextField({
+  id,
+  widget,
+  value,
+  invalid,
+  onChange,
+}: Readonly<{
+  id: string
+  widget: "textarea" | "code"
+  value: string
+  invalid: boolean
+  onChange: (value: string) => void
+}>) {
+  const isJson = isJsonWidget(widget)
+  return (
+    <Textarea
+      id={id}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      rows={isJson ? 6 : 4}
+      {...{ [REFERENCE_TARGET]: isJson ? "json" : "" }}
+      aria-invalid={invalid || undefined}
+      className={isJson ? "field-sizing-fixed font-mono text-sm" : undefined}
+      placeholder={isJson ? "{}" : undefined}
+    />
+  )
+}
+
 export function NodeConfigPanel({
   nodeType,
   config,
   applicationId,
+  references,
   onClose,
   onChange,
 }: NodeConfigPanelProps) {
@@ -210,24 +233,19 @@ export function NodeConfigPanel({
     }
     if (field.widget === "textarea" || field.widget === "code") {
       return (
-        <Textarea
+        <TextField
           id={id}
+          widget={field.widget}
           value={draft[field.key] ?? ""}
-          onChange={(e) => setField(field, e.target.value)}
-          rows={field.widget === "textarea" ? 4 : 6}
-          aria-invalid={invalid || undefined}
-          className={
-            isJsonWidget(field.widget)
-              ? "field-sizing-fixed font-mono text-sm"
-              : undefined
-          }
-          placeholder={isJsonWidget(field.widget) ? "{}" : undefined}
+          invalid={invalid}
+          onChange={(value) => setField(field, value)}
         />
       )
     }
     return (
       <Input
         id={id}
+        {...{ [REFERENCE_TARGET]: "" }}
         value={draft[field.key] ?? ""}
         onChange={(e) => setField(field, e.target.value)}
         aria-invalid={invalid || undefined}
@@ -265,35 +283,17 @@ export function NodeConfigPanel({
                   : current === expected
                 if (!matches) return null
               }
-              const invalid = Boolean(jsonErrors[field.key])
+              const error = jsonErrors[field.key]
               return (
-                <Field key={field.key} data-invalid={invalid || undefined}>
-                  <div className="flex items-center gap-1">
-                    <FieldLabel htmlFor={`node-field-${field.key}`}>
-                      {field.label}
-                    </FieldLabel>
-                    {field.description && (
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <button
-                              type="button"
-                              aria-label={`About ${field.label}`}
-                              className="text-muted-foreground hover:text-foreground"
-                            />
-                          }
-                        >
-                          <InfoIcon className="size-3.5" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-64 text-pretty">
-                          {field.description}
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
-                  {renderControl(field, invalid)}
-                  <FieldError>{jsonErrors[field.key]}</FieldError>
-                </Field>
+                <ConfigField
+                  key={field.key}
+                  field={field}
+                  error={error}
+                  references={references}
+                  applicationId={applicationId}
+                >
+                  {renderControl(field, Boolean(error))}
+                </ConfigField>
               )
             })}
           </FieldGroup>

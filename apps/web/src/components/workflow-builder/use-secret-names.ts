@@ -4,11 +4,11 @@ import { useParams } from "@tanstack/react-router"
 import { listEnvironmentsFn } from "@/lib/environments-api"
 import { listAiProvidersFn, listSecretsFn } from "@/lib/secrets-api"
 
-export type McpSecretName = { name: string; missingIn: string[] }
+export type SecretName = { name: string; missingIn: string[] }
 
 /** Secret names (never values) across the Application's Environments. Model provider keys are
- * left out: the worker refuses to send them to an MCP server. */
-export function useMcpSecretNames(applicationId: string | undefined) {
+ * left out: the worker refuses to send them anywhere else. */
+export function useSecretNames(applicationId: string | undefined) {
   const { slug } = useParams({ strict: false })
   const environments = useQuery({
     queryKey: ["environments", slug, applicationId],
@@ -50,7 +50,7 @@ export function useMcpSecretNames(applicationId: string | undefined) {
   const names = [...new Set(byEnvironment.flatMap(({ keys }) => [...keys]))]
     .filter((name) => !modelKeys.has(name))
     .sort((a, b) => a.localeCompare(b))
-    .map((name): McpSecretName => ({
+    .map((name): SecretName => ({
       name,
       missingIn: byEnvironment
         .filter(({ keys }) => !keys.has(name))

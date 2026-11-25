@@ -11,6 +11,8 @@ import {
 } from "@linealabs/ui/components/select"
 import { Textarea } from "@linealabs/ui/components/textarea"
 
+import { REFERENCE_TARGET } from "./insert-reference"
+
 type ValueKind = "text" | "number" | "boolean" | "json"
 
 // `value` is what gets saved; `valueText` is only the editor contents, kept separate so
@@ -339,6 +341,7 @@ export function KeyValueEditor({
               </Select>
             ) : typed && row.kind === "json" ? (
               <Textarea
+                {...{ [REFERENCE_TARGET]: "json" }}
                 placeholder="{}"
                 value={row.valueText}
                 rows={9}
@@ -349,6 +352,7 @@ export function KeyValueEditor({
               />
             ) : (
               <Input
+                {...(row.kind === "text" && { [REFERENCE_TARGET]: "" })}
                 type={typed && row.kind === "number" ? "number" : "text"}
                 placeholder="Value"
                 value={row.valueText}

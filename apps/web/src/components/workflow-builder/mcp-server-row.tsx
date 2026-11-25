@@ -13,10 +13,10 @@ import {
 } from "@linealabs/ui/components/select"
 
 import type { McpServersForm } from "./mcp-server-drafts"
-import type { McpSecretName } from "./use-mcp-secret-names"
+import type { SecretName } from "./use-secret-names"
 
 type SecretNames = {
-  names: McpSecretName[]
+  names: SecretName[]
   error: Error | null
   pending: boolean
 }
