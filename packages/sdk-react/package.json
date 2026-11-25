@@ -50,7 +50,7 @@
     "@types/react-dom": "^19",
     "esbuild": "0.28.2",
     "eslint": "^9",
-    "jsdom": "^26.1.0",
+    "jsdom": "^31.0.1",
     "msw": "^2.11.6",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
