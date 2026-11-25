@@ -18,6 +18,10 @@ describe("flags without a ConfigCat SDK key", () => {
       platformModelKey: false,
       assistantMentions: false,
       parallelBranches: false,
+      pauseConnectorWrites: false,
+      pauseMcpTools: false,
+      pauseInkyWeb: false,
+      pauseWebhooks: false,
     })
   })
 

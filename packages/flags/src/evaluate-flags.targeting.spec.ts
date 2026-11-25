@@ -19,6 +19,10 @@ const CONFIG = {
     },
     assistantMentions: off,
     parallelBranches: off,
+    pauseConnectorWrites: off,
+    pauseMcpTools: off,
+    pauseInkyWeb: off,
+    pauseWebhooks: off,
   },
 }
 
@@ -72,6 +76,10 @@ describe("flags with a ConfigCat SDK key", () => {
       platformModelKey: true,
       assistantMentions: false,
       parallelBranches: false,
+      pauseConnectorWrites: false,
+      pauseMcpTools: false,
+      pauseInkyWeb: false,
+      pauseWebhooks: false,
     })
   })
 
@@ -82,8 +90,9 @@ describe("flags with a ConfigCat SDK key", () => {
 })
 
 describe("assertFlagsExist", () => {
-  const { platformModelKey, parallelBranches } = CONFIG.f
-  const others = { platformModelKey, parallelBranches }
+  const others = Object.fromEntries(
+    Object.entries(CONFIG.f).filter(([key]) => key !== "assistantMentions")
+  )
   const without = { ...CONFIG, f: others }
 
   it("passes when every flag is there", async () => {

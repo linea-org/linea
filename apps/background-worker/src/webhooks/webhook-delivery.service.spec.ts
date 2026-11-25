@@ -17,6 +17,11 @@ import {
   withWebhookAdmission,
 } from "@linealabs/queue"
 
+const paused = new Set<string>()
+jest.mock("@linealabs/flags", () => ({
+  isFlagEnabled: (key: string) => Promise.resolve(paused.has(key)),
+}))
+
 jest.mock("@linealabs/db", () => {
   const actual =
     jest.requireActual<typeof import("@linealabs/db")>("@linealabs/db")
@@ -394,6 +399,41 @@ describe("WebhookDeliveryService", () => {
         lastError: "Webhook endpoint was disabled",
       })
     } finally {
+      await receiver.close()
+    }
+  })
+
+  it("keeps a delivery waiting without an attempt while webhooks are paused", async () => {
+    const receiver = await startReceiver((_index, _request, response) =>
+      response.end()
+    )
+    const { delivery } = await createDelivery(receiver.url, "paused-secret")
+    const connection = createConnection()
+    const queue = createWebhookDeliveryQueue(connection)
+    const service = new WebhookDeliveryService()
+    paused.add("pauseWebhooks")
+    try {
+      const job = await enqueueWebhookDelivery(queue, {
+        deliveryId: delivery.id,
+      })
+      service.onModuleInit()
+      const deadline = Date.now() + 10_000
+      while (!(await job.isDelayed()) && Date.now() < deadline)
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(await job.isDelayed()).toBe(true)
+      expect((await queue.getJob(delivery.id))?.attemptsMade).toBe(0)
+      expect(receiver.requests).toHaveLength(0)
+
+      paused.clear()
+      await job.promote()
+      while (receiver.requests.length === 0 && Date.now() < deadline)
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(receiver.requests).toHaveLength(1)
+    } finally {
+      paused.clear()
+      await service.onModuleDestroy()
+      await queue.close()
+      await connection.quit()
       await receiver.close()
     }
   })

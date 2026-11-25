@@ -1,3 +1,8 @@
+const paused = new Set<string>()
+jest.mock("@linealabs/flags", () => ({
+  isFlagEnabled: (key: string) =>
+    Promise.resolve(key === "platformModelKey" || paused.has(key)),
+}))
 const complete = jest.fn()
 const resolveApiKey = jest.fn<
   Promise<{ apiKey: string; source: "environment" | "platform" }>,
@@ -295,6 +300,23 @@ describe("AiNode with MCP servers", () => {
     )
 
     expect(fixture.toolCalls).toEqual([])
+  })
+
+  it("does not reach a server while MCP tools are paused", async () => {
+    paused.add("pauseMcpTools")
+    try {
+      await expect(
+        new AiNode().execute(
+          { prompt: "go", model: "claude-sonnet-5", mcpServers: [server()] },
+          undefined,
+          context
+        )
+      ).rejects.toThrow("MCP tools are paused")
+      expect(complete).not.toHaveBeenCalled()
+      expect(fixture.requests).toEqual([])
+    } finally {
+      paused.clear()
+    }
   })
 
   it("refuses an MCP call in a diagnostic run", async () => {

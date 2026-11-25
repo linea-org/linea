@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@linealabs/db": "workspace:*",
+    "@linealabs/flags": "workspace:*",
     "@linealabs/protocol": "workspace:*",
     "zod": "^4.4.3"
   },
