@@ -9,7 +9,7 @@ import { Button } from "@linealabs/ui/components/button"
 
 import { checkDrafts, toDrafts, type McpServersForm } from "./mcp-server-drafts"
 import { McpServerRow } from "./mcp-server-row"
-import { useMcpSecretNames } from "./use-mcp-secret-names"
+import { useSecretNames } from "./use-secret-names"
 
 const MAX_SERVERS = 5
 
@@ -38,7 +38,7 @@ export function McpServersField({
   })
   const drafts = useWatch({ control: form.control, name: "servers" })
   const { errors } = checkDrafts(drafts)
-  const secrets = useMcpSecretNames(applicationId)
+  const secrets = useSecretNames(applicationId)
   const saved = useRef(JSON.stringify(value ?? null))
 
   // A change saved elsewhere (a collaborator, Inky) replaces the form; our own saves match `saved`.

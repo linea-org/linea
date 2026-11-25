@@ -83,6 +83,7 @@ import {
 import { WorkflowPalette, PALETTE_DRAG_MIME } from "./palette"
 import { WorkflowTitle } from "./workflow-title"
 import { NodeConfigPanel } from "./node-config-panel"
+import { referenceGroups } from "./reference-options"
 import { NodeShell } from "./node-shell"
 import { RunPanel, RunPanelTrigger } from "./run-panel"
 import { useOpenFirstTrace } from "./use-open-first-trace"
@@ -871,6 +872,7 @@ function WorkflowBuilderCanvasInner({
                   nodeType={selectedNode.data.nodeType}
                   config={selectedNode.data.config}
                   applicationId={workflow?.applicationId}
+                  references={referenceGroups(nodes, edges, selectedNode.id)}
                   onClose={() => {
                     setRightPanel(null)
                     setSelectedNodeId(null)
