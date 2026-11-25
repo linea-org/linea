@@ -89,18 +89,23 @@ export const publicExecutionStatusSchema = z.enum([
   "cancelled",
 ])
 
+// The titles let the check for breaking changes compare the members of a union.
 export const startEnvironmentExecutionSchema = z.union([
-  z.strictObject({
-    workflowId: publicRuntimeIdSchema,
-    externalSubjectId: publicRuntimeIdSchema,
-    conversationId: publicRuntimeIdSchema.optional(),
-    input: publicExecutionInputSchema,
-  }),
-  z.strictObject({
-    agentId: publicRuntimeIdSchema,
-    externalSubjectId: publicRuntimeIdSchema,
-    input: publicExecutionInputSchema,
-  }),
+  z
+    .strictObject({
+      workflowId: publicRuntimeIdSchema,
+      externalSubjectId: publicRuntimeIdSchema,
+      conversationId: publicRuntimeIdSchema.optional(),
+      input: publicExecutionInputSchema,
+    })
+    .meta({ title: "Start of a Workflow" }),
+  z
+    .strictObject({
+      agentId: publicRuntimeIdSchema,
+      externalSubjectId: publicRuntimeIdSchema,
+      input: publicExecutionInputSchema,
+    })
+    .meta({ title: "Start of an Agent" }),
 ])
 
 export const startEndUserExecutionSchema = z.strictObject({
@@ -125,15 +130,19 @@ const publicExecutionFields = {
 }
 
 export const publicExecutionSchema = z.union([
-  z.strictObject({
-    ...publicExecutionFields,
-    workflowId: publicRuntimeIdSchema,
-  }),
-  z.strictObject({
-    ...publicExecutionFields,
-    workflowId: z.null(),
-    agentId: publicRuntimeIdSchema,
-  }),
+  z
+    .strictObject({
+      ...publicExecutionFields,
+      workflowId: publicRuntimeIdSchema,
+    })
+    .meta({ title: "Workflow run" }),
+  z
+    .strictObject({
+      ...publicExecutionFields,
+      workflowId: z.null(),
+      agentId: publicRuntimeIdSchema,
+    })
+    .meta({ title: "Agent run" }),
 ])
 
 export type StartEnvironmentExecution = z.infer<

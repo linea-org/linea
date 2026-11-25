@@ -5222,6 +5222,7 @@ Body:
         }
       },
       "required": ["workflowId", "externalSubjectId", "input"],
+      "title": "Start of a Workflow",
       "type": "object"
     },
     {
@@ -5240,6 +5241,7 @@ Body:
         "input": {}
       },
       "required": ["agentId", "externalSubjectId", "input"],
+      "title": "Start of an Agent",
       "type": "object"
     }
   ]
@@ -5407,6 +5409,7 @@ Status: `202`
         "completedAt",
         "workflowId"
       ],
+      "title": "Workflow run",
       "type": "object"
     },
     {
@@ -5534,6 +5537,7 @@ Status: `202`
         "workflowId",
         "agentId"
       ],
+      "title": "Agent run",
       "type": "object"
     }
   ]
@@ -5800,6 +5804,7 @@ Status: `200`
         "completedAt",
         "workflowId"
       ],
+      "title": "Workflow run",
       "type": "object"
     },
     {
@@ -5927,6 +5932,7 @@ Status: `200`
         "workflowId",
         "agentId"
       ],
+      "title": "Agent run",
       "type": "object"
     }
   ]
@@ -6190,6 +6196,7 @@ Status: `200`
         "completedAt",
         "workflowId"
       ],
+      "title": "Workflow run",
       "type": "object"
     },
     {
@@ -6317,6 +6324,7 @@ Status: `200`
         "workflowId",
         "agentId"
       ],
+      "title": "Agent run",
       "type": "object"
     }
   ]
@@ -7768,6 +7776,7 @@ Status: `202`
         "completedAt",
         "workflowId"
       ],
+      "title": "Workflow run",
       "type": "object"
     },
     {
@@ -7895,6 +7904,7 @@ Status: `202`
         "workflowId",
         "agentId"
       ],
+      "title": "Agent run",
       "type": "object"
     }
   ]
@@ -8167,6 +8177,7 @@ Status: `200`
         "completedAt",
         "workflowId"
       ],
+      "title": "Workflow run",
       "type": "object"
     },
     {
@@ -8294,6 +8305,7 @@ Status: `200`
         "workflowId",
         "agentId"
       ],
+      "title": "Agent run",
       "type": "object"
     }
   ]
@@ -9610,6 +9622,7 @@ Status: `200`
                   "type",
                   "data"
                 ],
+                "title": "execution.completed",
                 "type": "object"
               },
               {
@@ -9670,6 +9683,7 @@ Status: `200`
                   "type",
                   "data"
                 ],
+                "title": "execution.failed",
                 "type": "object"
               },
               {
@@ -9735,6 +9749,7 @@ Status: `200`
                   "type",
                   "data"
                 ],
+                "title": "approval_request.created",
                 "type": "object"
               },
               {
@@ -9820,6 +9835,7 @@ Status: `200`
                   "type",
                   "data"
                 ],
+                "title": "approval_request.decided",
                 "type": "object"
               },
               {
@@ -9885,6 +9901,7 @@ Status: `200`
                   "type",
                   "data"
                 ],
+                "title": "approval_request.cancelled",
                 "type": "object"
               },
               {
@@ -9941,6 +9958,7 @@ Status: `200`
                   "type",
                   "data"
                 ],
+                "title": "action_intent.executed",
                 "type": "object"
               },
               {
@@ -9997,6 +10015,7 @@ Status: `200`
                   "type",
                   "data"
                 ],
+                "title": "action_intent.failed",
                 "type": "object"
               },
               {
@@ -10048,6 +10067,7 @@ Status: `200`
                   "type",
                   "data"
                 ],
+                "title": "connection.revoked",
                 "type": "object"
               }
             ]
