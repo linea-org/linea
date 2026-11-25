@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { MessageCircleIcon, SendIcon } from "lucide-react"
+import { ArrowUpIcon, MessageCircleIcon } from "lucide-react"
 
 import { Button } from "@linealabs/ui/components/button"
 import {
@@ -16,11 +16,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@linealabs/ui/components/empty"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupTextarea,
-} from "@linealabs/ui/components/input-group"
+import { InputGroupTextarea } from "@linealabs/ui/components/input-group"
 import { Marker, MarkerContent } from "@linealabs/ui/components/marker"
 import {
   MessageScroller,
@@ -43,6 +39,8 @@ import {
   type JsonValue,
 } from "@/lib/executions-api"
 
+import { ComposerFrame } from "@/components/assistant/composer-frame"
+import { sendOnEnter } from "@/components/assistant/send-on-enter"
 import { ModelMarkdown } from "@/components/markdown/model-markdown"
 import { ChatPreviewHeader } from "./chat-preview-header"
 import { RunFailureNotice } from "./run-failure-notice"
@@ -247,33 +245,32 @@ export function ChatPreviewPanel({
           <MessageScrollerButton />
         </MessageScroller>
       </MessageScrollerProvider>
-      <div className="border-t border-border p-3">
-        <InputGroup className="rounded-2xl shadow-sm">
-          <InputGroupTextarea
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault()
-                handleSend()
-              }
-            }}
-            placeholder="Send a message…"
-            rows={1}
-            className="max-h-40"
-          />
-          <InputGroupAddon align="block-end" className="justify-end">
+      <div className="p-3 pt-0">
+        <ComposerFrame
+          value={input}
+          trailing={
             <Button
               type="button"
               size="icon"
+              className="rounded-full"
               onClick={handleSend}
               disabled={!input.trim() || send.isPending || isWaiting}
               aria-label="Send message"
             >
-              <SendIcon />
+              <ArrowUpIcon />
             </Button>
-          </InputGroupAddon>
-        </InputGroup>
+          }
+        >
+          <InputGroupTextarea
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={(event) => sendOnEnter(event, handleSend)}
+            aria-label="Test message"
+            placeholder="Send a message…"
+            rows={1}
+            className="max-h-40 min-h-0"
+          />
+        </ComposerFrame>
         {send.isError ? (
           <p className="mt-2 text-sm text-destructive">{send.error.message}</p>
         ) : null}

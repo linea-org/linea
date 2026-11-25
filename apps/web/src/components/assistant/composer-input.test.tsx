@@ -50,7 +50,7 @@ function Harness({ initial }: Readonly<{ initial: string }>) {
       }}
       onSendKey={onSendKey}
       placeholder="Ask anything"
-      hero={false}
+      autoFocus={false}
     />
   )
 }
@@ -301,7 +301,7 @@ describe("ComposerInput", () => {
             onChange={setValue}
             onSendKey={onSendKey}
             placeholder="Ask anything"
-            hero={false}
+            autoFocus={false}
           />
         </>
       )

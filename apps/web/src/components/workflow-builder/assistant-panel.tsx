@@ -30,6 +30,7 @@ import {
   type ChatMessage,
 } from "@/components/assistant/use-assistant-chat"
 import { useComposerOptions } from "@/components/assistant/use-composer-options"
+import { useSavedDraft } from "@/components/assistant/use-saved-draft"
 import {
   ASSISTANT_NAME,
   assistantConversationQueryOptions,
@@ -60,7 +61,7 @@ export function AssistantPanel({
   onClose: () => void
 }>) {
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState("")
+  const [draft, setDraft] = useSavedDraft(`inky:${workflowId}`)
   const { data: setup } = useQuery(modelSetupQueryOptions(slug, applicationId))
   const options = useComposerOptions(setup)
   const conversationsOptions = assistantConversationsQueryOptions(
@@ -166,8 +167,11 @@ export function AssistantPanel({
       </div>
       <AssistantThread
         messages={chat.messages}
+        queue={chat.queue}
+        onUnqueue={chat.unqueue}
         isPending={chat.isPending}
         error={chat.error}
+        onResend={chat.resend}
         selectedProposalId={null}
         onSelectProposal={chat.select}
         onEdit={(id, text) => chat.edit(id, text, graph)}
@@ -209,8 +213,7 @@ export function AssistantPanel({
           chat.send(text, options.attachments, graph)
           options.onAttachmentsChange([])
         }}
-        disabled={chat.isPending}
-        placeholder={`Ask ${ASSISTANT_NAME} about or to change this workflow…`}
+        placeholder="Ask or change this workflow"
       />
       <Dialog
         open={Boolean(selected?.proposal)}

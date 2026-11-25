@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 
 import { ScrollArea } from "@linealabs/ui/components/scroll-area"
 import {
@@ -19,6 +20,7 @@ import type { Proposal } from "./proposal"
 import { ProposalDetails } from "./proposal-details"
 import { useComposerOptions } from "./use-composer-options"
 import { usePageChat } from "./use-page-chat"
+import { useSavedDraft } from "./use-saved-draft"
 import { useWideLayout } from "./use-wide-layout"
 import { AssistantHero } from "./assistant-hero"
 
@@ -43,7 +45,16 @@ export function AssistantPage({
     ...modelSetupQueryOptions(slug),
     initialData: initialSetup,
   })
-  const [draft, setDraft] = useState(initialDraft ?? "")
+  const [draft, setDraft] = useSavedDraft(`inky:${slug}`, initialDraft)
+  const navigate = useNavigate({ from: "/w/$slug/assistant" })
+  // Leaves the address once it is the draft, so a reload keeps the edits instead of the question.
+  useEffect(() => {
+    if (initialDraft === undefined) return
+    void navigate({
+      search: (current) => ({ ...current, ask: undefined }),
+      replace: true,
+    })
+  }, [initialDraft, navigate])
   const [detailsOpen, setDetailsOpen] = useState(true)
   // The prompt card glides down from the middle only when a chat starts here, not when one is opened.
   const [composerGlides, setComposerGlides] = useState(false)
@@ -51,7 +62,7 @@ export function AssistantPage({
   const resetDraft = useCallback(() => {
     setComposerGlides(false)
     setDraft("")
-  }, [])
+  }, [setDraft])
   const { chat, title } = usePageChat({
     slug,
     conversationId,
@@ -98,7 +109,6 @@ export function AssistantPage({
                   draft={draft}
                   onDraftChange={setDraft}
                   onSend={sendWithFiles}
-                  disabled={chat.isPending}
                   runId={runId}
                 />
               </ScrollArea>
@@ -106,8 +116,11 @@ export function AssistantPage({
               <>
                 <AssistantThread
                   messages={chat.messages}
+                  queue={chat.queue}
+                  onUnqueue={chat.unqueue}
                   isPending={chat.isPending}
                   error={chat.error}
+                  onResend={chat.resend}
                   selectedProposalId={detail?.id ?? null}
                   onEdit={(id, text) => chat.edit(id, text)}
                   retry={{
@@ -131,7 +144,7 @@ export function AssistantPage({
                 <div
                   className={
                     composerGlides
-                      ? "animate-in duration-500 ease-out fade-in-0 slide-in-from-top-32"
+                      ? "animate-in duration-500 ease-out fade-in-0 slide-in-from-top-32 motion-reduce:animate-none"
                       : undefined
                   }
                 >
@@ -140,7 +153,6 @@ export function AssistantPage({
                     value={draft}
                     onChange={setDraft}
                     onSend={sendWithFiles}
-                    disabled={chat.isPending}
                     options={options}
                     placeholder="Ask a follow-up, or ask for a change"
                   />

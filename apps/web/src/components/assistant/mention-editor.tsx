@@ -7,8 +7,6 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 
-import { cn } from "@linealabs/ui/lib/utils"
-
 import { MentionChip } from "./mention-chip"
 import {
   caretAtEnd,
@@ -38,7 +36,7 @@ export function MentionEditor({
   onSendKey,
   label,
   placeholder,
-  hero,
+  autoFocus,
   workflowId,
 }: Readonly<{
   value: string
@@ -46,7 +44,7 @@ export function MentionEditor({
   onSendKey: (event: KeyboardEvent<HTMLElement>) => void
   label: string
   placeholder: string
-  hero: boolean
+  autoFocus: boolean
   workflowId?: string
 }>) {
   const root = useRef<HTMLDivElement>(null)
@@ -75,8 +73,8 @@ export function MentionEditor({
   }, [value])
 
   useLayoutEffect(() => {
-    if (hero) root.current?.focus()
-  }, [hero])
+    if (autoFocus) root.current?.focus()
+  }, [autoFocus])
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (mentions.handleKeyDown(event)) return
@@ -137,7 +135,7 @@ export function MentionEditor({
       ) : null}
       <div className="relative w-full flex-1">
         {value === "" ? (
-          <span className="pointer-events-none absolute top-2 left-3 text-base text-muted-foreground md:text-sm">
+          <span className="pointer-events-none absolute inset-x-3 top-2 truncate text-base text-muted-foreground md:text-sm">
             {placeholder}
           </span>
         ) : null}
@@ -162,10 +160,7 @@ export function MentionEditor({
           onCopy={onCopyOrCut}
           onCut={onCopyOrCut}
           onPaste={onPaste}
-          className={cn(
-            "block w-full overflow-y-auto px-3 py-2 text-base break-words whitespace-pre-wrap outline-none md:text-sm",
-            hero ? "max-h-60 min-h-24" : "max-h-40 min-h-16"
-          )}
+          className="block max-h-40 w-full overflow-y-auto px-3 py-2 text-base break-words whitespace-pre-wrap outline-none md:text-sm"
         />
         {hosts.map((host) =>
           createPortal(

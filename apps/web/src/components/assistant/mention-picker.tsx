@@ -38,7 +38,7 @@ export function MentionPicker({
   return (
     <div
       ref={ref}
-      className="absolute inset-x-0 bottom-full z-10 mb-2 overflow-hidden rounded-xl border border-border bg-popover shadow-md"
+      className="absolute inset-x-0 bottom-full z-10 mb-2 overflow-hidden rounded-xl border border-border bg-popover shadow-md group-data-hero/composer:top-full group-data-hero/composer:bottom-auto group-data-hero/composer:mt-2"
     >
       <output className="sr-only">
         {items.length > 0 ? `${items.length} matches` : emptyMessage}
