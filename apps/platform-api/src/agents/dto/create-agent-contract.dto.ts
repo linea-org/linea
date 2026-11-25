@@ -1,11 +1,11 @@
 import { z } from 'zod'
-import { compileContractSchema } from '@linealabs/protocol/json-schema'
+import { assertContractSchema } from '@linealabs/protocol/json-schema'
 import { jsonSchemaDocumentSchema } from '@linealabs/protocol/resources'
 
 const contractSchema = jsonSchemaDocumentSchema.superRefine(
   (schema, context) => {
     try {
-      compileContractSchema(schema)
+      assertContractSchema(schema)
     } catch (error) {
       context.addIssue({
         code: 'custom',
