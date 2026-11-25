@@ -104,7 +104,7 @@ export async function readAttachments(
   return { attachments, rejected }
 }
 
-/** A long paste as a file, so it does not bury the message; null when it is short enough to type. */
+/** A long paste as a file, so it does not bury the message; null when it is short. */
 export function pastedFile(text: string): File | null {
   if (text.length <= LONG_PASTE_CHARACTERS) return null
   return new File([text], "Pasted text.txt", { type: "text/plain" })

@@ -58,7 +58,7 @@ function ModelSubmenu({
   )
 }
 
-/** The newest models that have a key; the rest, and models that still need one, are a level down. */
+/** The newest models that have a key; the rest, and those that need a key, are a level down. */
 export function ModelMenu({
   options,
   open,

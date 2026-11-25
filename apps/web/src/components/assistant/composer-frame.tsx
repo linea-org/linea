@@ -5,7 +5,7 @@ import { cn } from "@linealabs/ui/lib/utils"
 
 const ONE_LINE_PX = 44
 
-/** The box every message is typed in: one row until the text needs more, then controls move below it. */
+/** The box every message is typed in: one row, with the controls below once the text is taller. */
 export function ComposerFrame({
   value,
   menu,
