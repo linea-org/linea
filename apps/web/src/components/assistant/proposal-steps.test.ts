@@ -61,6 +61,17 @@ describe("proposalSteps", () => {
     ])
   })
 
+  it("numbers steps of the same title, on the step and on its routes", () => {
+    const nodes = graph.nodes.map((node) =>
+      node.id === "wait" ? { ...node, type: "http" as const, config: {} } : node
+    )
+    const steps = proposalSteps({ ...graph, nodes })
+    expect(steps.map(({ title }) => title)).toContain("HTTP request 2")
+    expect(
+      steps.find(({ id }) => id === "pick")?.routes.map(({ to }) => to)
+    ).toEqual(["HTTP request", "HTTP request 2"])
+  })
+
   it("keeps the condition of a branch with one way on", () => {
     const edges = graph.edges.filter((edge) => edge.condition !== "no")
     const pick = proposalSteps({ ...graph, edges }).find(

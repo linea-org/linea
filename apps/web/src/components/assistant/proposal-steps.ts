@@ -42,9 +42,21 @@ function inRunOrder(graph: Graph): Graph["nodes"] {
   return [...ordered]
 }
 
+/** Tells steps of the same title apart by number, so a route says which one it reaches. */
+function withDistinctTitles<Step extends { title: string }>(
+  steps: Step[]
+): Step[] {
+  const seen = new Map<string, number>()
+  return steps.map((step) => {
+    const count = (seen.get(step.title) ?? 0) + 1
+    seen.set(step.title, count)
+    return count === 1 ? step : { ...step, title: `${step.title} ${count}` }
+  })
+}
+
 /** Every step, whether it leads to the one listed after it, and any other place it goes. */
 export function proposalSteps(graph: Graph) {
-  const steps = inRunOrder(graph).map(describeStep)
+  const steps = withDistinctTitles(inRunOrder(graph).map(describeStep))
   const titles = new Map(steps.map((step) => [step.id, step.title]))
   return steps.map((step, index) => {
     const after = steps.at(index + 1)?.id
