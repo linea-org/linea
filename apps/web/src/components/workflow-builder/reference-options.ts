@@ -111,7 +111,7 @@ export function referenceGroups(
     ...stepGroups,
     {
       id: "variables",
-      heading: "Variables",
+      heading: "Workflow variables",
       items: toItems(
         "variables",
         [...variables].map((key) => [key])

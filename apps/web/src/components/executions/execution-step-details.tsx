@@ -106,6 +106,12 @@ export function ExecutionStepDetails({
           ) : (
             <>
               <StepPayloadCard label="Input" value={step.input} />
+              {step.attributes?.references ? (
+                <StepPayloadCard
+                  label="References"
+                  value={step.attributes.references}
+                />
+              ) : null}
               <StepPayloadCard label="Output" value={step.output} />
             </>
           )}
