@@ -5,8 +5,7 @@ import {
 import { nodeRegistry } from "../nodes/node-registry.js"
 import { retryPolicySchema } from "../nodes/retry-policy.js"
 import type { WorkflowGraph } from "./schema.js"
-
-export class WorkflowGraphError extends Error {}
+import { WorkflowGraphError } from "./workflow-graph-error.js"
 
 // Mirrors execution.repository.ts's RESUME_EVENT_NODE_ID — duplicated rather than imported so this package doesn't pick up @linealabs/db as a dependency just for one string constant.
 const RESERVED_NODE_IDS = new Set(["__resumed__"])

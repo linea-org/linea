@@ -31,7 +31,7 @@ export const httpNode: NodeDefinition<
     category: "integration",
     icon: "globe",
     fields: [
-      { key: "url", label: "URL", widget: "text" },
+      { key: "url", label: "URL", widget: "text", references: { as: "url" } },
       {
         key: "method",
         label: "Method",
@@ -44,8 +44,20 @@ export const httpNode: NodeDefinition<
           { label: "DELETE", value: "DELETE" },
         ],
       },
-      { key: "headers", label: "Headers", widget: "key-value" },
-      { key: "body", label: "Body", widget: "code" },
+      {
+        key: "headers",
+        label: "Headers",
+        widget: "key-value",
+        references: { as: "text", secrets: true },
+      },
+      {
+        key: "body",
+        label: "Body",
+        widget: "code",
+        references: { as: "value", secrets: true },
+        description: "Leave empty to send this step's input.",
+        showIf: { key: "method", equals: ["POST", "PUT", "PATCH", "DELETE"] },
+      },
       {
         key: "retryPolicy",
         label: "Retry policy",

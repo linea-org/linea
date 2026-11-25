@@ -38,6 +38,19 @@ describe('findLiteralCredentials', () => {
     ])
   })
 
+  it('allows a secret by name but not beside a literal one', () => {
+    const headers = {
+      Authorization: 'Bearer {{secrets.CRM_KEY}}',
+      'x-api-key': '{{ secrets.CRM_KEY }}',
+    }
+    expect(findLiteralCredentials(graphWith({ headers }))).toEqual([])
+    expect(
+      findLiteralCredentials(
+        graphWith({ headers: { Authorization: 'abc123 {{secrets.A}}' } }),
+      ),
+    ).toEqual(['call.headers.Authorization'])
+  })
+
   it('leaves ordinary configuration alone', () => {
     expect(
       findLiteralCredentials(

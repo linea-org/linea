@@ -30,6 +30,7 @@ async function insertStep(
     workspaceId: string
     nodeId: string
     input: Record<string, unknown>
+    attributes?: Record<string, unknown>
   }
 ): Promise<string> {
   const [step] = await tx
@@ -44,13 +45,14 @@ async function insertStep(
       nodeId: input.nodeId,
       sequence: 1,
       input: input.input,
+      attributes: input.attributes,
     })
     .returning()
   return step.id
 }
 
 describe("createRegressionCaseFromStep", () => {
-  it("snapshots the step's own input and carries provenance", async () => {
+  it("snapshots the step's own input and references, and carries provenance", async () => {
     await withRollback(async (tx) => {
       const { organization, workflow, version } = await createTestFixtures(tx)
       await publishWorkflowVersion(tx, workflow.id, version.id)
@@ -71,6 +73,7 @@ describe("createRegressionCaseFromStep", () => {
         workspaceId: organization.id,
         nodeId: "http-1",
         input: { url: "https://example.com" },
+        attributes: { references: { "steps.a.id": 7 } },
       })
 
       const sourceSignalId = randomUUID()
@@ -85,6 +88,7 @@ describe("createRegressionCaseFromStep", () => {
       expect(regressionCase?.nodeId).toBe("http-1")
       expect(regressionCase?.input).toEqual({
         nodeInput: { url: "https://example.com" },
+        references: { "steps.a.id": 7 },
       })
       expect(regressionCase?.sourceStepId).toBe(stepId)
       expect(regressionCase?.sourceSignalId).toBe(sourceSignalId)

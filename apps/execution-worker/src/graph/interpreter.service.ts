@@ -10,8 +10,10 @@ import {
 import {
   MAX_RETRY_DELAY_MS,
   MAX_NODE_ATTEMPT_MS,
+  readPath,
   retryPolicySchema,
   startWalk,
+  type Reference,
   type RetryPolicy,
   type StepResult,
   type StepToExecute,
@@ -50,6 +52,7 @@ import { VariablesNode } from "./nodes/variables.node"
 import { WaitNode } from "./nodes/wait.node"
 import { resolveNodeModel } from "./resolve-node-model"
 import { diagnosticDispatch } from "./diagnostic-dispatch"
+import { resolveNode, type ResolvedNode } from "./resolve-node"
 import { runReadySteps } from "./run-ready-steps"
 
 function computeBackoffDelayMs(
@@ -187,6 +190,8 @@ function startRunState(input: RunInput): RunState {
 
 type StepRun = {
   node: WorkflowNode
+  // Set on the first attempt, so a retry sends the same values.
+  resolved?: ResolvedNode
   step: StepToExecute
   model: string | undefined
   provider: string | undefined
@@ -207,6 +212,7 @@ function endStep(input: RunInput, run: StepRun) {
     model: run.model,
     provider: run.provider,
     retryAttempts: run.attempts > 1 ? run.attempts : undefined,
+    references: run.resolved?.references,
   }
 }
 
@@ -216,6 +222,16 @@ function setVariables(state: RunState, node: WorkflowNode): void {
   const { entries } = node.config
   if (entries === null || typeof entries !== "object") return
   state.variables = { ...state.variables, ...entries }
+}
+
+function readFromRun(
+  state: RunState,
+  input: unknown,
+  { root, path }: Reference
+): unknown {
+  if (root === "input") return readPath(input, path)
+  if (root === "variables") return readPath(state.variables, path)
+  return readPath(state.completed.get(path[0]), path.slice(1))
 }
 
 function spentTokens(state: RunState): number {
@@ -318,23 +334,11 @@ export class InterpreterService {
     this.handlers.agent = agentNode
   }
 
-  /** The reusable "run one node" unit, independent of the walker/checkpoints/leases — `run()` uses it per graph step, and step-level replay (apps/execution-worker/src/replay) calls it directly for one node with a substituted config, bypassing the walker since a replay target's input is already known. */
+  /** Runs one node, independent of the walker, checkpoints and leases. */
   async executeNode(
     node: WorkflowNode,
     input: unknown,
-    workspaceId: string,
-    idempotencyKey?: string,
-    signal?: AbortSignal,
-    executionId?: string,
-    conversationId?: string,
-    workflowId?: string,
-    chatMessageId?: string,
-    leasedBy?: string,
-    variables?: Record<string, unknown>,
-    workflowVersionId?: string,
-    environmentId?: string,
-    externalSubjectRecordId?: string,
-    countTokens?: NodeExecutionContext["countTokens"]
+    context: Omit<NodeExecutionContext, "nodeId">
   ): Promise<{
     output: unknown
     tokensInput?: number
@@ -345,20 +349,8 @@ export class InterpreterService {
       throw new Error(`No handler for node type "${node.type}"`)
     }
     const output = await handler.execute(node.config, input, {
-      workspaceId,
-      environmentId,
-      externalSubjectRecordId,
-      idempotencyKey,
-      signal,
-      executionId,
+      ...context,
       nodeId: node.id,
-      conversationId,
-      workflowId,
-      workflowVersionId,
-      chatMessageId,
-      leasedBy,
-      variables,
-      countTokens,
     })
     const usage = extractTokenUsage(output)
     return {
@@ -370,34 +362,20 @@ export class InterpreterService {
 
   /** Runs one node for a Replay or Regression run: refused node types never reach their handler, and the rest run with `diagnostic` set so they refuse external writes. */
   async executeDiagnosticNode(
-    node: WorkflowNode,
+    { node, carriesSecrets }: ResolvedNode,
     input: unknown,
     context: Omit<NodeExecutionContext, "nodeId" | "diagnostic">
-  ): Promise<{
-    output: unknown
-    tokensInput?: number
-    tokensOutput?: number
-  }> {
+  ): ReturnType<InterpreterService["executeNode"]> {
     if (diagnosticDispatch[node.type] === "refused") {
       throw new NonRetryableError(
         `${node.type} nodes don't run in Replay or Regression runs: they would repeat the original action, and no recorded result is available to substitute`
       )
     }
-    const handler = this.handlers[node.type]
-    if (!handler) {
-      throw new Error(`No handler for node type "${node.type}"`)
-    }
-    const output = await handler.execute(node.config, input, {
+    return this.executeNode(node, input, {
       ...context,
-      nodeId: node.id,
+      carriesSecrets,
       diagnostic: true,
     })
-    const usage = extractTokenUsage(output)
-    return {
-      output,
-      tokensInput: usage?.tokensInput,
-      tokensOutput: usage?.tokensOutput,
-    }
   }
 
   async run(input: RunInput): Promise<RunOutcome> {
@@ -472,7 +450,7 @@ export class InterpreterService {
     await state.record(async () => {
       // Before the write, so the checkpoint includes this step and a resume doesn't replay it.
       state.completed.set(step.nodeId, output)
-      setVariables(state, node)
+      setVariables(state, run.resolved?.node ?? node)
       await this.checkpoints.recordStep({
         ...ended,
         ...charged,
@@ -552,26 +530,30 @@ export class InterpreterService {
     await this.checkpoints.assertOwnsLease(input.executionId, input.leasedBy)
     run.attempts += 1
     try {
-      return await this.executeNode(
+      run.resolved ??= await resolveNode(
         node,
-        step.input,
-        input.workspaceId,
-        `${input.executionId}:${step.nodeId}`,
-        withAttemptTimeout(state.signal, retryPolicy?.timeoutMs),
-        input.executionId,
-        input.conversationId,
-        input.workflowId,
-        input.chatMessageId,
-        input.leasedBy,
-        state.variables,
-        input.workflowVersionId,
         input.environmentId,
-        input.externalSubjectRecordId,
-        (tokens) => {
+        (reference) => readFromRun(state, step.input, reference)
+      )
+      return await this.executeNode(run.resolved.node, step.input, {
+        workspaceId: input.workspaceId,
+        environmentId: input.environmentId,
+        externalSubjectRecordId: input.externalSubjectRecordId,
+        idempotencyKey: `${input.executionId}:${step.nodeId}`,
+        signal: withAttemptTimeout(state.signal, retryPolicy?.timeoutMs),
+        executionId: input.executionId,
+        conversationId: input.conversationId,
+        workflowId: input.workflowId,
+        workflowVersionId: input.workflowVersionId,
+        chatMessageId: input.chatMessageId,
+        leasedBy: input.leasedBy,
+        variables: state.variables,
+        carriesSecrets: run.resolved.carriesSecrets,
+        countTokens: (tokens) => {
           state.runningTokens.set(step.nodeId, tokens)
           return spentTokens(state)
-        }
-      )
+        },
+      })
     } catch (attemptError) {
       const isFinal =
         attemptError instanceof NonRetryableError ||

@@ -375,7 +375,7 @@ async function startConversation(
       tokensOutput: savedProgress.tokensOutput,
     }
   }
-  // Chat mode ignores the authored prompt — the turn's real content comes from chatMessageId, since there's no upstream-output templating yet.
+  // A chat turn replaces the authored prompt with the message it answers.
   let prompt = parsed.prompt
   let history: ConversationTurn[] | undefined
   if (context.regressionConversation) {

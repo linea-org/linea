@@ -42,6 +42,7 @@ export const approvalNode: NodeDefinition<
         key: "message",
         label: "Title",
         widget: "textarea",
+        references: { as: "text" },
         description: "A safe summary shown to whoever reviews this request.",
       },
       {

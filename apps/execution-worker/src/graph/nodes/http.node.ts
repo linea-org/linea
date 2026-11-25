@@ -7,6 +7,15 @@ import type {
 } from "./node-handler.interface"
 import { NonRetryableError } from "./non-retryable-error"
 
+// The HTTP client puts a refused header value, which may hold a secret, in its error.
+function assertSingleLine(headers: Record<string, string>): void {
+  for (const [name, value] of Object.entries(headers)) {
+    if (/[\0\r\n]/.test(value.trim())) {
+      throw new NonRetryableError(`Header "${name}" must be a single line`)
+    }
+  }
+}
+
 @Injectable()
 export class HttpNode implements NodeHandler {
   async execute(
@@ -18,7 +27,7 @@ export class HttpNode implements NodeHandler {
       url: config.url,
       method: config.method,
       headers: config.headers,
-      body: input,
+      body: config.body === "" ? input : (config.body ?? input),
     })
     if (context.diagnostic && parsed.method !== "GET") {
       throw new NonRetryableError(
@@ -26,14 +35,19 @@ export class HttpNode implements NodeHandler {
       )
     }
     // No-payload triggers round-trip through the DB as null.
-    const hasBody = parsed.body !== undefined && parsed.body !== null
+    const hasBody =
+      parsed.method !== "GET" &&
+      parsed.body !== undefined &&
+      parsed.body !== null
     const headers = { ...parsed.headers }
+    assertSingleLine(headers)
+    const names = Object.keys(headers).map((name) => name.toLowerCase())
     // Destinations may rely on an author-provided deduplication key.
-    const hasIdempotencyHeader = Object.keys(headers).some(
-      (key) => key.toLowerCase() === "idempotency-key"
-    )
-    if (context.idempotencyKey && !hasIdempotencyHeader) {
+    if (context.idempotencyKey && !names.includes("idempotency-key")) {
       headers["Idempotency-Key"] = context.idempotencyKey
+    }
+    if (hasBody && !names.includes("content-type")) {
+      headers["Content-Type"] = "application/json"
     }
     const response = await requestPublic(parsed.url, {
       method: parsed.method,
@@ -45,8 +59,8 @@ export class HttpNode implements NodeHandler {
       allowLocalDevelopment:
         process.env.NODE_ENV === "development" &&
         process.env.EXECUTION_HTTP_ALLOW_LOCAL === "true",
-      requireHttps: false,
-      redirectMode: "fetch",
+      requireHttps: context.carriesSecrets === true,
+      redirectMode: context.carriesSecrets ? "same-origin" : "fetch",
     }).catch((error: unknown) => {
       if (error instanceof PermanentRequestError)
         throw new NonRetryableError(error.message, { cause: error })

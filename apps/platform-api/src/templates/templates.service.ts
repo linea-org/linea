@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common'
 import { db, repositories, type WorkflowTemplate } from '@linealabs/db'
 import {
+  assertValidReferences,
   validateGraphStructure,
   workflowGraphSchema,
   WorkflowGraphError,
@@ -121,6 +122,7 @@ export class TemplatesService {
     }
     try {
       validateGraphStructure(parsed.data)
+      assertValidReferences(parsed.data)
     } catch (error) {
       if (error instanceof WorkflowGraphError) {
         throw new UnprocessableEntityException(error.message)

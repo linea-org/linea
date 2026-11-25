@@ -1,5 +1,8 @@
 const SECRET_KEY =
   /authorization|api[-_]?key|token|secret|password|bearer|cookie/i
+// A secret by name, with at most an auth scheme before it, holds nothing of the secret itself.
+const SECRET_REFERENCE =
+  /^(?:(?:bearer|basic|token|apikey) )?\{\{ *secrets\.[\w-]+ *\}\}$/i
 const URL_CREDENTIALS = /:\/\/[^/\s:@]+:[^/\s@]+@/
 const URL_SECRET_PARAM =
   /[?&](api[-_]?key|token|access_token|secret|key|password)=[^&\s]+/i
@@ -38,7 +41,12 @@ export function findLiteralCredentials(graph: {
     }
     if (typeof value !== 'object' || value === null) return
     for (const [key, child] of Object.entries(value)) {
-      if (SECRET_KEY.test(key) && typeof child === 'string' && child.trim()) {
+      if (
+        SECRET_KEY.test(key) &&
+        typeof child === 'string' &&
+        child.trim() &&
+        !SECRET_REFERENCE.test(child)
+      ) {
         found.push(`${path}.${key}`)
       } else {
         visit(child, `${path}.${key}`)

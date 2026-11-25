@@ -21,6 +21,7 @@ export type RecordStepInput = {
   provider?: string
   // Omitted when attemptsMade is 1 so "never retried" is distinguishable from "retried once."
   retryAttempts?: number
+  references?: Record<string, unknown>
   // Includes this step if it just succeeded — a failed step is never added, matching the walker's own map.
   completed: Map<string, unknown>
   // Workflow-scoped variables state as of this step — distinct from `completed` (keyed by node
@@ -28,8 +29,8 @@ export type RecordStepInput = {
   variables: Record<string, unknown>
 }
 
-function buildStepAttributes(
-  input: Pick<RecordStepInput, "costUnpriced" | "retryAttempts">
+export function buildStepAttributes(
+  input: Pick<RecordStepInput, "costUnpriced" | "retryAttempts" | "references">
 ): Record<string, unknown> | undefined {
   const attributes: Record<string, unknown> = {}
   if (input.costUnpriced !== undefined) {
@@ -37,6 +38,9 @@ function buildStepAttributes(
   }
   if (input.retryAttempts !== undefined) {
     attributes.retryAttempts = input.retryAttempts
+  }
+  if (input.references && Object.keys(input.references).length > 0) {
+    attributes.references = input.references
   }
   return Object.keys(attributes).length > 0 ? attributes : undefined
 }

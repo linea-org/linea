@@ -92,15 +92,14 @@ export const aiNode: NodeDefinition<
         key: "systemPrompt",
         label: "System prompt",
         widget: "textarea",
-        description:
-          "Sets the model's persona and rules for every run — not interpolated with node data.",
+        description: "Sets the model's persona and rules for every run.",
       },
       {
         key: "prompt",
         label: "Prompt",
         widget: "textarea",
-        description:
-          "The actual task for this run — reference upstream node output here.",
+        references: { as: "text" },
+        description: "The task for this run.",
       },
       {
         key: "tools",

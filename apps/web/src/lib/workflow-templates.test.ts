@@ -1,5 +1,6 @@
 import {
   assertNoReservedNodeIds,
+  assertValidReferences,
   nodeRegistry,
   validateGraphStructure,
   workflowGraphSchema,
@@ -14,6 +15,7 @@ describe.each(workflowTemplates)("template $id", (template) => {
   it("is a valid workflow graph", () => {
     expect(() => assertNoReservedNodeIds(graph)).not.toThrow()
     expect(() => validateGraphStructure(graph)).not.toThrow()
+    expect(() => assertValidReferences(graph)).not.toThrow()
   })
 
   it("configures every AI step the way the step itself accepts", () => {

@@ -16,6 +16,8 @@ export type NodeUIField = {
   options?: { label: string; value: string }[]
   description?: string
   optional?: boolean
+  // Takes references (ADR 0034): "value" keeps the type of a lone one, "url" percent-encodes.
+  references?: { as: "text" | "value" | "url"; secrets?: true }
   // Field only shows when another field in the same config currently equals this value (or one of these values).
   showIf?: { key: string; equals: string | string[] }
 }

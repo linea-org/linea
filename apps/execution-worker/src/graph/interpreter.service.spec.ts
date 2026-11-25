@@ -54,7 +54,7 @@ describe("InterpreterService.executeNode", () => {
     const result = await interpreter.executeNode(
       { id: "n1", type: "http", config: { foo: "bar" } },
       { hello: "world" },
-      "workspace-1"
+      { workspaceId: "workspace-1" }
     )
     expect(result.output).toEqual({ tokensInput: 100, tokensOutput: 50 })
     expect(result.tokensInput).toBe(100)
@@ -82,7 +82,7 @@ describe("InterpreterService.executeNode", () => {
       interpreter.executeNode(
         { id: "n1", type: "http", config: {} },
         {},
-        "workspace-1"
+        { workspaceId: "workspace-1" }
       )
     ).rejects.toThrow("handler exploded")
   })
@@ -106,14 +106,7 @@ describe("InterpreterService.executeNode", () => {
     await interpreter.executeNode(
       { id: "n1", type: "http", config: {} },
       {},
-      "workspace-1",
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      "worker-1"
+      { workspaceId: "workspace-1", leasedBy: "worker-1" }
     )
     expect(execute).toHaveBeenCalledWith(
       {},
@@ -141,7 +134,7 @@ describe("InterpreterService.executeNode", () => {
         // @ts-expect-error deliberately not a real node type
         { id: "n1", type: "not-a-real-type", config: {} },
         {},
-        "workspace-1"
+        { workspaceId: "workspace-1" }
       )
     ).rejects.toThrow('No handler for node type "not-a-real-type"')
   })
@@ -177,7 +170,7 @@ describe("InterpreterService.executeNode", () => {
         },
       },
       { text: "the answer" },
-      "workspace-1"
+      { workspaceId: "workspace-1" }
     )
     expect(result.output).toEqual(
       expect.objectContaining({ passed: true, score: 1 })

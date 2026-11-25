@@ -9,6 +9,7 @@ import {
 import { jsonValueSchema, type JsonValue } from "@linealabs/protocol/shared"
 import { workflowGraphSchema, type WorkflowGraph } from "@linealabs/runtime"
 import { InterpreterService } from "../graph/interpreter.service"
+import { readRecorded, resolveNode } from "../graph/resolve-node"
 import { resolveNodeModel } from "../graph/resolve-node-model"
 import { AiNode } from "../graph/nodes/ai.node"
 import { getErrorTokenUsage } from "../graph/nodes/usage-error"
@@ -69,11 +70,19 @@ export class RegressionExecutionService {
         costMicros: 0n,
       }
     }
-    const input =
-      (regressionCase.input as { nodeInput?: unknown }).nodeInput ?? {}
+    const recorded = regressionCase.input as {
+      nodeInput?: unknown
+      references?: unknown
+    }
+    const input = recorded.nodeInput ?? {}
     let result: Awaited<ReturnType<InterpreterService["executeDiagnosticNode"]>>
     try {
-      result = await this.interpreter.executeDiagnosticNode(node, input, {
+      const resolved = await resolveNode(
+        node,
+        environmentId,
+        readRecorded(recorded.references, input, () => undefined)
+      )
+      result = await this.interpreter.executeDiagnosticNode(resolved, input, {
         workspaceId: regressionCase.workspaceId,
         workflowVersionId,
         environmentId,
