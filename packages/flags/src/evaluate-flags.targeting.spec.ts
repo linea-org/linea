@@ -22,7 +22,7 @@ const CONFIG = {
   },
 }
 
-const served = vi.hoisted(() => ({ config: undefined }))
+const served = vi.hoisted((): { config: unknown } => ({ config: undefined }))
 
 vi.mock("@configcat/sdk", async (importOriginal) => {
   const sdk = await importOriginal<typeof import("@configcat/sdk")>()
