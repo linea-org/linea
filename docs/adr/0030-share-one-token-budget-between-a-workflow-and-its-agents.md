@@ -4,4 +4,4 @@ A Workflow Execution and the Agents it starts draw on one token budget, the one 
 
 Every check reads what the others have recorded, so no counter has to be kept consistent across workers. A model call in flight is not recorded yet, so each running Agent or step can overshoot by the call it is in; we accept that over reserving tokens before each call, whose size is not known. The budget is checked before every step, so an Agent whose last call passes it succeeds and its Workflow then stops.
 
-It applies with the `parallelBranches` flag, also to Agents that run one at a time. Off leaves each Agent its own budget.
+It applies to a Workflow Execution that started with the `parallelBranches` flag, also to Agents that run one at a time. Off leaves each Agent its own budget.

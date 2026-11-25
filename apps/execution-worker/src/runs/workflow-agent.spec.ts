@@ -404,6 +404,14 @@ describe("the token budget of a Workflow Execution and its Agents", () => {
     expect(await statusOf(child.id)).toBe("succeeded")
   })
 
+  it("still shares a budget when the flag is turned off after its Workflow started", async () => {
+    flag.mockResolvedValue(true)
+    const { parent, child } = await pausedOnAgent()
+    flag.mockImplementation(onlyPlatformKey)
+    await use(parent.id, 1_000_000)
+    await expect(runs.execute(child.id)).rejects.toThrow("token budget")
+  })
+
   it("keeps an Agent's own budget with the flag off", async () => {
     answer(1)
     const { parent, child } = await pausedOnAgent()

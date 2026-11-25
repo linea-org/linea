@@ -40,6 +40,7 @@ async function withRun(
     approvePending: () => Promise<string>
     stepIds: () => Promise<(string | null)[]>
     status: () => Promise<string | undefined>
+    parallelBranches: () => Promise<boolean | null | undefined>
     branchesStarted: () => number
     fireTimer: (nodeId: string) => Promise<void>
   }) => Promise<void>,
@@ -113,6 +114,9 @@ async function withRun(
       status: async () =>
         (await repositories.execution.getExecutionById(db, execution.id))
           ?.status,
+      parallelBranches: async () =>
+        (await repositories.execution.getExecutionById(db, execution.id))
+          ?.parallelBranches,
       branchesStarted: () => arrived,
       fireTimer: (nodeId) => fireWaitTimer(db, execution.id, nodeId),
     })
@@ -154,6 +158,21 @@ describe("runs with parallel branches", () => {
       expect(await run.stepIds()).toEqual(["start"])
       expect(await run.approvePending()).toBe("first-approval")
     }))
+
+  it.each([true, false])(
+    "keeps the mode it started in (%s) when the flag changes",
+    (startedParallel) =>
+      withRun(async (run) => {
+        flag.mockResolvedValue(startedParallel)
+        await run.execute()
+        flag.mockResolvedValue(!startedParallel)
+        await run.approvePending()
+        await run.execute()
+        expect(await run.status()).toBe("paused")
+        expect(run.branchesStarted()).toBe(startedParallel ? 4 : 0)
+        expect(await run.parallelBranches()).toBe(startedParallel)
+      })
+  )
 
   it("asks for no second decision when the flag is turned off while it waits", () => {
     const waiting: WorkflowGraph = {
