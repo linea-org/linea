@@ -79,6 +79,14 @@ export class RunsService {
 
   // With the flag off a decided step takes no turn, so steps keep their order. One can still be
   // pending if the flag was turned off while the run waited on several steps.
+  private async chooseParallel(execution: Execution): Promise<boolean> {
+    return repositories.execution.chooseParallelBranches(
+      db,
+      execution.id,
+      await isFlagEnabled("parallelBranches", execution.workspaceId)
+    )
+  }
+
   private async pendingApprovalNodeId(
     executionId: string
   ): Promise<string | undefined> {
@@ -146,10 +154,8 @@ export class RunsService {
       // A paused node can resolve before the pause is claimed; the next pass then starts from the
       // latest checkpoint, so steps that finished don't run again and the paused one re-enters.
       const turn = chatTurn(execution)
-      const parallel = await isFlagEnabled(
-        "parallelBranches",
-        execution.workspaceId
-      )
+      const parallel =
+        execution.parallelBranches ?? (await this.chooseParallel(execution))
       let outcome: RunOutcome
       let paused = false
       for (let pass = 1; ; pass += 1) {

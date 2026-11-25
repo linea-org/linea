@@ -1,6 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common"
 import { db, repositories, type Execution } from "@linealabs/db"
-import { isFlagEnabled } from "@linealabs/flags"
 import { agentDefinitionSchema } from "@linealabs/runtime"
 import {
   calculateCostMicros,
@@ -392,15 +391,17 @@ export class AgentExecutionService {
 
   /** Includes its Workflow Execution and the other Agents that one started, when they share a budget. */
   private async usedTokens(execution: Execution): Promise<number> {
-    const { parentExecutionId, workspaceId } = execution
-    const shared =
-      parentExecutionId !== null &&
-      (await isFlagEnabled("parallelBranches", workspaceId))
+    const { parentExecutionId } = execution
+    const parent =
+      parentExecutionId === null
+        ? undefined
+        : await repositories.execution.getExecutionById(db, parentExecutionId)
+    const shared = parent?.parallelBranches === true
     const own = await this.checkpoints.getResumeTokenTotals(
-      shared ? parentExecutionId : execution.id
+      shared ? parent.id : execution.id
     )
     const agents = shared
-      ? await repositories.executionStep.sumAgentTokens(db, parentExecutionId)
+      ? await repositories.executionStep.sumAgentTokens(db, parent.id)
       : 0
     return own.tokensInput + own.tokensOutput + agents
   }

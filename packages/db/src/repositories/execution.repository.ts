@@ -546,6 +546,23 @@ export async function getExecutionById(
   return execution
 }
 
+/** Keeps the first choice made for this Execution, and returns it. */
+export async function chooseParallelBranches(
+  db: DbClient,
+  executionId: string,
+  parallelBranches: boolean
+): Promise<boolean> {
+  const [chosen] = await db
+    .update(executions)
+    .set({
+      parallelBranches: sql`coalesce(${executions.parallelBranches}, ${parallelBranches})`,
+    })
+    .where(eq(executions.id, executionId))
+    .returning({ parallelBranches: executions.parallelBranches })
+  if (!chosen) throw new Error(`Execution ${executionId} not found`)
+  return chosen.parallelBranches === true
+}
+
 export async function getExecutionWithSteps(
   db: DbClient,
   executionId: string

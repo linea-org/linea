@@ -8,4 +8,4 @@ At most one decision is asked for at a time per Execution, because cancelling on
 
 An Execution can also end without running, when its next claim is refused because its authority was revoked. The worker that finds it ended cancels what it left open, as ADR 0029 does for a failure. A redelivered job does the same, so a crash in between leaves nothing open.
 
-With the flag off a step that waits stops the run, as before. A run already waiting on several steps when the flag is turned off finishes one step at a time and still asks for one decision at a time.
+With the flag off a step that waits stops the run, as before. The flag is read once, when a worker first claims the Execution, and stored on it: a flag changed mid-run would otherwise change how steps are scheduled, and let an Agent count a different budget than its Workflow. Turning the flag off therefore only affects new runs; a run already in progress keeps its mode.

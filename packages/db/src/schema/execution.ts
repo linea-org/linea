@@ -107,6 +107,8 @@ export const executions = snakeCase.table(
     costMicros: bigint({ mode: "bigint" }).notNull().default(0n),
     // Null means this execution predates cost-unpriced tracking, not that it's known-priced — never treat null the same as false. True means costMicros is a known-partial lower bound, not a real total.
     costUnpriced: boolean(),
+    // Null until a worker first claims it; kept after that, so a flag change only affects new runs.
+    parallelBranches: boolean(),
     tokensInput: integer().notNull().default(0),
     tokensOutput: integer().notNull().default(0),
 
