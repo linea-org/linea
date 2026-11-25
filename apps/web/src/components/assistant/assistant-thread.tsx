@@ -3,13 +3,11 @@ import {
   BotIcon,
   CheckIcon,
   ChevronDownIcon,
-  ChevronRightIcon,
   CopyIcon,
   FlaskConicalIcon,
   GlobeIcon,
   HistoryIcon,
   RotateCcwIcon,
-  WorkflowIcon,
   XIcon,
 } from "lucide-react"
 
@@ -25,7 +23,6 @@ import {
   BubbleGroup,
 } from "@linealabs/ui/components/bubble"
 import { Button } from "@linealabs/ui/components/button"
-import { Card } from "@linealabs/ui/components/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,8 +49,8 @@ import {
 import { cn } from "@linealabs/ui/lib/utils"
 
 import { ModelMarkdown } from "@/components/markdown/model-markdown"
+import { ProposalChip } from "./proposal-chip"
 import { UserTurn } from "./user-turn"
-import { WorkflowPreview } from "./workflow-preview"
 import type {
   ChatMessage,
   QueuedMessage,
@@ -204,39 +201,6 @@ function ActionChip({
       <GlobeIcon />
       {action.error ? `Couldn't fetch ${host}` : `Fetched ${host}`}
     </Badge>
-  )
-}
-
-function ProposalChip({
-  message,
-  selected,
-  onSelect,
-}: Readonly<{
-  message: ChatMessage
-  selected: boolean
-  onSelect: () => void
-}>) {
-  if (!message.proposal) return null
-  return (
-    <Card
-      render={<button type="button" onClick={onSelect} />}
-      data-selected={selected}
-      className="w-full cursor-pointer flex-row items-stretch gap-0 py-0 text-left data-[selected=true]:ring-primary"
-    >
-      <span className="pointer-events-none block h-24 w-36 shrink-0 border-r bg-muted">
-        <WorkflowPreview graph={message.proposal.graph} view="fit" />
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-4">
-        <span className="truncate font-medium">
-          {message.proposal.title ?? "Proposed workflow"}
-        </span>
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <WorkflowIcon className="size-3.5" />
-          {message.proposal.graph.nodes.length} steps
-        </span>
-      </span>
-      <ChevronRightIcon className="mr-4 size-4 shrink-0 self-center text-muted-foreground" />
-    </Card>
   )
 }
 
@@ -421,11 +385,13 @@ export function AssistantThread({
                           </Bubble>
                         </BubbleGroup>
                         <ActionChips actions={message.actions} />
-                        <ProposalChip
-                          message={message}
-                          selected={message.id === selectedProposalId}
-                          onSelect={() => onSelectProposal(message.id)}
-                        />
+                        {message.proposal ? (
+                          <ProposalChip
+                            proposal={message.proposal}
+                            selected={message.id === selectedProposalId}
+                            onSelect={() => onSelectProposal(message.id)}
+                          />
+                        ) : null}
                         {renderProposalActions?.(message)}
                         {!isPending ? (
                           <TurnActions text={message.content}>

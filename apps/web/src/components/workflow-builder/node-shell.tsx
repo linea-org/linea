@@ -59,13 +59,14 @@ export function NodeShell({ id, data, selected }: WorkflowNodeShellProps) {
           {title}
         </p>
         <span
+          title={definition.ui.label}
           className={cn(
-            "inline-flex h-5 max-w-28 shrink-0 items-center gap-1 rounded-full px-2 text-sm font-medium",
+            "grid size-5 shrink-0 place-items-center rounded-full",
             colors.badge
           )}
         >
-          <NodeIcon icon={definition.ui.icon} className="size-3 shrink-0" />
-          <span className="truncate">{definition.ui.label}</span>
+          <NodeIcon icon={definition.ui.icon} className="size-3" />
+          <span className="sr-only">{definition.ui.label}</span>
         </span>
       </div>
       {summaryValue !== undefined && (
