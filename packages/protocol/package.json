@@ -18,7 +18,7 @@
     "@linealabs/config": "workspace:*",
     "esbuild": "0.28.2",
     "eslint": "^9",
-    "tsup": "^8.5.0",
+    "tsup": "^9.0.0",
     "typescript": "^6",
     "vitest": "^5.1.1",
     "prettier": "^3.10.1"
