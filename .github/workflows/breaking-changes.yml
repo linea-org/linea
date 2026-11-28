@@ -29,7 +29,7 @@ jobs:
 
       # A change that has to break clients gets the label "breaking". Warnings count too: one of them
       # is a new value in a response, which an installed SDK refuses.
-      - uses: oasdiff/oasdiff-action/breaking@17214aea5113d728707fdd7d84bc811f4850fe3a # v0.1.22
+      - uses: oasdiff/oasdiff-action/breaking@14ca7009a63c417dfe27b7c44359c4bcccaf8eee # v0.2.1
         with:
           base: base.json
           revision: docs/openapi.json
